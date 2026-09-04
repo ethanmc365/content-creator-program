@@ -54,3 +54,35 @@ export function releaseNag(who) {
     if (sessionStorage.getItem(KEY) === who) sessionStorage.removeItem(KEY)
   } catch { /* private mode */ }
 }
+
+
+// ------------------------------------------------------- the walkthrough ---
+//
+// THE WALK IS AN INTERRUPTION TOO, AND IT OUTRANKS ALL THREE.
+//
+// It asks for notifications itself, on its own step, with its own explanation
+// and its own gate - so the notifications MODAL appearing over the top of it is
+// the same question asked twice in different words, with a scrim between the
+// creator and the walk they were following.
+//
+// `profile.tour_completed_at` cannot answer this. It says "have they ever
+// finished it", which is false for somebody re-running it from Settings and,
+// more importantly, RACES on a new account: the prompt's effect and the tour's
+// auto-start both fire on the profile landing, and which one wins is a matter
+// of milliseconds. This is the live fact instead - the same module-channel
+// shape as lib/chatChrome - so whoever arrives second sees the truth.
+let tourOn = false
+const tourSubs = new Set()
+
+export function setTourRunning(on) {
+  if (tourOn === on) return
+  tourOn = on
+  for (const fn of [...tourSubs]) fn()
+}
+
+export function tourRunning() { return tourOn }
+
+export function onTourRunning(fn) {
+  tourSubs.add(fn)
+  return () => tourSubs.delete(fn)
+}

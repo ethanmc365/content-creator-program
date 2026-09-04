@@ -81,12 +81,24 @@ export function loadMyScopes() {
   return cache
 }
 
+// THE ANSWER, ONCE IT IS KNOWN, READABLE WITHOUT AWAITING ANYTHING.
+//
+// `cache` is a PROMISE, so a page mounting for the second time still has to
+// wait a microtask for it - which is one render with `loading: true`, which is
+// one painted frame of skeleton on a page whose data is already in hand. That
+// frame is exactly the flash Ethan keeps reporting on his phone. This is the
+// settled value, so a second mount starts where the first one finished.
+let settled = null
+
 export function clearScopeCache() {
   cache = null
+  settled = null
 }
 
 export function useMyScopes() {
-  const [state, setState] = useState({ ids: null, homeId: null, networkId: null, rows: [], loading: true })
+  const [state, setState] = useState(
+    () => settled ?? { ids: null, homeId: null, networkId: null, rows: [], loading: true },
+  )
   useEffect(() => {
     let alive = true
     // ONE RETRY WHEN THE ANSWER WAS "COULD NOT TELL".
@@ -100,6 +112,9 @@ export function useMyScopes() {
     const ask = (retriesLeft) => {
       loadMyScopes().then((s) => {
         if (!alive) return
+        // Only a DETERMINATE answer is remembered for the next mount. A
+        // fail-open "could not tell" is the thing the retry exists to replace,
+        // and handing it to every future page would make the guess permanent.
         if (s.ids === null && retriesLeft > 0) {
           setTimeout(() => { if (alive) ask(retriesLeft - 1) }, 400)
           // Still report what we have, so the page renders fail-open meanwhile
@@ -107,6 +122,7 @@ export function useMyScopes() {
           setState({ ...s, loading: false })
           return
         }
+        if (s.ids !== null) settled = { ...s, loading: false }
         setState({ ...s, loading: false })
       })
     }

@@ -200,19 +200,89 @@ export function MapShape() {
   )
 }
 
-// The calendar: a toolbar, the next-up strip, then a month grid. Six rows of
-// seven, which is the shape whatever month it is.
+// THE CALENDAR, MEASURED AGAINST THE REAL PAGE RATHER THAN IMAGINED (4 Sep
+// 2026). Ethan: "the calendar skeleton loading icons is really off for what it
+// actually is - look at what actually is there and try replicate those."
+//
+// He is right, and the old one was wrong in four ways at once. Measured on
+// production at 375px, the page below the header is:
+//
+//   77px  the "Next up" strip - a card, not a bare 80px block
+//   40px  a FULL-WIDTH segmented control (Month / Week / Agenda) in a pill
+//         track. The skeleton drew three separate 96px pills with gaps.
+//   36px  "September 2026" on the left, Today + arrows on the right
+//  382px  ONE bordered card containing a 36px weekday header on a tinted strip
+//         and then the month grid - 68px rows separated by hairlines, not
+//         free-floating squares with 6px gutters, and FIVE rows in a normal
+//         month rather than six.
+//  202px  "Coming up" and the event cards under it, which the skeleton did not
+//         admit existed at all
+//  136px  the "Find a time" section, likewise
+//
+// So the old placeholder was half the page's height and none of its shape: the
+// grid alone was 42 loose squares where the page draws a bordered card. The
+// rule at the top of this file is that the skeleton and the component change
+// together, and this is what it looks like when they have not.
 export function CalendarShape() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-20 w-full rounded-card" />
-      <div className="flex gap-2">
-        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-24 rounded-full" />)}
+    <div>
+      {/* Next up */}
+      <Skeleton className="mb-5 h-[77px] w-full rounded-card" />
+      {/* The view switch, which is one full-width track and not three pills */}
+      <Skeleton className="h-10 w-full rounded-full" />
+      {/* Month name, and the Today / arrows cluster */}
+      <div className="mb-5 mt-3 flex items-center justify-between gap-2">
+        <Skeleton className="h-7 w-40 rounded" />
+        <div className="flex items-center gap-1.5">
+          <Skeleton className="h-7 w-16 rounded-full" />
+          <Skeleton className="h-7 w-7 rounded-full" />
+          <Skeleton className="h-7 w-7 rounded-full" />
+        </div>
       </div>
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-        {Array.from({ length: 42 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-square rounded-lg sm:aspect-[4/3]" />
-        ))}
+      {/* The month card: a tinted weekday strip over a hairline grid. The cells
+          are NOT skeletons - the card's own gap-px on a grey background draws
+          the same lines the real grid does, and 35 pulsing squares is a
+          disco. Only the day numbers shimmer. */}
+      <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+        <div className="grid grid-cols-7 border-b border-gray-100 bg-cloud">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex justify-center py-2.5">
+              <Skeleton className="h-3 w-4 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-px bg-gray-100">
+          {Array.from({ length: 35 }).map((_, i) => (
+            <div key={i} className="flex min-h-[68px] flex-col items-center gap-1.5 bg-white pt-2.5">
+              <Skeleton className="h-3.5 w-3.5 rounded" />
+              {/* A couple of days in the month have something on them. Any
+                  more and the placeholder promises a busier month than the
+                  programme has ever had. */}
+              {(i === 6 || i === 19) && <Skeleton className="h-1.5 w-6 rounded-full" />}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Coming up */}
+      <div className="mt-8">
+        <Skeleton className="h-5 w-32 rounded" />
+        <div className="mt-3 space-y-3">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex gap-3.5 rounded-card border border-gray-100 p-4">
+              <Skeleton className="h-12 w-12 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 rounded" style={{ width: i ? '58%' : '76%' }} />
+                <Skeleton className="h-3 w-1/3 rounded" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Find a time */}
+      <div className="mt-12 space-y-3">
+        <Skeleton className="h-5 w-28 rounded" />
+        <Skeleton className="h-16 w-full rounded-card" />
       </div>
     </div>
   )

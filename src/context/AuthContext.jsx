@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { supabase } from '../lib/supabase'
 import { adoptProfileLocale } from '../lib/i18n'
 import { adoptTestDataVisibility } from '../lib/testData'
+import { clearPageCache } from '../lib/pageCache'
+import { clearScopeCache } from '../lib/scope'
 
 // AuthContext is the single source of truth for "who is logged in".
 // It exposes the Supabase session, the user's profile row (including
@@ -183,6 +185,10 @@ export function AuthProvider({ children }) {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       return { error: error.message }
     }
+    // The admin's pages must not be handed to the creator being previewed. See
+    // lib/pageCache - the caches are keyed by page, not by account.
+    clearPageCache()
+    clearScopeCache()
     setImpersonating(true)
     return {}
   }, [IMPERSONATE_URL])
@@ -225,6 +231,9 @@ export function AuthProvider({ children }) {
     }
     // Only clear the stash once the admin session is truly back.
     try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+    // And the creator's pages go with the creator. See lib/pageCache.
+    clearPageCache()
+    clearScopeCache()
     setImpersonating(false)
     return {}
   }, [IMPERSONATE_URL])
@@ -636,6 +645,12 @@ export function AuthProvider({ children }) {
     signOut: () => {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)
+      // THE NEXT PERSON TO SIGN IN ON THIS DEVICE MUST NOT SEE THIS ONE'S ROWS.
+      // Both caches are keyed by page, not by account - which is right for the
+      // thing they do (paint the tab you just left) and fatal the moment the
+      // account changes underneath them. See lib/pageCache.
+      clearPageCache()
+      clearScopeCache()
       return supabase.auth.signOut({ scope: 'local' })
     },
 
@@ -646,6 +661,8 @@ export function AuthProvider({ children }) {
     signOutEverywhere: () => {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)
+      clearPageCache()
+      clearScopeCache()
       return supabase.auth.signOut({ scope: 'global' })
     },
 

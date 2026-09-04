@@ -102,6 +102,37 @@ const PATHS = {
   plus: 'M12 4.5v15m7.5-7.5h-15',
   // "snowflake" - a streak freeze.
   snowflake: 'M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M12 6.5 9.6 4.4M12 6.5l2.4-2.1M12 17.5l-2.4 2.1M12 17.5l2.4 2.1M6.9 9.6 4 9.2M6.9 9.6 5.6 6.9M17.1 14.4l2.9.4M17.1 14.4l1.3 2.7M17.1 9.6l1.3-2.7M17.1 9.6l2.9-.4M6.9 14.4l-1.3 2.7M6.9 14.4l-2.9.4',
+  // ----------------------------------------------------------------------
+  // THE PLATFORM GLYPHS THE INSTALL STEPS NAME.
+  //
+  // Ethan, on the add-to-home-screen card: "for iPhone I noticed you've drawn
+  // the wrong symbols. You click the three dots in the bottom right corner,
+  // then the share icon, which is like a square with a little arrow coming out
+  // of it. Get these proper icons from Apple. Then you press View More, which
+  // is a little arrow pointing down. Then you click Add to Home Screen, which
+  // is like a rounded square with a plus in it."
+  //
+  // He is right that they were wrong: the card was drawing Heroicons' `share`,
+  // which is the three-nodes-and-two-lines network glyph, for a button that on
+  // iOS is a box with an arrow coming out of the top. An instruction that names
+  // a symbol and then draws a different symbol is worse than no symbol.
+  //
+  // These are DRAWN IN THIS SET'S LANGUAGE - 24-unit box, `currentColor`, the
+  // same 1.7 stroke as everything else - rather than lifted from Apple's SF
+  // Symbols, which are not licensed for redistribution. Recognisable at a
+  // glance is the requirement; a pixel copy is not.
+
+  // iOS Share: a box open at the top with an arrow rising out of it.
+  iosShare: 'M12 3v12m0-12L8.25 6.75M12 3l3.75 3.75M6.75 10.5H6A1.5 1.5 0 0 0 4.5 12v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-.75',
+  // Add to Home Screen: a rounded square with a plus inside it.
+  addToHome: 'M5.25 3.75h13.5a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V5.25a1.5 1.5 0 0 1 1.5-1.5ZM12 8.25v7.5M8.25 12h7.5',
+  // Android / Chrome overflow: three dots stacked VERTICALLY. `dots` is the
+  // horizontal one, which is iOS Safari's, and using one for both is how the
+  // two sets of steps came to point at the same button.
+  dotsVertical: 'M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z',
+  // Chrome's "Install app": a phone with an arrow coming down into it.
+  installApp: 'M12 3v7.5m0 0 2.75-2.75M12 10.5 9.25 7.75M16.5 6.75h1.25A1.75 1.75 0 0 1 19.5 8.5v11.75A1.75 1.75 0 0 1 17.75 22H6.25a1.75 1.75 0 0 1-1.75-1.75V8.5A1.75 1.75 0 0 1 6.25 6.75H7.5',
+  // ----------------------------------------------------------------------
   // "sparkles" - a suggestion the product made rather than the user asked for.
   sparkles: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
 }

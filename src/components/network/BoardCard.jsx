@@ -5,6 +5,7 @@ import { Skeleton } from '../ui'
 import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { useCachedPage, writePageCache } from '../../lib/pageCache'
 
 // THE BOARD, ON THE HUB - AS THREE NOTES, NOT AS THREE ROWS.
 //
@@ -42,15 +43,20 @@ import { useT } from '../../lib/i18n'
 //
 // Three rows of the same object the board lists, at hub scale.
 
+// See lib/pageCache. This card is on the hub, which is the most re-entered
+// page in the app, and it drew four grey blocks every single time it mounted.
+const CACHE_KEY = 'hub-board-card'
+
 export default function BoardCard({ className }) {
   const tr = useT()
-  const [rows, setRows] = useState(null)
+  const cached = useCachedPage(CACHE_KEY)
+  const [rows, setRows] = useState(cached ?? null)
 
   useEffect(() => {
     let alive = true
     loadFeed({ limit: 3 })
-      .then((data) => { if (alive) setRows(data) })
-      .catch(() => { if (alive) setRows([]) })
+      .then((data) => { if (alive) { setRows(data); writePageCache(CACHE_KEY, data) } })
+      .catch(() => { if (alive) setRows((cur) => cur ?? []) })
     return () => { alive = false }
   }, [])
 

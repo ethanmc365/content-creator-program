@@ -33,8 +33,30 @@ function readViewport(focused) {
   // Keyboard height is layout height minus visible height. It must NOT subtract
   // offsetTop: on iOS the page scrolls when the keyboard opens, so offsetTop
   // grows and subtracting it wrongly yields 0.
+  //
+  // BROWSER CHROME IS NOT A KEYBOARD, AND THAT IS WHY THE TAB BAR VANISHED
+  // (4 Sep 2026). Ethan, starting the walkthrough on his phone: "the bar at
+  // the bottom just completely disappeared - the worldwide, challenges, rooms,
+  // DMs bar completely disappeared, so obviously I wasn't able to do it."
+  //
+  // On iOS Safari `window.innerHeight` measures the LAYOUT viewport, which
+  // includes the strip behind the collapsing address bar and the strip behind
+  // the bottom toolbar. `visualViewport.height` does not. So a page sitting
+  // at the top of its scroll, with both toolbars expanded and nothing focused
+  // anywhere, reports a shrink of 90-130px - and anything over 120 was being
+  // called a keyboard. AppLayout hides the bottom tab bar on that signal, so
+  // the five tabs slid off the screen with no keyboard within a mile of it.
+  // It is intermittent because it depends on which toolbars are showing, which
+  // depends on which way the page was last scrolled, which is why it happened
+  // "one time" - the walkthrough's own `scrollIntoView` is a scroll.
+  //
+  // A KEYBOARD ONLY EXISTS WHERE SOMETHING IS BEING TYPED INTO. The focus
+  // signal was already the primary one (it is instant, and iOS often never
+  // fires the resize at all); requiring it here means a viewport shrink is
+  // read as a keyboard only when there is a caret to justify it, and browser
+  // chrome can never be mistaken for one again.
   const raw = Math.round(window.innerHeight - vv.height)
-  const keyboard = raw > 120 ? raw : 0
+  const keyboard = focused && raw > 120 ? raw : 0
   return {
     height: Math.round(vv.height),
     offsetTop: Math.round(vv.offsetTop),
@@ -56,9 +78,28 @@ export function useVisualViewport() {
     // laggy resize event to know the keyboard is coming.
     let focused = isEditable(document.activeElement)
 
+    // ARMED TWO WAYS, BECAUSE rAF DOES NOT ALWAYS RUN.
+    //
+    // This was `requestAnimationFrame` alone, and rAF is throttled to a stop in
+    // a background tab, in a hidden window and under automation - so in any of
+    // those the whole hook is frozen at whatever it last measured. That is the
+    // same hole `lib/chatScroll` and the walkthrough's geometry loop were both
+    // fixed for, and it is worth closing here for the same reason: everything
+    // downstream (the bottom tab bar, the chat overlay's height, the
+    // walkthrough card getting out of the way of a form) reads as broken rather
+    // than as stale. Whichever of the frame and the timer arrives first wins and
+    // cancels the other.
+    let tick = 0
     const apply = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => setVp(readViewport(focused)))
+      clearTimeout(tick)
+      const once = () => {
+        cancelAnimationFrame(raf)
+        clearTimeout(tick)
+        setVp(readViewport(focused))
+      }
+      raf = requestAnimationFrame(once)
+      tick = setTimeout(once, 48)
     }
     // Read repeatedly for a second so we catch the keyboard's final size even
     // when iOS never fires a resize event.
@@ -78,6 +119,7 @@ export function useVisualViewport() {
     apply()
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(tick)
       timers.forEach(clearTimeout)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)

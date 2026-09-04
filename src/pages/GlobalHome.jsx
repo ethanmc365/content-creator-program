@@ -34,6 +34,11 @@ import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { useCachedPage, writePageCache } from '../lib/pageCache'
+
+// See lib/pageCache: the hub is the tab a creator lands on and comes back to
+// more than any other, and it was rebuilding itself from nothing every time.
+const HUB_CACHE_KEY = 'global-hub'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
@@ -212,7 +217,11 @@ export default function GlobalHome() {
   const tr = useT()
   const { profile, session } = useAuth()
   const { network, chapters, myChapters, error } = useCommunity()
-  const [d, setD] = useState(null)
+  // SECOND AND LATER VISITS TO THIS TAB DRAW THE HUB, NOT A SCREEN OF GREY.
+  // The load below still runs on every visit; this only decides what is on
+  // screen while it does. See lib/pageCache.
+  const cachedHub = useCachedPage(HUB_CACHE_KEY)
+  const [d, setD] = useState(cachedHub ?? null)
   const [order, setOrder] = useState(loadOrder)
   const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
   const isMobile = useIsMobile()
@@ -362,6 +371,9 @@ export default function GlobalHome() {
     load()
     return () => { cancelled = true }
   }, [session?.user?.id, profile?.resources_seen_at, networkId])
+
+  // Remember it for the next visit. See lib/pageCache.
+  useEffect(() => { if (d) writePageCache(HUB_CACHE_KEY, d) }, [d])
 
   // ---- The numbers on the welcome card ------------------------------------
   //

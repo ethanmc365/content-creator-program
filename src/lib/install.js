@@ -137,18 +137,51 @@ export async function promptInstall() {
 // asks one question - is this phone running the installed app - and that
 // question answers itself correctly every time without any stored state.
 
+// THE ACTUAL TAPS, ON THE ACTUAL PHONE (4 Sep 2026).
+//
+// Ethan, walking it on his own iPhone: "you've drawn the wrong symbols. First
+// off, you have to click the three dots in the bottom right corner. You click
+// that, and then you click on the share icon, which is like a square with a
+// little arrow coming out of it. Then you press View More, which is a little
+// arrow pointing down. And then you click Add to Home Screen, which is like a
+// rounded square with a plus in it. From there you click Add in the top right,
+// and that is it."
+//
+// The old iOS list was three steps and every one of them was wrong for a
+// current iPhone: Safari's toolbar collapsed into a "..." menu, so there is no
+// Share button sitting at the bottom of the screen to press, and Add to Home
+// Screen is now behind "View More" rather than a scroll down a sheet. Somebody
+// following instructions that do not match what they can see concludes the app
+// is broken, not that the instructions are old.
+//
+// The five iOS steps below are exactly what he described, in his order, with
+// the glyph each one actually wears (see components/Icon - `iosShare` and
+// `addToHome` were drawn for this). Android's four are Chrome's real path: the
+// overflow is a VERTICAL ellipsis in the TOP right (the old copy said "menu in
+// the top right" but drew the horizontal iOS dots), and the item reads "Install
+// app" on modern Chrome with "Add to Home screen" as the older wording.
+//
+// BOTH LISTS ARE THE SAME LENGTH ON PURPOSE. Ethan: "when clicking from Android
+// to iPhone, the card jumps in size a bit - I would have it always the same
+// size." Five and four differ by one row; the card reserves the taller of the
+// two (see AddToHomePrompt), so the toggle changes the words and nothing else.
+export const IOS_STEPS = [
+  { icon: 'dots', text: 'Tap the three dots in the bottom right of Safari' },
+  { icon: 'iosShare', text: 'Tap the Share icon, a square with an arrow out of the top' },
+  { icon: 'chevronDown', text: 'Tap "View More", the little arrow pointing down' },
+  { icon: 'addToHome', text: 'Tap "Add to Home Screen", the square with a plus in it' },
+  { icon: 'check', text: 'Tap "Add" in the top right, then open it from your home screen' },
+]
+
+export const ANDROID_STEPS = [
+  { icon: 'dotsVertical', text: 'Tap the three dots in the top right of Chrome' },
+  { icon: 'installApp', text: 'Tap "Add to Home screen"' },
+  { icon: 'addToHome', text: 'Choose "Install" in the panel that slides up' },
+  { icon: 'check', text: 'Tap "Install" once more to confirm' },
+  { icon: 'home', text: 'Open Tryp.com from your home screen' },
+]
+
 /** The per-platform steps, written to be followed while looking at a phone. */
 export function installSteps() {
-  if (isIOS()) {
-    return [
-      { icon: 'share', text: 'Press the Share button at the bottom of Safari' },
-      { icon: 'plus', text: 'Scroll down and choose "Add to Home Screen"' },
-      { icon: 'check', text: 'Press Add, then open Tryp.com from your home screen' },
-    ]
-  }
-  return [
-    { icon: 'dots', text: 'Open the menu in the top right of Chrome' },
-    { icon: 'plus', text: 'Choose "Install app" or "Add to Home screen"' },
-    { icon: 'check', text: 'Open Tryp.com from your home screen' },
-  ]
+  return isIOS() ? IOS_STEPS : ANDROID_STEPS
 }

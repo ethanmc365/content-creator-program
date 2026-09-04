@@ -14,23 +14,30 @@ import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
+import { useCachedPage, writePageCache } from '../lib/pageCache'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
+
+// SECOND AND LATER VISITS TO THIS TAB DRAW THE PAGE, NOT A PLACEHOLDER.
+// See lib/pageCache - the queries still run every time; the cache only decides
+// what is on screen while they do.
+const CACHE_KEY = 'challenges'
 
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
   const tr = useT()
   const { isAdmin } = useAuth()
   const { ids: scopeIds, networkId, loading: scopesLoading } = useMyScopes()
-  const [challenges, setChallenges] = useState([])
-  const [galleries, setGalleries] = useState({}) // challenge_id -> {winners, totalViews}
+  const cached = useCachedPage(CACHE_KEY)
+  const [challenges, setChallenges] = useState(cached?.challenges ?? [])
+  const [galleries, setGalleries] = useState(cached?.galleries ?? {}) // challenge_id -> {winners, totalViews}
   // challenge_id -> {posted, total}. Keyed rather than singular: the moment a
   // second market opened, "the live challenge" stopped being a single thing,
   // and a lone object silently attached the UK bar to Spain's numbers.
-  const [participation, setParticipation] = useState({})
+  const [participation, setParticipation] = useState(cached?.participation ?? {})
   // { GBP: 250, EUR: 40 } - kept per currency, never added together.
-  const [prizesAwarded, setPrizesAwarded] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [prizesAwarded, setPrizesAwarded] = useState(cached?.prizesAwarded ?? null)
+  const [loading, setLoading] = useState(!cached)
   // Captured once at mount (lazy initialiser, not read during render) so the
   // "is this challenge past its deadline" check stays pure per the lint rules.
   const [nowMs] = useState(() => Date.now())
@@ -93,7 +100,7 @@ export default function Challenges() {
   // 181), so reading it is both correct and cheaper than recomputing it. Test
   // accounts are still dropped: a sandbox profile at the top of a live
   // leaderboard is not encouraging, it is a bug report waiting to be written.
-  const [leaders, setLeaders] = useState({})
+  const [leaders, setLeaders] = useState(cached?.leaders ?? {})
   useEffect(() => {
     const liveIds = challenges
       .filter((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
@@ -163,6 +170,14 @@ export default function Challenges() {
     tally()
     return () => { cancelled = true }
   }, [challenges])
+
+  // KEEP THE CACHE IN STEP, so the next tap on this tab paints the board rather
+  // than a screen of grey. Nothing is skipped on the way in - the queries above
+  // run on every visit exactly as they always did. See lib/pageCache.
+  useEffect(() => {
+    if (loading) return
+    writePageCache(CACHE_KEY, { challenges, galleries, participation, prizesAwarded, leaders })
+  }, [loading, challenges, galleries, participation, prizesAwarded, leaders])
 
   const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
   // This page is the creator's OWN community's challenge board. RLS already

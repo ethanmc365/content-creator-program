@@ -1092,6 +1092,28 @@ html[data-reduce-motion] *::after {
   to   { opacity: 1; transform: none; }
 }
 
+/* THE CARD'S OWN HEIGHT, ANIMATED (4 Sep 2026).
+
+   The screens slid; the box around them snapped. Welcome is ~300px and the
+   photos step is ~900px, so moving between them jumped the card and every
+   control under it by half a screen on the frame the slide began, which is the
+   "everything seems very juttery" report. The height is written by
+   `StepFrame` (pages/Onboarding) off a ResizeObserver and eased here, on the
+   same curve and roughly the same duration as the slide, so the two read as one
+   movement.
+
+   THE CLIP IS ONLY ON WHILE IT MOVES. A permanently clipping frame would cut
+   off the country picker's dropdown - exactly the fault the chat action bar had
+   with its reaction picker. Nothing is open on the frame a step changes, so
+   clipping for the length of the transition costs nothing. */
+.onb-frame {
+  transition: height 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.onb-frame[data-moving='yes'] {
+  overflow: hidden;
+}
+
 /* One screen of onboarding arriving, and it arrives from the side it came
    from. Keyed on the step, so it replays as you move - and it replays going
    BACKWARDS too, sliding the other way. A flow that animates forwards and
@@ -1180,6 +1202,7 @@ html[data-reduce-motion] *::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .onb-frame { transition: none; }
   .onb-screen,
   .onb-market,
   .onb-market::after,
@@ -1312,6 +1335,25 @@ html[data-reduce-motion] *::after {
   html.tour-running [data-tour-keepout] {
     max-height: min(20rem, calc(100dvh - 26rem));
   }
+
+  /* NOTHING IS PERMANENTLY UNDERNEATH THE SHEET. The card is a bottom sheet up
+     to 26rem tall and the page's own bottom padding only clears the tab bar, so
+     on a short page - the payment section is 490px of content - the last
+     control simply could not be reached. While the walk is running the page
+     gives back enough room to scroll anything out from under it. */
+  html.tour-running main {
+    padding-bottom: calc(min(58vh, 26rem) + 7rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* THE SAME ON A DESKTOP, FOR THE SAME REASON AND A SMALLER CARD. A short page -
+   the payment section is 460px of content in an 860px window - does not scroll
+   at all, so anything the floating card lands on is simply unreachable. The
+   padding makes the page scrollable past it. */
+@media (min-width: 1024px) {
+  html.tour-running main {
+    padding-bottom: 24rem;
+  }
 }
 
 /* --- the card ----------------------------------------------------------- */
@@ -1343,6 +1385,19 @@ html[data-reduce-motion] *::after {
   animation: tour-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* IT TRAVELS BETWEEN STEPS INSTEAD OF TELEPORTING (4 Sep 2026).
+   Same mechanism, same curve and the same 560ms window as the spotlight, so
+   the lit rectangle and the card that points at it move as one thing. And, for
+   the same reason as the spotlight, the transition exists ONLY while moving
+   between steps: applied during a scroll it would leave the card swimming a
+   few frames behind the page it is anchored to. TourHost's loop flips the
+   attribute. */
+.tour-card--float[data-travel='yes'] {
+  transition:
+    top 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* An anchorless step - or one whose anchor is off screen - sits in the middle,
    because there is nothing on the page for it to be beside. Driven by a data
    attribute so the rAF loop can flip it without a React render. */
@@ -1370,6 +1425,75 @@ html[data-reduce-motion] *::after {
 @keyframes tour-card-centre-in {
   from { opacity: 0; transform: translate(-50%, 12px) scale(0.97); }
   to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* A STEP THAT ASKS YOU TO TYPE MOVES OUT OF THE COLUMN (4 Sep 2026).
+
+   Bottom-centre is right for a card that says "read this page" and wrong for
+   the one card that says "fill this in": every form in this app is a centred
+   column, so bottom-centre is precisely on top of it. `keepClear` (lib/tour)
+   puts it in the bottom right instead, which on a 1024px+ window is beside the
+   form rather than over it. */
+.tour-card--float[data-centre='yes'][data-clear='yes'] {
+  left: auto;
+  right: 2rem;
+  transform: none;
+  animation-name: tour-card-clear-in;
+}
+
+@keyframes tour-card-clear-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* AND IT GETS OUT OF THE WAY WHILE YOU TYPE, AT EVERY WIDTH.
+
+   Bottom-right is not enough on its own and the measurements say so: at 1280px
+   the settings column runs to x=967 and a 361px card pinned 2rem from the right
+   starts at x=882, so eighty pixels of the form are still behind it - and on a
+   1024px laptop there is no gutter at all. There is no placement that clears a
+   centred form on every window, so the card stops competing for the space
+   instead: focus a field and it leaves, blur and it comes back. Ethan's own
+   suggestion, and the honest one. */
+/* THE SELECTOR CARRIES `[data-clear]` FOR SPECIFICITY, NOT FOR MEANING.
+   `.tour-card--float[data-centre='yes'][data-clear='yes']` above is 0-3-0 and
+   sets `transform: none` and an `animation-name`; a plain
+   `.tour-card--float[data-typing='yes']` is 0-2-0 and simply lost to it, so the
+   card stayed exactly where it was with nothing to show for the attribute.
+   Measured, not reasoned about: computed style said `transform: none` and
+   `animation-name: tour-card-clear-in` with `data-typing="yes"` set by hand.
+   Three attributes ties the specificity, and this rule is later in the file. */
+.tour-card--float[data-clear='yes'][data-typing='yes'] {
+  animation: none;
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ON A PHONE IT SIMPLY GETS OUT OF THE WAY WHILE YOU TYPE.
+
+   Ethan: "the card is covering some of it and I can't type in all my info...
+   maybe it can be temporarily hidden if you're typing." A phone has no
+   "beside", the sheet lives at the bottom, and the bottom is where an open
+   keyboard puts the field you are filling in. So for as long as something is
+   focused the sheet slides off and it slides back the moment it is not. The
+   step still completes on its own - the payee goal polls the saved row, it does
+   not need the card to be looked at. */
+.tour-card--sheet[data-typing='yes'] {
+  /* `animation: none` FIRST, and it is not tidiness. The entrance animation is
+     `both`-filled, so its final `transform: none` persists and BEATS a plain
+     declaration - the sheet would simply refuse to move. Dropping the animation
+     hands the transform back to this rule, and letting it return when typing
+     stops replays the slide-in, which is the right way for it to come back. */
+  animation: none;
+  transform: translateY(160%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tour-card--sheet {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
 }
 
 /* ON A PHONE IT IS A SHEET, ALWAYS.
@@ -1505,7 +1629,11 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .tour-card--sheet,
   .tour-do,
   .tour-hit { animation: none; }
+  .tour-card--float[data-travel='yes'] { transition: none; }
   .tour-card--float[data-centre='yes'] { animation: none; transform: translateX(-50%); }
+  .tour-card--float[data-centre='yes'][data-clear='yes'] { animation: none; transform: none; }
+  .tour-card--sheet { transition: none; }
+  .tour-card--float[data-clear='yes'][data-typing='yes'] { transition: none; transform: none; }
   .tour-do .animate-pulse { animation: none; }
 }
 

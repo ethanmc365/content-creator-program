@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { confirm } from '../../lib/confirm'
+import { toastSuccess } from '../../lib/toast'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -128,7 +129,6 @@ export default function AdminApplications() {
   const [phones, setPhones] = useState({})
   const [photos, setPhotos] = useState({})
   const [busyId, setBusyId] = useState(null)
-  const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
   const [market, setMarket] = useState('')
   const [openId, setOpenId] = useState(null)
@@ -177,10 +177,22 @@ export default function AdminApplications() {
 
   useEffect(() => { load() }, [])
 
-  function flash(msg) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 4000)
-  }
+  // ONE TOAST HOST FOR THE WHOLE APP, AND THIS PAGE HAD ITS OWN (4 Sep 2026).
+  //
+  // Ethan, on a phone: "in the applications admin page, go to never finished
+  // and click follow-up email - it shows a little pop up saying marked as
+  // followed up, but this pop up is hidden behind the bar at the bottom where
+  // the challenges and rooms show."
+  //
+  // He is describing a hand-rolled `fixed bottom-24` pill that predated
+  // `ToastHost` and never learned two things that host already knows: the tab
+  // bar is ~56px PLUS `env(safe-area-inset-bottom)`, which on an iPhone puts
+  // its top edge at about 90px and leaves a 96px offset overlapping it; and a
+  // `fixed` element inside a transformed ancestor is positioned against that
+  // ancestor rather than the viewport, so the z-index was never the fix.
+  // Deleted rather than nudged - the shared toast is above the bar, above the
+  // safe area, dismissible, and identical to every other confirmation.
+  const flash = (msg) => toastSuccess(msg)
 
   // NOBODY APPLIES TO A MARKET, SO THE PAGE HAS TO WORK IT OUT.
   //
@@ -407,12 +419,6 @@ export default function AdminApplications() {
             />
             <span className="text-xs text-smoke">{shown.length} shown</span>
           </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-lift lg:bottom-8">
-          {toast}
         </div>
       )}
 

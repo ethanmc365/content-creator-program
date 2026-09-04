@@ -1260,7 +1260,7 @@ export default function NetworkChat() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
-                // PRESS A MESSAGE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
+                // PRESS THE BUBBLE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
                 // This used to be `if (!isMobile) return`, with a laptop given
                 // a hover state instead - two behaviours for one control, and
                 // the hover one was the worse of them. Presses on a link, a
@@ -1268,7 +1268,15 @@ export default function NetworkChat() {
                 // one, and a press that ENDED A TEXT SELECTION is not a press:
                 // dragging across a message to copy it would otherwise open the
                 // bar every time.
+                //
+                // **ONLY THE BUBBLE OPENS THE BAR.** The handler used to sit on
+                // the whole ROW, which includes the avatar gutter and the name
+                // line - so pressing somebody's face opened react/reply instead
+                // of opening the person. The face is a link to their profile
+                // now, and this asks for `[data-msg-bubble]` explicitly rather
+                // than listing the things it must not eat.
                 onClick={(e) => {
+                  if (!e.target.closest?.('[data-msg-bubble]')) return
                   if (e.target.closest?.('a,button,video,input')) return
                   if (!window.getSelection?.()?.isCollapsed) return
                   setActionsFor((cur) => (cur === m.id ? null : m.id))
@@ -1323,9 +1331,24 @@ export default function NetworkChat() {
                     The NAME line is still once per run - that is the repetition
                     that actually reads as noise, and it is not what anchors the
                     bubble to the left edge. */}
+                {/* THE FACE OPENS THE PERSON. It is a link, not decoration:
+                    pressing a profile picture in a chat means "who is this",
+                    and it used to open the react/reply bar because the press
+                    handler was on the row. */}
                 {!mine && (
                   <div className="w-9 shrink-0 self-end pb-5">
-                    <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
+                    {m.profiles?.id ? (
+                      <Link
+                        to={`/profile/${m.profiles.id}`}
+                        className="block rounded-full transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                        title={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
+                        aria-label={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
+                      >
+                        <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
+                      </Link>
+                    ) : (
+                      <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
+                    )}
                   </div>
                 )}
 
@@ -1429,6 +1452,7 @@ export default function NetworkChat() {
                         two-word bubble; the column above caps it at 82% of the
                         thread so a paragraph still wraps. */}
                     <div
+                      data-msg-bubble
                       className={cx(
                         'w-fit max-w-full rounded-2xl text-sm leading-relaxed',
                         mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',

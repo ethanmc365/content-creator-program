@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useMyScopes } from '../lib/scope'
 import { PageHeader } from '../components/ui'
 import PageSkeleton from '../components/PageSkeleton'
+import { useCachedPage, writePageCache } from '../lib/pageCache'
 import Icon from '../components/Icon'
 import EventRsvp from '../components/EventRsvp'
 import EventPolls from '../components/EventPolls'
@@ -106,6 +107,8 @@ const VIEWS = [
   { key: 'agenda', label: 'Agenda', icon: 'book' },
 ]
 const VIEW_KEY = 'tryp-calendar-view'
+// See lib/pageCache.
+const CAL_CACHE_KEY = 'calendar'
 const dayKey = (d) => format(d, 'yyyy-MM-dd')
 
 // IS THIS ON RIGHT NOW.
@@ -265,7 +268,10 @@ export default function Events() {
   // everybody's and an unreadable membership table degrades to the old
   // behaviour rather than to an empty calendar.
   const { ids: scopeIds, loading: scopesLoading } = useMyScopes()
-  const [data, setData] = useState(null)          // { items, travelDays }
+  // SECOND AND LATER VISITS DRAW THE CALENDAR, NOT A MONTH OF GREY SQUARES.
+  // `reload()` still runs on every visit. See lib/pageCache.
+  const cachedCal = useCachedPage(CAL_CACHE_KEY)
+  const [data, setData] = useState(cachedCal ?? null)          // { items, travelDays }
   const [rsvps, setRsvps] = useState(new Map())
   const [connectedIds, setConnectedIds] = useState(new Set())
   const [month, setMonth] = useState(() => new Date())
@@ -304,6 +310,7 @@ export default function Events() {
     if (!user) return
     const next = await loadCalendar({ userId: user.id, scopeIds })
     setData(next)
+    writePageCache(CAL_CACHE_KEY, next)
   }, [user, scopeIds])
 
   // WAIT FOR THE SCOPES BEFORE THE FIRST LOAD. `useMyScopes` starts at

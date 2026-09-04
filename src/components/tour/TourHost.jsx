@@ -4,9 +4,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '../Icon'
 import { Spinner } from '../ui'
 import { cx } from '../../lib/utils'
-import { useIsPhone } from '../../lib/useKeyboardInset'
+import { useIsPhone, useVisualViewport } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
 import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor } from '../../lib/tour'
+import { setTourRunning } from '../../lib/appNag'
 import { placeCard, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -52,6 +53,10 @@ function findAnchor(name) {
 export default function TourHost({ onFinish, network = false, layout = 'desktop' }) {
   const tr = useT()
   const isPhone = useIsPhone()
+  // IS SOMEBODY TYPING. Only the payment step cares (see `keepClear` in
+  // lib/tour), and it cares a lot: on a phone the sheet sits exactly where the
+  // form is, and there is no sideways to move it in.
+  const typing = useVisualViewport().keyboardOpen
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
@@ -342,8 +347,23 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       tickRef.current = setTimeout(once, 32)
     }
 
+    // EVERY FRAME IS GUARDED, AND THAT IS NOT BELT AND BRACES (4 Sep 2026).
+    //
+    // The last time this loop threw - an unguarded `r.top` three lines after a
+    // test that already knew `r` might be undefined - it threw sixty times a
+    // second for ever, because `schedule()` runs FIRST and re-arms before
+    // anything else can fail. Nothing after the throw ran: the spotlight froze
+    // on the previous step's anchor, the card stopped being placed, and the
+    // walkthrough looked dead. That specific bug is fixed, but the SHAPE of it
+    // is the thing to remove: a geometry loop must not be able to take the
+    // feature down, whatever a future edit does to it. A frame that throws is a
+    // frame that is skipped now, and the next one still runs.
     const tick = () => {
       schedule()
+      try { measure() } catch { /* a bad frame is a skipped frame, never a dead loop */ }
+    }
+
+    const measure = () => {
       const spot = spotRef.current
       if (!spot) return
 
@@ -363,6 +383,17 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // is welded to its target, so a scroll cannot leave it swimming behind.
       const travelling = Date.now() < travelUntil.current
       spot.dataset.travel = travelling ? 'yes' : 'no'
+      // THE CARD GLIDES BETWEEN STEPS TOO (4 Sep 2026). Ethan, on a laptop: "a
+      // lot of lagging between the cards moving - after I click one and the
+      // next card appears, it's a bit glitchy."
+      // It was not lag. `top`/`left` are written straight to the element with
+      // no transition, so the card TELEPORTED from one step's position to the
+      // next while separately replaying a 10px entrance slide: a jump and a
+      // slide, in that order, which reads exactly as a glitch. It travels on
+      // the same curve and for the same 560ms as the spotlight now, so the two
+      // move together - and, like the spotlight, the transition is OFF the rest
+      // of the time, or following a scroll would leave it swimming behind.
+      if (cardRef.current) cardRef.current.dataset.travel = travelling ? 'yes' : 'no'
 
       // THE LIT AREA IS THE ANCHOR PLUS WHATEVER IT OPENED.
       //
@@ -470,7 +501,13 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // nothing.
   useEffect(() => {
     document.documentElement.classList.add('tour-running')
-    return () => document.documentElement.classList.remove('tour-running')
+    // And so does the rest of the app: see lib/appNag. The notifications modal
+    // and the bank-details prompt both stand down while this is on screen.
+    setTourRunning(true)
+    return () => {
+      document.documentElement.classList.remove('tour-running')
+      setTourRunning(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -534,6 +571,14 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       <div
         ref={cardRef}
         data-centre="yes"
+        // See `keepClear` in lib/tour. `data-clear` moves an anchorless card to
+        // the bottom RIGHT on a desktop instead of the bottom centre, and
+        // `data-typing` slides the phone sheet out of the way while a field is
+        // focused. Both are attributes rather than classes because the rAF loop
+        // writes `data-centre` on the same element and two mechanisms fighting
+        // over one className is how the last placement bug happened.
+        data-clear={step.keepClear ? 'yes' : 'no'}
+        data-typing={typing && step.keepClear ? 'yes' : 'no'}
         className={cx('tour-card', isPhone ? 'tour-card--sheet' : 'tour-card--float')}
         style={isPhone ? undefined : { width: CARD_W }}
         role="dialog"
@@ -578,11 +623,20 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         <p className="tour-body mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
 
         {/* THE INSTRUCTION. The one line that matters if they read nothing
-            else, so it gets the brand colour, an arrow, and its own row. */}
+            else, so it gets the brand colour and its own row.
+
+            NO ARROW (4 Sep 2026). Ethan: "it shows Tap Challenges on a button
+            below the copy with a little arrow pointing, and I don't like the
+            arrow pointing because it could seem like it's actually there.
+            Remove that little arrow and just have the copy that says Tap
+            Challenges as that main thing."
+            He is right and it is a real ambiguity, not a taste: a pulsing
+            chevron inside the pill reads as "the thing is over there", and the
+            thing is a tab at the bottom of the screen in the other direction.
+            The spotlight is what points; this line is what says. */}
         {step.do && !hit && (
-          <p className="tour-do mt-3 flex items-center gap-2 rounded-xl bg-brand-tint/60 px-3 py-2.5 text-[13px] font-semibold text-brand">
-            <Icon name="chevronRight" className="h-4 w-4 shrink-0 animate-pulse" />
-            <span className="min-w-0">{step.do}</span>
+          <p className="tour-do mt-3 rounded-xl bg-brand-tint/60 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
+            {step.do}
           </p>
         )}
 

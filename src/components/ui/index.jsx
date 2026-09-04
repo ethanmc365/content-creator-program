@@ -255,7 +255,15 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
         inlineAction ? 'flex-row items-center justify-between gap-3' : 'flex-col',
       )}>
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
+          {/* `inlineAction` MEANS THE HEADING SHARES ITS LINE, SO IT KEEPS THE
+              LINE (4 Sep 2026). Ethan, on /admin from a phone: "the Arrange
+              button shows at the very top and it's actually in the admin panel
+              writing. It should be just a small button on the top right, and
+              the admin panel text should be on one row and not two rows."
+              Both halves of that are this component: the action was full width
+              on a phone (see below) which left the title ~120px to wrap into,
+              and nothing stopped it wrapping. */}
+          <h1 className={cx('text-3xl font-bold tracking-tight sm:text-4xl', inlineAction && 'truncate max-sm:text-2xl')}>{title}</h1>
           {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
         </div>
         {/* A LONE ACTION IS FULL WIDTH ON A PHONE. (1 Sep 2026.)
@@ -277,8 +285,19 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
             page's admin controls) passes a wrapping div, and a div is not
             matched - so those keep their own layout and nothing gets a stray
             `w-full` it was not designed for. */}
+        {/* AND `inlineAction` OPTS OUT OF THE FULL-WIDTH RULE ENTIRELY. The
+            rule above is about a LONE PRIMARY action on its own line under the
+            heading; `inlineAction` is the opposite arrangement - a small
+            secondary control sitting beside the heading - and stretching it
+            across the phone is what pushed the title into two rows and then
+            into the button. */}
         {action && (
-          <div className="w-full shrink-0 sm:w-auto max-sm:[&>a]:w-full max-sm:[&>a]:justify-center max-sm:[&>button]:w-full max-sm:[&>button]:justify-center">
+          <div className={cx(
+            'shrink-0',
+            inlineAction
+              ? 'w-auto'
+              : 'w-full sm:w-auto max-sm:[&>a]:w-full max-sm:[&>a]:justify-center max-sm:[&>button]:w-full max-sm:[&>button]:justify-center',
+          )}>
             {action}
           </div>
         )}
@@ -314,7 +333,17 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
  * bottom sheet running edge to edge and 90vh tall reads as a full screen you
  * have been sent to, which is exactly the complaint about the intro prompt.
  */
-export function Modal({ open, onClose, title, children, wide = false, sheet = true }) {
+/**
+ * `dismissible = false` MAKES IT A WALL RATHER THAN A DIALOG.
+ *
+ * There is no close button, the scrim is not pressable, and Escape does
+ * nothing. Exactly one screen uses it - the add-to-home-screen ask, which Ethan
+ * asked to be persistent because the phone experience is the app and not the
+ * website (see components/AddToHomePrompt). It is deliberately awkward to reach
+ * for: a modal somebody cannot leave is a trap unless the only way past it is
+ * something they were always going to have to do.
+ */
+export function Modal({ open, onClose, title, children, wide = false, sheet = true, dismissible = true }) {
   const tr = useT()
   // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE
   // (2 Sep 2026).
@@ -337,7 +366,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   const keyboard = open ? vp.keyboard : 0
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e) => { if (e.key === 'Escape' && dismissible) onClose() }
     document.addEventListener('keydown', onKey)
     // `document.body.style.overflow = 'hidden'` was here, and it does nothing at
     // all to touch scrolling on iOS. See lib/scrollLock for the whole story and
@@ -347,7 +376,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
       document.removeEventListener('keydown', onKey)
       release()
     }
-  }, [open, onClose])
+  }, [open, onClose, dismissible])
 
   if (!open) return null
   // PORTALLED TO THE BODY, AND IT HAS TO BE.
@@ -370,7 +399,9 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
         ? { height: vp.height, transform: `translateY(${vp.offsetTop}px)` }
         : { bottom: 0 }}
     >
-      <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onClose} />
+      {dismissible
+        ? <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onClose} />
+        : <div className="absolute inset-0 bg-ink/40" aria-hidden />}
       {/* On mobile the sheet variant runs to the edge of the screen, where the
           tab bar sits over it - so the last control inside gets the tab bar's
           height (plus the home-indicator safe area) as padding, or a tall
@@ -397,9 +428,11 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
-          </button>
+          {dismissible && (
+            <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          )}
         </div>
         {children}
       </div>

@@ -31,24 +31,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta
       name="description"
-      content="The official Tryp.com Content Creator Program. Create travel content, compete in challenges, earn cash and travel vouchers."
+      content="The official Tryp.com Content Creator Community. Create travel content, compete in challenges, earn cash and travel vouchers."
     />
 
-    <!-- Social link preview (Open Graph + Twitter Card) -->
+    <!-- Social link preview (Open Graph + Twitter Card)
+
+         COMMUNITY, NOT PROGRAM, AND THE CARD IS THE LOGO (4 Sep 2026).
+
+         Ethan: "whenever you're sharing it there's that preview card that shows
+         up - if you're sharing on Instagram for example. It currently shows
+         Tryp.com Content Creator Program. Can you change that to just the
+         Tryp.com logo there? And rename Tryp.com Content Creator Program as
+         Tryp.com Content Creator Community."
+
+         The old card carried the wordmark AND "Content Creator Program" set
+         underneath it, so the name appeared twice in a preview that also prints
+         the title as text beside it - three copies of the same words in one
+         card. `og-image-v3.png` is the wordmark alone on the brand orange.
+
+         THE FILENAME IS VERSIONED, and that is the point of it rather than
+         tidiness: every scraper that has ever fetched this link - Instagram,
+         WhatsApp, Slack, iMessage - has the old bytes cached against the old
+         URL, some of them for weeks. Overwriting `og-image-v2.png` would leave
+         the old card showing everywhere it already appears.
+
+         The URLs point at `trypcreators.vercel.app`, which is the canonical
+         origin (see lib/canonicalHost). The other origin still serves the app;
+         it is just not the one to advertise. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Tryp.com" />
-    <meta property="og:title" content="Tryp.com Content Creator Program" />
-    <meta property="og:description" content="The official Tryp.com Content Creator Program. Create travel content, compete in challenges, earn cash and travel vouchers." />
-    <meta property="og:url" content="https://content-creator-program.vercel.app" />
-    <meta property="og:image" content="https://content-creator-program.vercel.app/og-image-v2.png" />
+    <meta property="og:title" content="Tryp.com Content Creator Community" />
+    <meta property="og:description" content="The official Tryp.com Content Creator Community. Create travel content, compete in challenges, earn cash and travel vouchers." />
+    <meta property="og:url" content="https://trypcreators.vercel.app" />
+    <meta property="og:image" content="https://trypcreators.vercel.app/og-image-v3.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Tryp.com Content Creator Program" />
+    <meta property="og:image:alt" content="Tryp.com" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Tryp.com Content Creator Program" />
+    <meta name="twitter:title" content="Tryp.com Content Creator Community" />
     <meta name="twitter:description" content="Create travel content, compete in challenges, earn cash and travel vouchers." />
-    <meta name="twitter:image" content="https://content-creator-program.vercel.app/og-image-v2.png" />
+    <meta name="twitter:image" content="https://trypcreators.vercel.app/og-image-v3.png" />
 
     <!-- Add to Home Screen (PWA) -->
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -75,7 +98,7 @@
          twice. -->
     <link rel="prefetch" href="/geo/countries-50m.json" as="fetch" />
 
-    <title>Tryp.com Creator Program</title>
+    <title>Tryp.com Creator Community</title>
   </head>
   <body>
     <!-- THE FIRST FRAME IS THE LOADER THE APP ITSELF DRAWS.

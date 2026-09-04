@@ -17,6 +17,7 @@ import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { ChatSkeleton } from '../components/network/Skeletons'
+import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -48,6 +49,8 @@ import { testFlags } from '../lib/testData'
 // `pinned` state for why it is not a column.
 const MAX_PINNED_CONVERSATIONS = 3
 const PINNED_KEY = 'dm-pinned'
+// See lib/pageCache.
+const DM_CACHE_KEY = 'dm-inbox'
 
 function loadPinnedConversations() {
   try {
@@ -90,7 +93,11 @@ export default function Messages() {
   const { user, profile, isAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const [conversations, setConversations] = useState([]) // enriched with profile/members + unread
+  // SECOND AND LATER VISITS TO THE DM TAB DRAW THE INBOX, NOT FOUR GREY ROWS.
+  // `loadConversations` still runs on every visit; the cache only decides what
+  // is on screen while it does. See lib/pageCache.
+  const cachedInbox = useCachedPage(DM_CACHE_KEY)
+  const [conversations, setConversations] = useState(cachedInbox ?? []) // enriched with profile/members + unread
   // GROUPS.
   //
   // The inbox holds two shapes now. A 'direct' conversation is the pair it has
@@ -184,7 +191,7 @@ export default function Messages() {
   // Slow clock so the Edit button retires itself. See lib/messageActions.
   const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
-  const [loadingList, setLoadingList] = useState(true)
+  const [loadingList, setLoadingList] = useState(!cachedInbox)
   // PINNED CONVERSATIONS, PER DEVICE.
   //
   // localStorage rather than a column, deliberately. Pinning is a view
@@ -422,6 +429,12 @@ export default function Messages() {
   }, [user.id])
 
   useEffect(() => { loadConversations() }, [loadConversations])
+
+  // Remember the inbox for the next visit. See lib/pageCache.
+  useEffect(() => {
+    if (loadingList) return
+    writePageCache(DM_CACHE_KEY, conversations)
+  }, [loadingList, conversations])
 
   // Everyone you could message, for the inbox search box and the empty state.
   // Same visibility rules as the creator directory (active, non-test, not
@@ -1707,7 +1720,12 @@ export default function Messages() {
                           Ethan described it. */}
                       {isGroup && !mine && (
                         <span className="w-8 shrink-0 self-end pb-5">
-                          <Link to={`/profile/${m.sender_id}`}>
+                          <Link
+                            to={`/profile/${m.sender_id}`}
+                            className="block rounded-full transition-transform hover:scale-105"
+                            title={sender?.name ? `View ${sender.name}` : 'View profile'}
+                            aria-label={sender?.name ? `View ${sender.name}` : 'View profile'}
+                          >
                             <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
                           </Link>
                         </span>
@@ -1724,7 +1742,12 @@ export default function Messages() {
                         // whenever I'm hovering over a message". One behaviour
                         // now, the same one the rooms use. A press that ended a
                         // text selection is not a press.
+                        // ONLY THE BUBBLE OPENS THE BAR - same rule as the
+                        // rooms. The name line, the chips and the "Seen by"
+                        // receipt are inside this column too, and a press on
+                        // any of them used to toggle react/reply.
                         onClick={(e) => {
+                          if (!e.target.closest?.('[data-msg-bubble]')) return
                           if (e.target.closest('a,button,video,input')) return
                           if (!window.getSelection?.()?.isCollapsed) return
                           setActionsFor(showActions ? null : m.id)
@@ -1831,6 +1854,7 @@ export default function Messages() {
                             `ml-auto` puts yours back against the right edge,
                             since a shrunk bubble no longer reaches it. */}
                         <div
+                          data-msg-bubble
                           className={cx(
                           'w-fit max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',

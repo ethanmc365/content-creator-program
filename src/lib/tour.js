@@ -48,7 +48,9 @@ export const TOUR_VERSION = 4
 // connection request, been in a room and a DM, and turned notifications on.
 export const TOUR_PARTS = [
   { key: 'start', label: 'Around the app' },
-  { key: 'you', label: 'Get paid, stay told' },
+  // 'Get paid, stay told' was tried and reverted at Ethan's request (4 Sep
+  // 2026): "I don't like this copy, just keep the previous copy there."
+  { key: 'you', label: 'Your account' },
 ]
 
 const ALL = 'both'
@@ -134,7 +136,7 @@ export const TOUR_STEPS = [
     key: 'welcome',
     part: 'start',
     title: 'Let me show you round',
-    body: 'Four quick taps and you will have seen everything that matters. Do the thing each card asks and it moves on by itself.',
+    body: "I'll start by showing you the most important parts, but feel free to explore the community yourself after!",
     do: null,
     anchor: null,
     at: '/home',
@@ -146,7 +148,7 @@ export const TOUR_STEPS = [
     key: 'challenges',
     part: 'start',
     title: 'This is what you are here for',
-    body: 'A brief goes up, you film it, you post it, the best videos win real money. Everything you need is on the challenge itself.',
+    body: 'A challenge goes live, you create content, you post it, and claim the prizes!',
     do: 'Tap Challenges',
     anchor: 'nav-challenges',
     goal: { kind: 'route', to: '/challenges' },
@@ -156,7 +158,7 @@ export const TOUR_STEPS = [
     key: 'rooms',
     part: 'start',
     title: 'Where everyone talks',
-    body: 'Ask anything, post what you are working on, share a rate you got quoted. The team is in here too, and answers.',
+    body: 'Ask anything, connect with other creators or share what you are working on. The Tryp.com team is in here too.',
     do: 'Tap Rooms',
     anchor: 'nav-chat',
     goal: { kind: 'route', to: '/chat' },
@@ -173,12 +175,30 @@ export const TOUR_STEPS = [
     do: 'Add your payment details',
     // NO ANCHOR ON PURPOSE. `settings-payment` names the row on the settings
     // MENU, and this step navigates straight past it into the section - where
-    // the thing to point at is the whole form. A centred card over it is right;
-    // spotlighting the Save button while the fields are empty is not.
+    // the thing to point at is the whole form. Spotlighting the Save button
+    // while the fields are empty is not it.
     anchor: null,
     at: '/settings?section=payment',
     goal: { kind: 'payee' },
     on: ALL,
+    // THE ONE STEP WHOSE PAGE HAS TO BE TYPED INTO (4 Sep 2026).
+    //
+    // Ethan: "when it has to go to the payment details section, the card is
+    // actually covering some of it and I can't type in all my info. Ensure it
+    // doesn't cover the card - maybe it moves to the left side or the right
+    // side, or can be temporarily hidden if you're typing."
+    //
+    // Measured at 375px: the card occupied 453-728 and the currency chooser
+    // sits at 368, so "Save payment details" and every field the chooser opens
+    // were underneath it. An anchorless card is normally pinned bottom-centre,
+    // which is right for a step that says "read this page" and wrong for the
+    // only step that says "fill this in".
+    //
+    // `keepClear` says so, and it is honoured twice: on a desktop the card goes
+    // to the bottom RIGHT so a centred form is never behind it, and on a phone -
+    // which has no beside - the sheet slides away for as long as a field is
+    // focused and comes back when it is not. See TourHost and index.css.
+    keepClear: true,
   },
   {
     key: 'notifications',
@@ -198,8 +218,8 @@ export const TOUR_STEPS = [
   {
     key: 'done',
     part: 'you',
-    title: 'That is everything',
-    body: 'The rest you will find as you go. Post something in a room and say hello - that is how most people start.',
+    title: 'That is the basics',
+    body: "Now it's up to you to explore the rest of the platform, you can start by saying 'Hi' in the chat!",
     do: null,
     anchor: null,
     goal: { kind: 'end' },

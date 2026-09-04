@@ -16,6 +16,10 @@ import { cx, shortAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
+import { useCachedPage, writePageCache } from '../lib/pageCache'
+
+// See lib/pageCache.
+const ROOMS_CACHE_KEY = 'rooms'
 
 // Shared with the chat page's sidebar, so an order dragged in either place is
 // the order in both.
@@ -170,8 +174,12 @@ export default function Rooms() {
   const tr = useT()
   const { myCommunities, loading: ctxLoading } = useCommunity()
   const isMobile = useIsMobile()
-  const [rooms, setRooms] = useState(null)
-  const [lastByChannel, setLastByChannel] = useState(new Map())
+  // SECOND AND LATER VISITS DRAW THE ROOMS, NOT A PLACEHOLDER. Both queries
+  // below still run every time; the cache only decides what is on screen while
+  // they do. See lib/pageCache.
+  const cached = useCachedPage(ROOMS_CACHE_KEY)
+  const [rooms, setRooms] = useState(cached?.rooms ?? null)
+  const [lastByChannel, setLastByChannel] = useState(() => new Map(cached?.last ?? []))
 
   const placeIds = useMemo(() => myCommunities.map((c) => c.id), [myCommunities])
 
@@ -217,6 +225,14 @@ export default function Rooms() {
       })
     return () => { alive = false }
   }, [rooms, myCommunities])
+
+  // Remember it for the next visit. A Map does not survive being stored as
+  // itself and read back by another mount's `useState`, so it goes in as
+  // entries and comes back out as a Map. See lib/pageCache.
+  useEffect(() => {
+    if (!rooms) return
+    writePageCache(ROOMS_CACHE_KEY, { rooms, last: [...lastByChannel] })
+  }, [rooms, lastByChannel])
 
   const places = useMemo(() => {
     if (!rooms) return []

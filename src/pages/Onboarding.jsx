@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -467,8 +467,19 @@ export default function Onboarding() {
       <div className="mx-auto max-w-2xl">
         <Progress step={step} barPct={barPct} current={current} />
 
-        <div className="card !p-6 sm:!p-10" key={current.key}>
-          <div className="onb-screen" data-dir={dir}>
+        {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).
+            Ethan: "going from slide to slide, it's like everything seems very
+            juttery - just improve that flow."
+            Two things were juddering and only one of them was the slide. The
+            `key` was on the CARD, so every step tore down and rebuilt the white
+            box itself - border, shadow and all - and the card's HEIGHT then
+            snapped from one step's to the next's in a single frame while the
+            content was still sliding in. A 300px jump under a 320ms slide is
+            the judder. `StepFrame` keeps one card, measures the step inside it
+            and transitions between the two heights on the same curve, so the
+            box grows into the new screen while the new screen arrives. */}
+        <div className="card !p-6 sm:!p-10">
+          <StepFrame stepKey={current.key} dir={dir}>
             <StepHead step={current} pending={pending} />
 
             {current.key === 'welcome' && (
@@ -642,7 +653,7 @@ export default function Onboarding() {
                 )
               )}
             </div>
-          </div>
+          </StepFrame>
         </div>
 
         {step > 0 && step < STEPS.length - 1 && (
@@ -662,6 +673,80 @@ export default function Onboarding() {
 }
 
 // ------------------------------------------------------------------ parts ---
+
+/**
+ * ONE CARD, WHOSE HEIGHT FOLLOWS THE STEP INSIDE IT.
+ *
+ * The slide-in was already there (`.onb-screen`, index.css). What was missing
+ * is that the box around it changed size instantly: welcome is short, the
+ * photos step is tall, and moving between them snapped the card - and every
+ * button under it - by a couple of hundred pixels on the frame the slide
+ * started. That reads as the whole page jumping, which is exactly what Ethan
+ * described.
+ *
+ * A ResizeObserver on the CONTENT keeps `height` on the frame, so the card also
+ * grows smoothly when something inside a step appears (an error line, the
+ * market card, a validation message) rather than only between steps.
+ *
+ * `overflow: hidden` IS ONLY ON WHILE IT MOVES. A frame that clips permanently
+ * would cut off the country picker's dropdown - the same trap the chat action
+ * bar hit with the reaction picker. The clip is needed exactly while the height
+ * is in flight, and no dropdown is open on the frame a step changes.
+ */
+function StepFrame({ stepKey, dir, children }) {
+  const inner = useRef(null)
+  const [height, setHeight] = useState(null)
+  const [moving, setMoving] = useState(false)
+  const timer = useRef(0)
+
+  // MEASURED ON EVERY STEP SYNCHRONOUSLY, AND WATCHED IN BETWEEN.
+  //
+  // The step measure is keyed on `stepKey` and runs inside the commit, so the
+  // new height is written on the same frame the new screen mounts. The observer
+  // on top of it catches anything that changes WITHIN a step - an error line,
+  // the market card appearing, a validation message.
+  //
+  // NOT THE OBSERVER ALONE. ResizeObserver callbacks are delivered as part of
+  // the rendering steps, so they are throttled to a stop in a background tab -
+  // and a frame stuck at the previous step's height, clipping while it moves,
+  // is a worse bug than the one this is fixing. The same "never gate on the
+  // frame loop alone" rule as lib/chatScroll and the walkthrough's geometry.
+  useLayoutEffect(() => {
+    const el = inner.current
+    if (!el) return undefined
+    // `offsetHeight`, not `entry.contentRect.height`: the observer reports the
+    // CONTENT box, and this element is the one being measured for a layout
+    // height. Same rule the tour card learned.
+    const measure = () => setHeight(el.offsetHeight)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [stepKey])
+
+  // Clip only for the length of the move.
+  useEffect(() => {
+    setMoving(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setMoving(false), 420)
+    return () => clearTimeout(timer.current)
+  }, [stepKey])
+
+  return (
+    <div
+      className="onb-frame"
+      data-moving={moving ? 'yes' : 'no'}
+      style={height == null ? undefined : { height }}
+    >
+      <div ref={inner}>
+        <div key={stepKey} className="onb-screen" data-dir={dir}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function browserTimezone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null } catch { return null }
@@ -760,22 +845,19 @@ function Welcome({ name, pending }) {
   const tr = useT()
   return (
     <div className="space-y-5 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-        <Icon name="heart" className="h-8 w-8" />
-      </div>
-      {/* "TEAM", NOT "CREW", AND THE SENTENCE STOPS EARLY (3 Sep 2026).
-          Ethan: "I like the welcome to the crew - I would say welcome to the
-          team rather than crew", and on the paragraph, cut it to "You are
-          joining the Tryp.com Content Creator Community." The clause that
-          followed - a global community of travel creators who make great
-          content, compete in challenges and earn real rewards - is the pitch
-          from the public page, and this person has already read it and already
-          applied. Repeating the sell to somebody who has said yes makes the
-          screen longer without telling them anything. */}
+      {/* NO ICON, AND NO SECOND SENTENCE (4 Sep 2026).
+          Ethan: "at the top there's an icon with a heart and a weird orange
+          background - I would remove it, just have it plain with the text."
+          And on the line under the heading: remove "You are joining the
+          Tryp.com Content Creator Community." A heart in a tinted square is
+          decoration on the one screen whose job is to be got through, and the
+          sentence was the public page's pitch repeated to somebody who has
+          already applied. The three rows below now carry the whole screen:
+          what happens, how long, and who reads it.
+
+          "TEAM", NOT "CREW" (3 Sep 2026). Ethan: "I like the welcome to the
+          crew - I would say welcome to the team rather than crew." */}
       <h1 className="text-3xl font-bold">Welcome to the team{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
-      <p className="mx-auto max-w-md text-smoke">
-        {tr("You are joining the Tryp.com Content Creator Community.")}
-      </p>
       {/* TWO ROWS, AND BOTH OF THEM ARE ABOUT THEM.
           There were four. Ethan on the other two: "about three minutes, nine
           short screens, one thing each - don't like that, doesn't really make
@@ -798,7 +880,15 @@ function Welcome({ name, pending }) {
             Both sub-lines were reassurance about a form nobody has seen yet,
             and the rows read faster without them - which is the point of a
             screen whose job is to get out of the way. */}
+        {/* THREE ROWS, AND THE FIRST ONE SAYS WHAT THIS SCREEN IS FOR (4 Sep
+            2026). Ethan: "rather than just say it only takes a few minutes,
+            maybe have one above it that says let's complete your profile, and
+            then the card next says it only takes a few minutes, and then it
+            says then the team reviews it."
+            It reads as a sequence now - the task, the cost, the outcome -
+            rather than as two facts about a form that has not been named. */}
         {[
+          ['pencil', tr("Let's complete your profile")],
           ['clock', tr('It only takes a few minutes')],
           ['shield', pending ? tr('Then the team reviews it') : tr('Then you are in')],
         ].map(([icon, t]) => (
