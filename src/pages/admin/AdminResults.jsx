@@ -578,7 +578,7 @@ export default function AdminResults() {
                         aria-pressed={claimed}
                         title={
                           waiting
-                            ? `${r.prompt} - claimed, but this entry is on ${formatViews(s.logged_views ?? 0)} and the bonus pays at ${Number(r.min_views).toLocaleString()}. It lands by itself. Press to withdraw the claim.`
+                            ? `${r.prompt} - claimed, but this entry is on ${formatViews(s.logged_views ?? 0)} and the bonus is awarded at ${Number(r.min_views).toLocaleString()}. It lands by itself. Press to withdraw the claim.`
                             : claimed
                               ? `${r.prompt} - the creator said yes. Press to withdraw it.`
                               : `${r.prompt} - not claimed`

@@ -1073,7 +1073,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         return (
                           <span key={ruleId}
                             title={waiting
-                              ? `${r.prompt || r.label} — pays at ${Number(r.min_views).toLocaleString()} views`
+                              ? `${r.prompt || r.label} — awarded at ${Number(r.min_views).toLocaleString()} views`
                               : (r.prompt || r.label)}
                             className={cx(
                               'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold',
@@ -1114,7 +1114,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                               {r.prompt}
                               {r.min_views > 0 && (
                                 <span className="mt-0.5 block text-[10px] font-medium text-smoke">
-                                  {tr("Paid once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                                  {tr("You get this point once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
                                 </span>
                               )}
                             </span>
@@ -1437,7 +1437,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                           once knowing the point arrives later by itself. */}
                       {r.min_views > 0 && (
                         <span className="mt-0.5 block text-[11px] font-medium text-smoke">
-                          {tr("Paid once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                          {tr("You get this point once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
                         </span>
                       )}
                     </span>

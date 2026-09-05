@@ -85,10 +85,15 @@ describe('ProtectedRoute default-deny', () => {
     expect(screen.getByText('SECRET APP')).toBeInTheDocument()
   })
 
-  it('holds a newly approved member at the connect gate, not the app', () => {
+  // THE CONNECT WALL IS RETIRED. It sat in front of the app shell, and TourGate
+  // lives inside that shell - so while it stood, the walkthrough could not be
+  // the first thing a new creator saw, however correct its own logic was. See
+  // the long note in ProtectedRoute. This test now asserts the opposite of what
+  // it used to, on purpose: a newly approved member lands in the app.
+  it('lets a newly approved member straight into the app, where the walkthrough starts', () => {
     authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'active', connect_gate_done: false } }
     renderAt('/home')
-    expect(screen.queryByText('SECRET APP')).toBeNull()
+    expect(screen.getByText('SECRET APP')).toBeInTheDocument()
   })
 
   it('shows the retry screen (not /login) on a transient profile error', () => {

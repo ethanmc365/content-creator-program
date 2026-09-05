@@ -215,12 +215,14 @@ export default function AddToHomePrompt() {
           <Blurb icon="globe">
             {tr('You are in an app\'s built-in browser, which cannot add anything to your home screen. Open Tryp.com in Safari or Chrome and this will take ten seconds.')}
           </Blurb>
-          <ol className="space-y-2.5">
+          <ol>
             {[
               ['dotsVertical', 'Tap the menu in this window'],
               ['exit', 'Choose "Open in browser" or "Open in Safari"'],
               ['addToHome', 'Add Tryp.com to your home screen from there'],
-            ].map(([icon, text], n) => <Step key={text} n={n} icon={icon} text={tr(text)} />)}
+            ].map(([icon, text], n, all) => (
+              <Step key={text} n={n} icon={icon} text={tr(text)} last={n === all.length - 1} />
+            ))}
           </ol>
           <button
             type="button"
@@ -300,10 +302,12 @@ export default function AddToHomePrompt() {
             {[['ios', IOS_STEPS], ['android', ANDROID_STEPS]].map(([key, list]) => (
               <ol
                 key={key}
-                className={cx('col-start-1 row-start-1 space-y-2.5', showing !== key && 'invisible')}
+                className={cx('col-start-1 row-start-1', showing !== key && 'invisible')}
                 aria-hidden={showing !== key}
               >
-                {list.map((st, n) => <Step key={st.text} n={n} icon={st.icon} text={tr(st.text)} />)}
+                {list.map((st, n) => (
+                  <Step key={st.text} n={n} icon={st.icon} text={tr(st.text)} last={n === list.length - 1} />
+                ))}
               </ol>
             ))}
           </div>
@@ -348,17 +352,36 @@ function Blurb({ icon, children }) {
 }
 
 // One numbered step, with the glyph the button it names actually wears.
-function Step({ n, icon, text }) {
+// ONE STEP, AND EVERY STEP IS THE SAME HEIGHT (4 Sep 2026).
+//
+// Ethan: "the UI was weird, especially for the Android one, because some
+// numbers were closer together than the others."
+//
+// Exactly right, and it was not a spacing value. The rows were `items-start`
+// with a flat `space-y` between them, so the pitch of the numbered discs was
+// decided by how many lines each step's sentence happened to wrap to: Android's
+// step 2 was four words and one line, steps 1 and 3 wrapped to two. A numbered
+// ladder whose rungs are unevenly spaced reads as broken layout, because the
+// numbers are the one thing on the card the eye tracks down.
+//
+// So the row has a MINIMUM HEIGHT and its contents are centred in it. Every
+// disc is then the same distance from the next whatever the sentence does, one-
+// and two-line steps included - and it survives translation, which a hand-tuned
+// set of sentence lengths would not.
+//
+// The rail behind the discs is what makes it read as a sequence rather than a
+// list of tips: a hairline from the first disc to the last, drawn behind them.
+function Step({ n, icon, text, last }) {
   return (
-    <li className="flex items-start gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">
+    <li className="relative flex min-h-[3.25rem] items-center gap-3">
+      {/* The rail. Behind the disc (z-order by source), stopping at the last
+          one so the sequence has a visible end. */}
+      {!last && <span aria-hidden className="absolute left-[0.9375rem] top-1/2 h-full w-px bg-brand/15" />}
+      <span className="relative z-10 flex h-[1.875rem] w-[1.875rem] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white ring-4 ring-white">
         {n + 1}
       </span>
-      {/* `items-start` and a nudge, not `items-center`. Two of these wrap to a
-          second line at 375px, and a centred glyph then floats in the middle of
-          the block instead of sitting against the sentence it belongs to. */}
-      <span className="flex min-w-0 flex-1 items-start gap-2 pt-0.5 text-sm leading-relaxed text-ink">
-        <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+      <span className="flex min-w-0 flex-1 items-center gap-2.5 text-sm leading-snug text-ink">
+        <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
         <span className="min-w-0">{text}</span>
       </span>
     </li>

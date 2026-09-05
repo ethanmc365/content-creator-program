@@ -60,7 +60,7 @@ const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || 
 // between deleting one number and typing the next. So the text is local, the
 // NUMBER goes up on every change, and the prop only overwrites the text when it
 // says something different from what is already in the box.
-function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel, dark = false }) {
+function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel, dark = false, placeholder }) {
   const [text, setText] = useState(value == null ? '' : String(value))
   useEffect(() => {
     const mine = text === '' ? null : Number(text)
@@ -80,10 +80,11 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
         onChange(clean === '' ? null : Number(clean))
       }}
       aria-label={ariaLabel}
+      placeholder={placeholder}
       className={cx(
         'border-0 bg-transparent p-0 text-center text-sm outline-none focus:ring-0',
         width,
-        dark ? 'font-bold text-white placeholder:text-white/50' : 'font-medium tabular-nums',
+        dark ? 'font-bold text-white placeholder:text-white/50' : 'font-medium tabular-nums placeholder:font-normal placeholder:text-gray-300',
       )}
     />
   )
@@ -217,7 +218,7 @@ function Row({ rule, onChange, onRemove }) {
               : 'border-gray-200 bg-white text-smoke',
           )}>
             {rule.prompt?.trim()
-              ? (rule.min_views > 0 ? tr('Claimed, pays at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('Creator claims it'))
+              ? (rule.min_views > 0 ? tr('Claimed, awarded at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('Creator claims it'))
               : tr('You award it')}
           </span>
         )}
@@ -281,16 +282,35 @@ function Row({ rule, onChange, onRemove }) {
         by judgement from the results page - gating a human's decision on a view
         count would just stop them being able to make it. */}
     {rule.kind === 'bonus' && rule.prompt?.trim() && (
-      <label className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-medium text-smoke">{tr("Only pay it once the video passes")}</span>
-        <NumberBox
-          value={rule.min_views ?? null}
-          onChange={(v) => onChange({ ...rule, min_views: v })}
-          width="w-24"
-          ariaLabel="Views the entry must reach before this bonus pays"
-        />
-        <span className="text-[11px] text-smoke">
-          {tr("views")} <span className="font-normal">({tr("leave blank to pay as soon as it is claimed")})</span>
+      /* THE BOX WAS INVISIBLE, AND THE WORDS WERE ABOUT MONEY (4 Sep 2026).
+
+         Ethan: "the actual box to enter the views here doesn't seem to show,
+         should be a clean UI box to enter in the views" - and on the sentence,
+         it should read "Only award the point once the video passes [box] views
+         (leave blank and they'll get the point immediately)".
+
+         Both were real. `NumberBox` is deliberately chrome-less - `border-0
+         bg-transparent p-0` - because every other use of it sits INSIDE a
+         bordered pill that provides the box. This one was dropped naked onto a
+         white card with no border, no background and no placeholder, so there
+         was nothing on screen to tell anybody it was a field at all.
+
+         And "pay" is the wrong verb: a bonus awards POINTS, not money, and on a
+         points challenge the prize is decided by the leaderboard at the end. */
+      <label className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="text-[11px] font-medium text-smoke">{tr("Only award the point once the video passes")}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
+          <NumberBox
+            value={rule.min_views ?? null}
+            onChange={(v) => onChange({ ...rule, min_views: v })}
+            width="w-16"
+            placeholder="1,000"
+            ariaLabel="Views the entry must reach before this bonus is awarded"
+          />
+          <span className="shrink-0 text-xs text-smoke">{tr("views")}</span>
+        </span>
+        <span className="text-[11px] font-normal text-smoke">
+          ({tr("leave blank and they'll get the point immediately")})
         </span>
       </label>
     )}

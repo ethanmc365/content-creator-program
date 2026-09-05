@@ -1603,47 +1603,62 @@ export default function Messages() {
                A press starts the thread. */
             <div className="flex h-full flex-col justify-center overflow-y-auto p-8">
               <div className="mx-auto w-full max-w-lg">
+                {/* NO EXPLANATORY LINE (4 Sep 2026). Ethan asked for "Nobody
+                    here has met everybody. Pick a name and it opens a chat with
+                    them." to go, and he is right: the heading says what to do
+                    and the cards say who with, so a sentence between them is
+                    one more thing to read before the screen makes sense. */}
                 <p className="text-center text-lg font-semibold">
                   {tr('Say hello to someone')}
                 </p>
-                <p className="mx-auto mt-1.5 max-w-sm text-center text-sm leading-relaxed text-smoke">
-                  {discoverPeople.length > 0
-                    ? tr('Nobody here has met everybody. Pick a name and it opens a chat with them.')
-                    : tr('Open a conversation from the list, or find somebody new in the directory.')}
-                </p>
 
-                {discoverPeople.length > 0 && (
-                  <div className="mt-6 overflow-hidden rounded-card border border-gray-100">
-                    <p className="border-b border-gray-100 bg-cloud/50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                      {tr('People you have not met yet')}
-                    </p>
-                    <div className="grid sm:grid-cols-2">
-                      {discoverPeople.map((p) => {
-                        const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => startConversation(p.id)}
-                            disabled={starting === p.id}
-                            className="flex items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-cloud disabled:opacity-60 sm:[&:nth-last-child(2):nth-child(odd)]:border-b-0"
-                          >
-                            <Avatar src={p.photo_url} name={p.name} size="sm" />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold">{p.name}</p>
-                              <p className="truncate text-xs text-smoke">
-                                {isNew ? tr('New here') : ([p.city, p.country].filter(Boolean).join(', ') || p.bio || tr('In the community'))}
-                              </p>
-                            </div>
-                            {starting === p.id && <Spinner className="h-4 w-4" />}
-                          </button>
-                        )
-                      })}
-                    </div>
+                {discoverPeople.length > 0 ? (
+                  /* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
+                     columns of full-width rows inside one boxed card, which put
+                     a hairline grid across the middle of the largest empty
+                     space in the product - the same "weird lines" problem the
+                     wrapped pills had before it. These are separate tiles with
+                     air between them: a bigger face, the name, one line of
+                     context, and a lift on hover so they read as pressable. */
+                  <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                    {discoverPeople.map((p) => {
+                      const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
+                      const where = [p.city, p.country].filter(Boolean).join(', ')
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => startConversation(p.id)}
+                          disabled={starting === p.id}
+                          className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-3.5 py-3 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-60"
+                        >
+                          <Avatar src={p.photo_url} name={p.name} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{p.name}</p>
+                            <p className="truncate text-xs text-smoke">{where || p.bio || tr('In the community')}</p>
+                          </div>
+                          {starting === p.id ? (
+                            <Spinner className="h-4 w-4 shrink-0" />
+                          ) : isNew ? (
+                            /* The one fact worth a badge. Everything else about
+                               a stranger is on their profile, one press away. */
+                            <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                              {tr('New')}
+                            </span>
+                          ) : (
+                            <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
+                ) : (
+                  <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-smoke">
+                    {tr('Open a conversation from the list, or find somebody new in the directory.')}
+                  </p>
                 )}
 
-                <Link to="/creators" className="mt-4 block text-center text-xs font-semibold text-brand hover:underline">
+                <Link to="/creators" className="mt-5 block text-center text-xs font-semibold text-brand hover:underline">
                   {tr('Browse all creators')}
                 </Link>
               </div>
