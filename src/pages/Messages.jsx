@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } fr
 import PendingLabel from '../components/PendingLabel'
 import { confirm, notice } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
@@ -476,6 +476,31 @@ export default function Messages() {
     navigate(`/messages/${id}`)
   }
 
+  // ---------- `/messages?to=<creator>` ----------
+  //
+  // "MESSAGE THIS PERSON" HAD NO LANDING PLACE (7 Sep 2026).
+  //
+  // Connections has linked to `/messages?to=${id}` for weeks and this page has
+  // never read the parameter, so the link opened the inbox and did nothing
+  // else - which looks exactly like a chat that failed to open. The new Get
+  // help section needs the same door (press a name, land in a thread with
+  // them), so rather than a second mechanism this is the one, read here.
+  //
+  // CONSUMED ONCE. A deep-link effect that can run twice reopens itself on
+  // every re-render of the page it navigated to; `deepLinkedRef` is the same
+  // guard the challenge page's `?submit=1` uses.
+  const [searchParams] = useSearchParams()
+  const toParam = searchParams.get('to')
+  const deepLinkedRef = useRef(false)
+  useEffect(() => {
+    if (!toParam || deepLinkedRef.current || conversationId) return
+    deepLinkedRef.current = true
+    startConversation(toParam)
+    // `startConversation` is redefined on every render and is not a dependency
+    // worth chasing - the ref is what makes this run once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toParam, conversationId])
+
   // Restore any half-written draft when the open conversation changes, so a
   // message you started isn't lost when you flick away to check something.
   useEffect(() => {
@@ -650,9 +675,49 @@ export default function Messages() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_reactions' }, (payload) => {
         setReactions((prev) => prev.filter((r) => r.id !== payload.old.id))
       })
+      // THE INBOX IS LIVE TOO, NOT JUST THE THREAD (7 Sep 2026).
+      //
+      // Ethan: "I deleted the group test DM but it's showing up again on
+      // desktop even though I deleted it on my phone. Everything should be
+      // synced and connected - if I delete something there, it should update
+      // here too."
+      //
+      // This channel has always carried messages and reactions and never the
+      // LIST, so a conversation that ended - deleted, or left - stayed on every
+      // other open window until that window was reloaded. Two devices open at
+      // once is the normal way this product is used (a phone in the hand and a
+      // laptop on the desk), so "the other one is out of date" is not an edge
+      // case, it is most of the time.
+      //
+      // A DELETE payload carries only the primary key, which is exactly enough:
+      // whatever left, drop it here and, if it was the thread on screen, step
+      // back to the inbox rather than sitting in a conversation that no longer
+      // exists. An INSERT or an UPDATE needs the joins `loadConversations` does,
+      // so that one refetches.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'conversations' }, (payload) => {
+        const gone = payload.old?.id
+        if (!gone) return
+        setConversations((prev) => prev.filter((c) => c.id !== gone))
+        if (gone === conversationId) navigate('/messages', { replace: true })
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, () => {
+        loadConversations()
+      })
+      // Being removed from - or leaving - a group on another device. The row
+      // carries both halves of its key, so this only fires the reload for the
+      // membership that is actually mine.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'conversation_members' }, (payload) => {
+        if (payload.old?.profile_id !== user.id) { loadConversations(); return }
+        const gone = payload.old?.conversation_id
+        setConversations((prev) => prev.filter((c) => c.id !== gone))
+        if (gone === conversationId) navigate('/messages', { replace: true })
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_members' }, () => {
+        loadConversations()
+      })
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [user.id, conversationId, loadConversations])
+  }, [user.id, conversationId, loadConversations, navigate])
 
   // ---------- Typing indicator (realtime broadcast, no DB writes) ----------
   // In a 1:1 there is only one person who could be typing, so this was a
@@ -808,18 +873,49 @@ export default function Messages() {
     // be a genuinely destructive accident, and RLS refuses it anyway unless you
     // own the group - so the gesture means "leave" here, and deleting for
     // everyone lives behind a named button in the settings panel.
+    // A WRITE THAT IS NOT CHECKED IS A ROW THAT COMES BACK (7 Sep 2026).
+    //
+    // Ethan: "I deleted the group test DM, but it's showing up again on desktop
+    // even though I deleted it on my phone. Everything should be synced - if I
+    // delete something there, it should update here too."
+    //
+    // Both halves of that were broken and they are different bugs.
+    //
+    //   THE ROW.  Leaving a group deleted the membership and nothing else, and
+    //             the conversation read policy lets a group's CREATOR read it
+    //             whether or not they are a member - it has to, or a group
+    //             cannot be created. So the one person most likely to be
+    //             testing groups was the one person who could never leave one.
+    //             `leave_conversation` (migration 195) is the whole leave.
+    //   THE OTHER DEVICE.  Nothing told it. The inbox subscribes to messages,
+    //             not to the conversation list, so a second window found out on
+    //             its next cold load. See the realtime effect below.
+    //
+    // And the result of both writes is now READ. `supabase-js` resolves on a
+    // rejected write, so `await ...delete()` with nothing looking at the result
+    // is indistinguishable from success: the row stays on the server, the list
+    // has already dropped it, and it reappears on the next load looking like a
+    // sync problem. It was not a sync problem. It was a silent refusal.
+    const restore = () => {
+      setConversations((prev) => (prev.some((x) => x.id === c.id)
+        ? prev
+        : [...prev, c].sort((a, b) => new Date(b.last_message_at ?? 0) - new Date(a.last_message_at ?? 0))))
+    }
     if (c.kind === 'group') {
       const name = groupName(c, c.members, user.id)
       if (!await confirm(`Leave ${name}? The conversation carries on without you.`)) return
       setConversations((prev) => prev.filter((x) => x.id !== c.id))
       if (c.id === conversationId) navigate('/messages')
-      await leaveGroup(c.id, user.id)
+      const { error } = await leaveGroup(c.id)
+      if (error) { restore(); notice(`That group could not be left: ${error}`); return }
+      loadConversations()
       return
     }
     if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This deletes the entire conversation and removes the chat.`)) return
     setConversations((prev) => prev.filter((x) => x.id !== c.id))
     if (c.id === conversationId) navigate('/messages')
-    await supabase.from('conversations').delete().eq('id', c.id)
+    const { error } = await supabase.rpc('leave_conversation', { p_conversation: c.id })
+    if (error) { restore(); notice(`That conversation could not be deleted: ${error.message}`) }
   }
 
   // ---------- Group invites ----------
@@ -1176,7 +1272,6 @@ export default function Messages() {
   // Nobody in the inbox yet: nudge them towards their own connections, or, if
   // they haven't connected with anyone, towards creators who are active here.
   const myConnections = people.filter((p) => connectionIds.has(p.id))
-  const emptyStatePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin)).slice(0, 6)
 
   // WHO THE BIG EMPTY PANE OFFERS, AND WHY IT IS NOT THE RAIL'S LIST.
   //
@@ -1194,18 +1289,38 @@ export default function Messages() {
   //
   // Ordered by `last_seen_at` already (see the query), so the top of it is
   // whoever has been around most recently.
+  // SIX, AND THE HEADING SAYS WHICH LIST THIS IS (7 Sep 2026).
+  //
+  // Ethan: "I would capitalise it. Also I would show six creators here rather
+  // than just two. Maybe say 'connect with someone new' rather than 'say hello
+  // to someone', and then show new people they haven't connected with. If
+  // they've connected with everyone, you can have it say 'say hello to
+  // someone', so obviously they're sending a hello to someone they already
+  // have."
+  //
+  // That last sentence is the whole design and it is a better one than what was
+  // here: the pane already picked strangers first and quietly fell back to
+  // people you know, and it said the SAME WORDS either way. So on the fallback
+  // it was inviting you to "connect with" people you are already connected to.
+  // The list and the heading are one decision now, made in one place and
+  // returned together, so they cannot disagree.
+  //
+  // Six is what the grid was always sliced to; it looked like two because two
+  // is what `sm:grid-cols-2` puts on a ROW. The cards are smaller and the grid
+  // goes to three across on a wide screen, so six of them read as six.
   const NEW_HERE_DAYS = 21
   const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
-  const discoverPeople = useMemo(() => {
+  const discover = useMemo(() => {
     const strangers = people.filter((p) => !p.is_admin && !connectionIds.has(p.id) && !talkingTo.has(p.id))
-    // A community where you already know everybody still gets a pane that does
-    // something: fall back to connections you have not messaged, then to
-    // anybody at all. An empty grid would be worse than the sentence it
-    // replaced.
-    const fallback = people.filter((p) => !p.is_admin && !talkingTo.has(p.id))
-    return (strangers.length ? strangers : fallback).slice(0, 6)
+    if (strangers.length) return { mode: 'new', people: strangers.slice(0, 6) }
+    // You have met everybody there is to meet. The pane still does something -
+    // an empty grid would be worse than the sentence it replaced - but it stops
+    // calling these people new.
+    const known = people.filter((p) => !p.is_admin && !talkingTo.has(p.id))
+    return { mode: 'known', people: known.slice(0, 6) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people, connectionIds, conversations])
+  const discoverPeople = discover.people
 
   // One row in the inbox for someone you haven't messaged yet.
   const personRow = (p, hint) => (
@@ -1359,13 +1474,20 @@ export default function Messages() {
                   </p>
                 </div>
 
-                {emptyStatePeople.length > 0 && (
+                {/* THE SAME SIX PEOPLE THE BIG PANE OFFERS, AND THE SAME
+                    HEADING RULE (7 Sep 2026). This list used to be
+                    `emptyStatePeople` - your own connections - which meant a
+                    phone, where the big pane never renders, offered a different
+                    answer to the same question from the one a laptop gave. Two
+                    lists is how the two screens drift; `discover` is the one
+                    definition of "who should I talk to". */}
+                {discoverPeople.length > 0 && (
                   <div className="mt-4">
                     <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                      {myConnections.length > 0 ? 'Your connections' : 'Suggestions'}
+                      {discover.mode === 'new' ? tr('Connect with someone new') : tr('Say hello to someone')}
                     </p>
                     <div className="space-y-0.5">
-                      {emptyStatePeople.map((p) => personRow(p, 'Send a hello'))}
+                      {discoverPeople.map((p) => personRow(p, discover.mode === 'new' ? 'Not connected yet' : 'Send a hello'))}
                     </div>
                   </div>
                 )}
@@ -1546,9 +1668,8 @@ export default function Messages() {
             // online first - because "who is around right now" is the question
             // that actually starts a conversation.
             //
-            // It reuses `emptyStatePeople`, which the inbox's own empty state
-            // already builds (your connections, or active creators if you have
-            // none), so there is one definition of "who should I talk to" and
+            // It reuses `discover`, which the inbox's own empty state also
+            // reads, so there is one definition of "who should I talk to" and
             // no second query.
             // AND IT IS A PANEL NOW, NOT A DRIFT OF CENTRED THINGS
             // (2 Sep 2026). Ethan: "when you click on the DMs, the open
@@ -1602,56 +1723,92 @@ export default function Messages() {
                connections, so the screen no longer says the same thing twice.
                A press starts the thread. */
             <div className="flex h-full flex-col justify-center overflow-y-auto p-8">
-              <div className="mx-auto w-full max-w-lg">
-                {/* NO EXPLANATORY LINE (4 Sep 2026). Ethan asked for "Nobody
-                    here has met everybody. Pick a name and it opens a chat with
-                    them." to go, and he is right: the heading says what to do
-                    and the cards say who with, so a sentence between them is
-                    one more thing to read before the screen makes sense. */}
-                <p className="text-center text-lg font-semibold">
-                  {tr('Say hello to someone')}
+              <div className="mx-auto w-full max-w-3xl">
+                {/* THE HEADING IS TITLE CASE AND IT NAMES THE LIST UNDER IT
+                    (7 Sep 2026). Ethan: "I would capitalise it... maybe say
+                    'connect with someone new' rather than 'say hello to
+                    someone', and show new people they haven't connected with.
+                    If they've connected with everyone, you can have this say
+                    'say hello to someone'."
+
+                    Both sentences are here because they are two different
+                    screens, and which one you get is decided by the same memo
+                    that picks the faces (`discover`). A heading that is a
+                    constant over a list that is not is how the pane came to
+                    invite somebody to "connect with" people they were already
+                    connected to.
+
+                    NO EXPLANATORY LINE, still (4 Sep 2026): the heading says
+                    what to do and the cards say who with. The sub-line here is
+                    the one thing neither of them can say - WHY these six. */}
+                <p className="text-center text-xl font-bold tracking-tight sm:text-2xl">
+                  {discover.mode === 'new' ? tr('Connect With Someone New') : tr('Say Hello to Someone')}
                 </p>
 
                 {discoverPeople.length > 0 ? (
-                  /* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
-                     columns of full-width rows inside one boxed card, which put
-                     a hairline grid across the middle of the largest empty
-                     space in the product - the same "weird lines" problem the
-                     wrapped pills had before it. These are separate tiles with
-                     air between them: a bigger face, the name, one line of
-                     context, and a lift on hover so they read as pressable. */
-                  <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
-                    {discoverPeople.map((p) => {
-                      const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
-                      const where = [p.city, p.country].filter(Boolean).join(', ')
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => startConversation(p.id)}
-                          disabled={starting === p.id}
-                          className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-3.5 py-3 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-60"
-                        >
-                          <Avatar src={p.photo_url} name={p.name} size="md" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">{p.name}</p>
-                            <p className="truncate text-xs text-smoke">{where || p.bio || tr('In the community')}</p>
-                          </div>
-                          {starting === p.id ? (
-                            <Spinner className="h-4 w-4 shrink-0" />
-                          ) : isNew ? (
-                            /* The one fact worth a badge. Everything else about
-                               a stranger is on their profile, one press away. */
-                            <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                              {tr('New')}
+                  <>
+                    <p className="mx-auto mt-1.5 max-w-sm text-center text-sm text-smoke">
+                      {discover.mode === 'new'
+                        ? tr('Creators you have not met yet. One press opens the chat.')
+                        : tr('You have met everybody here. Pick someone up where you left off.')}
+                    </p>
+                    {/* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
+                        columns of full-width rows inside one boxed card, which
+                        put a hairline grid across the middle of the largest
+                        empty space in the product - the same "weird lines"
+                        problem the wrapped pills had before it.
+
+                        THE FACE LEADS AND THE CARD IS A TILE (7 Sep 2026).
+                        Ethan: "improve the UI of this." Six rows of avatar +
+                        name in two columns is an address book; what this pane
+                        is for is recognising a face and pressing it. So the
+                        photo is the top of the card at 56px, the name sits
+                        under it, and three go across on a wide pane - which is
+                        also what makes six of them read as six rather than as
+                        "two creators", which is what a two-column grid of six
+                        looks like at a glance. */}
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {discoverPeople.map((p, i) => {
+                        const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
+                        const where = [p.city, p.country].filter(Boolean).join(', ')
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => startConversation(p.id)}
+                            disabled={starting === p.id}
+                            /* They arrive one after another rather than all at
+                               once. `animate-fade-up` is the same CSS entrance
+                               the auth card and the hero use, so this is the
+                               product's own movement and not a new one - and it
+                               is CSS because this pane is inside an eagerly
+                               routed page. */
+                            className="group animate-fade-up relative flex flex-col items-center gap-2 overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/30 hover:shadow-lift disabled:opacity-60"
+                            style={{ animationDelay: `${0.05 + i * 0.05}s` }}
+                          >
+                            {isNew && (
+                              /* The one fact worth a badge. Everything else
+                                 about a stranger is on their profile, one press
+                                 away. */
+                              <span className="absolute right-2 top-2 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                                {tr('New')}
+                              </span>
+                            )}
+                            <Avatar src={p.photo_url} name={p.name} size="lg" />
+                            <span className="min-w-0 max-w-full">
+                              <span className="block truncate text-sm font-semibold">{p.name}</span>
+                              <span className="block truncate text-xs text-smoke">{where || p.bio || tr('In the community')}</span>
                             </span>
-                          ) : (
-                            <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
+                            <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1 text-[11px] font-semibold text-smoke transition-colors duration-200 group-hover:bg-brand group-hover:text-white">
+                              {starting === p.id
+                                ? <Spinner className="h-3 w-3" />
+                                : <><Icon name="envelope" className="h-3 w-3" />{tr('Message')}</>}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
                 ) : (
                   <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-smoke">
                     {tr('Open a conversation from the list, or find somebody new in the directory.')}
@@ -1950,7 +2107,12 @@ export default function Messages() {
                         <div
                           data-msg-bubble
                           className={cx(
-                          'w-fit max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
+                          // A BUBBLE BEING EDITED TAKES THE WHOLE COLUMN. It is
+                          // `w-fit`, so while the editor is inside it the width
+                          // would otherwise be decided by the editor's own
+                          // min-width - see components/MessageEditor.
+                          editingId === m.id ? 'w-full' : 'w-fit',
+                          'max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                           mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>

@@ -98,10 +98,24 @@ export async function updateGroup(conversationId, patch) {
   return { error: error?.message ?? null }
 }
 
-export async function leaveGroup(conversationId, myId) {
-  const { error } = await supabase
-    .from('conversation_members').delete()
-    .eq('conversation_id', conversationId).eq('profile_id', myId)
+// LEAVING IS ONE SERVER CALL, NOT A DELETE FROM THE MEMBERSHIP TABLE.
+//
+// Deleting your own `conversation_members` row is most of leaving and it is not
+// all of it, and the missing part is why a group came back (migration 195): the
+// conversation read policy lets its CREATOR read it whether or not they are
+// still a member, because a group cannot be created without that clause. So the
+// owner of a group could leave it and go on seeing it in their inbox for ever,
+// on every device, with nothing wrong on either one.
+//
+// `leave_conversation` hands the group on to the longest-standing member when
+// the owner leaves, deletes it when the last member leaves, and deletes a
+// one-to-one outright. Three outcomes, one transaction, no half-left state.
+//
+// `myId` is no longer read - the server takes the leaver from the JWT, which is
+// the only version of that fact worth trusting - but it stays in the signature
+// so the two call sites do not have to change shape.
+export async function leaveGroup(conversationId) {
+  const { error } = await supabase.rpc('leave_conversation', { p_conversation: conversationId })
   return { error: error?.message ?? null }
 }
 
@@ -113,7 +127,10 @@ export async function removeMember(conversationId, profileId) {
 }
 
 /** Deleting the group ends it for everybody, so it is the owner's button only
- *  (enforced in RLS as well - this is the affordance, not the guard). */
+ *  (enforced in RLS as well - this is the affordance, not the guard).
+ *  The error is RETURNED and every caller reports it: a refused delete that
+ *  resolves looks exactly like a successful one from the client, which is how
+ *  a row survives a UI that has already removed it. */
 export async function deleteGroup(conversationId) {
   const { error } = await supabase.from('conversations').delete().eq('id', conversationId)
   return { error: error?.message ?? null }

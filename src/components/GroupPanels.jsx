@@ -472,8 +472,11 @@ export function GroupSettingsModal({
   async function leave() {
     // Leaving is not deleting, and the difference matters enough to say out
     // loud: the group carries on without you.
+    // AND IF YOU STARTED IT, LEAVING HANDS IT ON. The longest-standing member
+    // becomes the owner (migration 195); if you were the last one in it, the
+    // group is deleted rather than left behind with nobody in it.
     if (!await confirm('Leave this group? The conversation carries on without you.')) return
-    const { error } = await leaveGroup(conversation.id, myId)
+    const { error } = await leaveGroup(conversation.id)
     if (error) { notice(error); return }
     onLeft?.()
   }
