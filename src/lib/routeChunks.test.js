@@ -64,8 +64,16 @@ describe('shapeForPath', () => {
   })
 
   it('draws rows for the pages that are lists of people', () => {
-    for (const p of ['/creators', '/connections', '/leaderboard', '/admin/applications', '/admin/creators']) {
+    for (const p of ['/leaderboard', '/admin/applications', '/admin/creators']) {
       expect(shapeForPath(p), p).toBe('list')
+    }
+  })
+
+  // The two creator-facing people pages are NOT lists: both lead with a map and
+  // lay their people out as two-across cards. See components/PageSkeleton.
+  it('draws the directory for the two pages that lead with a map of people', () => {
+    for (const p of ['/creators', '/connections', '/creators?country=PT']) {
+      expect(shapeForPath(p), p).toBe('directory')
     }
   })
 

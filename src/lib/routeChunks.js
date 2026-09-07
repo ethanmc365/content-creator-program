@@ -162,7 +162,11 @@ export function prefetchForPath(pathname) {
 // a route whose code has not arrived yet.
 const SHAPES = [
   [/^\/(rooms|messages)\b|\/chat(\/|$)/, 'thread'],
-  [/^\/(creators|connections|leaderboard|admin\/creators|admin\/applications|admin\/team|admin\/audit|admin\/reports|admin\/referrals)/, 'list'],
+  // The directory and the connections page lead with a MAP and lay their
+  // people out as two-across cards; the admin lists and the leaderboard really
+  // are rows. They were all on 'list'. See components/PageSkeleton.
+  [/^\/(creators|connections)/, 'directory'],
+  [/^\/(leaderboard|admin\/creators|admin\/applications|admin\/team|admin\/audit|admin\/reports|admin\/referrals)/, 'list'],
   [/^\/(global|c\/[^/]+)$/, 'hub'],
   [/^\/profile\//, 'profile'],
   [/^\/(collab|flights|board)$/, 'map'],
