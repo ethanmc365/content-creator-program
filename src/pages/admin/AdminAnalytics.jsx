@@ -179,8 +179,33 @@ export default function AdminAnalytics() {
   // a plain sum over rows in whatever currency each one happens to carry.
   const currency = params.get('ccy') === 'GBP' ? 'GBP' : 'EUR'
 
+  // THE SCOPE IS RESOLVED BEFORE ANYTHING IS COMPUTED FROM IT (7 Sep 2026).
+  //
+  // Ethan: "on the analytics page for the overview we should also have the
+  // countries below it, so I can get an overview of each market. For example in
+  // Growth we have Worldwide, Germany, Nordics, Portugal - that's good. We
+  // should have that same tab and structure on Overview. Same for Challenge
+  // performance, Community health, Connections."
+  //
+  // Growth and Per creator already read `scoped`; the Overview read `raw`, so
+  // the picker existed two tabs away from the eight headline numbers everybody
+  // looks at first. This block used to sit two hundred lines further down -
+  // below `derived` - which is exactly why the overview could not use it.
+  const markets = (raw?.marketRows || []).filter((m) => m.kind !== 'network' && !m.retired_at)
+  const marketName = markets.find((m) => m.id === market)?.name || null
+  const scopeLabel = marketName || 'Worldwide'
+  // Scoped copy of everything. `scopeToMarket` returns the ORIGINAL object when
+  // there is no market, so the global case costs nothing.
+  const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
+
+
   const derived = useMemo(() => {
-    if (!raw) return null
+    if (!scoped) return null
+    // Everything below reads `raw`, and now `raw` IS the scoped copy. Shadowing
+    // rather than renaming two hundred references: `scopeToMarket` returns the
+    // ORIGINAL object when no market is chosen, so the worldwide case is
+    // byte-identical to what this always did.
+    const raw = scoped
     // EVERY AMOUNT COMES THROUGH HERE.
     //
     // THE BUG THIS FIXES: the overview's money tiles were raw `reduce`s over
@@ -392,7 +417,7 @@ export default function AdminAnalytics() {
         avgViewsPerEntry,
       },
     }
-  }, [raw, currency])
+  }, [scoped, currency])
 
   // The three tabs answer three different questions, and each is a page's worth
   // of material on its own: what is happening, what the money bought, and
@@ -429,13 +454,6 @@ export default function AdminAnalytics() {
     if (next) q.market = next; else delete q.market
     setParams(q, { replace: true })
   }
-
-  const markets = (raw?.marketRows || []).filter((m) => m.kind !== 'network' && !m.retired_at)
-  const marketName = markets.find((m) => m.id === market)?.name || null
-  const scopeLabel = marketName || 'Worldwide'
-  // Scoped copy of everything. `scopeToMarket` returns the ORIGINAL object when
-  // there is no market, so the global case costs nothing.
-  const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
 
   const marketPicker = (
     <MarketScope
@@ -529,25 +547,28 @@ export default function AdminAnalytics() {
         <PageHeader
           back="/admin" title="Analytics" subtitle="What the programme costs and what it returns." />
         {tabBar}
-        <ProgrammePerformance />
+        {marketPicker}
+        <ProgrammePerformance market={marketName} />
       </div>
     )
   }
   if (tab === 'community') {
     return (
       <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle="Who is here, who takes part, and who we can reach." />
+        <PageHeader back="/admin" title="Analytics" subtitle={`Who is here, who takes part, and who we can reach in ${scopeLabel}.`} />
         {tabBar}
-        <CommunityHealth />
+        {marketPicker}
+        <CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
       </div>
     )
   }
   if (tab === 'network') {
     return (
       <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle="Who is connecting with whom, and who holds the community together." />
+        <PageHeader back="/admin" title="Analytics" subtitle={`Who is connecting with whom in ${scopeLabel}, and who holds the community together.`} />
         {tabBar}
-        <AdminNetwork />
+        {marketPicker}
+        <AdminNetwork market={market} memberRows={raw?.memberRows || []} />
       </div>
     )
   }
@@ -566,6 +587,7 @@ export default function AdminAnalytics() {
     <div className="page">
       <PageHeader back="/admin" title="Analytics" subtitle="The programme's pulse: growth, output, reach and spend." />
       {tabBar}
+      {marketPicker}
       {/* THE OVERVIEW SHOWS FOUR MONEY FIGURES AND HAD NO WAY TO CHANGE THE
           CURRENCY (3 Sep 2026). Cash prizes paid, voucher value, cash CPM and
           total CPM all read `currency` and convert correctly - the control was

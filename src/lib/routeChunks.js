@@ -61,6 +61,7 @@ export const chunk = {
   AdminPanel: () => import('../pages/admin/AdminPanel'),
   AdminCreators: () => import('../pages/admin/AdminCreators'),
   AdminChallengeForm: () => import('../pages/admin/AdminChallengeForm'),
+  AdminChallengeHistory: () => import('../pages/admin/AdminChallengeHistory'),
   AdminResults: () => import('../pages/admin/AdminResults'),
   AdminRewards: () => import('../pages/admin/AdminRewards'),
   AdminAnalytics: () => import('../pages/admin/AdminAnalytics'),
@@ -107,6 +108,9 @@ const ROUTES = [
   [/^\/admin\/creators/, 'AdminCreators'],
   [/^\/admin\/connections/, 'AdminConnections'],
   [/^\/admin\/challenges\/[^/]+\/results/, 'AdminResults'],
+  // More specific first: `/admin/challenges/history` is its own page and
+  // `/^\/admin\/challenges/` would otherwise swallow it.
+  [/^\/admin\/challenges\/history/, 'AdminChallengeHistory'],
   [/^\/admin\/challenges/, 'AdminChallengeForm'],
   [/^\/admin\/rewards/, 'AdminRewards'],
   [/^\/admin\/analytics\/[^/]+/, 'AdminChallengeAnalytics'],

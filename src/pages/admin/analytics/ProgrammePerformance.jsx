@@ -52,7 +52,11 @@ function money(n, currency, dp) {
 const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximumFractionDigits: dp }))
 
 
-export default function ProgrammePerformance() {
+// `market` is the market NAME from the page's shared scope picker, or null for
+// worldwide. It used to have its own dropdown, which meant this tab remembered
+// a different market from the one every other tab was showing - see the note on
+// the picker in AdminAnalytics. One control, at the top, for all six tabs.
+export default function ProgrammePerformance({ market: scopeMarket = null }) {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   // EUR IS THE DEFAULT. Five of the six open markets price in euro, and the
@@ -62,6 +66,9 @@ export default function ProgrammePerformance() {
   const [rates, setRates] = useState(FALLBACK_RATES)
   const [liveRates, setLiveRates] = useState(false)
   const [marketFilter, setMarketFilter] = useState('all')
+  // The page-level scope wins; the local dropdown is only reachable when the
+  // page is showing everything.
+  const effectiveMarket = scopeMarket || marketFilter
 
   useEffect(() => {
     // Surface a failed load rather than falling through to the empty state: an
@@ -91,7 +98,7 @@ export default function ProgrammePerformance() {
     if (!rows) return null
     const all = rows.map((r) => challengeEconomics(r, { currency, rates }))
     const markets = [...new Set(all.map((r) => r.market).filter(Boolean))].sort()
-    const scoped = marketFilter === 'all' ? all : all.filter((r) => (r.market ?? 'Unspecified') === marketFilter)
+    const scoped = effectiveMarket === 'all' ? all : all.filter((r) => (r.market ?? 'Unspecified') === effectiveMarket)
 
     // Monthly roll-up, keyed on the month a challenge STARTED.
     const byMonth = new Map()
@@ -126,7 +133,7 @@ export default function ProgrammePerformance() {
       monthly,
       live: scoped.filter((r) => r.status === 'active').length,
     }
-  }, [rows, currency, rates, marketFilter])
+  }, [rows, currency, rates, effectiveMarket])
 
   if (!data) {
     return (
@@ -204,7 +211,10 @@ export default function ProgrammePerformance() {
             </button>
           ))}
         </div>
-        {data.markets.length > 0 && (
+        {/* HIDDEN WHILE THE PAGE IS SCOPED. Two controls that both mean
+            "which market" is how a reader ends up looking at Spain's chart
+            under a heading that says Germany. */}
+        {!scopeMarket && data.markets.length > 0 && (
           <Select
             value={marketFilter}
             onChange={setMarketFilter}

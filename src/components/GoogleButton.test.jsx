@@ -29,6 +29,12 @@ function mockSettings(external) {
   globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ external }) }))
 }
 
+// The first `import('./GoogleButton')` in this file pulls the supabase client
+// through the module graph, which measured about six seconds with fifty test
+// files running in parallel - longer than vitest's five-second default. The
+// budget is per test rather than global so a genuinely hung test still fails.
+const SLOW = 20000
+
 describe('GoogleButton', () => {
   beforeEach(() => { vi.resetModules() })
   afterEach(() => { vi.unstubAllGlobals(); delete globalThis.fetch })
@@ -40,15 +46,13 @@ describe('GoogleButton', () => {
     // Nothing now, and nothing after the answer lands either.
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
     expect(container.textContent).not.toMatch(/google/i)
-  })
-
+  }, SLOW)
   it('draws the button once the provider is switched on, with no deploy', async () => {
     mockSettings({ google: true, email: true })
     const { default: Fresh } = await import('./GoogleButton')
     inRouter(<Fresh />)
     expect(await screen.findByRole('button', { name: /continue with google/i })).toBeTruthy()
-  })
-
+  }, SLOW)
   it('fails closed when the settings endpoint cannot be reached', async () => {
     // A dead button on the signup page is worse than no button, so a network
     // failure must mean "no third-party sign in", never "assume it works".
@@ -57,12 +61,11 @@ describe('GoogleButton', () => {
     const { container } = inRouter(<Fresh />)
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
     expect(container.textContent).not.toMatch(/google/i)
-  })
-
+  }, SLOW)
   it('takes the label from the caller, so signup and login can differ', async () => {
     mockSettings({ google: true })
     const { default: Fresh } = await import('./GoogleButton')
     inRouter(<Fresh label="Sign up with Google" />)
     expect(await screen.findByRole('button', { name: /sign up with google/i })).toBeTruthy()
-  })
+  }, SLOW)
 })

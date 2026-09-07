@@ -4,6 +4,7 @@ import { adoptProfileLocale } from '../lib/i18n'
 import { adoptTestDataVisibility } from '../lib/testData'
 import { clearPageCache } from '../lib/pageCache'
 import { clearScopeCache } from '../lib/scope'
+import { identifyForMonitoring } from '../lib/monitoring'
 
 // AuthContext is the single source of truth for "who is logged in".
 // It exposes the Supabase session, the user's profile row (including
@@ -89,6 +90,12 @@ export function AuthProvider({ children }) {
   // fetch would read the previous viewer's answer. See lib/testData.
   const setProfile = useCallback((p) => {
     adoptTestDataVisibility(p)
+    // AND MONITORING LEARNS WHO THIS IS, in the same breath and for the same
+    // reason: "is this crash everybody or is it one account" is the first
+    // question asked of any error report, and it cannot be answered after the
+    // fact. Just the profile id - see lib/monitoring, which strips the email,
+    // the name and the IP.
+    identifyForMonitoring(p?.id || null)
     setProfileState(p)
   }, [])
   const [loading, setLoading] = useState(true) // true until the first session check resolves

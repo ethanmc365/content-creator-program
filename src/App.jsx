@@ -80,6 +80,7 @@ const Leaderboard = lazyRoute(chunk.Leaderboard)
 const AdminPanel = lazyRoute(chunk.AdminPanel)
 const AdminCreators = lazyRoute(chunk.AdminCreators)
 const AdminChallengeForm = lazyRoute(chunk.AdminChallengeForm)
+const AdminChallengeHistory = lazyRoute(chunk.AdminChallengeHistory)
 const AdminResults = lazyRoute(chunk.AdminResults)
 const AdminRewards = lazyRoute(chunk.AdminRewards)
 const AdminAnalytics = lazyRoute(chunk.AdminAnalytics)
@@ -316,6 +317,11 @@ export default function App() {
                 three now live on the challenge itself, so this is one list
                 fewer to keep in step. Old links still land somewhere sensible. */}
             <Route path="/admin/challenges" element={<Navigate to="/challenges" replace />} />
+            {/* The challenge LOG: every challenge the programme has run,
+                including the forty-nine that predate this platform, and the
+                place an externally-run challenge's results are typed in. See
+                pages/admin/AdminChallengeHistory. */}
+            <Route path="/admin/challenges/history" element={<AdminChallengeHistory />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/results" element={<AdminResults />} />

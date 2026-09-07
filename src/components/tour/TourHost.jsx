@@ -71,6 +71,16 @@ function findAnchor(name) {
 //   notifications - already its own gate, which RELEASES on `denied`, because
 //                   a browser that has been told Block will never ask again and
 //                   holding it there strands somebody at 83% with no way out.
+// HOW LONG THE CARD AND THE SPOTLIGHT TAKE TO TRAVEL BETWEEN STEPS.
+//
+// It has to be a little LONGER than the CSS transition (index.css, 820ms), not
+// equal to it: the attribute that enables the transition is turned off when
+// this window closes, and turning it off on the exact frame the transition ends
+// is a race that sometimes clips the last few pixels into a jump. 950 gives it
+// room and is still short enough that a scroll immediately after a step does
+// not drag the box behind the page.
+const TRAVEL_MS = 950
+
 export default function TourHost({ onFinish, network = false, layout = 'desktop', required = false }) {
   const tr = useT()
   const isPhone = useIsPhone()
@@ -144,7 +154,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   useEffect(() => {
     setReady(false)
     advanced.current = false
-    travelUntil.current = Date.now() + 560
+    travelUntil.current = Date.now() + TRAVEL_MS
     if (!step) return undefined
 
     // Put them where the step happens, unless the goal is to navigate somewhere
@@ -393,7 +403,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     //
     // Stamping it here means the window covers the movement itself, so the
     // freeze becomes a beat and the jump becomes a glide.
-    travelUntil.current = Date.now() + 560
+    travelUntil.current = Date.now() + TRAVEL_MS
     const anchorName = step?.anchor
     // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
     //

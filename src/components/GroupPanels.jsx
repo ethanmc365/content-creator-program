@@ -91,7 +91,7 @@ function PersonToggle({ person, on, onToggle, hint }) {
       </span>
       <span className={cx(
         'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-        on ? 'border-brand bg-brand text-white' : 'border-gray-300',
+        on ? 'border-brand bg-brand text-white glow-brand' : 'border-gray-300',
       )}>
         {on && <Icon name="check" className="h-3 w-3" />}
       </span>
@@ -187,7 +187,7 @@ function LookControls({ emoji, accent, photoUrl, onEmoji, onAccent, onPhoto, upl
               onClick={() => { onEmoji(emoji === e ? '' : e); onPhoto('') }}
               aria-pressed={emoji === e}
               className={cx(
-                'flex h-9 items-center justify-center rounded-xl border text-lg transition-transform duration-200 hover:-translate-y-0.5',
+                'flex h-9 items-center justify-center rounded-xl border text-lg transition-transform duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
                 emoji === e && !photoUrl ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white',
               )}
             >
@@ -243,7 +243,7 @@ function LookControls({ emoji, accent, photoUrl, onEmoji, onAccent, onPhoto, upl
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand shadow-card transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-50"
+            className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] disabled:opacity-50"
           >
             {uploading ? <Spinner className="h-3.5 w-3.5" /> : photoUrl ? tr('Change') : tr('Upload')}
           </button>

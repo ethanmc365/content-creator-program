@@ -71,7 +71,7 @@ function TypeCard({ type, seen, most = false }) {
         // the aeroplane you have not got, so it should look untouched, not
         // damaged.
         most
-          ? 'border-brand bg-brand text-white shadow-lift ring-1 ring-brand'
+          ? 'border-brand bg-brand text-white shadow-lift ring-1 ring-brand glow-brand'
           : owned
             ? 'border-brand/40 bg-brand-tint/60 shadow-card'
             : 'border-gray-100 bg-white shadow-card',
@@ -205,11 +205,11 @@ export default function AircraftCollection() {
           flight pages are one feature and this was the only one of them that
           was a dead end. */}
       <div className="mb-4 flex flex-wrap gap-2">
-        <Link to="/flights" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
+        <Link to="/flights" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand">
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           {tr("Your flight log")}
         </Link>
-        <Link to="/flights/community" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
+        <Link to="/flights/community" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand">
           <Icon name="globe" className="h-3.5 w-3.5" />
           {tr("Across the community")}
         </Link>
@@ -320,8 +320,8 @@ export default function AircraftCollection() {
                 className={cx(
                   'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200',
                   o.on
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                    ? 'border-brand bg-brand text-white glow-brand'
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
                 )}
               >
                 <Icon name={o.icon} className="h-3.5 w-3.5" />

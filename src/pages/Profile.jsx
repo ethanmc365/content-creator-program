@@ -22,6 +22,7 @@ import { airport } from '../lib/airports'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
+import CreatorPeek from '../components/admin/CreatorPeek'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
@@ -46,6 +47,8 @@ export default function Profile() {
   const [todayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [mutual, setMutual] = useState({ people: [], total: 0 })
   const [reporting, setReporting] = useState(false)
+  // The admin record sheet, opened from the creator's name. See CreatorPeek.
+  const [peek, setPeek] = useState(false)
   const [bucketOpen, setBucketOpen] = useState(false)
   // Which of the two layouts to MOUNT. `lg` is 1024px, matching the grid the
   // desktop version uses, so the swap happens exactly where the two-column
@@ -770,7 +773,32 @@ export default function Profile() {
               manager reads "Spanish Country Manager" and Ethan reads "Tryp.com
               CCC Lead". Everybody else reads "Creator", which is a job, not a
               blank. */}
-          <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+          {/* THE NAME IS A BUTTON, FOR ADMINS ONLY (7 Sep 2026).
+              Ethan: "clicking on the creator's name as an admin should bring up
+              that pop-up, so I don't have to go into creators every time I want
+              that information."
+
+              It is `isAdmin` and not a role check, and it renders a plain <h1>
+              for everyone else - not a disabled button, not a button that does
+              nothing. A control that exists and refuses is a control a creator
+              will press and be confused by; one that was never drawn is not.
+
+              The affordance is deliberately quiet: a dotted underline that
+              solidifies on hover. This is the heading of the page for the other
+              99% of visits and it must not start looking like a link. */}
+          {isAdmin && !isMe ? (
+            <button
+              type="button"
+              onClick={() => setPeek(true)}
+              title={tr('Open the admin record')}
+              className="group text-left text-3xl font-bold tracking-tight underline decoration-dotted decoration-from-font underline-offset-[6px] transition-colors duration-200 hoverable:hover:text-brand sm:text-[34px]"
+            >
+              {creator.name}
+              <Icon name="shield" className="ml-2 inline-block h-4 w-4 align-middle text-gray-300 transition-colors duration-200 group-hover:text-brand" />
+            </button>
+          ) : (
+            <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+          )}
           <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
             <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
               {roleBadgeTitle(creator) || tr('Creator')}
@@ -1003,6 +1031,11 @@ export default function Profile() {
           header's flex layout never has to account for a child that renders
           nothing 99% of the time. */}
       <ReportCreator open={reporting} onClose={() => setReporting(false)} creator={creator} />
+      {/* Admins only, and never on your own profile. It portals to the body
+          like ReportCreator above, so it costs this page's layout nothing. */}
+      {isAdmin && !isMe && (
+        <CreatorPeek creator={creator} open={peek} onClose={() => setPeek(false)} />
+      )}
 
       {/* The header photograph, big and still round. Same reasoning as the
           ReportCreator above: it portals to the body, so it costs the header's

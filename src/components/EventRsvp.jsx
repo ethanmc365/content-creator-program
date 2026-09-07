@@ -60,8 +60,8 @@ export default function EventRsvp({ eventId }) {
         className={cx(
           'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
           mine === 'going'
-            ? 'border-brand bg-brand text-white shadow-card'
-            : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+            ? 'border-brand bg-brand text-white shadow-card glow-brand'
+            : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
         )}
       >
         {mine === 'going' && <Icon name="check" className="h-3.5 w-3.5" />}
@@ -73,7 +73,7 @@ export default function EventRsvp({ eventId }) {
           'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
           mine === 'cant'
             ? 'border-ink bg-ink text-white'
-            : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-ink hover:text-ink',
+            : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-ink hover:text-ink',
         )}
       >
         {mine === 'cant' && <Icon name="check" className="h-3.5 w-3.5" />}

@@ -27,7 +27,18 @@ const tooltipStyle = {
 
 const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0)
 
-export default function CommunityHealth() {
+// `market` is a community id from the page's shared scope picker, or '' for
+// worldwide.
+//
+// TWO OF THE THREE DATASETS SCOPE CLEANLY AND ONE DOES NOT, and saying which is
+// better than quietly showing a worldwide chart under a market's name. The push
+// adoption and the creator scorecard are both PER CREATOR, so a market is a
+// filter on their rows. `admin_weekly_activity` is already aggregated by week
+// inside Postgres and carries no creator id, so it cannot be scoped from here -
+// the chart it feeds is labelled programme-wide rather than being filtered to
+// look scoped when it is not. Scoping it properly means a `p_community`
+// argument on that RPC.
+export default function CommunityHealth({ market = '', memberRows = [], scopeLabel = 'Worldwide' }) {
   const navigate = useNavigate()
   const [weekly, setWeekly] = useState(null)
   const [push, setPush] = useState(null)
@@ -46,24 +57,31 @@ export default function CommunityHealth() {
     })
   }, [])
 
+  const inMarket = useMemo(() => {
+    if (!market) return null
+    return new Set(memberRows.filter((r) => r.community_id === market).map((r) => r.profile_id))
+  }, [market, memberRows])
+
   const data = useMemo(() => {
     if (!weekly || !push || !scorecard) return null
+    const push_ = inMarket ? push.filter((p) => inMarket.has(p.creator_id)) : push
+    const scorecard_ = inMarket ? scorecard.filter((c) => inMarket.has(c.creator_id)) : scorecard
 
     // ---- Reachability. The number that decides whether anything we ship can
     // actually be announced, and the one most likely to be quietly terrible.
-    const creators = push.filter((p) => !p.is_admin)
+    const creators = push_.filter((p) => !p.is_admin)
     const withPush = creators.filter((p) => Number(p.devices) > 0)
-    const admins = push.filter((p) => p.is_admin)
+    const admins = push_.filter((p) => p.is_admin)
     const adminsWithPush = admins.filter((p) => Number(p.devices) > 0)
     const chatMuted = creators.filter((p) => p.chat_push_on === false)
 
     // ---- Participation funnel, on real creators only.
-    const posted = scorecard.filter((c) => Number(c.posts) > 0)
-    const repeat = scorecard.filter((c) => Number(c.challenges_entered) > 1)
-    const multiPost = scorecard.filter((c) => Number(c.posts) > 1)
-    const chatted = scorecard.filter((c) => Number(c.chat_messages) > 0)
-    const connected = scorecard.filter((c) => Number(c.connections) > 0)
-    const lurkers = scorecard.filter(
+    const posted = scorecard_.filter((c) => Number(c.posts) > 0)
+    const repeat = scorecard_.filter((c) => Number(c.challenges_entered) > 1)
+    const multiPost = scorecard_.filter((c) => Number(c.posts) > 1)
+    const chatted = scorecard_.filter((c) => Number(c.chat_messages) > 0)
+    const connected = scorecard_.filter((c) => Number(c.connections) > 0)
+    const lurkers = scorecard_.filter(
       (c) => Number(c.posts) === 0 && Number(c.chat_messages) === 0
     )
 
@@ -87,7 +105,7 @@ export default function CommunityHealth() {
       ? Math.round(recent.reduce((s, w) => s + w.activePct, 0) / recent.length)
       : 0
 
-    const sorted = [...scorecard].sort((a, b) => {
+    const sorted = [...scorecard_].sort((a, b) => {
       if (sort === 'views') return Number(b.total_views) - Number(a.total_views)
       if (sort === 'posts') return Number(b.posts) - Number(a.posts)
       if (sort === 'quiet') return Number(a.posts) - Number(b.posts) || Number(a.chat_messages) - Number(b.chat_messages)
@@ -108,7 +126,7 @@ export default function CommunityHealth() {
         list: [...creators].sort((a, b) => Number(b.devices) - Number(a.devices) || (a.name || '').localeCompare(b.name || '')),
       },
       funnel: {
-        total: scorecard.length,
+        total: scorecard_.length,
         posted: posted.length,
         repeat: repeat.length,
         multiPost: multiPost.length,
@@ -119,7 +137,7 @@ export default function CommunityHealth() {
       },
       sorted,
     }
-  }, [weekly, push, scorecard, sort])
+  }, [weekly, push, scorecard, sort, inMarket])
 
   if (!data) {
     return (
@@ -238,6 +256,15 @@ export default function CommunityHealth() {
               <p className="mt-1 text-xs text-smoke">
                 Creators who posted, chatted or DMed that week, as a share of the community
               </p>
+              {/* SAYING SO IS BETTER THAN LOOKING SCOPED AND NOT BEING.
+                  `admin_weekly_activity` aggregates inside Postgres and returns
+                  no creator id, so a market filter cannot reach it from here.
+                  Every other number on this tab IS scoped. */}
+              {market && (
+                <p className="mt-1 text-[11px] font-medium text-amber-700">
+                  Programme-wide. This chart is not filtered to {scopeLabel} yet.
+                </p>
+              )}
             </div>
             <button onClick={() => downloadCsv('weekly-activity.csv', data.weeks)} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
           </div>

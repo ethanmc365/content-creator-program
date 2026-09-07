@@ -124,28 +124,6 @@ export default function Signup() {
         </p>
       )}
 
-      {/* CONTINUE WITH GOOGLE, ABOVE THE FORM (7 Sep 2026).
-          Ethan: "can we add Continue with Google on the signup/login page...
-          they don't have to type in an email and password, but obviously they
-          still enter their name and their profile picture and all the other
-          stuff."
-
-          That is exactly what this does and it is worth saying why it needs no
-          branch anywhere else. A Google signup is an `auth.users` INSERT like
-          any other, so `handle_new_user` writes the same pending profile,
-          `ProtectedRoute` sees `onboarded = false` and sends them to the same
-          nine onboarding screens. The address is registered the same way and is
-          never asked for twice, because onboarding has never asked for it - it
-          asks for a name, a country, a phone and the rest, and the email has
-          always come from the account.
-
-          It draws nothing at all until it knows Google is actually configured
-          on the project; the invite code is handed to it because it cannot
-          survive the round trip in the URL. See lib/oauth. */}
-      <div className="mb-6">
-        <GoogleButton referral={ref} label="Sign up with Google" />
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>
@@ -192,6 +170,29 @@ export default function Signup() {
           {busy ? <Spinner /> : captchaToken ? 'Create account' : 'Verifying…'}
         </button>
       </form>
+
+      {/* CONTINUE WITH GOOGLE, UNDER THE FORM (7 Sep 2026).
+          Ethan: "it is currently at the top but I think usually it's at the
+          bottom somewhere and would make more sense there."
+
+          It began above the form and that was the wrong way round: the email
+          form is the primary path and the one this page's heading is about, so
+          a third-party button over the top of it made the form look like the
+          fallback and pushed the first field below the fold on a phone.
+
+          Everything else about it is unchanged and worth restating, because it
+          is the reason this needs no branch anywhere else: a Google signup is an
+          `auth.users` insert like any other, so `handle_new_user` writes the
+          same pending profile and ProtectedRoute sends them to the same nine
+          onboarding screens. The address is registered the same way and is never
+          asked for twice - onboarding has never asked for one.
+
+          It draws nothing at all until it knows Google is configured on the
+          project; the invite code is handed to it because it cannot survive the
+          round trip in the URL. See lib/oauth. */}
+      <div className="mt-6">
+        <GoogleButton referral={ref} label="Sign up with Google" />
+      </div>
     </AuthShell>
   )
 }

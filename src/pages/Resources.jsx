@@ -108,7 +108,7 @@ export default function Resources() {
             aria-pressed={!savedOnly}
             className={cx(
               'rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200',
-              !savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+              !savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
             )}
           >
             All{resources?.length ? ` · ${resources.length}` : ''}
@@ -118,7 +118,7 @@ export default function Resources() {
             aria-pressed={savedOnly}
             className={cx(
               'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200',
-              savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+              savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
             )}
           >
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
@@ -156,7 +156,7 @@ export default function Resources() {
                 }}
                 className={cx(
                   'card flex cursor-pointer flex-col gap-4 scroll-mt-24 transition-all duration-200',
-                  'hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift',
+                  'hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand/30 hover:shadow-lift',
                   openParam === r.id && 'ring-2 ring-brand',
                 )}
               >
@@ -198,7 +198,7 @@ export default function Resources() {
                         href={l.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand"
                       >
                         <Icon name="link" className="h-3.5 w-3.5" />
                         {l.label || l.url}
@@ -251,7 +251,7 @@ export default function Resources() {
                     href={l.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-2 text-sm font-medium transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand"
                   >
                     <Icon name="link" className="h-4 w-4" />
                     {l.label || l.url}

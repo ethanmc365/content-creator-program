@@ -75,7 +75,23 @@ export default function GoogleButton({ referral, label = 'Continue with Google' 
   }
 
   return (
+    // THE DIVIDER IS ABOVE THE BUTTON, BECAUSE THE BUTTON IS BELOW THE FORM
+    // (7 Sep 2026). Ethan: "I was thinking you could improve the UI and button
+    // placement of that sign up screen - it is currently at the top but I think
+    // usually it's at the bottom somewhere and would make more sense there."
+    //
+    // He is right and it is the convention for a reason. The email form is the
+    // primary path and the one the page's own heading is about; a third-party
+    // button above it makes the form look like the fallback, and it pushes the
+    // first field below the fold on a phone. Underneath, the reading order is
+    // the honest one: here is the form, or, if you would rather, one tap.
     <div className="space-y-5">
+      <div className="flex items-center gap-3" aria-hidden>
+        <span className="h-px flex-1 bg-gray-100" />
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">{tr('or')}</span>
+        <span className="h-px flex-1 bg-gray-100" />
+      </div>
+
       <button
         type="button"
         onClick={go}
@@ -84,7 +100,7 @@ export default function GoogleButton({ referral, label = 'Continue with Google' 
         // screen is the form below it, and two solid-brand buttons on one card
         // is two things claiming to be the main one. Lift on hover rather than
         // a colour change, like every other button in the product.
-        className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-ink shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-5 py-3.5 text-sm font-semibold text-ink shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift active:scale-[0.99] disabled:opacity-60"
       >
         {busy ? <Spinner className="h-5 w-5" /> : <GoogleMark />}
         <span>{tr(label)}</span>
@@ -94,15 +110,6 @@ export default function GoogleButton({ referral, label = 'Continue with Google' 
         <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
       )}
 
-      {/* THE DIVIDER SAYS "OR", AND THAT IS THE WHOLE OF ITS JOB. Without it the
-          two ways in read as a sequence - press Google, then fill this in -
-          which is exactly the "am I being asked for my email twice?" confusion
-          Ethan wanted avoided. */}
-      <div className="flex items-center gap-3" aria-hidden>
-        <span className="h-px flex-1 bg-gray-100" />
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">{tr('or')}</span>
-        <span className="h-px flex-1 bg-gray-100" />
-      </div>
     </div>
   )
 }

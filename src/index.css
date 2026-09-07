@@ -820,20 +820,38 @@ html {
   --d-text-soft: #a7a9b0;/* secondary text             */
   --d-text-muted: #767880;/* muted / placeholders      */
 
-  /* BRAND ORANGE HAS TO CHANGE VALUE TO STAY THE SAME COLOUR.
-     `#d94407` is a DARK orange. It was chosen to read as the loudest thing on
-     a white page and it is, but the same ink on near-black is a low-contrast
-     smudge - which is every one of Ethan's dark-mode reports in one sentence:
-     "the plane icon looks like a really weird grey transparency", "that orangey
-     colour on the icons", "a weird brown dirty colour". None of those are the
-     hue being wrong; they are the LIGHTNESS being wrong for the ground it is
-     on. So the brand keeps its hue and gains lightness, exactly as a brand
-     guideline says to do on a dark background.
-     This is not a new palette - `--d-brand` sits between BRAND and BRAND_LIGHT
-     and `--d-brand-soft` is BRAND_LIGHT lifted. See §4 of the platform notes:
-     orange only, and these are still orange. */
-  --d-brand: #ff8b4d;
-  --d-brand-soft: #ffa872;
+  /* THE BRAND ORANGE DOES NOT CHANGE IN DARK MODE. THIS WAS TRIED AND IT WAS
+     WRONG (7 Sep 2026, same day).
+
+     I lifted `#d94407` to `#ff8b4d` on the reasoning that a dark orange on a
+     near-black ground must be a low-contrast smudge. That reasoning was never
+     checked against the numbers, and the numbers say otherwise:
+
+         #d94407 on --d-bg        4.50 : 1
+         #d94407 on --d-surface   4.11 : 1
+         #d94407 on --d-surface-2 3.70 : 1
+
+     which is fine, and comfortably so for the semibold small caps and the icons
+     it is nearly always used on. There was no contrast problem to fix.
+
+     What the lift DID do was break the one recipe the whole app uses for a
+     chosen thing. `border-brand bg-brand` appears in fifteen components - the
+     border exists so a picked chip and an unpicked chip have the same box
+     model, and in light mode it is invisible because it is the same colour as
+     the fill. Lifting the border and not the fill drew a pale halo around every
+     selected chip on the platform. Ethan: "there's this yellowy or light orange
+     outline showing up in all the Tryp.com orange cards... it makes sense on the
+     ones you're selecting, but I don't get why it shows up on the ones that are
+     already selected, it looks bad there." And: "you made a lot of the colours a
+     lighter orange rather than the Tryp.com orange. Everything should be that
+     nice Tryp.com orange."
+
+     THE RULE: brand orange is `#d94407` on both grounds, always. Where dark mode
+     needs the brand to carry further it gets a GLOW - light around the colour,
+     not a different colour. `--d-brand-soft` survives only for the places that
+     genuinely want the lighter warm tone and are not selection states. */
+  --d-brand-soft: #f5853f;
+  --d-brand-glow: rgba(217, 68, 7, 0.42);
 }
 
 html[data-theme='dark'],
@@ -1058,47 +1076,32 @@ html[data-theme='dark'] .btn-danger {
 }
 html[data-theme='dark'] .btn-danger:hover { background-color: rgba(220, 38, 38, 0.16); }
 
-/* ---- BRAND ORANGE, LIFTED ------------------------------------------------
-   `text-brand` appears 719 times and `border-brand` 156. Remapping the two of
-   them is the whole of "the icons look muddy in dark mode", and it is the only
-   version of that fix that reaches a component nobody thought to check. Doing
-   it per-component was the alternative and it is how a theme drifts: every new
-   card would have to remember. */
-html[data-theme='dark'] .text-brand,
-html[data-theme='dark'] .hover\:text-brand:hover,
-html[data-theme='dark'] .hoverable\:hover\:text-brand:hover,
-html[data-theme='dark'] .group:hover .group-hover\:text-brand { color: var(--d-brand); }
-html[data-theme='dark'] .text-brand-light { color: var(--d-brand-soft); }
-html[data-theme='dark'] .text-brand\/70 { color: rgba(255, 139, 77, 0.72); }
-html[data-theme='dark'] .text-brand\/60 { color: rgba(255, 139, 77, 0.64); }
-html[data-theme='dark'] .text-brand\/50 { color: rgba(255, 139, 77, 0.55); }
-html[data-theme='dark'] .text-brand\/40 { color: rgba(255, 139, 77, 0.46); }
-html[data-theme='dark'] .stroke-brand { stroke: var(--d-brand); }
-html[data-theme='dark'] .decoration-brand { text-decoration-color: var(--d-brand); }
-html[data-theme='dark'] .decoration-brand\/40 { text-decoration-color: rgba(255, 139, 77, 0.4); }
-html[data-theme='dark'] .accent-brand { accent-color: var(--d-brand); }
+/* ---- BRAND ORANGE IS NOT REMAPPED, AND THAT IS DELIBERATE ----------------
+   Everything that used to live here - `.text-brand`, `.border-brand`,
+   `.ring-brand` and their opacity steps, all pushed to a lighter orange - has
+   been deleted. See the note on `--d-brand-soft` above for the measurements and
+   for the halo it drew around every selected chip in the product. The brand is
+   the brand on both grounds.
 
-html[data-theme='dark'] .border-brand,
-html[data-theme='dark'] .hover\:border-brand:hover,
-html[data-theme='dark'] .hoverable\:hover\:border-brand:hover { border-color: var(--d-brand); }
-html[data-theme='dark'] .border-brand\/60 { border-color: rgba(255, 139, 77, 0.6); }
-html[data-theme='dark'] .border-brand\/50 { border-color: rgba(255, 139, 77, 0.5); }
-html[data-theme='dark'] .border-brand\/40,
-html[data-theme='dark'] .hover\:border-brand\/40:hover { border-color: rgba(255, 139, 77, 0.42); }
-html[data-theme='dark'] .border-brand\/30,
-html[data-theme='dark'] .hover\:border-brand\/30:hover { border-color: rgba(255, 139, 77, 0.34); }
-html[data-theme='dark'] .border-brand\/25 { border-color: rgba(255, 139, 77, 0.3); }
-html[data-theme='dark'] .border-brand\/20 { border-color: rgba(255, 139, 77, 0.26); }
-html[data-theme='dark'] .border-brand\/15 { border-color: rgba(255, 139, 77, 0.22); }
-html[data-theme='dark'] .border-brand\/10 { border-color: rgba(255, 139, 77, 0.18); }
-html[data-theme='dark'] .border-brand-light\/40 { border-color: rgba(255, 168, 114, 0.4); }
-html[data-theme='dark'] .ring-brand { --tw-ring-color: var(--d-brand); }
-html[data-theme='dark'] .ring-brand\/50 { --tw-ring-color: rgba(255, 139, 77, 0.5); }
-html[data-theme='dark'] .ring-brand\/40 { --tw-ring-color: rgba(255, 139, 77, 0.42); }
-html[data-theme='dark'] .ring-brand\/30 { --tw-ring-color: rgba(255, 139, 77, 0.34); }
-html[data-theme='dark'] .ring-brand\/25 { --tw-ring-color: rgba(255, 139, 77, 0.3); }
-html[data-theme='dark'] .ring-brand\/20 { --tw-ring-color: rgba(255, 139, 77, 0.26); }
-html[data-theme='dark'] .ring-brand\/15 { --tw-ring-color: rgba(255, 139, 77, 0.22); }
+   `text-brand-light` is `#f5853f` and stays exactly that; it is already the
+   lighter tone and lifting it further took it into peach.
+
+   THE GLOW. Ethan asked for "a really nice glow for some of them", and on a dark
+   ground that is the right instrument: light spilling from a saturated surface
+   reads as energy in a way a border cannot, and it costs the palette nothing
+   because the light IS the brand colour. It is opt-in per component through
+   `.glow-brand` rather than applied to every `bg-brand` in the app - a glow on
+   all four hundred of them would be a lit Christmas tree. */
+html[data-theme='dark'] .glow-brand {
+  box-shadow: 0 0 0 1px rgba(217, 68, 7, 0.55), 0 6px 30px -6px var(--d-brand-glow);
+}
+html[data-theme='dark'] .glow-brand:hover {
+  box-shadow: 0 0 0 1px rgba(217, 68, 7, 0.7), 0 10px 42px -6px rgba(217, 68, 7, 0.55);
+}
+/* On white the same class is a soft brand-tinted lift rather than a glow -
+   light does not spill on paper. One class, honest on both grounds. */
+.glow-brand { box-shadow: 0 6px 22px -8px rgba(217, 68, 7, 0.45); }
+.glow-brand:hover { box-shadow: 0 12px 34px -10px rgba(217, 68, 7, 0.6); }
 
 /* ---- A NAMED HOVER GROUP IS A DIFFERENT CLASS ----------------------------
    THE BUG THIS FIXES (7 Sep 2026). Ethan: "an issue I find with the DMs in dark
@@ -1211,8 +1214,6 @@ html[data-theme='dark'] .hover\:text-ink:hover,
 html[data-theme='dark'] .hoverable\:hover\:text-ink:hover { color: var(--d-text); }
 html[data-theme='dark'] .hover\:text-smoke:hover,
 html[data-theme='dark'] .disabled\:hover\:text-smoke:disabled:hover { color: var(--d-text-soft); }
-html[data-theme='dark'] .active\:text-brand:active { color: var(--d-brand); }
-html[data-theme='dark'] .hover\:decoration-brand:hover { text-decoration-color: var(--d-brand); }
 
 html[data-theme='dark'] .hover\:bg-cloud\/40:hover { background-color: rgba(42, 42, 46, 0.5); }
 html[data-theme='dark'] .hover\:bg-cloud\/50:hover { background-color: rgba(42, 42, 46, 0.6); }
@@ -1229,15 +1230,8 @@ html[data-theme='dark'] .hover\:border-amber-400:hover { border-color: rgba(217,
 html[data-theme='dark'] .hover\:border-gray-300:hover,
 html[data-theme='dark'] .disabled\:hover\:border-gray-200:disabled:hover { border-color: var(--d-border); }
 
-html[data-theme='dark'] .hover\:border-brand\/60:hover { border-color: rgba(255, 139, 77, 0.6); }
-html[data-theme='dark'] .hover\:border-brand\/50:hover,
-html[data-theme='dark'] .focus\:border-brand\/50:focus { border-color: rgba(255, 139, 77, 0.5); }
-html[data-theme='dark'] .focus\:border-brand\/40:focus { border-color: rgba(255, 139, 77, 0.42); }
-html[data-theme='dark'] .hover\:border-brand\/25:hover { border-color: rgba(255, 139, 77, 0.3); }
-html[data-theme='dark'] .focus\:border-brand:focus { border-color: var(--d-brand); }
-html[data-theme='dark'] .hover\:ring-brand:hover { --tw-ring-color: var(--d-brand); }
-html[data-theme='dark'] .focus\:ring-brand\/40:focus { --tw-ring-color: rgba(255, 139, 77, 0.42); }
-html[data-theme='dark'] .focus\:ring-brand\/15:focus { --tw-ring-color: rgba(255, 139, 77, 0.22); }
+/* (the brand hover/focus variants that used to be remapped here are gone -
+   see the note above: the brand does not change value in dark mode.) */
 
 /* ---- Search fields ------------------------------------------------------
    `type="search"` draws its own clear button (::-webkit-search-cancel-button),
@@ -1544,12 +1538,33 @@ html[data-reduce-motion] *::after {
    behind the page, which is what "the highlighted box is not smooth" was. The
    rAF loop flips this attribute off ~560ms after a step change, and from then
    on the position is written with no transition at all. */
+/* IT GLIDES. THE CURVE MATTERS AS MUCH AS THE DURATION (7 Sep 2026).
+   Ethan: "you seem to have improved some of the animations whenever it's moving
+   places, but I want you to properly build this. It should glide smoothly, and
+   it's currently going way too fast - it should be slower so that you can
+   visibly see it climbing, but obviously not too slow. So just work on that
+   really clean animation, so it's gliding about the screen rather than
+   jumping."
+
+   Two changes and the second is the one that does the work.
+
+   460ms -> 820ms. At 460ms a box crossing 700px of screen is moving at about
+   1.5 pixels a millisecond, which the eye reads as a cut rather than a move.
+
+   AND THE EASING IS NOW SYMMETRIC. It was `cubic-bezier(0.22, 1, 0.36, 1)` -
+   ease-out-quint, which spends 80% of its distance in the first third of its
+   time. That is the right curve for something ARRIVING (a menu, a toast) and
+   the wrong one for something TRAVELLING: it leaps away from the old anchor and
+   then creeps, so lengthening it made the creep longer rather than the movement
+   more visible. An ease-in-out accelerates away, holds a readable speed across
+   the middle, and settles - which is what "you can see it climbing" describes,
+   and, not coincidentally, how an aeroplane moves. */
 .tour-spot[data-travel='yes'] {
   transition:
-    top 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    left 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    height 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
+    left 0.82s cubic-bezier(0.42, 0, 0.18, 1),
+    width 0.82s cubic-bezier(0.42, 0, 0.18, 1),
+    height 0.82s cubic-bezier(0.42, 0, 0.18, 1),
     opacity 0.3s ease;
 }
 
@@ -1622,8 +1637,8 @@ html[data-reduce-motion] *::after {
    attribute. */
 .tour-card--float[data-travel='yes'] {
   transition:
-    top 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    left 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+    top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
+    left 0.82s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
 /* An anchorless step - or one whose anchor is off screen - sits in the middle,
@@ -1846,7 +1861,7 @@ html[data-reduce-motion] *::after {
   to   { opacity: 1; transform: none; }
 }
 
-.tour-fade { animation: tour-fade-in 0.32s ease both; }
+.tour-fade { animation: tour-fade-in 0.42s ease both; }
 
 @keyframes tour-hit-in {
   0%   { opacity: 0; transform: scale(0.94); }

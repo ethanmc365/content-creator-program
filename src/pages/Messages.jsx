@@ -212,6 +212,10 @@ export default function Messages() {
   // Inbox search + the people it searches over (every creator you could DM).
   const [search, setSearch] = useState('')
   const [people, setPeople] = useState([])
+  // "HAVE WE LOOKED YET" IS NOT THE SAME QUESTION AS "IS IT EMPTY", and the
+  // pane below reads the wrong answer to the wrong question without this. See
+  // the note on `discover`.
+  const [peopleLoaded, setPeopleLoaded] = useState(false)
   const [connectionIds, setConnectionIds] = useState(new Set())
   const [starting, setStarting] = useState(null) // creator id being opened
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
@@ -458,6 +462,7 @@ export default function Messages() {
       ])
       if (cancelled) return
       setPeople((profiles ?? []).filter((p) => p.id !== user.id))
+      setPeopleLoaded(true)
       setConnectionIds(new Set([...rels.entries()].filter(([, v]) => v.relation === 'connected').map(([id]) => id)))
     }
     loadPeople()
@@ -1289,37 +1294,61 @@ export default function Messages() {
   //
   // Ordered by `last_seen_at` already (see the query), so the top of it is
   // whoever has been around most recently.
-  // SIX, AND THE HEADING SAYS WHICH LIST THIS IS (7 Sep 2026).
+  // SIX FACES, STRANGERS FIRST, AND NEVER FEWER THAN THREE (7 Sep 2026).
   //
-  // Ethan: "I would capitalise it. Also I would show six creators here rather
-  // than just two. Maybe say 'connect with someone new' rather than 'say hello
-  // to someone', and then show new people they haven't connected with. If
-  // they've connected with everyone, you can have it say 'say hello to
-  // someone', so obviously they're sending a hello to someone they already
-  // have."
+  // Ethan, on the first version: "the Connect with someone new is only showing
+  // two creators even though I'm not connected with absolutely everyone... it
+  // should always show at least three even if you're connected with everyone.
+  // It can show two that you are and one that you're not."
   //
-  // That last sentence is the whole design and it is a better one than what was
-  // here: the pane already picked strangers first and quietly fell back to
-  // people you know, and it said the SAME WORDS either way. So on the fallback
-  // it was inviting you to "connect with" people you are already connected to.
-  // The list and the heading are one decision now, made in one place and
-  // returned together, so they cannot disagree.
+  // The pane was doing exactly what it was told and what it was told was too
+  // strict. Measured on his own account: 44 visible creators, 20 connections,
+  // and 42 OPEN CONVERSATIONS - so "not connected and never messaged" left
+  // precisely two people. For the person who runs the community, the strictest
+  // possible definition of "somebody new" is nearly always going to be empty,
+  // and an almost-empty grid is worse than a slightly looser one.
   //
-  // Six is what the grid was always sliced to; it looked like two because two
-  // is what `sm:grid-cols-2` puts on a ROW. The cards are smaller and the grid
-  // goes to three across on a wide screen, so six of them read as six.
+  // So the list is strangers FIRST and then topped up with people he has met,
+  // to a target of six and a floor of three. Every card says which it is, so
+  // the mix is legible rather than a fudge: a stranger is badged, somebody he
+  // already knows is not.
+  //
+  // AND IT DOES NOT GUESS BEFORE THE DATA LANDS. Ethan: "whenever it first
+  // loads it briefly flashes up a different screen that says 'Say hello to
+  // someone' and some other creators, and then the new screen shows up."
+  //
+  // That flash was this memo answering with `people` still `[]`: no strangers
+  // in an empty list, so it fell to the "you have met everybody" branch and
+  // printed that heading for one frame before the query landed and it changed
+  // its mind. It is the rule already written down about the milestone engine -
+  // AN EMPTY COMPUTATION MEANS "I COULD NOT WORK THIS OUT", NEVER "THERE IS
+  // NOTHING". `peopleLoaded` is the difference between the two, and until it is
+  // true the pane draws its heading and nothing else.
   const NEW_HERE_DAYS = 21
+  const DISCOVER_TARGET = 6
   const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
   const discover = useMemo(() => {
-    const strangers = people.filter((p) => !p.is_admin && !connectionIds.has(p.id) && !talkingTo.has(p.id))
-    if (strangers.length) return { mode: 'new', people: strangers.slice(0, 6) }
-    // You have met everybody there is to meet. The pane still does something -
-    // an empty grid would be worse than the sentence it replaced - but it stops
-    // calling these people new.
-    const known = people.filter((p) => !p.is_admin && !talkingTo.has(p.id))
-    return { mode: 'known', people: known.slice(0, 6) }
+    if (!peopleLoaded) return { loading: true, mode: 'new', people: [] }
+    const eligible = people.filter((p) => !p.is_admin)
+    const isStranger = (p) => !connectionIds.has(p.id) && !talkingTo.has(p.id)
+    const strangers = eligible.filter(isStranger)
+    // Ordered by `last_seen_at` already (see the query), so the top of the
+    // top-up is whoever has been around most recently - which is the only thing
+    // that makes "say hello again" a good suggestion rather than a random one.
+    const known = eligible.filter((p) => !isStranger(p))
+    const list = [...strangers, ...known].slice(0, DISCOVER_TARGET)
+    return {
+      loading: false,
+      // The heading follows the LEAD of the list, not its whole contents: if
+      // there is anybody new in it, "connect with someone new" is true of the
+      // first card and the badges say which of the rest are which.
+      mode: strangers.length ? 'new' : 'known',
+      mixed: strangers.length > 0 && strangers.length < list.length,
+      strangerIds: new Set(strangers.map((p) => p.id)),
+      people: list,
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, connectionIds, conversations])
+  }, [people, peopleLoaded, connectionIds, conversations])
   const discoverPeople = discover.people
 
   // One row in the inbox for someone you haven't messaged yet.
@@ -1481,13 +1510,13 @@ export default function Messages() {
                     answer to the same question from the one a laptop gave. Two
                     lists is how the two screens drift; `discover` is the one
                     definition of "who should I talk to". */}
-                {discoverPeople.length > 0 && (
+                {!discover.loading && discoverPeople.length > 0 && (
                   <div className="mt-4">
                     <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                       {discover.mode === 'new' ? tr('Connect with someone new') : tr('Say hello to someone')}
                     </p>
                     <div className="space-y-0.5">
-                      {discoverPeople.map((p) => personRow(p, discover.mode === 'new' ? 'Not connected yet' : 'Send a hello'))}
+                      {discoverPeople.map((p) => personRow(p, discover.strangerIds?.has(p.id) ? 'You have not met yet' : 'Send a hello'))}
                     </div>
                   </div>
                 )}
@@ -1745,12 +1774,30 @@ export default function Messages() {
                   {discover.mode === 'new' ? tr('Connect With Someone New') : tr('Say Hello to Someone')}
                 </p>
 
-                {discoverPeople.length > 0 ? (
+                {/* WHILE THE QUERY IS OUT, THE PANE HOLDS ITS SHAPE AND SAYS
+                    NOTHING ELSE. Six tiles of the right size, so the heading
+                    does not jump when the faces arrive, and no sentence -
+                    because every sentence this pane can say is a claim about a
+                    list nobody has read yet. */}
+                {discover.loading ? (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex flex-col items-center gap-2 rounded-card border border-gray-100 px-3 py-5">
+                        <Skeleton className="h-14 w-14 rounded-full" />
+                        <Skeleton className="h-3.5 w-24 rounded" />
+                        <Skeleton className="h-3 w-16 rounded" />
+                        <Skeleton className="mt-0.5 h-6 w-20 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : discoverPeople.length > 0 ? (
                   <>
                     <p className="mx-auto mt-1.5 max-w-sm text-center text-sm text-smoke">
-                      {discover.mode === 'new'
-                        ? tr('Creators you have not met yet. One press opens the chat.')
-                        : tr('You have met everybody here. Pick someone up where you left off.')}
+                      {discover.mixed
+                        ? tr('Creators you have not met yet, and a few worth picking back up.')
+                        : discover.mode === 'new'
+                          ? tr('Creators you have not met yet. One press opens the chat.')
+                          : tr('You have met everybody here. Pick someone up where you left off.')}
                     </p>
                     {/* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
                         columns of full-width rows inside one boxed card, which
@@ -1786,12 +1833,18 @@ export default function Messages() {
                             className="group animate-fade-up relative flex flex-col items-center gap-2 overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/30 hover:shadow-lift disabled:opacity-60"
                             style={{ animationDelay: `${0.05 + i * 0.05}s` }}
                           >
-                            {isNew && (
-                              /* The one fact worth a badge. Everything else
-                                 about a stranger is on their profile, one press
-                                 away. */
+                            {/* THE BADGE SAYS WHICH KIND OF PERSON THIS IS, and
+                                that is what makes a topped-up list legible
+                                rather than a fudge: strangers lead, people you
+                                already know follow, and you can tell them apart
+                                without reading the heading. "New here" beats
+                                "not connected" on a card whose whole job is to
+                                be inviting, so a recent joiner gets that and
+                                everybody else you have not met gets the plainer
+                                one. */}
+                            {discover.strangerIds?.has(p.id) && (
                               <span className="absolute right-2 top-2 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                                {tr('New')}
+                                {isNew ? tr('New here') : tr('Not met')}
                               </span>
                             )}
                             <Avatar src={p.photo_url} name={p.name} size="lg" />

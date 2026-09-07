@@ -53,6 +53,18 @@ export const TEAM_LEAD = {
 // Yourself is dropped, because "message yourself" is not help.
 export function useTeam(myId) {
   const [team, setTeam] = useState([])
+  // THE LEAD IS LOOKED UP, NOT WRITTEN DOWN. The card at the top of Get help
+  // needs a profile id to link to and to open a chat with, and hard-coding a
+  // UUID in the source is the kind of constant that is silently wrong the day
+  // the owner changes. `platform_role = 'owner'` is already the platform's
+  // definition of that person.
+  //
+  // It is NOT filtered by `myId` the way the list below is: Ethan reading his
+  // own help page should still see the card, because it is what every creator
+  // sees and he is the one who has to approve it. The two buttons on it are
+  // hidden for him instead - see HelpTeam - because "message yourself" is not
+  // help.
+  const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let alive = true
@@ -64,18 +76,15 @@ export function useTeam(myId) {
       .is('deletion_requested_at', null)
       .then(({ data }) => {
         if (!alive) return
-        setTeam((data ?? []).filter((p) => p.id !== myId).sort(byRoleThenName))
+        const rows = data ?? []
+        const owner = rows.find((p) => p.platform_role === 'owner') || null
+        setLead(owner)
+        setTeam(rows.filter((p) => p.id !== myId && p.id !== owner?.id).sort(byName))
         setLoading(false)
       })
     return () => { alive = false }
   }, [myId])
-  return { team, loading }
+  return { team, lead, loading }
 }
 
-// The owner first, then everybody else alphabetically. Not a hierarchy for its
-// own sake: on a page about who to ask, the person who can answer anything
-// should be the first name on it.
-function byRoleThenName(a, b) {
-  const rank = (p) => (p.platform_role === 'owner' ? 0 : 1)
-  return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '')
-}
+const byName = (a, b) => (a.name || '').localeCompare(b.name || '')

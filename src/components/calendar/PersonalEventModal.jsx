@@ -151,8 +151,8 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
                 className={cx(
                   'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
                   form.duration === d.minutes
-                    ? 'border-brand bg-brand text-white shadow-card'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                    ? 'border-brand bg-brand text-white shadow-card glow-brand'
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
                 )}
               >
                 {d.label}

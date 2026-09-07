@@ -661,7 +661,7 @@ export default function AppLayout() {
                       case anyone's struggling and doesn't want to ask in the
                       chat." Get help leads, because somebody stuck is in more
                       of a hurry than somebody with an idea. */}
-                  <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-cloud">{tr("Get help")}</Link>
+                  <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Get help")}</Link>
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}

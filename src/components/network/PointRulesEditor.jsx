@@ -367,7 +367,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
               key={kind}
               type="button"
               onClick={() => add(kind)}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2.5 text-left text-xs font-medium text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+              className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2.5 text-left text-xs font-medium text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand"
             >
               <Icon name={meta.icon} className="h-4 w-4 shrink-0" />
               <span className="min-w-0 leading-tight">{meta.label}</span>
@@ -395,9 +395,9 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
                 key={o.value} type="button" onClick={() => onThresholdMode(o.value)}
                 aria-pressed={thresholdMode === o.value}
                 className={cx(
-                  'rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5',
+                  'rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
                   thresholdMode === o.value
-                    ? 'border-brand bg-brand text-white shadow-card'
+                    ? 'border-brand bg-brand text-white shadow-card glow-brand'
                     : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
                 )}
               >

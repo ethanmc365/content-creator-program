@@ -14,8 +14,17 @@ import { timeAgo } from '../../lib/utils'
 // "how is the community doing" - two doors onto the same question. It is a
 // section of Analytics now and owns no page chrome: no PageHeader, no back
 // link, no outer `page` wrapper. The tab it sits in provides all three.
-export default function AdminNetwork() {
+// `market` is a community id from the page's shared scope picker, or '' for
+// worldwide. A market's network is the graph BETWEEN ITS OWN MEMBERS: an edge
+// with one end outside the market is a connection the market did not make, and
+// counting it would let a market's "most connected creator" be somebody whose
+// connections are all somewhere else.
+export default function AdminNetwork({ market = '', memberRows = [] }) {
   const [data, setData] = useState(null)
+  const inMarket = useMemo(() => {
+    if (!market) return null
+    return new Set(memberRows.filter((r) => r.community_id === market).map((r) => r.profile_id))
+  }, [market, memberRows])
 
   useEffect(() => {
     async function load() {
@@ -37,7 +46,11 @@ export default function AdminNetwork() {
 
   const derived = useMemo(() => {
     if (!data) return null
-    const { accepted, profById } = data
+    const { profById } = data
+    // BOTH ENDS HAVE TO BE IN THE MARKET. See the note on `inMarket`.
+    const accepted = inMarket
+      ? data.accepted.filter((c) => inMarket.has(c.creator_id) && inMarket.has(c.connected_creator_id))
+      : data.accepted
     // Connection degree per (non-test) creator.
     const degree = new Map()
     let realEdges = 0
@@ -59,7 +72,7 @@ export default function AdminNetwork() {
       .slice(0, 12)
     const maxDegree = ranked[0]?.count || 1
     return { realEdges, connectedPeople, ranked: ranked.slice(0, 10), recent, maxDegree }
-  }, [data])
+  }, [data, inMarket])
 
   if (!derived) {
     return (

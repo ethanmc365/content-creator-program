@@ -78,14 +78,6 @@ export default function Login() {
       subtitle="Log in to the Tryp.com Content Creator Community."
       footer={<span>{tr("New here?")} <Link to="/signup" className="font-medium text-brand hover:underline">{tr("Create your account")}</Link></span>}
     >
-      {/* The same button as signup, and deliberately the same words on both -
-          "Continue with Google" is one door, not two, and a returning creator
-          who joined that way should not have to work out whether the log in
-          page's version is the right one. See lib/oauth. */}
-      <div className="mb-6">
-        <GoogleButton />
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="email" className="label">{tr("Email")}</label>
@@ -107,6 +99,14 @@ export default function Login() {
           {busy ? <Spinner /> : captchaToken ? 'Log in' : 'Verifying…'}
         </button>
       </form>
+
+      {/* Under the form, for the same reason as signup - and deliberately the
+          same words on both screens: "Continue with Google" is one door, not
+          two, and a returning creator who joined that way should not have to
+          work out whether the log in page's version is the right one. */}
+      <div className="mt-6">
+        <GoogleButton />
+      </div>
     </AuthShell>
   )
 }

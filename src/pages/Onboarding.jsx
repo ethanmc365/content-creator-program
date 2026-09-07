@@ -215,6 +215,82 @@ export default function Onboarding() {
     demo && prefilled ? { phone: '7700 900123', phone_country: '+44' } : { phone: '', phone_country: '' }
   ))
 
+  // THE DRAFT IS SEEDED ONCE AND THE PROFILE USUALLY ARRIVES AFTER IT.
+  //
+  // THE BUG THIS FIXES (7 Sep 2026). Ethan: "whenever someone's completed the
+  // profile they exit the tab after they submit it, and now their profile is
+  // approved and they come back on the tab. It's showing 'Welcome to the team'
+  // and completing the onboarding again, adding profile photo etc. There's a
+  // button to go to review but it still says everything is missing and is
+  // asking me to put it in again."
+  //
+  // Two separate faults, and they compound into exactly that screen.
+  //
+  //   THE RACE. `draft` is a LAZY useState initialiser, so it runs on the very
+  //   first render and never again. Arriving at /onboarding by opening the tab
+  //   - rather than by walking here from /signup - means `auth.profile` is
+  //   still null at that moment, because the profile fetch has not resolved.
+  //   Every field is seeded EMPTY, the profile lands a tick later, and nothing
+  //   re-reads it. The row in the database is complete; the form has simply
+  //   never looked at it.
+  //
+  //   THE DATE OF BIRTH, which is null on `profiles` FOR EVERYONE, BY DESIGN.
+  //   A BEFORE trigger (`mirror_dob_to_private`) copies any dob into
+  //   `creator_private.dob`, derives `profiles.age`, and then sets
+  //   `new.dob := null` so the public row never carries a full date of birth.
+  //   So seeding `dob` from `auth.profile.dob` reads null on a finished profile
+  //   and `draftProblems` reports "Add your date of birth" for ever. This is
+  //   the third time this trigger has done this - it cost EditProfile three
+  //   sessions - and the phone number was never read back at all.
+  //
+  // IT MERGES, IT DOES NOT OVERWRITE. Only fields that are still empty in the
+  // draft are filled, so the effect cannot take back something typed in the
+  // few hundred milliseconds before the profile landed. `hydrated` makes it
+  // run once whatever else re-renders.
+  const hydrated = useRef(false)
+  useEffect(() => {
+    if (demo || hydrated.current || !auth.profile || !user?.id) return undefined
+    hydrated.current = true
+    let alive = true
+    const p = auth.profile
+    const keepEmpty = (cur, next) => {
+      if (next == null || next === '') return cur
+      if (Array.isArray(cur)) return cur.length ? cur : next
+      return (cur === '' || cur == null) ? next : cur
+    }
+    supabase.from('creator_private').select('dob, phone, phone_country').eq('id', user.id).maybeSingle()
+      .then(({ data: priv }) => {
+        if (!alive) return
+        setDraft((d) => ({
+          ...d,
+          name: keepEmpty(d.name, p.name),
+          photo_url: keepEmpty(d.photo_url, p.photo_url),
+          // `profiles.dob` is always null - see above. The private row is the
+          // only place a date of birth exists.
+          dob: d.dob || priv?.dob || null,
+          city: keepEmpty(d.city, p.city),
+          country: keepEmpty(d.country, p.country),
+          country_code: keepEmpty(d.country_code, p.country_code || isoForCountryName(p.country)),
+          bio: keepEmpty(d.bio, p.bio),
+          about: keepEmpty(d.about, p.about),
+          favourite_quote: keepEmpty(d.favourite_quote, p.favourite_quote),
+          instagram_url: keepEmpty(d.instagram_url, p.instagram_url),
+          tiktok_url: keepEmpty(d.tiktok_url, p.tiktok_url),
+          youtube_url: keepEmpty(d.youtube_url, p.youtube_url),
+          facebook_url: keepEmpty(d.facebook_url, p.facebook_url),
+          other_links: keepEmpty(d.other_links, Array.isArray(p.other_links) ? p.other_links : null),
+          languages: keepEmpty(d.languages, p.languages),
+          countries_visited: keepEmpty(d.countries_visited, p.countries_visited),
+          bucket_list: keepEmpty(d.bucket_list, Array.isArray(p.bucket_list) ? p.bucket_list : null),
+        }))
+        setContact((c) => ({
+          phone: c.phone || priv?.phone || '',
+          phone_country: c.phone_country || priv?.phone_country || '',
+        }))
+      })
+    return () => { alive = false }
+  }, [auth.profile, user?.id, demo])
+
   // THE MARKETS, LOADED ONCE AND EARLY. The resolution has to be instant when
   // somebody picks their country on step three - a spinner where the answer
   // goes turns a confident statement into a question.
@@ -502,6 +578,54 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-cloud/50 px-5 py-8 sm:py-14">
       <div className="mx-auto max-w-2xl">
+        {/* THERE IS A WAY OUT (7 Sep 2026). Ethan: "while on this onboarding
+            there seems to be literally no way to get back to the main public
+            landing page or anything. It's just stuck on this, which is weird.
+            There should always be a way to get back."
+
+            He is right, and this was the only screen in the product with no
+            exit at all: onboarding renders INSTEAD of AppLayout, so there is no
+            header, no tab bar and no account menu - and the route guard sends
+            anyone who is not onboarded straight back here, so the browser's own
+            Back button lands on the same screen. The only way off it was to
+            close the tab, which is exactly what somebody who wanted to look
+            something up would do, and they would then have to find their way
+            back in.
+
+            Nothing is lost by leaving: the answers are on the profile row from
+            the moment each step saves, and the draft is re-read on return (see
+            the hydration effect above). So this is honest rather than a trap
+            door - it says "later", and later works.
+
+            Log out is beside it because the other reason somebody is stuck here
+            is that they are signed in as the wrong person, which on a shared
+            laptop is not rare. */}
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <a
+            href="/"
+            className="group flex items-center gap-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink"
+          >
+            <img
+              src="/brand/tryp-logo.png"
+              alt=""
+              className="h-8 w-8 rounded-lg shadow-card transition-transform duration-200 group-hover:-translate-y-0.5"
+            />
+            <span className="hidden sm:inline">{tr('Back to Tryp.com')}</span>
+          </a>
+          {!demo && (
+            <div className="flex items-center gap-3">
+              <span className="hidden text-xs text-smoke sm:inline">{tr('Your answers are saved as you go.')}</span>
+              <button
+                type="button"
+                onClick={async () => { await signOut(); window.location.href = '/' }}
+                className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-ink"
+              >
+                {tr('Log out')}
+              </button>
+            </div>
+          )}
+        </div>
+
         <Progress step={step} barPct={barPct} current={current} />
 
         {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).

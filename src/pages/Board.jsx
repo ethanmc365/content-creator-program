@@ -107,7 +107,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
                   aria-pressed={on}
                   className={cx(
                     'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all duration-200',
-                    on ? 'border-brand bg-brand-tint/30 ring-1 ring-brand/30' : 'border-gray-200 hover:-translate-y-0.5 hover:border-brand/50',
+                    on ? 'border-brand bg-brand-tint/30 ring-1 ring-brand/30' : 'border-gray-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand/50',
                   )}
                 >
                   <span className={cx(
@@ -503,8 +503,8 @@ export default function Board() {
                 className={cx(
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
                   state === s.key
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                    ? 'border-brand bg-brand text-white glow-brand'
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
                 )}
               >
                 {s.key === 'unanswered' && state !== s.key && waiting > 0 && (
@@ -522,8 +522,8 @@ export default function Board() {
                 className={cx(
                   'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
                   tag === t.key
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                    ? 'border-brand bg-brand text-white glow-brand'
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand',
                 )}
               >
                 <Icon name={t.icon} className="h-3.5 w-3.5" />

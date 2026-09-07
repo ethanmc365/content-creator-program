@@ -13,7 +13,53 @@
 const WEB_SAFE = ['image/jpeg', 'image/png', 'image/webp']
 
 function isHeic(file) {
-  return file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name || '')
+  // The MIME type is not reliable here. A HEIC dragged out of Finder arrives as
+  // `image/heic`, one from an iPhone burst as `image/heic-sequence`, and one
+  // that has been through a share sheet or a file picker on Android often
+  // arrives with an EMPTY type and nothing but its name to go on. All three are
+  // the same problem, so all three are matched.
+  const t = (file.type || '').toLowerCase()
+  return t.startsWith('image/heic') || t.startsWith('image/heif')
+    || /\.(heic|heif)$/i.test(file.name || '')
+}
+
+// CAN THIS BROWSER DECODE THE FILE ITSELF?
+//
+// Safari can decode HEIC natively - it is Apple's format - and Safari is where
+// almost every HEIC comes from. Everything else (Chrome, Firefox, Android)
+// cannot. Asking the browser first is worth doing precisely because the fallback
+// is so expensive: `heic2any` is a 1.35 MB chunk that then decodes a 5 MB photo
+// on the main thread.
+async function canDecodeNatively(file) {
+  try {
+    const bmp = await createImageBitmap(file)
+    bmp.close?.()
+    return true
+  } catch {
+    return false
+  }
+}
+
+// A DECODE THAT NEVER FINISHES IS THE WORST OUTCOME, SO IT IS GIVEN A CLOCK.
+//
+// THE BUG THIS FIXES (7 Sep 2026). Ethan: "for the onboarding, the profile
+// photo seems to struggle or not accept HEIC formats, some with travel photos,
+// it causes forever loading."
+//
+// Forever is the exact word. `heic2any` decodes on the main thread, and a
+// 12-megapixel HEIC off a recent iPhone takes anywhere from four seconds on a
+// laptop to well over a minute on a mid-range phone - with the tab frozen
+// throughout, so the spinner cannot even animate. There was no timeout, so a
+// decode that was never going to finish looked identical to one that was about
+// to. Thirty seconds is far longer than any decode that is going to succeed and
+// far shorter than a creator's patience: past it, they get a sentence they can
+// act on instead of a spinner they cannot.
+function withTimeout(promise, ms, message) {
+  let timer
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms) }),
+  ])
 }
 
 // Can this browser actually ENCODE WebP? Safari could display WebP long before
@@ -55,14 +101,32 @@ export async function compressImage(file, { maxDim = 1280, quality = 0.82, forma
   const outExt = useWebp ? 'webp' : 'jpg'
 
   let source = file
-  if (isHeic(file)) {
+  // THE BROWSER GETS FIRST REFUSAL, AND ON AN IPHONE IT ALWAYS WINS.
+  //
+  // The old code went straight to `heic2any` for anything that looked like a
+  // HEIC. On Safari that is a 1.35 MB download and a slow software decode to
+  // reproduce something the browser was already able to do instantly - and
+  // Safari is where HEICs come from, so it was the common path that paid for
+  // the rare one. The canvas below only needs a decodable bitmap; where the
+  // browser can make one, the file goes through untouched and comes out the
+  // other side as a normal WebP.
+  if (isHeic(file) && !(await canDecodeNatively(file))) {
     try {
       const heic2any = (await import('heic2any')).default
-      const out = await heic2any({ blob: file, toType: 'image/jpeg', quality })
+      const out = await withTimeout(
+        heic2any({ blob: file, toType: 'image/jpeg', quality }),
+        30000,
+        'slow-decode',
+      )
       const blob = Array.isArray(out) ? out[0] : out
       source = new File([blob], (file.name || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg' })
-    } catch {
-      throw new Error('Could not read that iPhone photo (HEIC). Set your camera to "Most Compatible" (Settings › Camera › Formats), or upload a JPEG.')
+    } catch (err) {
+      throw new Error(
+        err?.message === 'slow-decode'
+          ? 'That iPhone photo is taking too long to convert on this device. The quickest fix is to set Settings › Camera › Formats to "Most Compatible" and take it again, or send yourself the photo and upload the JPEG.'
+          : 'Could not read that iPhone photo (HEIC). Set your camera to "Most Compatible" (Settings › Camera › Formats), or upload a JPEG.',
+        { cause: err },
+      )
     }
   }
 

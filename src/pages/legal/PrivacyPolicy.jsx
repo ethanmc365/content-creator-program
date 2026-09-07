@@ -89,6 +89,8 @@ export default function PrivacyPolicy() {
         <li><strong>Supabase</strong> - database, authentication and file storage. Hosted in Switzerland.</li>
         <li><strong>Vercel</strong> - application hosting and content delivery.</li>
         <li><strong>Cloudflare</strong> - bot protection on the sign-up and login forms (Turnstile).</li>
+        <li><strong>Sentry</strong> - error monitoring, so that a crash is reported to us rather than only to the person it happened to. It receives the technical details of the fault and your account's internal reference number; it does not receive your name, email address or IP address. Hosted in the European Union.</li>
+        <li><strong>Google</strong> - if, and only if, you choose "Continue with Google" to sign in. Google tells us your name, email address and that the address is verified. If you sign in with an email and password, Google receives nothing.</li>
         <li><strong>Resend</strong> - transactional and notification email.</li>
         <li><strong>OpenStreetMap (Nominatim)</strong> - turning the town you type into map coordinates. It receives the place name, not your identity.</li>
         <li><strong>Google Fonts</strong> - the typeface the site is set in.</li>
@@ -102,7 +104,8 @@ export default function PrivacyPolicy() {
       <H2>7. International transfers</H2>
       <p>
         Supabase processes your data in Switzerland, which the European Commission recognises as
-        providing an adequate level of protection. Some processors (Vercel, Cloudflare, Resend,
+        providing an adequate level of protection. Sentry processes error reports in the European
+        Union. Some processors (Vercel, Cloudflare, Resend,
         Google) may process data in the United States; where they do, those transfers are covered by
         the EU-US Data Privacy Framework and/or the European Commission's Standard Contractual
         Clauses, with the UK Addendum where UK data is involved.

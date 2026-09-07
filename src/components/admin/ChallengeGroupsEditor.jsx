@@ -182,8 +182,8 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
           onClick={() => { if (!c.on) c.act() }}
           aria-pressed={c.on}
           className={cx(
-            'flex flex-col rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
-            c.on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white hover:border-brand/40',
+            'flex flex-col rounded-xl border p-4 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
+            c.on ? 'border-brand bg-brand text-white shadow-card glow-brand' : 'border-gray-200 bg-white hover:border-brand/40',
           )}
         >
           <span className="flex items-center gap-2">
@@ -281,8 +281,8 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                       participation_prize: '',
                     })}
                   className={cx(
-                    'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5',
-                    on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
+                    'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
+                    on ? 'border-brand bg-brand text-white shadow-card glow-brand' : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
                   )}
                 >
                   {o.label}

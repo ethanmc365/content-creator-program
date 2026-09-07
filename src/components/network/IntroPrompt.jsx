@@ -60,8 +60,8 @@ function Chips({ options, value, onToggle, max }) {
             className={cx(
               'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
               on
-                ? 'border-brand bg-brand text-white'
-                : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:border-gray-200 disabled:hover:text-smoke',
+                ? 'border-brand bg-brand text-white glow-brand'
+                : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:border-gray-200 disabled:hover:text-smoke',
             )}
           >
             {o}
@@ -365,7 +365,7 @@ export default function IntroInvite({ community, channel, canPost = true }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mb-2 flex w-full items-center gap-2.5 rounded-xl border border-brand/25 bg-brand-tint/40 px-3 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50"
+        className="mb-2 flex w-full items-center gap-2.5 rounded-xl border border-brand/25 bg-brand-tint/40 px-3 py-2 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand/50"
       >
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
           <Icon name="sparkles" className="h-3.5 w-3.5" />

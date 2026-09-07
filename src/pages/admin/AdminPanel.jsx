@@ -94,6 +94,7 @@ const TOOLS = [
 
   { id: 'milestones', to: '/admin/milestones', icon: 'plane', title: 'Milestones' },
 
+  { id: 'history', to: '/admin/challenges/history', icon: 'book', title: 'Challenge log' },
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
   { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },
 
