@@ -89,6 +89,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // real step so a shortened walk can never resume off the end.
   const [i, setI] = useState(() => Math.min(savedStep(layout), stepsFor({ network }).length - 1))
   const [ready, setReady] = useState(false)
+  // THE SPOTLIGHT FADES IN ONCE, AT THE START OF THE WALK, AND THEN TRAVELS.
+  // See the note where it is rendered: dropping it to invisible on every step
+  // is half of "it just disappears and appears". State rather than a ref
+  // because it is read during render.
+  const [litOnce, setLitOnce] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hit, setHit] = useState(false)        // the goal just completed
   const [pushState, setPushState] = useState(() => pushPermission())
@@ -100,6 +105,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const tickRef = useRef(0)
   const travelUntil = useRef(0)
   const advanced = useRef(false)
+
 
   // Remember where they are on every move, so backgrounding the app at step
   // four comes back to step four.
@@ -189,8 +195,45 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       }
     }
 
-    const t = setTimeout(() => setReady(true), 300)
-    return () => clearTimeout(t)
+    // IT WAITS FOR THE PAGE TO STOP MOVING, NOT FOR A NUMBER (7 Sep 2026).
+    //
+    // Ethan: "when you click to go to the next thing it freezes there for a
+    // second, and then the card jumps up to Challenges. Sometimes it moves
+    // cleanly and other times it just stops and appears."
+    //
+    // This was `setTimeout(..., 300)`, and 300 was a guess at how long a smooth
+    // scroll takes. It is wrong in both directions and both are visible:
+    //
+    //   TOO LONG.  Most steps do not scroll at all - the tab bar is already on
+    //              screen. The card's words changed instantly (React) and then
+    //              NOTHING happened for three hundred milliseconds, because the
+    //              rAF loop is the only thing that writes a position and it does
+    //              not run until `ready`. That dead beat is the freeze, and it
+    //              is on the majority of steps.
+    //   TOO SHORT. A real smooth scroll on a long page takes longer than 300ms,
+    //              so the loop started measuring a page that was still moving,
+    //              and the 560ms travel window was mostly spent tracking a
+    //              scroll rather than gliding to a target. That is the jump.
+    //
+    // So it waits for the actual event: two consecutive samples with the page
+    // at the same offset. No scroll at all settles in ~80ms, which reads as
+    // immediate; a long smooth scroll takes as long as it takes. The 900ms cap
+    // is the backstop for a scroll inside a container `window.scrollY` cannot
+    // see (the account menu, the chat scroller) and for a page that never
+    // settles at all.
+    let settled = false
+    const settle = () => { if (!settled) { settled = true; setReady(true) } }
+    let lastY = window.scrollY
+    let still = 0
+    const poll = setInterval(() => {
+      const y = window.scrollY
+      if (Math.abs(y - lastY) < 1) {
+        still += 1
+        if (still >= 2) { clearInterval(poll); settle() }
+      } else { still = 0; lastY = y }
+    }, 40)
+    const cap = setTimeout(() => { clearInterval(poll); settle() }, 900)
+    return () => { clearInterval(poll); clearTimeout(cap) }
     // `location` is deliberately absent: navigating IS the effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, step?.key, network])
@@ -324,6 +367,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     } catch { /* declined, or the browser refused */ }
     setBusy(false)
   }
+
+  useEffect(() => { if (ready) setLitOnce(true) }, [ready])
 
   // ------------------------------------------------------ THE rAF LOOP ---
   //
@@ -495,6 +540,39 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // something must not be on top of it, so these steps pin it low and out
       // of the way instead. `data-centre` still drives the entrance animation.
       if (!visible) { card.dataset.centre = 'yes'; card.style.top = ''; card.style.left = ''; return }
+
+      // COMING BACK FROM THE CENTRE IS THE OTHER HALF OF "SOMETIMES IT JUST
+      // APPEARS" (7 Sep 2026).
+      //
+      // An anchorless card is positioned by CSS - `top: auto; bottom: 2rem` -
+      // and the two lines above CLEAR the inline `top`/`left` to let that rule
+      // win. Every step that navigates passes through this state, because the
+      // new page's anchor does not exist for the first few frames after a route
+      // change. So the sequence on those steps was: card goes to bottom-centre,
+      // anchor appears, and this code writes `top: 412px` over an inline value
+      // of `''`.
+      //
+      // A TRANSITION NEEDS A FROM-VALUE AND `auto` IS NOT ONE. There is nothing
+      // to interpolate from, so the browser applies the new value immediately -
+      // a teleport, on exactly the steps that also move the furthest. It is not
+      // intermittent and it is not lag; it is every route-changing step.
+      //
+      // So the handoff is explicit: seed the inline position with where the
+      // card actually IS right now, flush it, and only then let the travel
+      // transition run to the target. `getBoundingClientRect` already accounts
+      // for the `translateX(-50%)` the centre rule applies, and reading
+      // `offsetHeight` forces the style flush - which is deliberately NOT a
+      // double rAF, because rAF does not run in a hidden pane and this must
+      // work where it cannot be watched.
+      if (card.dataset.centre === 'yes') {
+        const from = card.getBoundingClientRect()
+        card.dataset.travel = 'no'
+        card.dataset.centre = 'no'
+        card.style.top = `${from.top}px`
+        card.style.left = `${from.left}px`
+        void card.offsetHeight
+        card.dataset.travel = travelling ? 'yes' : 'no'
+      }
       card.dataset.centre = 'no'
 
       // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR (3 Sep 2026).
@@ -604,7 +682,15 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         aria-hidden
         data-on="no"
         data-travel="yes"
-        className={cx('tour-spot', ready && 'tour-spot--ready')}
+        // LIT ONCE, THEN NEVER DARK AGAIN UNTIL THE WALK ENDS. Gating this on
+        // `ready` meant the spotlight faded out at the start of every step and
+        // back in at the end of it, so what the eye saw between two anchors was
+        // a box vanishing here and a different box appearing there - Ethan's
+        // "it just disappears and appears". It has a travel transition for
+        // exactly this; letting it stay visible is what lets the transition be
+        // seen. The first step still fades in, because there is nothing for it
+        // to travel from.
+        className={cx('tour-spot', (ready || litOnce) && 'tour-spot--ready')}
         style={{ top: '50%', left: '50%', width: 0, height: 0 }}
       />
 
