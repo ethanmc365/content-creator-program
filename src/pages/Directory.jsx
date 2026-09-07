@@ -159,14 +159,9 @@ export default function Directory() {
   // and a Message button, like everyone else. A separate page is a page you have
   // to be told about, and it made the team feel like staff rather than members.
   //
-  // They lead the grid because "who runs this" is a question new creators ask on
-  // day one, and they are labelled so nobody has to guess.
-  const team = useMemo(
-    () => creators
-      .filter((c) => c.is_admin && c.id !== user.id)
-      .sort((a, b) => (a.name || '').localeCompare(b.name || '')),
-    [creators, user.id],
-  )
+  // They live on their own TAB, second from the left. There used to be a second
+  // copy of them in a section above the grid as well; see the note where that
+  // section was.
 
   // A FILTER FILTERS THE MAP TOO.
   //
@@ -354,11 +349,17 @@ export default function Directory() {
             Everyone showed everyone except five people. Naming the two groups
             and letting you pick one is both more honest and what somebody
             scanning for "who runs this" actually wants. */}
+        {/* AND "TRYP.COM TEAM" SITS NEXT TO "CREATORS" (7 Sep 2026). Ethan:
+            "move Tryp.com team to the right of Creators, and then to the right
+            of Tryp.com team it says My connections and then Not connected yet."
+            The two WHO tabs belong together and the two RELATIONSHIP tabs
+            belong together; the old order interleaved them, so the strip read
+            as four unrelated filters rather than as two pairs. */}
         {[
           { key: '', label: tr('Creators') },
+          { key: 'team', label: tr('Tryp.com team') },
           { key: 'connected', label: tr('My connections') },
           { key: 'new', label: tr('Not connected yet') },
-          { key: 'team', label: tr('Tryp.com team') },
         ].map((o) => (
           <button
             key={o.key || 'all'}
@@ -406,36 +407,20 @@ export default function Directory() {
         </div>
       )}
 
-      {/* The team section under the grid is now redundant on the team TAB -
-          it would be the same five people twice - so it only draws on the
-          default view, where it is still the fastest way to see who runs this
-          without changing tabs. */}
-      {!loading && team.length > 0 && !search && !country && !language && !platform && !connection && !connectionsOnly && !travelOnly && !nearMe && (
-        <section className="mb-10">
-          <div className="mb-3">
-            <h2 className="text-lg font-semibold">{tr("The Tryp.com team")}</h2>
-            <p className="mt-0.5 text-sm text-smoke">
-              {tr("We are in the community too. Connect or message any of us.")}
-            </p>
-          </div>
-          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.05}>
-            {team.map((c) => (
-              <CreatorCard
-                key={c.id}
-                creator={c}
-                relation={relationships.get(c.id) || null}
-                onRelationChange={(id, next) =>
-                  setRelationships((prev) => {
-                    const map = new Map(prev)
-                    next ? map.set(id, next) : map.delete(id)
-                    return map
-                  })
-                }
-              />
-            ))}
-          </Reveal>
-        </section>
-      )}
+      {/* THERE IS NO TEAM SECTION ABOVE THE GRID ANY MORE (7 Sep 2026).
+          Ethan: "the connections page automatically opens on Creators, as it
+          should - but for some reason it still shows the Tryp.com team at the
+          top. It shouldn't show the Tryp.com team in the creator section. The
+          Tryp.com team should only show up whenever you click on the actual
+          Tryp.com team tab."
+
+          He is right, and the section had already been overtaken by its own
+          replacement. It was built when there was no team tab, as the answer to
+          "who runs this" - and then a tab labelled exactly that was added next
+          to it. Keeping both meant the DEFAULT tab, the one called Creators,
+          led with five people who are deliberately filtered out of the list
+          underneath: a tab that shows the thing it excludes. One name, one
+          place, and the tab is the place. */}
 
       {loading ? (
         <SkeletonCards count={6} />
