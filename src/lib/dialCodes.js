@@ -77,10 +77,6 @@ export const DIAL_CODES = [
   { iso2: 'TW', code: '+886', name: 'Taiwan' },
 ]
 
-// Flag emoji from an ISO 3166-1 alpha-2 code (two regional-indicator letters).
-export function flagEmoji(iso2) {
-  if (!iso2) return ''
-  return iso2
-    .toUpperCase()
-    .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
-}
+// Flag emoji from an ISO 3166-1 alpha-2 code. Re-exported so the phone-code
+// picker keeps its one-stop import, but there is only ONE implementation.
+export { flagEmoji } from './countries'

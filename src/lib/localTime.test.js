@@ -5,7 +5,7 @@ import {
   localTimeLine,
   zonedTimeToUtc,
   zoneOffsetMs,
-  zoneLabel,
+  zoneCityLabel,
 } from './localTime'
 
 describe('timezoneFor', () => {
@@ -111,8 +111,8 @@ describe('typing a time in a market from anywhere', () => {
   })
 
   it('names a zone the way a person would', () => {
-    expect(zoneLabel('Europe/Madrid')).toBe('Madrid')
-    expect(zoneLabel('America/New_York')).toBe('New York')
-    expect(zoneLabel('')).toBe('')
+    expect(zoneCityLabel('Europe/Madrid')).toBe('Madrid')
+    expect(zoneCityLabel('America/New_York')).toBe('New York')
+    expect(zoneCityLabel('')).toBe('')
   })
 })

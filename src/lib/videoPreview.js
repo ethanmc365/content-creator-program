@@ -11,6 +11,8 @@
 // Results are cached in-memory (per page load) and in-flight requests are
 // de-duplicated, so a grid of cards never hammers the endpoints.
 
+import { youtubeId } from './videoLinks'
+
 const cache = new Map() // url -> { thumbnail, title, author } | null
 const inflight = new Map() // url -> Promise
 
@@ -23,13 +25,10 @@ export function detectPlatformFromUrl(url = '') {
 }
 
 // Pull the 11-char video id out of the common YouTube URL shapes.
-export function youtubeId(url = '') {
-  const m =
-    url.match(/[?&]v=([\w-]{11})/) ||
-    url.match(/youtu\.be\/([\w-]{11})/) ||
-    url.match(/youtube\.com\/(?:shorts|embed)\/([\w-]{11})/)
-  return m ? m[1] : null
-}
+// ONE IMPLEMENTATION, in lib/videoLinks - this file carried a second one that
+// did not know about /live/ or /v/ URLs, so the same link could resolve here
+// and not there. Re-exported so this module's callers still import one thing.
+export { youtubeId }
 
 // A thumbnail we can build with zero network calls (YouTube only).
 export function staticThumbnail(url = '') {

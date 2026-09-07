@@ -6,7 +6,7 @@
 // platform better."
 //
 // The all-time leaderboard has been on the brand ladder for months
-// (brand -> brand-light -> brand-tint, see RankBadge and Leaderboard.jsx) while
+// (brand -> brand-light -> brand-tint, see Leaderboard.jsx) while
 // the challenge podium drew real metal. Two podiums in one product, one of them
 // borrowed from somebody else's. This module is the ONE ladder, so a third
 // surface cannot invent a fourth.

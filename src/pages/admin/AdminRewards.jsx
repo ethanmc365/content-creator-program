@@ -10,7 +10,7 @@ import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban, 
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import InvoicesPanel from './InvoicesPanel'
 import InvoiceQueue from './InvoiceQueue'
-import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
+import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import { useInvoiceViewer } from '../../components/admin/InvoiceModal'
 import { isRealMember } from '../../lib/members'
 import { rewardsTotal } from '../../lib/programme'
@@ -157,7 +157,7 @@ export default function AdminRewards() {
   // it first. A reward belongs to the market its CREATOR belongs to - the
   // reward's own `community_id` is only set on some rows and never on the older
   // ones, so membership is the honest source.
-  const { markets, memberRows } = useMarkets()
+  const { markets, memberRows } = useScopedMarkets()
   // The same invoice document the queue opens, opened from a payout row.
   const viewer = useInvoiceViewer({ onChanged: () => load() })
   const [market, setMarket] = useState('')

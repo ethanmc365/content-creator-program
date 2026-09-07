@@ -168,8 +168,13 @@ export function airportMatches(airport, candidate) {
   return (airport.aliases || []).some((a) => normalize(a) === n)
 }
 
-/** ISO alpha-2 → flag emoji (🇮🇪). */
+/**
+ * ISO alpha-2 → flag emoji (🇮🇪). THE ONLY DEFINITION - `lib/dialCodes` used to
+ * carry a second, byte-identical one, so a country could be flagged by either
+ * of two functions and only one of them survived a missing code.
+ */
 export function flagEmoji(iso2) {
+  if (!iso2) return ''
   return [...iso2.toUpperCase()].map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('')
 }
 

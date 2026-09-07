@@ -16,8 +16,9 @@ import { useT } from '../../lib/i18n'
 // somebody who already has the habit. A section on the hub, between the
 // announcement and the map, is the whole intervention.
 //
-// ONE CARD, THREE PUZZLES ACROSS - the same shape the UK home page has always
-// used (`components/DailyGamesCard`). It was three separate stacked cards here,
+// ONE CARD, THREE PUZZLES ACROSS - the same shape the old UK home page used
+// (`components/DailyGamesCard`, deleted with pages/Home.jsx on 7 Sep 2026 when
+// /home became a redirect to /global). It was three separate stacked cards here,
 // which on a hub already made of full-width cards read as three more sections
 // to scroll past rather than one thing to do. Ethan: "instead of being 3
 // separate cards, one card where the 3 puzzles are side by side."
@@ -54,8 +55,8 @@ import { useT } from '../../lib/i18n'
 // it in, and I think it will look much better. Keep the same structure like the
 // icon shows green with the little tick whenever it's played."
 //
-// So this is `components/DailyGamesCard` - the UK card - laid out horizontally
-// at every width, with the sizes taken in one notch: a 36px tile rather than 40,
+// So this is that UK card laid out horizontally at every
+// width, with the sizes taken in one notch: a 36px tile rather than 40,
 // px-4 rather than px-5, and the count line at 11px. THE HUB IS NARROWER THAN
 // THE UK HOME PAGE, by the width of the right rail, and that is the only reason
 // the two files are not now identical.

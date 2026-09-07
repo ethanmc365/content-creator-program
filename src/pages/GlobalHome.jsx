@@ -757,8 +757,8 @@ export default function GlobalHome() {
               with an empty profile, and the onboarding flow being built now
               collects all of it up front - so by the time anybody reaches this
               hub the bar would read 100% and the card would never render. It
-              was removed rather than left to rot. ProfileProgress.jsx is still
-              in the tree unused; delete it once onboarding ships. */}
+              was removed rather than left to rot, and the component itself was
+              deleted on 7 Sep 2026 once onboarding had shipped. */}
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween

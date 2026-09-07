@@ -23,8 +23,13 @@ import { cx } from '../../lib/utils'
 // columns - implying it scoped the right-hand one too, which on Rewards it does
 // not. `w-fit` makes the control the size of the thing it controls.
 
-/** Loads the markets and the membership rows every scoped page needs. */
-export function useMarkets() {
+/**
+ * Loads the markets and the membership rows every scoped ADMIN page needs.
+ * Deliberately not `useMarkets` - `lib/markets` exports a hook of that name
+ * returning a bare ARRAY, and this one returns `{ markets, memberRows }`, so
+ * importing the wrong one destructures to undefined rather than failing loudly.
+ */
+export function useScopedMarkets() {
   const [markets, setMarkets] = useState([])
   const [memberRows, setMemberRows] = useState([])
 
@@ -48,7 +53,7 @@ export function useMarkets() {
 
 /**
  * @param {object}   props
- * @param {Array}    props.markets  from useMarkets
+ * @param {Array}    props.markets  from useScopedMarkets
  * @param {string}   props.value    community id, or '' for the whole programme
  * @param {Function} props.onChange
  * @param {string}   [props.note]   a short line about what is in scope

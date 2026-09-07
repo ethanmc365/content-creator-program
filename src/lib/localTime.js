@@ -251,8 +251,14 @@ export function formatInZone(at, zone) {
   }
 }
 
-/** A short label for a zone, e.g. "Europe/Madrid" -> "Madrid". */
-export function zoneLabel(zone) {
+/**
+ * The CITY out of an IANA zone, e.g. "Europe/Madrid" -> "Madrid".
+ * NOT `zoneLabel` in lib/eventTime, which answers a different question with the
+ * same word: that one gives the offset abbreviation ("GMT+1"). Two functions
+ * called zoneLabel returning "Madrid" and "GMT+1" is a wrong import that still
+ * renders, so the name says which one this is.
+ */
+export function zoneCityLabel(zone) {
   if (!zone) return ''
   const tail = String(zone).split('/').pop() || zone
   return tail.replace(/_/g, ' ')

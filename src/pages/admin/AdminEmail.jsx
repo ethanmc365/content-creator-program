@@ -5,7 +5,7 @@ import Icon from '../../components/Icon'
 import { cx, formatDateTime } from '../../lib/utils'
 import { confirm, notice } from '../../lib/confirm'
 import { openCompose } from '../../lib/compose'
-import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
+import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import { roleBadgeTitle } from '../../lib/roles'
 
 // The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
@@ -49,7 +49,7 @@ export default function AdminEmail() {
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
   const [emailById, setEmailById] = useState(new Map())
-  const { markets, memberRows } = useMarkets()
+  const { markets, memberRows } = useScopedMarkets()
   const [market, setMarket] = useState('')
 
   const load = useCallback(async () => {

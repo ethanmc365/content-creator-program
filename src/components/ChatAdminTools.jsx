@@ -6,7 +6,7 @@ import { DateField, TimeField } from './DateTimeFields'
 import { CONTINENTS } from '../lib/countries'
 import { Select } from './ui'
 import { confirm } from '../lib/confirm'
-import { zonedTimeToUtc, formatInZone, zoneLabel } from '../lib/localTime'
+import { zonedTimeToUtc, formatInZone, zoneCityLabel } from '../lib/localTime'
 import { COMMON_ZONES } from '../lib/timezones'
 import { useT } from '../lib/i18n'
 
@@ -259,7 +259,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
                 options={COMMON_ZONES}
               />
               <p className="mt-1 text-[11px] text-gray-400">
-                {roomLabel} runs on {zoneLabel(zone)} time. Everything above is read on this clock.
+                {roomLabel} runs on {zoneCityLabel(zone)} time. Everything above is read on this clock.
               </p>
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             <p className={inThePast ? 'text-sm font-medium text-red-600' : 'text-sm text-smoke'}>
               {inThePast
                 ? 'That time has already passed. Pick a later one.'
-                : <>{tr("Goes out")} <span className="font-medium text-ink">{formatInZone(scheduledAt, zone)}</span> {zoneLabel(zone)} time.</>}
+                : <>{tr("Goes out")} <span className="font-medium text-ink">{formatInZone(scheduledAt, zone)}</span> {zoneCityLabel(zone)} time.</>}
             </p>
           )}
 
@@ -293,7 +293,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{row.body}</span>
                     <span className="mt-0.5 block text-xs text-smoke">
-                      {formatInZone(new Date(row.scheduled_for), row.tz || zone)} {zoneLabel(row.tz || zone)} time
+                      {formatInZone(new Date(row.scheduled_for), row.tz || zone)} {zoneCityLabel(row.tz || zone)} time
                     </span>
                   </span>
                   <button
