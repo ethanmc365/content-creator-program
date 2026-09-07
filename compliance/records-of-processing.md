@@ -7,7 +7,7 @@ Replace the **[PLACEHOLDER]** fields with your real details.
 ## Controller
 - **Controller:** Tryp.com LDA, Rua da Prata, nr. 80, 5.º piso, 1100-420 Lisbon, Portugal
   - (Alternative group entity: Tryp.com ApS, Drewsensvej 3, st. th, 5000 Odense C, Denmark — use this instead if the Creator Program is operated by the Danish entity.)
-- **Contact for data protection:** info@tryp.com
+- **Contact for data protection:** ethan@tryp.com
 - **DPO:** Not appointed (not currently required). Review if processing scale grows.
 - **EU/UK representative:** N/A — controller is established in the EU (Portugal).
 - **Lead supervisory authority:** Comissão Nacional de Proteção de Dados (CNPD), Portugal — https://www.cnpd.pt
@@ -36,7 +36,7 @@ Replace the **[PLACEHOLDER]** fields with your real details.
 - **Access / portability:** self-service "Download my data" (Edit profile → Your data & account) exports JSON.
 - **Rectification:** self-service via Edit profile.
 - **Erasure:** self-service "Delete my account" (30-day grace, then automatic permanent purge); admins can also delete.
-- **Restriction / objection / withdraw consent:** notification toggles; otherwise email info@tryp.com.
+- **Restriction / objection / withdraw consent:** notification toggles; otherwise email ethan@tryp.com.
 - **Complaints:** data subjects may complain to the CNPD (Portugal, https://www.cnpd.pt).
 
 ## Technical & organisational measures (Article 32)

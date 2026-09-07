@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
       <p>
         The data controller is <strong>Tryp.com LDA</strong>, Rua da Prata, nr. 80, 5.º piso,
         1100-420 Lisbon, Portugal. For any privacy question, or to exercise any of the rights in
-        section 8, contact us at <strong>info@tryp.com</strong>. We will answer within one month.
+        section 8, contact us at <strong>ethan@tryp.com</strong>. We will answer within one month.
       </p>
 
       <H2>2. The data we collect</H2>
@@ -131,7 +131,7 @@ export default function PrivacyPolicy() {
         <li><strong>Withdraw consent to notifications:</strong> Settings, Notifications.</li>
       </ul>
       <p>
-        Anything not covered by a button, write to <strong>info@tryp.com</strong>. You also have the
+        Anything not covered by a button, write to <strong>ethan@tryp.com</strong>. You also have the
         right to complain to a supervisory authority - in Portugal the Comissão Nacional de Proteção
         de Dados (CNPD), in the UK the Information Commissioner's Office (ICO), or the authority
         where you live.

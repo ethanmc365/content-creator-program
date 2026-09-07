@@ -5,6 +5,7 @@ import Icon from './Icon'
 import { Avatar, Modal, CopyButton } from './ui'
 import { captureError } from '../lib/monitoring'
 import { useT } from '../lib/i18n'
+import { TEAM_LEAD } from '../lib/team'
 
 // WHO TO ASK. One person, by name, with an address you can copy.
 //
@@ -16,23 +17,15 @@ import { useT } from '../lib/i18n'
 // broken thing. A card they can read and copy from cannot fail in any of those
 // ways, and it also answers the question a support address does not: who is
 // this, and are they actually going to read it.
-const HELP = {
-  name: 'Ethan',
-  role: 'Content Creator Community Lead',
-  email: 'ethantryp.com@gmail.com',
-  // A REAL FACE, AND A STATIC ONE.
-  //
-  // This was `<Avatar name>` with no src, so the card offered help from a grey
-  // circle with an "E" in it. Ethan: "it should show my profile picture from
-  // the platform, not just E."
-  //
-  // It is a FILE in public/ rather than the live `profiles.photo_url` on
-  // purpose: this screen is what renders when the app has already failed, and
-  // half the time it renders there is no session to query with. An error screen
-  // that needs the thing that just broke is not an error screen. Copied from
-  // his own avatar; re-run the copy if he changes it.
-  photo: '/team/ethan.jpg',
-}
+//
+// THE ADDRESS ITSELF NOW LIVES IN `lib/team` and is shared with the legal pages
+// and the Get help section, because it was written out by hand in six files and
+// three of them disagreed. A REAL FACE, AND A STATIC ONE: this was
+// `<Avatar name>` with no src, so the card offered help from a grey circle with
+// an "E" in it. Ethan: "it should show my profile picture from the platform,
+// not just E." The reasons the photo is a file rather than a query are in
+// lib/team - they are the reasons this screen exists.
+const HELP = TEAM_LEAD
 
 function ContactCard({ open, onClose }) {
   const tr = useT()

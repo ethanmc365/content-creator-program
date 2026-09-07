@@ -99,7 +99,7 @@ export default function Terms() {
         attribution to you where reasonably practical. This licence continues for material already
         published even if you later leave the Programme, because we cannot recall a printed magazine
         or an advert already bought. If you want a specific piece of content taken out of our future
-        marketing, email <strong>info@tryp.com</strong> and we will act on reasonable requests.
+        marketing, email <strong>ethan@tryp.com</strong> and we will act on reasonable requests.
       </p>
       <p>
         You confirm that the content is yours to share, that anybody identifiable in it has agreed to
@@ -127,7 +127,7 @@ export default function Terms() {
         limit an account, suspend it, or close it.{' '}
         <strong>Whenever we do any of those things we will tell you what we did, to what, and why</strong>,
         and you can challenge the decision by replying to that message or writing to{' '}
-        <strong>info@tryp.com</strong>. A person - not an automated system - reviews every challenge,
+        <strong>ethan@tryp.com</strong>. A person - not an automated system - reviews every challenge,
         and we will restore anything we got wrong. This is our statement-of-reasons and internal
         complaints commitment under the EU Digital Services Act, and it applies to every decision we
         take about your content or your account.
@@ -137,7 +137,7 @@ export default function Terms() {
       <p>
         Every message in the Programme carries a Report control, and it is the fastest route: it
         sends us the message, who posted it and when, and it reaches the Team immediately. You can
-        also email <strong>info@tryp.com</strong>. Tell us what the content is and why you believe it
+        also email <strong>ethan@tryp.com</strong>. Tell us what the content is and why you believe it
         is illegal or breaks these terms.
       </p>
       <p>
@@ -157,7 +157,7 @@ export default function Terms() {
       <H2>9. Contact point</H2>
       <p>
         Our single point of contact for members, for authorities and for anybody wishing to report
-        content is <strong>info@tryp.com</strong>, in English or Portuguese.
+        content is <strong>ethan@tryp.com</strong>, in English or Portuguese.
       </p>
 
       <H2>10. Ending your membership</H2>
@@ -198,7 +198,7 @@ export default function Terms() {
       </p>
 
       <H2>14. Contact</H2>
-      <p>Questions about these terms? Email <strong>info@tryp.com</strong>.</p>
+      <p>Questions about these terms? Email <strong>ethan@tryp.com</strong>.</p>
     </LegalShell>
   )
 }

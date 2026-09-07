@@ -651,6 +651,17 @@ export default function AppLayout() {
                   </div>
 
                   <div className="my-1 border-t border-gray-100" />
+                  {/* TWO DIFFERENT THINGS, NEXT TO EACH OTHER ON PURPOSE
+                      (7 Sep 2026). "Help us improve" is a suggestion box that
+                      points AT us; "Get help" is a person who answers, and
+                      until now the platform had only the first one. Ethan:
+                      "we have the Help us improve section - maybe an actual
+                      help section where we have the whole Tryp.com team listed
+                      there, and they can specifically click to DM them... in
+                      case anyone's struggling and doesn't want to ask in the
+                      chat." Get help leads, because somebody stuck is in more
+                      of a hurry than somebody with an idea. */}
+                  <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-cloud">{tr("Get help")}</Link>
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
