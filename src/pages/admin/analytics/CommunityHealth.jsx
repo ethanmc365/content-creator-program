@@ -39,6 +39,23 @@ const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0)
 // the chart it feeds is labelled programme-wide rather than being filtered to
 // look scoped when it is not. Scoping it properly means a `p_community`
 // argument on that RPC.
+// A DATE THAT MIGHT NOT BE THERE.
+//
+// THE BUG THIS FIXES (7 Sep 2026): `format(new Date(x), 'd MMM')` throws
+// `RangeError: Invalid time value` on a null or unparseable input, and there is
+// no try/catch between here and the error boundary - so ONE row with a missing
+// timestamp replaced the entire Community health tab with the Mayday screen.
+// Caught by clicking through all six tabs after a change, which is the check
+// that lint, build and 604 unit tests all pass without doing.
+//
+// A dash is the honest answer for a date nobody recorded, and it is also what
+// every other table on this page already draws for a missing value.
+function day(value) {
+  if (!value) return '-'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '-' : format(d, 'd MMM')
+}
+
 export default function CommunityHealth({ market = '', memberRows = [], scopeLabel = 'Worldwide' }) {
   const navigate = useNavigate()
   const [weekly, setWeekly] = useState(null)
@@ -96,7 +113,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
 
     const weeks = weekly.map((w) => ({
       ...w,
-      week: format(new Date(w.week_start), 'd MMM'),
+      week: day(w.week_start),
       // Share of the community that did anything visible that week. The honest
       // read on engagement, and the one a "we have N members" number hides.
       activePct: pct(w.active_creators, w.members),
@@ -197,7 +214,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
                 <span className="shrink-0 text-xs text-smoke">
                   {Number(p.devices) > 0
-                    ? `${p.devices} device${Number(p.devices) === 1 ? '' : 's'} · on since ${format(new Date(p.first_enabled), 'd MMM')}`
+                    ? `${p.devices} device${Number(p.devices) === 1 ? '' : 's'} · on since ${day(p.first_enabled)}`
                     : 'not enabled'}
                 </span>
               </div>
