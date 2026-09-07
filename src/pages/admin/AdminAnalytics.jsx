@@ -110,7 +110,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     async function load() {
       const [
-        { data: profiles }, { data: challenges }, { data: submissions },
+        { data: profiles }, { data: challenges }, { data: history }, { data: submissions },
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
         { data: gameScores }, { data: connections }, { count: tripCount },
@@ -122,6 +122,14 @@ export default function AdminAnalytics() {
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
         supabase.from('challenges').select('id, title, status, start_date, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
+        // THE PROGRAMME DID NOT START WHEN THE PLATFORM DID. Forty-nine
+        // challenges ran on a spreadsheet before this existed (migrations
+        // 197/198). Without them the Overview - the first screen anybody opens -
+        // said the programme had run ONE challenge and produced 76,600 views,
+        // against a real record of forty-nine and nineteen and a half million.
+        // The linked row is dropped here for the same reason it is dropped in
+        // `admin_challenge_metrics`: it is the same contest as a live one.
+        supabase.from('challenge_history').select('*').is('challenge_id', null),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
         // `creator_id` and `currency` matter now: the per-creator table cannot
         // attribute a payout without the first, and cannot convert it without
@@ -129,7 +137,9 @@ export default function AdminAnalytics() {
         // made every one of them look infinitely efficient.
         supabase.from('rewards').select('amount, status, challenge_id, reward_type, creator_id, currency, source'),
         supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false),
-        supabase.from('results').select('final_views'),
+        // `challenge_id` so the market scope can follow a result to its
+        // contest - see lib/analyticsScope.
+        supabase.from('results').select('final_views, challenge_id'),
         supabase.from('feedback').select('status'),
         supabase.from('reactions').select('id', { count: 'exact', head: true }),
         supabase.from('poll_votes').select('id', { count: 'exact', head: true }),
@@ -154,7 +164,7 @@ export default function AdminAnalytics() {
       // `loadedAt` is captured here (not in render) so derived time windows
       // stay pure under the react-hooks purity rules.
       setRaw({
-        profiles: profiles || [], challenges: challenges || [],
+        profiles: profiles || [], challenges: challenges || [], history: history || [],
         submissions: submissions || [], rewards: rewards || [],
         messages: messages || [], results: results || [], feedback: feedback || [],
         reactionCount: reactionCount || 0, pollVoteCount: pollVoteCount || 0,
@@ -178,6 +188,26 @@ export default function AdminAnalytics() {
   // every money figure on this page is now converted into it rather than being
   // a plain sum over rows in whatever currency each one happens to carry.
   const currency = params.get('ccy') === 'GBP' ? 'GBP' : 'EUR'
+
+  // THE MARKET IS READ HERE, ABOVE EVERYTHING THAT USES IT, AND THAT IS NOT A
+  // STYLE CHOICE (7 Sep 2026).
+  //
+  // THE BUG THIS FIXES: this line lived two hundred lines further down, next to
+  // its setter, while `scoped` below it read `market`. `const` is hoisted into a
+  // TEMPORAL DEAD ZONE rather than to `undefined`, so reading it before the
+  // declaration is executed throws
+  //
+  //     ReferenceError: Cannot access 'market' before initialization
+  //
+  // on the FIRST render of the component. Every visit to /admin/analytics hit
+  // the error boundary - Ethan: "analytics doesn't seem to be opening at all
+  // now, I get the mayday mayday error."
+  //
+  // Nothing in the toolchain catches this. `eslint` passed, `vite build`
+  // passed, and all 599 tests passed, because none of them render this page.
+  // The only thing that finds it is opening the page, which is now what happens
+  // before this file is committed.
+  const market = params.get('market') || ''
 
   // THE SCOPE IS RESOLVED BEFORE ANYTHING IS COMPUTED FROM IT (7 Sep 2026).
   //
@@ -216,10 +246,26 @@ export default function AdminAnalytics() {
     // euros means being converted into euros, not relabelled.
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     const {
-      profiles, challenges, submissions, rewards, messages, results, feedback,
+      profiles, challenges, history, submissions, rewards, messages, results, feedback,
       reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
       seenRows, voucherCounts, loadedAt,
     } = raw
+
+    // THE PROGRAMME'S RECORD IS BOTH HALVES. `history` holds the forty-nine
+    // challenges that ran before this platform (migrations 197/198); `challenges`
+    // holds the one that has run on it. The headline tiles below are about the
+    // PROGRAMME, so they count both, and the per-challenge charts stay on the
+    // live half because a spreadsheet row has no submissions to chart.
+    //
+    // NULL VIEWS ARE NOT ZERO VIEWS. Fourteen historical rows were never
+    // measured, so they contribute prize money and no views - and are therefore
+    // excluded from anything divided by views. Same rule as lib/programme.
+    const hist = history || []
+    const histMeasured = hist.filter((h) => h.total_views != null)
+    const histViews = histMeasured.reduce((n, h) => n + Number(h.total_views || 0), 0)
+    const histPrize = hist.reduce((n, h) => n + money(h.prize_total, h.prize_currency), 0)
+    const histMeasuredPrize = histMeasured.reduce((n, h) => n + money(h.prize_total, h.prize_currency), 0)
+    const histPosts = hist.reduce((n, h) => n + Number(h.posts || 0), 0)
 
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
 
@@ -298,13 +344,22 @@ export default function AdminAnalytics() {
     const cashPaid = distributed.filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + money(r.amount, r.currency), 0)
     const voucherPaid = distributed.filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + money(r.amount, r.currency), 0)
     const totalPaid = cashPaid + voucherPaid
-    const totalViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
+    const liveViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
+    const totalViews = liveViews + histViews
     const verifiedViews = results.reduce((s, r) => s + (r.final_views || 0), 0)
-    const costPer1k = totalViews > 0 && cashPaid > 0 ? cashPaid / (totalViews / 1000) : null
+    // The programme's cash: what the reward ledger knows about, plus what the
+    // spreadsheet recorded before there was a ledger.
+    const programmeCash = cashPaid + histPrize
+    // Divided like by like - the numerator only counts challenges whose views
+    // are known, exactly as lib/programme does. Mixing them is what made the
+    // Challenge performance tab read EUR 0.47 against Ethan's own EUR 0.38.
+    const measuredCash = cashPaid + histMeasuredPrize
+    const costPer1k = totalViews > 0 && measuredCash > 0 ? measuredCash / (totalViews / 1000) : null
     // Two CPMs, deliberately, and never one blended average of averages: cash is
     // what left the bank, vouchers are face value we granted. Reporting only the
     // first understates the programme and only the second overstates the cost.
-    const combinedCpm = totalViews > 0 && totalPaid > 0 ? totalPaid / (totalViews / 1000) : null
+    const combinedCpm = totalViews > 0 && totalPaid + histMeasuredPrize > 0
+      ? (totalPaid + histMeasuredPrize) / (totalViews / 1000) : null
 
     // ---- Community health ----
     const active = realCreators.filter((p) => p.status === 'active')
@@ -317,7 +372,13 @@ export default function AdminAnalytics() {
     const thirtyAgo = loadedAt - 30 * 24 * 60 * 60 * 1000
     const newLast30 = realCreators.filter((p) => new Date(p.created_at).getTime() >= thirtyAgo).length
     // Average logged views per submission - a simple reach-efficiency metric.
-    const viewedCount = submissions.filter((s) => s.logged_views != null).length
+    // THE DENOMINATOR HAS TO COVER THE SAME POSTS AS THE NUMERATOR. `totalViews`
+    // is now the whole programme, so dividing it by the LIVE entries alone
+    // reported 519,000 average views per entry against a real figure nearer
+    // 7,500 - the same like-for-like mistake as the CPM, one line further down.
+    const liveViewed = submissions.filter((s) => s.logged_views != null).length
+    const histMeasuredPosts = histMeasured.reduce((n, h) => n + Number(h.posts || 0), 0)
+    const viewedCount = liveViewed + histMeasuredPosts
     const avgViewsPerEntry = viewedCount ? Math.round(totalViews / viewedCount) : 0
 
     // ---- Application funnel ----
@@ -400,7 +461,7 @@ export default function AdminAnalytics() {
 
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, cashPaid, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
+      totalPaid, cashPaid: programmeCash, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
       applications: { declined, approvedEver },
       activity7d: { activeThisWeek, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
       gamesByMode, weeklyPulse,
@@ -411,8 +472,9 @@ export default function AdminAnalytics() {
       community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
       totals: {
         creators: active.length,
-        submissions: submissions.length,
-        challenges: challenges.length,
+        submissions: submissions.length + histPosts,
+        challenges: challenges.length + hist.length,
+        unmeasuredChallenges: hist.length - histMeasured.length,
         newLast30,
         avgViewsPerEntry,
       },
@@ -424,7 +486,6 @@ export default function AdminAnalytics() {
   // whether the community is actually alive. The tab is in the URL so a link to
   // "the CPM table" lands on the CPM table.
   const tab = params.get('tab') || 'overview'
-  const market = params.get('market') || ''
   const setCurrency = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next === 'EUR') delete q.ccy; else q.ccy = next
@@ -600,14 +661,21 @@ export default function AdminAnalytics() {
       {/* ---- Headline numbers ---- */}
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
-        <StatCard label="Challenges run" value={derived.totals.challenges} onClick={() => navigate('/admin/challenges')} />
+        <StatCard
+          label="Challenges run"
+          value={derived.totals.challenges}
+          hint={derived.totals.unmeasuredChallenges
+            ? `${derived.totals.unmeasuredChallenges} with no views logged`
+            : 'live and logged'}
+          onClick={() => navigate('/admin/challenges/history')}
+        />
         <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
         <StatCard
           label="Total views"
           value={formatViews(derived.totalViews)}
           hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
         />
-        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} accent onClick={() => navigate('/admin/rewards')} />
+        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" accent onClick={() => navigate('/admin/rewards')} />
         <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
         <StatCard
           label="Cash CPM"

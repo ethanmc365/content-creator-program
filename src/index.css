@@ -1641,6 +1641,32 @@ html[data-reduce-motion] *::after {
     left 0.82s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
+/* THE BOX CHANGES SIZE BETWEEN STEPS AND THAT SHOULD BE A MOVEMENT TOO.
+   Ethan: "the card shrinks a bit - smooth animation." Steps carry different
+   amounts of text, so the card is 210px on one and 330px on the next, and the
+   height was snapping on the frame the words changed while the card was still
+   gliding. Same curve, slightly quicker, so the box has settled by the time the
+   card arrives. This is the same treatment `.onb-frame` gives the onboarding
+   card, and for the same reason.
+
+   IT IS ALWAYS ON, not only while travelling: unlike position, a height is
+   never chased by a scroll, so there is nothing for it to swim behind. */
+.tour-card--float { transition: height 0.5s cubic-bezier(0.42, 0, 0.18, 1); }
+
+/* AND IT LEAVES THE WAY IT ARRIVED. Ethan, on the last step: "they click finish
+   and it just appears away." A card that has spent two minutes gliding around
+   the screen should not blink out of existence at the end of it. TourHost holds
+   the unmount for the length of this. */
+.tour-root[data-closing='yes'] .tour-card,
+.tour-root[data-closing='yes'] .tour-spot,
+.tour-root[data-closing='yes'] .tour-glow {
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.42, 0, 0.18, 1);
+  pointer-events: none;
+}
+.tour-root[data-closing='yes'] .tour-spot { transform: none; }
+
 /* An anchorless step - or one whose anchor is off screen - sits in the middle,
    because there is nothing on the page for it to be beside. Driven by a data
    attribute so the rAF loop can flip it without a React render. */
@@ -1657,17 +1683,24 @@ html[data-reduce-motion] *::after {
    that is talking about something behind it. Since the only steps with no
    anchor are the reading ones, the honest default is out of the way: bottom
    centre, above the mobile tab bar, with the whole page visible above it. */
+/* CSS NO LONGER POSITIONS THIS CARD, AND THAT IS THE FIX (7 Sep 2026).
+   This rule used to set `top: auto; bottom: 2rem; left: 50%` for an anchorless
+   step, and the rAF loop cleared the inline `top`/`left` to let it win. A
+   transition has nothing to interpolate from `auto`, so every move into or out
+   of the resting place teleported - the payment step and the notifications step
+   being exactly the two Ethan describes. `restingPlace` in lib/tourPlacement
+   computes those pixels now, so the attribute is left carrying ONLY the
+   entrance animation, which is what it was always good for. */
 .tour-card--float[data-centre='yes'] {
-  top: auto;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
   animation: tour-card-centre-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* No `translateX(-50%)` in here any more either: the card is placed by its own
+   left edge, so the entrance is a plain lift. Leaving the -50% in would have
+   shifted every resting card half its width off its computed position. */
 @keyframes tour-card-centre-in {
-  from { opacity: 0; transform: translate(-50%, 12px) scale(0.97); }
-  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* A STEP THAT ASKS YOU TO TYPE MOVES OUT OF THE COLUMN (4 Sep 2026).
@@ -1677,10 +1710,9 @@ html[data-reduce-motion] *::after {
    column, so bottom-centre is precisely on top of it. `keepClear` (lib/tour)
    puts it in the bottom right instead, which on a 1024px+ window is beside the
    form rather than over it. */
+/* `keepClear` is now a decision `restingPlace` makes, not a position CSS
+   applies. All that is left here is the entrance. */
 .tour-card--float[data-centre='yes'][data-clear='yes'] {
-  left: auto;
-  right: 2rem;
-  transform: none;
   animation-name: tour-card-clear-in;
 }
 
@@ -1885,7 +1917,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .tour-fade,
   .tour-hit { animation: none; }
   .tour-card--float[data-travel='yes'] { transition: none; }
-  .tour-card--float[data-centre='yes'] { animation: none; transform: translateX(-50%); }
+  .tour-card--float[data-centre='yes'],
   .tour-card--float[data-centre='yes'][data-clear='yes'] { animation: none; transform: none; }
   .tour-card--sheet { transition: none; }
   .tour-card--float[data-clear='yes'][data-typing='yes'] { transition: none; transform: none; }

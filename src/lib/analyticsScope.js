@@ -58,6 +58,17 @@ export function scopeToMarket(raw, marketId, memberRows = []) {
     marketId,
     profiles,
     challenges: (raw.challenges || []).filter((c) => c.community_id === marketId),
+    // The pre-platform challenge log scopes on the SAME rule as a live
+    // challenge: the market that RAN it. See the note at the top of this file -
+    // a challenge belongs to a market, a creator's work belongs to the creator.
+    history: (raw.history || []).filter((h) => h.community_id === marketId),
+    // `results` follows its CHALLENGE, not its creator - it is the cached
+    // ranking of a contest, and a contest belongs to the market that ran it.
+    // Unscoped, Spain's overview reported the UK challenge's verified views.
+    results: (() => {
+      const mine = new Set((raw.challenges || []).filter((c) => c.community_id === marketId).map((c) => c.id))
+      return (raw.results || []).filter((r) => mine.has(r.challenge_id))
+    })(),
     submissions: (raw.submissions || []).filter((s) => ids.has(s.creator_id)),
     rewards: (raw.rewards || []).filter((r) => ids.has(r.creator_id)),
     messages: (raw.messages || []).filter((m) => ids.has(m.sender_id)),

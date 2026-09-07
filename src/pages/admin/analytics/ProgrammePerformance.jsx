@@ -251,11 +251,26 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
               worth having: it is the honest total value handed to creators. */}
           <StatCard label="Cash prizes" value={money(b.cashSpend, currency, 0)} hint="awarded, pending included" />
           <StatCard label="Voucher value" value={money(b.voucherSpend, currency, 0)} hint="face value, not cost" />
-          <StatCard label="Total views" value={formatViews(b.views)} hint="as logged" />
+          <StatCard
+            label="Total views"
+            value={formatViews(b.views)}
+            hint={b.unmeasuredChallenges
+              ? `across ${b.measuredChallenges} challenges`
+              : 'as logged'}
+          />
+          {/* THE PER-VIEW FIGURES SAY WHAT THEY ARE OVER. Fourteen of the
+              imported challenges were never measured, so a CPM that silently
+              covered all forty-nine would be dividing forty-nine challenges'
+              spend by thirty-five challenges' views - which is how this card
+              read EUR 0.47 against Ethan's own tracker's EUR 0.38. The
+              arithmetic is fixed in lib/programme; the hint is so nobody has to
+              take it on trust. */}
           <StatCard
             label="Cash CPM"
             value={money(b.cashCpm, currency, 2)}
-            hint="cash only, per 1,000 views"
+            hint={b.unmeasuredChallenges
+              ? `cash per 1,000 views · ${b.measuredChallenges} measured, ${b.unmeasuredChallenges} not`
+              : 'cash only, per 1,000 views'}
             accent
           />
           <StatCard

@@ -13,6 +13,7 @@
 const DEFAULT_DSN = 'https://17378c7401c05460b304f92d28488842@o4512044607733760.ingest.de.sentry.io/4512045143556176'
 
 import * as Sentry from '@sentry/react'
+import { supabase } from './supabase'
 
 /** The DSN actually in use: the env var if set, otherwise the project's own. */
 export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
@@ -142,4 +143,27 @@ export function captureError(error, context) {
   } catch {
     /* never let reporting an error throw a second one */
   }
+  // AND INTO THE ADMIN PANEL, not only into Sentry.
+  //
+  // Ethan: "did you build something into analytics to track errors, or do I
+  // have to actually check the Sentry website?"
+  //
+  // Sentry is the right tool for DEBUGGING one crash - stack traces,
+  // breadcrumbs, which release it started in - and the wrong tool for the
+  // question an admin actually has, which is "is anything broken right now and
+  // for how many people". That belongs on the panel somebody already opens
+  // every day, so it is both. `report_client_error` folds repeats into one row
+  // by fingerprint and counts distinct people (migration 199).
+  //
+  // A THENABLE, NOT A PROMISE. `.rpc(...).catch()` throws a TypeError on a
+  // supabase-js builder; `.then(ok, fail)` is the shape that is safe. And this
+  // is called from the error boundary, so a failure here must go nowhere at all.
+  try {
+    supabase.rpc('report_client_error', {
+      p_message: String(error?.message || error || 'Unknown error'),
+      p_route: typeof window !== 'undefined' ? window.location.pathname : null,
+      p_component: context?.componentStack ? String(context.componentStack).slice(0, 2000) : null,
+      p_release: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || null,
+    }).then(() => {}, () => {})
+  } catch { /* the app is already broken; do not make it worse */ }
 }

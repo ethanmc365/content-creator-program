@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { placeCard, union, overlaps, CARD_W } from './tourPlacement'
+import { placeCard, restingPlace, union, overlaps, CARD_W } from './tourPlacement'
 
 // THE ONE RULE: the walkthrough card never covers what it is pointing at, and
 // never covers what that thing opened.
@@ -117,5 +117,58 @@ describe('union', () => {
   it('is null when there is nothing to avoid', () => {
     expect(union([])).toBe(null)
     expect(union([{ top: 0, left: 0, width: 0, height: 0 }])).toBe(null)
+  })
+})
+
+
+// THE RESTING PLACE IS ARITHMETIC BECAUSE IT USED TO BE CSS.
+//
+// An anchorless card was positioned by `top: auto; bottom: 2rem; left: 50%` and
+// the rAF loop cleared its inline values to let that rule win - so every move
+// into or out of it teleported, `auto` being nothing to interpolate from. These
+// assert the numbers that replaced it, because the one place they cannot be
+// checked is the preview pane: it does not composite, so no transition there
+// ever actually runs.
+describe('restingPlace', () => {
+  const vp = { w: 1440, h: 900 }
+  const card = { w: CARD_W, h: 260 }
+
+  it('sits the card on the bottom edge, horizontally centred', () => {
+    const r = restingPlace(vp, card)
+    expect(r.top).toBe(900 - 260 - 32)
+    expect(r.left).toBe(Math.round(1440 / 2 - CARD_W / 2))
+  })
+
+  it('moves out of the centre column when the step needs it kept clear', () => {
+    // Every form in this app is a centred column, so a card that says "fill
+    // this in" must not be sitting on top of the thing being filled in.
+    const r = restingPlace(vp, card, true)
+    expect(r.left).toBe(1440 - CARD_W - 32)
+    expect(r.left).toBeGreaterThan(restingPlace(vp, card).left)
+  })
+
+  it('never leaves the viewport, however short the window', () => {
+    // A phone in landscape with the keyboard up is about this tall.
+    const r = restingPlace({ w: 380, h: 240 }, { w: CARD_W, h: 320 })
+    expect(r.top).toBeGreaterThanOrEqual(0)
+    expect(r.left).toBeGreaterThanOrEqual(0)
+  })
+
+  it('returns pixels for both axes, which is the whole point', () => {
+    // The bug was a position expressed as `auto`. Anything falsy or non-finite
+    // here would put the card back at the top-left corner of the screen.
+    const r = restingPlace(vp, { w: 0, h: 0 })
+    expect(Number.isFinite(r.top)).toBe(true)
+    expect(Number.isFinite(r.left)).toBe(true)
+  })
+
+  it('follows the card as it changes height, so it stays on the same edge', () => {
+    // Steps carry different amounts of text. The card is bottom-aligned, so a
+    // shorter card has a LOWER top - and that difference is exactly the height
+    // difference, which is what makes the height and the move read as one
+    // movement rather than two.
+    const short = restingPlace(vp, { w: CARD_W, h: 200 })
+    const tall = restingPlace(vp, { w: CARD_W, h: 300 })
+    expect(short.top - tall.top).toBe(100)
   })
 })

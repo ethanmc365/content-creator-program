@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { format } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
+import ErrorWatch from '../../../components/admin/ErrorWatch'
 import { Avatar, Skeleton, StatCard } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
@@ -405,6 +406,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </table>
         </div>
       </section>
+      {/* WHETHER THE APP ITSELF IS WORKING IS PART OF COMMUNITY HEALTH.
+          It is last because it is usually empty, and an empty panel at the top
+          of a page reads as a page that failed to load. */}
+      <ErrorWatch />
+
     </div>
   )
 }

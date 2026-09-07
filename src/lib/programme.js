@@ -82,7 +82,26 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // rather than a row of dashes.
   const planned = convert(row.prize_amount, row.prize_currency || 'GBP', currency, rates)
   const spend = awarded > 0 ? cashSpend : planned
-  const views = Number(row.total_views) || 0
+  // "NOT MEASURED" AND "MEASURED AS NONE" ARE DIFFERENT NUMBERS (7 Sep 2026).
+  //
+  // This was `Number(row.total_views) || 0`, which collapses the two, and the
+  // collapse is worth a quarter of the programme's headline figure.
+  //
+  // Fourteen of the forty-nine imported challenges are marked Done in Ethan's
+  // spreadsheet with NO view count - "Need to log views", "Views not logged in
+  // source sheet". Their prize money is real and their views are unknown. Read
+  // as zero, they contributed EUR 1,730 of spend to the numerator of the
+  // programme CPM and nothing at all to the denominator, so the page reported
+  // EUR 0.47 where Ethan's own tracker says EUR 0.38. Both were "correct"
+  // arithmetic; only one of them divides like by like.
+  //
+  // `viewsKnown` is the distinction, and `blendEconomics` uses it to keep the
+  // CPM's numerator and denominator over the SAME set of challenges. A LIVE
+  // challenge is always known - the RPC coalesces its submissions to 0, and a
+  // running challenge that has genuinely earned no views yet SHOULD drag the
+  // CPM, because that is a real result and not a missing one.
+  const viewsKnown = row.total_views != null
+  const views = viewsKnown ? Number(row.total_views) || 0 : null
   const posts = Number(row.posts) || 0
   const creators = Number(row.creators) || 0
   const hasViews = views > 0
@@ -110,6 +129,7 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
     spend,
     currency,
     views,
+    viewsKnown,
     posts,
     creators,
     cashSpend,
@@ -154,7 +174,21 @@ export function blendEconomics(rows, { currency = 'GBP' } = {}) {
   const spend = scored.reduce((s, r) => s + r.spend, 0)
   const cashSpend = rows.reduce((s, r) => s + (r.cashSpend || 0), 0)
   const voucherSpend = rows.reduce((s, r) => s + (r.voucherSpend || 0), 0)
-  const views = rows.reduce((s, r) => s + r.views, 0)
+
+  // EVERY RATIO DIVIDES LIKE BY LIKE. See the note on `viewsKnown` above: a
+  // challenge whose views were never recorded contributes neither its spend nor
+  // its views to a per-view figure, because including one without the other is
+  // how a CPM ends up a quarter too high and still looks plausible.
+  //
+  // `spend` above is still EVERY challenge, and that is deliberate - the money
+  // left the account whether or not anybody counted the views, so the "cash
+  // prizes" figure must not quietly shrink. It is only the DIVISION that is
+  // restricted.
+  const measured = rows.filter((r) => r.viewsKnown !== false)
+  const views = measured.reduce((s, r) => s + (r.views || 0), 0)
+  const measuredSpend = measured.filter((r) => r.spend != null).reduce((s, r) => s + r.spend, 0)
+  const measuredCash = measured.reduce((s, r) => s + (r.cashSpend || 0), 0)
+  const measuredVoucher = measured.reduce((s, r) => s + (r.voucherSpend || 0), 0)
   const posts = rows.reduce((s, r) => s + r.posts, 0)
   // Creators are per-challenge counts, so summing them counts a repeat
   // participant once per challenge. That's the right denominator for cost per
@@ -176,9 +210,14 @@ export function blendEconomics(rows, { currency = 'GBP' } = {}) {
     // Blended, not an average of averages: sum first, divide once. Averaging
     // per-challenge CPMs weights a EUR 30 express challenge the same as a
     // EUR 540 monthly one and quietly flatters the result.
-    cashCpm: views > 0 && cashSpend > 0 ? cashSpend / (views / 1000) : null,
-    combinedCpm: views > 0 && cashSpend + voucherSpend > 0 ? (cashSpend + voucherSpend) / (views / 1000) : null,
-    cpm: views > 0 ? spend / (views / 1000) : null,
+    cashCpm: views > 0 && measuredCash > 0 ? measuredCash / (views / 1000) : null,
+    combinedCpm: views > 0 && measuredCash + measuredVoucher > 0
+      ? (measuredCash + measuredVoucher) / (views / 1000) : null,
+    cpm: views > 0 ? measuredSpend / (views / 1000) : null,
+    // How many challenges the per-view figures are actually over, so the page
+    // can say so rather than implying they cover everything.
+    measuredChallenges: measured.length,
+    unmeasuredChallenges: rows.length - measured.length,
     costPerPost: posts > 0 ? spend / posts : null,
     costPerCreator: creatorSlots > 0 ? spend / creatorSlots : null,
     postsPerCreator: creatorSlots > 0 ? posts / creatorSlots : null,

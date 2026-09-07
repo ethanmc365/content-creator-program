@@ -22,6 +22,9 @@
 export const CARD_W = 372
 const GAP = 14
 const EDGE = 12
+// The breathing room a resting card keeps from the edge it sits against. It was
+// `2rem` in CSS; it is a number here so the arithmetic and the look cannot drift.
+const RESTING_GAP = 32
 
 /** The smallest rectangle containing all of them. */
 export function union(rects) {
@@ -92,6 +95,47 @@ export function placeCard(avoid, viewport, cardH) {
     left: roomRight > roomLeft ? clampLeft(vw - CARD_W - EDGE) : EDGE,
     placement: roomRight > roomLeft ? 'right' : 'left',
   }
+}
+
+/**
+ * WHERE A CARD WITH NOTHING TO POINT AT SITS - AS ARITHMETIC, NOT AS CSS.
+ *
+ * THE BUG THIS FIXES (7 Sep 2026). Ethan, walking the whole tutorial: "tapping
+ * rooms, it then suddenly appears down in the bottom right corner rather than
+ * smoothly animating there... and then it suddenly jumps to the middle of the
+ * screen for notifications rather than smoothly animating. The card should
+ * always be smoothly animating anywhere it's moving."
+ *
+ * Every one of those jumps is the same thing. An anchorless card used to be
+ * positioned by a CSS rule - `top: auto; bottom: 2rem; left: 50%` - and the loop
+ * CLEARED its inline `top`/`left` to let that rule win. A transition needs a
+ * from-value and `auto` is not one, so the browser applied the new position on
+ * the spot. Fixing the anchored direction earlier only fixed half of it: the
+ * steps that move TO the resting place still teleported, and those are the
+ * payment step and the notifications step, which is exactly the pair he
+ * describes.
+ *
+ * So there is now ONE mechanism. Every position the card ever takes is computed
+ * here or in `placeCard` and written as pixels, and CSS positions it never. Two
+ * mechanisms moving one element is the fault this whole file exists to remove.
+ *
+ * BOTTOM CENTRE, or bottom RIGHT when the step needs the middle of the screen
+ * kept clear: every form in this app is a centred column, so a card that says
+ * "fill this in" must not sit on top of the thing being filled in.
+ *
+ * @param {{w,h}} viewport
+ * @param {{w,h}} card
+ * @param {boolean} keepClear  the step needs the centre column free
+ */
+export function restingPlace(viewport, card, keepClear = false) {
+  const { w: vw, h: vh } = viewport
+  const cw = card.w || CARD_W
+  const ch = card.h || 260
+  const top = Math.max(EDGE, vh - ch - RESTING_GAP)
+  const left = keepClear
+    ? Math.max(EDGE, vw - cw - RESTING_GAP)
+    : Math.max(EDGE, Math.round(vw / 2 - cw / 2))
+  return { top, left, placement: keepClear ? 'resting-right' : 'resting-centre' }
 }
 
 /** Do these two rectangles overlap at all? Used by the tests, and by nothing else. */

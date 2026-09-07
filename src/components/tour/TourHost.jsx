@@ -8,7 +8,7 @@ import { useIsPhone, useVisualViewport } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
 import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor } from '../../lib/tour'
 import { setTourRunning } from '../../lib/appNag'
-import { placeCard, union, CARD_W } from '../../lib/tourPlacement'
+import { placeCard, restingPlace, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { payeeComplete, payeeFromPrivate } from '../../lib/invoice'
@@ -103,7 +103,28 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // See the note where it is rendered: dropping it to invisible on every step
   // is half of "it just disappears and appears". State rather than a ref
   // because it is read during render.
+  // A TRANSITION RETARGETED EVERY FRAME DOES NOT ANIMATE, IT STUTTERS.
+  //
+  // Ethan, on the very first step: "it automates up to the top, which is good,
+  // but it's not moving, it's a bit shuttery."
+  //
+  // The loop runs at display rate and wrote `top`/`left` on every tick. While
+  // `data-travel` is on that is a transition being handed a new destination
+  // sixty times a second - and the resting position is computed from the card's
+  // own height, which drifts by a pixel or two as content and webfonts settle.
+  // So the card was continually re-aiming at a target a pixel away and never
+  // completing a single movement.
+  //
+  // The fix is not to slow the loop down - it still has to track a scroll - but
+  // to STOP WRITING A VALUE THAT IS ALREADY WHAT WE WANT. A one-pixel deadband
+  // is below what anybody can see and is far more than the jitter needs.
   const [litOnce, setLitOnce] = useState(false)
+  // THE WALK LEAVES THE WAY IT ARRIVED. Ethan, on the last step: "they click
+  // finish and it just appears away." Everything else about this component is
+  // about movement; ending it with a hard cut is the one moment that undoes
+  // that impression. `data-closing` fades the card, the spotlight and the glow
+  // (index.css) and the unmount is held for the length of it.
+  const [closing, setClosing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hit, setHit] = useState(false)        // the goal just completed
   const [pushState, setPushState] = useState(() => pushPermission())
@@ -116,18 +137,75 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const travelUntil = useRef(0)
   const advanced = useRef(false)
 
+  const lastWrite = useRef({})
+  const put = useCallback((el, prop, px) => {
+    const key = `${el.dataset.tourEl || 'x'}:${prop}`
+    const prev = lastWrite.current[key]
+    if (prev != null && Math.abs(prev - px) < 1) return
+    lastWrite.current[key] = px
+    el.style[prop] = `${px}px`
+  }, [])
+
+
+
 
   // Remember where they are on every move, so backgrounding the app at step
   // four comes back to step four.
   useEffect(() => { saveStep(layout, i) }, [layout, i])
 
   const step = steps[Math.min(i, steps.length - 1)]
+
+  // THE CARD'S HEIGHT IS WRITTEN IN PIXELS SO THE CSS TRANSITION HAS SOMETHING
+  // TO MOVE BETWEEN. `height: auto` cannot be transitioned.
+  //
+  // Ethan: "the card shrinks a bit - smooth animation." Steps carry different
+  // amounts of text, so the box is 210px on one and 330px on the next, and the
+  // height was snapping on the frame the words changed while the card was still
+  // gliding across the screen.
+  //
+  // MEASURED BY UNSETTING IT FIRST. The card IS the thing being sized, so its
+  // own `scrollHeight` while a fixed height is applied would just read that
+  // height back. `auto` then read then set is one synchronous layout on one
+  // fixed-position element, on a step change only - not per frame.
+  //
+  // RE-MEASURED THREE TIMES rather than watched with a ResizeObserver: an
+  // observer on the card would see the height WE set and loop, and one on the
+  // inner column does not fire for the pinned rows above and below it. Content,
+  // webfonts and the "Nice one" tick all settle inside 200ms.
+  //
+  // `targetH` is what the RESTING PLACE is computed from, deliberately. Using
+  // the live `offsetHeight` would move the card's target every frame while the
+  // height was still easing - which is precisely the retargeting stutter the
+  // deadband below exists to prevent, reintroduced by the back door.
+  const targetH = useRef(0)
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card || isPhone) return undefined
+    const apply = () => {
+      card.style.height = 'auto'
+      const h = card.scrollHeight
+      if (h > 0) { targetH.current = h; card.style.height = `${h}px` }
+    }
+    apply()
+    const t1 = setTimeout(apply, 60)
+    const t2 = setTimeout(apply, 220)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [step?.key, isPhone, hit])
   const last = i >= steps.length - 1
   const goal = step ? stepGoal(step, network) : null
   const part = partOf(step)
   const pct = Math.round(((i + (hit ? 1 : 0)) / steps.length) * 100)
 
   // ------------------------------------------------------------ advancing ---
+  // ONE EXIT, WHATEVER ENDED IT. Finishing, skipping the last step and pressing
+  // the close button all leave through here, so there is no way out that skips
+  // the animation - which is how three of the four exits ended up abrupt before.
+  const CLOSE_MS = 320
+  const leave = useCallback((why) => {
+    setClosing(true)
+    setTimeout(() => onFinish?.(why), CLOSE_MS)
+  }, [onFinish])
+
   const finishStep = useCallback(() => {
     if (advanced.current) return
     advanced.current = true
@@ -136,19 +214,19 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // simultaneously navigates AND swaps the card reads as the card glitching.
     setTimeout(() => {
       setHit(false)
-      if (last) { onFinish?.('finished'); return }
+      if (last) { leave('finished'); return }
       setI((n) => n + 1)
     }, 620)
-  }, [last, onFinish])
+  }, [last, leave])
 
   const skip = useCallback(() => {
     if (advanced.current) return
     advanced.current = true
-    if (last) { onFinish?.('finished'); return }
+    if (last) { leave('finished'); return }
     setI((n) => n + 1)
-  }, [last, onFinish])
+  }, [last, leave])
 
-  const close = useCallback(() => onFinish?.('dismissed'), [onFinish])
+  const close = useCallback(() => leave('dismissed'), [leave])
 
   // ----------------------------------------------------- entering a step ---
   useEffect(() => {
@@ -527,16 +605,19 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
       if (visible && lit) {
         spot.dataset.on = 'yes'
-        spot.style.top = `${lit.top - PAD}px`
-        spot.style.left = `${lit.left - PAD}px`
-        spot.style.width = `${lit.right - lit.left + PAD * 2}px`
-        spot.style.height = `${lit.bottom - lit.top + PAD * 2}px`
+        put(spot, 'top', lit.top - PAD)
+        put(spot, 'left', lit.left - PAD)
+        put(spot, 'width', lit.right - lit.left + PAD * 2)
+        put(spot, 'height', lit.bottom - lit.top + PAD * 2)
       } else {
         spot.dataset.on = 'no'
         spot.style.top = '50%'
         spot.style.left = '50%'
         spot.style.width = '0px'
         spot.style.height = '0px'
+        // Percentages cannot go through `put`, so the cache is cleared instead:
+        // the next pixel write must not be deduplicated against a stale number.
+        lastWrite.current = {}
       }
 
       // The card. On a phone it is a sheet pinned by CSS, so nothing to do.
@@ -549,40 +630,37 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // he was being asked to look at lives. A card asking you to read
       // something must not be on top of it, so these steps pin it low and out
       // of the way instead. `data-centre` still drives the entrance animation.
-      if (!visible) { card.dataset.centre = 'yes'; card.style.top = ''; card.style.left = ''; return }
-
-      // COMING BACK FROM THE CENTRE IS THE OTHER HALF OF "SOMETIMES IT JUST
-      // APPEARS" (7 Sep 2026).
+      // ONE MECHANISM WRITES EVERY POSITION THIS CARD EVER TAKES (7 Sep 2026).
       //
-      // An anchorless card is positioned by CSS - `top: auto; bottom: 2rem` -
-      // and the two lines above CLEAR the inline `top`/`left` to let that rule
-      // win. Every step that navigates passes through this state, because the
-      // new page's anchor does not exist for the first few frames after a route
-      // change. So the sequence on those steps was: card goes to bottom-centre,
-      // anchor appears, and this code writes `top: 412px` over an inline value
-      // of `''`.
+      // Ethan, walking the whole tutorial: "tapping rooms, it then suddenly
+      // appears down in the bottom right corner rather than smoothly animating
+      // there... and then it suddenly jumps to the middle of the screen for
+      // notifications. The card should always be smoothly animating anywhere
+      // it's moving."
       //
-      // A TRANSITION NEEDS A FROM-VALUE AND `auto` IS NOT ONE. There is nothing
-      // to interpolate from, so the browser applies the new value immediately -
-      // a teleport, on exactly the steps that also move the furthest. It is not
-      // intermittent and it is not lag; it is every route-changing step.
+      // Both jumps were the same fault, and it is one this codebase already has
+      // a rule about: TWO MECHANISMS MOVING ONE ELEMENT. An anchored card was
+      // positioned in pixels by this loop; an anchorless one was positioned by a
+      // CSS rule (`top: auto; bottom: 2rem; left: 50%`), and this line used to
+      // CLEAR the inline values to let CSS win. A transition has nothing to
+      // interpolate from `auto`, so every move into or out of the resting place
+      // was applied on the spot.
       //
-      // So the handoff is explicit: seed the inline position with where the
-      // card actually IS right now, flush it, and only then let the travel
-      // transition run to the target. `getBoundingClientRect` already accounts
-      // for the `translateX(-50%)` the centre rule applies, and reading
-      // `offsetHeight` forces the style flush - which is deliberately NOT a
-      // double rAF, because rAF does not run in a hidden pane and this must
-      // work where it cannot be watched.
-      if (card.dataset.centre === 'yes') {
-        const from = card.getBoundingClientRect()
-        card.dataset.travel = 'no'
-        card.dataset.centre = 'no'
-        card.style.top = `${from.top}px`
-        card.style.left = `${from.left}px`
-        void card.offsetHeight
-        card.dataset.travel = travelling ? 'yes' : 'no'
+      // `restingPlace` computes those pixels now, so `data-centre` carries only
+      // the entrance animation and positions nothing. See lib/tourPlacement.
+      const cardBox = { w: card.offsetWidth || CARD_W, h: targetH.current || card.offsetHeight || 260 }
+      if (!visible) {
+        card.dataset.centre = 'yes'
+        const rest = restingPlace({ w: vw, h: vh }, cardBox, !!step.keepClear)
+        put(card, 'top', rest.top)
+        put(card, 'left', rest.left)
+        return
       }
+
+      // (The explicit from-value seeding that used to sit here is gone. It
+      // existed because the resting place was CSS and had no pixel value to
+      // interpolate from; both states are pixels now, so there is nothing to
+      // hand off between and the transition simply runs.)
       card.dataset.centre = 'no'
 
       // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR (3 Sep 2026).
@@ -601,8 +679,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       if (!lit) return
       const { top, left } = placeCard(lit, { w: vw, h: vh }, card.offsetHeight || 260)
 
-      card.style.top = `${top}px`
-      card.style.left = `${left}px`
+      put(card, 'top', top)
+      put(card, 'left', left)
     }
 
     schedule()
@@ -610,7 +688,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       cancelAnimationFrame(rafRef.current)
       clearTimeout(tickRef.current)
     }
-  }, [ready, step?.anchor, isPhone])
+  }, [ready, step?.anchor, step?.keepClear, isPhone, put])
 
   // THE DOCUMENT KNOWS THE WALK IS RUNNING.
   //
@@ -684,11 +762,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     && pushSupported() && pushState !== 'granted' && pushState !== 'denied'
 
   return createPortal(
-    <div className="tour-root" aria-live="polite">
+    <div className="tour-root" data-closing={closing ? 'yes' : 'no'} aria-live="polite">
       <div className="tour-glow" aria-hidden />
 
       <div
         ref={spotRef}
+        data-tour-el="spot"
         aria-hidden
         data-on="no"
         data-travel="yes"
@@ -706,6 +785,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
       <div
         ref={cardRef}
+        data-tour-el="card"
         data-centre="yes"
         // See `keepClear` in lib/tour. `data-clear` moves an anchorless card to
         // the bottom RIGHT on a desktop instead of the bottom centre, and
