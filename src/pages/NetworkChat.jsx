@@ -1454,7 +1454,12 @@ export default function NetworkChat() {
                     <div
                       data-msg-bubble
                       className={cx(
-                        'w-fit max-w-full rounded-2xl text-sm leading-relaxed',
+                        // A BUBBLE BEING EDITED TAKES THE WHOLE COLUMN. It is
+                        // `w-fit`, so while the editor is inside it the width
+                        // would otherwise be decided by the editor's own
+                        // min-width - see components/MessageEditor.
+                        editingId === m.id ? 'w-full' : 'w-fit',
+                        'max-w-full rounded-2xl text-sm leading-relaxed',
                         mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
                         (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-3.5 py-2',
                       )}
