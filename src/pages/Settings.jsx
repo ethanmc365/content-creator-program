@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { Panel, PageHeader, Toggle, Spinner, Select, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
+import HelpTeam from '../components/HelpTeam'
 import { cx } from '../lib/utils'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import { LOCALES, getLocale, loadLocale, setLocale, useT } from '../lib/i18n'
@@ -46,6 +47,14 @@ const SECTIONS = [
   // (theme, motion, timezone) and is per device, while the language is a fact
   // about the person and follows their account between devices.
   { key: 'language', label: 'Language', icon: 'globe', hint: 'The language the app is in' },
+  // GET HELP IS A SECTION, NOT A LINK TO A FORM (7 Sep 2026). Ethan: "maybe an
+  // actual help section where we have the whole Tryp.com team listed, and they
+  // can specifically click to DM them, and my email at the top... in case
+  // anyone's struggling with anything and doesn't want to ask in the chat."
+  // It sits LAST because it is the thing you reach for when the others have not
+  // answered, and it is in Settings rather than on a route of its own because
+  // it is one screen and every other one-screen destination already lives here.
+  { key: 'help', label: 'Get help', icon: 'lifebuoy', hint: 'Reach the Tryp.com team directly' },
 ]
 
 // The creator-facing Settings hub. Everything saves on change - no Save button
@@ -272,6 +281,27 @@ export default function Settings() {
   // you had just pressed. Ethan: "we now have specific buttons for display,
   // sound etc, we don't need to have a card inside them or another heading."
   // What is left is the settings themselves, on the page, with air around them.
+  // WHAT A PICKED OPTION LOOKS LIKE, AND IT IS SOLID (7 Sep 2026).
+  //
+  // Ethan: "I'm not really fond of this orangey colour for the selection
+  // buttons - see where I click, like Dark - and even on the light mode with
+  // the orangey colour."
+  //
+  // The picked state was `border-brand bg-brand/5 text-brand`: a 5% orange wash
+  // with orange lettering on top of it. That is the weakest thing the palette
+  // can draw - too faint to read as chosen, too warm to read as neutral - and
+  // it is exactly the tint AdminChallengeForm was told twice to stop using
+  // ("Picked state is SOLID brand, never a tint"). The same answer applies
+  // here, and it also fixes the second half of the report: on the dark theme a
+  // 5% wash of a DARK orange over near-black is the brown these notes now have
+  // a whole CSS block about.
+  //
+  // Solid brand with white on it reads as chosen at a glance, in either theme,
+  // and needs no per-theme rule at all - `bg-brand` and `text-white` mean the
+  // same thing on both grounds.
+  const PICKED = 'border-brand bg-brand text-white shadow-card'
+  const UNPICKED = 'border-gray-200 bg-white text-smoke hover:border-brand/40 hover:text-ink'
+
   const DisplaySection = (
     <Panel>
       <div>
@@ -288,7 +318,7 @@ export default function Settings() {
                 aria-checked={active}
                 onClick={() => chooseTheme(m.key)}
                 className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-semibold transition-all hover:-translate-y-0.5 hover:shadow-card ${
-                  active ? 'border-brand bg-brand/5 text-brand' : 'border-gray-200 bg-white text-smoke'
+                  active ? PICKED : UNPICKED
                 }`}
               >
                 <Icon name={m.icon} className="h-5 w-5" />
@@ -360,7 +390,7 @@ export default function Settings() {
                 aria-checked={active}
                 onClick={() => tz.save(m.key === 'auto' ? null : (tz.pinned || tz.device), { ackDevice: false })}
                 className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-xs font-semibold transition-all hover:-translate-y-0.5 hover:shadow-card ${
-                  active ? 'border-brand bg-brand/5 text-brand' : 'border-gray-200 bg-white text-smoke'
+                  active ? PICKED : UNPICKED
                 }`}
               >
                 <Icon name={m.icon} className="h-5 w-5" />
@@ -720,6 +750,7 @@ export default function Settings() {
 
   const BODIES = {
     display: DisplaySection,
+    help: <HelpTeam />,
     appicon: AppIconSection,
     sound: SoundSection,
     notifications: NotificationsSection,

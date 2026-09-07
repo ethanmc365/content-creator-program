@@ -819,6 +819,21 @@ html {
   --d-text: #ededf0;     /* primary text               */
   --d-text-soft: #a7a9b0;/* secondary text             */
   --d-text-muted: #767880;/* muted / placeholders      */
+
+  /* BRAND ORANGE HAS TO CHANGE VALUE TO STAY THE SAME COLOUR.
+     `#d94407` is a DARK orange. It was chosen to read as the loudest thing on
+     a white page and it is, but the same ink on near-black is a low-contrast
+     smudge - which is every one of Ethan's dark-mode reports in one sentence:
+     "the plane icon looks like a really weird grey transparency", "that orangey
+     colour on the icons", "a weird brown dirty colour". None of those are the
+     hue being wrong; they are the LIGHTNESS being wrong for the ground it is
+     on. So the brand keeps its hue and gains lightness, exactly as a brand
+     guideline says to do on a dark background.
+     This is not a new palette - `--d-brand` sits between BRAND and BRAND_LIGHT
+     and `--d-brand-soft` is BRAND_LIGHT lifted. See §4 of the platform notes:
+     orange only, and these are still orange. */
+  --d-brand: #ff8b4d;
+  --d-brand-soft: #ffa872;
 }
 
 html[data-theme='dark'],
@@ -852,21 +867,53 @@ html[data-theme='dark'] .bg-cloud\/40 { background-color: rgba(32, 32, 35, 0.5);
 html[data-theme='dark'] .bg-cloud\/50 { background-color: rgba(32, 32, 35, 0.6); }
 html[data-theme='dark'] .bg-cloud\/60 { background-color: rgba(32, 32, 35, 0.7); }
 html[data-theme='dark'] .bg-cloud\/70 { background-color: rgba(32, 32, 35, 0.8); }
-html[data-theme='dark'] .bg-brand-tint { background-color: rgba(245, 133, 63, 0.16); }
+html[data-theme='dark'] .bg-brand-tint { background-color: rgba(255, 139, 77, 0.15); }
 /* EVERY opacity step that exists in the codebase has to be here.
    `bg-brand-tint/25` is its own utility class, so the remap of `.bg-brand-tint`
    above never reaches it, and unmapped it paints the raw LIGHT peach at 25%
    over near-black - which comes out as the muddy dark-grey card reported on
    "Live now". Whenever a new opacity step is used in a component, add it here;
    `grep -rho "bg-brand-tint/[0-9]*" src | sort -u` lists them all. */
-html[data-theme='dark'] .bg-brand-tint\/15 { background-color: rgba(245, 133, 63, 0.07); }
-html[data-theme='dark'] .bg-brand-tint\/20 { background-color: rgba(245, 133, 63, 0.08); }
-html[data-theme='dark'] .bg-brand-tint\/25 { background-color: rgba(245, 133, 63, 0.09); }
-html[data-theme='dark'] .bg-brand-tint\/30 { background-color: rgba(245, 133, 63, 0.10); }
-html[data-theme='dark'] .bg-brand-tint\/40 { background-color: rgba(245, 133, 63, 0.11); }
-html[data-theme='dark'] .bg-brand-tint\/50 { background-color: rgba(245, 133, 63, 0.13); }
-html[data-theme='dark'] .bg-brand-tint\/60 { background-color: rgba(245, 133, 63, 0.15); }
-html[data-theme='dark'] .bg-brand-tint\/70 { background-color: rgba(245, 133, 63, 0.17); }
+/* A BIG PANEL FILLED WITH DARK ORANGE IS A BROWN PANEL, AND THAT IS NOT A
+   TASTE PROBLEM (7 Sep 2026). Ethan, on the empty challenges board: "the colour
+   behind that is like a weird dirty colour, it's brown, I don't like it. We do
+   not want that brown colour anywhere - I prefer the more orangey colours."
+
+   Both halves of that are right and they pull in opposite directions until you
+   look at the arithmetic. `bg-brand-tint/25` over `--d-bg` was
+   `0.09 x #f5853f` over `#0a0a0b` = `rgb(31, 21, 16)`: a dark, desaturated
+   orange. A dark desaturated orange IS brown - there is no mixing ratio that
+   makes a low-alpha warm wash over near-black read as "orange", because brown
+   is precisely what orange becomes when you take its lightness away.
+
+   So the orange stops living in the FILL of a big panel and moves into its
+   EDGES and its TEXT, where it keeps its lightness and reads as orange:
+
+     small chips and pills   a real orange glow (they are small; a warm tile at
+                             this size reads as orange, not as a brown box)
+     wide panels             the card surface, with the brand carried by the
+                             border and the words on top of it
+
+   `bg-brand-tint/45` was missing from this list altogether (the unread
+   notification row), so it painted the raw LIGHT peach at 45% over near-black -
+   the brightest version of exactly this bug. */
+html[data-theme='dark'] .bg-brand-tint\/15,
+html[data-theme='dark'] .bg-brand-tint\/20,
+html[data-theme='dark'] .bg-brand-tint\/25,
+html[data-theme='dark'] .bg-brand-tint\/30 { background-color: var(--d-surface); }
+html[data-theme='dark'] .bg-brand-tint\/40,
+html[data-theme='dark'] .bg-brand-tint\/45,
+html[data-theme='dark'] .bg-brand-tint\/50 { background-color: rgba(255, 139, 77, 0.10); }
+html[data-theme='dark'] .bg-brand-tint\/60,
+html[data-theme='dark'] .bg-brand-tint\/70 { background-color: rgba(255, 139, 77, 0.14); }
+/* `bg-brand/N` is the same mistake spelled differently - the SOLID brand at low
+   opacity rather than the tint. Same answer. */
+html[data-theme='dark'] .bg-brand\/5,
+html[data-theme='dark'] .bg-brand\/10 { background-color: rgba(255, 139, 77, 0.09); }
+html[data-theme='dark'] .bg-brand\/15,
+html[data-theme='dark'] .bg-brand\/20,
+html[data-theme='dark'] .bg-brand\/25,
+html[data-theme='dark'] .bg-brand\/30 { background-color: rgba(255, 139, 77, 0.16); }
 
 /* ---- A CAPTION LAID OVER A MAP ------------------------------------------
    THE BUG THIS FIXES. The creator spotlight draws its subject's travel map and
@@ -1010,6 +1057,187 @@ html[data-theme='dark'] .btn-danger {
   color: #f87171;
 }
 html[data-theme='dark'] .btn-danger:hover { background-color: rgba(220, 38, 38, 0.16); }
+
+/* ---- BRAND ORANGE, LIFTED ------------------------------------------------
+   `text-brand` appears 719 times and `border-brand` 156. Remapping the two of
+   them is the whole of "the icons look muddy in dark mode", and it is the only
+   version of that fix that reaches a component nobody thought to check. Doing
+   it per-component was the alternative and it is how a theme drifts: every new
+   card would have to remember. */
+html[data-theme='dark'] .text-brand,
+html[data-theme='dark'] .hover\:text-brand:hover,
+html[data-theme='dark'] .hoverable\:hover\:text-brand:hover,
+html[data-theme='dark'] .group:hover .group-hover\:text-brand { color: var(--d-brand); }
+html[data-theme='dark'] .text-brand-light { color: var(--d-brand-soft); }
+html[data-theme='dark'] .text-brand\/70 { color: rgba(255, 139, 77, 0.72); }
+html[data-theme='dark'] .text-brand\/60 { color: rgba(255, 139, 77, 0.64); }
+html[data-theme='dark'] .text-brand\/50 { color: rgba(255, 139, 77, 0.55); }
+html[data-theme='dark'] .text-brand\/40 { color: rgba(255, 139, 77, 0.46); }
+html[data-theme='dark'] .stroke-brand { stroke: var(--d-brand); }
+html[data-theme='dark'] .decoration-brand { text-decoration-color: var(--d-brand); }
+html[data-theme='dark'] .decoration-brand\/40 { text-decoration-color: rgba(255, 139, 77, 0.4); }
+html[data-theme='dark'] .accent-brand { accent-color: var(--d-brand); }
+
+html[data-theme='dark'] .border-brand,
+html[data-theme='dark'] .hover\:border-brand:hover,
+html[data-theme='dark'] .hoverable\:hover\:border-brand:hover { border-color: var(--d-brand); }
+html[data-theme='dark'] .border-brand\/60 { border-color: rgba(255, 139, 77, 0.6); }
+html[data-theme='dark'] .border-brand\/50 { border-color: rgba(255, 139, 77, 0.5); }
+html[data-theme='dark'] .border-brand\/40,
+html[data-theme='dark'] .hover\:border-brand\/40:hover { border-color: rgba(255, 139, 77, 0.42); }
+html[data-theme='dark'] .border-brand\/30,
+html[data-theme='dark'] .hover\:border-brand\/30:hover { border-color: rgba(255, 139, 77, 0.34); }
+html[data-theme='dark'] .border-brand\/25 { border-color: rgba(255, 139, 77, 0.3); }
+html[data-theme='dark'] .border-brand\/20 { border-color: rgba(255, 139, 77, 0.26); }
+html[data-theme='dark'] .border-brand\/15 { border-color: rgba(255, 139, 77, 0.22); }
+html[data-theme='dark'] .border-brand\/10 { border-color: rgba(255, 139, 77, 0.18); }
+html[data-theme='dark'] .border-brand-light\/40 { border-color: rgba(255, 168, 114, 0.4); }
+html[data-theme='dark'] .ring-brand { --tw-ring-color: var(--d-brand); }
+html[data-theme='dark'] .ring-brand\/50 { --tw-ring-color: rgba(255, 139, 77, 0.5); }
+html[data-theme='dark'] .ring-brand\/40 { --tw-ring-color: rgba(255, 139, 77, 0.42); }
+html[data-theme='dark'] .ring-brand\/30 { --tw-ring-color: rgba(255, 139, 77, 0.34); }
+html[data-theme='dark'] .ring-brand\/25 { --tw-ring-color: rgba(255, 139, 77, 0.3); }
+html[data-theme='dark'] .ring-brand\/20 { --tw-ring-color: rgba(255, 139, 77, 0.26); }
+html[data-theme='dark'] .ring-brand\/15 { --tw-ring-color: rgba(255, 139, 77, 0.22); }
+
+/* ---- A NAMED HOVER GROUP IS A DIFFERENT CLASS ----------------------------
+   THE BUG THIS FIXES (7 Sep 2026). Ethan: "an issue I find with the DMs in dark
+   mode - if I'm hovering over someone, it shows up white, and then you can
+   barely see their name because their name is grey."
+
+   Exactly that, and it is the same shape as the `group-hover/msg:` trap already
+   in these notes: `hoverable:hover:bg-cloud` is its OWN generated class, so
+   `html[data-theme='dark'] .hover\:bg-cloud:hover` a few lines up never reached
+   it. The DM row is the one place in the app that uses the variant on a
+   background, which is why it was the one place that stayed white.
+
+   `hoverable:` exists because a row with a `:hover` rule costs the first tap on
+   iOS (see pages/Messages), so it cannot simply be swapped for `hover:`. */
+html[data-theme='dark'] .hoverable\:hover\:bg-cloud:hover,
+html[data-theme='dark'] .hoverable\:hover\:bg-white:hover { background-color: var(--d-surface-3); }
+/* `group-hover:` is a third namespace with the same hole. The calendar's day
+   cell carries `group-hover:bg-white`, so hovering a date in dark mode painted
+   that one square bright white - the same bug as the DM row, in the page Ethan
+   also said "the calendar could be improved for dark mode" about. */
+html[data-theme='dark'] .group:hover .group-hover\:bg-white { background-color: var(--d-surface-3); }
+/* `bg-ink/N` is BLACK at low opacity: a visible wash on a white card and
+   nothing at all on a dark one. Inverted, it does the same job. */
+html[data-theme='dark'] .bg-ink\/5 { background-color: rgba(255, 255, 255, 0.07); }
+html[data-theme='dark'] .group:hover .group-hover\:bg-ink\/35 { background-color: rgba(0, 0, 0, 0.5); }
+
+/* ---- The light surfaces the first pass missed ---------------------------
+   Found by listing every colour utility in `src` and subtracting the ones this
+   sheet already names. Each of these paints a LIGHT grey or a LIGHT pastel, so
+   unmapped they are a bright patch on a dark page. */
+html[data-theme='dark'] .bg-gray-200 { background-color: var(--d-surface-3); }
+html[data-theme='dark'] .bg-gray-300 { background-color: #3a3a40; }
+html[data-theme='dark'] .bg-cloud\/25 { background-color: rgba(32, 32, 35, 0.4); }
+html[data-theme='dark'] .bg-cloud\/30 { background-color: rgba(32, 32, 35, 0.45); }
+html[data-theme='dark'] .text-gray-200 { color: var(--d-text-muted); }
+html[data-theme='dark'] .text-cloud { color: var(--d-text-soft); }
+html[data-theme='dark'] .border-cloud { border-color: var(--d-border); }
+html[data-theme='dark'] .border-gray-200\/70 { border-color: rgba(47, 47, 52, 0.7); }
+html[data-theme='dark'] .ring-gray-100,
+html[data-theme='dark'] .ring-gray-200 { --tw-ring-color: var(--d-border); }
+html[data-theme='dark'] .ring-black\/5 { --tw-ring-color: rgba(255, 255, 255, 0.06); }
+html[data-theme='dark'] .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+html[data-theme='dark'] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--d-border); }
+html[data-theme='dark'] .bg-amber-50\/60,
+html[data-theme='dark'] .bg-amber-50\/70 { background-color: rgba(217, 119, 6, 0.10); }
+html[data-theme='dark'] .bg-amber-100\/70 { background-color: rgba(217, 119, 6, 0.18); }
+html[data-theme='dark'] .bg-green-50\/70 { background-color: rgba(22, 163, 74, 0.10); }
+html[data-theme='dark'] .bg-red-100 { background-color: rgba(220, 38, 38, 0.20); }
+html[data-theme='dark'] .border-amber-100 { border-color: rgba(217, 119, 6, 0.28); }
+html[data-theme='dark'] .text-amber-900,
+html[data-theme='dark'] .text-amber-900\/80,
+html[data-theme='dark'] .text-amber-800\/80 { color: #fcd34d; }
+html[data-theme='dark'] .text-green-700\/80 { color: rgba(74, 222, 128, 0.8); }
+html[data-theme='dark'] .text-green-500 { color: #4ade80; }
+html[data-theme='dark'] .text-sky-500,
+html[data-theme='dark'] .text-sky-600 { color: #7dd3fc; }
+html[data-theme='dark'] .text-emerald-600 { color: #6ee7b7; }
+html[data-theme='dark'] .text-violet-600 { color: #c4b5fd; }
+html[data-theme='dark'] .text-red-500 { color: #f87171; }
+html[data-theme='dark'] .text-red-300 { color: #fca5a5; }
+html[data-theme='dark'] .border-red-300,
+html[data-theme='dark'] .border-red-400 { border-color: rgba(220, 38, 38, 0.45); }
+html[data-theme='dark'] .from-gray-200 { --tw-gradient-from: #2a2a2e var(--tw-gradient-from-position); }
+html[data-theme='dark'] .to-gray-300 { --tw-gradient-to: #3a3a40 var(--tw-gradient-to-position); }
+/* `text-ink/NN` and `border-ink` are the INK colour used as a soft foreground on
+   a light card. On a dark card the foreground has to be the light one. */
+html[data-theme='dark'] .text-ink\/90 { color: rgba(237, 237, 240, 0.9); }
+html[data-theme='dark'] .text-ink\/80 { color: rgba(237, 237, 240, 0.8); }
+html[data-theme='dark'] .text-ink\/70 { color: rgba(237, 237, 240, 0.7); }
+html[data-theme='dark'] .text-smoke\/70 { color: rgba(167, 169, 176, 0.7); }
+/* `bg-ink` is a NEAR-BLACK PILL used to stand out on a white page - the map's
+   caption, a tooltip, the calendar's "your own event" chip. On a near-black page
+   it disappears into the background it was drawn to sit on top of, so it takes
+   the lightest surface instead and keeps its white lettering. */
+html[data-theme='dark'] .bg-ink { background-color: #3a3a40; }
+html[data-theme='dark'] .hover\:bg-ink:hover { background-color: #47474e; }
+html[data-theme='dark'] .border-ink,
+html[data-theme='dark'] .hover\:border-ink:hover { border-color: var(--d-text); }
+html[data-theme='dark'] .ring-ink { --tw-ring-color: var(--d-text); }
+
+/* ---- A VARIANT IS A DIFFERENT CLASS, AND THAT IS THE WHOLE OF THIS BLOCK ---
+   THE BUG THIS FIXES (7 Sep 2026). Ethan: "on the very card that you activate
+   dark mode on, it looks really bad - the card still looks white."
+
+   It was white, and only from `sm` up, which is why it survived: `Panel` (the
+   box every Settings section is drawn in) is
+   `sm:rounded-card sm:border sm:border-gray-100 sm:bg-white sm:p-6`, and
+   `.sm\:bg-white` is its OWN generated class inside a media query. The remap of
+   `.bg-white` at the top of this sheet has never had anything to do with it. On
+   a phone the Panel draws no background at all, so the fault only existed on the
+   device Ethan reads Settings on.
+
+   `hover:text-ink` is the same shape and the widest instance of it - 97 uses.
+   `text-ink` is remapped to the light foreground; `hover:text-ink` was not, so
+   hovering almost any secondary control in the app painted the label
+   NEAR-BLACK ON NEAR-BLACK. Found the same way as the DM row: by listing every
+   variant-prefixed colour class in `src` and subtracting the ones this sheet
+   names.
+
+   THE RULE, for whoever adds the next one: if you write a colour utility behind
+   ANY prefix - a breakpoint, `hover:`, `group-hover:`, `hoverable:`, `active:`,
+   `focus:`, `disabled:` - the unprefixed remap above does not reach it. Re-run
+   the audit rather than trusting that it does. */
+html[data-theme='dark'] .sm\:bg-white { background-color: var(--d-surface); }
+html[data-theme='dark'] .sm\:border-gray-100,
+html[data-theme='dark'] .lg\:border-gray-100 { border-color: var(--d-border); }
+html[data-theme='dark'] .sm\:text-smoke { color: var(--d-text-soft); }
+
+html[data-theme='dark'] .hover\:text-ink:hover,
+html[data-theme='dark'] .hoverable\:hover\:text-ink:hover { color: var(--d-text); }
+html[data-theme='dark'] .hover\:text-smoke:hover,
+html[data-theme='dark'] .disabled\:hover\:text-smoke:disabled:hover { color: var(--d-text-soft); }
+html[data-theme='dark'] .active\:text-brand:active { color: var(--d-brand); }
+html[data-theme='dark'] .hover\:decoration-brand:hover { text-decoration-color: var(--d-brand); }
+
+html[data-theme='dark'] .hover\:bg-cloud\/40:hover { background-color: rgba(42, 42, 46, 0.5); }
+html[data-theme='dark'] .hover\:bg-cloud\/50:hover { background-color: rgba(42, 42, 46, 0.6); }
+html[data-theme='dark'] .hover\:bg-cloud\/70:hover { background-color: rgba(42, 42, 46, 0.8); }
+html[data-theme='dark'] .hover\:bg-gray-200:hover { background-color: #3a3a40; }
+html[data-theme='dark'] .active\:bg-cloud:active { background-color: var(--d-surface-3); }
+html[data-theme='dark'] .active\:bg-cloud\/70:active { background-color: rgba(42, 42, 46, 0.8); }
+
+html[data-theme='dark'] .hover\:text-red-600:hover,
+html[data-theme='dark'] .hover\:text-red-500:hover { color: #f87171; }
+html[data-theme='dark'] .hover\:text-green-600:hover { color: #4ade80; }
+html[data-theme='dark'] .hover\:border-red-300:hover { border-color: rgba(220, 38, 38, 0.45); }
+html[data-theme='dark'] .hover\:border-amber-400:hover { border-color: rgba(217, 119, 6, 0.5); }
+html[data-theme='dark'] .hover\:border-gray-300:hover,
+html[data-theme='dark'] .disabled\:hover\:border-gray-200:disabled:hover { border-color: var(--d-border); }
+
+html[data-theme='dark'] .hover\:border-brand\/60:hover { border-color: rgba(255, 139, 77, 0.6); }
+html[data-theme='dark'] .hover\:border-brand\/50:hover,
+html[data-theme='dark'] .focus\:border-brand\/50:focus { border-color: rgba(255, 139, 77, 0.5); }
+html[data-theme='dark'] .focus\:border-brand\/40:focus { border-color: rgba(255, 139, 77, 0.42); }
+html[data-theme='dark'] .hover\:border-brand\/25:hover { border-color: rgba(255, 139, 77, 0.3); }
+html[data-theme='dark'] .focus\:border-brand:focus { border-color: var(--d-brand); }
+html[data-theme='dark'] .hover\:ring-brand:hover { --tw-ring-color: var(--d-brand); }
+html[data-theme='dark'] .focus\:ring-brand\/40:focus { --tw-ring-color: rgba(255, 139, 77, 0.42); }
+html[data-theme='dark'] .focus\:ring-brand\/15:focus { --tw-ring-color: rgba(255, 139, 77, 0.22); }
 
 /* ---- Search fields ------------------------------------------------------
    `type="search"` draws its own clear button (::-webkit-search-cancel-button),
