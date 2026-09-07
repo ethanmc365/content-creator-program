@@ -888,7 +888,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
         <div className="tour-actions mt-4 flex items-center gap-2">
           {last ? (
-            <button onClick={() => onFinish?.('finished')} className="btn-primary ml-auto !px-5 !py-2 text-sm">
+            <button onClick={() => leave('finished')} className="btn-primary ml-auto !px-5 !py-2 text-sm">
               {tr("Finish")}
             </button>
           ) : goal?.kind === 'begin' ? (
