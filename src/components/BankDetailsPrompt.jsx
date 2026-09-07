@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { Modal } from './ui'
 import Icon from './Icon'
 import { payeeFromPrivate, payeeComplete } from '../lib/invoice'
-import { claimNag } from '../lib/appNag'
+import { claimNag, finishNag, onNagChange } from '../lib/appNag'
 import { useT } from '../lib/i18n'
 
 // "ADD YOUR BANK DETAILS" - ASKED EVERY TIME, ENFORCED NEVER.
@@ -40,10 +40,26 @@ export default function BankDetailsPrompt() {
   const tr = useT()
   const { user, profile } = useAuth()
   const [open, setOpen] = useState(false)
+  // IT ASKS AGAIN WHEN THE SLOT FREES UP, IN THE SAME APP OPEN (7 Sep 2026).
+  //
+  // Ethan: "creators should always be getting these - if they don't have both
+  // their payment details and their notifications on, every time they open it
+  // they should be prompted."
+  //
+  // This prompt is third in the queue, so on any device where the notifications
+  // ask fires first it lost the slot and, before this, never looked again. That
+  // is not a low priority, it is a silent never: 37 of the 45 active creators
+  // have no payee saved, and the ones who have not turned notifications on are
+  // the same people. See lib/appNag.
+  const [nagTurn, setNagTurn] = useState(0)
+  useEffect(() => onNagChange(() => setNagTurn((n) => n + 1)), [])
 
   useEffect(() => {
     // Admins are not paid through this, and a pending applicant has no prizes
-    // to be paid for yet - asking either of them is noise.
+    // to be paid for yet - asking either of them is noise. (Ethan, 7 Sep 2026:
+    // "if someone is promoted to an admin they shouldn't get it, their payment
+    // details aren't required." Already true here, and now true of the
+    // notifications ask next door as well.)
     if (!user?.id || !profile || profile.is_admin || profile.status !== 'active') return undefined
 
     // NOT ON THEIR VERY FIRST SESSION, BECAUSE THE TUTORIAL ASKS (4 Sep 2026).
@@ -87,10 +103,14 @@ export default function BankDetailsPrompt() {
         setOpen(true)
       })
     return () => { alive = false }
-  }, [user?.id, profile])
+  }, [user?.id, profile, nagTurn])
 
   function dismiss() {
     try { sessionStorage.setItem(ASKED_KEY, '1') } catch { /* private mode */ }
+    // Free the slot for anything behind this one. Nothing is, today - bank
+    // details are last - but a prompt that holds the queue after it has closed
+    // is the bug this whole mechanism was just fixed for.
+    finishNag('bank-details')
     setOpen(false)
   }
 

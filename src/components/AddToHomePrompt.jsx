@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Modal, Spinner } from './ui'
 import Icon from './Icon'
-import { claimNag, onTourRunning, releaseNag, tourRunning } from '../lib/appNag'
+import { claimNag, finishNag, onNagChange, onTourRunning, tourRunning } from '../lib/appNag'
 import { useAuth } from '../context/AuthContext'
 import {
   ANDROID_STEPS, IOS_STEPS,
@@ -65,6 +65,9 @@ export default function AddToHomePrompt() {
   const tr = useT()
   const { profile } = useAuth()
   const [mode, setMode] = useState(null)          // null | 'install' | 'browser' | 'push'
+  // Bumped when the nag slot frees up, so the effect below re-runs and this
+  // prompt can take its turn in the same app open. See lib/appNag.
+  const [nagTurn, setNagTurn] = useState(0)
   const [promptable, setPromptable] = useState(canPromptInstall())
   const [busy, setBusy] = useState(false)
   // Which platform's steps are on screen. Starts on the one they are actually
@@ -80,9 +83,21 @@ export default function AddToHomePrompt() {
   const walking = useSyncExternalStore(onTourRunning, tourRunning, () => false)
 
   useEffect(() => onInstallPromptChange(setPromptable), [])
+  useEffect(() => onNagChange(() => setNagTurn((n) => n + 1)), [])
 
   useEffect(() => {
     if (!profile || profile.status !== 'active') return
+    // ADMINS ARE NOT NAGGED (7 Sep 2026). Ethan: "admins are excluded from the
+    // constant notification pop-ups as well."
+    //
+    // And the install WALL goes with it, which is the same decision rather than
+    // an extra one: on a phone in a browser this prompt has no close button and
+    // no way past it except installing the app, so leaving admins in it would
+    // wall the team out of /admin on a phone browser - the one place they most
+    // often need it, because that is where a link from an email lands. An admin
+    // who wants to see either screen still can, from the creator preview
+    // sandbox, which is a real non-admin account.
+    if (profile.is_admin) return
 
     const phone = isMobileDevice()
     const installed = isStandalone()
@@ -134,16 +149,33 @@ export default function AddToHomePrompt() {
     // already decided to show.
     // A wall does not queue behind other asks; it IS the screen. The nag
     // coordination still applies to the dismissible notifications ask.
-    if (next === 'push' && !claimNag(NAG)) return
+    // DISMISSED IS CHECKED BEFORE THE CLAIM, NOT AFTER IT (7 Sep 2026).
+    //
+    // These two lines were the other way round, and lib/appNag's own rule says
+    // why that is wrong: "a prompt that decides not to show must NOT claim, or
+    // it blocks the next one for the rest of the session." This one claimed the
+    // slot and THEN discovered it had already been dismissed this app open, so
+    // it walked away holding the queue.
+    //
+    // It was invisible until the queue started handing the slot on: with the
+    // old lock, nothing re-ran this effect after a dismissal, so the wasted
+    // claim never happened twice. Now `finishNag` wakes every prompt - including
+    // this one - and this one re-took the slot it had just given up.
+    // Verified in the browser: dismiss the notifications ask and the bank
+    // details ask follows it in the same app open.
     if (next === 'push') {
       try { if (sessionStorage.getItem(DISMISSED)) return } catch { /* private mode */ }
+      if (!claimNag(NAG)) return
     }
     setMode(next)
-  }, [profile])
+  }, [profile, nagTurn])
 
   function dismiss() {
     try { sessionStorage.setItem(DISMISSED, '1') } catch { /* private mode */ }
-    releaseNag(NAG)
+    // HAND THE SLOT ON, DO NOT JUST DROP IT. `releaseNag` frees the claim and
+    // tells nobody, so BankDetailsPrompt - which had already decided not to
+    // show - would never look again this session. See lib/appNag.
+    finishNag(NAG)
     setMode(null)
   }
 

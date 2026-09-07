@@ -23,10 +23,43 @@
 //
 // A prompt that decides not to show must NOT claim, or it blocks the next one
 // for the rest of the session.
+//
+// -------------------------------------------------------------------------
+// ONE AT A TIME IS NOT THE SAME THING AS ONLY ONE (7 Sep 2026).
+//
+// Ethan: "creators should always be getting these - if they don't have both
+// their payment details AND their notifications on, every time they open it
+// they should be prompted to do that."
+//
+// The claim above did the first half of its job and then quietly did something
+// nobody intended. A creator with neither notifications on nor bank details
+// saved met the notifications modal, dismissed it, and that was the app open
+// over: `claimNag('bank-details')` returned false for the rest of the session,
+// every session, for ever. So the bank prompt was not merely deprioritised for
+// people who had not turned notifications on - it was UNREACHABLE to them, and
+// they are exactly the 37 of 45 active creators with no payee on file.
+//
+// The fix is a queue rather than a lock. The claim still guarantees one dialog
+// on screen at a time, which is the thing worth protecting; what changes is
+// what happens when that dialog goes away. `finishNag` hands the slot on, and
+// the waiting prompts are SUBSCRIBED, so the next one in priority order opens
+// in the same app open instead of waiting for the next one.
+//
+// `releaseNag` (release, but do not wake anybody) is kept for the one caller
+// that means it: a prompt that claimed and then found it had nothing to say.
 
 const KEY = 'tryp_nag_open'
+const subs = new Set()
 
-/** Try to claim this app open for `who`. True if nothing else has asked yet. */
+function announce() { for (const fn of [...subs]) fn() }
+
+/** Re-run your "should I show?" check when the slot frees up. */
+export function onNagChange(fn) {
+  subs.add(fn)
+  return () => subs.delete(fn)
+}
+
+/** Try to claim this app open for `who`. True if nothing else is asking. */
 export function claimNag(who) {
   try {
     const held = sessionStorage.getItem(KEY)
@@ -45,14 +78,20 @@ export function nagClaimed() {
   try { return !!sessionStorage.getItem(KEY) } catch { return false }
 }
 
-/** Release the claim - used when a prompt is dismissed and wants to let the
- *  NEXT open ask again rather than holding the slot for ever. The slot itself
- *  stays claimed for this open; this is only for tests and for a prompt that
- *  decides, after claiming, that it has nothing to say. */
+/** Release the claim quietly. For a prompt that claimed and then found it had
+ *  nothing to say, and for tests. Does NOT wake the queue. */
 export function releaseNag(who) {
   try {
     if (sessionStorage.getItem(KEY) === who) sessionStorage.removeItem(KEY)
   } catch { /* private mode */ }
+}
+
+/** Done asking: free the slot AND tell whoever is waiting. This is what a
+ *  dismissed or satisfied dialog calls, so the next thing the creator is
+ *  missing gets asked in the same app open. */
+export function finishNag(who) {
+  releaseNag(who)
+  announce()
 }
 
 
