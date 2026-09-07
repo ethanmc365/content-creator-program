@@ -6,6 +6,7 @@ import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
 import { useT } from '../../lib/i18n'
+import GoogleButton from '../../components/GoogleButton'
 
 // `?demo=1`, admins only, renders this page inertly for the Testing Centre.
 export default function Login() {
@@ -51,7 +52,18 @@ export default function Login() {
     const { error } = await signIn(emailVal, passVal, captchaToken)
     if (error) {
       setBusy(false)
-      setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect. Try again.' : error.message)
+      // THE HINT NAMES THE OTHER DOOR WITHOUT CONFIRMING ANYTHING.
+      //
+      // An account created with Google has no password, so every attempt to log
+      // into one comes back as "Invalid login credentials" - indistinguishable
+      // from a typo, and the creator has no way to know the difference. The
+      // extra sentence is CONDITIONAL ON NOTHING: it is shown on every failed
+      // password login, so it reveals nothing about whether the address exists
+      // or which provider it uses, and the one person it helps is the one who
+      // recognises their own situation in it.
+      setError(error.message === 'Invalid login credentials'
+        ? 'Email or password is incorrect. If you joined with Google, use Continue with Google above - or reset your password to set one.'
+        : error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
@@ -66,6 +78,14 @@ export default function Login() {
       subtitle="Log in to the Tryp.com Content Creator Community."
       footer={<span>{tr("New here?")} <Link to="/signup" className="font-medium text-brand hover:underline">{tr("Create your account")}</Link></span>}
     >
+      {/* The same button as signup, and deliberately the same words on both -
+          "Continue with Google" is one door, not two, and a returning creator
+          who joined that way should not have to work out whether the log in
+          page's version is the right one. See lib/oauth. */}
+      <div className="mb-6">
+        <GoogleButton />
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="email" className="label">{tr("Email")}</label>

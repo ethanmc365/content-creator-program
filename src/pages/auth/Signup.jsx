@@ -7,6 +7,7 @@ import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
 import { useT } from '../../lib/i18n'
+import GoogleButton from '../../components/GoogleButton'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 // `?demo=1`, for an admin only, renders this page inertly inside the Testing
@@ -77,7 +78,23 @@ export default function Signup() {
     const { data, error } = await signUp(emailVal, passVal, nameVal, ref, captchaToken)
     if (error) {
       setBusy(false)
-      setError(error.message)
+      // "CAN THEY STILL USE THAT EMAIL TO SIGN UP NORMALLY?" - THE ANSWER IS
+      // NO, AND THE SCREEN HAS TO SAY WHICH DOOR IS THEIRS (7 Sep 2026).
+      //
+      // One address is one account. Somebody who joined with Google and then
+      // comes back and fills this form in gets GoTrue's "User already
+      // registered", which is true and useless: it does not say that the
+      // account is theirs, that it works, or how to get into it.
+      //
+      // AND THE HINT MUST NOT BECOME AN ENUMERATION ORACLE. Knowing WHICH
+      // sign-in method an address uses is exactly the fact an attacker wants
+      // and the reason `sendPasswordReset` above always reports success. So
+      // this never claims the account is a Google one - it names both doors and
+      // lets the person who owns the address know which is theirs. Somebody
+      // guessing learns only what GoTrue already told them.
+      setError(/already registered|already exists/i.test(error.message)
+        ? 'That email already has an account. Log in with your password, or use Continue with Google if that is how you joined. Forgotten your password? Reset it from the log in page.'
+        : error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
@@ -106,6 +123,29 @@ export default function Signup() {
           {tr("You were invited by a Tryp.com creator. Welcome aboard!")}
         </p>
       )}
+
+      {/* CONTINUE WITH GOOGLE, ABOVE THE FORM (7 Sep 2026).
+          Ethan: "can we add Continue with Google on the signup/login page...
+          they don't have to type in an email and password, but obviously they
+          still enter their name and their profile picture and all the other
+          stuff."
+
+          That is exactly what this does and it is worth saying why it needs no
+          branch anywhere else. A Google signup is an `auth.users` INSERT like
+          any other, so `handle_new_user` writes the same pending profile,
+          `ProtectedRoute` sees `onboarded = false` and sends them to the same
+          nine onboarding screens. The address is registered the same way and is
+          never asked for twice, because onboarding has never asked for it - it
+          asks for a name, a country, a phone and the rest, and the email has
+          always come from the account.
+
+          It draws nothing at all until it knows Google is actually configured
+          on the project; the invite code is handed to it because it cannot
+          survive the round trip in the URL. See lib/oauth. */}
+      <div className="mb-6">
+        <GoogleButton referral={ref} label="Sign up with Google" />
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>

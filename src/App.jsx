@@ -22,6 +22,7 @@ import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
+import AuthCallback from './pages/auth/AuthCallback'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import Terms from './pages/legal/Terms'
 
@@ -210,6 +211,11 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Where "Continue with Google" comes back to. Eagerly imported, on
+          purpose - see pages/auth/AuthCallback. This path must also be listed
+          in Supabase → Authentication → URL Configuration → Redirect URLs, for
+          BOTH Vercel origins. */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<Terms />} />
 
