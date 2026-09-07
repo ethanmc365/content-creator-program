@@ -153,6 +153,88 @@ const recordFailure = async (...ids: string[]) => {
   await admin.from('auth_attempts').insert(ids.map((identifier) => ({ identifier })))
 }
 
+
+// ---------------------------------------------------------- is it a real address
+//
+// "SO YOU CAN JUST CREATE AN EMAIL, TYPE IN ANYTHING, RANDOM LETTERS AT
+// GMAIL.COM, AND SIGN UP." - Ethan, 7 Sep 2026. And later: "maybe for now we can
+// just make it check if it's an actual email, but it doesn't need to verify with
+// 2FA, send an email to them or whatever."
+//
+// That is exactly the right first step, and it is worth being precise about what
+// it can and cannot do:
+//
+//   IT CATCHES a domain that cannot receive mail at all. `asdf@asdfasdf.com`,
+//   `me@gmial.com`, `x@company.co` where the real one is `.com` - anything with
+//   no MX and no A record is an address no message could ever reach, and letting
+//   somebody through with one guarantees they never get a notification, an
+//   invoice or a password reset. Measured on the DNS, not guessed from a regex.
+//
+//   IT CATCHES a throwaway. The list is short and deliberately so: the widely
+//   used ones, not a 100,000-domain blocklist that goes stale and starts
+//   refusing somebody's real employer.
+//
+//   IT DOES NOT CATCH `randomletters@gmail.com`. Nothing can, short of sending a
+//   message and waiting for a click. Gmail has MX records; the mailbox may or
+//   may not exist and Google will not say. That is what turning Confirm Email on
+//   is for, and it is one switch away - see docs/EMAIL_SETUP.md.
+//
+// DNS over HTTPS because an edge function has no resolver. Cloudflare's endpoint
+// is public, needs no key and answers in about 30ms.
+//
+// IT FAILS OPEN. If the lookup errors, times out or is blocked, the signup goes
+// through. A validator that can refuse real people when a third party is having
+// a bad afternoon is worse than the problem it solves - the whole point of this
+// is that nobody who should get in is kept out.
+const DISPOSABLE = new Set([
+  'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', '10minutemail.com',
+  'tempmail.com', 'temp-mail.org', 'throwawaymail.com', 'yopmail.com', 'trashmail.com',
+  'sharklasers.com', 'getnada.com', 'dispostable.com', 'maildrop.cc', 'fakeinbox.com',
+  'mailnesia.com', 'spamgourmet.com', 'moakt.com', 'tempr.email', 'emailondeck.com',
+  'mohmal.com', 'harakirimail.com', 'grr.la', 'spam4.me', 'byom.de',
+])
+
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
+
+async function hasMail(domain: string): Promise<boolean> {
+  const ask = async (type: string) => {
+    const r = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${type}`,
+      { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(2500) },
+    )
+    if (!r.ok) return null
+    const j = await r.json()
+    // Status 3 is NXDOMAIN: the domain does not exist at all.
+    if (j?.Status === 3) return false
+    return Array.isArray(j?.Answer) && j.Answer.length > 0
+  }
+  // MX first. A domain with no MX but an A record still accepts mail by the
+  // implicit-MX rule in RFC 5321, so both count.
+  const mx = await ask('MX')
+  if (mx === true) return true
+  if (mx === false) return false
+  const a = await ask('A')
+  return a !== false
+}
+
+/** null when the address is fine; a sentence to show the person when it is not. */
+async function emailProblem(raw: string): Promise<string | null> {
+  const email = String(raw || '').trim().toLowerCase()
+  if (!EMAIL_RE.test(email)) return 'That does not look like an email address.'
+  const domain = email.split('@')[1]
+  if (DISPOSABLE.has(domain)) {
+    return 'Please use a permanent email address. Prizes, invoices and password resets all go to it.'
+  }
+  try {
+    if (!(await hasMail(domain))) {
+      return `We cannot find a mail server for "${domain}". Check the spelling and try again.`
+    }
+  } catch {
+    // Fails open, on purpose. See the note above.
+  }
+  return null
+}
+
 // Record a password reset request in the admin email log.
 //
 // The account may not exist at all (we never reveal that to the caller), so the
@@ -257,6 +339,17 @@ async function handle(req: Request) {
     if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
     if (await isLimited(addr, MAX_PER_IP)) return json(req, tooMany, 429)
     if (await isGloballyLimited()) return json(req, tooMany, 429)
+    // BEFORE GOTRUE, NOT AFTER. A refused address should never become an
+    // `auth.users` row that a person then has to find and delete, and checking
+    // here means the fallback path in AuthContext - which goes straight to
+    // GoTrue when this function is unreachable - is the only way past it. That
+    // is the right trade: an outage should cost us a few junk signups, not
+    // every signup.
+    const bad = await emailProblem(email)
+    if (bad) {
+      await recordFailure(addr).catch(() => {})
+      return json(req, { error: bad }, 400)
+    }
     const { status, data } = await gotrue('signup', { email, password, data: { name: name || null, ref: ref || null }, ...sec })
     if (status >= 400) {
       await recordFailure(addr).catch(() => {})
