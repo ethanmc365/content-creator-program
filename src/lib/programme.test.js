@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal } from './programme'
+import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal, filterChallenges } from './programme'
 
 // A challenge row shaped like admin_challenge_metrics() returns.
 const row = (over = {}) => ({
@@ -237,5 +237,68 @@ describe('rewardsTotal', () => {
     expect(rewardsTotal([])).toEqual({ amount: 0, currency: 'EUR', converted: false })
     expect(rewardsTotal(null)).toEqual({ amount: 0, currency: 'EUR', converted: false })
     expect(rewardsTotal([{ amount: null, currency: 'EUR' }, { amount: 'x', currency: 'EUR' }]).amount).toBe(0)
+  })
+})
+
+
+// FINDING ONE CHALLENGE IN FIFTY.
+//
+// The list on the Challenges tab gained a search box, a status filter and a
+// pinned "running now" block on 8 Sep 2026. Each of those is one line from
+// being subtly wrong in a way nobody would notice for weeks - a live challenge
+// drawn twice, an unmeasured challenge topping "cheapest", a search that can
+// only find the rows that happen to have a title.
+describe('filterChallenges', () => {
+  const c = (over) => ({ id: 'x', title: '', market: null, country_code: null, status: 'archived', cpm: 1, spend: 0, views: 0, start_date: '2026-01-01', ...over })
+
+  it('searches the market and the country, not just the title', () => {
+    const rows = [
+      c({ id: 'a', title: 'Spain Monthly', market: 'Spain', country_code: 'ES' }),
+      c({ id: 'b', title: '', market: 'Germany', country_code: 'DE' }),
+      c({ id: 'd', title: '', market: null, country_code: 'PT' }),
+    ]
+    // Thirty-five of the imported rows have no title at all, so a title-only
+    // search could not find them by where they happened.
+    expect(filterChallenges(rows, { query: 'germany' }).map((r) => r.id)).toEqual(['b'])
+    expect(filterChallenges(rows, { query: 'pt' }).map((r) => r.id)).toEqual(['d'])
+    expect(filterChallenges(rows, { query: 'SPAIN' }).map((r) => r.id)).toEqual(['a'])
+  })
+
+  it('never lists a challenge that is already pinned as running', () => {
+    const rows = [c({ id: 'live', status: 'active' }), c({ id: 'old' })]
+    const out = filterChallenges(rows, { exclude: new Set(['live']) })
+    expect(out.map((r) => r.id)).toEqual(['old'])
+  })
+
+  it('sorts unmeasured challenges to the BOTTOM of cheapest CPM, not the top', () => {
+    const rows = [
+      c({ id: 'none', cpm: null }),
+      c({ id: 'dear', cpm: 4 }),
+      c({ id: 'cheap', cpm: 0.2 }),
+    ]
+    expect(filterChallenges(rows, { sort: 'cpm' }).map((r) => r.id)).toEqual(['cheap', 'dear', 'none'])
+  })
+
+  it('filters by status and leaves the rest alone', () => {
+    const rows = [c({ id: 'a', status: 'active' }), c({ id: 'b', status: 'archived' })]
+    expect(filterChallenges(rows, { status: 'active' }).map((r) => r.id)).toEqual(['a'])
+    expect(filterChallenges(rows, { status: 'all' })).toHaveLength(2)
+  })
+
+  it('sorts by date, spend and views', () => {
+    const rows = [
+      c({ id: 'old', start_date: '2026-01-01', spend: 500, views: 10 }),
+      c({ id: 'new', start_date: '2026-08-01', spend: 100, views: 900 }),
+    ]
+    expect(filterChallenges(rows, { sort: 'recent' })[0].id).toBe('new')
+    expect(filterChallenges(rows, { sort: 'spend' })[0].id).toBe('old')
+    expect(filterChallenges(rows, { sort: 'views' })[0].id).toBe('new')
+  })
+
+  it('does not mutate the array it was given', () => {
+    const rows = [c({ id: 'a', start_date: '2026-01-01' }), c({ id: 'b', start_date: '2026-08-01' })]
+    const before = rows.map((r) => r.id)
+    filterChallenges(rows, { sort: 'recent' })
+    expect(rows.map((r) => r.id)).toEqual(before)
   })
 })

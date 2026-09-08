@@ -76,7 +76,7 @@ function nodeY(i, L) {
   return TOP + i * L.gap
 }
 
-// The whole route as one path string, plus the control points, so the plane and
+// The whole route as one path string, plus the control points, so the marker and
 // everybody else on the road can be placed on it without asking the DOM where
 // anything is.
 function buildRoute(count, L) {
@@ -102,39 +102,25 @@ function cubicAt(seg, t) {
   const u = 1 - t
   const x = u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p3[0]
   const y = u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p3[1]
-  // The tangent, for pointing the plane where it is going.
+  // The tangent. Nothing rotates to it any more (the marker is a portrait and
+  // portraits stay upright), but the parked position still reads the point.
   const dx = 3 * u * u * (c1[0] - p0[0]) + 6 * u * t * (c2[0] - c1[0]) + 3 * t * t * (p3[0] - c2[0])
   const dy = 3 * u * u * (c1[1] - p0[1]) + 6 * u * t * (c2[1] - c1[1]) + 3 * t * t * (p3[1] - c2[1])
   return { x, y, angle: (Math.atan2(dy, dx) * 180) / Math.PI }
 }
 
-// The aircraft, drawn nose-up at the origin. `rotate="auto"` on animateMotion
-// aligns the local +x axis with the direction of travel, so the glyph is turned
-// a quarter turn to put its nose there. Module scope: a component defined during
-// render is a new type on every render, and this one is inside an SVG that
-// re-renders on every resize observation.
-const PLANE_D = 'M0 -9 C0.9 -9 1.5 -7.4 1.5 -5.1 L1.5 -3.6 L8.2 0.8 L8.2 2.5 L1.5 -0.2 L1.5 4.1 L3.6 6.2 L3.6 7.5 L0 6.3 L-3.6 7.5 L-3.6 6.2 L-1.5 4.1 L-1.5 -0.2 L-8.2 2.5 L-8.2 0.8 L-1.5 -3.6 L-1.5 -5.1 C-1.5 -7.4 -0.9 -9 0 -9 Z'
-
-function PlaneMark() {
-  return (
-    <g transform="rotate(90)">
-      <path d={PLANE_D} fill="#d94407" stroke="#ffffff" strokeWidth="1.4" strokeLinejoin="round" />
-    </g>
-  )
-}
-
-// WHEN THE PLANE IS AT A GIVEN POINT ON THE ROUTE.
+// WHEN THE MARKER IS AT A GIVEN POINT ON THE ROUTE.
 //
 // THE BUG THIS FIXES. The rings lit on a LINEAR clock - node i appeared at
-// `(i/legs)/progress * flightSeconds` - while the plane flew an EASED one, the
-// keySplines curve below. Those two agree at take-off and at landing and
-// nowhere in between, so through the middle of the route the aircraft was a
+// `(i/legs)/progress * flightSeconds` - while the marker moved on an EASED one,
+// the keySplines curve below. Those two agree at the start and at the end and
+// nowhere in between, so through the middle of the route the marker was a
 // good half-second ahead of the dot it was supposedly arriving at, and the
 // chimes rang against nothing. That is the "animation speed doesn't match the
 // milestones appearing" report, and no amount of tuning the duration fixes it
 // because the shapes are different, not the lengths.
 //
-// The easing maps time -> distance. To light a ring exactly as the plane
+// The easing maps time -> distance. To light a ring exactly as the marker
 // touches it we need the other direction: distance -> time. There is no closed
 // form for the inverse of a cubic bezier, so it is solved numerically - twenty
 // bisections on a monotonic curve is exact to about a millionth, and it runs
@@ -181,17 +167,25 @@ function timeAtDistance(y) {
 // So the one person the page is about was the only one on it without a face,
 // and finding yourself meant knowing that the plane was you.
 //
-// It rides the SAME `animateMotion` the plane already flies, so there is no
-// second copy of the geometry and nothing to keep in sync: the face is on the
-// non-rotating group (a portrait must stay upright through every bend) and the
-// plane moves 24px forward along the group that does rotate, so it leads the
-// way instead of sitting on top of the picture. Both stop at exactly the
-// creator's own position, because they are the same keyPoints.
+// AND THEN THE AEROPLANE WENT (8 Sep 2026). Ethan: "the aircraft icon
+// shouldn't be there at all, it looks bad and would look better with just the
+// profile picture moving."
+//
+// For a while both were on the route, the plane 30px ahead of the face along
+// the tangent. That is one object too many: the eye has to decide which of the
+// two is "you", and on a bend they visibly separate, because the plane rotated
+// to the tangent and the portrait deliberately did not. It was also a repeated
+// metaphor - the line is already a flight path and the stops are already
+// airport dots, so a 15px aeroplane restated in miniature what the whole
+// drawing says.
+//
+// One marker now, on one `animateMotion`, with no rotation. It stops at
+// exactly the creator's own position via `keyPoints`.
 function RouteFace({ who }) {
   const label = (who?.name || '?').trim().charAt(0).toUpperCase()
   return (
     <>
-      {/* The soft halo the plane used to have on its own. */}
+      {/* The soft halo, which is now the only thing marking the position. */}
       <circle r="26" fill="#d94407" opacity="0.12" />
       <circle r="19" fill="#ffffff" />
       {who?.photo_url
@@ -278,8 +272,10 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // `begin="indefinite"` means SMIL will not start on its own. An observer
   // starts it, and starts the line with it, so the two are the same movement.
   const [started, setStarted] = useState(false)
+  // ONE ANIMATION HANDLE, because there is now one thing moving. It used to
+  // be two - the face and an aeroplane 30px ahead of it on the same path -
+  // and keeping two SMIL animations in step was most of the complexity here.
   const [glowAnim, setGlowAnim] = useState(null)
-  const [planeAnim, setPlaneAnim] = useState(null)
 
   useEffect(() => {
     if (!box0 || started) return undefined
@@ -315,8 +311,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
     // A route that draws without its plane is a degraded route, not a broken
     // page, so a failure here is swallowed.
     try { glowAnim?.beginElement() } catch { /* no SMIL */ }
-    try { planeAnim?.beginElement() } catch { /* no SMIL */ }
-  }, [started, glowAnim, planeAnim])
+  }, [started, glowAnim])
 
   // Node 0 is "you joined". Everything after it is a milestone, so a creator
   // with nothing done yet still sees a road with a start on it rather than an
@@ -361,8 +356,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   //
   // THE ONE EXCEPTION IS FINISHING. Somebody who has reached the last stop is
   // not heading anywhere - there is nowhere further along the line - so they
-  // land on it, and the plane comes off (see `flying`). Arriving is the one
-  // moment a dot is the right place to be.
+  // land on it. Arriving is the one moment a dot is the right place to be.
   const MIN_LEG = 0.5
   const finished = reached >= legs
   const shownLegs = finished
@@ -379,14 +373,8 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   const planeSeg = segs[Math.min(shownReached, segs.length - 1)]
   const plane = planeSeg ? cubicAt(planeSeg, shownReached >= segs.length ? 1 : shownFraction) : null
 
-  // THE PLANE IS ONLY THERE WHILE THERE IS SOMEWHERE TO BE GOING.
-  // Ethan: "I would only show the plane icon whenever someone's actually
-  // animating on the route." Once the whole route is complete the marker is an
-  // arrival, not a journey, and an aircraft nosing off the end of a finished
-  // line points at nothing.
-  const flying = !finished
-  // Where the aeroplane waits before take-off: the first dot, facing the way
-  // the route leaves it. Null once the flight has started.
+  // Where the marker waits before the route starts drawing: the first dot.
+  // Null once the journey has begun.
   const start = !started && segs.length ? cubicAt(segs[0], 0) : null
 
   // HOW LONG THE FLIGHT TAKES.
@@ -419,7 +407,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
     const f = i / legs
     if (progress <= 0) return Math.min(i * 0.12, 1)
     // Beyond where the creator has got to: the route ahead, arriving just after
-    // the aircraft parks. Still linear, because nothing is flying it.
+    // the marker parks. Still linear, because nothing is flying it.
     if (f >= progress) return flightSeconds + Math.min((f - progress) * legs * 0.12, 0.6)
     // On the flown part: ask the flight when it is HERE, rather than assuming
     // it covers the route at a steady rate. See `timeAtDistance`.
@@ -576,70 +564,38 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                and is swapped for the animated one at take-off. */
             /* The face does not rotate with the route, so it is a sibling of
                the rotated group rather than a child of it. */
-            <g>
-              <g transform={`translate(${start.x} ${start.y})`}>
-                <RouteFace who={who} />
-              </g>
-              {/* A BIGGER AIRCRAFT. Ethan: "the little tiny plane icon looks
-                  weird beside the big profile picture, so I'd make the plane
-                  icon slightly bigger." The face is a 52px halo around a 38px
-                  photograph and the plane was drawn at 0.72; at that size it
-                  read as a speck of debris beside it rather than as the thing
-                  pulling it along. 0.95 puts it in proportion, and the forward
-                  offset grows with it so the two still do not overlap. */}
-              {flying && (
-                <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
-                  <g transform="translate(30 0) scale(0.95)"><PlaneMark /></g>
-                </g>
-              )}
+            <g transform={`translate(${start.x} ${start.y})`}>
+              <RouteFace who={who} />
             </g>
           )
           : (
-            <g>
-              {/* NO `rotate` ON THIS ONE, DELIBERATELY. It is the group that
-                  carries the creator's photograph, and a face that banks with
-                  the aircraft through every curve of the route is a face
-                  upside down on half of it. Same path, same keyPoints, same
-                  spline as the plane below - so they travel as one thing and
-                  land together - and only the plane turns. */}
-              <g>
-                <RouteFace who={who} />
-                <animateMotion
-                  ref={setGlowAnim}
-                  begin="indefinite"
-                  dur={`${flightSeconds}s`} fill="freeze" path={d}
-                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
-                />
-              </g>
-              <g style={{ display: flying ? undefined : 'none' }}>
-                {/* 30px FORWARD ALONG THE TANGENT. `rotate="auto"` below aligns
-                    this group's +x axis with the direction of travel, so a
-                    plain translate on x puts the aircraft AHEAD of the face on
-                    the route rather than on top of it - at every angle, with no
-                    arithmetic of our own. Grown from 26/0.72 with the aircraft
-                    itself; see the note on the parked copy above.
+            /* THE MARKER IS THE FACE, AND ONLY THE FACE (8 Sep 2026).
+               Ethan: "for milestones the aircraft icon shouldn't be there at
+               all, it looks bad and would look better with just the profile
+               picture moving."
 
-                    HIDDEN WITH `display`, NOT UNMOUNTED. The `animateMotion`
-                    inside this group is triggered by `beginElement` in an
-                    effect that runs once - taking the element out of the tree
-                    on a finished route and putting it back on the next render
-                    would leave a SMIL animation nobody ever begins, which is
-                    the corner-of-the-card bug described above. */}
-                <g transform="translate(30 0) scale(0.95)"><PlaneMark /></g>
-                {/* `begin="indefinite"` + beginElement, NOT a bare dur. See the
-                    note on `started` above: SMIL against the document timeline
-                    had already finished by the time anybody scrolled here.
-                    keyPoints stops the flight at exactly the creator's own
-                    position and fill="freeze" parks it there - somebody one stop
-                    in watches the plane fly one stop and land, which is the
-                    whole point of drawing a route instead of a bar. */}
-                <animateMotion
-                  ref={setPlaneAnim}
-                  begin="indefinite"
-                  dur={`${flightSeconds}s`} fill="freeze" rotate="auto" path={d}
-                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
-                />
-              </g>
+               He is right, and the reason is worth writing down so nobody puts
+               it back. The aeroplane was doing two jobs badly. It was a SECOND
+               object travelling the same path 30px ahead of the face, so the
+               eye had to decide which of the two was "you" - and on a curve the
+               two separated visibly, because one rotated to the tangent and the
+               other deliberately did not. And it was a duplicate metaphor: the
+               route is already drawn as a flight path, the stops are already
+               airport dots, and the aircraft restated in a 15px glyph what the
+               whole drawing already says.
+
+               One object, and it is the creator's own photograph. `rotate` is
+               deliberately absent - a face that banks through every curve is a
+               face upside down on half of them - so this is a plain
+               `animateMotion` along the path and nothing else. */
+            <g>
+              <RouteFace who={who} />
+              <animateMotion
+                ref={setGlowAnim}
+                begin="indefinite"
+                dur={`${flightSeconds}s`} fill="freeze" path={d}
+                keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
+              />
             </g>
           )
         )}

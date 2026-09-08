@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { confirm } from '../../lib/confirm'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
+import { ContactRow, EntryList, PageTile, SheetLabel, StatTile } from '../../components/admin/creatorSheet'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
-import { formatDate, timeAgo, formatDateTimeTz, downloadCsv, cx, ageFromDob } from '../../lib/utils'
+import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
 import { isHiddenTestRow } from '../../lib/testData'
 
@@ -659,156 +660,115 @@ export default function AdminCreators() {
               </div>
             </div>
 
-            {/* THEIR PAGES, AS THEY SEE THEM.
-                A creator writes in asking where their voucher went, and until
-                now the only way to answer was to reconstruct their view from
-                the admin tables - which is a different page with different
-                numbers on it. These open the creator's OWN rewards page and
-                dashboard, filtered to them, read only, with a band across the
-                top saying whose they are. The sandbox does not answer this:
-                that is a blank account, and the question is always about a
-                specific person's history. */}
-            <div className="flex flex-wrap gap-2">
-              <Link
-                to={`/profile/${selected.id}`}
-                className="btn-secondary !py-2 text-xs"
-                onClick={() => setSelected(null)}
-              >
-                <Icon name="users" className="h-4 w-4" /> Their profile
-              </Link>
-              <Link
-                to={`/dashboard?as=${selected.id}`}
-                className="btn-secondary !py-2 text-xs"
-                onClick={() => setSelected(null)}
-              >
-                <Icon name="chart" className="h-4 w-4" /> Their dashboard
-              </Link>
-              <Link
-                to={`/rewards?as=${selected.id}`}
-                className="btn-secondary !py-2 text-xs"
-                onClick={() => setSelected(null)}
-              >
-                <Icon name="money" className="h-4 w-4" /> Their rewards
-              </Link>
-              {/* Added 8 Sep 2026 alongside the same link in CreatorPeek. The
-                  route answers a question the dashboard does not - how far
-                  along the ladder somebody is, and what is blocking the next
-                  stop - and it is the page Ethan asked to be able to open for
-                  any creator. */}
-              <Link
-                to={`/milestones?as=${selected.id}`}
-                className="btn-secondary !py-2 text-xs"
-                onClick={() => setSelected(null)}
-              >
-                <Icon name="trophy" className="h-4 w-4" /> Their milestones
-              </Link>
-              <Link
-                to={`/milestones?as=${selected.id}`}
-                className="btn-secondary !py-2 text-xs"
-                onClick={() => setSelected(null)}
-              >
-                <Icon name="plane" className="h-4 w-4" /> Their milestones
-              </Link>
+            {/* ---- THEIR PAGES, AS THEY SEE THEM ----
+                A creator writes in asking where their voucher went, and the
+                only way to answer used to be to reconstruct their view from the
+                admin tables - a different page with different numbers on it.
+                These open the creator's OWN pages, filtered to them, read only,
+                with a band across the top saying whose they are. The sandbox
+                does not answer this: that is a blank account, and the question
+                is always about a specific person's history.
+
+                FOUR TILES, NOT FIVE PILLS, AND ONE OF THE FIVE WAS A DUPLICATE.
+                "Their milestones" was rendered TWICE - once with a trophy and
+                once with an aeroplane, both linking to the same route - which
+                is how the row came to wrap four-then-one. Ethan: "I don't like
+                how there's four buttons on one row and then one button on the
+                next row, it just looks bad." The duplicate is gone and the rest
+                are a fixed four-column grid, which cannot wrap into an orphan
+                at any width. Same tiles as the profile popup; see
+                components/admin/creatorSheet. */}
+            <div>
+              <SheetLabel>Their pages</SheetLabel>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <PageTile to={`/profile/${selected.id}`} onClose={() => setSelected(null)} icon="users" label="Profile" />
+                <PageTile to={`/dashboard?as=${selected.id}`} onClose={() => setSelected(null)} icon="chart" label="Dashboard" />
+                <PageTile to={`/rewards?as=${selected.id}`} onClose={() => setSelected(null)} icon="money" label="Rewards" />
+                <PageTile to={`/milestones?as=${selected.id}`} onClose={() => setSelected(null)} icon="trophy" label="Milestones" />
+              </div>
             </div>
 
-            {/* CONTACT DETAILS, AND THIS IS THE ONLY PLACE THEY APPEAR.
+            {/* ---- CONTACT DETAILS, AND THIS IS THE ONLY PLACE THEY APPEAR ----
                 Ethan's rule: the admin-only details - their number above all -
                 show here and nowhere else, not on their profile. A phone number
                 is the one field on this platform a creator has not chosen to
                 publish to anybody, so it belongs behind a deliberate act (open
                 the roster, open the person) rather than on a page a colleague
-                might have open on a shared screen. */}
-            {/* ORANGE, BECAUSE OF WHAT IS IN IT.
-                Ethan asked for the team-only contact details to be highlighted,
-                and the reason is not decoration: a phone number is the one
-                field on this platform a creator has not chosen to publish to
-                anybody, and it sits in a panel a colleague might have open on a
-                shared screen. Grey-on-grey made it look like the rest of the
-                record. Brand orange makes the boundary a thing you can see
-                without reading the label. */}
+                might have open on a shared screen.
+
+                ORANGE, BECAUSE OF WHAT IS IN IT, and that is not decoration:
+                grey-on-grey made this look like the rest of the record, and
+                brand orange makes the boundary something you can see without
+                reading the label.
+
+                THE ROWS ARE THE PROFILE POPUP'S. Ethan: "take some inspiration
+                from that one... like the way the contact details show up." They
+                were a `<dl>` of truncated label/value pairs with a copy button
+                squeezed against the text, so an email long enough to matter was
+                the one you could not read. See components/admin/creatorSheet -
+                one definition, both panels, and they cannot drift again. */}
             <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
-                {/* "Tryp.com team only" is gone: this panel is inside the
-                    admin roster, so the only people who can read it are the
-                    team. A label that states its own audience to that audience
-                    is a label doing nothing. */}
-                <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">
-                  Contact details
-                </h4>
+                {/* "Tryp.com team only" is gone: this panel is inside the admin
+                    roster, so the only people who can read it are the team. A
+                    label that states its own audience to that audience is a
+                    label doing nothing. */}
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">Contact details</h4>
               </div>
-              <dl className="grid gap-3 sm:grid-cols-2">
-                <div className="min-w-0">
-                  <dt className="text-[11px] font-medium text-brand/70">Email</dt>
-                  <dd className="flex min-w-0 items-center gap-1">
-                    <span className="truncate text-sm font-medium">{emails[selected.id] || '—'}</span>
-                    {emails[selected.id] && <CopyButton value={emails[selected.id]} label="Copy email" className="!h-6 !w-6 shrink-0" />}
-                  </dd>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ContactRow icon="envelope" label="Email" value={emails[selected.id]} empty="No email on file" />
+                <ContactRow icon="device" label="Phone" value={phoneOf(priv)} empty="Not given" loading={priv === null} />
+              </div>
+              <dl className="mt-3 grid grid-cols-3 gap-3 border-t border-brand/15 pt-3">
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Joined</dt>
+                  <dd className="mt-0.5 text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
                 </div>
-                <div className="min-w-0">
-                  <dt className="text-[11px] font-medium text-brand/70">Phone</dt>
-                  <dd className="flex min-w-0 items-center gap-1">
-                    {priv === null ? (
-                      <Skeleton className="h-4 w-28" />
-                    ) : phoneOf(priv) ? (
-                      <>
-                        <span className="truncate text-sm font-medium">{phoneOf(priv)}</span>
-                        <CopyButton value={phoneOf(priv)} label="Copy phone" className="!h-6 !w-6 shrink-0" />
-                      </>
-                    ) : (
-                      <span className="text-sm text-smoke">Not given</span>
-                    )}
-                  </dd>
+                {/* DATE OF BIRTH AND THE AGE IT IMPLIES. "Countries visited" is
+                    on their profile where anybody can read it, so repeating it
+                    in the team-only panel spent a slot on something already
+                    public. A birthday is what the team actually needs from here
+                    - and `age` on the profile is a number the creator typed
+                    once and never updates, so it is derived from the date. */}
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Date of birth</dt>
+                  <dd className="mt-0.5 text-sm font-medium">{selected.dob ? formatDate(selected.dob) : '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-medium text-brand/70">Joined</dt>
-                  <dd className="text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
-                </div>
-                {/* DATE OF BIRTH AND THE AGE IT IMPLIES.
-                    "countries visited" is on their profile, where anybody can
-                    read it, so repeating it in the team-only panel spent a slot
-                    on something already public. A birthday is the thing the
-                    team actually needs from here - and `age` on the profile is
-                    a number the creator typed once and never updates, so it is
-                    derived from the date instead. */}
-                <div>
-                  <dt className="text-[11px] font-medium text-brand/70">Date of birth</dt>
-                  <dd className="text-sm font-medium">
-                    {selected.dob ? formatDate(selected.dob) : '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-medium text-brand/70">Age</dt>
-                  <dd className="text-sm font-medium">
-                    {ageFromDob(selected.dob) ?? selected.age ?? '—'}
-                  </dd>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Age</dt>
+                  <dd className="mt-0.5 text-sm font-medium">{ageFromDob(selected.dob) ?? selected.age ?? '—'}</dd>
                 </div>
               </dl>
             </div>
 
-            {/* Activity summary */}
-            {detail ? (
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-xl bg-cloud px-3 py-4"><p className="text-lg font-bold">{detail.submissions.length}</p><p className="text-[11px] text-smoke">Submissions</p></div>
-                <div className="rounded-xl bg-cloud px-3 py-4"><p className="text-lg font-bold">{detail.messageCount}</p><p className="text-[11px] text-smoke">Chat messages</p></div>
-                <div className="rounded-xl bg-cloud px-3 py-4"><p className="text-lg font-bold">{detail.rewards.length}</p><p className="text-[11px] text-smoke">Rewards</p></div>
+            {/* ---- What they have done ----
+                Four tiles rather than three grey slabs, with views on it: a
+                roster panel that counts submissions but not what they were
+                WATCHED by is missing the number the whole programme is
+                measured on, and it was one field away in a query already
+                being made. Views leads in brand, because it is the one people
+                are actually looking for. */}
+            <div>
+              <SheetLabel>What they have done</SheetLabel>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <StatTile
+                  label="Views"
+                  accent
+                  value={detail ? formatViews(detail.submissions.reduce((n, s) => n + (Number(s.logged_views) || 0), 0)) : null}
+                />
+                <StatTile label="Entries" value={detail ? detail.submissions.length : null} />
+                <StatTile label="Chat messages" value={detail ? detail.messageCount : null} />
+                <StatTile label="Rewards" value={detail ? detail.rewards.length : null} />
               </div>
-            ) : (
-              <Skeleton className="h-20 w-full" />
-            )}
+            </div>
 
-            {/* Their submissions */}
             {detail?.submissions.length > 0 && (
               <div>
-                <h3 className="mb-2 text-sm font-semibold">Submissions</h3>
-                <ul className="max-h-44 space-y-2 overflow-y-auto overscroll-contain">
-                  {detail.submissions.map((s) => (
-                    <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-2.5 text-xs">
-                      <span className="min-w-0 truncate">{s.challenges?.title} · {s.platform} · {formatDateTimeTz(s.submitted_at)}</span>
-                      <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 font-medium text-brand hover:underline">Watch ↗</a>
-                    </li>
-                  ))}
-                </ul>
+                <SheetLabel meta={detail.submissions.length > 6 ? `${detail.submissions.length} in total` : null}>
+                  Latest entries
+                </SheetLabel>
+                <EntryList entries={detail.submissions} />
               </div>
             )}
 
@@ -841,11 +801,27 @@ export default function AdminCreators() {
               </div>
             </div>
 
-            {/* Account actions */}
-            <div className="space-y-3 border-t border-gray-100 pt-5">
-              <h3 className="text-sm font-semibold">Account actions</h3>
+            {/* ---- Account actions ----
+                MESSAGE IS NOT AN "ACCOUNT ACTION" AND HAS BEEN LIFTED OUT OF
+                THEM. It was the brand-orange button at the head of a row that
+                continues into Mute, Suspend and Delete, so the one thing on
+                this panel you do every day sat in the middle of the things you
+                do once a year, and the primary button on the sheet was two
+                keystrokes from Suspend. It is now the sheet's own action, full
+                width, above the line.
+
+                What is left is ordered by consequence: the two reversible
+                account controls first, then the two that stop somebody using
+                the platform, then deletion in its own box. */}
+            <div className="border-t border-gray-100 pt-5">
+              <button onClick={() => dmCreator(selected)} className="btn-primary w-full justify-center !py-2.5 text-xs">
+                <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <SheetLabel>Account actions</SheetLabel>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
                 {isDeleting(selected) && (
                   <button onClick={() => restoreCreator(selected)} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Restore account</button>
                 )}
@@ -853,6 +829,9 @@ export default function AdminCreators() {
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">
                   <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Promote to admin'}
                 </button>
+                {selected.status === 'muted' && (
+                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="megaphone" className="h-4 w-4" /> Unmute</button>
+                )}
                 {selected.status !== 'muted' && selected.status !== 'suspended' && (
                   <button onClick={() => setStatus(selected, 'muted')} className="btn-danger !py-2 text-xs"><Icon name="mute" className="h-4 w-4" /> Mute</button>
                 )}
@@ -860,9 +839,6 @@ export default function AdminCreators() {
                   <button onClick={() => setStatus(selected, 'suspended')} className="btn-danger !py-2 text-xs"><Icon name="ban" className="h-4 w-4" /> Suspend</button>
                 ) : (
                   <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Reactivate</button>
-                )}
-                {selected.status === 'muted' && (
-                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="megaphone" className="h-4 w-4" /> Unmute</button>
                 )}
               </div>
 

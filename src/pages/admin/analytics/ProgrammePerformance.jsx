@@ -11,7 +11,8 @@ import { EmptyState, Skeleton, StatCard, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
-  challengeEconomics, blendEconomics, groupBy, label, FALLBACK_RATES, publishFxRates,
+  challengeEconomics, blendEconomics, groupBy, label, filterChallenges,
+  FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
 import HistoryForm from '../../../components/admin/HistoryForm'
 import { loadMarkets } from '../../../lib/markets'
@@ -85,6 +86,11 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   // without null checks scattered through the memo below.
   const [year, setYear] = useState('all')
   const [month, setMonth] = useState('all')
+  // WHICH OF THE TWO DOCUMENTS THIS TAB HOLDS IS ON SCREEN. See the note on the
+  // segmented control below: the report and the list of challenges are read at
+  // different times, and stacking them meant scrolling past whichever you did
+  // not come for.
+  const [view, setView] = useState('summary')
   // The page-level scope wins; the local dropdown is only reachable when the
   // page is showing everything.
   const effectiveMarket = scopeMarket || marketFilter
@@ -196,7 +202,28 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
       // total.
       byPrize: groupBy(scoped, (r) => label('prize_type', r.prize_type), { currency }),
       monthly,
-      live: scoped.filter((r) => r.status === 'active').length,
+      // WHAT THE PROGRAMME HAS ADDED UP TO, NOT WHAT IT DID THAT MONTH.
+      //
+      // The two charts above are both per-month, and a per-month chart answers
+      // "was August good" while hiding the thing a pitch actually rests on:
+      // that this has been compounding since January. A running total is the
+      // one shape that shows it - each month's bar is the whole programme to
+      // date - and it is the chart somebody screenshots.
+      cumulative: (() => {
+        let spend = 0
+        let views = 0
+        let challenges = 0
+        return monthly.map((m) => {
+          spend += m.spend
+          views += m.views
+          challenges += m.challenges
+          return { month: m.month, spend: Math.round(spend), views, challenges }
+        })
+      })(),
+      // Live and planned challenges get pinned to the top of the list. Ethan:
+      // "I think the challenges [should] show there as soon as they're active,
+      // or even when they're planned, just to show the challenges."
+      running: scoped.filter((r) => r.status === 'active' || r.status === 'draft' || r.status === 'scheduled'),
     }
   }, [rows, currency, rates, effectiveMarket, year, month])
 
@@ -261,194 +288,197 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   }))
 
   return (
-    <div className="space-y-10">
-      {/* ---- Controls ---- */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-xl border border-gray-200 p-1">
-          {['EUR', 'GBP'].map((c) => (
-            <button
-              key={c}
-              onClick={() => setCurrency(c)}
-              className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-                currency === c ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        {/* HIDDEN WHILE THE PAGE IS SCOPED. Two controls that both mean
-            "which market" is how a reader ends up looking at Spain's chart
-            under a heading that says Germany. */}
-        {!scopeMarket && data.markets.length > 0 && (
-          <Select
-            value={marketFilter}
-            onChange={setMarketFilter}
-            variant="chip"
-            className="w-40"
-            ariaLabel="Filter by market"
-            options={[
-              { value: 'all', label: 'All markets' },
-              ...data.markets.map((m) => ({ value: m, label: m })),
-              { value: 'Unspecified', label: 'Unspecified' },
-            ]}
-          />
-        )}
-        {/* WHEN. The month select only appears once a year is chosen, because
-            "August" across every year the programme has run is not a period
-            anybody means. */}
-        <Select
-          value={year}
-          onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
-          variant="chip"
-          className="w-32"
-          ariaLabel="Filter by year"
-          options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
-        />
-        {year !== 'all' && (
-          <Select
-            value={month}
-            onChange={setMonth}
-            variant="chip"
-            className="w-36"
-            ariaLabel="Filter by month"
-            options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
-          />
-        )}
-        {(year !== 'all' || (!scopeMarket && marketFilter !== 'all')) && (
-          <button
-            onClick={() => { setYear('all'); setMonth('all'); setMarketFilter('all') }}
-            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
-          >
-            Clear filters
-          </button>
-        )}
-        <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
-          Export challenge log
-        </button>
-        {/* THE WAY TO ADD ONE (8 Sep 2026). Ethan: "there also seems to be no
-            way to add challenges... someone still runs a challenge on the
-            WhatsApp community, I need to be able to add this data easily rather
-            than having to create an Excel and upload it."
+    <div className="space-y-8">
+      {/* ---------------------------------------------------------------
+          THE CONTROLS, IN THREE NAMED GROUPS.
 
-            The form has existed since the import; it lived on
-            /admin/challenges/history, which nothing on this page linked to. So
-            this is a button, not a feature: same component, same table, and it
-            reloads the metrics on save so the new challenge is in the blend
-            before the dialog has finished closing. */}
-        <button onClick={() => setLogging(true)} className="btn-primary !py-2 text-xs">
-          <Icon name="plus" className="h-4 w-4" /> Log a challenge
-        </button>
-        {/* THE CHALLENGES THEMSELVES ARE ONE PRESS AWAY, NOT ONE SCROLL AWAY
-            (8 Sep 2026). Ethan: "it seems a bit awkward - I'm having to scroll
-            down way to the bottom to see [the challenges]. Maybe there should
-            be a button to actually view the past challenges rather than scroll
-            down through the overview metrics."
+          They were one flex row of eight controls in no order: a currency
+          toggle, a market select, a year, a month, a clear, an export, a log
+          button and a jump link, all the same size, all the same weight. That
+          is a toolbar you have to READ every time rather than one you learn.
 
-            The tab is ordered as a report - headline economics, then the trend,
-            then the breakdowns, then the individual challenges - which is right
-            for reading it once and wrong for the thing somebody opens it for
-            most days, which is one challenge. So the list keeps its place and
-            gains a door at the top. `scrollIntoView` rather than a `#hash`
-            link, because the tab strip is client-side and a hash would put a
-            fragment in the URL that means nothing on any other tab. */}
-        <button
-          type="button"
-          onClick={() => document.getElementById('challenge-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="btn-secondary !py-2 text-xs"
-        >
-          <Icon name="reorder" className="h-4 w-4" /> The {data.scoped.length} challenges
-        </button>
-        {/* THE FX FOOTNOTE IS GONE (8 Sep 2026). Ethan: "remove the thing that
-            says live FX rate, money shown in euro. I know that's how it works,
-            you don't need to show it."
-
-            He is right that it was telling the reader something they already
-            know - the currency toggle is two controls to its left and says EUR
-            on it. The rate is still fetched, still published to the database
-            for invoicing, and still falls back to the offline table; none of
-            that changed, only the sentence about it. */}
-      </div>
-
-      {/* ---- Headline economics ---- */}
-      <div>
-        <h2 className="mb-1 text-lg font-semibold">Programme economics</h2>
-        <p className="mb-4 text-xs text-smoke">
-          Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an
-          average of averages. Money is what has actually been awarded, including prizes still to pay.
-        </p>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS.
-              Cash alone is what leaves the business - a Tryp.com voucher is
-              redeemed against a booking we make margin on, so it does not cost
-              its face value and folding it in makes the programme look about a
-              third more expensive than it is. The combined figure is still
-              worth having: it is the honest total value handed to creators. */}
-          <StatCard label="Cash prizes" value={money(b.cashSpend, currency, 0)} hint="awarded, pending included" />
-          <StatCard label="Voucher value" value={money(b.voucherSpend, currency, 0)} hint="face value, not cost" />
-          <StatCard
-            label="Total views"
-            value={formatViews(b.views)}
-            hint={b.unmeasuredChallenges
-              ? `across ${b.measuredChallenges} challenges`
-              : 'as logged'}
-          />
-          {/* THE PER-VIEW FIGURES SAY WHAT THEY ARE OVER. Fourteen of the
-              imported challenges were never measured, so a CPM that silently
-              covered all forty-nine would be dividing forty-nine challenges'
-              spend by thirty-five challenges' views - which is how this card
-              read EUR 0.47 against Ethan's own tracker's EUR 0.38. The
-              arithmetic is fixed in lib/programme; the hint is so nobody has to
-              take it on trust. */}
-          <StatCard
-            label="Cash CPM"
-            value={money(b.cashCpm, currency, 2)}
-            hint={b.unmeasuredChallenges
-              ? `cash per 1,000 views · ${b.measuredChallenges} measured, ${b.unmeasuredChallenges} not`
-              : 'cash only, per 1,000 views'}
-            accent
-          />
-          <StatCard
-            label="Total CPM"
-            value={money(b.combinedCpm, currency, 2)}
-            hint="cash + vouchers, per 1,000 views"
-          />
-          <StatCard label="Cost per post" value={money(b.costPerPost, currency, 2)} />
-          <StatCard label="Cost per creator" value={money(b.costPerCreator, currency, 2)} hint="per challenge entered" />
-          <StatCard label="Posts per creator" value={num(b.postsPerCreator, 1)} hint="target 3 or more" />
-          <StatCard label="Views per post" value={b.viewsPerPost ? formatViews(Math.round(b.viewsPerPost)) : '-'} hint="average reach of one video" />
-          <StatCard
-            label="On target"
-            value={b.onTargetPct != null ? `${b.onTargetPct}%` : '-'}
-            hint={`${b.onTarget} of ${b.scored} scored challenges`}
-          />
-        </div>
-        {/* THE "N CHALLENGES HAVE NO VIEWS" CALLOUT IS GONE (8 Sep 2026).
-            Ethan: "the nine ended challenges have no views logged so they're
-            excluded from every figure above - you can remove that copy and
-            colour, that's not needed. I know that's the case, and unfortunately
-            we don't know them, so we just ignore that, and you did the right
-            thing to not count them."
-
-            The exclusion itself is untouched and is still stated where it is
-            load-bearing: the Cash CPM tile's own hint says how many challenges
-            it is measured over. What went is the amber banner repeating it, and
-            amber was the wrong colour for a fact about the past that nobody can
-            act on. */}
-      </div>
-
-      {/* ---- Monthly performance ---- */}
-      {data.monthly.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <section className="card">
-            <div className="mb-6 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-semibold">Spend against reach</h2>
-                <p className="mt-1 text-xs text-smoke">Prize spend (bars) and views (line) per month</p>
-              </div>
-              <button onClick={() => downloadCsv('monthly-performance.csv', data.monthly)} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
+          Money / Where / When are the three questions this tab is filtered by,
+          and the two BUTTONS are pushed to the far end because they do
+          something rather than narrow something - the rule the chip variant
+          was introduced for. --------------------------------------------- */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+          <Group label="Money">
+            <div className="flex items-center gap-1 rounded-xl border border-gray-200 p-1">
+              {['EUR', 'GBP'].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCurrency(c)}
+                  aria-pressed={currency === c}
+                  className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                    currency === c ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
-            <div className="h-64">
-              <ResponsiveContainer>
+          </Group>
+
+          {/* HIDDEN WHILE THE PAGE IS SCOPED. Two controls that both mean
+              "which market" is how a reader ends up looking at Spain's chart
+              under a heading that says Germany. */}
+          {!scopeMarket && data.markets.length > 0 && (
+            <Group label="Where">
+              <Select
+                value={marketFilter}
+                onChange={setMarketFilter}
+                variant="chip"
+                className="w-40"
+                ariaLabel="Filter by market"
+                options={[
+                  { value: 'all', label: 'All markets' },
+                  ...data.markets.map((m) => ({ value: m, label: m })),
+                  { value: 'Unspecified', label: 'Unspecified' },
+                ]}
+              />
+            </Group>
+          )}
+
+          {/* The month select only appears once a year is chosen, because
+              "August" across every year the programme has run is not a period
+              anybody means. */}
+          <Group label="When">
+            <div className="flex items-center gap-2">
+              <Select
+                value={year}
+                onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
+                variant="chip"
+                className="w-32"
+                ariaLabel="Filter by year"
+                options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
+              />
+              {year !== 'all' && (
+                <Select
+                  value={month}
+                  onChange={setMonth}
+                  variant="chip"
+                  className="w-36"
+                  ariaLabel="Filter by month"
+                  options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
+                />
+              )}
+              {(year !== 'all' || (!scopeMarket && marketFilter !== 'all')) && (
+                <button
+                  onClick={() => { setYear('all'); setMonth('all'); setMarketFilter('all') }}
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </Group>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
+            <Icon name="download" className="h-4 w-4" /> Export
+          </button>
+          {/* The form has existed since the import; it lived on a page nothing
+              linked to. Same component, same table, and it reloads the metrics
+              on save so a new challenge is in the blend before the dialog has
+              finished closing. */}
+          <button onClick={() => setLogging(true)} className="btn-primary !py-2 text-xs">
+            <Icon name="plus" className="h-4 w-4" /> Log a challenge
+          </button>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------------
+          TWO VIEWS, NOT ONE SCROLL.
+
+          Ethan: "currently it seems a bit awkward - I'm having to scroll down
+          way to the bottom to see [the challenges]... rebuild it now, not just
+          a button that brings you to the bottom."
+
+          He is right that the button was a plaster. The tab was one column
+          holding two different documents: a REPORT (ten tiles, four charts,
+          three breakdowns) and a LIST of fifty challenges. Those are read at
+          different times for different reasons - the report when somebody asks
+          how the programme is doing, the list when you want one challenge - and
+          stacking them means whichever you came for, you scroll past the other.
+
+          A segmented control is the right shape because the two are peers, the
+          choice is binary, and both labels can carry a number. It also means
+          each view can have its OWN controls - the list gets a search box and a
+          status filter that would be meaningless over a chart - without the
+          toolbar growing to serve both. ------------------------------------ */}
+      <div className="flex w-full gap-1 rounded-xl border border-gray-200 bg-white p-1 sm:w-fit">
+        {[
+          { key: 'summary', label: 'Summary', icon: 'chart' },
+          { key: 'list', label: `Challenges (${data.scoped.length})`, icon: 'reorder' },
+        ].map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => setView(v.key)}
+            aria-pressed={view === v.key}
+            className={cx(
+              'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none',
+              view === v.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand',
+            )}
+          >
+            <Icon name={v.icon} className="h-4 w-4" />
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'summary' ? (
+        <>
+          {/* ---- The four numbers, then the ratios ----
+              It was ten StatCards in one grid, every one the same size, so the
+              spend and "posts per creator" carried identical weight. Four
+              headline figures at full size and the rest as a quiet strip is the
+              same information with a hierarchy on it. */}
+          <div>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Programme economics</h2>
+              <p className="mt-1 text-xs text-smoke">
+                Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an
+                average of averages. Money is what has actually been awarded, including prizes still to pay.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS. Cash alone is what
+                  leaves the business - a Tryp.com voucher is redeemed against a
+                  booking we make margin on, so it does not cost its face value
+                  and folding it in makes the programme look about a third more
+                  expensive than it is. */}
+              <StatCard
+                label="Cash CPM"
+                value={money(b.cashCpm, currency, 2)}
+                hint={b.unmeasuredChallenges
+                  ? `per 1,000 views · ${b.measuredChallenges} of ${b.challenges} measured`
+                  : 'cash only, per 1,000 views'}
+                accent
+              />
+              <StatCard label="Total views" value={formatViews(b.views)} hint="as logged" />
+              <StatCard label="Cash prizes" value={money(b.cashSpend, currency, 0)} hint="awarded, pending included" />
+              <StatCard label="Voucher value" value={money(b.voucherSpend, currency, 0)} hint="face value, not cost" />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-card border border-gray-100 bg-cloud/40 px-5 py-4 sm:grid-cols-3 lg:grid-cols-6">
+              <Ratio label="Total CPM" value={money(b.combinedCpm, currency, 2)} />
+              <Ratio label="Cost / post" value={money(b.costPerPost, currency, 2)} />
+              <Ratio label="Cost / creator" value={money(b.costPerCreator, currency, 2)} />
+              <Ratio label="Posts / creator" value={num(b.postsPerCreator, 1)} />
+              <Ratio label="Views / post" value={b.viewsPerPost ? formatViews(Math.round(b.viewsPerPost)) : '-'} />
+              <Ratio label="On target" value={b.onTargetPct != null ? `${b.onTargetPct}%` : '-'} />
+            </div>
+          </div>
+
+          {/* ---- Month by month ---- */}
+          {data.monthly.length > 0 && (
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <Card
+                title="Spend against reach"
+                sub={`Prize spend (bars) and views (line) per month`}
+                onExport={() => downloadCsv('monthly-performance.csv', data.monthly)}
+              >
                 <ComposedChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
@@ -459,17 +489,9 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
                   <Bar yAxisId="l" dataKey="spend" name={`Prize spend (${currency})`} fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={32} />
                   <Line yAxisId="r" type="monotone" dataKey="views" name="Views" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
                 </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+              </Card>
 
-          <section className="card">
-            <div className="mb-6">
-              <h2 className="font-semibold">CPM against target</h2>
-              <p className="mt-1 text-xs text-smoke">Blended cost per 1,000 views each month. Under the line is the goal.</p>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer>
+              <Card title="CPM against target" sub="Blended cost per 1,000 views each month. Under the line is the goal.">
                 <BarChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
@@ -478,58 +500,61 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
                   <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" label={{ value: 'target', fontSize: 10, fill: GOOD, position: 'right' }} />
                   <Bar dataKey="cpm" name="Blended CPM" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={32} />
                 </BarChart>
-              </ResponsiveContainer>
+              </Card>
             </div>
-          </section>
-        </div>
-      )}
+          )}
 
-      {/* ---- Who took part, month by month ----
-          MORE OF THE CHART HE LIKED, WHERE IT ANSWERS SOMETHING (8 Sep 2026).
-          Ethan: "I like those graphs, like the 'what people do each week'
-          graph. I think we can have that in more places - even, like, challenge
-          performance. Cool graphs like that are super useful."
+          {/* ---- What it has added up to, and who took part ---- */}
+          {data.monthly.length > 1 && (
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <Card
+                title="The programme, adding up"
+                sub="Every month is the whole programme to date, not that month alone"
+                onExport={() => downloadCsv('cumulative-programme.csv', data.cumulative)}
+              >
+                <ComposedChart data={data.cumulative} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
+                  <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
+                  <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Area yAxisId="l" type="monotone" dataKey="views" name="Views to date" stroke={BRAND} fill={BRAND} fillOpacity={0.16} strokeWidth={2.5} />
+                  <Line yAxisId="r" type="monotone" dataKey="spend" name={`Spend to date (${currency})`} stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
+                </ComposedChart>
+              </Card>
 
-          The two charts above are both about MONEY - what was spent, and what a
-          thousand views cost. Neither says whether the programme is reaching
-          more creators than it was in March, which is the other half of the
-          question a pitch asks, and it was only answerable by reading the log.
-          Same stacked-area shape as Community health's, on purpose: two charts
-          that mean "how much of this happened over time" should look alike. */}
-      {data.monthly.length > 1 && (
-        <section className="card">
-          <div className="mb-6 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">Who took part each month</h2>
-              <p className="mt-1 text-xs text-smoke">Creator entries and the posts they made</p>
+              {/* Same stacked-area shape as Community health's weekly chart, on
+                  purpose: two charts that mean "how much of this happened over
+                  time" should look alike. */}
+              <Card
+                title="Who took part each month"
+                sub="Creator entries and the posts they made"
+                onExport={() => downloadCsv('participation-by-month.csv', data.monthly.map(({ month: m, creators, posts, challenges }) => ({ month: m, creators, posts, challenges })))}
+              >
+                <AreaChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Area type="monotone" dataKey="posts" name="Posts" stroke={BRAND_LIGHT} fill={BRAND_PALE} fillOpacity={0.85} />
+                  <Area type="monotone" dataKey="creators" name="Creator entries" stroke={BRAND} fill={BRAND} fillOpacity={0.55} />
+                </AreaChart>
+              </Card>
             </div>
-            <button onClick={() => downloadCsv('participation-by-month.csv', data.monthly.map(({ month, creators, posts, challenges }) => ({ month, creators, posts, challenges })))} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
+          )}
+
+          {/* ---- Breakdowns ---- */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <Breakdown title="By market" rows={data.byMarket} currency={currency} />
+            <Breakdown title="By format" rows={data.byFormat} currency={currency} />
+            <Breakdown title="By prize type" rows={data.byPrize} currency={currency} />
           </div>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <AreaChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="posts" name="Posts" stroke={BRAND_LIGHT} fill={BRAND_PALE} fillOpacity={0.85} />
-                <Area type="monotone" dataKey="creators" name="Creator entries" stroke={BRAND} fill={BRAND} fillOpacity={0.55} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+        </>
+      ) : (
+        <ChallengeList rows={data.scoped} running={data.running} currency={currency} />
       )}
-
-      {/* ---- Breakdowns ---- */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Breakdown title="By market" rows={data.byMarket} currency={currency} />
-        <Breakdown title="By format" rows={data.byFormat} currency={currency} />
-        <Breakdown title="By prize type" rows={data.byPrize} currency={currency} />
-      </div>
-
-      {/* ---- Challenge log ---- */}
-      <ChallengeLog rows={data.scoped} currency={currency} />
 
       {logging && (
         <HistoryForm
@@ -545,6 +570,49 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   )
 }
 
+// A labelled group of controls. The label is what turns a row of eight
+// look-alike widgets into three things you can aim at.
+function Group({ label: text, children }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{text}</p>
+      {children}
+    </div>
+  )
+}
+
+// One of the quiet ratios under the headline four.
+function Ratio({ label: text, value }) {
+  return (
+    <span className="block">
+      <span className="block text-base font-bold tabular-nums">{value}</span>
+      <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-gray-400">{text}</span>
+    </span>
+  )
+}
+
+// A chart in a card. Every chart on this tab was its own copy of the same
+// six lines of wrapper markup, which is how two of them ended up with a CSV
+// button and two without.
+function Card({ title, sub, onExport, children }) {
+  return (
+    <section className="card">
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">{title}</h2>
+          {sub && <p className="mt-1 text-xs text-smoke">{sub}</p>}
+        </div>
+        {onExport && (
+          <button onClick={onExport} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
+        )}
+      </div>
+      <div className="h-64">
+        <ResponsiveContainer>{children}</ResponsiveContainer>
+      </div>
+    </section>
+  )
+}
+
 // The month select's options. Named rather than numbered because "08" in a
 // dropdown beside a year reads as a day.
 const MONTHS = [
@@ -554,24 +622,34 @@ const MONTHS = [
 ].map(([value, labelText]) => ({ value, label: labelText }))
 
 // ---------------------------------------------------------------------------
-// THE CHALLENGE LOG.
+// EVERY CHALLENGE, AS A THING YOU CAN ACTUALLY SEARCH.
 //
-// It was a fourteen-column table 1,100px wide that scrolled sideways - Ethan's
-// "an Excel copy", and he is right that it was not a designed thing. The
-// trouble with it was not the width, though; it was that fourteen numbers side
-// by side have no hierarchy, so a challenge that cost £1.42 per thousand views
-// and one that cost £14.20 looked exactly alike until you found the column and
-// read the digits.
+// It began as a fourteen-column table 1,100px wide that scrolled sideways -
+// "an Excel copy" - and the trouble was never the width. Fourteen numbers side
+// by side have no hierarchy, so a challenge that cost EUR 1.42 per thousand
+// views and one that cost EUR 14.20 looked exactly alike until you found the
+// column and read the digits. It became a list of cards, which fixed that.
 //
-// A challenge is now a card that reads in the order somebody thinks:
+// WHAT IT STILL WAS NOT WAS FINDABLE (8 Sep 2026). Fifty cards sorted by date
+// is fine for reading down and useless for "open the Spain one from June",
+// which is what somebody actually wants from a list. Ethan: "rebuild it now,
+// not just a button that brings you to the bottom."
 //
-//   what was it, and did it work         title, market, dates, the band
-//   the number it is judged on           CPM, big, in brand orange
-//   what produced that number            spend, views, creators, posts
-//   the ratios, quietly                  cost per post, per creator, and so on
+// So the list has the three controls a list of fifty needs and had none of:
 //
-// The same figures, all of them - nothing was dropped, and the CSV export is
-// untouched, because a spreadsheet IS the right shape for a spreadsheet.
+//   SEARCH      by title, market or country. Matching on more than the title
+//               matters because half these rows are named "Spain Monthly ·
+//               2026-08" and the other half are not named at all.
+//   STATUS      derived from the rows present, so it never offers a filter
+//               that would empty the list.
+//   SORT        which it had, and which was the only way to reorder fifty
+//               things.
+//
+// AND WHAT IS RUNNING IS PINNED ABOVE WHAT IS FINISHED. Ethan: "the challenges
+// [should] show there as soon as they're active, or even when they're planned."
+// A live challenge is not the fiftieth-most-interesting row in a list sorted by
+// date; it is the reason somebody opened the page. It gets its own block at the
+// top and is not repeated below.
 const SORTS = [
   { value: 'recent', label: 'Most recent' },
   { value: 'cpm', label: 'Cheapest CPM' },
@@ -579,48 +657,108 @@ const SORTS = [
   { value: 'views', label: 'Most views' },
 ]
 
-function ChallengeLog({ rows, currency }) {
+function ChallengeList({ rows, running, currency }) {
   const [sort, setSort] = useState('recent')
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('all')
 
-  const sorted = useMemo(() => {
-    const list = [...rows]
-    // A challenge with no views has no CPM, and sorting nulls to the top of
-    // "cheapest" would put every unfinished challenge above every real answer.
-    const last = (v) => (v == null || Number.isNaN(v) ? Infinity : v)
-    if (sort === 'cpm') return list.sort((a, b) => last(a.cpm) - last(b.cpm))
-    if (sort === 'spend') return list.sort((a, b) => (b.spend || 0) - (a.spend || 0))
-    if (sort === 'views') return list.sort((a, b) => (b.views || 0) - (a.views || 0))
-    return list.sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')))
-  }, [rows, sort])
+  const runningIds = useMemo(() => new Set((running ?? []).map((r) => r.id)), [running])
 
-  if (rows.length === 0) return null
+  // The statuses actually present, so the filter can never empty the list.
+  const statuses = useMemo(
+    () => [...new Set(rows.map((r) => r.status).filter(Boolean))].sort(),
+    [rows],
+  )
+
+  // The arithmetic is in lib/programme so it can be tested. See
+  // `filterChallenges` - three decisions in here look obviously right and are
+  // each one line from being wrong.
+  const shown = useMemo(
+    () => filterChallenges(rows, { query, status, sort, exclude: runningIds }),
+    [rows, sort, query, status, runningIds],
+  )
 
   return (
-    <section id="challenge-log" className="scroll-mt-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold tracking-[-0.01em]">Every challenge</h2>
-        <Select
-          value={sort}
-          onChange={setSort}
-          ariaLabel="Sort the challenge log"
-          options={SORTS}
+    <div className="space-y-6">
+      {/* ---- Running now, pinned ---- */}
+      {running?.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+            </span>
+            Running now
+          </h2>
+          <div className="space-y-3">
+            {running.map((r) => <LogCard key={r.id} r={r} currency={currency} live />)}
+          </div>
+        </section>
+      )}
+
+      {/* ---- Find one ---- */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[12rem] flex-1">
+          <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by title, market or country"
+            aria-label="Search the challenges"
+            className="input !py-2 !pl-10 text-sm"
+          />
+        </div>
+        {statuses.length > 1 && (
+          <Select
+            value={status}
+            onChange={setStatus}
+            variant="chip"
+            className="w-40"
+            ariaLabel="Filter by status"
+            options={[{ value: 'all', label: 'Any status' }, ...statuses.map((st) => ({ value: st, label: label('status', st) }))]}
+          />
+        )}
+        <Select value={sort} onChange={setSort} variant="chip" className="w-44" ariaLabel="Sort the challenges" options={SORTS} />
+      </div>
+
+      {/* THE COUNT IS SHOWN WHENEVER IT IS NOT THE WHOLE LIST. A filter that
+          silently removes forty rows and says nothing is how somebody comes to
+          believe the programme has run four challenges. */}
+      {(query || status !== 'all') && (
+        <p className="-mt-2 text-xs text-smoke">
+          {shown.length} of {rows.length - runningIds.size} challenge{rows.length - runningIds.size === 1 ? '' : 's'}
+          {query && <> matching &ldquo;{query}&rdquo;</>}
+        </p>
+      )}
+
+      {shown.length === 0 ? (
+        <EmptyState
+          icon={<Icon name="magnifier" className="h-7 w-7" />}
+          title="Nothing matches that"
+          hint="Try a shorter search, or clear the status filter."
+          action={
+            <button onClick={() => { setQuery(''); setStatus('all') }} className="btn-secondary">
+              Clear the filters
+            </button>
+          }
         />
-      </div>
+      ) : (
+        <div className="space-y-3">
+          {shown.map((r) => <LogCard key={r.id} r={r} currency={currency} />)}
+        </div>
+      )}
 
-      <div className="space-y-3">
-        {sorted.map((r) => <LogCard key={r.id} r={r} currency={currency} />)}
-      </div>
-
-      <p className="mt-3 text-[11px] leading-relaxed text-smoke">
-        CPM = prize spend ÷ (views ÷ 1,000). On target is at or under each challenge&rsquo;s own CPM target,
+      <p className="text-[11px] leading-relaxed text-smoke">
+        CPM = prize spend &divide; (views &divide; 1,000). On target is at or under each challenge&rsquo;s own CPM target,
         Watch is up to double it, Over target is above that. Challenges with no views logged are shown
         but never counted in a blended figure.
       </p>
-    </section>
+    </div>
   )
 }
 
-function LogCard({ r, currency }) {
+function LogCard({ r, currency, live = false }) {
   const figures = [
     { label: 'Spend', value: money(r.spend, currency, 0) },
     // `formatViews` shortens: 4,200,000 -> 4.2m. A challenge with real reach
@@ -642,7 +780,12 @@ function LogCard({ r, currency }) {
   return (
     <Link
       to={`/admin/analytics/${r.id}`}
-      className="card group block !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
+      className={cx(
+        'card group block !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift',
+        // A live challenge is the one row on this page that is still changing,
+        // so it is the one row drawn in the colour that means "now".
+        live && '!border-brand/40 bg-brand-tint/20',
+      )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

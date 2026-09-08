@@ -322,3 +322,35 @@ export function rewardsTotal(rows, to = 'EUR', rates = FALLBACK_RATES) {
   // total still show exactly what was paid, in the currency it was paid in.
   return { amount: Math.round(total), currency: to, converted }
 }
+
+
+// FINDING ONE CHALLENGE IN FIFTY.
+//
+// Pulled out of the Challenges tab so it can be tested, because it is the kind
+// of code that looks obviously right and has three off-by-one decisions in it:
+// what a search matches, where a null CPM sorts, and whether a live challenge
+// appears twice.
+//
+// `exclude` is the set of ids already pinned above the list as running. Without
+// it the live challenge is drawn once at the top and again in date order, which
+// is the bug this argument exists to prevent.
+export function filterChallenges(rows, { query = '', status = 'all', sort = 'recent', exclude } = {}) {
+  const q = query.trim().toLowerCase()
+  const out = rows.filter((r) => {
+    if (exclude?.has(r.id)) return false
+    if (status !== 'all' && r.status !== status) return false
+    if (!q) return true
+    // TITLE, MARKET AND COUNTRY, not just the title. Half these rows are named
+    // "Spain Monthly - 2026-08" and the other half are not named at all, so a
+    // title-only search cannot find an imported row by where it happened.
+    return `${r.title ?? ''} ${r.market ?? ''} ${r.country_code ?? ''}`.toLowerCase().includes(q)
+  })
+
+  // A challenge with no views has no CPM, and sorting nulls to the top of
+  // "cheapest" would put every unmeasured challenge above every real answer.
+  const last = (v) => (v == null || Number.isNaN(v) ? Infinity : v)
+  if (sort === 'cpm') return out.sort((a, b) => last(a.cpm) - last(b.cpm))
+  if (sort === 'spend') return out.sort((a, b) => (b.spend || 0) - (a.spend || 0))
+  if (sort === 'views') return out.sort((a, b) => (b.views || 0) - (a.views || 0))
+  return out.sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')))
+}

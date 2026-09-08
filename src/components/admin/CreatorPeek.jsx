@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Modal, Skeleton, CopyButton } from '../ui'
+import { Avatar, Modal } from '../ui'
 import Icon from '../Icon'
-import { formatDateTimeTz } from '../../lib/utils'
+import { ContactRow, EntryList, PageTile, SheetLabel, StatTile } from './creatorSheet'
+import { formatDateTimeTz, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
@@ -103,53 +104,46 @@ export default function CreatorPeek({ creator, open, onClose }) {
           </div>
         </div>
 
-        {/* ---- Contact, which is the commonest reason for opening this ---- */}
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr('Team only')}</p>
-          {!data ? (
-            <><Skeleton className="h-11 w-full rounded-xl" /><Skeleton className="mt-2 h-11 w-full rounded-xl" /></>
-          ) : (
-            <>
-              <Row icon="envelope" value={data.email} empty={tr('No email on file')} />
-              <Row icon="device" value={phone} empty={tr('No phone number given')} />
-            </>
-          )}
+        {/* ---- Contact, which is the commonest reason for opening this ----
+            In the roster's own orange team-only card, so the boundary round a
+            creator's phone number looks the same wherever it is drawn. See
+            components/admin/creatorSheet. */}
+        <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
+            <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">{tr('Contact details')}</h4>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ContactRow icon="envelope" label={tr('Email')} value={data?.email} empty={tr('No email on file')} loading={!data} />
+            <ContactRow icon="device" label={tr('Phone')} value={phone} empty={tr('No phone number given')} loading={!data} />
+          </div>
         </div>
 
         {/* ---- What they have done ---- */}
-        <div className="grid grid-cols-3 gap-2">
-          <Tile label={tr('Entries')} value={data ? data.subs.length : null} />
-          <Tile label={tr('Paid')} value={data ? paid.length : null} />
-          <Tile label={tr('Joined')} value={creator.created_at ? new Date(creator.created_at).getFullYear() : '—'} />
+        <div>
+          <SheetLabel>{tr('What they have done')}</SheetLabel>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile
+              label={tr('Views')}
+              accent
+              value={data ? formatViews(data.subs.reduce((n, s) => n + (Number(s.logged_views) || 0), 0)) : null}
+            />
+            <StatTile label={tr('Entries')} value={data ? data.subs.length : null} />
+            <StatTile label={tr('Paid')} value={data ? paid.length : null} />
+            <StatTile label={tr('Joined')} value={creator.created_at ? new Date(creator.created_at).getFullYear() : '—'} />
+          </div>
         </div>
 
         {data?.subs.length > 0 && (
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr('Latest entries')}</p>
-            <ul className="divide-y divide-gray-100 rounded-card border border-gray-100">
-              {data.subs.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{s.challenges?.title || tr('A challenge')}</span>
-                    <span className="block truncate text-[11px] text-smoke">
-                      {s.platform || '—'} · {formatDateTimeTz(s.submitted_at)}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums">
-                    {(s.logged_views ?? 0).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <SheetLabel>{tr('Latest entries')}</SheetLabel>
+            <EntryList entries={data.subs} />
           </div>
         )}
 
         {/* ---- The shared team note ---- */}
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            {tr('Team note')}
-            {noteMeta && <span className="ml-2 font-normal normal-case tracking-normal text-gray-300">{formatDateTimeTz(noteMeta.at)}</span>}
-          </p>
+          <SheetLabel meta={noteMeta ? formatDateTimeTz(noteMeta.at) : null}>{tr('Team note')}</SheetLabel>
           <textarea
             value={note}
             onChange={(e) => { setNote(e.target.value); setSaved(false) }}
@@ -184,14 +178,12 @@ export default function CreatorPeek({ creator, open, onClose }) {
             and it grants nothing: it chooses which id the page filters on, and
             row-level security decides what comes back. */}
         <div className="border-t border-gray-100 pt-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            {tr('Their pages')}
-          </p>
+          <SheetLabel>{tr('Their pages')}</SheetLabel>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <PeekLink to={`/dashboard?as=${creator.id}`} onClose={onClose} icon="chart" label={tr('Dashboard')} />
-            <PeekLink to={`/rewards?as=${creator.id}`} onClose={onClose} icon="money" label={tr('Rewards')} />
-            <PeekLink to={`/milestones?as=${creator.id}`} onClose={onClose} icon="trophy" label={tr('Milestones')} />
-            <PeekLink to={`/admin/creators?open=${creator.id}`} onClose={onClose} icon="shield" label={tr('Admin record')} />
+            <PageTile to={`/dashboard?as=${creator.id}`} onClose={onClose} icon="chart" label={tr('Dashboard')} />
+            <PageTile to={`/rewards?as=${creator.id}`} onClose={onClose} icon="money" label={tr('Rewards')} />
+            <PageTile to={`/milestones?as=${creator.id}`} onClose={onClose} icon="trophy" label={tr('Milestones')} />
+            <PageTile to={`/admin/creators?open=${creator.id}`} onClose={onClose} icon="shield" label={tr('Admin record')} />
           </div>
         </div>
 
@@ -203,46 +195,5 @@ export default function CreatorPeek({ creator, open, onClose }) {
         </div>
       </div>
     </Modal>
-  )
-}
-
-// One of the four ways out of the sheet. A tile rather than a button row
-// because four full-width buttons is a stack taller than the record above it,
-// and these are destinations, not actions.
-function PeekLink({ to, onClose, icon, label }) {
-  return (
-    <Link
-      to={to}
-      onClick={onClose}
-      className="flex flex-col items-center gap-1.5 rounded-xl border border-gray-100 px-2 py-3 text-center text-[11px] font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand"
-    >
-      <Icon name={icon} className="h-4 w-4" />
-      {label}
-    </Link>
-  )
-}
-
-function Row({ icon, value, empty }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/40 px-3.5 py-2.5">
-      <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
-      {value
-        ? <>
-            <span className="min-w-0 flex-1 select-all break-all text-sm font-medium text-ink">{value}</span>
-            <CopyButton value={value} label="Copy" />
-          </>
-        : <span className="min-w-0 flex-1 text-sm text-gray-400">{empty}</span>}
-    </div>
-  )
-}
-
-function Tile({ label, value }) {
-  return (
-    <div className="rounded-xl border border-gray-100 px-3 py-2.5 text-center">
-      {value === null
-        ? <Skeleton className="mx-auto h-5 w-8 rounded" />
-        : <p className="text-lg font-bold tabular-nums">{value}</p>}
-      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-    </div>
   )
 }
