@@ -664,6 +664,18 @@ function ChallengeList({ rows, running, currency }) {
 
   const runningIds = useMemo(() => new Set((running ?? []).map((r) => r.id)), [running])
 
+  // THE PINNED BLOCK OBEYS THE SEARCH TOO.
+  //
+  // It did not, and the result read as a bug: searching for something with no
+  // matches left two unrelated live challenges sitting above a "Nothing matches
+  // that" panel, which says both "here are your results" and "there are none"
+  // on one screen. Pinning is about ORDER - live first - not about exemption
+  // from the controls above it.
+  const runningShown = useMemo(
+    () => filterChallenges(running ?? [], { query, status }),
+    [running, query, status],
+  )
+
   // The statuses actually present, so the filter can never empty the list.
   const statuses = useMemo(
     () => [...new Set(rows.map((r) => r.status).filter(Boolean))].sort(),
@@ -681,7 +693,7 @@ function ChallengeList({ rows, running, currency }) {
   return (
     <div className="space-y-6">
       {/* ---- Running now, pinned ---- */}
-      {running?.length > 0 && (
+      {runningShown.length > 0 && (
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <span className="relative flex h-2 w-2">
@@ -691,7 +703,7 @@ function ChallengeList({ rows, running, currency }) {
             Running now
           </h2>
           <div className="space-y-3">
-            {running.map((r) => <LogCard key={r.id} r={r} currency={currency} live />)}
+            {runningShown.map((r) => <LogCard key={r.id} r={r} currency={currency} live />)}
           </div>
         </section>
       )}
