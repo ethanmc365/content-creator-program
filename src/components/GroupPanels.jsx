@@ -227,7 +227,7 @@ function LookControls({ emoji, accent, photoUrl, onEmoji, onAccent, onPhoto, upl
             will appear at in the inbox - which is the only preview worth
             drawing. */}
         <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2.5">
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+          <input ref={fileRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={pickPhoto} />
           {photoUrl ? (
             <img src={photoUrl} alt="" aria-hidden className="h-10 w-10 shrink-0 rounded-full object-cover" />
           ) : (

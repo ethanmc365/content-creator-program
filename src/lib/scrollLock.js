@@ -99,3 +99,53 @@ export function lockScroll() {
     saved = null
   }
 }
+
+/**
+ * IF NOBODY IS HOLDING THE PAGE, THE PAGE MUST NOT BE HELD.
+ *
+ * `lockScroll` takes the body out of flow entirely - `position: fixed`,
+ * `overflow: hidden`, `top: -<scroll>px` - because that is the only thing iOS
+ * Safari honours. The cost of that technique is that a LEAKED lock is not a
+ * subtle bug: the document stops scrolling, the visible region is a slice of a
+ * page shifted up by however far it had been scrolled, and everything past the
+ * fold is unreachable. Ethan, 8 Sep 2026, on a phone: "it just showed up like a
+ * white screen on half of it - I could scroll, but all the stuff below that
+ * screen was just covered."
+ *
+ * A lock leaks whenever a release does not run: an overlay whose component
+ * throws during render, a cleanup skipped because the tree was torn down by an
+ * error boundary, a fast route change that unmounts a dialog mid-transition.
+ * Every one of those is rare and none of them is impossible, and the failure
+ * they produce looks like the app is broken rather than like a dialog is open.
+ *
+ * So this is the audit, not another lock: `depth` is the count of live holders,
+ * and if it is zero then no overlay believes it has frozen anything, so any
+ * frozen styles still on the body are debris. AppLayout runs it on every route
+ * change, which is both the commonest moment for a leak to happen and the
+ * moment a reader is most likely to notice one.
+ *
+ * IT DOES NOTHING WHEN A LOCK IS GENUINELY HELD. A modal open across a route
+ * change is a real thing (the invoice sheet, the confirm dialog), and unfreezing
+ * under it would scroll the page behind an open overlay - which is the bug this
+ * file was written to fix.
+ */
+export function repairScrollLock() {
+  if (typeof document === 'undefined') return false
+  if (depth > 0) return false
+  const body = document.body
+  if (body.style.position !== 'fixed') return false
+
+  // The offset is recoverable from the style the leak left behind: `top` is
+  // `-<scrollY>px`, so somebody who was 1,200px down a page comes back to
+  // 1,200px rather than to the top of it.
+  const y = Math.abs(parseInt(body.style.top || '0', 10)) || 0
+  body.style.overflow = ''
+  body.style.position = ''
+  body.style.top = ''
+  body.style.left = ''
+  body.style.right = ''
+  body.style.width = ''
+  saved = null
+  window.scrollTo({ top: y, left: 0, behavior: 'instant' })
+  return true
+}

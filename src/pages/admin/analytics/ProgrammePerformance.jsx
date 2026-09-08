@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line,
   ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -12,6 +13,8 @@ import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
   challengeEconomics, blendEconomics, groupBy, label, FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
+import HistoryForm from '../../../components/admin/HistoryForm'
+import { loadMarkets } from '../../../lib/markets'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -66,9 +69,35 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   const [rates, setRates] = useState(FALLBACK_RATES)
   const [liveRates, setLiveRates] = useState(false)
   const [marketFilter, setMarketFilter] = useState('all')
+  // WHEN, AS WELL AS WHERE (8 Sep 2026).
+  //
+  // Ethan: "because we have a lot of analytics now, I want to be able to filter
+  // by month or by year and see the growth that way. Especially for the
+  // challenge performance page."
+  //
+  // Forty-nine challenges over nine months is past the point where a single
+  // list answers a question: "what did Spain cost us in Q2" was a thing you had
+  // to work out by reading. Two selects - a year, and a month within it - are
+  // enough, because the programme is nine months old and both cuts people
+  // actually ask for ("this year", "August") are one press.
+  //
+  // 'all' IS A VALUE, NOT AN ABSENCE, so the filter can be reasoned about
+  // without null checks scattered through the memo below.
+  const [year, setYear] = useState('all')
+  const [month, setMonth] = useState('all')
   // The page-level scope wins; the local dropdown is only reachable when the
   // page is showing everything.
   const effectiveMarket = scopeMarket || marketFilter
+
+  // Logging a challenge that ran off the platform. See components/admin/
+  // HistoryForm: the form already existed on /admin/challenges/history, which
+  // nothing linked to from here - so the answer to "there's no way to add
+  // challenges" is one button, not a new form.
+  const { profile } = useAuth()
+  const [markets, setMarkets] = useState([])
+  const [logging, setLogging] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  useEffect(() => { loadMarkets().then((m) => setMarkets(m || [])) }, [])
 
   useEffect(() => {
     // Surface a failed load rather than falling through to the empty state: an
@@ -92,13 +121,33 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [reloadKey])
 
   const data = useMemo(() => {
     if (!rows) return null
     const all = rows.map((r) => challengeEconomics(r, { currency, rates }))
     const markets = [...new Set(all.map((r) => r.market).filter(Boolean))].sort()
-    const scoped = effectiveMarket === 'all' ? all : all.filter((r) => (r.market ?? 'Unspecified') === effectiveMarket)
+    // Every year the programme has run in, newest first. Derived from the rows
+    // rather than hard-coded, so 2027 appears on 1 January without a deploy.
+    const years = [...new Set(all.map((r) => (r.start_date ? String(new Date(r.start_date).getFullYear()) : null)).filter(Boolean))]
+      .sort().reverse()
+
+    // THE MARKET AND THE DATE ARE ONE FILTER, APPLIED ONCE.
+    //
+    // `scoped` feeds the headline blend, every breakdown, the monthly chart and
+    // the challenge log, so filtering here is what makes the whole tab agree
+    // with the controls at the top of it. A second filter applied further down
+    // is how a page comes to show "Spain, August" over a total for the year.
+    const inRange = (r) => {
+      if (year === 'all') return true
+      if (!r.start_date) return false
+      const d = new Date(r.start_date)
+      if (String(d.getFullYear()) !== year) return false
+      return month === 'all' || String(d.getMonth() + 1).padStart(2, '0') === month
+    }
+    const scoped = all
+      .filter((r) => (effectiveMarket === 'all' ? true : (r.market ?? 'Unspecified') === effectiveMarket))
+      .filter(inRange)
 
     // Monthly roll-up, keyed on the month a challenge STARTED.
     const byMonth = new Map()
@@ -127,13 +176,30 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
       scoped,
       markets,
       blended: blendEconomics(scoped, { currency }),
-      byMarket: groupBy(all, (r) => r.market, { currency }),
+      years,
+      // `byMarket` is over `all` deliberately - comparing markets is the whole
+      // point of that card, and scoping it to one market leaves it with a
+      // single row. It DOES honour the date filter, because "which market did
+      // best in August" is a real question and "which market did best, ever,
+      // while the rest of the page shows August" is not.
+      byMarket: groupBy(all.filter(inRange), (r) => r.market, { currency }),
       byFormat: groupBy(scoped, (r) => label('format', r.format), { currency }),
-      byContent: groupBy(scoped, (r) => label('content_type', r.content_type), { currency }),
+      // BY CONTENT TYPE IS GONE (8 Sep 2026). Ethan: "I would actually remove
+      // the by content type because we're not really gonna track that any more.
+      // I think it's better to remove that, and you can add a new card in there
+      // if you want."
+      //
+      // Prize type takes the slot because it is the one cut of the same money
+      // that changes what the money COSTS: a travel voucher is redeemed against
+      // a booking we make margin on, so it does not cost its face value, and
+      // the headline tiles already separate cash from vouchers for exactly that
+      // reason. This card is that split per challenge shape rather than in
+      // total.
+      byPrize: groupBy(scoped, (r) => label('prize_type', r.prize_type), { currency }),
       monthly,
       live: scoped.filter((r) => r.status === 'active').length,
     }
-  }, [rows, currency, rates, effectiveMarket])
+  }, [rows, currency, rates, effectiveMarket, year, month])
 
   if (!data) {
     return (
@@ -218,7 +284,8 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
           <Select
             value={marketFilter}
             onChange={setMarketFilter}
-            className="w-44"
+            variant="chip"
+            className="w-40"
             ariaLabel="Filter by market"
             options={[
               { value: 'all', label: 'All markets' },
@@ -227,8 +294,50 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
             ]}
           />
         )}
+        {/* WHEN. The month select only appears once a year is chosen, because
+            "August" across every year the programme has run is not a period
+            anybody means. */}
+        <Select
+          value={year}
+          onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
+          variant="chip"
+          className="w-32"
+          ariaLabel="Filter by year"
+          options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
+        />
+        {year !== 'all' && (
+          <Select
+            value={month}
+            onChange={setMonth}
+            variant="chip"
+            className="w-36"
+            ariaLabel="Filter by month"
+            options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
+          />
+        )}
+        {(year !== 'all' || (!scopeMarket && marketFilter !== 'all')) && (
+          <button
+            onClick={() => { setYear('all'); setMonth('all'); setMarketFilter('all') }}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
+          >
+            Clear filters
+          </button>
+        )}
         <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
           Export challenge log
+        </button>
+        {/* THE WAY TO ADD ONE (8 Sep 2026). Ethan: "there also seems to be no
+            way to add challenges... someone still runs a challenge on the
+            WhatsApp community, I need to be able to add this data easily rather
+            than having to create an Excel and upload it."
+
+            The form has existed since the import; it lived on
+            /admin/challenges/history, which nothing on this page linked to. So
+            this is a button, not a feature: same component, same table, and it
+            reloads the metrics on save so the new challenge is in the blend
+            before the dialog has finished closing. */}
+        <button onClick={() => setLogging(true)} className="btn-primary !py-2 text-xs">
+          <Icon name="plus" className="h-4 w-4" /> Log a challenge
         </button>
         <span className="text-[11px] text-smoke">
           {liveRates ? 'Live FX rate' : 'Offline FX rate'} · money shown in {currency}
@@ -349,14 +458,33 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Breakdown title="By market" rows={data.byMarket} currency={currency} />
         <Breakdown title="By format" rows={data.byFormat} currency={currency} />
-        <Breakdown title="By content type" rows={data.byContent} currency={currency} />
+        <Breakdown title="By prize type" rows={data.byPrize} currency={currency} />
       </div>
 
       {/* ---- Challenge log ---- */}
       <ChallengeLog rows={data.scoped} currency={currency} />
+
+      {logging && (
+        <HistoryForm
+          row={{}}
+          markets={markets}
+          userId={profile?.id}
+          onClose={() => setLogging(false)}
+          onSaved={() => { setLogging(false); setRows(null); setReloadKey((n) => n + 1) }}
+          onDelete={null}
+        />
+      )}
     </div>
   )
 }
+
+// The month select's options. Named rather than numbered because "08" in a
+// dropdown beside a year reads as a day.
+const MONTHS = [
+  ['01', 'January'], ['02', 'February'], ['03', 'March'], ['04', 'April'],
+  ['05', 'May'], ['06', 'June'], ['07', 'July'], ['08', 'August'],
+  ['09', 'September'], ['10', 'October'], ['11', 'November'], ['12', 'December'],
+].map(([value, labelText]) => ({ value, label: labelText }))
 
 // ---------------------------------------------------------------------------
 // THE CHALLENGE LOG.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { confirm } from '../../lib/confirm'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
@@ -127,6 +127,41 @@ export default function AdminCreators() {
   }
 
   useEffect(() => { load() }, [])
+
+  // `?open=<id>` OPENS THAT CREATOR'S SHEET (8 Sep 2026).
+  //
+  // Ethan: "when clicking on the Full admin record, this should open the
+  // creator page correctly."
+  //
+  // CreatorPeek's "Full admin record" button has linked to
+  // `/admin/creators?open=<id>` since it was written, and this page has never
+  // read the parameter - so the button did the first half of its job (it landed
+  // you on the roster) and silently dropped the second (it was supposed to land
+  // you on that PERSON). On a roster of forty-four people that is the button
+  // achieving nothing except losing your place.
+  //
+  // It waits for `creators`, because the sheet is driven by a row from the
+  // loaded list rather than by an id - the modal reads a dozen fields the URL
+  // does not carry. If the id is not in the list the parameter is simply
+  // dropped: the commonest reason is that the person is an APPLICANT and lives
+  // on /admin/applications now (see `applicantBucket` above), and silently
+  // showing nothing is better than a half-empty sheet about somebody this page
+  // deliberately does not hold.
+  const [params, setParams] = useSearchParams()
+  const openId = params.get('open')
+  useEffect(() => {
+    if (!openId || !creators.length) return
+    const row = creators.find((c) => c.id === openId)
+    if (row) setSelected(row)
+    // Consumed. Leaving it in the URL means closing the sheet and pressing
+    // Back reopens it, and a refresh reopens it over whatever you were doing.
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('open')
+      return next
+    }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, creators])
 
   // Keep the "online now" dots accurate without a full reload: tick every 30s
   // and refresh the last-seen data every 60s.
@@ -654,6 +689,18 @@ export default function AdminCreators() {
                 onClick={() => setSelected(null)}
               >
                 <Icon name="money" className="h-4 w-4" /> Their rewards
+              </Link>
+              {/* Added 8 Sep 2026 alongside the same link in CreatorPeek. The
+                  route answers a question the dashboard does not - how far
+                  along the ladder somebody is, and what is blocking the next
+                  stop - and it is the page Ethan asked to be able to open for
+                  any creator. */}
+              <Link
+                to={`/milestones?as=${selected.id}`}
+                className="btn-secondary !py-2 text-xs"
+                onClick={() => setSelected(null)}
+              >
+                <Icon name="trophy" className="h-4 w-4" /> Their milestones
               </Link>
               <Link
                 to={`/milestones?as=${selected.id}`}

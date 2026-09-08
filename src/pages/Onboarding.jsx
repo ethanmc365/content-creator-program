@@ -126,6 +126,44 @@ const DEMO_DRAFT = {
   bucket_list: [{ country: 'Japan', city: 'Kyoto' }],
 }
 
+// THE DRAFT AS PROFILE COLUMNS.
+//
+// One shape, written by two callers: the autosave that runs on every step
+// change, and the single submit at the end. They were one inline object inside
+// `finish` until 8 Sep 2026, which is the reason the autosave did not exist -
+// there was nothing to reuse, and a second hand-written copy of twenty columns
+// is a guarantee that the two will disagree eventually.
+//
+// WHAT IS DELIBERATELY NOT HERE: `onboarded`, `timezone` and the geocoded
+// coordinates. Those are facts about FINISHING, not about the answers, and the
+// autosave must never be able to let somebody into the platform half-filled.
+// `finish` adds them itself.
+function draftColumns(draft) {
+  return {
+    name: draft.name.trim(),
+    photo_url: draft.photo_url,
+    dob: draft.dob,
+    city: draft.city.trim(),
+    country: draft.country.trim(),
+    // Derived, never asked for: the picker hands us both halves at once, and
+    // this is the column the market system routes on.
+    country_code: draft.country_code || isoForCountryName(draft.country),
+    bio: draft.bio.trim(),
+    about: draft.about.trim(),
+    favourite_quote: draft.favourite_quote.trim(),
+    instagram_url: draft.instagram_url.trim(),
+    tiktok_url: draft.tiktok_url.trim(),
+    youtube_url: draft.youtube_url.trim(),
+    facebook_url: draft.facebook_url.trim(),
+    other_links: (draft.other_links || []).filter((l) => l.url?.trim()),
+    languages: draft.languages,
+    countries_visited: draft.countries_visited,
+    bucket_list: (draft.bucket_list || [])
+      .map((b) => ({ country: (b.country || '').trim(), city: (b.city || '').trim() }))
+      .filter((b) => b.country),
+  }
+}
+
 /** Every problem with the draft, as a list a person can act on. */
 export function draftProblems(draft, contact) {
   const p = []
@@ -247,7 +285,17 @@ export default function Onboarding() {
   // draft are filled, so the effect cannot take back something typed in the
   // few hundred milliseconds before the profile landed. `hydrated` makes it
   // run once whatever else re-renders.
+  //
+  // `hydratedDone` IS A SECOND FLAG AND IT IS NOT REDUNDANT (8 Sep 2026).
+  // `hydrated` is set BEFORE the await, because its job is to stop the effect
+  // running twice. `hydratedDone` is set AFTER the row has landed, because the
+  // autosave added today needs a different question answered: "has this form
+  // finished reading what was already saved". Writing the draft to the profile
+  // in the gap between those two would blank a returning applicant's name and
+  // bio with the empty strings the form was still holding. One flag cannot mean
+  // both things.
   const hydrated = useRef(false)
+  const hydratedDone = useRef(false)
   useEffect(() => {
     if (demo || hydrated.current || !auth.profile || !user?.id) return undefined
     hydrated.current = true
@@ -287,6 +335,7 @@ export default function Onboarding() {
           phone: c.phone || priv?.phone || '',
           phone_country: c.phone_country || priv?.phone_country || '',
         }))
+        hydratedDone.current = true
       })
     return () => { alive = false }
   }, [auth.profile, user?.id, demo])
@@ -393,6 +442,72 @@ export default function Onboarding() {
   useDemoMessages(onCommand, { enabled: demo })
 
   // ------------------------------------------------------------ movement ----
+  // THE ANSWERS ARE ON THE PROFILE ROW, AND UNTIL TODAY THEY WERE NOT.
+  //
+  // Ethan, 8 Sep 2026, about the logo above the progress bar: "clicking that
+  // should bring you back to the login sign up page and obviously save their
+  // data if they're entering with the same email."
+  //
+  // That was already what the screen CLAIMED. The old header said "your answers
+  // are saved as you go" and the comment beside its exit link said "nothing is
+  // lost by leaving: the answers are on the profile row from the moment each
+  // step saves". Neither was true. Onboarding held everything in React state
+  // and wrote ONCE, in `finish`, at the very end - so leaving on step six threw
+  // away six screens of typing, and the only thing that actually survived was
+  // the profile photo, because uploading it is a write in its own right. The
+  // sentence had been on screen for a fortnight promising something the code
+  // did not do.
+  //
+  // So it does it now. On every step change the draft goes to the profile row
+  // (and the phone to `creator_private`, which is the only place it may live).
+  // Coming back - same browser or a new one, any device, as long as it is the
+  // same account - re-reads it through the hydration effect above, which was
+  // already written and was only ever finding an empty row.
+  //
+  // WHY THIS DOES NOT LET ANYONE IN EARLY. `draftColumns` cannot write
+  // `onboarded`, so ProtectedRoute keeps sending a half-finished applicant
+  // straight back here. The row is fuller; the gate is untouched.
+  //
+  // FAILURES ARE SWALLOWED, ON PURPOSE, and this is the one place in the file
+  // where that is right. A background save has no screen to fail on and nothing
+  // depends on it having worked: `finish` writes the same columns again at the
+  // end and CHECKS that write loudly (see the note there - an unchecked save is
+  // how a fortnight of applications was lost). A red line about a save the
+  // person never asked for, over data still safe in front of them, would be
+  // noise about a non-event.
+  const saveDraft = useCallback(async () => {
+    if (demo || !user?.id) return
+    // NEVER BEFORE THE FORM HAS READ WHAT IS ALREADY THERE. See `hydratedDone`
+    // above: between mount and the profile landing, `draft` is a set of empty
+    // strings, and saving those would overwrite a returning applicant's answers
+    // with nothing - turning the feature that exists to protect their typing
+    // into the one that destroys it.
+    if (!hydratedDone.current) return
+    await Promise.all([
+      supabase.from('profiles').update(draftColumns(draft)).eq('id', user.id),
+      (contact.phone || contact.phone_country)
+        ? supabase.from('creator_private').upsert({
+            id: user.id,
+            phone: contact.phone,
+            phone_country: contact.phone_country,
+            updated_at: new Date().toISOString(),
+          })
+        : Promise.resolve({}),
+    ]).catch((e) => console.warn('Onboarding autosave failed:', e?.message || e))
+  }, [demo, user?.id, draft, contact])
+
+  // The step is what triggers it: a save per keystroke is a write per keystroke,
+  // and a save per screen is exactly one write for exactly the moment somebody
+  // might walk away. `savedStep` makes it fire on CHANGES only, so arriving on
+  // the welcome screen does not write an empty row over a returning applicant's
+  // answers before the hydration effect has finished reading them.
+  const savedStep = useRef(step)
+  useEffect(() => {
+    if (savedStep.current === step) return
+    savedStep.current = step
+    saveDraft()
+  }, [step, saveDraft])
+
   function next() {
     const mine = problemsFor(current.key)
     if (mine.length) { setError(mine.map((m) => m.text).join(' · ')); return }
@@ -400,6 +515,32 @@ export default function Onboarding() {
     setStep((s) => Math.min(STEPS.length - 1, s + 1))
   }
   function back() { setError(''); setDir('back'); setStep((s) => Math.max(0, s - 1)) }
+
+  // LEAVING IS A SAVE, AND THEN IT IS A SIGN-OUT.
+  //
+  // Ethan: "we already have that Tryp.com logo in the middle of the screen up
+  // there. Clicking that should bring you back to the login sign up page... in
+  // the top corner we shouldn't have a logout button, because all we need is
+  // that Tryp.com button to work - because that is, like, logging them out."
+  //
+  // Order matters and it is the whole of this function: the save has to finish
+  // BEFORE the session is torn down, or the write goes out with no auth and RLS
+  // refuses it - which would make the one gesture that is supposed to protect
+  // somebody's answers the one that loses them.
+  //
+  // `window.location.href` rather than `navigate`, deliberately: signing out
+  // leaves a React tree holding a user that no longer exists, and a full
+  // document load is the only way to be sure nothing in it re-reads the dead
+  // session on the way past. The old Log out button did the same.
+  const [leaving, setLeaving] = useState(false)
+  async function leave() {
+    if (leaving) return
+    setLeaving(true)
+    if (demo) { window.location.href = '/'; return }
+    await saveDraft()
+    await signOut()
+    window.location.href = '/'
+  }
   function goTo(key) {
     const to = stepIndex(key)
     setError(''); setDir(to < step ? 'back' : 'fwd'); setStep(to)
@@ -434,27 +575,7 @@ export default function Onboarding() {
     }
 
     const update = {
-      name: draft.name.trim(),
-      photo_url: draft.photo_url,
-      dob: draft.dob,
-      city: draft.city.trim(),
-      country: draft.country.trim(),
-      // Derived, never asked for: the picker hands us both halves at once, and
-      // this is the column the market system routes on.
-      country_code: draft.country_code || isoForCountryName(draft.country),
-      bio: draft.bio.trim(),
-      about: draft.about.trim(),
-      favourite_quote: draft.favourite_quote.trim(),
-      instagram_url: draft.instagram_url.trim(),
-      tiktok_url: draft.tiktok_url.trim(),
-      youtube_url: draft.youtube_url.trim(),
-      facebook_url: draft.facebook_url.trim(),
-      other_links: (draft.other_links || []).filter((l) => l.url?.trim()),
-      languages: draft.languages,
-      countries_visited: draft.countries_visited,
-      bucket_list: (draft.bucket_list || [])
-        .map((b) => ({ country: (b.country || '').trim(), city: (b.city || '').trim() }))
-        .filter((b) => b.country),
+      ...draftColumns(draft),
       onboarded: true,
       // Taken from the browser rather than asked for. It is what makes the
       // local clock on a profile honest for the countries that span several
@@ -578,55 +699,37 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-cloud/50 px-5 py-8 sm:py-14">
       <div className="mx-auto max-w-2xl">
-        {/* THERE IS A WAY OUT (7 Sep 2026). Ethan: "while on this onboarding
-            there seems to be literally no way to get back to the main public
-            landing page or anything. It's just stuck on this, which is weird.
-            There should always be a way to get back."
+        {/* THE HEADER ROW IS GONE, AND THE LOGO ABOVE THE BAR IS THE EXIT
+            (8 Sep 2026).
 
-            He is right, and this was the only screen in the product with no
-            exit at all: onboarding renders INSTEAD of AppLayout, so there is no
-            header, no tab bar and no account menu - and the route guard sends
-            anyone who is not onboarded straight back here, so the browser's own
-            Back button lands on the same screen. The only way off it was to
-            close the tab, which is exactly what somebody who wanted to look
-            something up would do, and they would then have to find their way
-            back in.
+            Ethan: "the back-to-Tryp.com button on the top left shows a really
+            squished Tryp.com logo. This isn't necessary at all. Instead, we
+            already have that Tryp.com logo in the middle of the screen up
+            there - clicking that should bring you back to the login/sign-up
+            page... we don't need that log out button... it doesn't need to say
+            your answers are saved as you go... all we need is that button just
+            above the progress bar, that when clicking it brings you back. Also
+            hovering over that button should raise it so it actually shows that
+            it's a clickable button."
 
-            Nothing is lost by leaving: the answers are on the profile row from
-            the moment each step saves, and the draft is re-read on return (see
-            the hydration effect above). So this is honest rather than a trap
-            door - it says "later", and later works.
+            Three controls, two of which said the same thing. A 32px logo beside
+            "Back to Tryp.com", a sentence promising an autosave that did not
+            exist, and a Log out pill - stacked over a screen that ALREADY has
+            the full-size brand mark centred directly above the progress bar.
+            Everything the row did is now that mark: it saves, it signs out, and
+            it lands on the page you log in or sign up from, which is what "back
+            to Tryp.com" and "log out" both meant here anyway.
 
-            Log out is beside it because the other reason somebody is stuck here
-            is that they are signed in as the wrong person, which on a shared
-            laptop is not rare. */}
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <a
-            href="/"
-            className="group flex items-center gap-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink"
-          >
-            <img
-              src="/brand/tryp-logo.png"
-              alt=""
-              className="h-8 w-8 rounded-lg shadow-card transition-transform duration-200 group-hover:-translate-y-0.5"
-            />
-            <span className="hidden sm:inline">{tr('Back to Tryp.com')}</span>
-          </a>
-          {!demo && (
-            <div className="flex items-center gap-3">
-              <span className="hidden text-xs text-smoke sm:inline">{tr('Your answers are saved as you go.')}</span>
-              <button
-                type="button"
-                onClick={async () => { await signOut(); window.location.href = '/' }}
-                className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-ink"
-              >
-                {tr('Log out')}
-              </button>
-            </div>
-          )}
-        </div>
+            The way out is still guaranteed - the reason it was added on 7 Sep
+            stands, and is worth keeping written down. Onboarding renders
+            INSTEAD of AppLayout, so there is no header, no tab bar and no
+            account menu; and the route guard sends anyone who is not onboarded
+            straight back here, so the browser's own Back button lands on the
+            same screen. Without this control the only exit is closing the tab.
 
-        <Progress step={step} barPct={barPct} current={current} />
+            And now leaving really is safe rather than nominally safe: `leave`
+            writes the draft before it drops the session. See `saveDraft`. */}
+        <Progress step={step} barPct={barPct} current={current} onLeave={leave} leaving={leaving} />
 
         {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).
             Ethan: "going from slide to slide, it's like everything seems very
@@ -918,10 +1021,38 @@ function Req() {
   return <span className="text-brand" title={tr("Required")}>*</span>
 }
 
-function Progress({ step, barPct, current }) {
+function Progress({ step, barPct, current, onLeave, leaving }) {
+  const tr = useT()
   return (
     <div className="mb-8 flex flex-col items-center gap-5">
-      <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-11 rounded-xl shadow-card" />
+      {/* THE MARK IS THE BUTTON (8 Sep 2026).
+          It was an `img`, sitting decoratively above the bar while a squished
+          copy of itself in the corner did the actual navigating. It is a
+          `button` now - a real one, so it is reachable by keyboard and reads as
+          a control to a screen reader, which an image never did - and the hover
+          RAISES it, which is the whole of Ethan's "hovering over that button
+          should raise it so it actually shows that it's a clickable button".
+          The lift is the same -translate-y-0.5 and shadow-lift step every other
+          pressable card in the product uses, so it is this platform's own
+          gesture rather than a new one invented for one screen.
+
+          `hoverable:` gates it on a device that genuinely has a pointer: on a
+          phone a :hover state latches after a tap and stays applied, so the
+          logo would sit lifted for the rest of the session.
+
+          The label is on the button rather than the image, because what this
+          control DOES is leave - "Tryp.com" as alt text would announce a
+          picture on a button whose purpose is not the picture. */}
+      <button
+        type="button"
+        onClick={onLeave}
+        disabled={leaving}
+        aria-label={tr('Back to Tryp.com')}
+        title={tr('Back to Tryp.com')}
+        className="rounded-xl shadow-card transition-all duration-200 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:opacity-60"
+      >
+        <img src="/brand/tryp-logo.png" alt="" className="h-11 rounded-xl" />
+      </button>
       <div className="w-full max-w-md">
         {/* THE FOUR PARTS, SO NINE SCREENS READ AS A SHORT JOURNEY RATHER THAN A
             LONG FORM. A step counter alone answers "how far in am I"; the part

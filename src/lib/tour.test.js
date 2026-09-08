@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) } }))
 vi.mock('./appFlags', () => ({ readFlag: async () => false }))
 
-import { shouldAutoStart, stepsFor, stepAt, stepGoal, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally } from './tour'
+import { shouldAutoStart, stepsFor, stepAt, stepGoal, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally, setTourScope, tourKey } from './tour'
 
 const member = {
   is_admin: false, is_test: false, status: 'active', onboarded: true, tour_completed_at: null,
@@ -205,5 +205,56 @@ describe('the steps', () => {
     for (const s of TOUR_STEPS.filter((x) => x.anchor && !CHROME.includes(x.anchor))) {
       expect(s.skipIfMissing, `${s.key}`).toBe(true)
     }
+  })
+})
+
+// THE FLAG BELONGS TO A PERSON, NOT TO A LAPTOP.
+//
+// Ethan, 8 Sep 2026: "I just created a new test account to try it out, and it
+// didn't show up straight away. As soon as you log in to the test account,
+// until you've actually completed the tutorial, you should always be prompted
+// to do it."
+//
+// `seenLocally` is a localStorage flag and localStorage is per ORIGIN, so
+// before this it was shared by every account that had ever signed in on the
+// machine. The person most likely to make a second account is the person who
+// just finished the walkthrough on their first, which is why this shipped: the
+// only way to see the bug is to be the developer testing it.
+describe('the local "seen" flag is scoped to the account', () => {
+  beforeEach(() => {
+    setTourScope(null)
+    clearSeenLocally()
+    localStorage.clear()
+  })
+
+  it('does not suppress the walk for a second account in the same browser', () => {
+    setTourScope('aaaaaaaa-1111-4111-8111-111111111111')
+    markSeenLocally('desktop')
+    expect(shouldAutoStart({ profile: member, enabled: true, layout: 'desktop' })).toBe(false)
+
+    // A different creator signs in on the same laptop. Their database flag is
+    // null, so they have never been walked round, and they must be.
+    setTourScope('bbbbbbbb-2222-4222-8222-222222222222')
+    expect(shouldAutoStart({ profile: member, enabled: true, layout: 'desktop' })).toBe(true)
+
+    // And the first account still remembers, so signing back in does not
+    // restart a walk they already finished.
+    setTourScope('aaaaaaaa-1111-4111-8111-111111111111')
+    expect(shouldAutoStart({ profile: member, enabled: true, layout: 'desktop' })).toBe(false)
+  })
+
+  it('keeps the two layouts apart within one account', () => {
+    setTourScope('aaaaaaaa-1111-4111-8111-111111111111')
+    markSeenLocally('desktop')
+    expect(shouldAutoStart({ profile: member, enabled: true, layout: 'desktop' })).toBe(false)
+    // The phone walk points at different chrome and has not been seen.
+    expect(shouldAutoStart({ profile: member, enabled: true, layout: 'mobile' })).toBe(true)
+  })
+
+  it('scopes the first-run key TourGate owns by the same rule', () => {
+    setTourScope('aaaaaaaa-1111-4111-8111-111111111111')
+    const a = tourKey('required')
+    setTourScope('bbbbbbbb-2222-4222-8222-222222222222')
+    expect(tourKey('required')).not.toBe(a)
   })
 })

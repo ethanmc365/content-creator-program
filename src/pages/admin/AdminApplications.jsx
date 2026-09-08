@@ -200,16 +200,58 @@ export default function AdminApplications() {
   // codes that do not overlap - so their market is a strong SUGGESTION. It is
   // not a fact, which is the change: an admin can disagree with it, and the
   // most common reason to is the language they speak.
+  //
+  // AND WHEN THE COUNTRY POINTS AT NOTHING, THE LANGUAGE DOES (8 Sep 2026).
+  //
+  // Ethan: "currently you have one line that shows this - 'big German'. If
+  // someone is just put into the worldwide community only, and let's say
+  // they're from Austria but they speak German, whenever it shows up in the
+  // admin panel the suggestion should be the German community, and then a
+  // little line below saying 'because they speak German'. Obviously an admin
+  // can then change this, but it's just making it more clear, because it's easy
+  // to miss."
+  //
+  // He is describing exactly the case the country test cannot see. Austria is
+  // not in the German market's country codes and probably should not be, so
+  // `resolveMarketForCountryName` correctly returns nothing and the picker
+  // seeded EMPTY - which means the default action for an Austrian applicant was
+  // "worldwide only", and the German market they would obviously belong in was
+  // one unhighlighted chip among six. The information was on the page; it was in
+  // the last clause of a grey paragraph under the chips, which is where a busy
+  // reviewer's eye does not go.
+  //
+  // So the language is now a real fallback rather than a footnote: country
+  // first, because a market is defined by its countries and that is the
+  // stronger signal; language when the country resolves to nothing at all.
+  // It never overrides a country match, and it is still only a suggestion - the
+  // chips are unchanged and one press disagrees with it.
+  //
+  // MOST MATCHES WINS, THEN ALPHABETICAL. Somebody who speaks Portuguese and
+  // Spanish matches two markets, and picking whichever the array happened to
+  // hold first would make the suggestion depend on row order in `communities`.
+  // A tie broken by name is arbitrary but STABLE, which is the property that
+  // matters: the same application suggests the same market every time it is
+  // opened.
   const suggestion = useMemo(() => {
     const out = {}
+    const chapters = (markets ?? []).filter((m) => m.kind === 'chapter' && m.is_active)
     for (const a of apps ?? []) {
       const r = resolveMarketForCountryName(a.country, markets)
-      out[a.id] = r.market ?? null
+      if (r.market) { out[a.id] = { market: r.market, why: 'country', langs: [] }; continue }
+
+      const spoken = new Set((a.languages ?? []).map((l) => String(l).toLowerCase()))
+      const byLanguage = chapters
+        .map((m) => ({ market: m, langs: marketLanguages(m).filter((l) => spoken.has(l.toLowerCase())) }))
+        .filter((x) => x.langs.length > 0)
+        .sort((x, y) => y.langs.length - x.langs.length || x.market.name.localeCompare(y.market.name))
+      out[a.id] = byLanguage.length
+        ? { market: byLanguage[0].market, why: 'language', langs: byLanguage[0].langs }
+        : null
     }
     return out
   }, [apps, markets])
 
-  const marketLabel = (a) => suggestion[a.id]?.name ?? 'Worldwide'
+  const marketLabel = (a) => suggestion[a.id]?.market?.name ?? 'Worldwide'
 
   // Seed each card's picker from its suggestion, once the markets have loaded.
   // Not in the render, and not overwriting a choice already made.
@@ -219,7 +261,7 @@ export default function AdminApplications() {
       const next = { ...prev }
       for (const a of apps) {
         if (next[a.id] !== undefined) continue
-        next[a.id] = suggestion[a.id]?.slug ? [suggestion[a.id].slug] : []
+        next[a.id] = suggestion[a.id]?.market?.slug ? [suggestion[a.id].market.slug] : []
       }
       return next
     })
@@ -233,7 +275,7 @@ export default function AdminApplications() {
   const languageMatches = (a) => {
     const spoken = new Set((a.languages ?? []).map((l) => String(l).toLowerCase()))
     return (markets ?? [])
-      .filter((m) => m.kind === 'chapter' && m.is_active && m.slug !== suggestion[a.id]?.slug)
+      .filter((m) => m.kind === 'chapter' && m.is_active && m.slug !== suggestion[a.id]?.market?.slug)
       .map((m) => ({ market: m, langs: marketLanguages(m).filter((l) => spoken.has(l.toLowerCase())) }))
       .filter((x) => x.langs.length > 0)
   }
@@ -505,8 +547,12 @@ function ApplicationCard({
   // `profiles.age` from it. Reading dob here printed no age for anybody.
   const age = app.age ?? ageFromDob(app.dob)
   // Suggested first, the rest in their given order.
-  const orderedMarkets = suggested
-    ? [...markets].sort((a, b) => (a.slug === suggested.slug ? -1 : b.slug === suggested.slug ? 1 : 0))
+  // `suggested` is `{ market, why, langs }` since 8 Sep 2026 - see the note on
+  // `suggestion`. Unwrapped once here so the rest of the card reads the same as
+  // it did when it was a bare market.
+  const suggestedMarket = suggested?.market ?? null
+  const orderedMarkets = suggestedMarket
+    ? [...markets].sort((a, b) => (a.slug === suggestedMarket.slug ? -1 : b.slug === suggestedMarket.slug ? 1 : 0))
     : markets
   const bucketList = (Array.isArray(app.bucket_list) ? app.bucket_list : [])
     .map((b) => (typeof b === 'string' ? b : [b?.city, b?.country].filter(Boolean).join(', ')))
@@ -706,7 +752,7 @@ function ApplicationCard({
         <div className="mt-2 flex flex-wrap gap-1.5">
           {orderedMarkets.map((m) => {
             const on = placeIn.includes(m.slug)
-            const isSuggested = suggested?.slug === m.slug
+            const isSuggested = suggestedMarket?.slug === m.slug
             return (
               <button
                 key={m.slug}
@@ -731,18 +777,36 @@ function ApplicationCard({
             )
           })}
         </div>
+        {/* WHY IT IS SUGGESTING WHAT IT IS SUGGESTING, ON ITS OWN LINE.
+            Ethan: "then it should be like a little line below saying 'because
+            they speak German'... it's just making it more clear, because it's
+            easy to miss."
+
+            It used to be the third sentence of one grey paragraph that also
+            carried the home-market rule and the "would work too" list, so the
+            single fact that justifies the highlighted chip was the hardest
+            thing in the block to find. The reason is now its own line, in
+            brand, directly under the chips it is about. */}
+        {suggested && (
+          <p className="mt-2.5 flex items-start gap-1.5 text-[11px] font-medium leading-relaxed text-brand">
+            <Icon name={suggested.why === 'language' ? 'chat' : 'pin'} className="mt-px h-3.5 w-3.5 shrink-0" />
+            <span>
+              {suggested.why === 'language'
+                ? <>{suggestedMarket.name} suggested because they speak {suggested.langs.join(' and ')}{app.country ? ` — no market covers ${app.country}` : ''}.</>
+                : <>{suggestedMarket.name} suggested because they are in {app.country}.</>}
+            </span>
+          </p>
+        )}
+
         <p className="mt-2 text-[11px] leading-relaxed text-smoke">
           {placeIn.length === 0
             ? 'Nothing picked, so they join the worldwide community only.'
             : placeIn.length === 1
               ? `Their home market will be ${markets.find((m) => m.slug === placeIn[0])?.name ?? placeIn[0]}.`
               : `Home market: ${markets.find((m) => m.slug === placeIn[0])?.name ?? placeIn[0]}. They will also be in ${placeIn.length - 1} other${placeIn.length > 2 ? 's' : ''}.`}
-          {' '}
-          {suggested
-            ? `Suggested from their country (${app.country}).`
-            : `No market covers ${app.country || 'their country'}.`}
+          {!suggested && ` No market covers ${app.country || 'their country'}, and no language points at one either.`}
           {languageHints.length > 0 && (
-            <> They speak {languageHints.flatMap((h) => h.langs).join(' and ')}, so {languageHints.map((h) => h.market.name).join(' or ')} would work too.</>
+            <> They also speak {languageHints.flatMap((h) => h.langs).join(' and ')}, so {languageHints.map((h) => h.market.name).join(' or ')} would work too.</>
           )}
         </p>
 

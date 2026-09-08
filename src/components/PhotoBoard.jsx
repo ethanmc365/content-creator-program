@@ -955,7 +955,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {/* ADD, FIRST AND IN THE BRAND. It is the only thing to do on an
               empty board and the most common thing to do on a full one. */}
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
+          <input ref={fileRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={addFiles} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}

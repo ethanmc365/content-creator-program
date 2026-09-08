@@ -257,7 +257,54 @@ export function partOf(step) {
 
 // ------------------------------------------------------------ persistence ---
 
-const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}_v${TOUR_VERSION}`
+// WHOSE BROWSER FLAGS THESE ARE.
+//
+// THE BUG THIS FIXES (8 Sep 2026). Ethan: "I just created a new test account to
+// try it out, and it didn't show up straight away. Remember, as soon as you log
+// in to the test account, until you've actually completed the tutorial, you
+// should always be prompted to do it."
+//
+// Every key below used to be `tryp_tour_<thing>_<layout>_v4` and nothing else -
+// scoped to the BROWSER and the LAYOUT, but not to the PERSON. localStorage is
+// per origin, so signing out and signing in as somebody else keeps every one of
+// them. `shouldAutoStart` then read `seenLocally(layout)`, found the flag left
+// behind by the last account to walk the tutorial on this laptop, and refused
+// to start it - for a creator who had never seen it, whose `tour_completed_at`
+// was null, and for whom the database was answering correctly the whole time.
+//
+// It is exactly the failure mode you get when you test a signed-in feature: the
+// person most likely to make a second account is the person who already
+// completed it on the first, in the same browser. It would have hit every real
+// creator who signs up on a shared or family computer too.
+//
+// The account id is now part of the key. Signing out and back in as the same
+// person finds the same flags; a different person gets their own set, and the
+// database column stays what it always was - the answer of record.
+//
+// SET BEFORE THE FIRST READ. TourGate calls this the moment it has a user, and
+// it is a module-level value rather than a parameter threaded through nine
+// call sites for one reason: every one of these functions is called from a
+// place that already knows the layout and does not know the user, and adding a
+// second argument to all of them is nine chances to forget one. A missing scope
+// degrades to the old shared key rather than throwing, so nothing breaks if a
+// caller runs early - it simply behaves as it did before.
+let scope = ''
+
+/** Whose flags to read and write. Called by TourGate as soon as there is a user. */
+export function setTourScope(userId) {
+  scope = userId ? `_${String(userId).slice(0, 8)}` : ''
+}
+
+/**
+ * A localStorage key in the current account's scope, for the one walkthrough
+ * flag that does not live in this file (TourGate's "is this a first run").
+ * Exported rather than duplicated so there is a single definition of what
+ * "this person's tour flags" means; two copies of that rule is how the scope
+ * would come to be applied to three keys out of four.
+ */
+export const tourKey = (name) => `tryp_tour_${name}${scope}`
+
+const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}${scope}_v${TOUR_VERSION}`
 
 /**
  * ONE FLAG IN THE DATABASE, ONE PER LAYOUT IN THE BROWSER.
@@ -282,7 +329,7 @@ const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}_v${TOUR_VERSION}`
 // closed, which is precisely what sessionStorage does not do. Keyed per layout
 // and per version like `seenLocally`, so a rebuilt walk never resumes into a
 // step index that means something different now.
-const AT_KEY = (layout) => `tryp_tour_at_${layout}_v${TOUR_VERSION}`
+const AT_KEY = (layout) => `tryp_tour_at_${layout}${scope}_v${TOUR_VERSION}`
 
 export function savedStep(layout) {
   try {
@@ -320,7 +367,7 @@ export function clearStep(layout) {
 // so coming back reopens it at `savedStep` for ANYONE, admin included, without
 // touching the rules about who gets walked round in the first place. Those two
 // questions were being answered by one flag and they are not the same question.
-const OPEN_KEY = (layout) => `tryp_tour_open_${layout}_v${TOUR_VERSION}`
+const OPEN_KEY = (layout) => `tryp_tour_open_${layout}${scope}_v${TOUR_VERSION}`
 
 export function walkIsOpen(layout) {
   try { return localStorage.getItem(OPEN_KEY(layout)) === '1' } catch { return false }

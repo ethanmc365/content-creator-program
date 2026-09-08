@@ -135,7 +135,21 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
   }, [photoUrl, dropPreview])
 
   const shown = preview || photoUrl
-  const label = busy === 'reading' ? tr('Reading your photo…') : tr('Uploading…')
+  // ONE WORD FOR THE WHOLE WAIT (8 Sep 2026).
+  //
+  // Ethan: "I noticed it says 'reading your photo' - rather than saying
+  // reading, it should say 'uploading'."
+  //
+  // He is right, and the reason is that "reading" was describing OUR internals,
+  // not their experience. From the moment a photo is chosen to the moment it is
+  // on the profile there is exactly one thing happening as far as the person
+  // holding the phone is concerned, and they called it uploading. Splitting it
+  // into a convert phase and an upload phase made the label CHANGE halfway
+  // through a wait, which reads as a restart - the opposite of the reassurance
+  // a progress label exists to give. `busy` still tracks both stages, because
+  // the code genuinely has two and `aria-busy` wants to know; the sentence does
+  // not.
+  const label = tr('Uploading…')
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -159,7 +173,13 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
           </span>
         )}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      {/* `.heic,.heif` ALONGSIDE `image/*`, and it is not redundant. macOS and
+          Windows file pickers resolve `image/*` through the OS type registry,
+          and on several versions that registry does not map HEIC to it - so the
+          photo a creator is trying to upload is GREYED OUT in the picker, and
+          the failure happens before any of our code runs. The explicit
+          extensions put it back in the list. */}
+      <input ref={inputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handleFile} />
       {busy ? (
         <p className="text-sm font-medium text-brand">{label}</p>
       ) : (

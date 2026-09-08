@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '../Icon'
@@ -148,6 +148,48 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
 
 
+
+  // THE CARD IS PLACED BEFORE ITS FIRST PAINT, NOT AFTER IT (8 Sep 2026).
+  //
+  // Ethan: "it started really weirdly. First the card appeared in the top left
+  // corner, and then it appeared down in the bottom middle. Obviously it should
+  // just appear smoothly, at the bottom, in the middle."
+  //
+  // `.tour-card` is `position: fixed` and, since 7 Sep, CSS gives it NO `top`
+  // and NO `left` - deliberately, because two mechanisms moving one element is
+  // the fault that whole rewrite existed to remove, and the rAF loop owns every
+  // position the card ever takes. But that loop does not run until `ready`,
+  // and `ready` waits for the page to stop scrolling. The card is rendered
+  // immediately. So for those first frames it was a fixed element with
+  // `top: auto; left: auto`, which resolves to its STATIC position - the
+  // top-left corner of the viewport. It was not animating from there; it was
+  // being painted there, and then correctly placed a beat later.
+  //
+  // This does not reopen the two-mechanisms door: it is the same function
+  // (`restingPlace`) writing the same kind of value (pixels) to the same
+  // element the loop writes to. It is the loop's first frame, brought forward
+  // to before the browser paints.
+  //
+  // `useLayoutEffect` is the whole point - it runs after the DOM exists and
+  // BEFORE the paint, so the measured height is real and the wrong position is
+  // never on screen for even one frame. In a `useEffect` this would simply be a
+  // faster version of the same flash.
+  //
+  // Mount only. Every position after this one belongs to the loop.
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    // On a phone the card is a sheet pinned by CSS (`.tour-card--sheet`), so it
+    // has never had this problem and must not be given inline pixels.
+    if (!card || isPhone) return
+    const rest = restingPlace(
+      { w: window.innerWidth, h: window.innerHeight },
+      { w: card.offsetWidth || CARD_W, h: card.offsetHeight || 260 },
+      !!steps[Math.min(i, steps.length - 1)]?.keepClear,
+    )
+    card.style.top = `${rest.top}px`
+    card.style.left = `${rest.left}px`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Remember where they are on every move, so backgrounding the app at step
   // four comes back to step four.
@@ -309,19 +351,97 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // is the backstop for a scroll inside a container `window.scrollY` cannot
     // see (the account menu, the chat scroller) and for a page that never
     // settles at all.
+    //
+    // AND THE ANCHOR IS SCROLLED INTO VIEW *HERE*, BEFORE THE POLL - WHICH IS
+    // THE WHOLE OF "IT'S REALLY, REALLY SHAKY" (8 Sep 2026).
+    //
+    // Ethan: "I click show me around, and then it animates to the top, which is
+    // good, but it's really really really shaky. It's been some of the tough
+    // challenges, and it moves nicely over to where everyone talks. And then it
+    // moves nicely down to the bottom right corner. It's just that first
+    // animation that seemed to be really juttery."
+    //
+    // One step juddered and the rest did not, and that is the clue. This
+    // `scrollIntoView` used to live in the rAF loop effect below, which runs
+    // only AFTER `ready` - so the order was:
+    //
+    //   1. wait for the page to stop moving          -> ready
+    //   2. open the 950ms travel window
+    //   3. START A SMOOTH SCROLL                     <- here
+    //   4. glide the card... at a target that moves every frame
+    //
+    // The settle poll's entire purpose is step 1, and step 3 undid it. For the
+    // whole of the card's 820ms CSS transition the page was smooth-scrolling
+    // underneath, the anchor's rectangle was different on every frame, and the
+    // loop handed the in-flight transition a NEW destination sixty times a
+    // second. A transition that is retargeted every frame never completes one;
+    // it restarts, which is exactly what shaking looks like.
+    //
+    // It juddered on the FIRST anchored step because that is the one that
+    // actually scrolls: the walk starts at the foot of the hub and the first
+    // anchor is the tab bar at the top. By the time it reaches Challenges,
+    // Rooms and the account menu, the chrome is already on screen, no scroll
+    // happens, and the same code looks perfect - "it moves nicely over to where
+    // everyone talks".
+    //
+    // Scrolling first and letting the existing poll wait for it costs nothing
+    // and needs no new machinery: the poll was already written to wait for
+    // exactly this event and was simply being started too early.
+    //
+    // THE ANCHOR MAY NOT EXIST YET. A step that navigates has just called
+    // `navigate(to)` a few lines up and the new page has not rendered, so the
+    // element is not findable on this tick. `hunt` retries for 400ms, and the
+    // poll does not start until the scroll has been kicked off or given up on -
+    // otherwise the page could be declared "settled" (80ms) before the scroll
+    // had even begun, which is the original bug wearing a different hat.
     let settled = false
+    let poll = 0
+    let cap = 0
     const settle = () => { if (!settled) { settled = true; setReady(true) } }
-    let lastY = window.scrollY
-    let still = 0
-    const poll = setInterval(() => {
-      const y = window.scrollY
-      if (Math.abs(y - lastY) < 1) {
-        still += 1
-        if (still >= 2) { clearInterval(poll); settle() }
-      } else { still = 0; lastY = y }
-    }, 40)
-    const cap = setTimeout(() => { clearInterval(poll); settle() }, 900)
-    return () => { clearInterval(poll); clearTimeout(cap) }
+    const startSettle = () => {
+      let lastY = window.scrollY
+      let still = 0
+      poll = setInterval(() => {
+        const y = window.scrollY
+        if (Math.abs(y - lastY) < 1) {
+          still += 1
+          if (still >= 2) { clearInterval(poll); settle() }
+        } else { still = 0; lastY = y }
+      }, 40)
+      cap = setTimeout(() => { clearInterval(poll); settle() }, 900)
+    }
+
+    const scrollToAnchor = () => {
+      const el = findAnchor(step.anchor)
+      if (!el) return false
+      // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
+      //
+      // Centring is right for a nav item and wrong for the live challenge card,
+      // which is 578px of a 900px window: centred, it leaves ~160px above and
+      // ~160px below, and the walkthrough card is 305px - so nothing fits
+      // above, below or beside it and the card has to overlap the very thing it
+      // is pointing at. Scrolled to the top, the same anchor leaves the whole
+      // lower half of the window free.
+      const tall = el.getBoundingClientRect().height > window.innerHeight * 0.4
+      el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' })
+      return true
+    }
+
+    let hunt = 0
+    if (!step.anchor || scrollToAnchor()) {
+      startSettle()
+    } else {
+      const from = Date.now()
+      hunt = setInterval(() => {
+        if (scrollToAnchor() || Date.now() - from > 400) {
+          clearInterval(hunt)
+          hunt = 0
+          startSettle()
+        }
+      }, 50)
+    }
+
+    return () => { clearInterval(hunt); clearInterval(poll); clearTimeout(cap) }
     // `location` is deliberately absent: navigating IS the effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, step?.key, network])
@@ -483,19 +603,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // freeze becomes a beat and the jump becomes a glide.
     travelUntil.current = Date.now() + TRAVEL_MS
     const anchorName = step?.anchor
-    // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
-    //
-    // Centring is right for a nav item and wrong for the live challenge card,
-    // which is 578px of a 900px window: centred, it leaves ~160px above and
-    // ~160px below, and the walkthrough card is 305px - so nothing fits above,
-    // below or beside it and the card has to overlap the very thing it is
-    // pointing at. Scrolled to the top, the same anchor leaves the whole lower
-    // half of the window free.
-    const el = findAnchor(anchorName)
-    if (el) {
-      const tall = el.getBoundingClientRect().height > window.innerHeight * 0.4
-      el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' })
-    }
+    // (The `scrollIntoView` that used to be here has moved into the step-entry
+    // effect above, where it runs BEFORE the settle poll rather than after it.
+    // See the long note there: starting a smooth scroll at the same moment as
+    // the card's travel window was the whole of the shaking.)
 
     // ARMED TWO WAYS, FOR THE REASON lib/chatScroll ALREADY LEARNED.
     //
@@ -677,7 +788,29 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // The same rectangle the spotlight just lit: what must stay visible is
       // exactly what the card must not cover.
       if (!lit) return
-      const { top, left } = placeCard(lit, { w: vw, h: vh }, card.offsetHeight || 260)
+      // `targetH`, NOT `offsetHeight` - AND THE RULE FOR THAT IS ALREADY
+      // WRITTEN TWENTY LINES ABOVE THIS FILE'S OWN CODE (8 Sep 2026).
+      //
+      // The resting branch was changed to use the SETTLED height for a reason
+      // that is spelled out where `targetH` is declared: "using the live
+      // offsetHeight would move the card's target every frame while the height
+      // was still easing - which is precisely the retargeting stutter the
+      // deadband exists to prevent, reintroduced by the back door." The
+      // anchored branch was left reading `offsetHeight`, so the back door was
+      // still open on it.
+      //
+      // The card's height TRANSITIONS over 500ms whenever the step's wording
+      // changes length, and `placeCard` uses the height in two of its three
+      // branches - the `above` placement subtracts it outright, and `clampTop`
+      // subtracts it from the viewport. So on every step whose card is placed
+      // above its anchor, the destination was being recomputed from a number
+      // that was still moving, and the 820ms position transition was handed a
+      // new target on each of those frames. That is a second, independent
+      // source of the same shake, and it survives even a perfectly still page.
+      //
+      // `targetH` is the height the card is easing TO, known the moment the
+      // step changes, so the destination is a constant for the whole journey.
+      const { top, left } = placeCard(lit, { w: vw, h: vh }, cardBox.h)
 
       put(card, 'top', top)
       put(card, 'left', left)

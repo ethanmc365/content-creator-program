@@ -19,6 +19,7 @@ import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
+import { repairScrollLock } from '../../lib/scrollLock'
 import { useT } from '../../lib/i18n'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
@@ -284,6 +285,17 @@ export default function AppLayout() {
   // focus-driven signal so it collapses instantly (iOS often doesn't fire the
   // viewport resize until a scroll).
   const keyboardOpen = useVisualViewport().keyboardOpen
+
+  // A LEAKED SCROLL LOCK LEAVES THE PAGE FROZEN, SO IT IS AUDITED ON EVERY MOVE.
+  //
+  // See lib/scrollLock: the lock takes the body out of flow (`position: fixed`)
+  // because that is the only technique iOS honours, which means a release that
+  // never runs does not degrade - it strands the reader on a slice of a page
+  // that will not scroll, with everything below it unreachable. This checks
+  // that nobody is holding a lock and, if so, that the body is not still
+  // wearing one. It is a no-op in every normal case, including with a dialog
+  // genuinely open across a route change.
+  useEffect(() => { repairScrollLock() }, [pathname])
 
   // Presence heartbeat: while the app is open, stamp our own row so admins can
   // see who is online and when a creator was last active.

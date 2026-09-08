@@ -77,9 +77,44 @@ function visibleBottom() {
 // VISUAL one does. The difference between them is the keyboard. The 120px
 // floor is there because a mobile browser's own collapsing address bar moves
 // the two apart by forty or fifty pixels all by itself.
+//
+// A KEYBOARD ONLY EXISTS WHERE SOMETHING IS BEING TYPED INTO (8 Sep 2026).
+//
+// THE SAME BUG, IN THE SECOND FILE. On 4 Sep the identical `raw > 120`
+// heuristic in `lib/useKeyboardInset` was found to be reading iOS Safari's
+// COLLAPSING ADDRESS BAR as a keyboard - Ethan: "the bar at the bottom just
+// completely disappeared - the worldwide, challenges, rooms, DMs bar completely
+// disappeared". `window.innerHeight` is the LAYOUT viewport and includes the
+// strips behind both toolbars; `visualViewport.height` does not; so a page with
+// nothing focused anywhere reports a 90-130px shrink purely from which toolbars
+// happen to be showing, which depends on which way you last scrolled. That file
+// was fixed by requiring a focused field. THIS ONE WAS NOT, and it is the same
+// measurement doing more damage.
+//
+// What it did here: `applyScrollRoom` is wired to `visualViewport`'s `resize`
+// AND `scroll` events, both of which iOS fires continuously while the address
+// bar animates. So SCROLLING A PAGE - no keyboard, no caret, nothing focused -
+// pushed up to 130px of `padding-bottom` onto the body (`--kb-room`, see
+// index.css) and pulled it off again, over and over, in step with the toolbar.
+// The document's height changes under a scroll that is already in flight, which
+// is how a page ends up with a band of empty white at the bottom and content
+// that will not settle. Ethan, 8 Sep: "it just showed up like a white screen on
+// half of it - I could scroll, but all the stuff below that screen was just
+// covered."
+//
+// `--kb-room` is meant to exist for exactly as long as a keyboard does. Now it
+// does: no caret, no keyboard, no padding. Note this also makes `keyboardUp`
+// honest, and with it `revealFocusedField`, which was scrolling the page
+// towards a "keyboard" that was an address bar.
+function anythingFocused() {
+  if (typeof document === 'undefined') return false
+  return isField(document.activeElement)
+}
+
 export function keyboardInset() {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   if (!vv) return 0
+  if (!anythingFocused()) return 0
   const raw = Math.round(window.innerHeight - vv.height)
   return raw > 120 ? raw : 0
 }

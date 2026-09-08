@@ -6,6 +6,7 @@ import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { SPRING } from '../../lib/motion'
 import { lockScroll } from '../../lib/scrollLock'
+import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 
 // Choosing a person, with their face.
@@ -35,12 +36,48 @@ export default function PeoplePicker({
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState([])
   const inputRef = useRef(null)
+  const isPhone = useIsPhone()
+  // THE SHEET IS LAID OUT AGAINST THE VISIBLE AREA, NOT THE LAYOUT VIEWPORT.
+  //
+  // THE BUG THIS FIXES (8 Sep 2026). Ethan: "issue on mobile with the Tryp.com
+  // team admin panel page - when you add someone and type a name, the pop-up
+  // list goes below the keyboard and can't select. Also it doesn't seem to
+  // actually let me select someone at all."
+  //
+  // Both halves are one fault. `position: fixed` anchors to the LAYOUT viewport,
+  // which on iOS does not shrink when the keyboard opens - only the VISUAL one
+  // does. So this dialog was `inset-0` over a 812px box while the keyboard had
+  // left about 420px of it visible, and `max-h-[86vh]` was 86% of the wrong
+  // number. The search field is at the top of the sheet so it stayed on screen;
+  // the results list and the entire footer - which is where the button that
+  // actually commits the choice lives - were underneath the keys.
+  //
+  // That is also why "it doesn't let me select someone at all" is the same bug
+  // rather than a second one: tapping a row DID select it, and every piece of
+  // feedback that says so (the row's tint, the tick, the count on the confirm
+  // button) was off the bottom of the screen. Nothing was broken except where
+  // it was drawn.
+  //
+  // `useVisualViewport` already measures exactly this and is what the chat
+  // composer is pinned with; it had simply never been applied here. `offsetTop`
+  // matters as much as `height`: iOS scrolls the layout viewport under the
+  // visual one when a field is focused, so a box of the right height at the
+  // wrong origin is still in the wrong place.
+  const vp = useVisualViewport()
+  const frame = isPhone ? { top: vp.offsetTop, height: vp.height } : undefined
 
   useEffect(() => {
     if (!open) return
     setQuery('')
     setPicked([])
-    const t = setTimeout(() => inputRef.current?.focus(), 120)
+    // NO AUTOFOCUS ON A PHONE, and this is the other half of making the list
+    // usable. Focusing the field opens the keyboard before the reader has seen
+    // a single name, so the first thing a 300-person picker did was hide 300
+    // people. On a phone you scroll a list of faces and tap the field only if
+    // scrolling is not finding them - which is what the faces are for. On a
+    // laptop the keyboard costs nothing and typing is the fastest route, so it
+    // still focuses there.
+    const t = isPhone ? 0 : setTimeout(() => inputRef.current?.focus(), 120)
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     const release = lockScroll()
@@ -49,7 +86,7 @@ export default function PeoplePicker({
       document.removeEventListener('keydown', onKey)
       release()
     }
-  }, [open, onClose])
+  }, [open, onClose, isPhone])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -75,7 +112,11 @@ export default function PeoplePicker({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center"
+        style={frame}
+        role="dialog" aria-modal="true" aria-label={title}
+      >
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
@@ -88,7 +129,11 @@ export default function PeoplePicker({
           exit={{ opacity: 0, y: 24, scale: 0.98 }}
           transition={SPRING}
           className={cx(
-            'relative flex max-h-[86vh] w-full flex-col overflow-hidden bg-white shadow-lift',
+            'relative flex w-full flex-col overflow-hidden bg-white shadow-lift',
+            // `max-h-full` on a phone, because the box around it is now the
+            // VISIBLE area rather than the layout viewport - `86vh` would be
+            // 86% of a height the keyboard has already taken most of.
+            'max-h-full sm:max-h-[86vh]',
             'rounded-t-[28px] sm:max-w-lg sm:rounded-card',
           )}
         >

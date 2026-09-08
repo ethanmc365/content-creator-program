@@ -166,7 +166,61 @@ function timeAtDistance(y) {
 // not started. The admin editor previews by handing this component a made-up
 // list of stops, which is the honest way to preview a drawing: with fake DATA,
 // not with a flag that makes it lie about the real reader.
-export default function MilestonePath({ milestones = [], standings = [] }) {
+// WHOSE ROUTE THIS IS, RIDING IT (8 Sep 2026).
+//
+// Ethan: "the one thing I noticed is that it's not that clear where you
+// actually are. Although it shows other creators' icons, it should show your
+// icon, like, big somewhere on the card or somewhere, to show that it's
+// actually where you are. I know we have the plane, but just something that
+// makes it even more clear by showing their profile picture. Maybe even on the
+// path - let's say they're in progress of going to the other one, it could
+// actually be on the path."
+//
+// The route already drew every OTHER creator as a face - a row of them under
+// each stop they had passed - and drew the viewer as an anonymous aeroplane.
+// So the one person the page is about was the only one on it without a face,
+// and finding yourself meant knowing that the plane was you.
+//
+// It rides the SAME `animateMotion` the plane already flies, so there is no
+// second copy of the geometry and nothing to keep in sync: the face is on the
+// non-rotating group (a portrait must stay upright through every bend) and the
+// plane moves 24px forward along the group that does rotate, so it leads the
+// way instead of sitting on top of the picture. Both stop at exactly the
+// creator's own position, because they are the same keyPoints.
+function RouteFace({ who }) {
+  const label = (who?.name || '?').trim().charAt(0).toUpperCase()
+  return (
+    <>
+      {/* The soft halo the plane used to have on its own. */}
+      <circle r="26" fill="#d94407" opacity="0.12" />
+      <circle r="19" fill="#ffffff" />
+      {who?.photo_url
+        ? (
+          <image
+            href={who.photo_url}
+            x="-17" y="-17" width="34" height="34"
+            preserveAspectRatio="xMidYMid slice"
+            clipPath="url(#milestone-face)"
+          />
+        )
+        : (
+          <>
+            <circle r="17" fill="#d94407" opacity="0.16" />
+            <text
+              y="6" textAnchor="middle"
+              fill="#d94407" fontSize="16" fontWeight="700"
+            >
+              {label}
+            </text>
+          </>
+        )}
+      {/* The ring is drawn last so it sits over the photograph's edge. */}
+      <circle r="17.5" fill="none" stroke="#d94407" strokeWidth="2.5" />
+    </>
+  )
+}
+
+export default function MilestonePath({ milestones = [], standings = [], who = null }) {
   const tr = useT()
   // Which stop's detail sheet is open. Null for none.
   const [open, setOpen] = useState(null)
@@ -389,67 +443,6 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
           transition={{ duration: flightSeconds, ease: [0.32, 0.18, 0.36, 0.86] }}
         />
 
-        {/* THE PLANE FLIES THE ROUTE, IT DOES NOT APPEAR ON IT.
-            It used to be placed at the current position and faded in, which
-            drew the right dot and told the wrong story: the point of a route is
-            the travelling, and a plane that is simply THERE says nothing about
-            having got there. It now takes off from the start and flies to
-            exactly where the creator has reached, in step with the orange line
-            drawing itself underneath, and stops.
-
-            animateMotion with keyPoints rather than a Motion tween, because the
-            browser is already solving "where is this point along that cubic"
-            for the path we handed it, and doing that arithmetic ourselves means
-            keeping two copies of the geometry in sync forever. fill="freeze"
-            is what leaves it parked at the creator's position. */}
-        {/* Drawn even at zero progress: a creator who has not reached a stop
-            yet is AT THE START of the route, which is a place on it, and a
-            route with no plane on it looks like a route that is not yours. */}
-        {plane && (start
-          ? (
-            /* PARKED AT THE FIRST DOT UNTIL THE FLIGHT BEGINS.
-               An `animateMotion` with `begin="indefinite"` contributes NOTHING
-               until it is triggered, so its target sits at the local origin -
-               the top-left corner of the viewBox. Rendering the animated group
-               before the trigger therefore parks a plane in the corner of the
-               card until you scroll to it. This static copy holds the start of
-               the route instead, turned to face the way the route leaves it,
-               and is swapped for the animated one at take-off. */
-            <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
-              <circle r="15" fill="#d94407" opacity="0.14" />
-              <PlaneMark />
-            </g>
-          )
-          : (
-            <g>
-              <circle r="15" fill="#d94407" opacity="0.14">
-                <animateMotion
-                  ref={setGlowAnim}
-                  begin="indefinite"
-                  dur={`${flightSeconds}s`} fill="freeze" path={d}
-                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
-                />
-              </circle>
-              <g>
-                <PlaneMark />
-                {/* `begin="indefinite"` + beginElement, NOT a bare dur. See the
-                    note on `started` above: SMIL against the document timeline
-                    had already finished by the time anybody scrolled here.
-                    keyPoints stops the flight at exactly the creator's own
-                    position and fill="freeze" parks it there - somebody one stop
-                    in watches the plane fly one stop and land, which is the
-                    whole point of drawing a route instead of a bar. */}
-                <animateMotion
-                  ref={setPlaneAnim}
-                  begin="indefinite"
-                  dur={`${flightSeconds}s`} fill="freeze" rotate="auto" path={d}
-                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
-                />
-              </g>
-            </g>
-          )
-        )}
-
         {/* The stops. Drawn after the route so the line never crosses a dot. */}
         {nodes.map((n, i) => {
           const done = n.start || n.reached
@@ -497,6 +490,96 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
             </motion.g>
           )
         })}
+        {/* THE MARKER IS DRAWN LAST, OVER THE STOPS (8 Sep 2026).
+            It used to be drawn before them, which was right when it was an
+            aeroplane 15px across and wrong the moment it became a face: a
+            creator at zero progress sits exactly ON the first dot, and the dot
+            - a filled orange circle with a white tick - was painted on top of
+            their photograph. What you saw was a halo round a tick.
+
+            Painting it last means the marker covers whichever stop it is
+            standing on, which is the correct reading: that stop is where they
+            are, the card beside it already names it, and the marker is the one
+            thing on this drawing that is about the person looking at it. */}
+        {/* THE PLANE FLIES THE ROUTE, IT DOES NOT APPEAR ON IT.
+            It used to be placed at the current position and faded in, which
+            drew the right dot and told the wrong story: the point of a route is
+            the travelling, and a plane that is simply THERE says nothing about
+            having got there. It now takes off from the start and flies to
+            exactly where the creator has reached, in step with the orange line
+            drawing itself underneath, and stops.
+
+            animateMotion with keyPoints rather than a Motion tween, because the
+            browser is already solving "where is this point along that cubic"
+            for the path we handed it, and doing that arithmetic ourselves means
+            keeping two copies of the geometry in sync forever. fill="freeze"
+            is what leaves it parked at the creator's position. */}
+        {/* Drawn even at zero progress: a creator who has not reached a stop
+            yet is AT THE START of the route, which is a place on it, and a
+            route with no plane on it looks like a route that is not yours. */}
+        {plane && (start
+          ? (
+            /* PARKED AT THE FIRST DOT UNTIL THE FLIGHT BEGINS.
+               An `animateMotion` with `begin="indefinite"` contributes NOTHING
+               until it is triggered, so its target sits at the local origin -
+               the top-left corner of the viewBox. Rendering the animated group
+               before the trigger therefore parks a plane in the corner of the
+               card until you scroll to it. This static copy holds the start of
+               the route instead, turned to face the way the route leaves it,
+               and is swapped for the animated one at take-off. */
+            /* The face does not rotate with the route, so it is a sibling of
+               the rotated group rather than a child of it. */
+            <g>
+              <g transform={`translate(${start.x} ${start.y})`}>
+                <RouteFace who={who} />
+              </g>
+              <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
+                <g transform="translate(26 0) scale(0.72)"><PlaneMark /></g>
+              </g>
+            </g>
+          )
+          : (
+            <g>
+              {/* NO `rotate` ON THIS ONE, DELIBERATELY. It is the group that
+                  carries the creator's photograph, and a face that banks with
+                  the aircraft through every curve of the route is a face
+                  upside down on half of it. Same path, same keyPoints, same
+                  spline as the plane below - so they travel as one thing and
+                  land together - and only the plane turns. */}
+              <g>
+                <RouteFace who={who} />
+                <animateMotion
+                  ref={setGlowAnim}
+                  begin="indefinite"
+                  dur={`${flightSeconds}s`} fill="freeze" path={d}
+                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
+                />
+              </g>
+              <g>
+                {/* 26px FORWARD ALONG THE TANGENT. `rotate="auto"` below aligns
+                    this group's +x axis with the direction of travel, so a
+                    plain translate on x puts the aircraft AHEAD of the face on
+                    the route rather than on top of it - at every angle, with no
+                    arithmetic of our own. */}
+                <g transform="translate(26 0) scale(0.72)"><PlaneMark /></g>
+                {/* `begin="indefinite"` + beginElement, NOT a bare dur. See the
+                    note on `started` above: SMIL against the document timeline
+                    had already finished by the time anybody scrolled here.
+                    keyPoints stops the flight at exactly the creator's own
+                    position and fill="freeze" parks it there - somebody one stop
+                    in watches the plane fly one stop and land, which is the
+                    whole point of drawing a route instead of a bar. */}
+                <animateMotion
+                  ref={setPlaneAnim}
+                  begin="indefinite"
+                  dur={`${flightSeconds}s`} fill="freeze" rotate="auto" path={d}
+                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
+                />
+              </g>
+            </g>
+          )
+        )}
+
       </svg>
 
       {/* ---------- Stop cards ---------- */}

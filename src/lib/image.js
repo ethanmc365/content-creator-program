@@ -23,6 +23,94 @@ function isHeic(file) {
     || /\.(heic|heif)$/i.test(file.name || '')
 }
 
+// AND WHEN THE NAME AND THE TYPE BOTH LIE, ASK THE BYTES.
+//
+// `isHeic` reads the two things the file says about itself, and there is a
+// third case where it says nothing true at all: a photo that has been through
+// AirDrop, a messaging app, or a re-save arrives as `IMG_4821` with an empty
+// `type` and no extension whatsoever. Ethan: "can you properly build a way for
+// it to quickly convert or just accept any format" - accepting any format
+// starts with correctly RECOGNISING any format, and a file we do not recognise
+// as HEIC goes straight to `createImageBitmap`, fails there, and is refused as
+// "that image format isn't supported" when it is in fact the one format we know
+// how to handle.
+//
+// ISO-BMFF puts a box length in bytes 0-4 and the tag `ftyp` in bytes 4-8, with
+// the brand in 8-12. The brand list below is the HEIF still-image set; `avif`
+// is deliberately NOT on it, because browsers decode AVIF natively and sending
+// it to heic2any would be paying 1.35 MB to do worse than the canvas.
+const HEIF_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']
+
+async function sniffHeic(file) {
+  try {
+    const head = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+    if (head.length < 12) return false
+    const ascii = (from, to) => String.fromCharCode(...head.slice(from, to))
+    return ascii(4, 8) === 'ftyp' && HEIF_BRANDS.includes(ascii(8, 12).toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+// CAN THIS PAGE RUN A BLOB WORKER AT ALL?
+//
+// THE BUG THIS FIXES, AND IT IS THE WHOLE OF "IT LOADS FOREVER" (8 Sep 2026).
+// Ethan: "with the onboarding, uploading the profile photo, if I try to upload
+// a HEIC photo it's still not working. It just loads forever and doesn't stop."
+//
+// `heic2any` does its libheif decode in a Web Worker that it builds AT IMPORT
+// TIME from an object URL - literally
+// `new Worker(URL.createObjectURL(blob))`, at the top of its module. The
+// platform's Content-Security-Policy said `worker-src 'self'`, and a `blob:`
+// URL is not `'self'`, so on production - and ONLY on production, because the
+// Vite dev server sends no CSP at all - Chrome refused it:
+//
+//   Creating a worker from 'blob:https://trypcreators.vercel.app/...' violates
+//   the following Content Security Policy directive: "worker-src 'self'".
+//
+// The refusal is not an exception. The `Worker` object is constructed, the
+// failure arrives as an async `error` event nobody is listening for, and
+// `postMessage` posts into a void - so the promise heic2any returns NEVER
+// SETTLES. Not slow: never. That is why the spinner ran until the tab was
+// closed, and why the 30-second timeout below is the only thing that ever
+// stopped it, with a message blaming the phone's camera settings for a policy
+// header. The policy is fixed (`worker-src 'self' blob:` in vercel.json).
+//
+// THIS PROBE EXISTS SO IT CAN NEVER SILENTLY COME BACK. Anything that tightens
+// that header again - a security sweep, a new host, a copied config - breaks
+// HEIC and nothing else, which is exactly the kind of regression that goes
+// unnoticed for a month. One tiny worker, one ping, cached for the session:
+// if it does not answer we know before paying 1.35 MB for a download that
+// cannot work, and we say what is actually wrong instead of guessing.
+let blobWorkerOk = null
+function canRunBlobWorker() {
+  if (blobWorkerOk !== null) return blobWorkerOk
+  blobWorkerOk = (async () => {
+    let url
+    let worker
+    try {
+      url = URL.createObjectURL(new Blob(
+        ['self.onmessage=function(){self.postMessage(1)}'],
+        { type: 'application/javascript' },
+      ))
+      worker = new Worker(url)
+      return await new Promise((resolve) => {
+        const done = (ok) => { resolve(ok) }
+        worker.onmessage = () => done(true)
+        worker.onerror = () => done(false)
+        worker.postMessage(0)
+        setTimeout(() => done(false), 2000)
+      })
+    } catch {
+      return false
+    } finally {
+      try { worker?.terminate() } catch { /* never constructed */ }
+      if (url) URL.revokeObjectURL(url)
+    }
+  })()
+  return blobWorkerOk
+}
+
 // CAN THIS BROWSER DECODE THE FILE ITSELF?
 //
 // Safari can decode HEIC natively - it is Apple's format - and Safari is where
@@ -110,21 +198,60 @@ export async function compressImage(file, { maxDim = 1280, quality = 0.82, forma
   // the rare one. The canvas below only needs a decodable bitmap; where the
   // browser can make one, the file goes through untouched and comes out the
   // other side as a normal WebP.
-  if (isHeic(file) && !(await canDecodeNatively(file))) {
+  //
+  // The name and the type are asked first because they are free; the BYTES are
+  // only read when both came back negative, so the common case never pays for
+  // the sniff. See `sniffHeic`.
+  // Order matters for cost: `canDecodeNatively` decodes the WHOLE image, and the
+  // canvas step below is about to decode it again, so it is asked LAST and only
+  // about files we already believe are HEIC. Reversing these two would put a
+  // full second decode of every JPEG anybody ever uploads in front of the
+  // upload.
+  if ((isHeic(file) || await sniffHeic(file)) && !(await canDecodeNatively(file))) {
+    if (!(await canRunBlobWorker())) {
+      // We know the decode cannot run before we download 1.35 MB to attempt it.
+      // This sentence is for us, not for the creator: it names the header, so
+      // whoever reads the Sentry issue fixes the policy instead of the photo.
+      throw new Error(
+        'This browser is not allowed to run the photo converter '
+        + '(Content-Security-Policy worker-src must include blob:). '
+        + 'Please tell the Tryp.com team - and in the meantime a JPEG will upload fine.',
+      )
+    }
     try {
       const heic2any = (await import('heic2any')).default
+      // NINETY SECONDS, NOT THIRTY, AND THE REASON IS THAT THE CLOCK NOW WORKS.
+      //
+      // The old 30s was set against a decode that could not finish at all, so
+      // it was really a "give up" timer wearing a stopwatch's clothes, and it
+      // had to be short because it fired on every single attempt. With the
+      // worker actually running, the decode is off the main thread - the tab
+      // stays responsive, the spinner animates, and the only thing this bounds
+      // is a genuinely slow old phone chewing a 12-megapixel photo. Cutting
+      // that off at 30s fails the exact creator most likely to be shooting
+      // HEIC. It is a backstop against a hang, not a performance budget.
       const out = await withTimeout(
         heic2any({ blob: file, toType: 'image/jpeg', quality }),
-        30000,
+        90000,
         'slow-decode',
       )
       const blob = Array.isArray(out) ? out[0] : out
       source = new File([blob], (file.name || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg' })
     } catch (err) {
+      // NO MORE CAMERA-SETTINGS LECTURE.
+      //
+      // Ethan: "rather than this, can you properly build a way for it to
+      // quickly convert or just accept any format." The old copy walked the
+      // reader through Settings > Camera > Formats > Most Compatible and told
+      // them to re-take the photograph - advice that could not possibly have
+      // helped, because the conversion was being blocked by our own response
+      // header, and which is useless anyway for the photo they already have and
+      // want to use. Converting is our job. If we could not do it, that is our
+      // failure and the sentence says so.
       throw new Error(
         err?.message === 'slow-decode'
-          ? 'That iPhone photo is taking too long to convert on this device. The quickest fix is to set Settings › Camera › Formats to "Most Compatible" and take it again, or send yourself the photo and upload the JPEG.'
-          : 'Could not read that iPhone photo (HEIC). Set your camera to "Most Compatible" (Settings › Camera › Formats), or upload a JPEG.',
+          ? 'That photo took too long for us to convert here. Try a smaller one, or send it to yourself as a JPEG and upload that.'
+          : 'We could not read that photo. Try another one, or send it to yourself as a JPEG and upload that.',
         { cause: err },
       )
     }

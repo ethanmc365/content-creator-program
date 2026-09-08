@@ -2247,7 +2247,7 @@ export default function Flights() {
                 'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-6 text-center transition-colors hover:border-brand/50 hover:bg-brand-tint/20',
                 uploading && 'pointer-events-none opacity-60',
               )}>
-                <input type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+                <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={pickPhoto} />
                 {uploading ? <Spinner /> : <Icon name="image" className="h-6 w-6 text-gray-300" />}
                 <span className="text-xs font-medium text-smoke">
                   {uploading ? 'Uploading…' : 'Add one picture from this trip'}

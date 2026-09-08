@@ -11,6 +11,7 @@ import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
+import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
@@ -23,6 +24,13 @@ const TABS = [
   { key: 'creators', label: 'Per creator' },
   { key: 'programme', label: 'Challenge performance' },
   { key: 'community', label: 'Community health' },
+  // ERRORS GET THEIR OWN TAB (8 Sep 2026). Ethan: "I wouldn't put that at the
+  // bottom of [community health] and would rather have a new tab for it, just
+  // to the right of Community health, called Error monitoring, and actually
+  // build it properly." It was a panel at the foot of a long page, which is the
+  // one place a usually-empty list is guaranteed not to be looked at on the day
+  // it stops being empty.
+  { key: 'errors', label: 'Error monitoring' },
   // Community network folded in from its own admin page. "How connected is the
   // community" and "how is the community doing" were two doors onto the same
   // question, and one of them was a tile on the panel.
@@ -620,6 +628,25 @@ export default function AdminAnalytics() {
         {tabBar}
         {marketPicker}
         <CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
+      </div>
+    )
+  }
+  if (tab === 'errors') {
+    return (
+      <div className="page">
+        <PageHeader
+          back="/admin"
+          title="Analytics"
+          subtitle="Every crash a creator has actually hit, grouped by fault."
+        />
+        {tabBar}
+        {/* NO MARKET PICKER HERE, DELIBERATELY. A crash is a property of the
+            code and the route, not of a market: the same broken page breaks for
+            everybody, and `client_errors` is fingerprinted on message + route
+            with ids stripped precisely so one fault is one row. Offering a
+            scope that cannot change the answer is a control that teaches people
+            the controls do not work. */}
+        <ErrorWatch />
       </div>
     )
   }

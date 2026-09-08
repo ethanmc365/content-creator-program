@@ -688,7 +688,23 @@ export function Select({
             // Matched to `.input`: same radius, same padding, and 16px on mobile
             // so iOS does not zoom the page when it is focused.
             ? 'rounded-xl px-4 py-3 text-base sm:text-sm'
-            : 'rounded-full px-4 py-2 text-sm font-medium',
+            // MATCHED TO A FILTER CHIP (8 Sep 2026). Ethan, on the analytics
+            // controls: "the All markets button is round, and all the other
+            // ones are quite square, so I would fix that."
+            //
+            // Measured, because "looks different" is worth turning into a
+            // number: the seven market chips and the EUR/GBP pair are 8px and
+            // 28px tall, and this dropdown - sitting in the same row, doing the
+            // same job - was 9999px and 38px. It read as a different KIND of
+            // control from the ones either side of it, which it is not.
+            //
+            // The rule the page now follows: a FILTER is a chip, an ACTION is a
+            // pill. So this matches its neighbours and "Export challenge log"
+            // stays round, because it does something rather than narrowing
+            // something.
+            : variant === 'chip'
+              ? 'rounded-lg px-3 py-1.5 text-xs font-semibold'
+              : 'rounded-full px-4 py-2 text-sm font-medium',
           open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
         )}
       >

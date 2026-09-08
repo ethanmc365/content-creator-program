@@ -4,7 +4,7 @@ import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useCommunity } from '../../context/CommunityContext'
 import {
   clearStep, clearWalkOpen, markSeenLocally, markTourComplete, markWalkOpen,
-  shouldAutoStart, tourEnabled, walkIsOpen,
+  setTourScope, shouldAutoStart, tourEnabled, tourKey, walkIsOpen,
 } from '../../lib/tour'
 import { isMobileDevice, isStandalone } from '../../lib/install'
 
@@ -25,14 +25,18 @@ let openDeliberately = null
 // WHETHER THE OPEN WALK IS A FIRST RUN, kept beside the "is it open" flag so a
 // reload restores both. localStorage rather than state for the same reason
 // `walkIsOpen` is: the whole point is surviving the page going away.
-const REQUIRED_KEY = 'tryp_tour_required'
+// Scoped to the account for the same reason every other flag in lib/tour now
+// is - see `setTourScope` there. A first run belongs to a person, not a laptop.
+// `tourKey` is imported rather than rebuilt so the scoping rule has exactly one
+// definition.
+const REQUIRED_KEY = () => tourKey('required')
 const REQUIRED_HINT = () => {
-  try { return localStorage.getItem(REQUIRED_KEY) === '1' } catch { return false }
+  try { return localStorage.getItem(REQUIRED_KEY()) === '1' } catch { return false }
 }
 const setRequiredHint = (on) => {
   try {
-    if (on) localStorage.setItem(REQUIRED_KEY, '1')
-    else localStorage.removeItem(REQUIRED_KEY)
+    if (on) localStorage.setItem(REQUIRED_KEY(), '1')
+    else localStorage.removeItem(REQUIRED_KEY())
   } catch { /* private mode */ }
 }
 
@@ -45,6 +49,14 @@ export function startTour() {
 
 export default function TourGate() {
   const { profile, user } = useAuth()
+  // SET THE SCOPE DURING RENDER, BEFORE ANYTHING READS A FLAG.
+  //
+  // The two `useState` initialisers below call `walkIsOpen` and `REQUIRED_HINT`
+  // on the FIRST render, so an effect would be too late: they would read the
+  // previous account's keys once, and a resumed-walk flag read once is a walk
+  // that opens. These are plain module assignments with no React state behind
+  // them, so doing it here is safe and is the only place early enough.
+  setTourScope(user?.id)
   const isPhone = useIsPhone()
   // CLOSING IT IS NOT FINISHING IT (4 Sep 2026).
   //

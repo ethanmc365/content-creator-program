@@ -192,6 +192,15 @@ export default function Messages() {
   const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(!cachedInbox)
+  // AND A SECOND, STRICTER FLAG FOR THE SAME QUESTION.
+  //
+  // `loadingList` starts FALSE whenever there is a page cache, because the
+  // point of the cache is to paint the inbox before the network answers. That
+  // is right for the rail and wrong for the discover pane: a cached inbox is a
+  // guess at "who have I already messaged", and the pane badges people on
+  // exactly that. `inboxLoaded` is only ever set by a completed live query, so
+  // the pane waits for the truth while the rail keeps its head start.
+  const [inboxLoaded, setInboxLoaded] = useState(false)
   // PINNED CONVERSATIONS, PER DEVICE.
   //
   // localStorage rather than a column, deliberately. Pinning is a view
@@ -372,6 +381,7 @@ export default function Messages() {
     if (!convos?.length) {
       setConversations([])
       setLoadingList(false)
+      setInboxLoaded(true)
       return
     }
     const groups = convos.filter((c) => c.kind === 'group')
@@ -430,6 +440,7 @@ export default function Messages() {
           }))
     )
     setLoadingList(false)
+    setInboxLoaded(true)
   }, [user.id])
 
   useEffect(() => { loadConversations() }, [loadConversations])
@@ -1328,7 +1339,28 @@ export default function Messages() {
   const DISCOVER_TARGET = 6
   const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
   const discover = useMemo(() => {
-    if (!peopleLoaded) return { loading: true, mode: 'new', people: [] }
+    // BOTH HALVES OF "STRANGER" HAVE TO HAVE LANDED, NOT ONE (8 Sep 2026).
+    //
+    // Ethan: "whenever you click in, the panel connecting with someone new,
+    // the first frame shows something different and then it flashes... it
+    // flashes up Julia and Marty and shows I haven't met them, and then it
+    // flashes up something different."
+    //
+    // `peopleLoaded` fixed HALF of this in September and left the other half in
+    // place, because a stranger is defined by two facts from two different
+    // queries: NOT A CONNECTION (arrives with `people`, same Promise.all) and
+    // NOT SOMEBODY I HAVE MESSAGED (`talkingTo`, derived from the INBOX query,
+    // which is a separate and slower round trip). The moment `people` landed
+    // this memo answered with `conversations` still empty - so every creator he
+    // has an open thread with passed the stranger test, got the "Not met"
+    // badge, and sorted to the FRONT of the list. Then the inbox landed, half
+    // of them stopped being strangers, and the grid re-ordered and re-badged
+    // itself under his eyes. Exactly the same class of bug as the first one,
+    // one query further down.
+    //
+    // An empty computation means "I could not work this out", never "there is
+    // nothing" - and here that rule has to hold for BOTH inputs.
+    if (!peopleLoaded || !inboxLoaded) return { loading: true, mode: 'new', people: [] }
     const eligible = people.filter((p) => !p.is_admin)
     const isStranger = (p) => !connectionIds.has(p.id) && !talkingTo.has(p.id)
     const strangers = eligible.filter(isStranger)
@@ -1343,12 +1375,11 @@ export default function Messages() {
       // there is anybody new in it, "connect with someone new" is true of the
       // first card and the badges say which of the rest are which.
       mode: strangers.length ? 'new' : 'known',
-      mixed: strangers.length > 0 && strangers.length < list.length,
       strangerIds: new Set(strangers.map((p) => p.id)),
       people: list,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, peopleLoaded, connectionIds, conversations])
+  }, [people, peopleLoaded, inboxLoaded, connectionIds, conversations])
   const discoverPeople = discover.people
 
   // One row in the inbox for someone you haven't messaged yet.
@@ -1792,13 +1823,17 @@ export default function Messages() {
                   </div>
                 ) : discoverPeople.length > 0 ? (
                   <>
-                    <p className="mx-auto mt-1.5 max-w-sm text-center text-sm text-smoke">
-                      {discover.mixed
-                        ? tr('Creators you have not met yet, and a few worth picking back up.')
-                        : discover.mode === 'new'
-                          ? tr('Creators you have not met yet. One press opens the chat.')
-                          : tr('You have met everybody here. Pick someone up where you left off.')}
-                    </p>
+                    {/* NO SUB-LINE (8 Sep 2026). Ethan: "remove this copy -
+                        'Creators you have not met yet, and a few worth picking
+                        back up.'"
+
+                        It was three sentences behind one ternary, which made it
+                        the last thing on this pane whose WORDING depended on a
+                        count that changes as queries land - the visible half of
+                        the flash he reported in the same breath. And it was
+                        restating the heading above it and the badges below it:
+                        the cards already say "Not met" or "New here" on the
+                        people it was describing. */}
                     {/* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
                         columns of full-width rows inside one boxed card, which
                         put a hairline grid across the middle of the largest

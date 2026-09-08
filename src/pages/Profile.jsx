@@ -783,15 +783,25 @@ export default function Profile() {
               nothing. A control that exists and refuses is a control a creator
               will press and be confused by; one that was never drawn is not.
 
-              The affordance is deliberately quiet: a dotted underline that
-              solidifies on hover. This is the heading of the page for the other
-              99% of visits and it must not start looking like a link. */}
+              NO UNDERLINE (8 Sep 2026). Ethan: "I don't need it to be
+              underlined, because hovering over it makes it orange and it's
+              clickable. It doesn't need to be underlined, so you can remove
+              that."
+
+              The dotted rule was there to say "this is pressable" without
+              shouting, on the reasoning that this is the page's own <h1> for
+              99% of visits. But those visits do not render this branch at all -
+              a creator gets the plain heading below - so the only person who
+              ever saw the dots was an admin, who already knows, and who has a
+              shield glyph beside the name and an orange hover to confirm it.
+              Three affordances for one control on a heading that is meant to
+              read as a name. */}
           {isAdmin && !isMe ? (
             <button
               type="button"
               onClick={() => setPeek(true)}
               title={tr('Open the admin record')}
-              className="group text-left text-3xl font-bold tracking-tight underline decoration-dotted decoration-from-font underline-offset-[6px] transition-colors duration-200 hoverable:hover:text-brand sm:text-[34px]"
+              className="group text-left text-3xl font-bold tracking-tight transition-colors duration-200 hoverable:hover:text-brand sm:text-[34px]"
             >
               {creator.name}
               <Icon name="shield" className="ml-2 inline-block h-4 w-4 align-middle text-gray-300 transition-colors duration-200 group-hover:text-brand" />

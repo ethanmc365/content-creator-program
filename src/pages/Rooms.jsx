@@ -132,20 +132,43 @@ function RoomRow({ to, room, last }) {
 function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, dragging }) {
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
   return (
+    /* THE PLACE IS A BANNER, NOT A CAPTION (8 Sep 2026).
+       Ethan: "I want the rooms UI page improved. Before you actually click on
+       the chat - the way the rooms actually work - I'm thinking maybe the
+       'Worldwide'/'UK & Ireland' title should be stronger, maybe a Tryp.com
+       orange card around it or something. And then we have the general chat
+       and the rest, which look good. So it's just improving that."
+
+       On a phone this page is four or five of these stacked, and the market
+       name was the same weight and colour as the room names underneath it -
+       14px semibold ink against 14px semibold ink - so scrolling it read as one
+       long list of Generals and Announcements with the odd flag in it. There
+       was nothing to tell you which community's General you were about to open,
+       which is the one question the page exists to answer.
+
+       So the header takes the card's top edge as its own band: brand tint,
+       flush to the corners (`-m-4 mb-3` cancels the card's padding), and the
+       name in brand. The rooms keep exactly the styling he says looks good.
+       That is the platform's own rule about orange - an ACCENT that does a job,
+       here dividing one market from the next - rather than a colour applied for
+       decoration. */
     <section className={cx(
-      'rounded-card border bg-white p-4 transition-shadow duration-150',
+      'overflow-hidden rounded-card border bg-white p-4 transition-shadow duration-150',
       isNetwork ? 'border-brand/25' : 'border-gray-100',
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
-      <div className="mb-2 flex items-center gap-2.5 px-1">
+      <div className={cx(
+        '-mx-4 -mt-4 mb-3 flex items-center gap-2.5 border-b px-4 py-3',
+        isNetwork ? 'border-brand/20 bg-brand-tint/70' : 'border-brand/10 bg-brand-tint/40',
+      )}>
         {isNetwork
           ? <Icon name="globe" className="h-4 w-4 shrink-0 text-brand" />
           : <FlagStack codes={place.country_codes} className="text-sm" />}
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
-          className="min-w-0 flex-1 truncate text-sm font-semibold transition-colors hover:text-brand">
+          className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em] text-brand transition-opacity hover:opacity-80">
           {place.name}
         </Link>
-        <span className="shrink-0 text-[11px] text-smoke">
+        <span className="shrink-0 text-[11px] font-semibold text-brand/70">
           {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
         </span>
         {/* The grip. A real affordance rather than a hidden long-press: on a
@@ -155,7 +178,7 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, draggi
           <button
             type="button"
             {...handleProps}
-            className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke active:cursor-grabbing"
+            className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-brand/40 transition-colors hover:bg-white/60 hover:text-brand active:cursor-grabbing"
           >
             <Icon name="grip" className="h-4 w-4" />
           </button>

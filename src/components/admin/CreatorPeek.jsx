@@ -164,11 +164,38 @@ export default function CreatorPeek({ creator, open, onClose }) {
           </div>
         </div>
 
-        {/* ---- Where to go for anything that CHANGES the account ---- */}
-        <div className="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row">
-          <Link to={`/admin/creators?open=${creator.id}`} onClick={onClose} className="btn-secondary flex-1 justify-center !py-2.5 text-xs">
-            {tr('Full admin record')}
-          </Link>
+        {/* ---- THEIR OWN PAGES, AS THEY SEE THEM (8 Sep 2026) ----
+            Ethan: "instead of this, it should just show up the popup with
+            everything - the popup that normally shows up when clicking on a
+            creator's profile on the creators page... so I can view their
+            dashboard, etcetera."
+
+            The sheet on /admin/creators has carried "Their profile / Their
+            dashboard / Their rewards" for weeks and this one had a button that
+            navigated AWAY to go and find them. So every question this popup is
+            opened to answer - what have they earned, where are they on the
+            milestones, what does their dashboard say - cost a page load and
+            losing your place, which is the exact friction that made him ask for
+            the popup in the first place ("so I don't have to go into creators
+            every time I want that information").
+
+            `?as=<id>` is the existing read-only mechanism - see
+            components/ViewingAs. It is inert for anybody who is not an admin,
+            and it grants nothing: it chooses which id the page filters on, and
+            row-level security decides what comes back. */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            {tr('Their pages')}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <PeekLink to={`/dashboard?as=${creator.id}`} onClose={onClose} icon="chart" label={tr('Dashboard')} />
+            <PeekLink to={`/rewards?as=${creator.id}`} onClose={onClose} icon="money" label={tr('Rewards')} />
+            <PeekLink to={`/milestones?as=${creator.id}`} onClose={onClose} icon="trophy" label={tr('Milestones')} />
+            <PeekLink to={`/admin/creators?open=${creator.id}`} onClose={onClose} icon="shield" label={tr('Admin record')} />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Link to={`/messages?to=${creator.id}`} onClick={onClose} className="btn-primary flex-1 justify-center !py-2.5 text-xs">
             <Icon name="envelope" className="h-4 w-4" />
             {tr('Message')}
@@ -176,6 +203,22 @@ export default function CreatorPeek({ creator, open, onClose }) {
         </div>
       </div>
     </Modal>
+  )
+}
+
+// One of the four ways out of the sheet. A tile rather than a button row
+// because four full-width buttons is a stack taller than the record above it,
+// and these are destinations, not actions.
+function PeekLink({ to, onClose, icon, label }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClose}
+      className="flex flex-col items-center gap-1.5 rounded-xl border border-gray-100 px-2 py-3 text-center text-[11px] font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand"
+    >
+      <Icon name={icon} className="h-4 w-4" />
+      {label}
+    </Link>
   )
 }
 

@@ -6,9 +6,7 @@ import {
 } from 'recharts'
 import { format } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
-import ErrorWatch from '../../../components/admin/ErrorWatch'
 import { Avatar, Skeleton, StatCard } from '../../../components/ui'
-import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
 
 // Community health: is the place actually being used, and by whom.
@@ -63,17 +61,42 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
   const [scorecard, setScorecard] = useState(null)
   const [sort, setSort] = useState('views')
 
+  // THE CHART IS SCOPED IN POSTGRES, BECAUSE THAT IS WHERE IT IS AGGREGATED
+  // (8 Sep 2026).
+  //
+  // Ethan: "the community health and weekly activity chart can't scope to the
+  // market. Maybe try actually fix it, so that we can see the activity by
+  // market and see which is the most active."
+  //
+  // Every other figure on this tab is a filter over rows the page already holds
+  // (`inMarket` below), which is why they scope for free and this one did not:
+  // `admin_weekly_activity` counts inside the database and returns week totals
+  // with no creator id attached, so there was nothing here to filter. The tab
+  // said so rather than pretending, which was right, and was not a fix.
+  //
+  // Migration 201 gives the function a `p_community` argument that applies the
+  // SAME membership test `inMarket` uses - an active `community_members` row -
+  // to every clause it counts. `null` is programme-wide and returns exactly what
+  // it always did. `market` is already a community id on this page (see
+  // `inMarket`), so it goes straight through.
+  //
+  // It refetches when the scope changes, which is the point: the numbers cannot
+  // be derived from the worldwide answer.
   useEffect(() => {
+    let alive = true
+    setWeekly(null)
     Promise.all([
-      supabase.rpc('admin_weekly_activity', { p_weeks: 16 }),
+      supabase.rpc('admin_weekly_activity', { p_weeks: 16, p_community: market || null }),
       supabase.rpc('admin_push_adoption'),
       supabase.rpc('admin_creator_scorecard'),
     ]).then(([w, p, s]) => {
+      if (!alive) return
       setWeekly(w.data ?? [])
       setPush(p.data ?? [])
       setScorecard(s.data ?? [])
     })
-  }, [])
+    return () => { alive = false }
+  }, [market])
 
   const inMarket = useMemo(() => {
     if (!market) return null
@@ -190,17 +213,17 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           <StatCard label="Unreachable" value={reach.creators - reach.withPush} hint="no push on any device" />
           <StatCard label="Chat push muted" value={reach.chatMuted} hint="switched it off in Settings" />
         </div>
-        {reach.pushPct < 50 && (
-          <p className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-700">
-            <Icon name="bell" className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Only {reach.pushPct}% of creators can be reached when a challenge goes live. Until that number
-              moves, announcements reach a fraction of the community, and any drop in entries is as likely to
-              be a delivery problem as a motivation one. Prompting for push during onboarding is the single
-              highest-leverage fix on this page.
-            </span>
-          </p>
-        )}
+        {/* THE AMBER PARAGRAPH IS GONE (8 Sep 2026). Ethan: "I would remove
+            the pop-up that says only nine percent of creators can be reached
+            when a challenge goes live. Until that number moves, I would remove
+            it, because it has a clear box above it that says nine percent, so
+            we have that, and that's good."
+
+            He is right and the reason is worth keeping: it was four lines of
+            argument under a tile that already states the figure, in a colour
+            that means "something is wrong" - so the page shouted the same fact
+            twice, and the loudest thing on a health dashboard was a paragraph
+            rather than a number. The tile carries it. */}
 
         <details className="mt-4 rounded-card border border-gray-100 shadow-card">
           <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">
@@ -274,14 +297,13 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
               <p className="mt-1 text-xs text-smoke">
                 Creators who posted, chatted or DMed that week, as a share of the community
               </p>
-              {/* SAYING SO IS BETTER THAN LOOKING SCOPED AND NOT BEING.
-                  `admin_weekly_activity` aggregates inside Postgres and returns
-                  no creator id, so a market filter cannot reach it from here.
-                  Every other number on this tab IS scoped. */}
+              {/* IT IS SCOPED NOW. The warning that used to be here - "this
+                  chart is not filtered to Spain yet" - was honest and is no
+                  longer true; see the loader above. The label is kept, because
+                  a chart of one market that does not say which one is a chart
+                  somebody will read as the whole programme. */}
               {market && (
-                <p className="mt-1 text-[11px] font-medium text-amber-700">
-                  Programme-wide. This chart is not filtered to {scopeLabel} yet.
-                </p>
+                <p className="mt-1 text-[11px] font-medium text-brand">{scopeLabel} only</p>
               )}
             </div>
             <button onClick={() => downloadCsv('weekly-activity.csv', data.weeks)} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
@@ -423,11 +445,16 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </table>
         </div>
       </section>
-      {/* WHETHER THE APP ITSELF IS WORKING IS PART OF COMMUNITY HEALTH.
-          It is last because it is usually empty, and an empty panel at the top
-          of a page reads as a page that failed to load. */}
-      <ErrorWatch />
+      {/* THE ERROR WATCH HAS ITS OWN TAB NOW (8 Sep 2026). Ethan: "the only
+          thing is you added the errors creators hit at the bottom. I wouldn't
+          put that at the bottom of here and would rather have a new tab for it,
+          just to the right of Community health, called Error monitoring, and
+          actually build it properly."
 
+          He is right about the placement for the reason it was put last in the
+          first place: it is usually empty, and a usually-empty panel welded to
+          the foot of a long page is one nobody scrolls to on the day it is not
+          empty. See the Error monitoring tab. */}
     </div>
   )
 }

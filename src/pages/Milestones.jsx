@@ -9,6 +9,7 @@ import { cx } from '../lib/utils'
 import { pageFade } from '../lib/motion'
 import { METRICS, criterionFraction, criterionLabel, humanDays, routeState } from '../lib/milestones'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
+import { useAuth } from '../context/AuthContext'
 import { useT } from '../lib/i18n'
 
 // Where a creator has got to, and what is next.
@@ -33,7 +34,21 @@ const SUMMARY = ['views', 'videos', 'referrals', 'challenges', 'podiums', 'days'
 export default function Milestones() {
   const tr = useT()
   // `?as=<id>` opens one creator's own route. See components/ViewingAs.
+  //
+  // AND IT IS NOW LINKED TO FROM SOMEWHERE (8 Sep 2026). Ethan: "I want to also
+  // be able to view any creator's milestone route, just the route, so I can see
+  // where they actually are on it." The page has read this parameter since it
+  // was written; nothing in the product ever produced the link, so the feature
+  // existed and was unreachable. CreatorPeek's "Their pages" row now carries
+  // it, beside their dashboard and their rewards.
+  //
+  // SAFE BY THE SERVER, not by this hook. `useViewAs` returns null for a
+  // non-admin, but that is a convenience: `milestone_progress` and
+  // `creator_metrics` both refuse any profile that is not the caller's own
+  // unless `is_admin()`, so a creator who guesses the parameter gets an empty
+  // route rather than somebody else's.
   const { id: whose, viewing, person } = useViewAs()
+  const { profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [standings, setStandings] = useState([])
   const [metrics, setMetrics] = useState(null)
@@ -128,7 +143,16 @@ export default function Milestones() {
                     for finishing a ladder he has not started. A page that
                     reports something untrue about you to check a drawing is a
                     bad trade; the admin editor has a preview panel for that. */}
-                <MilestonePath milestones={rows} standings={standings} />
+                {/* WHOSE FACE FLIES THE ROUTE. `person` when an admin is
+                    looking at somebody else's, the viewer's own otherwise -
+                    which is the same rule the banner above uses, so the picture
+                    on the route and the name in the banner can never disagree
+                    about who is being looked at. */}
+                <MilestonePath
+                  milestones={rows}
+                  standings={standings}
+                  who={viewing ? person : profile}
+                />
               </div>
 
               <aside className="space-y-4 lg:sticky lg:top-24">

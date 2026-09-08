@@ -229,15 +229,56 @@ export default function Landing() {
           {[
             { key: 'creators', value: stats?.creators, label: 'Creators', format: (n) => String(n) },
             { key: 'challenges', value: stats?.challenges, label: 'Challenges run', format: (n) => String(n) },
-            { key: 'prizes', value: stats?.prizes, label: 'Prizes awarded', format: (n) => formatMoney(n) },
+            // PRIZES ARE ROUNDED DOWN AND CARRY A PLUS (8 Sep 2026).
+            //
+            // Ethan: "we don't wanna say exactly how much we've given away,
+            // obviously, but because we uploaded that historical data of the
+            // challenges we can now show the number of how much you actually
+            // give out. Maybe just say whatever the thousand is, then a plus
+            // sign to show that we actually give more than that. So if we gave
+            // five thousand three hundred, you just go five thousand with the
+            // plus."
+            //
+            // `prizeFloor` does the rounding (see below); the PLUS is rendered
+            // as a separate static character rather than inside `format`,
+            // because `format` runs on every frame of the count-up. Folding the
+            // suffix into it is the same as folding the rounding into it: the
+            // tally would read "€0+" for most of a second and then jump the
+            // whole way, which is the one thing the counter exists not to do.
+            // The plus is a fact about the figure, not about the animation, so
+            // it is on screen from the first frame and never moves.
+            { key: 'prizes', value: prizeFloor(stats?.prizes), label: 'Prizes awarded', format: (n) => formatMoney(n), suffix: prizeFloor(stats?.prizes) < stats?.prizes ? '+' : '' },
           ].map((s, i) => (
             <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 60}ms` } : undefined}>
               <p className="text-3xl font-bold text-brand sm:text-5xl">
                 {stats
-                  ? <Tally value={s.value} format={s.format} />
-                  /* The tile keeps its height while it waits, so nothing on the
-                     page moves when the answer lands. */
-                  : <span className="inline-block h-[1em] w-16 rounded-lg bg-brand/10 align-middle sm:w-24" aria-hidden />}
+                  ? <><Tally value={s.value} format={s.format} />{s.suffix}</>
+                  /* THE PLACEHOLDER IS INVISIBLE, NOT ORANGE (8 Sep 2026).
+                     Ethan: "whenever it's first loading it shows up like the
+                     orange square there, and then the numbers start appearing
+                     and counting up. I really like the animation, it's just
+                     that orange square shouldn't appear there at all."
+
+                     It was `bg-brand/10` - a tinted block sized to the number
+                     that was coming. The intent was right and the execution
+                     announced itself: three orange rectangles are a louder
+                     thing on an empty white band than the numbers that replace
+                     them, so the band read as loading UI rather than as a page
+                     about to speak. The job it was actually doing is RESERVING
+                     THE LINE so nothing below it jumps when the answer lands,
+                     and an empty inline-block of the same height does that
+                     without being seen. The numbers now simply fade up into a
+                     space that was always quietly theirs.
+
+                     `align-top` rather than `align-middle`, and that is a
+                     measurement rather than a preference: an inline-block on
+                     the middle baseline sits its own box on top of the font's
+                     descent, so the placeholder line measured 51.1px against
+                     the real number's 48 and the whole page below it stepped up
+                     3px at the moment the figures landed. The reserve is only
+                     doing its job if it is the SAME height as what replaces
+                     it. */
+                  : <span className="inline-block h-[1em] w-16 align-top sm:w-24" aria-hidden />}
               </p>
               <p className="mt-2 text-xs font-medium text-smoke sm:text-sm">{tr(s.label)}</p>
             </div>
@@ -563,6 +604,33 @@ export default function Landing() {
 // setState sixty times a second, for the same reason the original does: three
 // counters re-rendering React every frame is work nobody can see the result of,
 // on exactly the frames that have to be smooth.
+// WHAT THE PUBLIC PAGE IS ALLOWED TO SAY ABOUT MONEY.
+//
+// Ethan: "we don't wanna say exactly how much we've given away." The exact
+// total is a real number the platform knows to the cent - it is the sum of
+// every distributed reward plus every prize on the forty-nine challenges the
+// programme ran before this existed - and a stranger reading "€9,295" is
+// reading a company's payout ledger to the euro. So the band shows the
+// THOUSAND BELOW it, with a plus: true, useful, and not a disclosure.
+//
+// ROUNDING DOWN IS THE WHOLE POINT AND IT IS NOT AN AESTHETIC CHOICE. Rounding
+// to nearest could round UP - €9,600 would print "€10,000+", which claims more
+// than was paid and puts a false number in front of people deciding whether to
+// join. Floor plus "+" can only ever understate, so every reading of it is
+// literally true.
+//
+// UNDER A THOUSAND THERE IS NOTHING TO ROUND TO: flooring €640 gives €0, and
+// "€0+" is a worse sentence than any exact figure. Below the first thousand the
+// band prints the real number and the caller drops the plus (it only appears
+// when the floor is genuinely below the total).
+const PRIZE_STEP = 1000
+
+function prizeFloor(total) {
+  const n = Number(total) || 0
+  if (n < PRIZE_STEP) return n
+  return Math.floor(n / PRIZE_STEP) * PRIZE_STEP
+}
+
 const COUNT_MS = 1600
 
 function Tally({ value, format = (n) => n }) {

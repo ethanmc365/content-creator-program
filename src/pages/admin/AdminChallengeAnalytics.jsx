@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -8,6 +8,11 @@ import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PlatformBadges from '../../components/PlatformBadges'
 import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv } from '../../lib/utils'
 import { compareBoards, prizeForGroup } from '../../lib/challengeGroups'
+import Icon from '../../components/Icon'
+import HistoryForm from '../../components/admin/HistoryForm'
+import { historyMetrics } from '../../lib/challengeHistory'
+import { useAuth } from '../../context/AuthContext'
+import { loadMarkets } from '../../lib/markets'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -19,16 +24,54 @@ const tooltipStyle = {
 }
 const PLATFORM_COLORS = { Instagram: '#d94407', TikTok: '#1A1A1A', YouTube: '#f5853f', Other: '#9CA3AF' }
 
+// A CHALLENGE ANALYTICS PAGE THAT IS OPENED FOR THINGS THAT ARE NOT CHALLENGES
+// (8 Sep 2026).
+//
+// Ethan: "if I click Challenge performance, scroll down and click on a
+// challenge like the Spain Monthly one, clicking it - the thing crashes, I get
+// the Mayday screen, which is very frustrating. And the ability to fill in the
+// other ones, because currently clicking on them just doesn't do anything."
+//
+// Reproduced exactly: `Cannot read properties of null (reading 'title')`.
+//
+// The Challenge performance tab lists FORTY-NINE rows and forty-eight of them
+// are `challenge_history` - the programme's pre-platform record, imported by
+// migration 198 - while ONE is a live `challenges` row. Every card links to
+// `/admin/analytics/<id>` regardless, this page asked `challenges` for that id
+// with `.single()`, got `{ data: null }`, and read `.title` off it. So the tab
+// that exists to let somebody study the programme's history crashed on
+// forty-eight of its own forty-nine entries, and on the only one it did open
+// there was nothing to click through to.
+//
+// The page now asks BOTH tables and renders whichever answered. A logged
+// challenge has no submissions, no leaderboard and no prize engine - it is four
+// numbers and what they mean - so it gets its own, much smaller view, with the
+// editor attached: which is the second half of what Ethan asked for, "clicking
+// on the old challenge, I should be able to fix it out of there".
 export default function AdminChallengeAnalytics() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { profile } = useAuth()
   const [raw, setRaw] = useState(null)
+  const [markets, setMarkets] = useState([])
+  const [editing, setEditing] = useState(false)
+  // Bumped after an edit so the loader re-runs. The derived metrics below are
+  // computed FROM the row, so patching state in place would leave the old CPM
+  // beside the new view count.
+  const [refresh, setRefresh] = useState(0)
+
+  useEffect(() => { loadMarkets().then((m) => setMarkets(m || [])) }, [])
 
   useEffect(() => {
     async function load() {
-      const [{ data: challenge }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators },
+      const [{ data: challenge }, { data: logged }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators },
         { data: groups }, { data: groupMembers }] =
         await Promise.all([
-          supabase.from('challenges').select('*').eq('id', id).single(),
+          // `maybeSingle`, NOT `single`. `single()` treats "no row" as an error
+          // and hands back a null `data` either way, which is precisely how a
+          // missing challenge became an unhandled null two lines later.
+          supabase.from('challenges').select('*').eq('id', id).maybeSingle(),
+          supabase.from('challenge_history').select('*').eq('id', id).maybeSingle(),
           supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
           supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
           supabase.from('rewards').select('*').eq('challenge_id', id),
@@ -37,13 +80,13 @@ export default function AdminChallengeAnalytics() {
           supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
         ])
       setRaw({
-        challenge, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],
+        challenge, logged, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],
         totalCreators: totalCreators ?? 0,
         groups: groups ?? [], groupMembers: groupMembers ?? [],
       })
     }
     load()
-  }, [id])
+  }, [id, refresh])
 
   const d = useMemo(() => {
     if (!raw) return null
@@ -82,7 +125,23 @@ export default function AdminChallengeAnalytics() {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
   }
 
-  const { challenge, subs, results, groups, groupMembers } = raw
+  const { challenge, logged, subs, results, groups, groupMembers } = raw
+
+  // A LOGGED CHALLENGE, OR NOTHING AT ALL. Neither is a crash.
+  if (!challenge) {
+    return (
+      <LoggedChallenge
+        row={logged}
+        markets={markets}
+        userId={profile?.id}
+        editing={editing}
+        onEdit={() => setEditing(true)}
+        onClose={() => setEditing(false)}
+        onSaved={() => { setEditing(false); setRefresh((n) => n + 1) }}
+        onDeleted={() => navigate('/admin/analytics?tab=programme')}
+      />
+    )
+  }
 
   // THE COMBINED FIGURE IS THE ONE ON THE TILES; THE GROUPS ARE UNDERNEATH.
   //
@@ -316,6 +375,150 @@ export default function AdminChallengeAnalytics() {
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+// ONE ROW OF THE PROGRAMME'S RECORD, AND THE FORM THAT CORRECTS IT.
+//
+// This is what opens for forty-eight of the forty-nine entries on the Challenge
+// performance tab: a challenge that ran before this platform existed, or beside
+// it on WhatsApp. There are no submissions to list and no leaderboard to draw -
+// see migration 197 for why that is deliberate rather than missing - so the
+// page is the four numbers it was recorded with, the six ratios they imply, and
+// a button to fix any of them.
+//
+// EVERY RATIO IS COMPUTED, NEVER STORED. `historyMetrics` is the same function
+// the log page and the form's live preview use, so a corrected view count moves
+// the CPM here, on the log, and in the programme blend, with no second copy to
+// forget.
+function LoggedChallenge({ row, markets, userId, editing, onEdit, onClose, onSaved, onDeleted }) {
+  // Not a challenge and not in the log either: a stale link, or a row somebody
+  // deleted while this tab was open. It says so instead of crashing, which is
+  // the entire reason this component exists.
+  if (!row) {
+    return (
+      <div className="page">
+        <PageHeader back={{ to: '/admin/analytics', label: 'Analytics' }} title="Not found" />
+        <div className="card !p-8 text-center">
+          <Icon name="magnifier" className="mx-auto h-7 w-7 text-gray-300" />
+          <p className="mt-3 font-semibold">No challenge with that id</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
+            It is neither a challenge on the platform nor a row in the challenge log. It may
+            have been deleted since this link was made.
+          </p>
+          <Link to="/admin/analytics?tab=programme" className="btn-secondary mt-5 !py-2 text-xs">
+            Back to challenge performance
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const m = historyMetrics(row)
+  const market = markets.find((x) => x.id === row.community_id)
+  const dash = (v, fn) => (v == null ? '—' : fn(v))
+
+  return (
+    <div className="page">
+      <PageHeader
+        back={{ to: '/admin/analytics?tab=programme', label: 'Analytics' }}
+        title={row.title || `${row.country_code} challenge`}
+        subtitle={[
+          market?.name || row.country_code,
+          row.starts_at && row.ends_at ? `${formatDate(row.starts_at)} → ${formatDate(row.ends_at)}` : null,
+          m.days ? `${m.days} days` : null,
+          row.cadence,
+        ].filter(Boolean).join(' · ')}
+        action={
+          <button onClick={onEdit} className="btn-primary !py-2 text-xs">
+            <Icon name="pencil" className="h-4 w-4" /> Edit the numbers
+          </button>
+        }
+      />
+
+      {/* WHERE THIS ROW CAME FROM, SAID PLAINLY. Somebody landing here from the
+          programme table needs to know within a second why there is no
+          leaderboard on it - and "run before this platform" is the answer, not
+          "the data is missing". */}
+      <div className="mb-6 flex items-start gap-3 rounded-card border border-gray-100 bg-cloud/50 px-4 py-3">
+        <Icon name="bulb" className="mt-0.5 h-4 w-4 shrink-0 text-smoke" />
+        <p className="text-xs leading-relaxed text-smoke">
+          This challenge was run off the platform, so it is held as a recorded total rather
+          than as entries. There are no submissions, leaderboard or payouts attached to it -
+          only the figures below, which every programme average is built from.
+          {row.source === 'manual' ? ' Added by hand.' : ' Imported from the challenge tracker.'}
+        </p>
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Prize money" value={dash(row.prize_total, (v) => formatMoney(v, row.prize_currency || 'EUR'))} hint={row.prize_type || undefined} />
+        <StatCard label="Total views" value={dash(row.total_views, formatViews)} accent />
+        <StatCard label="Creators" value={dash(row.creators, (v) => v.toLocaleString())} />
+        <StatCard label="Posts" value={dash(row.posts, (v) => v.toLocaleString())} />
+      </div>
+
+      <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="CPM" value={dash(m.cpm, (v) => formatMoney(v, 'EUR'))} hint="per 1,000 views" accent />
+        <StatCard label="Cost / post" value={dash(m.costPerPost, (v) => formatMoney(v, 'EUR'))} />
+        <StatCard label="Cost / creator" value={dash(m.costPerCreator, (v) => formatMoney(v, 'EUR'))} />
+        <StatCard label="Posts / creator" value={dash(m.postsPerCreator, (v) => v.toFixed(1))} />
+      </div>
+      <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Views / post" value={dash(m.viewsPerPost, (v) => formatViews(Math.round(v)))} />
+        <StatCard label="Views / creator" value={dash(m.viewsPerCreator, (v) => formatViews(Math.round(v)))} />
+        <StatCard label="Winners" value={dash(row.winners, (v) => v.toLocaleString())} />
+        <StatCard label="Status" value={row.status || '—'} />
+      </div>
+
+      {/* A DASH IS A FACT, AND IT IS WORTH ONE SENTENCE. Fourteen imported rows
+          have no view count because nobody ever logged one. Treating that as
+          zero would drag every programme average down with a number that was
+          never recorded, so the blend leaves them out - and somebody looking at
+          a page of dashes should be told that rather than assume a bug. */}
+      {row.total_views == null && (
+        <p className="mb-8 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          <Icon name="clock" className="h-4 w-4 shrink-0" />
+          The views for this challenge were never measured, so it is left out of every blended
+          figure on the programme. Add them here and it joins the averages.
+        </p>
+      )}
+
+      {(row.objective || row.cohort || row.content_type || row.notes) && (
+        <section className="card">
+          <h2 className="mb-4 font-semibold">How it was run</h2>
+          <dl className="grid gap-4 sm:grid-cols-3">
+            <Detail label="Objective" value={row.objective} />
+            <Detail label="Group" value={row.cohort} />
+            <Detail label="Prize type" value={row.prize_type} />
+          </dl>
+          {row.notes && (
+            <p className="mt-5 whitespace-pre-wrap border-t border-gray-100 pt-4 text-sm leading-relaxed text-smoke">
+              {row.notes}
+            </p>
+          )}
+        </section>
+      )}
+
+      {editing && (
+        <HistoryForm
+          row={row}
+          markets={markets}
+          userId={userId}
+          onClose={onClose}
+          onSaved={onSaved}
+          onDelete={onDeleted}
+        />
+      )}
+    </div>
+  )
+}
+
+function Detail({ label, value }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</dt>
+      <dd className="mt-1 text-sm font-medium">{value || '—'}</dd>
     </div>
   )
 }
