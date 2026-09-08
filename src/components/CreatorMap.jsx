@@ -1460,18 +1460,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </div>
       )}
 
-      {legend && (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/90 px-3 py-2.5 shadow-card ring-1 ring-black/5 backdrop-blur">
-          <span className="flex items-center gap-2 text-[11px] font-medium text-ink">
-            <span className="h-3 w-3 rounded-sm" style={{ background: HOME_FILL }} aria-hidden />
-            {tr('Where we live')}
-          </span>
-          <span className="flex items-center gap-2 text-[11px] font-medium text-ink">
-            <span className="h-3 w-3 rounded-sm" style={{ background: EXPLORED_FILL }} aria-hidden />
-            {tr('Where we have filmed')}
-          </span>
-        </div>
-      )}
+      {/* THE KEY IS NO LONGER ON THE MAP. See `legendStrip` below. */}
 
       {/* THE CORNER OF A PHONE IS NOT WHERE THE SCREEN ENDS. In full screen the
           map is edge to edge, and a landscape phone puts its rounded corners
@@ -1898,6 +1887,38 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     )
   }
 
+  // THE KEY SITS UNDER THE MAP, IN ONE LINE (8 Sep 2026).
+  //
+  // Ethan: "we have the 'where we live' and the 'where we have filmed'. This
+  // takes up a lot of the map. I would actually put it as a little key directly
+  // below the map, across the bottom of it, rather than taking it up two lines.
+  // This way it would fit better and there would be more space for the actual
+  // map."
+  //
+  // It was a floating white card pinned to the map's bottom-left corner with
+  // its two entries stacked. On a 375px screen that card is about a third of
+  // the width and a fifth of the height of the map it is explaining, and it
+  // covers the Atlantic and most of South America - so the key was hiding the
+  // very thing it was a key TO.
+  //
+  // A key is a caption, not an annotation: nothing about it needs to be over
+  // the picture. Below and centred it costs one 28px line, takes nothing away
+  // from the map, and reads as a row rather than a list because two items side
+  // by side are obviously a pair of alternatives.
+  const legendStrip = legend ? (
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+      {[
+        { fill: HOME_FILL, label: tr('Where we live') },
+        { fill: EXPLORED_FILL, label: tr('Where we have filmed') },
+      ].map((k) => (
+        <span key={k.label} className="flex items-center gap-2 text-[11px] font-medium text-smoke">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: k.fill }} aria-hidden />
+          {k.label}
+        </span>
+      ))}
+    </div>
+  ) : null
+
   // One card: the caption, a hairline, the map. See the note on the `header`
   // prop for what this replaces.
   const mapCard = header ? (
@@ -1910,6 +1931,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   return (
     <div ref={rootRef} className="w-full">
       {mapCard}
+      {legendStrip}
       {/* PHONES GET THE COUNTRY UNDER THE MAP, NOT OVER IT.
           The map box is about 180px tall at 375px wide. An overlay inside it is
           a card covering the thing it describes, with the creator list squeezed

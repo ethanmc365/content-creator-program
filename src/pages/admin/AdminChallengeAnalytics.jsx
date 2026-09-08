@@ -64,7 +64,7 @@ export default function AdminChallengeAnalytics() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: challenge }, { data: logged }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators },
+      const [{ data: challenge }, { data: logged }, { data: siblings }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators },
         { data: groups }, { data: groupMembers }] =
         await Promise.all([
           // `maybeSingle`, NOT `single`. `single()` treats "no row" as an error
@@ -72,6 +72,11 @@ export default function AdminChallengeAnalytics() {
           // missing challenge became an unhandled null two lines later.
           supabase.from('challenges').select('*').eq('id', id).maybeSingle(),
           supabase.from('challenge_history').select('*').eq('id', id).maybeSingle(),
+          // The rest of the log, so a logged challenge can be shown AGAINST the
+          // programme rather than as four numbers on their own. See the note on
+          // `Compare` below - this is the whole of "I want a much better view,
+          // we want graphs".
+          supabase.from('challenge_history').select('id, community_id, title, starts_at, prize_total, total_views, creators, posts'),
           supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
           supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
           supabase.from('rewards').select('*').eq('challenge_id', id),
@@ -80,7 +85,7 @@ export default function AdminChallengeAnalytics() {
           supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
         ])
       setRaw({
-        challenge, logged, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],
+        challenge, logged, siblings: siblings ?? [], subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],
         totalCreators: totalCreators ?? 0,
         groups: groups ?? [], groupMembers: groupMembers ?? [],
       })
@@ -125,13 +130,14 @@ export default function AdminChallengeAnalytics() {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
   }
 
-  const { challenge, logged, subs, results, groups, groupMembers } = raw
+  const { challenge, logged, siblings, subs, results, groups, groupMembers } = raw
 
   // A LOGGED CHALLENGE, OR NOTHING AT ALL. Neither is a crash.
   if (!challenge) {
     return (
       <LoggedChallenge
         row={logged}
+        siblings={siblings}
         markets={markets}
         userId={profile?.id}
         editing={editing}
@@ -392,7 +398,7 @@ export default function AdminChallengeAnalytics() {
 // the log page and the form's live preview use, so a corrected view count moves
 // the CPM here, on the log, and in the programme blend, with no second copy to
 // forget.
-function LoggedChallenge({ row, markets, userId, editing, onEdit, onClose, onSaved, onDeleted }) {
+function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onClose, onSaved, onDeleted }) {
   // Not a challenge and not in the log either: a stale link, or a row somebody
   // deleted while this tab was open. It says so instead of crashing, which is
   // the entire reason this component exists.
@@ -417,7 +423,52 @@ function LoggedChallenge({ row, markets, userId, editing, onEdit, onClose, onSav
 
   const m = historyMetrics(row)
   const market = markets.find((x) => x.id === row.community_id)
+  const marketName = market?.name || row.country_code || 'its market'
   const dash = (v, fn) => (v == null ? '—' : fn(v))
+
+  // THE AVERAGES ARE BLENDED, NOT AVERAGED. Summing the parts and dividing once
+  // is the same rule the programme blend follows: a mean of per-challenge CPMs
+  // gives a €40 pilot the same weight as a €900 flagship, which is how a page
+  // ends up disagreeing with the tab that linked to it.
+  const others = (siblings || []).filter((r) => r.id !== row.id && r.total_views != null)
+  const blend = (list) => {
+    if (!list.length) return null
+    const sum = (k) => list.reduce((n, r) => n + (Number(r[k]) || 0), 0)
+    const views = sum('total_views')
+    const posts = sum('posts')
+    const creators = sum('creators')
+    return {
+      cpm: views > 0 ? sum('prize_total') / (views / 1000) : null,
+      viewsPerPost: posts > 0 ? views / posts : null,
+      postsPerCreator: creators > 0 ? posts / creators : null,
+    }
+  }
+  const sameMarket = row.community_id ? others.filter((r) => r.community_id === row.community_id) : []
+  const compareCounts = { market: sameMarket.length, all: others.length }
+  const marketBlend = blend(sameMarket)
+  const allBlend = blend(others)
+
+  const eur = (v) => (v == null ? '-' : formatMoney(v, 'EUR'))
+  const round = (v) => (v == null ? '-' : Math.round(v).toLocaleString())
+  const oneDp = (v) => (v == null ? '-' : v.toFixed(1))
+  const series = [
+    { key: 'cpm', label: 'Cost per 1,000 views', mine: m.cpm, format: eur },
+    { key: 'vpp', label: 'Views per post', mine: m.viewsPerPost, format: round },
+    { key: 'ppc', label: 'Posts per creator', mine: m.postsPerCreator, format: oneDp },
+  ]
+  const pick = { cpm: 'cpm', vpp: 'viewsPerPost', ppc: 'postsPerCreator' }
+  // A chart with one bar on it is not a comparison, so a challenge with nothing
+  // to compare against simply does not draw this section.
+  const comparisons = allBlend && m.cpm != null
+    ? series.map((sr) => ({
+      ...sr,
+      bars: [
+        { name: 'This one', value: sr.mine ?? 0, self: true },
+        ...(marketBlend && sameMarket.length ? [{ name: marketName, value: marketBlend[pick[sr.key]] ?? 0 }] : []),
+        { name: 'Programme', value: allBlend[pick[sr.key]] ?? 0 },
+      ],
+    })).filter((c) => c.bars.some((b) => b.value > 0))
+    : []
 
   return (
     <div className="page">
@@ -464,11 +515,13 @@ function LoggedChallenge({ row, markets, userId, editing, onEdit, onClose, onSav
         <StatCard label="Cost / creator" value={dash(m.costPerCreator, (v) => formatMoney(v, 'EUR'))} />
         <StatCard label="Posts / creator" value={dash(m.postsPerCreator, (v) => v.toFixed(1))} />
       </div>
+      {/* STATUS IS NOT A TILE ANY MORE. Every row in this table is finished -
+          the form does not offer any other answer - so a tile reading "done" on
+          every page was a constant printed as a measurement. Winners moved down
+          to "How it was run", beside the prize type it belongs with. */}
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Views / post" value={dash(m.viewsPerPost, (v) => formatViews(Math.round(v)))} />
         <StatCard label="Views / creator" value={dash(m.viewsPerCreator, (v) => formatViews(Math.round(v)))} />
-        <StatCard label="Winners" value={dash(row.winners, (v) => v.toLocaleString())} />
-        <StatCard label="Status" value={row.status || '—'} />
       </div>
 
       {/* A DASH IS A FACT, AND IT IS WORTH ONE SENTENCE. Fourteen imported rows
@@ -484,13 +537,59 @@ function LoggedChallenge({ row, markets, userId, editing, onEdit, onClose, onSav
         </p>
       )}
 
-      {(row.objective || row.cohort || row.content_type || row.notes) && (
+      {/* ---- HOW IT COMPARES ----
+          Ethan: "on the actual [page], whenever clicking on a challenge, I want
+          a much better view - we want graphs etc."
+
+          A logged challenge has no time series to draw. It is four totals, and
+          a bar chart of four totals against nothing is decoration. What it DOES
+          have is fifty siblings, and that is the shape the question actually
+          takes: was this one good? So every chart here is comparative - this
+          challenge against its own market, and against the whole programme, on
+          the three ratios the tiles above report. The bar for this challenge is
+          solid brand; the comparisons are the pale one, because one of the four
+          bars is the subject and three are context. */}
+      {comparisons.length > 0 && (
+        <section className="card mb-6">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold">How it compares</h2>
+            <p className="text-xs text-smoke">
+              Against {compareCounts.market > 0 ? `${compareCounts.market} in ${marketName}, and ` : ''}
+              {compareCounts.all} across the programme
+            </p>
+          </div>
+          <p className="mb-6 text-xs text-smoke">Only challenges with a logged view count are averaged in.</p>
+          <div className="grid gap-6 lg:grid-cols-3">
+            {comparisons.map((c) => (
+              <div key={c.key}>
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-smoke">{c.label}</p>
+                <div className="h-44">
+                  <ResponsiveContainer>
+                    <BarChart data={c.bars} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }}>
+                      <XAxis type="number" hide />
+                      <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => c.format(v)} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={26} label={{ position: 'right', fontSize: 11, fill: '#6B7280', formatter: c.format }}>
+                        {c.bars.map((b) => (
+                          <Cell key={b.name} fill={b.self ? BRAND : BRAND_LIGHT} fillOpacity={b.self ? 1 : 0.45} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(row.prize_type || row.notes) && (
         <section className="card">
           <h2 className="mb-4 font-semibold">How it was run</h2>
           <dl className="grid gap-4 sm:grid-cols-3">
-            <Detail label="Objective" value={row.objective} />
-            <Detail label="Group" value={row.cohort} />
             <Detail label="Prize type" value={row.prize_type} />
+            <Detail label="Winners" value={row.winners == null ? null : String(row.winners)} />
+            <Detail label="Length" value={m.days ? `${m.days} days` : null} />
           </dl>
           {row.notes && (
             <p className="mt-5 whitespace-pre-wrap border-t border-gray-100 pt-4 text-sm leading-relaxed text-smoke">

@@ -334,10 +334,57 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // stop, and the plane should sit two-thirds of the way along the leg.
   const legFraction = next ? milestoneFraction(next) : 1
   const legs = Math.max(1, nodes.length - 1)
-  const progress = Math.min(1, (reached + legFraction) / legs)
 
-  const planeSeg = segs[Math.min(reached, segs.length - 1)]
-  const plane = planeSeg ? cubicAt(planeSeg, reached >= segs.length ? 1 : legFraction) : null
+  // NOBODY EVER PARKS ON A DOT (8 Sep 2026).
+  //
+  // Ethan: "I would have everyone automatically start a bit on the route. So
+  // the first one should be ticked off and they should be at least halfway onto
+  // the getting started one... And whenever they get to an actual circle it
+  // should be ticked off, and I think they should never actually be stopped on
+  // a circle - it should always look like they're going towards the next one.
+  // So once they actually reach the getting started goals, the plane animation
+  // should go there, tick it off, and then be halfway to the next one, and stop
+  // there with the plane at the front. I think this makes sense and it
+  // motivates creators better."
+  //
+  // It does, and it is a real observation about what the drawing SAYS. Parked
+  // on a dot, the marker means "this is where I stopped". Half a leg past it,
+  // the same marker means "this is where I am going" - and the second is true
+  // of every creator on this platform, including the one who joined a minute
+  // ago and has done nothing yet. The old drawing sat that person exactly on
+  // the first dot, which reads as a journey that has not started.
+  //
+  // So: a fresh creator is half a leg along, and anybody standing exactly on a
+  // stop is nudged half a leg past it. `MIN_LEG` is a half rather than a
+  // quarter because a half is unmistakably BETWEEN two dots at any route
+  // length; a quarter reads as an imprecise arrival at the one behind.
+  //
+  // THE ONE EXCEPTION IS FINISHING. Somebody who has reached the last stop is
+  // not heading anywhere - there is nowhere further along the line - so they
+  // land on it, and the plane comes off (see `flying`). Arriving is the one
+  // moment a dot is the right place to be.
+  const MIN_LEG = 0.5
+  const finished = reached >= legs
+  const shownLegs = finished
+    ? legs
+    // `legFraction === 0` is "standing exactly on a stop": either the very
+    // start, or a milestone just reached with no progress yet toward the next.
+    : Math.max(MIN_LEG, legFraction === 0 ? reached + MIN_LEG : reached + legFraction)
+  const progress = Math.min(1, shownLegs / legs)
+
+  // The static marker position has to be derived from the SAME number, or the
+  // pre-flight plane and the flown one sit in different places.
+  const shownReached = Math.floor(shownLegs)
+  const shownFraction = shownLegs - shownReached
+  const planeSeg = segs[Math.min(shownReached, segs.length - 1)]
+  const plane = planeSeg ? cubicAt(planeSeg, shownReached >= segs.length ? 1 : shownFraction) : null
+
+  // THE PLANE IS ONLY THERE WHILE THERE IS SOMEWHERE TO BE GOING.
+  // Ethan: "I would only show the plane icon whenever someone's actually
+  // animating on the route." Once the whole route is complete the marker is an
+  // arrival, not a journey, and an aircraft nosing off the end of a finished
+  // line points at nothing.
+  const flying = !finished
   // Where the aeroplane waits before take-off: the first dot, facing the way
   // the route leaves it. Null once the flight has started.
   const start = !started && segs.length ? cubicAt(segs[0], 0) : null
@@ -533,9 +580,18 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
               <g transform={`translate(${start.x} ${start.y})`}>
                 <RouteFace who={who} />
               </g>
-              <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
-                <g transform="translate(26 0) scale(0.72)"><PlaneMark /></g>
-              </g>
+              {/* A BIGGER AIRCRAFT. Ethan: "the little tiny plane icon looks
+                  weird beside the big profile picture, so I'd make the plane
+                  icon slightly bigger." The face is a 52px halo around a 38px
+                  photograph and the plane was drawn at 0.72; at that size it
+                  read as a speck of debris beside it rather than as the thing
+                  pulling it along. 0.95 puts it in proportion, and the forward
+                  offset grows with it so the two still do not overlap. */}
+              {flying && (
+                <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
+                  <g transform="translate(30 0) scale(0.95)"><PlaneMark /></g>
+                </g>
+              )}
             </g>
           )
           : (
@@ -555,13 +611,21 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                   keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
                 />
               </g>
-              <g>
-                {/* 26px FORWARD ALONG THE TANGENT. `rotate="auto"` below aligns
+              <g style={{ display: flying ? undefined : 'none' }}>
+                {/* 30px FORWARD ALONG THE TANGENT. `rotate="auto"` below aligns
                     this group's +x axis with the direction of travel, so a
                     plain translate on x puts the aircraft AHEAD of the face on
                     the route rather than on top of it - at every angle, with no
-                    arithmetic of our own. */}
-                <g transform="translate(26 0) scale(0.72)"><PlaneMark /></g>
+                    arithmetic of our own. Grown from 26/0.72 with the aircraft
+                    itself; see the note on the parked copy above.
+
+                    HIDDEN WITH `display`, NOT UNMOUNTED. The `animateMotion`
+                    inside this group is triggered by `beginElement` in an
+                    effect that runs once - taking the element out of the tree
+                    on a finished route and putting it back on the next render
+                    would leave a SMIL animation nobody ever begins, which is
+                    the corner-of-the-card bug described above. */}
+                <g transform="translate(30 0) scale(0.95)"><PlaneMark /></g>
                 {/* `begin="indefinite"` + beginElement, NOT a bare dur. See the
                     note on `started` above: SMIL against the document timeline
                     had already finished by the time anybody scrolled here.

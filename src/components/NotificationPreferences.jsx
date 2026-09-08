@@ -340,10 +340,6 @@ export function CreatorNotifications({ state }) {
           </div>
         </div>
       </Panel>
-
-      <p className="px-1 text-xs text-smoke">
-        {tr("Account-critical email, like a password reset link, is always sent whatever you choose here.")}
-      </p>
     </div>
   )
 }

@@ -18,23 +18,39 @@ import { scopeToMarket } from '../../lib/analyticsScope'
 import { convert } from '../../lib/programme'
 import MarketScope from '../../components/admin/MarketScope'
 
+// THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
+//
+// "I would just change the name to Challenges rather than Challenge performance.
+// I would also move it over to the very left. So Overview, then Challenges,
+// then Growth, then Community health, then Per creator, then Connections, and
+// then Error monitoring on the very right. I think this is a better layout."
+//
+// It is, and the reason is worth writing down: the tab strip was ordered by
+// when each tab was BUILT, which put the programme's headline numbers - the
+// half of this page a pitch runs on - fourth, behind two tabs about how the
+// community is doing. Challenges is what the programme IS. Errors go last
+// because a tab you want to be empty does not belong beside the ones you open
+// every day.
+//
+// "Challenge performance" became "Challenges" for the same reason the market
+// filter became a chip: the tab does not need to explain itself in its own
+// label, and the longer name was the widest thing on the strip.
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'programme', label: 'Challenges' },
   { key: 'growth', label: 'Growth' },
-  { key: 'creators', label: 'Per creator' },
-  { key: 'programme', label: 'Challenge performance' },
   { key: 'community', label: 'Community health' },
-  // ERRORS GET THEIR OWN TAB (8 Sep 2026). Ethan: "I wouldn't put that at the
-  // bottom of [community health] and would rather have a new tab for it, just
-  // to the right of Community health, called Error monitoring, and actually
-  // build it properly." It was a panel at the foot of a long page, which is the
-  // one place a usually-empty list is guaranteed not to be looked at on the day
-  // it stops being empty.
-  { key: 'errors', label: 'Error monitoring' },
+  { key: 'creators', label: 'Per creator' },
   // Community network folded in from its own admin page. "How connected is the
   // community" and "how is the community doing" were two doors onto the same
   // question, and one of them was a tile on the panel.
   { key: 'network', label: 'Connections' },
+  // ERRORS GET THEIR OWN TAB (8 Sep 2026). Ethan: "I wouldn't put that at the
+  // bottom of [community health] and would rather have a new tab for it, and
+  // actually build it properly." It was a panel at the foot of a long page,
+  // which is the one place a usually-empty list is guaranteed not to be looked
+  // at on the day it stops being empty.
+  { key: 'errors', label: 'Error monitoring' },
 ]
 
 // Admin analytics: the community's health at a glance. Recharts (free) for the
@@ -637,7 +653,7 @@ export default function AdminAnalytics() {
         <PageHeader
           back="/admin"
           title="Analytics"
-          subtitle="Every crash a creator has actually hit, grouped by fault."
+          subtitle="Anything broken: crashes creators hit, and scheduled jobs that failed."
         />
         {tabBar}
         {/* NO MARKET PICKER HERE, DELIBERATELY. A crash is a property of the
@@ -961,47 +977,15 @@ export default function AdminAnalytics() {
         </ChartCard>
       </div>
 
-      {/* ---------- All challenges (clickable, scales to any number) ---------- */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold">All challenges</h2>
-        <p className="mb-4 text-sm text-smoke">Tap any challenge for a full performance breakdown.</p>
-        <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-          {/* Header row (hidden on mobile) */}
-          <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-3 border-b border-gray-100 bg-cloud/60 px-5 py-3 text-xs font-semibold text-smoke sm:grid">
-            <span>Challenge</span><span className="text-right">Creators</span><span className="text-right">Entries</span><span className="text-right">Total views</span><span className="text-right">Paid out</span>
-          </div>
-          {[...derived.perChallenge].reverse().map((c) => (
-            <button
-              key={c.id}
-              onClick={() => navigate(`/admin/analytics/${c.id}`)}
-              className="grid w-full grid-cols-2 items-center gap-3 border-b border-gray-50 px-5 py-4 text-left transition-colors last:border-0 hover:bg-cloud/60 sm:grid-cols-[2fr_1fr_1fr_1fr_1fr]"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{c.fullTitle}</span>
-                <span className="text-xs capitalize text-smoke">{c.status}</span>
-              </span>
-              {/* ON A PHONE THIS WAS ONE NUMBER OUT OF FOUR. Entries, views and
-                  spend were all `hidden sm:block`, so the mobile row said a
-                  challenge existed and how many creators were in it - and the
-                  three figures somebody opens an analytics page FOR were only
-                  on a desktop. They fold into a labelled line under the title
-                  instead, which fits and reads. */}
-              <span className="text-right text-sm tabular-nums sm:block">
-                <span className="text-xs text-smoke sm:hidden">Creators </span>{c.creators}
-              </span>
-              <span className="hidden text-right text-sm tabular-nums sm:block">{c.submissions}</span>
-              <span className="hidden text-right text-sm tabular-nums sm:block">{formatViews(c.totalViews)}</span>
-              <span className="hidden text-right text-sm font-medium tabular-nums sm:block">{formatMoney(c.prizesPaid, currency)}</span>
-              <span className="col-span-2 -mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-smoke sm:hidden">
-                <span>{c.submissions} {c.submissions === 1 ? 'entry' : 'entries'}</span>
-                <span>{formatViews(c.totalViews)} views</span>
-                <span className="font-medium text-ink">{formatMoney(c.prizesPaid, currency)} paid</span>
-              </span>
-            </button>
-          ))}
-          {derived.perChallenge.length === 0 && <p className="px-5 py-10 text-center text-sm text-smoke">No challenges yet.</p>}
-        </div>
-      </section>
+      {/* THE ALL-CHALLENGES TABLE IS GONE FROM THE OVERVIEW (8 Sep 2026).
+          Ethan: "on the Overview we have the All challenges [table] at the
+          bottom... we no longer need that there because we have our own
+          Challenges section, so you can remove it."
+
+          Right, and it was worse than redundant. It listed the platform's
+          `challenges` rows only - one of them - under a heading that says "all",
+          while the Challenges tab next door lists all fifty including the
+          logged ones. Two tables, one honest. */}
     </div>
   )
 }

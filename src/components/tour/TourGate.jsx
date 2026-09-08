@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useCommunity } from '../../context/CommunityContext'
@@ -94,6 +95,7 @@ export default function TourGate() {
   // WAS THIS WALK STARTED BY US OR ASKED FOR. The first run is not skippable -
   // see `required` in TourHost - and a re-run from Settings is. Restored from
   // the same flag, so a resumed first run is still a first run.
+  const navigate = useNavigate()
   const [required, setRequired] = useState(() => walkIsOpen(isPhone ? 'mobile' : 'desktop') && REQUIRED_HINT())
 
   useEffect(() => {
@@ -158,8 +160,24 @@ export default function TourGate() {
     // Leaving it behind would put somebody who restarts it from Settings back
     // at the step they abandoned a month ago.
     clearStep(layout)
+    // FINISHING PUTS THEM SOMEWHERE, AND IT IS NOT THE LAST STOP (8 Sep 2026).
+    //
+    // Ethan: "at the end of the [walkthrough] when they click finish, bring
+    // them back to the Worldwide tab rather than still on the notifications
+    // page."
+    //
+    // The walk ends on notifications because that is the one hard gate and it
+    // has to be last. But the SETTINGS page is where the tour has to stand to
+    // ask for that permission, and leaving somebody there is ending a tour of
+    // the product on its back office - the last thing a new creator sees is a
+    // list of toggles rather than the community they just joined.
+    //
+    // Only on a real completion, never on 'dismissed': somebody who walked away
+    // half way through is somewhere they chose to be, and moving them would be
+    // the walkthrough taking the wheel on the way out.
+    navigate(network ? '/global' : '/home')
     await markTourComplete(user?.id)
-  }, [layout, user?.id])
+  }, [layout, user?.id, navigate, network])
 
   if (!open) return null
   return (

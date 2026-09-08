@@ -107,7 +107,20 @@ export default function Landing() {
         >
           <Link to="/" className="landing-lift flex items-center gap-2.5">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg sm:h-9" />
-            <span className="hidden text-sm font-semibold tracking-tight text-ink sm:block">
+            {/* GREY, NOT INK (8 Sep 2026). Ethan: "at the very top bar where it
+                says Content Creator Community, it's in black, and then the
+                Tryp.com sign and the login button - it's in like a grey. I
+                think it'd be better to also make the Content Creator Community
+                in grey, it would just match better with that little bar at the
+                top."
+
+                Right, and the reason is that the bar has exactly one thing in
+                it that is meant to be loud, which is Join us. Full-strength ink
+                on the label made it compete with the logo beside it and with
+                the two grey nav links on the other side, so the row read as
+                three different levels of importance where there are two: the
+                mark, and everything else. */}
+            <span className="hidden text-sm font-semibold tracking-tight text-smoke sm:block">
               {tr("Content Creator Community")}
             </span>
           </Link>
@@ -225,7 +238,27 @@ export default function Landing() {
           motion-free copy of that rule, because the landing page must not pull
           in the Motion runtime. */}
       <section className="border-y border-gray-100 bg-cloud/50">
-        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-6 px-5 py-14 text-center sm:px-8">
+        {/* THE THIRD FIGURE HAS THE MOST CHARACTERS AND THE LEAST ROOM
+            (8 Sep 2026). Ethan: "for that nine thousand plus, it's going off
+            the screen, it doesn't fit well there."
+
+            Measured on a 375px viewport: each column is 96px wide and
+            "EUR 9,000+" needs 128px at 30px type. Thirty-two pixels over, so it
+            spilled into its neighbour.
+
+            Two changes, and neither of them shrinks the number on a screen that
+            can hold it. The gap drops from 24px to 12px below `sm`, which is
+            ample between three centred columns and buys 8px per column. And the
+            type is a clamp rather than a step: it grows with the viewport
+            between a floor that fits 320px and the 30px it always was, so a
+            small phone gets a number that fits and a large one gets the number
+            unchanged. `sm:text-5xl` still takes over completely at 640px.
+
+            The alternative - abbreviating to "9k+" - was rejected: the whole
+            point of this tile is that the figure is real money, and "EUR 9k" is
+            the register of a dashboard rather than of a number somebody is
+            being told with some pride. */}
+        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-3 px-5 py-14 text-center sm:gap-6 sm:px-8">
           {[
             { key: 'creators', value: stats?.creators, label: 'Creators', format: (n) => String(n) },
             { key: 'challenges', value: stats?.challenges, label: 'Challenges run', format: (n) => String(n) },
@@ -250,7 +283,7 @@ export default function Landing() {
             { key: 'prizes', value: prizeFloor(stats?.prizes), label: 'Prizes awarded', format: (n) => formatMoney(n), suffix: prizeFloor(stats?.prizes) < stats?.prizes ? '+' : '' },
           ].map((s, i) => (
             <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 60}ms` } : undefined}>
-              <p className="text-3xl font-bold text-brand sm:text-5xl">
+              <p className="text-[clamp(1.35rem,6.4vw,1.875rem)] font-bold leading-tight text-brand sm:text-5xl">
                 {stats
                   ? <><Tally value={s.value} format={s.format} />{s.suffix}</>
                   /* THE PLACEHOLDER IS INVISIBLE, NOT ORANGE (8 Sep 2026).

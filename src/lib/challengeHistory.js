@@ -13,18 +13,27 @@ import { supabase } from './supabase'
 // import and its reconciliation.
 
 /** The columns a person edits. Everything else is derived or bookkeeping. */
+// WHAT A PERSON EDITS, AND IT IS SHORTER THAN THE SPREADSHEET WAS (8 Sep 2026).
+//
+// `content_type` and `objective` came off the import and are no longer tracked
+// anywhere - Ethan removed the Challenges tab's "by content type" card and then
+// the two fields behind it - so they are no longer WRITTEN. `cohort` goes the
+// same way: the platform is one general community for now.
+//
+// The columns stay on the table on purpose. Forty-nine imported rows carry
+// values in them, dropping a column is not reversible, and nothing costs
+// anything by their sitting there unread. What matters is that nothing writes a
+// field no screen shows.
+//
+// `cadence` and `status` ARE still written - by the form, not by the person.
+// See components/admin/HistoryForm.
 export const HISTORY_FIELDS = [
   'community_id', 'country_code', 'title', 'starts_at', 'ends_at',
-  'cadence', 'cohort', 'prize_type', 'content_type', 'objective', 'status',
+  'cadence', 'prize_type', 'status',
   'prize_total', 'winners', 'total_views', 'creators', 'posts', 'notes',
 ]
 
-export const CADENCES = ['monthly', 'express']
-export const COHORTS = ['General', 'UGC', 'VIP']
-export const STATUSES = ['planned', 'running', 'done']
 export const PRIZE_TYPES = ['Cash', 'Travel voucher', 'Cash & Travel voucher', 'Other']
-export const CONTENT_TYPES = ['Free', 'Suggested videos', 'Hooks', 'Talking style', 'Other']
-export const OBJECTIVES = ['Views', 'Views / Trust', 'Creativity', 'Number of videos', 'Other']
 
 // EVERY DERIVED NUMBER IS COMPUTED, NEVER STORED.
 //

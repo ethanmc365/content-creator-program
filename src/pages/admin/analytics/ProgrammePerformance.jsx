@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import {
-  Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line,
   ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth } from 'date-fns'
@@ -24,6 +24,7 @@ import { loadMarkets } from '../../../lib/markets'
 
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
+const BRAND_PALE = '#f9b98a'
 const GOOD = '#16a34a'
 
 const tooltipStyle = {
@@ -67,7 +68,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   // not the base. Ethan asked for it explicitly and it is one keystroke back.
   const [currency, setCurrency] = useState('EUR')
   const [rates, setRates] = useState(FALLBACK_RATES)
-  const [liveRates, setLiveRates] = useState(false)
   const [marketFilter, setMarketFilter] = useState('all')
   // WHEN, AS WELL AS WHERE (8 Sep 2026).
   //
@@ -114,7 +114,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
       .then((j) => {
         if (j?.rates?.EUR) {
           setRates({ GBP: 1, ...j.rates })
-          setLiveRates(true)
           // Hand it to the database, which denominates invoices in the currency
           // a creator actually banks in and cannot fetch a rate itself.
           publishFxRates(supabase, j.rates)
@@ -339,9 +338,35 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
         <button onClick={() => setLogging(true)} className="btn-primary !py-2 text-xs">
           <Icon name="plus" className="h-4 w-4" /> Log a challenge
         </button>
-        <span className="text-[11px] text-smoke">
-          {liveRates ? 'Live FX rate' : 'Offline FX rate'} · money shown in {currency}
-        </span>
+        {/* THE CHALLENGES THEMSELVES ARE ONE PRESS AWAY, NOT ONE SCROLL AWAY
+            (8 Sep 2026). Ethan: "it seems a bit awkward - I'm having to scroll
+            down way to the bottom to see [the challenges]. Maybe there should
+            be a button to actually view the past challenges rather than scroll
+            down through the overview metrics."
+
+            The tab is ordered as a report - headline economics, then the trend,
+            then the breakdowns, then the individual challenges - which is right
+            for reading it once and wrong for the thing somebody opens it for
+            most days, which is one challenge. So the list keeps its place and
+            gains a door at the top. `scrollIntoView` rather than a `#hash`
+            link, because the tab strip is client-side and a hash would put a
+            fragment in the URL that means nothing on any other tab. */}
+        <button
+          type="button"
+          onClick={() => document.getElementById('challenge-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className="btn-secondary !py-2 text-xs"
+        >
+          <Icon name="reorder" className="h-4 w-4" /> The {data.scoped.length} challenges
+        </button>
+        {/* THE FX FOOTNOTE IS GONE (8 Sep 2026). Ethan: "remove the thing that
+            says live FX rate, money shown in euro. I know that's how it works,
+            you don't need to show it."
+
+            He is right that it was telling the reader something they already
+            know - the currency toggle is two controls to its left and says EUR
+            on it. The rate is still fetched, still published to the database
+            for invoicing, and still falls back to the offline table; none of
+            that changed, only the sentence about it. */}
       </div>
 
       {/* ---- Headline economics ---- */}
@@ -397,13 +422,18 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
             hint={`${b.onTarget} of ${b.scored} scored challenges`}
           />
         </div>
-        {b.missingResults > 0 && (
-          <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
-            <Icon name="clock" className="h-4 w-4 shrink-0" />
-            {b.missingResults} ended challenge{b.missingResults === 1 ? ' has' : 's have'} no views logged, so
-            {b.missingResults === 1 ? ' it is' : ' they are'} excluded from every figure above.
-          </p>
-        )}
+        {/* THE "N CHALLENGES HAVE NO VIEWS" CALLOUT IS GONE (8 Sep 2026).
+            Ethan: "the nine ended challenges have no views logged so they're
+            excluded from every figure above - you can remove that copy and
+            colour, that's not needed. I know that's the case, and unfortunately
+            we don't know them, so we just ignore that, and you did the right
+            thing to not count them."
+
+            The exclusion itself is untouched and is still stated where it is
+            load-bearing: the Cash CPM tile's own hint says how many challenges
+            it is measured over. What went is the amber banner repeating it, and
+            amber was the wrong colour for a fact about the past that nobody can
+            act on. */}
       </div>
 
       {/* ---- Monthly performance ---- */}
@@ -452,6 +482,43 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
             </div>
           </section>
         </div>
+      )}
+
+      {/* ---- Who took part, month by month ----
+          MORE OF THE CHART HE LIKED, WHERE IT ANSWERS SOMETHING (8 Sep 2026).
+          Ethan: "I like those graphs, like the 'what people do each week'
+          graph. I think we can have that in more places - even, like, challenge
+          performance. Cool graphs like that are super useful."
+
+          The two charts above are both about MONEY - what was spent, and what a
+          thousand views cost. Neither says whether the programme is reaching
+          more creators than it was in March, which is the other half of the
+          question a pitch asks, and it was only answerable by reading the log.
+          Same stacked-area shape as Community health's, on purpose: two charts
+          that mean "how much of this happened over time" should look alike. */}
+      {data.monthly.length > 1 && (
+        <section className="card">
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Who took part each month</h2>
+              <p className="mt-1 text-xs text-smoke">Creator entries and the posts they made</p>
+            </div>
+            <button onClick={() => downloadCsv('participation-by-month.csv', data.monthly.map(({ month, creators, posts, challenges }) => ({ month, creators, posts, challenges })))} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer>
+              <AreaChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Area type="monotone" dataKey="posts" name="Posts" stroke={BRAND_LIGHT} fill={BRAND_PALE} fillOpacity={0.85} />
+                <Area type="monotone" dataKey="creators" name="Creator entries" stroke={BRAND} fill={BRAND} fillOpacity={0.55} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
       )}
 
       {/* ---- Breakdowns ---- */}
@@ -529,9 +596,9 @@ function ChallengeLog({ rows, currency }) {
   if (rows.length === 0) return null
 
   return (
-    <section>
+    <section id="challenge-log" className="scroll-mt-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold tracking-[-0.01em]">Challenge log</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.01em]">Every challenge</h2>
         <Select
           value={sort}
           onChange={setSort}

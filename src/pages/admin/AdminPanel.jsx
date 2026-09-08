@@ -465,7 +465,7 @@ export default function AdminPanel() {
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
         { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
-        { data: blockedRows },
+        { data: blockedRows }, { count: openErrors },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
@@ -480,11 +480,22 @@ export default function AdminPanel() {
         // jsonb and PostgREST cannot express "name is a non-empty string" in a
         // head-only count.
         supabase.from('invoices').select('id, payment').eq('stage', 'draft'),
+        // ANYTHING BROKEN IS WORK, AND IT IS THE MOST URGENT KIND (8 Sep 2026).
+        // Ethan: "any error should show up on the On your desk thing on the
+        // admin panel so that I can quickly fix them. And once I click that
+        // they're fixed, then you should take them out of there."
+        //
+        // Which is exactly what `resolved_at` already means, so this counts the
+        // unresolved ones and the tick-off on the Error monitoring tab removes
+        // the row from here. A crash a creator hit and a scheduled job that
+        // failed both land in this table - see migrations 204 and 205.
+        supabase.from('client_errors').select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null),
       ])
       const blocked = (blockedRows ?? []).filter(
         (i) => !(i.payment?.name && (i.payment?.iban || i.payment?.accountNumber))).length
       setStats({
         blocked,
+        openErrors: openErrors ?? 0,
         pendingApps: pendingApps ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
@@ -543,6 +554,11 @@ export default function AdminPanel() {
     stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators` },
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay` },
     stats.blocked > 0 && { to: '/admin/rewards?tab=invoices', icon: 'alert', count: stats.blocked, label: `prize${stats.blocked === 1 ? '' : 's'} waiting on bank details` },
+    // Last in the list, first in importance is a tension, and the list wins:
+    // these rows are ordered by how often they have something in them, and
+    // this one should almost always be empty. When it is not, it is the row
+    // with the word "broken" in it, which is enough to find.
+    stats.openErrors > 0 && { to: '/admin/analytics?tab=errors', icon: 'bug', count: stats.openErrors, label: `thing${stats.openErrors === 1 ? '' : 's'} broken` },
   ].filter(Boolean) : []
 
   // THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN. Both queries in before

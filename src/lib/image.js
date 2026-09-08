@@ -111,6 +111,78 @@ function canRunBlobWorker() {
   return blobWorkerOk
 }
 
+// EVERY DECODE HAS A CLOCK, AND THERE IS MORE THAN ONE WAY TO DECODE.
+//
+// THE BUG THIS FIXES (8 Sep 2026, second attempt). The Content-Security-Policy
+// header was one cause of "it loads forever" and it is fixed and verified in
+// production - `worker-src 'self' blob:` is on the live response right now. It
+// was not the only cause, because Ethan hit the same forever-spinner again on
+// an iPhone, where the CSP path is never even reached: Safari decodes HEIC
+// natively, so `heic2any` is never imported and no worker is ever built.
+//
+// WHAT IS LEFT IS THAT A DECODE CAN SIMPLY NOT COME BACK. `createImageBitmap`
+// and `canvas.toBlob` are both callback/promise APIs with no specified failure
+// mode for "the platform gave up": iOS Safari under memory pressure - a
+// 12-megapixel HEIC on a phone that already has twenty tabs open - resolves
+// neither. Nothing above them ever settles, so `busy` is never cleared, so the
+// ring spins until the tab is closed. That is not a bug in one function; it is
+// an entire class of bug, and the fix is structural rather than local:
+//
+//   1. NOTHING IS AWAITED WITHOUT A DEADLINE. Every step below is wrapped.
+//   2. THERE IS ALWAYS A SECOND WAY. A decode that stalls falls through to a
+//      plain `<img>`, which is the oldest and most forgiving image path a
+//      browser has, and the one that works on an iPhone when the modern one
+//      does not.
+//   3. FAILURE IS AN ERROR, NEVER A HANG. Whatever happens, this function
+//      settles, so the caller can say something.
+const DECODE_BUDGET = 20000
+
+// Decode via an <img> element and an object URL.
+//
+// This is deliberately the crustiest possible implementation, because that is
+// the point of a fallback: no ImageBitmap, no fetch, no worker, nothing that
+// was added to the platform this decade. If Safari can show the photo in a
+// page - and it can, it is Apple's own format - it can decode it here.
+function decodeViaImg(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    // The revoke must not happen before the draw: an object URL revoked while
+    // the image is still being painted gives a blank canvas on some browsers.
+    // The caller closes it.
+    img.onload = () => resolve({
+      source: img,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      close: () => URL.revokeObjectURL(url),
+    })
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img-decode-failed')) }
+    img.src = url
+  })
+}
+
+async function decodeViaBitmap(file) {
+  const bmp = await createImageBitmap(file)
+  return { source: bmp, width: bmp.width, height: bmp.height, close: () => bmp.close?.() }
+}
+
+/**
+ * Decode `file` into something `drawImage` accepts, or null.
+ *
+ * Never throws and never hangs: both paths are on a clock, and a browser that
+ * cannot do either gets a null it can act on.
+ */
+async function decodeImage(file) {
+  try {
+    return await withTimeout(decodeViaBitmap(file), DECODE_BUDGET, 'decode-timeout')
+  } catch { /* the modern path is allowed to fail; that is why there are two */ }
+  try {
+    return await withTimeout(decodeViaImg(file), DECODE_BUDGET, 'decode-timeout')
+  } catch {
+    return null
+  }
+}
+
 // CAN THIS BROWSER DECODE THE FILE ITSELF?
 //
 // Safari can decode HEIC natively - it is Apple's format - and Safari is where
@@ -118,14 +190,17 @@ function canRunBlobWorker() {
 // cannot. Asking the browser first is worth doing precisely because the fallback
 // is so expensive: `heic2any` is a 1.35 MB chunk that then decodes a 5 MB photo
 // on the main thread.
+//
+// IT ASKS BOTH WAYS BEFORE SAYING NO, and that is the difference between this
+// and the version that hung. It used to be `createImageBitmap` alone, so a
+// phone where that call stalled sat inside it for ever - and even with a
+// timeout it would then have paid 1.35 MB to convert a file Safari could have
+// decoded through an `<img>` in one frame.
 async function canDecodeNatively(file) {
-  try {
-    const bmp = await createImageBitmap(file)
-    bmp.close?.()
-    return true
-  } catch {
-    return false
-  }
+  const d = await decodeImage(file)
+  if (!d) return false
+  d.close()
+  return true
 }
 
 // A DECODE THAT NEVER FINISHES IS THE WORST OUTCOME, SO IT IS GIVEN A CLOCK.
@@ -181,7 +256,24 @@ function canEncodeWebp() {
 // far more than shaving dimensions or quality would be. Callers that genuinely
 // need JPEG can still pass `format: 'jpeg'`; a browser that cannot encode WebP
 // falls back on its own.
-export async function compressImage(file, { maxDim = 1280, quality = 0.82, format = 'webp' } = {}) {
+export function compressImage(file, opts = {}) {
+  // ONE DEADLINE OVER THE WHOLE THING, ON TOP OF THE PER-STEP ONES.
+  //
+  // Every individual await below is already bounded, and this is still worth
+  // having: the per-step clocks bound each KNOWN step, and the guarantee the
+  // caller needs is about the function, not about its parts. Anything added
+  // here later - a new decode path, a new encoder - inherits the promise that
+  // this settles, without whoever adds it having to remember. A spinner that
+  // never stops is the single worst failure this app has shipped, twice, and
+  // it should not be possible to reintroduce it by writing an ordinary await.
+  return withTimeout(compressImageInner(file, opts), 100000, 'compress-timeout')
+    .catch((err) => {
+      if (err?.message !== 'compress-timeout') throw err
+      throw new Error('That photo took too long to process on this device. Try a smaller one, or send it to yourself as a JPEG and upload that.')
+    })
+}
+
+async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format = 'webp' } = {}) {
   // Keep GIFs as-is (animation would be lost by canvas re-encoding).
   if (file.type === 'image/gif') return file
   const useWebp = format === 'webp' && canEncodeWebp()
@@ -257,16 +349,20 @@ export async function compressImage(file, { maxDim = 1280, quality = 0.82, forma
     }
   }
 
+  let decoded
   try {
-    const bitmap = await createImageBitmap(source)
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
+    decoded = await decodeImage(source)
+    if (!decoded) throw new Error('decode-failed')
+    const scale = Math.min(1, maxDim / Math.max(decoded.width, decoded.height))
     const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bitmap.width * scale)
-    canvas.height = Math.round(bitmap.height * scale)
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    bitmap.close?.()
+    canvas.width = Math.max(1, Math.round(decoded.width * scale))
+    canvas.height = Math.max(1, Math.round(decoded.height * scale))
+    // `drawImage` takes an ImageBitmap and an HTMLImageElement alike, which is
+    // the whole reason `decodeImage` normalises to `{ source, width, height }`
+    // rather than returning one or the other and making this branch.
+    canvas.getContext('2d').drawImage(decoded.source, 0, 0, canvas.width, canvas.height)
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outType, quality))
+    const blob = await encodeCanvas(canvas, outType, quality)
     if (!blob) throw new Error('encode-failed')
     // If compression made it bigger (tiny images), keep the (web-safe) source.
     if (blob.size >= source.size && WEB_SAFE.includes(source.type)) return source
@@ -276,6 +372,43 @@ export async function compressImage(file, { maxDim = 1280, quality = 0.82, forma
     // Couldn't process it. A web-safe original still uploads/displays fine;
     // anything else can't, so tell the user rather than store a broken file.
     if (WEB_SAFE.includes(source.type)) return source
-    throw new Error('That image format isn’t supported. Please use a JPEG, PNG or WebP.')
+    throw new Error('We could not read that photo. Try another one, or send it to yourself as a JPEG and upload that.')
+  } finally {
+    // Frees the ImageBitmap, or revokes the object URL the <img> was built on.
+    // Skipping this leaked a full-size decoded photo per attempt, which on the
+    // phones this bug shows up on is precisely the wrong thing to leak.
+    try { decoded?.close() } catch { /* already gone */ }
+  }
+}
+
+// ENCODE, ALSO ON A CLOCK, ALSO WITH A SECOND WAY.
+//
+// `canvas.toBlob` takes a callback and has no failure path: a browser that
+// cannot honour the request is permitted to simply never call it back, and iOS
+// Safari does exactly that when the encoder runs out of memory. `toDataURL` is
+// synchronous - it either returns a string or throws - so it cannot hang, which
+// makes it the right last resort even though it costs a base64 round trip.
+async function encodeCanvas(canvas, type, quality) {
+  const viaBlob = await withTimeout(
+    new Promise((resolve) => { canvas.toBlob(resolve, type, quality) }),
+    15000,
+    'encode-timeout',
+  ).catch(() => null)
+  if (viaBlob) return viaBlob
+
+  try {
+    const url = canvas.toDataURL(type, quality)
+    const comma = url.indexOf(',')
+    if (comma < 0) return null
+    const bytes = atob(url.slice(comma + 1))
+    const buf = new Uint8Array(bytes.length)
+    for (let i = 0; i < bytes.length; i += 1) buf[i] = bytes.charCodeAt(i)
+    // The browser may have ignored the type it was asked for (Safari did this
+    // with WebP for years), so the blob is labelled with what actually came
+    // back rather than with what we wanted.
+    const actual = url.slice(5, url.indexOf(';')) || type
+    return new Blob([buf], { type: actual })
+  } catch {
+    return null
   }
 }

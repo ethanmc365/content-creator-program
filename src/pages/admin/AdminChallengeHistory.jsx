@@ -3,10 +3,9 @@ import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
-import { confirm, notice } from '../../lib/confirm'
 import { cx, formatMoney, formatViews } from '../../lib/utils'
 import {
-  deleteHistory, historyMetrics, historyOnly, loadHistory, rollUp,
+  historyMetrics, historyOnly, loadHistory, rollUp,
 } from '../../lib/challengeHistory'
 import HistoryForm from '../../components/admin/HistoryForm'
 import { useT } from '../../lib/i18n'
@@ -60,13 +59,12 @@ export default function AdminChallengeHistory() {
   // contest is counted twice. See lib/challengeHistory.
   const totals = useMemo(() => rollUp(historyOnly(scoped)), [scoped])
 
-  async function remove(row) {
-    if (!await confirm(`Delete "${row.title || row.ref}" from the challenge log? This does not touch any live challenge.`)) return
-    const { error } = await deleteHistory(row.id)
-    if (error) { notice(`Could not delete: ${error}`); return }
-    load()
-  }
-
+  // DELETING LIVES IN THE FORM NOW (8 Sep 2026). Ethan asked for "a second pop
+  // up to fully delete the challenge", and the honest version of that is not
+  // two dialogs - it is one dialog whose buttons are replaced by the
+  // consequence, with the challenge named in it. That belongs to the form,
+  // which is the one component all three surfaces share, rather than being
+  // re-implemented per page. This page's job is to close and reload.
   return (
     <div className="page">
       <PageHeader
@@ -159,7 +157,7 @@ export default function AdminChallengeHistory() {
           userId={user.id}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
-          onDelete={editing.id ? () => { setEditing(null); remove(editing) } : null}
+          onDelete={() => { setEditing(null); load() }}
         />
       )}
     </div>

@@ -418,7 +418,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
                 >
                   <td className="px-4 py-2.5">
                     <span className="flex items-center gap-2.5">
-                      <Avatar name={c.name} size="xs" />
+                      {/* THE PHOTO. It was `<Avatar name>` with no `src`, so
+                          every row drew initials - and the cause was in the
+                          database, not here: `admin_creator_scorecard` did not
+                          return `photo_url` until migration 207. */}
+                      <Avatar src={c.photo_url} name={c.name} size="sm" />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{c.name}</span>
                         {c.country && <span className="block text-[11px] text-smoke">{c.country}</span>}

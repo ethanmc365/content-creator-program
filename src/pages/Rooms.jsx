@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
+import { useAuth } from '../context/AuthContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
@@ -74,7 +75,7 @@ const scopedKey = (place, key) => (place.kind === 'network' ? key : `${place.slu
 // The face and the chevron are gone - the preview already names the speaker,
 // and a full-width row in a list of links does not need to be told it is
 // tappable.
-function RoomRow({ to, room, last }) {
+function RoomRow({ to, room, last, unread }) {
   const tr = useT()
   return (
     <Link
@@ -108,18 +109,47 @@ function RoomRow({ to, room, last }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{tr(room.label)}</span>
+          {/* UNREAD IS BOLDER TEXT AND ONE ORANGE DOT (8 Sep 2026).
+              Ethan: "we want to make sure a little orange dot icon shows up on
+              the right of the chat if there's new messages... and maybe on
+              mobile it would just be highlighted or something, because there's
+              not much space for a dot."
+
+              It is both, because they do different jobs. The DOT is the thing
+              you find when you are looking for it - one saturated pixel-cluster
+              on an otherwise quiet page. The WEIGHT is the thing you notice
+              when you are not: scanning a list of eight rooms, the two that
+              have something new are simply darker, with no icon to decode. That
+              is the pattern every mail and chat client converged on and it is
+              not a coincidence.
+
+              This is also the honest answer to why the UK has not seen the
+              general chat. Their rooms are there and readable - checked
+              directly against production, a UK creator can see all four UK
+              channels and every message in them - but nothing on this page said
+              a word had been posted, so nobody opened it. */}
+          <span className={cx('min-w-0 flex-1 truncate text-[15px] leading-tight',
+            unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
           {last && (
-            <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{shortAgo(last.created_at)}</span>
+            <span className={cx('shrink-0 text-[11px] tabular-nums', unread ? 'font-semibold text-brand' : 'text-gray-400')}>
+              {shortAgo(last.created_at)}
+            </span>
+          )}
+          {unread && (
+            <span
+              className="h-2 w-2 shrink-0 self-center rounded-full bg-brand"
+              role="status"
+              aria-label={tr('New messages')}
+            />
           )}
         </span>
         {/* The last thing said, or what the room is for if nothing has been.
             An empty room that explains itself is an invitation; an empty room
             that says nothing is a dead end. */}
-        <span className="mt-1 block truncate text-[13px] leading-snug text-smoke">
+        <span className={cx('mt-1 block truncate text-[13px] leading-snug', unread ? 'font-medium text-ink/80' : 'text-smoke')}>
           {last
             ? `${last.profiles?.name?.split(' ')[0] || 'Someone'}: ${stripMarkup(last.body || '')}`
             : (room.hint ? tr(room.hint) : tr('Nothing posted yet'))}
@@ -129,8 +159,9 @@ function RoomRow({ to, room, last }) {
   )
 }
 
-function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, dragging }) {
+function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleProps, dragging }) {
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
+  const unreadCount = rooms.filter((r) => unreadKeys.has(scopedKey(place, r.key))).length
   return (
     /* THE PLACE IS A BANNER, NOT A CAPTION (8 Sep 2026).
        Ethan: "I want the rooms UI page improved. Before you actually click on
@@ -168,9 +199,18 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, draggi
           className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em] text-brand transition-opacity hover:opacity-80">
           {place.name}
         </Link>
-        <span className="shrink-0 text-[11px] font-semibold text-brand/70">
-          {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
-        </span>
+        {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN BANNER, so a
+            collapsed-looking card three screens down is still findable without
+            opening it. */}
+        {unreadCount > 0 ? (
+          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+            {unreadCount} new
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] font-semibold text-brand/70">
+            {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
+          </span>
+        )}
         {/* The grip. A real affordance rather than a hidden long-press: on a
             phone a hold gesture is indistinguishable from a slow tap until it
             is too late, and this card is a stack of links. */}
@@ -186,7 +226,13 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, draggi
       </div>
       <div className="space-y-0.5">
         {rooms.map((r) => (
-          <RoomRow key={r.id} to={`${base}/${r.key}`} room={r} last={lastByChannel.get(scopedKey(place, r.key))} />
+          <RoomRow
+            key={r.id}
+            to={`${base}/${r.key}`}
+            room={r}
+            last={lastByChannel.get(scopedKey(place, r.key))}
+            unread={unreadKeys.has(scopedKey(place, r.key))}
+          />
         ))}
       </div>
     </section>
@@ -201,8 +247,18 @@ export default function Rooms() {
   // below still run every time; the cache only decides what is on screen while
   // they do. See lib/pageCache.
   const cached = useCachedPage(ROOMS_CACHE_KEY)
+  const { user } = useAuth()
   const [rooms, setRooms] = useState(cached?.rooms ?? null)
   const [lastByChannel, setLastByChannel] = useState(() => new Map(cached?.last ?? []))
+  // WHERE YOU HAD READ UP TO, PER ROOM.
+  //
+  // `channel_reads` is the same watermark table the chat itself writes on open
+  // (see NetworkChat), keyed by the same namespaced channel string - so there
+  // is one definition of "read" and this page cannot disagree with the room it
+  // links to. NOT cached with the page: a stale read watermark shows an orange
+  // dot on a room you are looking at, which is the one state that makes the
+  // whole signal untrustworthy.
+  const [readAt, setReadAt] = useState(null)
 
   const placeIds = useMemo(() => myCommunities.map((c) => c.id), [myCommunities])
 
@@ -235,7 +291,7 @@ export default function Rooms() {
     if (!keys.length) return undefined
     let alive = true
     supabase.from('messages')
-      .select('channel, body, created_at, profiles:sender_id(name, photo_url)')
+      .select('channel, body, created_at, sender_id, profiles:sender_id(name, photo_url)')
       .in('channel', keys)
       .eq('deleted', false)
       .order('created_at', { ascending: false })
@@ -248,6 +304,42 @@ export default function Rooms() {
       })
     return () => { alive = false }
   }, [rooms, myCommunities])
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    let alive = true
+    supabase.from('channel_reads')
+      .select('channel, last_read_at')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (alive) setReadAt(new Map((data || []).map((r) => [r.channel, r.last_read_at])))
+      })
+    return () => { alive = false }
+  }, [user?.id])
+
+  // A ROOM IS UNREAD IF SOMEBODY ELSE SAID SOMETHING AFTER YOU LAST LOOKED.
+  //
+  // Three rules, and each one is a state that would otherwise light a dot for
+  // nothing:
+  //   - your OWN last message never counts. Posting into a room and then being
+  //     told it has something new in it is the fastest way to teach somebody to
+  //     ignore the dot.
+  //   - a room with no messages at all is not unread, it is empty.
+  //   - never having opened a room that HAS messages IS unread. That is the
+  //     case that matters most here: a creator who has never pressed their
+  //     market's General has no `channel_reads` row at all.
+  // Held back entirely until the watermarks land, so the page never flashes
+  // every room as unread on the way in.
+  const unreadKeys = useMemo(() => {
+    const out = new Set()
+    if (!readAt) return out
+    for (const [channel, last] of lastByChannel) {
+      if (!last || last.sender_id === user?.id) continue
+      const seen = readAt.get(channel)
+      if (!seen || new Date(last.created_at) > new Date(seen)) out.add(channel)
+    }
+    return out
+  }, [lastByChannel, readAt, user?.id])
 
   // Remember it for the next visit. A Map does not survive being stored as
   // itself and read back by another mount's `useState`, so it goes in as
@@ -375,6 +467,7 @@ export default function Rooms() {
               className="flex flex-col gap-4"
               renderItem={({ place, rooms: rs }, { handleProps, dragging }) => (
                 <PlaceCard
+                  unreadKeys={unreadKeys}
                   place={place}
                   rooms={rs}
                   lastByChannel={lastByChannel}

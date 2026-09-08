@@ -128,6 +128,37 @@ export function identifyForMonitoring(profileId) {
 }
 
 /**
+ * The browser, as a family and a major version.
+ *
+ * Order matters: Edge and Opera both put "Chrome" in their UA, and every iOS
+ * browser puts "Safari" in it (they are all WebKit under the skin, which for a
+ * rendering bug is the honest answer anyway). So the most specific token is
+ * tested first and Safari is what is left.
+ */
+export function browserLabel() {
+  if (typeof navigator === 'undefined') return null
+  const ua = navigator.userAgent || ''
+  const ver = (re) => (ua.match(re)?.[1] || '').split('.')[0]
+  const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+    : /Android/.test(ua) ? 'Android'
+      : /Macintosh/.test(ua) ? 'macOS'
+        : /Windows/.test(ua) ? 'Windows'
+          : /Linux/.test(ua) ? 'Linux' : ''
+  const name = /Edg\//.test(ua) ? `Edge ${ver(/Edg\/(\d+)/)}`
+    : /OPR\//.test(ua) ? `Opera ${ver(/OPR\/(\d+)/)}`
+      : /Firefox\//.test(ua) ? `Firefox ${ver(/Firefox\/(\d+)/)}`
+        : /Chrome\//.test(ua) ? `Chrome ${ver(/Chrome\/(\d+)/)}`
+          : /Safari\//.test(ua) ? `Safari ${ver(/Version\/(\d+)/)}`
+            : 'Unknown browser'
+  // Standalone matters: an installed app and a browser tab are different
+  // environments (no push on an iOS tab, a different navigation stack), and
+  // more than one bug here has only ever happened in one of them.
+  const standalone = typeof window !== 'undefined'
+    && (window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator?.standalone)
+  return [name.trim(), os, standalone ? 'installed app' : null].filter(Boolean).join(' / ').slice(0, 200)
+}
+
+/**
  * Report an error we caught ourselves.
  *
  * The error boundary is the only place a render crash is visible: the creator
@@ -164,6 +195,19 @@ export function captureError(error, context) {
       p_route: typeof window !== 'undefined' ? window.location.pathname : null,
       p_component: context?.componentStack ? String(context.componentStack).slice(0, 2000) : null,
       p_release: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || null,
+      // ENOUGH TO REPRODUCE IT, WHICH IS WHAT THE PANEL WAS MISSING (8 Sep 2026).
+      // Ethan: "it should show what the errors were, like where they happened,
+      // how to replicate them so I can fix it."
+      //
+      // The browser is the single most load-bearing fact after the route: half
+      // the bugs this platform has shipped were one engine only (the iOS
+      // keyboard inset, the HEIC decode, WebP encoding on Safari), and the
+      // panel could not tell you which. `browserLabel` deliberately reduces a
+      // 140-character UA string to a family and a major version - it is a
+      // reproduction hint, not a fingerprint, and a full UA is a tracking
+      // surface we have no use for on a community app with 16-year-olds on it.
+      p_agent: browserLabel(),
+      p_detail: error?.stack ? String(error.stack).split('\n').slice(0, 12).join('\n').slice(0, 4000) : null,
     }).then(() => {}, () => {})
   } catch { /* the app is already broken; do not make it worse */ }
 }

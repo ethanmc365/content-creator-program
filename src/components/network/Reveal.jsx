@@ -204,6 +204,25 @@ export default function Reveal({
       if (r.top < vh) setShown(true)
     }
     const t = setTimeout(check, 1200)
+    // AND ON SCROLL, WHICH IS THE ONLY CASE THE NET DID NOT CATCH.
+    //
+    // The 1200ms check answers "was this on screen shortly after it mounted",
+    // and the resize/orientation listeners answer "has the viewport changed
+    // shape since". Neither answers "has the reader scrolled to it", so an
+    // inert IntersectionObserver left every section below the fold at opacity 0
+    // FOR EVER, with the content simply missing rather than merely unanimated.
+    //
+    // That is not hypothetical. This app's own audience arrives through
+    // Instagram and TikTok in-app webviews - `isInAppBrowser` is a first-class
+    // case in lib/install for exactly that reason - and an embedded webview is
+    // precisely the kind of host that stubs an observer without delivering
+    // entries. Verified directly: in an embedded browser pane, a freshly
+    // constructed IntersectionObserver on a fully on-screen element delivers
+    // nothing at all, and this page's lower half stays blank.
+    //
+    // Passive, and it removes itself as soon as anything reveals, so it is one
+    // listener for at most a second of a page's life.
+    window.addEventListener('scroll', check, { passive: true })
     // AND AGAIN WHENEVER THE VIEWPORT CHANGES.
     //
     // The one-shot check answers "was this on screen 1.2 seconds after it
@@ -216,6 +235,7 @@ export default function Reveal({
     window.addEventListener('orientationchange', check)
     return () => {
       clearTimeout(t)
+      window.removeEventListener('scroll', check)
       window.removeEventListener('resize', check)
       window.removeEventListener('orientationchange', check)
     }
