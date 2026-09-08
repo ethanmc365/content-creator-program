@@ -810,22 +810,6 @@ type Progress = {
   updated: number
   failed: number
   chunk: number
-  // INSTAGRAM IS COUNTED SEPARATELY BECAUSE IT FAILS SEPARATELY (8 Sep 2026).
-  //
-  // Ethan: "if there's any issue with Instagram reads, ensure it shows up as an
-  // error on the admin panel, as in, that needs to be fixed immediately so that
-  // I can fix it."
-  //
-  // Instagram is the one platform whose reads depend on a number Meta can
-  // change without telling anybody - the GraphQL `doc_id`. When they rotate it
-  // every Instagram entry silently stops updating while TikTok and YouTube
-  // carry on, so the RUN still looks broadly healthy: `failed` goes up a bit
-  // and nothing anywhere says which platform. That is a degradation that could
-  // sit unnoticed for a month, and the whole programme is measured on views.
-  //
-  // Counted per platform, judged in `finishRun`.
-  igTried: number
-  igFailed: number
 }
 
 // The creators behind this chunk's Instagram entries, so their saved handle can
@@ -860,12 +844,6 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     })
     const now = new Date().toISOString()
 
-    // Judged on what the ROW is, not on what the resolver managed to work out:
-    // a read that failed early may not have resolved a platform at all, and
-    // those are exactly the failures worth counting.
-    const isIg = row.platform === 'Instagram' || r.platform === 'Instagram'
-    if (isIg) p.igTried += 1
-
     if (r.views == null) {
       await supabase.from('submissions').update({
         views_sync_error: r.error,
@@ -873,7 +851,6 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
       }).eq('id', row.id)
       p.failed += 1
-      if (isIg) p.igFailed += 1
     } else {
       const source = r.platform ? SOURCE[r.platform] : 'manual'
       await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
@@ -1025,60 +1002,10 @@ async function finishRun(p: Progress) {
   const at = new Date().toISOString()
   await supabase.from('app_settings').upsert({
     key: 'view_sync_last_run',
-    value: {
-      at, ran: p.done, updated: p.updated, failed: p.failed, trigger: p.trigger,
-      ig_tried: p.igTried, ig_failed: p.igFailed,
-    },
+    value: { at, ran: p.done, updated: p.updated, failed: p.failed, trigger: p.trigger },
     updated_at: at,
   })
-  await reportInstagramHealth(p)
   await publishRun({ running: false, finished_at: at, ...p })
-}
-
-// EVERY INSTAGRAM READ FAILING IS A DIFFERENT EVENT FROM SOME OF THEM FAILING.
-//
-// One failure is a deleted reel, a private account, somebody who changed their
-// handle - all normal, all the creator's own business. ALL of them failing, on
-// a run with several to try, is one of two things and both need Ethan today:
-// Meta rotated the `doc_id`, or they are blocking the request shape entirely.
-//
-// THE THRESHOLD IS THREE, and it is a judgement about false alarms rather than
-// about statistics. Below three, "every one failed" is a sentence about a very
-// small number and will fire on the day two creators both delete a reel. At
-// three or more, a clean sweep has essentially stopped being a coincidence.
-//
-// It CLEARS ITSELF. A run where Instagram reads work again ticks the row off,
-// so this cannot leave a stale red mark on the panel after Meta rotate back or
-// a new doc_id is pasted in - which is what would teach him to ignore it.
-//
-// The doc_id is not an account, a token or a session: it is a public number
-// identifying the shape of a query, editable in `private.config` with no deploy
-// and no Instagram login. That is why the fix this points at is a paste and not
-// a release, and the message says so.
-async function reportInstagramHealth(p: Progress) {
-  if (p.igTried < 3) return
-  try {
-    if (p.igFailed === p.igTried) {
-      await supabase.rpc('report_system_error', {
-        p_source: 'integration',
-        p_key: 'instagram:view-reads',
-        p_message: `Instagram view counts have stopped updating (${p.igFailed} of ${p.igTried} reads failed)`,
-        p_detail:
-          'Every Instagram read in this run failed, which usually means Meta has rotated the GraphQL doc_id.\n\n'
-          + 'No Instagram account, login or token is involved. The fix is to put a current doc_id into '
-          + "private.config as 'instagram_reels_doc_id' and 'instagram_post_doc_id' (comma-separated, tried in "
-          + 'order, so a new one can be added before the old one dies). TikTok and YouTube reads are unaffected.',
-        p_route: '/admin/analytics?tab=errors',
-      })
-    } else {
-      await supabase.rpc('clear_system_error', {
-        p_source: 'integration',
-        p_key: 'instagram:view-reads',
-      })
-    }
-  } catch {
-    // Reporting the health of the sync must never be able to fail the sync.
-  }
 }
 
 // ---------------------------------------------------------------------- http
@@ -1137,7 +1064,7 @@ Deno.serve(async (req) => {
     if (!rows.length) return json(req, { accepted: 0 })
     const progress: Progress = {
       started_at: new Date().toISOString(), trigger: fromCron ? 'scheduled' : 'admin',
-      total: rows.length, done: 0, updated: 0, failed: 0, chunk: 1, igTried: 0, igFailed: 0,
+      total: rows.length, done: 0, updated: 0, failed: 0, chunk: 1,
     }
     await publishRun({ running: true, ...progress })
     // deno-lint-ignore no-explicit-any
@@ -1163,7 +1090,7 @@ Deno.serve(async (req) => {
     started_at: new Date().toISOString(),
     trigger: fromCron ? 'scheduled' : 'admin',
     total: await countStale(body.challenge_id, interval, force),
-    done: 0, updated: 0, failed: 0, chunk: 0, igTried: 0, igFailed: 0,
+    done: 0, updated: 0, failed: 0, chunk: 0,
   }
   progress.chunk += 1
   await publishRun({ running: true, ...progress })
