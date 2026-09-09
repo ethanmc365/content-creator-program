@@ -5,8 +5,8 @@ import { claimNag, finishNag, onNagChange, onTourRunning, tourRunning } from '..
 import { useAuth } from '../context/AuthContext'
 import {
   ANDROID_STEPS, IOS_STEPS,
-  canPromptInstall, isIOS, isInAppBrowser, isMobileDevice, isStandalone,
-  onInstallPromptChange, promptInstall,
+  canPromptInstall, installPromptFor, isIOS, isInAppBrowser, isMobileDevice,
+  isStandalone, onInstallPromptChange, promptInstall,
 } from '../lib/install'
 import { enablePush as requestPush, pushPermission, pushSupported } from '../lib/push'
 import { useT } from '../lib/i18n'
@@ -65,6 +65,10 @@ export default function AddToHomePrompt() {
   const tr = useT()
   const { profile } = useAuth()
   const [mode, setMode] = useState(null)          // null | 'install' | 'browser' | 'push'
+  // WHETHER THIS PARTICULAR PERSON CAN GET PAST IT. See `installPromptFor` in
+  // lib/install: a creator meets a wall, an admin meets the same screen with a
+  // way out, so the team is not locked out of /admin on a phone browser.
+  const [canClose, setCanClose] = useState(true)
   // Bumped when the nag slot frees up, so the effect below re-runs and this
   // prompt can take its turn in the same app open. See lib/appNag.
   const [nagTurn, setNagTurn] = useState(0)
@@ -86,92 +90,61 @@ export default function AddToHomePrompt() {
   useEffect(() => onNagChange(() => setNagTurn((n) => n + 1)), [])
 
   useEffect(() => {
-    if (!profile || profile.status !== 'active') return
-    // ADMINS ARE NOT NAGGED (7 Sep 2026). Ethan: "admins are excluded from the
-    // constant notification pop-ups as well."
-    //
-    // And the install WALL goes with it, which is the same decision rather than
-    // an extra one: on a phone in a browser this prompt has no close button and
-    // no way past it except installing the app, so leaving admins in it would
-    // wall the team out of /admin on a phone browser - the one place they most
-    // often need it, because that is where a link from an email lands. An admin
-    // who wants to see either screen still can, from the creator preview
-    // sandbox, which is a real non-admin account.
-    if (profile.is_admin) return
+    if (!profile) return
 
-    const phone = isMobileDevice()
     const installed = isStandalone()
-    const inApp = isInAppBrowser()
     const wantsPush = pushSupported() && pushPermission() !== 'granted'
                       // iOS gives a browser tab no push at all, so there is
                       // nothing to ask for until it is installed.
                       && (installed || !isIOS())
 
-    // ON A PHONE, IN A BROWSER, THIS IS NOW A WALL (4 Sep 2026).
-    //
-    // Ethan: "there should be no not-now button. It should always be there,
-    // persistent, because that's what they have to do - otherwise there's no
-    // way of contacting them. This pop up is persistent even if they click out
-    // of it. They should not be able to use the mobile view on the website, it
-    // always has to be through the app."
-    //
-    // The reasoning is a product decision and it is a sound one: on iOS a
-    // browser tab gets NO push at all, so a creator using the website on a
-    // phone is a creator who cannot be told a challenge went live, which is the
-    // one thing the whole programme runs on. A dismissible ask produces exactly
-    // the people it was meant to reach and then lets them out of it.
-    //
-    // ONE EXCEPTION, AND IT IS NOT A LOOPHOLE. An Instagram or TikTok webview
-    // physically cannot add anything to a home screen, and most creators arrive
-    // from precisely those links. Walling them would lock an approved account
-    // out of the product with no action available to them. They get their own
-    // card - "open this in Safari" - which is a door rather than a skip.
-    // Desktop is untouched: a laptop is a perfectly good way to use this and
-    // there is nothing to install.
-    const next = phone && !installed
-      ? (inApp ? 'browser' : 'install')
-      : (wantsPush ? 'push' : null)
+    // THE WHOLE DECISION IS ONE PURE FUNCTION NOW (9 Sep 2026), and it is
+    // tested. It used to be six conditions written inline here, and one of them
+    // - `if (profile.is_admin) return` - switched the entire feature off for
+    // both of the people who would ever check that it still worked. See
+    // lib/install.installPromptFor for the forensics.
+    const { mode: next, dismissible } = installPromptFor({
+      phone: isMobileDevice(),
+      installed,
+      inApp: isInAppBrowser(),
+      wantsPush,
+      isAdmin: !!profile.is_admin,
+      status: profile.status,
+    })
     if (!next) return
+
     // THE INSTALL WALL COMES BEFORE THE WALKTHROUGH, AND THE WALKTHROUGH THEN
     // HAPPENS INSIDE THE APP. Ethan described the good path himself: "if the
     // first thing you do is enter on the mobile website, then it prompts you to
     // open it on the app, and then once you're on the app the interactive
     // tutorial shows up." Walking somebody round the mobile WEBSITE and then
     // telling them the website is not the product wastes the one walkthrough
-    // they get - and the per-layout flag means it would not run again inside
-    // the app. So the wall does not wait for the tour; TourGate declines to
-    // auto-start on a phone that is not running the installed app.
-    // The NOTIFICATIONS ask still waits for it, because the walkthrough asks
-    // for notifications itself and is a worse experience interrupted.
+    // they get. The NOTIFICATIONS ask still waits for it, because the
+    // walkthrough asks for notifications itself.
     if (next === 'push' && !profile.tour_completed_at) return
-    // AND NOT WHILE THE WALKTHROUGH IS ACTUALLY ON SCREEN - see `walking`
-    // below, which also covers the case where the walk starts AFTER this has
-    // already decided to show.
-    // A wall does not queue behind other asks; it IS the screen. The nag
-    // coordination still applies to the dismissible notifications ask.
+
+    // A DISMISSIBLE ASK IS ASKED ONCE PER APP OPEN AND THEN HANDS THE QUEUE ON.
+    //
     // DISMISSED IS CHECKED BEFORE THE CLAIM, NOT AFTER IT (7 Sep 2026).
+    // lib/appNag's own rule says why: "a prompt that decides not to show must
+    // NOT claim, or it blocks the next one for the rest of the session." This
+    // one claimed the slot and THEN discovered it had already been dismissed
+    // this app open, so it walked away holding the queue.
     //
-    // These two lines were the other way round, and lib/appNag's own rule says
-    // why that is wrong: "a prompt that decides not to show must NOT claim, or
-    // it blocks the next one for the rest of the session." This one claimed the
-    // slot and THEN discovered it had already been dismissed this app open, so
-    // it walked away holding the queue.
-    //
-    // It was invisible until the queue started handing the slot on: with the
-    // old lock, nothing re-ran this effect after a dismissal, so the wasted
-    // claim never happened twice. Now `finishNag` wakes every prompt - including
-    // this one - and this one re-took the slot it had just given up.
-    // Verified in the browser: dismiss the notifications ask and the bank
-    // details ask follows it in the same app open.
-    if (next === 'push') {
-      try { if (sessionStorage.getItem(DISMISSED)) return } catch { /* private mode */ }
+    // A WALL DOES NOT QUEUE - it IS the screen, and there is nothing after it.
+    if (dismissible) {
+      try { if (sessionStorage.getItem(`${DISMISSED}:${next}`)) return } catch { /* private mode */ }
       if (!claimNag(NAG)) return
     }
+    setCanClose(dismissible)
     setMode(next)
   }, [profile, nagTurn])
 
   function dismiss() {
-    try { sessionStorage.setItem(DISMISSED, '1') } catch { /* private mode */ }
+    // KEYED ON WHICH ASK IT WAS. One key for all of them meant dismissing the
+    // notifications ask also silenced the install screen for the rest of the
+    // app open, which is not what either of them means.
+    try { sessionStorage.setItem(`${DISMISSED}:${mode}`, '1') } catch { /* private mode */ }
     // HAND THE SLOT ON, DO NOT JUST DROP IT. `releaseNag` frees the claim and
     // tells nobody, so BankDetailsPrompt - which had already decided not to
     // show - would never look again this session. See lib/appNag.
@@ -242,7 +215,7 @@ export default function AddToHomePrompt() {
   // available from inside one, and it is offered rather than described.
   if (mode === 'browser') {
     return (
-      <Modal open onClose={() => {}} dismissible={false} title={tr('Open Tryp.com in your browser')}>
+      <Modal open onClose={canClose ? dismiss : () => {}} dismissible={canClose} title={tr('Open Tryp.com in your browser')}>
         <div className="space-y-5">
           <Blurb icon="globe">
             {tr('You are in an app\'s built-in browser, which cannot add anything to your home screen. Open Tryp.com in Safari or Chrome and this will take ten seconds.')}
@@ -271,7 +244,7 @@ export default function AddToHomePrompt() {
   return (
     // NO CLOSE, NO SCRIM PRESS, NO ESCAPE. See the note on `mode` above: on a
     // phone the app IS the product, and this is the one screen between the two.
-    <Modal open onClose={() => {}} dismissible={false} title={tr('Add Tryp.com to your home screen')}>
+    <Modal open onClose={canClose ? dismiss : () => {}} dismissible={canClose} title={tr('Add Tryp.com to your home screen')}>
       <div className="space-y-5">
         {/* A SOLID BRAND CARD, AND SHORTER (4 Sep 2026). Ethan: "the card that
             says it opens full screen and loads instantly and is the only way to
@@ -367,6 +340,18 @@ export default function AddToHomePrompt() {
           <p className="rounded-xl bg-cloud px-3 py-2.5 text-center text-xs leading-relaxed text-smoke">
             {tr('Then close this tab and open Tryp.com from the icon on your home screen. It cannot be launched from inside the browser.')}
           </p>
+        )}
+
+        {/* THE TEAM'S WAY PAST IT, AND ONLY THE TEAM'S. An admin opening a link
+            to /admin on their phone has to be able to reach it; a creator does
+            not have this button at all, because for them the app IS the
+            product. A scrim press would technically be enough, but an invisible
+            exit on a screen that has spent four paragraphs saying there is no
+            way round it is a worse answer than a labelled one. */}
+        {canClose && (
+          <button type="button" onClick={dismiss} className="btn-ghost w-full justify-center !py-2 text-xs">
+            {tr('Not now, keep me in the browser')}
+          </button>
         )}
       </div>
     </Modal>

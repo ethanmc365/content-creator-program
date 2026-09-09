@@ -205,3 +205,71 @@ export const ANDROID_STEPS = [
 export function installSteps() {
   return isIOS() ? IOS_STEPS : ANDROID_STEPS
 }
+
+// ---------------------------------------------------------------------------
+// WHICH ASK, IF ANY, THIS PERSON SHOULD SEE RIGHT NOW.
+//
+// A PURE FUNCTION BECAUSE THE LAST VERSION WAS SIX CONDITIONS SPREAD THROUGH AN
+// EFFECT AND ONE OF THEM SILENTLY TURNED THE WHOLE FEATURE OFF FOR THE PERSON
+// MOST LIKELY TO NOTICE.
+//
+// Ethan (9 Sep 2026): "previously we had it set up so that if you logged in on
+// a mobile browser you just immediately get that pop up that says how to add it
+// as an app on your home screen... but for some reason that just doesn't work
+// anymore. Did you take it away? This should always be here permanently."
+//
+// It was taken away, from him specifically, and here is the exact line. On
+// 7 Sep an `if (profile.is_admin) return` was added to AddToHomePrompt. The ask
+// it was written for was the NOTIFICATIONS one - "admins are excluded from the
+// constant notification pop-ups as well" - and it was extended to the install
+// wall on a defensible worry: the wall has no close button, so an admin who
+// opens /admin from an email on their phone would be locked out of it.
+//
+// Both of those are right, and the mistake was answering them with one switch.
+// The worry is about the WALL, not about the ASK, so the fix is to keep the ask
+// and drop the wall:
+//
+//   creator   the wall. No close, no scrim, no Escape - the app is the product
+//             on a phone, and on iOS a browser tab gets no push at all, so a
+//             creator on the website is a creator who cannot be told a
+//             challenge went live.
+//   admin     the same screen, dismissible for this app open. They see it every
+//             time they open the site in a phone browser, which is what was
+//             asked for, and they can still get to /admin.
+//
+// Ethan is `owner` and Casandra is `global_admin`, so between 7 and 9 Sep this
+// prompt was invisible to both people who would ever check whether it worked.
+// That is why it needs a test rather than a careful reading.
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {object}  env
+ * @param {boolean} env.phone      a phone-shaped device (isMobileDevice)
+ * @param {boolean} env.installed  running from the home screen (isStandalone)
+ * @param {boolean} env.inApp      an Instagram/TikTok-style webview
+ * @param {boolean} env.wantsPush  push is supported and not yet granted
+ * @param {boolean} env.isAdmin    a member of the team
+ * @param {string}  env.status     the profile's status
+ * @returns {{mode: 'install'|'browser'|'push'|null, dismissible: boolean}}
+ */
+export function installPromptFor({ phone, installed, inApp, wantsPush, isAdmin = false, status } = {}) {
+  // A pending applicant has nothing to be notified about and no reason to
+  // install anything - they are waiting on a person. The moment they are
+  // approved, this is the first thing that matters.
+  if (status !== 'active') return { mode: null, dismissible: true }
+
+  if (phone && !installed) {
+    // AN IN-APP BROWSER GETS A DOOR, NOT A WALL. Nothing inside an Instagram or
+    // TikTok webview can add anything to a home screen, so walling it would
+    // lock an approved account out of the product with no action available.
+    // It is never dismissible for a creator because the door IS the action.
+    if (inApp) return { mode: 'browser', dismissible: isAdmin }
+    return { mode: 'install', dismissible: isAdmin }
+  }
+
+  // THE NOTIFICATIONS ASK IS STILL ADMIN-EXEMPT, and that is the decision of
+  // 7 Sep left exactly as it was. It is a recurring nag rather than a one-time
+  // setup step, and the team said they did not want it.
+  if (wantsPush && !isAdmin) return { mode: 'push', dismissible: true }
+  return { mode: null, dismissible: true }
+}
