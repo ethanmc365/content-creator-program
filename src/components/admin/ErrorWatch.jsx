@@ -128,14 +128,35 @@ export default function ErrorWatch() {
               {s === 'all' ? tr('All') : tr(SOURCE_LABEL[s] || s)}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => { setShowResolved((v) => !v); setOpenRow(null) }}
-            className={cx('rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors',
-              showResolved ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}
-          >
-            {showResolved ? `${tr('Open')} (${open.length})` : `${tr('Fixed')} (${done.length})`}
-          </button>
+          {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU
+              ARE (9 Sep 2026). Ethan: "it isn't showing the past ones that have
+              been fixed, like an archive with the ones that have been fixed."
+
+              The archive was built and reachable - through a single button
+              whose label was the state you were NOT in. Sitting on the open
+              list it read "Fixed (0)", which is a status if you have not
+              already worked out that it is a switch, and it says the archive is
+              empty at the same moment as offering to show it to you. Two
+              segments say where you are AND where you can go, both counts are
+              visible at once, and the picked one is solid brand with white on
+              it like every other picked thing on this platform. */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5">
+            {[
+              { key: false, label: tr('Open'), count: open.length },
+              { key: true, label: tr('Fixed'), count: done.length },
+            ].map((seg) => (
+              <button
+                key={String(seg.key)}
+                type="button"
+                onClick={() => { setShowResolved(seg.key); setOpenRow(null) }}
+                aria-pressed={showResolved === seg.key}
+                className={cx('rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                  showResolved === seg.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
+              >
+                {seg.label} ({seg.count})
+              </button>
+            ))}
+          </div>
           <button type="button" onClick={load} className="btn-secondary !py-1.5 text-xs">
             <Icon name="reorder" className="h-4 w-4" /> {tr('Refresh')}
           </button>

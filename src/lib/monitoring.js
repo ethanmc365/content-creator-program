@@ -106,6 +106,97 @@ export function initMonitoring() {
       return event
     },
   })
+
+  installGlobalHandlers()
+}
+
+// ---------------------------------------------------------------------------
+// THE PANEL WAS EMPTY BECAUSE ONLY ONE KIND OF FAULT COULD EVER REACH IT.
+//
+// Ethan (9 Sep 2026): "I noticed the error monitoring still isn't showing any
+// details."
+//
+// Measured against production the same day: `client_errors` held ZERO rows, and
+// `report_client_error` itself is fine - called with a session it inserts, and
+// the cron half of the same table (`report_system_error`) has been writing
+// correctly. The gap is upstream of the database. `captureError` had exactly
+// ONE caller: `componentDidCatch` on the error boundary.
+//
+// A React boundary catches a throw during RENDER and nothing else. Every one of
+// these is invisible to it, and this platform has shipped all of them:
+//
+//   a throw inside an event handler       (a click that does nothing)
+//   a throw inside a rAF loop             (the tour's spotlight froze; the
+//                                          console was the only record)
+//   an unhandled promise rejection        (every awaited supabase call that
+//                                          rejects outside a try)
+//   a failed dynamic import after a deploy
+//   a throw inside a setTimeout/interval
+//
+// So the tab was not lying and it was not broken; it was wired to a fifth of
+// the faults. `window.onerror` and `unhandledrejection` are the two events that
+// see the rest, and they feed the SAME function, so a fault is one row on the
+// panel whichever door it came through.
+//
+// WHAT THIS MUST NOT DO IS AMPLIFY A LOOP. A throw inside a rAF loop re-arms
+// and throws again sixty times a second, so a naive handler would post sixty
+// RPCs a second from a phone that is already in trouble. Two brakes, both
+// client-side and both deliberately crude:
+//
+//   - a per-message key seen once is never sent again from this page load.
+//     The database already folds repeats into one row with a count; a second
+//     report of the same fault in the same session adds nothing.
+//   - a hard ceiling on distinct faults per page load, because a page melting
+//     down produces new messages as fast as it produces repeats.
+// ---------------------------------------------------------------------------
+const sent = new Set()
+const MAX_PER_LOAD = 8
+
+/** Test seam: forget what this page load has already reported. */
+export function resetReportedForTests() { sent.clear() }
+
+/** True the first time a given fault is seen in this page load, false after. */
+function firstTime(key) {
+  if (!key) return false
+  if (sent.has(key)) return false
+  if (sent.size >= MAX_PER_LOAD) return false
+  sent.add(key)
+  return true
+}
+
+/** Reasons never worth a row. Same list Sentry is given, applied to our own. */
+function worthReporting(message) {
+  const m = String(message || '')
+  if (!m.trim()) return false
+  return !IGNORE.some((ignore) => m.includes(ignore))
+}
+
+/**
+ * Exported so the wiring can be tested. `initMonitoring` calls it, and it is
+ * the half of crash reporting that had no coverage at all - which is how it
+ * came to be missing entirely without a single test going red.
+ */
+export function installGlobalHandlers({ report = captureError } = {}) {
+  if (typeof window === 'undefined') return
+
+  window.addEventListener('error', (e) => {
+    // A RESOURCE THAT FAILED TO LOAD IS NOT AN EXCEPTION. An <img> or a
+    // <script> that 404s fires this same event with no `error` on it, and a
+    // creator on a flaky connection would otherwise fill the panel with them.
+    if (!e?.error) return
+    const msg = e.error.message || e.message
+    if (!worthReporting(msg) || !firstTime(`error:${msg}`)) return
+    report(e.error, { componentStack: e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : null })
+  })
+
+  window.addEventListener('unhandledrejection', (e) => {
+    const reason = e?.reason
+    // A rejection can be thrown with anything at all, including a string or a
+    // supabase error object, so this must not assume an Error.
+    const msg = reason?.message || (typeof reason === 'string' ? reason : null) || 'Unhandled promise rejection'
+    if (!worthReporting(msg) || !firstTime(`reject:${msg}`)) return
+    report(reason instanceof Error ? reason : new Error(msg))
+  })
 }
 
 /**
