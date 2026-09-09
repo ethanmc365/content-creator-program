@@ -5,7 +5,6 @@ import SocialMark from './SocialMark'
 import LocalTime from './LocalTime'
 import ConnectButton from './ConnectButton'
 import { useAuth } from '../context/AuthContext'
-import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -61,11 +60,14 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
   const navigate = useNavigate()
   const isMe = creator.id === user?.id
 
-  // Open (or create) the 1:1 conversation, then jump into it.
-  async function message(e) {
+  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
+  // so pressing Message and then changing your mind left an empty thread in two
+  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
+  // creates the row on the first send - see `ensureConversation` there. It is
+  // also instant, which the round trip this replaced was not.
+  function message(e) {
     e.preventDefault()
-    const id = await openConversation(user.id, creator.id)
-    if (id) navigate(`/messages/${id}`)
+    navigate(`/messages?to=${creator.id}`)
   }
 
   return (

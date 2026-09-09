@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { openConversation } from '../lib/dm'
 import { countryFacts } from '../lib/countryFacts'
 import { flagForCountry } from '../lib/flags'
 import { Avatar } from './ui'
@@ -34,7 +33,7 @@ import { useT } from '../lib/i18n'
 
 const firstName = (n = '') => (n.trim().split(' ')[0] || 'They')
 
-export function CreatorRow({ creator, onMessage, onCreatorClick, busy, subtitle }) {
+export function CreatorRow({ creator, onMessage, onCreatorClick, subtitle }) {
   const { user } = useAuth()
   const isMe = creator.id === user?.id
   const inner = (
@@ -71,17 +70,16 @@ export function CreatorRow({ creator, onMessage, onCreatorClick, busy, subtitle 
         <button
           type="button"
           onClick={() => onMessage(creator)}
-          disabled={busy}
           className="shrink-0 rounded-full bg-brand-tint px-3 py-1.5 text-xs font-semibold text-brand transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
         >
-          {busy ? '…' : 'Message'}
+          Message
         </button>
       )}
     </div>
   )
 }
 
-function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, busyId, showCount = true }) {
+function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, showCount = true }) {
   if (!creators.length) return null
   return (
     <div>
@@ -101,7 +99,6 @@ function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, 
             subtitle={subtitleFor?.(c)}
             onMessage={onMessage}
             onCreatorClick={onCreatorClick}
-            busy={busyId === c.id}
           />
         ))}
       </div>
@@ -115,17 +112,18 @@ function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, 
 export function useMessageCreator(onCreatorClick) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [busyId, setBusyId] = useState(null)
 
-  async function message(creator) {
+  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
+  // so pressing Message and then changing your mind left an empty thread in two
+  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
+  // creates the row on the first send - see `ensureConversation` there. It is
+  // also instant, which the round trip this replaced was not.
+  function message(creator) {
     if (!user?.id) return
-    setBusyId(creator.id)
-    const id = await openConversation(user.id, creator.id)
-    setBusyId(null)
-    if (id) navigate(`/messages/${id}`)
+    navigate(`/messages?to=${creator.id}`)
   }
 
-  return { onMessage: user?.id && !onCreatorClick ? message : null, busyId }
+  return { onMessage: user?.id && !onCreatorClick ? message : null }
 }
 
 // The card both map panels are made of.
@@ -180,7 +178,7 @@ export function MapPanel({ badge, title, subtitle, onClose, className, children 
 // is where you actually see who is there, and - the part the old town card was
 // missing - message them without going via their profile first.
 export function TownPanel({ town, onClose, onCreatorClick = null, className }) {
-  const { onMessage, busyId } = useMessageCreator(onCreatorClick)
+  const { onMessage } = useMessageCreator(onCreatorClick)
   const people = town?.creators ?? []
   const city = (people[0]?.city || '').trim() || 'Here'
   const country = (people[0]?.country || '').trim()
@@ -201,7 +199,6 @@ export function TownPanel({ town, onClose, onCreatorClick = null, className }) {
             creator={c}
             onMessage={onMessage}
             onCreatorClick={onCreatorClick}
-            busy={busyId === c.id}
             subtitle={
               (c.countries_visited?.length || c.countries)
                 ? `${c.countries_visited?.length || c.countries} countries visited`
@@ -233,7 +230,7 @@ export default function CountryPanel({
 }) {
   const tr = useT()
   const { user } = useAuth()
-  const { onMessage, busyId } = useMessageCreator(onCreatorClick)
+  const { onMessage } = useMessageCreator(onCreatorClick)
   const facts = useMemo(() => countryFacts(country), [country])
   const total = lives.length + visited.length
 
@@ -347,7 +344,6 @@ export default function CountryPanel({
               onMessage={onMessage}
               onCreatorClick={onCreatorClick}
               subtitleFor={(c) => [(c.city || '').trim(), (c.country || '').trim()].filter(Boolean).join(', ') || undefined}
-              busyId={busyId}
               showCount={false}
             />
           )
@@ -359,7 +355,6 @@ export default function CountryPanel({
               onMessage={onMessage}
               onCreatorClick={onCreatorClick}
               subtitleFor={(c) => (c.city || '').trim() || undefined}
-              busyId={busyId}
             />
             <Group
               title={tr("Been there")}
@@ -367,7 +362,6 @@ export default function CountryPanel({
               onMessage={onMessage}
               onCreatorClick={onCreatorClick}
               subtitleFor={(c) => [(c.city || '').trim(), (c.country || '').trim()].filter(Boolean).join(', ') || undefined}
-              busyId={busyId}
             />
           </>
         )}
@@ -392,7 +386,6 @@ export default function CountryPanel({
           </div>
         )}
 
-      <span className="sr-only" role="status">{busyId ? 'Opening the conversation' : ''}</span>
     </MapPanel>
   )
 }

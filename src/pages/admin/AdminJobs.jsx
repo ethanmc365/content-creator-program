@@ -88,22 +88,17 @@ export default function AdminJobs() {
     await supabase.from('job_applications').update({ status }).eq('id', app.id)
   }
 
-  // Open (or create) the 1:1 conversation with an applicant and jump into it.
+  // Open the 1:1 conversation with an applicant and jump into it.
   // Marks them "contacted" so the pipeline reflects that the team reached out.
-  async function dm(app) {
+  function dm(app) {
     const creatorId = app.creator_id
     if (app.status === 'new' || app.status === 'reviewing') setAppStatus(app, 'contacted')
-    const { data: existing } = await supabase
-      .from('conversations').select('id')
-      .or(`and(participant_a.eq.${user.id},participant_b.eq.${creatorId}),and(participant_a.eq.${creatorId},participant_b.eq.${user.id})`)
-      .maybeSingle()
-    let convoId = existing?.id
-    if (!convoId) {
-      const { data: created } = await supabase
-        .from('conversations').insert({ participant_a: user.id, participant_b: creatorId }).select('id').single()
-      convoId = created?.id
-    }
-    if (convoId) navigate(`/messages/${convoId}`)
+    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
+    // conversation and INSERT one when it found none, so pressing Message and
+    // then changing your mind left an empty thread in two inboxes. Three such
+    // rows exist in production. `/messages?to=` opens the thread either way and
+    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    navigate(`/messages?to=${creatorId}`)
   }
 
   const totalOpen = jobs.filter((j) => j.status === 'open').length

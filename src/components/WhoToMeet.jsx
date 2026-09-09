@@ -7,7 +7,6 @@ import { Avatar } from './ui'
 import Icon from './Icon'
 import LocalTime from './LocalTime'
 import { pickWhoToMeet } from '../lib/whoToMeet'
-import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
@@ -53,7 +52,6 @@ export default function WhoToMeet({ className }) {
   const navigate = useNavigate()
   // Which suggestion's Message button is mid-round-trip, so one spinner does not
   // freeze all three.
-  const [opening, setOpening] = useState(null)
   const [picks, setPicks] = useState(null)
 
   useEffect(() => {
@@ -117,16 +115,13 @@ export default function WhoToMeet({ className }) {
     return () => { alive = false }
   }, [user?.id, profile])
 
-  // Opening a conversation is a round trip (it finds or creates the thread), so
-  // the button says which one it is working on rather than freezing all three.
-  async function message(id) {
-    setOpening(id)
-    try {
-      const convId = await openConversation(user.id, id)
-      navigate(convId ? `/messages/${convId}` : '/messages')
-    } finally {
-      setOpening(null)
-    }
+  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
+  // so pressing Message and then changing your mind left an empty thread in two
+  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
+  // creates the row on the first send - see `ensureConversation` there. It is
+  // also instant, which the round trip this replaced was not.
+  function message(id) {
+    navigate(`/messages?to=${id}`)
   }
 
   // Nothing at all to suggest: everybody is already a connection, or the
@@ -237,10 +232,9 @@ export default function WhoToMeet({ className }) {
               <button
                 type="button"
                 onClick={() => message(creator.id)}
-                disabled={opening === creator.id}
                 className="btn-primary flex-1 !py-2 text-xs"
               >
-                {opening === creator.id ? tr('Opening…') : tr('Message')}
+                {tr('Message')}
               </button>
             </div>
           </div>

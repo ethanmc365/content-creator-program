@@ -14,7 +14,6 @@ import ConnectButton from '../components/ConnectButton'
 import ReportCreator from '../components/ReportCreator'
 import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualCreators } from '../lib/connections'
-import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
 import { flagForCountry } from '../lib/flags'
 import { useIsMobile } from '../lib/useKeyboardInset'
@@ -144,9 +143,13 @@ export default function Profile() {
   // The admin email fetch that used to live here is gone with the card it fed.
   // Nothing on this page reads a creator's private contact details any more.
 
-  async function startMessage() {
-    const convId = await openConversation(user.id, id)
-    if (convId) navigate(`/messages/${convId}`)
+  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
+  // so pressing Message and then changing your mind left an empty thread in two
+  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
+  // creates the row on the first send - see `ensureConversation` there. It is
+  // also instant, which the round trip this replaced was not.
+  function startMessage() {
+    navigate(`/messages?to=${id}`)
   }
 
   // A trip that's underway right now (trips are already end_date >= today).

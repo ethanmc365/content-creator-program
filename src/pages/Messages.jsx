@@ -227,6 +227,32 @@ export default function Messages() {
   const [peopleLoaded, setPeopleLoaded] = useState(false)
   const [connectionIds, setConnectionIds] = useState(new Set())
   const [starting, setStarting] = useState(null) // creator id being opened
+  // ---------------------------------------------------------------------
+  // A THREAD YOU HAVE OPENED BUT NOT YET WRITTEN IN DOES NOT EXIST YET.
+  //
+  // Ethan (9 Sep 2026): "Creator shows up on DM even if you acted like you were
+  // going to message them but then stopped. They should only show when you
+  // actually send a message."
+  //
+  // Pressing Message ran `openConversation`, which INSERTS a `conversations`
+  // row on the spot - so changing your mind left a permanent empty thread in
+  // both inboxes, and the other person got a conversation with somebody who had
+  // never said anything to them. Three of the fifty rows in production are
+  // exactly that.
+  //
+  // The row is created on the first SEND instead. Until then the thread is this
+  // piece of state: the other person, held in the client, rendered as a real
+  // (empty) thread so nothing about the screen changes. `ensureConversation`
+  // below is the one place that turns it into a row.
+  //
+  // THE COST, STATED: the very first message to a new person cannot be queued
+  // offline, because the outbox needs a `conversation_id` and only the server
+  // can mint one. Every message after it queues exactly as before. That is the
+  // right trade - an offline first-DM is rare, and a phantom thread is not.
+  const [draftTo, setDraftTo] = useState(null)   // a profile row, or null
+  // Guards a double-press: two sends racing would insert two conversations for
+  // the same pair, and the pair has no unique constraint to stop it.
+  const ensuringRef = useRef(null)
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
   const [signedUrls, setSignedUrls] = useState(new Map())
   // Scroll bookkeeping so the thread only follows new messages when you're
@@ -292,14 +318,36 @@ export default function Messages() {
   const showChrome = useCallback(() => setChrome(false), [setChrome])
   const hideChrome = useCallback(() => { if (isMobile) setChrome(true) }, [isMobile, setChrome])
 
+  const realActive = conversations.find((c) => c.id === conversationId)
+  // The draft thread is shaped like a conversation so every reader below - the
+  // title, the @-chips, the DM gate, `otherParticipant` - works unchanged. It
+  // has no `id`, which is what keeps it out of the inbox query and out of the
+  // database.
+  // MEMOISED, because a fresh object literal every render would change the
+  // identity of everything downstream that depends on it - `activeMembers`,
+  // the mention list, the relationship effect - and re-run all of them sixty
+  // times a second while nothing had changed.
+  const active = useMemo(
+    () => realActive || (draftTo && !conversationId
+      ? { id: null, kind: 'direct', draft: true, other: draftTo, participant_a: user.id, participant_b: draftTo.id }
+      : undefined),
+    [realActive, draftTo, conversationId, user.id],
+  )
+  // IS A THREAD ON SCREEN. `conversationId` used to answer this, and it is the
+  // wrong question now: a draft thread is open and being typed into and has no
+  // id at all, so every layout switch keyed on the id showed the inbox's empty
+  // state over a conversation somebody was looking at. This is the one flag,
+  // and it covers both.
+  const threadOpen = !!active
+
   // A THREAD OPENS WITH THE HEADER ALREADY AWAY, and the inbox always has it.
   // Hiding on scroll alone is not enough: a short conversation never scrolls,
   // so the room this was copied from used to keep its chrome for ever in
   // exactly the threads that had the least to show.
   useEffect(() => {
-    setChatChromeHidden(isMobile && !!conversationId)
-    setChromeHidden(isMobile && !!conversationId)
-  }, [isMobile, conversationId])
+    setChatChromeHidden(isMobile && threadOpen)
+    setChromeHidden(isMobile && threadOpen)
+  }, [isMobile, threadOpen])
 
   // Mobile overlay geometry. Keyboard closed: leave room for the top header
   // (4rem, or nothing once it has slid away) and the bottom tab bar (4.5rem +
@@ -332,7 +380,6 @@ export default function Messages() {
     return () => document.documentElement.classList.remove('overlay-lock')
   }, [isMobile])
 
-  const active = conversations.find((c) => c.id === conversationId)
   const isGroup = active?.kind === 'group'
   const activeMembers = useMemo(() => active?.members ?? [], [active])
   // Who a message is FROM, in a group. A 1:1 needs no such lookup - there are
@@ -482,14 +529,66 @@ export default function Messages() {
 
   // Jump into a conversation with someone from search / the suggestions list,
   // creating the thread if this is the first time.
+  // OPEN A THREAD WITH SOMEBODY. It creates NOTHING.
+  //
+  // If a conversation with them already exists this is a plain navigation to
+  // it. If one does not, it opens a draft (see `draftTo` above) which becomes a
+  // real row the first time something is actually sent. This used to call
+  // `openConversation` here, which inserted on the spot.
   async function startConversation(creatorId) {
     setStarting(creatorId)
-    const id = await openConversation(user.id, creatorId)
-    setStarting(null)
-    if (!id) return
-    setSearch('')
-    await loadConversations()
-    navigate(`/messages/${id}`)
+    try {
+      // The inbox is already loaded, so the common case costs no round trip.
+      const existing = conversations.find(
+        (c) => c.kind !== 'group' && (c.other?.id === creatorId
+          || c.participant_a === creatorId || c.participant_b === creatorId),
+      )
+      if (existing) {
+        setSearch('')
+        setDraftTo(null)
+        navigate(`/messages/${existing.id}`)
+        return
+      }
+      // Who they are, for the header and the @-chips. A draft thread has no
+      // conversation row to join the profile through, so it is fetched once.
+      const { data: who } = await supabase
+        .from('profiles').select('id, name, photo_url, city, country').eq('id', creatorId).maybeSingle()
+      if (!who) return
+      setSearch('')
+      setDraftTo(who)
+      // The URL says who it is with, so a reload comes back to the same draft
+      // rather than to the inbox. `/messages/:id` is for threads that exist.
+      navigate(`/messages?to=${creatorId}`)
+    } finally {
+      setStarting(null)
+    }
+  }
+
+  /**
+   * The conversation id to write into, creating the row if this is a draft.
+   *
+   * THE ONLY PLACE A CONVERSATION IS CREATED. Everything that sends goes
+   * through here first, so "a thread exists" and "somebody sent something" are
+   * the same event rather than two events a change of mind can separate.
+   */
+  async function ensureConversation() {
+    if (conversationId) return conversationId
+    if (!draftTo) return null
+    // A second press while the first is still in flight must not insert a
+    // second row for the same pair.
+    if (ensuringRef.current) return ensuringRef.current
+    const p = (async () => {
+      const id = await openConversation(user.id, draftTo.id)
+      if (!id) return null
+      await loadConversations()
+      setDraftTo(null)
+      // `replace`, so Back does not land on the draft URL of a thread that now
+      // exists at a different address.
+      navigate(`/messages/${id}`, { replace: true })
+      return id
+    })()
+    ensuringRef.current = p
+    try { return await p } finally { ensuringRef.current = null }
   }
 
   // ---------- `/messages?to=<creator>` ----------
@@ -507,15 +606,25 @@ export default function Messages() {
   // guard the challenge page's `?submit=1` uses.
   const [searchParams] = useSearchParams()
   const toParam = searchParams.get('to')
+  //
+  // AND IT NO LONGER CREATES ANYTHING (9 Sep 2026). `startConversation` used to
+  // insert a conversation row, so every `?to=` link - from a profile, from
+  // Connections, from Get help - wrote a thread into two inboxes whether or not
+  // a word was ever typed. It opens a draft now; see `ensureConversation`.
+  //
+  // IT WAITS FOR THE INBOX. `startConversation` checks the loaded conversations
+  // for an existing thread before opening a draft, so running it against an
+  // empty list would open a draft beside a thread that already exists - and
+  // then create a second row for the pair on the first send.
   const deepLinkedRef = useRef(false)
   useEffect(() => {
-    if (!toParam || deepLinkedRef.current || conversationId) return
+    if (!toParam || deepLinkedRef.current || conversationId || loadingList) return
     deepLinkedRef.current = true
     startConversation(toParam)
     // `startConversation` is redefined on every render and is not a dependency
     // worth chasing - the ref is what makes this run once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toParam, conversationId])
+  }, [toParam, conversationId, loadingList])
 
   // Restore any half-written draft when the open conversation changes, so a
   // message you started isn't lost when you flick away to check something.
@@ -1027,7 +1136,14 @@ export default function Messages() {
   // so a photograph reserves its box before it decodes and most threads have
   // nothing left to settle.
   useLayoutEffect(() => {
-    if (loadingThread || !conversationId) return undefined
+    if (loadingThread) return undefined
+    // A DRAFT THREAD HAS NOTHING TO SETTLE. It is empty by definition - the
+    // conversation does not exist until the first message is sent - so there is
+    // no height to watch and no bottom to pin to. Returning early here without
+    // saying so left `settled` false for ever, and `settled` is what lifts the
+    // skeleton overlay: opening a new DM drew six grey placeholder rows over an
+    // empty thread, permanently.
+    if (!conversationId) { setSettled(true); return undefined }
     const el = scrollerRef.current
     if (!el) return undefined
     setSettled(false)
@@ -1164,9 +1280,14 @@ export default function Messages() {
   // Queue a DM row. Everything the send needs travels with it, so the outbox
   // can post it in twenty minutes from a cold tab with no idea what a
   // conversation is.
-  function queueDm(fields) {
+  // `cid` IS PASSED IN, NOT READ FROM STATE. A draft thread's conversation is
+  // created by `ensureConversation` at the moment of the first send, and React
+  // state does not update inside the async function that just awaited it - so
+  // reading `conversationId` here would enqueue the first message of every new
+  // thread with a null conversation.
+  function queueDm(fields, cid = conversationId) {
     const row = {
-      conversation_id: conversationId,
+      conversation_id: cid,
       sender_id: user.id,
       // A GROUP MESSAGE IS ADDRESSED TO THE ROOM. `recipient_id` stays null,
       // and the RLS policy insists on it: a message in a group that named a
@@ -1176,7 +1297,9 @@ export default function Messages() {
       ...fields,
     }
     enqueueMessage({
-      scope: outboxScope,
+      // The scope follows the row, for the same reason: on the first send of a
+      // new thread `outboxScope` is still `dm:none`.
+      scope: `dm:${cid || 'none'}`,
       table: 'direct_messages',
       row,
       select: '*',
@@ -1184,7 +1307,7 @@ export default function Messages() {
     })
   }
 
-  function send(e) {
+  async function send(e) {
     e.preventDefault()
     if (!body.trim() || !active || dmLocked) return
     setAtBottom(true)
@@ -1192,8 +1315,14 @@ export default function Messages() {
     // there may be no server for an hour.
     playSend()
     const replyId = replyTo?.id ?? null
-    queueDm({ body: body.trim(), ...(replyId ? { reply_to: replyId } : {}) })
-    setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping()
+    const text = body.trim()
+    // THE CONVERSATION IS CREATED HERE, ON THE FIRST MESSAGE, AND NOWHERE ELSE.
+    // For a thread that already exists this resolves on the next microtask and
+    // costs nothing. See `ensureConversation`.
+    const cid = await ensureConversation()
+    if (!cid) { playSendFail(); return }
+    queueDm({ body: text, ...(replyId ? { reply_to: replyId } : {}) }, cid)
+    setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + cid); setReplyTo(null); stopTyping()
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -1207,9 +1336,11 @@ export default function Messages() {
   // It goes through the same outbox as every other message, so it survives a
   // dead tunnel and appears optimistically like anything else.
   const [pickingResource, setPickingResource] = useState(false)
-  function shareResource(resourceId) {
+  async function shareResource(resourceId) {
     setPickingResource(false)
-    queueDm({ resource_id: resourceId })
+    const cid = await ensureConversation()
+    if (!cid) return
+    queueDm({ resource_id: resourceId }, cid)
   }
 
   async function sendAttachment(file) {
@@ -1219,10 +1350,14 @@ export default function Messages() {
     setAtBottom(true)
     setSending(true)
     try {
+      // The conversation has to exist before the upload, not merely before the
+      // message: the storage path is namespaced by conversation id.
+      const cid = await ensureConversation()
+      if (!cid) throw new Error('Could not open that conversation.')
       // Store the private storage PATH (not a public URL); it's signed on render.
       const { url: path, w, h } = isVideo
-        ? await uploadDmVideo(file, conversationId)
-        : await uploadDmImage(file, conversationId)
+        ? await uploadDmVideo(file, cid)
+        : await uploadDmImage(file, cid)
       const replyId = replyTo?.id ?? null
       // Queued only once the file is in storage. The upload is the one part of
       // a send that genuinely cannot wait for signal: a File does not survive
@@ -1236,9 +1371,9 @@ export default function Messages() {
         image_url: path,
         ...(w && h ? { media_w: w, media_h: h } : null),
         ...(replyId ? { reply_to: replyId } : {}),
-      })
+      }, cid)
       playSend()
-      setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null)
+      setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + cid); setReplyTo(null)
     } catch (err) {
       playSendFail()
       setAttachError(err.message)
@@ -1431,7 +1566,7 @@ export default function Messages() {
         <aside
           className={cx(
             'w-full shrink-0 flex-col border-r border-gray-100 sm:flex sm:w-80',
-            conversationId ? 'hidden' : 'flex'
+            threadOpen ? 'hidden' : 'flex'
           )}
           aria-label={tr("Conversations")}
         >
@@ -1711,8 +1846,8 @@ export default function Messages() {
         </aside>
 
         {/* ---------- Thread ---------- */}
-        <section className={cx('min-w-0 flex-1 flex-col sm:flex', conversationId ? 'flex' : 'hidden')}>
-          {!conversationId ? (
+        <section className={cx('min-w-0 flex-1 flex-col sm:flex', threadOpen ? 'flex' : 'hidden')}>
+          {!threadOpen ? (
             // THE EMPTY PANE DOES SOMETHING NOW (1 Sep 2026).
             //
             // Ethan: "on dms when you first click on the tab and haven't opened

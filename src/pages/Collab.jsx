@@ -561,18 +561,15 @@ export default function Collab() {
     if (ackErr) { notice('Could not mark that as seen.'); load() }
   }
 
-  // Open (or create) the 1:1 conversation with a poster, then jump into it.
-  const message = useCallback(async (creatorId) => {
+  // Open the 1:1 conversation with a poster, and jump into it.
+  const message = useCallback((creatorId) => {
     if (creatorId === user.id) return
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`and(participant_a.eq.${user.id},participant_b.eq.${creatorId}),and(participant_a.eq.${creatorId},participant_b.eq.${user.id})`)
-      .maybeSingle()
-    if (existing) return navigate(`/messages/${existing.id}`)
-    const { data: created } = await supabase
-      .from('conversations').insert({ participant_a: user.id, participant_b: creatorId }).select('id').single()
-    if (created) navigate(`/messages/${created.id}`)
+    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
+    // conversation and INSERT one when it found none, so pressing Message and
+    // then changing your mind left an empty thread in two inboxes. Three such
+    // rows exist in production. `/messages?to=` opens the thread either way and
+    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    navigate(`/messages?to=${creatorId}`)
   }, [navigate, user.id])
 
   // Everything a card needs, worked out here so the card itself stays a plain
