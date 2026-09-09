@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal } from '../ui'
-import Icon from '../Icon'
-import { ContactRow, EntryList, PageTile, SheetLabel, StatTile } from './creatorSheet'
+import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from './creatorSheet'
 import { formatDateTimeTz, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
@@ -105,23 +103,16 @@ export default function CreatorPeek({ creator, open, onClose }) {
         </div>
 
         {/* ---- Contact, which is the commonest reason for opening this ----
-            In the roster's own orange team-only card, so the boundary round a
-            creator's phone number looks the same wherever it is drawn. See
-            components/admin/creatorSheet. */}
-        <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
-            <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">{tr('Contact details')}</h4>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <ContactRow icon="envelope" label={tr('Email')} value={data?.email} empty={tr('No email on file')} loading={!data} />
-            <ContactRow icon="device" label={tr('Phone')} value={phone} empty={tr('No phone number given')} loading={!data} />
-          </div>
-        </div>
+            ONE ROW PER DETAIL, AND NO CARD ROUND THEM. See
+            components/admin/creatorSheet for both, and why. */}
+        <ContactBlock>
+          <ContactRow icon="envelope" label={tr('Email')} value={data?.email} empty={tr('No email on file')} loading={!data} />
+          <ContactRow icon="device" label={tr('Phone')} value={phone} empty={tr('No phone number given')} loading={!data} />
+        </ContactBlock>
 
-        {/* ---- What they have done ---- */}
+        {/* ---- What they have achieved ---- */}
         <div>
-          <SheetLabel>{tr('What they have done')}</SheetLabel>
+          <SheetLabel>{tr('What they have achieved')}</SheetLabel>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatTile
               label={tr('Views')}
@@ -187,12 +178,6 @@ export default function CreatorPeek({ creator, open, onClose }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link to={`/messages?to=${creator.id}`} onClick={onClose} className="btn-primary flex-1 justify-center !py-2.5 text-xs">
-            <Icon name="envelope" className="h-4 w-4" />
-            {tr('Message')}
-          </Link>
-        </div>
       </div>
     </Modal>
   )

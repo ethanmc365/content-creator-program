@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { CopyButton, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDateTimeTz } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // THE PIECES BOTH CREATOR POPUPS ARE BUILT FROM.
 //
@@ -52,27 +53,51 @@ export function PageTile({ to, onClose, icon, label }) {
 }
 
 /**
- * A contact detail, with the one action it has attached to it.
+ * A contact detail, on its own line, with the one action it has attached to it.
  *
- * The roster had these as a `<dl>` of bare label/value pairs with a copy button
- * squeezed against the text, and the value truncated - so an email long enough
- * to matter was the one you could not read. A row per detail gives the value the
- * width, `select-all` makes a double-click take the whole thing, and the copy
- * button has somewhere to sit.
+ * ONE PER LINE, NOT TWO ACROSS. Ethan: "I don't like how they're side by side.
+ * It's better that they're on one line each and with a copy button to easily
+ * copy." Two columns is what forced the value to compete with the label for a
+ * half-width box - an email is a long, unbreakable string and a phone number is
+ * a short one, so a two-up grid is guaranteed to be wrong for one of them. A
+ * full-width row gives the value the whole line, which is what makes the copy
+ * button worth having: you can read what you are about to copy.
  */
 export function ContactRow({ icon, label, value, empty, loading }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/70 px-3.5 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-2.5">
       <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
       <span className="min-w-0 flex-1">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-brand/70">{label}</span>
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</span>
         {loading
           ? <Skeleton className="mt-1 h-4 w-32 rounded" />
           : value
             ? <span className="block select-all break-all text-sm font-medium text-ink">{value}</span>
             : <span className="block text-sm text-gray-400">{empty}</span>}
       </span>
-      {!loading && value && <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} className="!h-7 !w-7 shrink-0" />}
+      {!loading && value && <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} className="!h-8 !w-8 shrink-0" />}
+    </div>
+  )
+}
+
+/**
+ * Every contact detail for one creator: a labelled block of stacked rows.
+ *
+ * NO ORANGE CARD. It had a `border-brand/30 bg-brand-tint/40` panel round it in
+ * both popups, on the reasoning that a phone number wants a visible boundary.
+ * Ethan: "you don't need that orange background card for it, you can remove
+ * that completely" - and he is right about what it was costing. Both popups are
+ * already behind an admin check, so the tint was telling the team something the
+ * team already knew, and a full-width tinted slab in the middle of a white sheet
+ * is the loudest thing on it. The heading carries the meaning now and the rows
+ * carry the data, which is the same layout language as every other block here.
+ */
+export function ContactBlock({ children }) {
+  const tr = useT()
+  return (
+    <div>
+      <SheetLabel>{tr('Contact details')}</SheetLabel>
+      <div className="grid gap-2">{children}</div>
     </div>
   )
 }

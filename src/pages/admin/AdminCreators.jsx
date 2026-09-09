@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
-import { ContactRow, EntryList, PageTile, SheetLabel, StatTile } from '../../components/admin/creatorSheet'
+import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from '../../components/admin/creatorSheet'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '../../lib/utils'
@@ -275,16 +275,13 @@ export default function AdminCreators() {
     load()
   }
 
-  async function dmCreator(creator) {
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`and(participant_a.eq.${user.id},participant_b.eq.${creator.id}),and(participant_a.eq.${creator.id},participant_b.eq.${user.id})`)
-      .maybeSingle()
-    if (existing) return navigate(`/messages/${existing.id}`)
-    const { data: created } = await supabase
-      .from('conversations').insert({ participant_a: user.id, participant_b: creator.id }).select('id').single()
-    if (created) navigate(`/messages/${created.id}`)
+  function dmCreator(creator) {
+    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
+    // conversation and INSERT one when it found none, so pressing Message and
+    // then changing your mind left an empty thread in two inboxes. Three such
+    // rows exist in production. `/messages?to=` opens the thread either way and
+    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    navigate(`/messages?to=${creator.id}`)
   }
 
   // WHAT AN EXPORT IS FOR. It is a working file - a mail merge, a market list,
@@ -696,33 +693,25 @@ export default function AdminCreators() {
                 the roster, open the person) rather than on a page a colleague
                 might have open on a shared screen.
 
-                ORANGE, BECAUSE OF WHAT IS IN IT, and that is not decoration:
-                grey-on-grey made this look like the rest of the record, and
-                brand orange makes the boundary something you can see without
-                reading the label.
+                THE ORANGE CARD IS GONE, AND SO IS THE TWO-UP GRID. Both were
+                asked for by name: "you don't need that orange background card
+                for it, you can remove that completely" and "I don't like how
+                they're side by side, it's better that they're on one line each
+                and with a copy button". The tint was drawing a boundary round
+                something that is already inside the admin roster - it stated
+                the panel's audience to that audience - and it was the loudest
+                block on a white sheet. See components/admin/creatorSheet: one
+                definition, both popups, and they cannot drift again.
 
-                THE ROWS ARE THE PROFILE POPUP'S. Ethan: "take some inspiration
-                from that one... like the way the contact details show up." They
-                were a `<dl>` of truncated label/value pairs with a copy button
-                squeezed against the text, so an email long enough to matter was
-                the one you could not read. See components/admin/creatorSheet -
-                one definition, both panels, and they cannot drift again. */}
-            <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
-                {/* "Tryp.com team only" is gone: this panel is inside the admin
-                    roster, so the only people who can read it are the team. A
-                    label that states its own audience to that audience is a
-                    label doing nothing. */}
-                <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">Contact details</h4>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <ContactRow icon="envelope" label="Email" value={emails[selected.id]} empty="No email on file" />
-                <ContactRow icon="device" label="Phone" value={phoneOf(priv)} empty="Not given" loading={priv === null} />
-              </div>
-              <dl className="mt-3 grid grid-cols-3 gap-3 border-t border-brand/15 pt-3">
+                THE THREE FACTS BELOW STAY WITH THE CONTACT ROWS because they
+                answer the same question - who is this person, off the record.
+                They are a plain divided strip now rather than a tinted `dl`. */}
+            <ContactBlock>
+              <ContactRow icon="envelope" label="Email" value={emails[selected.id]} empty="No email on file" />
+              <ContactRow icon="device" label="Phone" value={phoneOf(priv)} empty="Not given" loading={priv === null} />
+              <dl className="grid grid-cols-3 gap-3 rounded-xl border border-gray-100 px-3.5 py-2.5">
                 <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Joined</dt>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Joined</dt>
                   <dd className="mt-0.5 text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
                 </div>
                 {/* DATE OF BIRTH AND THE AGE IT IMPLIES. "Countries visited" is
@@ -732,17 +721,17 @@ export default function AdminCreators() {
                     - and `age` on the profile is a number the creator typed
                     once and never updates, so it is derived from the date. */}
                 <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Date of birth</dt>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Date of birth</dt>
                   <dd className="mt-0.5 text-sm font-medium">{selected.dob ? formatDate(selected.dob) : '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand/70">Age</dt>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Age</dt>
                   <dd className="mt-0.5 text-sm font-medium">{ageFromDob(selected.dob) ?? selected.age ?? '—'}</dd>
                 </div>
               </dl>
-            </div>
+            </ContactBlock>
 
-            {/* ---- What they have done ----
+            {/* ---- What they have achieved ----
                 Four tiles rather than three grey slabs, with views on it: a
                 roster panel that counts submissions but not what they were
                 WATCHED by is missing the number the whole programme is
@@ -750,7 +739,7 @@ export default function AdminCreators() {
                 being made. Views leads in brand, because it is the one people
                 are actually looking for. */}
             <div>
-              <SheetLabel>What they have done</SheetLabel>
+              <SheetLabel>What they have achieved</SheetLabel>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatTile
                   label="Views"
