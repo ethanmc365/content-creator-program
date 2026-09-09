@@ -222,6 +222,27 @@ export const TOUR_STEPS = [
     body: "Now it's up to you to explore the rest of the platform, you can start by saying 'Hi' in the chat!",
     do: null,
     anchor: null,
+    // IT FINISHES WHERE THE APP STARTS (9 Sep 2026).
+    //
+    // Ethan: "I'm not sure that we're taken back to the worldwide page at the
+    // end, which I mentioned, which we're not - and then we should click the
+    // finish button there, because they're wanting to start on the worldwide
+    // page, not on the notifications page in case they immediately start
+    // turning off notifications."
+    //
+    // This step had no `at` at all, so it drew wherever the previous step had
+    // left the creator - which is always `/settings?section=notifications`,
+    // because notifications is the step before it and it is the required one.
+    // So the walkthrough ended by handing somebody a settings screen with a
+    // switch they had just been asked to turn on, and the last thing it said
+    // was "explore the rest of the platform" on the one page that is not it.
+    //
+    // Every other step already carries `at`/`atNet`; this is the same
+    // mechanism, and the welcome step at the top of this list uses exactly the
+    // same pair. So the walk opens and closes in the same place, which is also
+    // the place the tab bar sends you.
+    at: '/home',
+    atNet: '/global',
     goal: { kind: 'end' },
     on: ALL,
   },

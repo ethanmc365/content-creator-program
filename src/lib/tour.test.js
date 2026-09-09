@@ -141,6 +141,24 @@ describe('the steps', () => {
     expect(stepAt(first, false)).toBe('/home')
   })
 
+  // IT ENDS WHERE THE APP STARTS (9 Sep 2026).
+  //
+  // Ethan: "I'm not sure that we're taken back to the worldwide page at the
+  // end... they're wanting to start on the worldwide page, not on the
+  // notifications page in case they immediately start turning off
+  // notifications." The `done` step carried no `at`, so it drew on whatever
+  // page the step before it had navigated to - which is always the
+  // notifications settings screen, because that is the required step and it is
+  // second from last.
+  it('finishes on the same page it started on, not on the settings screen', () => {
+    const last = TOUR_STEPS[TOUR_STEPS.length - 1]
+    const first = TOUR_STEPS[0]
+    expect(last.key).toBe('done')
+    expect(stepAt(last, true)).toBe(stepAt(first, true))
+    expect(stepAt(last, false)).toBe(stepAt(first, false))
+    expect(stepAt(last, true)).toBe('/global')
+  })
+
   // THE WALK IS SHORT, AND NOTHING IN IT ASKS YOU TO SCROLL.
   //
   // Ethan on the twenty-step version: "I am scrolling on that page and nothing

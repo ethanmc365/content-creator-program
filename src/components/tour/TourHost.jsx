@@ -138,6 +138,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const advanced = useRef(false)
 
   const lastWrite = useRef({})
+  // HOW MANY CONSECUTIVE FRAMES THE GEOMETRY HAS BEEN IDENTICAL, and what it
+  // was. See the loop below: this is what lets the tracker stand down instead
+  // of forcing a layout flush sixty times a second for the whole walkthrough.
+  const still = useRef(0)
+  const lastSig = useRef(null)
+
   const put = useCallback((el, prop, px) => {
     const key = `${el.dataset.tourEl || 'x'}:${prop}`
     const prev = lastWrite.current[key]
@@ -621,10 +627,63 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // Each step arms an rAF AND a timer, and whichever arrives first runs,
     // cancelling the other. Foreground gets frame-accurate tracking; anywhere
     // rAF is throttled still gets a correctly placed card, just on a timer.
+    // ---------------------------------------------------------------
+    // AND IT IDLES WHEN NOTHING IS MOVING (9 Sep 2026).
+    //
+    // Ethan: "the tutorial animations... they are moving correctly now, but
+    // they're just really laggy. So really work on smoothing them out,
+    // especially the initial animations are very laggy."
+    //
+    // The animations themselves are CSS transitions on the spotlight and the
+    // card, and they are the right duration and the right curve. What was
+    // making them stutter is what this loop does WHILE they run.
+    //
+    // `measure()` is not cheap. Every pass calls `findAnchor`, takes a
+    // `getBoundingClientRect()`, runs `document.querySelectorAll` for the
+    // keep-out rectangles and takes a rect for each of those, and reads
+    // `card.offsetWidth`. Every one of those forces the browser to flush
+    // layout. It was doing that at display rate for the ENTIRE walkthrough -
+    // sixty forced layouts a second for two minutes - and the frames it was
+    // competing with are the frames the spotlight's transition needs, which is
+    // a 9,999px box-shadow being repainted as it moves. The tracking loop and
+    // the animation were fighting over the same main thread, and the animation
+    // is the one that loses visibly.
+    //
+    // It has to run at display rate for exactly two reasons: while the card and
+    // spotlight are TRAVELLING between steps, and while the page is moving
+    // under them. Both are known. The rest of the time - which is most of a
+    // walkthrough, because a step sits there until somebody presses something -
+    // nothing it measures can have changed, and the correct number of layout
+    // flushes is none.
+    //
+    // So: full rate while travelling or while anything has just moved, and a
+    // slow heartbeat once the geometry has been identical for a few frames.
+    // Anything that could move the page wakes it instantly, and the heartbeat
+    // is the backstop for whatever those listeners miss.
+    //
+    // The initial step benefits most, which is what Ethan noticed: it is the
+    // one running while route chunks are still importing and webfonts are still
+    // settling, so it has the least main thread to spare.
+    // ---------------------------------------------------------------
+    const IDLE_AFTER = 8      // identical frames before it stands down
+    const IDLE_MS = 250       // the heartbeat once it has
+
+    const wake = () => {
+      still.current = 0
+      schedule()
+    }
+
     const schedule = () => {
       cancelAnimationFrame(rafRef.current)
       clearTimeout(tickRef.current)
       const once = () => { cancelAnimationFrame(rafRef.current); clearTimeout(tickRef.current); tick() }
+      if (still.current >= IDLE_AFTER) {
+        // Idle: a timer only. No rAF, so no per-frame layout flush at all.
+        tickRef.current = setTimeout(once, IDLE_MS)
+        return
+      }
+      // Awake: rAF for accuracy, with a timer behind it because rAF does not
+      // run in a background tab or a hidden pane. Whichever arrives first wins.
       rafRef.current = requestAnimationFrame(once)
       tickRef.current = setTimeout(once, 32)
     }
@@ -641,13 +700,29 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // feature down, whatever a future edit does to it. A frame that throws is a
     // frame that is skipped now, and the next one still runs.
     const tick = () => {
+      try {
+        const sig = measure()
+        // WHILE TRAVELLING IT NEVER IDLES. `measure` returns null during the
+        // travel window precisely so this cannot stand down mid-glide, which
+        // would be the one moment accuracy is actually needed.
+        if (sig == null || sig !== lastSig.current) { still.current = 0; lastSig.current = sig }
+        else still.current += 1
+      } catch {
+        // A bad frame is a skipped frame, never a dead loop - and never a
+        // reason to idle, because we do not know what it would have measured.
+        still.current = 0
+      }
+      // AFTER, NOT BEFORE. This used to run first, on the reasoning that a
+      // throw must not stop the loop re-arming - which is right, and is why the
+      // try/catch above is total. Scheduling first also meant the next frame's
+      // cadence was decided before this frame had measured anything, so the
+      // loop could never act on what it had just learned.
       schedule()
-      try { measure() } catch { /* a bad frame is a skipped frame, never a dead loop */ }
     }
 
     const measure = () => {
       const spot = spotRef.current
-      if (!spot) return
+      if (!spot) return null
 
       const target = findAnchor(anchorName)
       const r = target?.getBoundingClientRect()
@@ -665,6 +740,15 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // is welded to its target, so a scroll cannot leave it swimming behind.
       const travelling = Date.now() < travelUntil.current
       spot.dataset.travel = travelling ? 'yes' : 'no'
+      // THE SIGNATURE THE IDLE CHECK COMPARES. It is every input the writes
+      // below depend on, rounded to the pixel they are written at - so two
+      // frames with the same signature cannot produce different output, which
+      // is the property that makes skipping the second one safe. `null` while
+      // travelling means "do not idle", not "nothing changed".
+      const sig = travelling ? null : [
+        visible ? `${Math.round(r.top)},${Math.round(r.left)},${Math.round(r.width)},${Math.round(r.height)}` : 'none',
+        vw, vh, isPhone ? 'p' : 'd',
+      ].join('|')
       // THE CARD GLIDES BETWEEN STEPS TOO (4 Sep 2026). Ethan, on a laptop: "a
       // lot of lagging between the cards moving - after I click one and the
       // next card appears, it's a bit glitchy."
@@ -733,7 +817,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
       // The card. On a phone it is a sheet pinned by CSS, so nothing to do.
       const card = cardRef.current
-      if (!card || isPhone) return
+      if (!card || isPhone) return sig
       // A STEP WITH NO ANCHOR NO LONGER PUTS THE CARD OVER THE PAGE (3 Sep
       // 2026). Ethan, on the hub: "this is the hub, scroll down and have a
       // look - yet the card is covering most of the hub." It was: with no
@@ -765,7 +849,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         const rest = restingPlace({ w: vw, h: vh }, cardBox, !!step.keepClear)
         put(card, 'top', rest.top)
         put(card, 'left', rest.left)
-        return
+        return sig
       }
 
       // (The explicit from-value seeding that used to sit here is gone. It
@@ -787,7 +871,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // that could satisfy it.
       // The same rectangle the spotlight just lit: what must stay visible is
       // exactly what the card must not cover.
-      if (!lit) return
+      if (!lit) return sig
       // `targetH`, NOT `offsetHeight` - AND THE RULE FOR THAT IS ALREADY
       // WRITTEN TWENTY LINES ABOVE THIS FILE'S OWN CODE (8 Sep 2026).
       //
@@ -814,12 +898,47 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
       put(card, 'top', top)
       put(card, 'left', left)
+      // THE CARD'S OWN HEIGHT IS PART OF THE SIGNATURE, because `placeCard`
+      // reads it and it eases over 500ms after a step change. Without it the
+      // loop could idle while the height was still settling and leave the card
+      // placed against a box it no longer is.
+      return sig == null ? null : `${sig}|${Math.round(cardBox.h)}`
     }
 
+    // ANYTHING THAT COULD MOVE THE PAGE WAKES IT, INSTANTLY.
+    //
+    // The heartbeat is a backstop, not the mechanism: a 250ms lag between a
+    // scroll and the spotlight following it would be exactly the swimming this
+    // loop exists to prevent. These are the events that actually precede a
+    // change in what `measure` reads, and every one of them is passive.
+    //
+    // `scroll` is captured, because the thing that scrolls is very often an
+    // inner scroller (the account menu, the settings pane) and a scroll event
+    // does not bubble.
+    const opts = { passive: true, capture: true }
+    window.addEventListener('scroll', wake, opts)
+    window.addEventListener('resize', wake)
+    window.addEventListener('orientationchange', wake)
+    window.addEventListener('pointerdown', wake, { passive: true })
+    window.addEventListener('keydown', wake)
+    // A CSS transition finishing somewhere on the page - a menu opening, the
+    // card's own height settling - moves things this loop measures.
+    window.addEventListener('transitionend', wake, { passive: true })
+    window.addEventListener('animationend', wake, { passive: true })
+
+    still.current = 0
+    lastSig.current = null
     schedule()
     return () => {
       cancelAnimationFrame(rafRef.current)
       clearTimeout(tickRef.current)
+      window.removeEventListener('scroll', wake, opts)
+      window.removeEventListener('resize', wake)
+      window.removeEventListener('orientationchange', wake)
+      window.removeEventListener('pointerdown', wake)
+      window.removeEventListener('keydown', wake)
+      window.removeEventListener('transitionend', wake)
+      window.removeEventListener('animationend', wake)
     }
   }, [ready, step?.anchor, step?.keepClear, isPhone, put])
 
