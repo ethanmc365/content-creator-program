@@ -1,4 +1,4 @@
-import { Children, Fragment, useEffect, useState } from 'react'
+import { Children, Fragment, useCallback, useEffect, useRef, useState } from 'react'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -99,6 +99,39 @@ export default function Reveal({
   ...rest
 }) {
   const [shown, setShown] = useState(false)
+  // ---------------------------------------------------------------------
+  // WHEN THE CONTAINER IS TALLER THAN THE SCREEN, EACH ITEM ANSWERS FOR ITSELF.
+  //
+  // Ethan (9 Sep 2026), about the landing page: "on mobile it is terrible,
+  // doesn't have any of those clean animations."
+  //
+  // The animations were running. They were running in the wrong place. This
+  // component observes the CONTAINER, which is exactly right for the layout it
+  // was designed against - a row of three cards is one object, it arrives as
+  // one object, and the stagger is what makes it read as a row rather than a
+  // block. Stack that same grid into one column on a phone and the container
+  // becomes 1,300px tall inside an 812px viewport: it "arrives" when its first
+  // card does, the stagger runs to completion in under a second, and the reader
+  // scrolls down to two cards that finished moving before they were ever
+  // looked at. Measured on the landing page: three sections, every one of them
+  // taller than two screens on a 375px phone.
+  //
+  // So the container is the right unit only while the container fits. Past
+  // that, each item is its own unit. Same distance, same curve, same class -
+  // the only thing that changes is which element the observer is watching, and
+  // that is decided by measurement rather than by a breakpoint, because "is
+  // this taller than the screen" is the actual question and a width is only a
+  // proxy for it.
+  //
+  // THE STAGGER IS DROPPED IN THIS MODE, DELIBERATELY. A stagger is a
+  // relationship between things arriving together; when they arrive one at a
+  // time, a per-child delay is just a card that hesitates before moving.
+  // ---------------------------------------------------------------------
+  const [perItem, setPerItem] = useState(false)
+  const [shownItems, setShownItems] = useState(() => new Set())
+  const itemNodes = useRef([])
+  const setItemNode = useCallback((i) => (el) => { itemNodes.current[i] = el }, [])
+
   // The node in STATE, not a ref, with the observer in an effect keyed on it.
   //
   // This was a callback ref that returned its own cleanup, which reads
@@ -145,6 +178,100 @@ export default function Reveal({
     const t = setTimeout(() => setPainted(true), 80)
     return () => { cancelAnimationFrame(a); cancelAnimationFrame(b); clearTimeout(t) }
   }, [])
+
+  // TALLER THAN THE VIEWPORT, MEASURED - NOT `useIsMobile()`.
+  //
+  // A width tells you the device; it does not tell you whether this particular
+  // grid stacked. A four-card grid at `sm:grid-cols-2` is two rows on a tablet
+  // and may still fit; a two-card grid on a phone often does. `1.25` is the
+  // slack that stops a container a hair over the fold from switching modes,
+  // where the container observer is still perfectly good.
+  useEffect(() => {
+    if (!node) return undefined
+    const measure = () => {
+      const vh = window.innerHeight || 0
+      // A zero-height viewport is a host that cannot answer (a headless pane,
+      // a hidden iframe). Keep the simpler mode rather than guessing.
+      if (!vh) return
+      setPerItem(node.offsetHeight > vh * 1.25)
+    }
+    measure()
+    // AND WHENEVER THE CONTAINER ITSELF CHANGES SHAPE. Half of these grids are
+    // filled from a query - the featured creators, the map, a challenge list -
+    // so the height at first commit is the height of an empty grid, and by the
+    // time the real cards land nothing would have re-asked the question.
+    let ro
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure)
+      ro.observe(node)
+    }
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [node])
+
+  // The per-item observer. Only armed in the tall mode, and it disconnects
+  // itself the moment every child has arrived - this is a one-way reveal, so
+  // there is nothing left to watch.
+  useEffect(() => {
+    if (!perItem || !node) return undefined
+    const els = itemNodes.current.filter(Boolean)
+    if (!els.length) return undefined
+    // NO OBSERVER MUST NEVER MEAN NO CONTENT. Same rule as the container path:
+    // an in-app webview that stubs IntersectionObserver without delivering
+    // entries would otherwise leave every card at opacity 0 for ever, and this
+    // app's audience arrives through Instagram and TikTok webviews.
+    if (typeof IntersectionObserver === 'undefined') {
+      setShownItems(new Set(els.map((_, i) => i)))
+      return undefined
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        const arrived = entries.filter((e) => e.isIntersecting).map((e) => Number(e.target.dataset.revealIdx))
+        if (!arrived.length) return
+        setShownItems((prev) => {
+          const next = new Set(prev)
+          arrived.forEach((i) => next.add(i))
+          return next
+        })
+        entries.filter((e) => e.isIntersecting).forEach((e) => io.unobserve(e.target))
+      },
+      // The same head start the container observer gets: start it a flick of a
+      // thumb before the card is on screen so the motion FINISHES as it lands.
+      { rootMargin: '0px 0px 12% 0px' },
+    )
+    els.forEach((el) => io.observe(el))
+
+    // THE SAME NET THE CONTAINER PATH HAS, FOR THE SAME REASON.
+    //
+    // An observer that exists but never delivers an entry is a real host, not a
+    // hypothetical one - it is what an embedded Instagram or TikTok webview
+    // does, and this app's audience arrives through those. Without this, the
+    // tall mode would be the one that turns a missing animation into missing
+    // content. Anything already at or above the fold and still hidden wins;
+    // anything below it is correctly still waiting.
+    const net = () => {
+      const vh = window.innerHeight || 0
+      if (!vh) { setShownItems(new Set(els.map((_, i) => i))); return }
+      const arrived = els
+        .map((el, i) => (el.getBoundingClientRect().top < vh ? i : null))
+        .filter((i) => i !== null)
+      if (arrived.length) setShownItems((prev) => new Set([...prev, ...arrived]))
+    }
+    const t = setTimeout(net, 1200)
+    window.addEventListener('scroll', net, { passive: true })
+    window.addEventListener('resize', net)
+    return () => {
+      io.disconnect()
+      clearTimeout(t)
+      window.removeEventListener('scroll', net)
+      window.removeEventListener('resize', net)
+    }
+  }, [perItem, node, children])
 
   useEffect(() => {
     if (!node || shown) return undefined
@@ -308,26 +435,34 @@ export default function Reveal({
     <Tag
       ref={setNode}
       data-from={from}
-      className={`reveal${dense ? ' reveal-dense' : ''}${shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
+      className={`reveal${dense ? ' reveal-dense' : ''}${!perItem && shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{
         '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
         '--reveal-base': `${Math.round(delay * 1000)}ms`,
       }}
       {...rest}
     >
-      {kids.filter(Boolean).map((child, i) => (
-        <div
-          // The child's own key is what React needs; this wrapper is positional
-          // and never reorders independently of it.
-          key={child?.key ?? i}
-          className={itemClassName ? `reveal-item ${itemClassName}` : 'reveal-item'}
-          // Grid cells have to stretch or a card that fills its row height
-          // stops filling it the moment a wrapper appears between the two.
-          style={{ '--reveal-i': Math.min(i, maxStagger) }}
-        >
-          {child}
-        </div>
-      ))}
+      {kids.filter(Boolean).map((child, i) => {
+        // In the tall mode this item carries its own `is-in`, and its own
+        // stagger index is forced to 0: see the note above on why a stagger is
+        // meaningless once the children arrive one at a time.
+        const mine = perItem && shownItems.has(i) && painted
+        return (
+          <div
+            // The child's own key is what React needs; this wrapper is
+            // positional and never reorders independently of it.
+            key={child?.key ?? i}
+            ref={setItemNode(i)}
+            data-reveal-idx={i}
+            className={`reveal-item${mine ? ' is-in is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}`}
+            // Grid cells have to stretch or a card that fills its row height
+            // stops filling it the moment a wrapper appears between the two.
+            style={{ '--reveal-i': perItem ? 0 : Math.min(i, maxStagger) }}
+          >
+            {child}
+          </div>
+        )
+      })}
     </Tag>
   )
 }

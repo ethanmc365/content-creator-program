@@ -172,7 +172,20 @@ export default function Landing() {
           THE BADGE ABOVE IT is no longer a flat brand-tint chip: it is a white
           pill on a hairline ring carrying a live dot, and it lands BEFORE the
           headline, so the page reads top to bottom rather than all at once. */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-24 pt-16 text-center sm:px-8 sm:pt-28">
+      {/* THE PHONE GETS ITS OWN SPACING, NOT THE DESKTOP'S DIVIDED BY NOTHING
+          (9 Sep 2026). Ethan: "on mobile it is terrible... buttons are maybe
+          too big or there's too much white space, and everything just doesn't
+          look well on mobile."
+
+          Measured before this pass, at 375x812: the page was 5,644px - SEVEN
+          screens - and about a fifth of that was padding. Every section carried
+          `py-24`, which is 96px above AND below on a 375px screen; the hero
+          alone was 651px of which 232px was air. Those numbers are right on a
+          1,440px display, where 96px is a comfortable seventh of the viewport
+          height, and wrong on a phone, where it is a quarter of it. So the
+          spacing is a step now rather than a constant, everywhere on this page.
+          Nothing about the desktop layout changes. */}
+      <section className="relative mx-auto max-w-6xl px-5 pb-14 pt-8 text-center sm:px-8 sm:pb-24 sm:pt-28">
         <span
           aria-hidden
           className="hero-bloom pointer-events-none absolute left-1/2 top-0 -z-10 h-[28rem] w-[52rem] max-w-[130%] -translate-x-1/2 rounded-full bg-brand-tint/60 blur-3xl"
@@ -189,7 +202,7 @@ export default function Landing() {
             thing you are looking at. Saying it again immediately above the
             headline pushed "Create. Earn. Travel." down the page to make room
             for a label the reader had just read. */}
-        <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-7xl">
+        <h1 className="mx-auto max-w-3xl text-[clamp(2.5rem,12vw,3.25rem)] font-bold leading-[1.05] tracking-tight sm:text-7xl">
           {/* Three spans, three delays. `aria-hidden` is NOT used and must not
               be: this is the page's only h1 and a screen reader has to read it
               as the sentence it is, which it does - the spans are inline and
@@ -199,24 +212,31 @@ export default function Landing() {
           <HeroWord i={2} className="text-brand">{tr("Travel.")}</HeroWord>
         </h1>
         <p
-          className="animate-fade-up mx-auto mt-8 max-w-xl text-lg leading-relaxed text-smoke"
+          className="animate-fade-up mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-smoke sm:mt-8 sm:text-lg"
           style={{ animationDelay: '0.46s' }}
         >
           {tr("Join the official community of travel creators making content with Tryp.com. Compete in challenges, win cash and travel vouchers, get offered full time roles and grow alongside other travel creators.")}
         </p>
+        {/* TWO BUTTONS THE SAME WIDTH, WHICH THEY WERE NOT.
+            `flex-col` centres two shrink-to-fit pills, so "Become a creator"
+            drew a 280px lozenge and "Log in" a 160px one underneath it, both
+            centred - two different rectangles down the middle of the screen
+            with 16px between them and 48px of nothing above. A grid gives them
+            one width; `sm:flex` hands the row straight back on a desktop, where
+            shrink-to-fit is right because they sit side by side. */}
         <div
-          className="animate-fade-up mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          className="animate-fade-up mx-auto mt-8 grid max-w-xs grid-cols-1 gap-3 sm:mt-12 sm:flex sm:max-w-none sm:items-center sm:justify-center sm:gap-4"
           style={{ animationDelay: '0.58s' }}
         >
           <Link
             to="/signup"
-            className="btn-primary !px-10 !py-4 !text-base shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.03] hoverable:hover:shadow-lift"
+            className="btn-primary justify-center !py-3.5 !text-base shadow-card transition-all duration-300 sm:!px-10 sm:!py-4 hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.03] hoverable:hover:shadow-lift"
           >
             {tr("Become a creator")}
           </Link>
           <Link
             to="/login"
-            className="btn-secondary !px-10 !py-4 !text-base transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.03]"
+            className="btn-secondary justify-center !py-3.5 !text-base transition-all duration-300 sm:!px-10 sm:!py-4 hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.03]"
           >
             {tr("Log in")}
           </Link>
@@ -258,7 +278,7 @@ export default function Landing() {
             point of this tile is that the figure is real money, and "EUR 9k" is
             the register of a dashboard rather than of a number somebody is
             being told with some pride. */}
-        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-3 px-5 py-14 text-center sm:gap-6 sm:px-8">
+        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-3 px-5 py-10 text-center sm:gap-6 sm:px-8 sm:py-14">
           {[
             { key: 'creators', value: stats?.creators, label: 'Creators', format: (n) => String(n) },
             { key: 'challenges', value: stats?.challenges, label: 'Challenges run', format: (n) => String(n) },
@@ -348,9 +368,9 @@ export default function Landing() {
           most readers never reached. It now sits directly under the headline
           stats, with the explanation after it. */}
       {(mapData.creators.length > 0 || featured.length > 0) && (
-        <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
-          <p className="mx-auto mt-4 max-w-md text-center text-smoke">
+        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+          <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
+          <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
             {tr("Creators based all over the world, and always on the move. Tap a pin to meet them.")}
           </p>
 
@@ -378,7 +398,7 @@ export default function Landing() {
               all on one frame. Both of those are in CreatorMap, so the
               directory gets them too. */}
           {mapData.creators.length > 0 && (
-            <div className="mt-12">
+            <div className="mt-8 sm:mt-12">
               <CreatorMap
                 creators={mapData.creators}
                 trips={mapData.trips}
@@ -392,7 +412,7 @@ export default function Landing() {
 
           {featured.length > 0 && (
             <>
-              <h3 className="mt-16 text-center text-lg font-semibold text-ink sm:text-xl">{tr("Recently active creators")}</h3>
+              <h3 className="mt-12 text-center text-lg font-semibold text-ink sm:mt-16 sm:text-xl">{tr("Recently active creators")}</h3>
               <p className="mx-auto mt-2 text-center text-sm text-smoke">{tr("Some of the creators who've been busy in the community lately.")}</p>
               {/* THE CARDS ARRIVE IN TURN AND MAGNIFY UNDER A POINTER.
                   Ethan: "the recent active creator section is good, but again
@@ -401,11 +421,11 @@ export default function Landing() {
                   people rather than as one block, and the avatar getting its
                   own, bigger move on hover is what stops the magnify looking
                   like the whole card was photographed and zoomed. */}
-              <Reveal from="down" className="mt-8 grid grid-cols-2 gap-6 lg:grid-cols-4" stagger={0.08}>
+              <Reveal from="down" className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-6 lg:grid-cols-4" stagger={0.08}>
                 {featured.map((c) => (
                   <div
                     key={c.name}
-                    className="landing-lift card flex h-full flex-col items-center gap-3 !p-8 text-center hoverable:hover:shadow-lift"
+                    className="landing-lift card flex h-full flex-col items-center gap-2.5 !p-5 text-center sm:gap-3 sm:!p-8 hoverable:hover:shadow-lift"
                   >
                     <span className="landing-lift-icon block">
                       <Avatar src={c.photo_url} name={c.name} size="lg" />
@@ -424,9 +444,9 @@ export default function Landing() {
       )}
 
       {/* ---------- How it works ---------- */}
-      <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("How it works")}</h2>
-        <p className="mx-auto mt-4 max-w-md text-center text-smoke">{tr("Three steps between you and your first payout.")}</p>
+      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+        <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("How it works")}</h2>
+        <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">{tr("Three steps between you and your first payout.")}</p>
         {/* THE THREE STEPS ARRIVE IN ORDER, which is the one place on this page
             where a stagger carries meaning rather than decoration: they are
             numbered 01, 02, 03 and they are a sequence, so they should land as
@@ -451,9 +471,35 @@ export default function Landing() {
             SORT of voucher it is in order to want one, and dropping it is what
             gets the sentence onto three lines instead of four, which is most of
             why that card was the tall one to begin with. */}
+        {/* THREE STEPS READ AS A ROW ON A PHONE TOO (9 Sep 2026).
+
+            Ethan: "the cards are really squished, really long, and it really
+            needs a big redesign... use desktop as your inspiration, surely have
+            the same sort of design."
+
+            Stacked, these three were 1,322px - one and a half screens for three
+            sentences - and worse than merely long: 01, 02 and 03 are a
+            SEQUENCE, and a sequence you have to scroll through one card at a
+            time stops being one. The desktop reads left to right because the
+            three are beside each other, and that is the thing worth carrying
+            over rather than the grid that produces it.
+
+            So on a phone it is a snap rail: full-bleed to both edges, three
+            cards at 78% of the width so the next one always peeks, and a
+            centre snap so a flick lands on a card rather than between two. At
+            `sm` it is the same three-column grid it has always been - the rail
+            classes are all unprefixed and every one of them is undone at the
+            breakpoint.
+
+            AND THE ANIMATION COMES BACK BY ITSELF. A rail is one screen tall,
+            so `Reveal` stays in its container mode and the 01-02-03 stagger
+            plays exactly as it does on a desktop. Stacked, the container was
+            two screens tall and the whole stagger was spent before the reader
+            reached card two - see the note in Reveal.jsx. */}
         <Reveal
           from="down"
-          className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3"
+          className="-mx-5 mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 pt-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:mt-16 sm:grid sm:grid-cols-3 sm:gap-8 sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden"
+          itemClassName="w-[78%] shrink-0 snap-center sm:w-auto"
           stagger={0.09}
         >
           {[
@@ -464,15 +510,15 @@ export default function Landing() {
           // so the eye can run 01-02-03 across the row without reading three
           // whole cards to find the order.
           ].map((c) => (
-            <div key={c.step} className="landing-lift card relative flex h-full flex-col !p-10 pt-12 text-center hoverable:hover:shadow-lift">
+            <div key={c.step} className="landing-lift card relative flex h-full flex-col !p-6 !pt-9 text-center sm:!p-10 sm:!pt-12 hoverable:hover:shadow-lift">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-3 py-1 text-[11px] font-bold tracking-[0.2em] text-white">
                 {c.step}
               </span>
-              <span className="landing-lift-icon mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-                <Icon name={c.icon} className="h-7 w-7" />
+              <span className="landing-lift-icon mx-auto mt-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand sm:mt-2 sm:h-14 sm:w-14" aria-hidden>
+                <Icon name={c.icon} className="h-6 w-6 sm:h-7 sm:w-7" />
               </span>
-              <h3 className="mt-4 text-xl font-semibold">{tr(c.title)}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-smoke">{tr(c.text)}</p>
+              <h3 className="mt-4 text-lg font-semibold sm:text-xl">{tr(c.title)}</h3>
+              <p className="mt-2.5 text-[13px] leading-relaxed text-smoke sm:mt-3 sm:text-sm">{tr(c.text)}</p>
             </div>
           ))}
         </Reveal>
@@ -496,15 +542,25 @@ export default function Landing() {
               gets its own movement on hover rather than riding the card's;
             * they arrive in turn, and they magnify under a pointer like
               everything else on the page now does. */}
-      <section className="bg-cloud/50 py-24">
+      <section className="bg-cloud/50 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("Why creators join")}</h2>
-          <p className="mx-auto mt-4 max-w-md text-center text-smoke">
+          <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Why creators join")}</h2>
+          <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
             {tr("Four reasons, and the first one is paid in cash.")}
           </p>
+          {/* FOUR REASONS, TWO ACROSS ON A PHONE (9 Sep 2026).
+
+              `grid-cols-1` made this 1,344px - four full-width slabs with 32px
+              of padding each, one sentence in the middle of every one. Two
+              across turns the same four cards into two rows that fit on one
+              screen, which is what lets the reader compare them: four reasons
+              are a LIST, and a list you scroll through one item at a time is
+              four separate claims instead. The copy is short enough for a
+              half-width card (the longest is fifteen words) and the card is
+              compacted to match - it is a smaller card, not a squeezed one. */}
           <Reveal
             from="down"
-            className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+            className="mt-10 grid grid-cols-2 gap-3 sm:mt-16 sm:gap-6 lg:grid-cols-4"
             stagger={0.08}
           >
             {[
@@ -515,7 +571,7 @@ export default function Landing() {
             ].map((b, i) => (
               <div
                 key={b.title}
-                className="landing-lift group relative flex h-full flex-col overflow-hidden rounded-card bg-white p-8 shadow-card hoverable:hover:shadow-lift"
+                className="landing-lift group relative flex h-full flex-col overflow-hidden rounded-card bg-white p-5 shadow-card sm:p-8 hoverable:hover:shadow-lift"
               >
                 {/* The rule number, quiet enough to be furniture and present
                     enough to make the four read in order. */}
@@ -525,14 +581,14 @@ export default function Landing() {
                     can actually see it." It is furniture, so it must not
                     compete with the heading; it is also a reading order, so it
                     has to be legible. `text-gray-300` is the step that is both. */}
-                <span className="absolute right-6 top-6 text-2xl font-bold tabular-nums text-gray-300" aria-hidden>
+                <span className="absolute right-4 top-4 text-lg font-bold tabular-nums text-gray-300 sm:right-6 sm:top-6 sm:text-2xl" aria-hidden>
                   0{i + 1}
                 </span>
-                <span className="landing-lift-icon flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-                  <Icon name={b.icon} className="h-7 w-7" />
+                <span className="landing-lift-icon flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand sm:h-14 sm:w-14" aria-hidden>
+                  <Icon name={b.icon} className="h-5 w-5 sm:h-7 sm:w-7" />
                 </span>
-                <h3 className="mt-5 text-base font-semibold">{tr(b.title)}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-smoke">{tr(b.text)}</p>
+                <h3 className="mt-4 text-[15px] font-semibold leading-snug sm:mt-5 sm:text-base">{tr(b.title)}</h3>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-smoke sm:mt-2 sm:text-sm">{tr(b.text)}</p>
               </div>
             ))}
           </Reveal>
@@ -576,21 +632,21 @@ export default function Landing() {
       )}
 
       {/* ---------- Final CTA ---------- */}
-      <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
+      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8 sm:pb-24">
         {/* ONE PASS OF LIGHT, ONCE. The sheen is the same idea the live
             challenge card uses, and it is deliberately not a loop: a repeating
             shine on the last thing on the page is an advert for itself. */}
-        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-8 py-16 text-center text-white shadow-lift sm:py-20">
+        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-6 py-12 text-center text-white shadow-lift sm:px-8 sm:py-20">
           <span aria-hidden className="landing-sheen pointer-events-none absolute inset-y-0 left-0" />
-          <h2 className="relative mx-auto max-w-xl text-3xl font-bold leading-tight sm:text-4xl">
+          <h2 className="relative mx-auto max-w-xl text-[26px] font-bold leading-tight sm:text-4xl">
             {tr("Your next trip could pay for itself.")}
           </h2>
-          <p className="relative mx-auto mt-4 max-w-md text-white/85">
+          <p className="relative mx-auto mt-3 max-w-md text-sm text-white/85 sm:mt-4 sm:text-base">
             {tr("Free to join. New briefs go up every month.")}
           </p>
           <Link
             to="/signup"
-            className="btn relative mt-10 bg-white !px-10 !py-4 !text-base text-brand shadow-card transition-all duration-300 hover:bg-white hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.04] hoverable:hover:shadow-lift"
+            className="btn relative mt-8 w-full max-w-xs justify-center bg-white !py-3.5 !text-base text-brand shadow-card sm:mt-10 sm:w-auto sm:!px-10 sm:!py-4 transition-all duration-300 hover:bg-white hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.04] hoverable:hover:shadow-lift"
           >
             {tr("Join the community →")}
           </Link>
@@ -598,7 +654,7 @@ export default function Landing() {
       </section>
 
       {/* ---------- Footer ---------- */}
-      <footer className="border-t border-gray-100 py-12">
+      <footer className="border-t border-gray-100 py-10 sm:py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 text-center sm:px-8">
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg" />
           <p className="text-xs text-smoke">

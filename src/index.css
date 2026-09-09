@@ -461,7 +461,26 @@ html {
      over 24px is the compromise that still reads as arriving.
      `--reveal-base` is the container's head start, so a page can arrive top to
      bottom instead of all at once. See the `delay` prop in Reveal.jsx. */
-  .reveal.is-in > .reveal-item {
+  /* TWO WAYS AN ITEM CAN BE REVEALED, AND THE SECOND ONE IS WHY THE PHONE
+     LOOKED DEAD (9 Sep 2026).
+
+     `.reveal.is-in > .reveal-item` is the container answering for all of its
+     children at once, which is right when the container fits on a screen: a
+     row of three cards arrives as a row of three cards.
+
+     It is wrong the moment the same grid stacks. On a phone the landing page's
+     three-step grid is 1,300px tall inside an 812px viewport, so the container
+     "arrives" while only its first card is on screen - the stagger runs, and
+     cards two and three finish animating two screens before the reader reaches
+     them. Ethan: "on mobile it is terrible, doesn't have any of those clean
+     animations." They were there; they had already happened.
+
+     `.reveal > .reveal-item.is-in` is Reveal observing each item separately,
+     which it switches to whenever the container is taller than the viewport.
+     Same distance, same curve, same everything - the only difference is what
+     decides the moment. See Reveal.jsx. */
+  .reveal.is-in > .reveal-item,
+  .reveal > .reveal-item.is-in {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition:
@@ -480,7 +499,8 @@ html {
     will-change: auto;
   }
   .reveal-dense[data-from='down'] > .reveal-item { transform: translate3d(0, -10px, 0); }
-  .reveal-dense.is-in > .reveal-item {
+  .reveal-dense.is-in > .reveal-item,
+  .reveal-dense > .reveal-item.is-in {
     transition:
       opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
       transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -494,12 +514,14 @@ html {
      because they are the most expensive to paint, and visible on the right as a
      hitch right after the first card lands. `is-done` is added by Reveal once
      the whole stagger has finished, which is when the hint is genuinely spent. */
-  .reveal.is-done > .reveal-item { will-change: auto; }
+  .reveal.is-done > .reveal-item,
+  .reveal > .reveal-item.is-done { will-change: auto; }
 
   @media (prefers-reduced-motion: reduce) {
     .reveal-item,
     .reveal[data-from] > .reveal-item { transform: none; }
-    .reveal.is-in > .reveal-item {
+    .reveal.is-in > .reveal-item,
+    .reveal > .reveal-item.is-in {
       transition: opacity 200ms linear;
       transition-delay: 0ms;
     }
