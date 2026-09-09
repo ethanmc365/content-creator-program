@@ -98,13 +98,49 @@ moves.
 3. Nothing to change in Supabase. Both sites use the same project, so the auth
    redirect URLs, the RLS policies and the edge functions are shared.
 
-## What Ethan has to do
+## A NEW ORIGIN IS THREE ALLOW-LISTS, AND THIS IS WHERE THE FIRST ATTEMPT DIED
 
-Once, on each device he wants to review from: open the staging link and sign in
-to **Vercel** when it asks. After that the link behaves like the app.
+Ethan, first time he opened the staging link: *"I'm unable to test them from
+that link because Cloudflare doesn't work."*
 
-He will be signed out of Tryp.com on the staging origin, because a browser keeps
-a session per origin - so the first visit needs a Tryp.com login too. Google
-sign-in works there only if the staging origin is added to Supabase →
-Authentication → URL Configuration → Redirect URLs; email and password work with
-no configuration at all.
+A browser treats a different hostname as a different site, and so do the three
+services this app depends on. Every one of them keys on the origin, and none of
+them fails loudly - the page renders and the login button simply never enables.
+
+1. **Cloudflare Turnstile** is domain-scoped. The widget only serves a challenge
+   on hostnames listed against it, and on any other hostname it renders nothing,
+   fires no callback, and leaves the submit button disabled at "Verifying…"
+   forever. That is the same failure the platform saw for three days in August
+   when the widget broke on Cloudflare's side, and it looks identical from the
+   outside. **Fix:** Cloudflare dashboard → Turnstile → the widget → Settings →
+   Domains → add `content-creator-program-git-staging-contentcreatorprogram.vercel.app`.
+   To confirm this is what happened, open the console on the login page: a
+   Turnstile error code in the `1102xx` range means "domain not allowed".
+2. **Supabase Auth redirect URLs**, for Google sign-in and password reset only.
+   Authentication → URL Configuration → Redirect URLs → add the staging origin.
+   Email and password need nothing.
+3. **Vercel Authentication**, which is the one that is *supposed* to stop you:
+   sign in with the Vercel account once per device and the link behaves like the
+   app.
+
+There is also a fourth thing that is not an allow-list: a browser keeps a
+Tryp.com session **per origin**, so the first staging visit is a fresh login even
+though you are signed in on the real site.
+
+**If setting those up is not worth it**, use localhost instead - see below. It is
+the same code with none of the allow-lists, because `localhost` is already on all
+of them.
+
+## The other ways to look at a change
+
+| | Where | What it costs | What it is good for |
+| --- | --- | --- | --- |
+| **localhost** | `./dev.sh` → `http://localhost:5173` | Nothing, and no allow-lists to set up | Everything, on a laptop. Real production data, your real account. |
+| **staging** | the branch alias above | Two allow-list entries, once | Reviewing on your **phone**, which localhost cannot do |
+| **Supabase branch** | a separate database | Pro plan, already paid for | Rehearsing a **migration**. Empty of data, so useless for "does this look right" |
+| **`?demo=1`** | production | Nothing | Seeing the landing page as a stranger while signed in |
+
+The reason staging exists at all rather than just localhost: half the things
+worth reviewing on this platform are phone-shaped - the install prompt, the
+walkthrough, the chat overlay, the mobile landing page - and a laptop cannot
+show you those honestly.
