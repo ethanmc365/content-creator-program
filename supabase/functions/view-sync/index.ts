@@ -171,6 +171,26 @@ type Resolved = {
   approx: boolean
   error: string | null
   detail?: string
+  // WHAT THE POST SAYS, NOT JUST HOW MANY WATCHED IT (9 Sep 2026).
+  //
+  // Ethan, asking for the video tracker: "we would want the hooks for this. I
+  // wonder if you can pull these from the video, because you have the scraper
+  // already - see if you can do that, so it can actually pull the hook they
+  // used and maybe the description. Or their accounts."
+  //
+  // Every one of these is already inside a response this function fetches to
+  // read a view count. Reading them costs nothing extra on TikTok, where the
+  // embed page carries the description and the author beside the play count;
+  // it costs one extra request on Instagram and one extra `part` on YouTube,
+  // which is why they are gated behind `meta` and never happen in the sweep.
+  //
+  // ALL FOUR ARE OPTIONAL AND ALWAYS WILL BE. A missing caption is a caption
+  // the platform did not give us, and it must never turn a successful view
+  // read into a failure - which is the shape of every metadata bug there is.
+  caption?: string | null
+  author?: string | null
+  thumbnail?: string | null
+  postedAt?: string | null
 }
 
 const fail = (base: Partial<Resolved>, error: string, detail: string): Resolved => ({
@@ -210,7 +230,41 @@ function playCountFrom(html: string, videoId: string): number | null {
   return first ? Number(first) : null
 }
 
-async function tiktokViews(url: string, knownId: string | null): Promise<Resolved> {
+// WHAT THE EMBED ALREADY TOLD US. Free: this is the same HTML the play count
+// came out of, so there is no second request and nothing to go wrong that has
+// not already gone right. Every field is best-effort and any of them may be
+// null - see the note on `Resolved`.
+//
+// `desc` is TikTok's own key for the caption; `uniqueId` is the @handle and
+// `nickname` is the display name, so the handle is the one worth keeping (it is
+// what a link is built from). `cover` is the poster frame.
+export function tiktokMeta(html: string): Partial<Resolved> {
+  const pick = (re: RegExp) => {
+    const raw = html.match(re)?.[1]
+    if (!raw) return null
+    try {
+      // The blobs are JSON inside HTML, so the values arrive JSON-escaped -
+      // \n, \u00e9 and the rest. Parsing them as a JSON string is the only
+      // correct way to get the characters back; a hand-rolled unescape is how
+      // captions end up full of stray backslashes.
+      return JSON.parse(`"${raw}"`) as string
+    } catch {
+      return raw
+    }
+  }
+  const caption = pick(/"desc":"((?:[^"\\]|\\.)*)"/)
+  const author = pick(/"uniqueId":"((?:[^"\\]|\\.)*)"/)
+  const thumbnail = pick(/"cover":"((?:[^"\\]|\\.)*)"/)
+  const created = html.match(/"createTime":"?(\d{9,10})"?/)?.[1]
+  return {
+    caption: caption || null,
+    author: author || null,
+    thumbnail: thumbnail || null,
+    postedAt: created ? new Date(Number(created) * 1000).toISOString() : null,
+  }
+}
+
+async function tiktokViews(url: string, knownId: string | null, meta = false): Promise<Resolved> {
   const base = { platform: 'TikTok' as const, approx: false }
   let canonical: string | null = url
   let id = knownId ?? tiktokIdFrom(url)
@@ -230,7 +284,14 @@ async function tiktokViews(url: string, knownId: string | null): Promise<Resolve
     try {
       const html = await getText(target)
       const views = playCountFrom(html, id)
-      if (views != null) return { ...base, videoId: id, canonicalUrl: canonical, views, error: null }
+      if (views != null) {
+        // GATED, EVEN THOUGH IT IS FREE. There is no second request here - the
+        // HTML is in hand - but this is four regexes over ~100kB and the sweep
+        // runs it hundreds of times an hour for a result nothing reads. The
+        // rule is the same one the other two platforms follow: the sweep does
+        // exactly the work a view count needs and not one pass more.
+        return { ...base, videoId: id, canonicalUrl: canonical, views, error: null, ...(meta ? tiktokMeta(html) : {}) }
+      }
       lastErr = /captcha|verify_bar|Access Denied/i.test(html.slice(0, 5000)) ? 'blocked' : 'no_count_in_page'
     } catch (e) {
       lastErr = e instanceof HttpError ? 'fetch_failed' : 'fetch_failed'
@@ -250,7 +311,7 @@ export function youtubeIdFrom(url: string): string | null {
   )
 }
 
-async function youtubeViews(url: string): Promise<Resolved> {
+async function youtubeViews(url: string, meta = false): Promise<Resolved> {
   const base = { platform: 'YouTube' as const, approx: false }
   const id = youtubeIdFrom(url)
   if (!id) return fail(base, 'no_video_id', 'No YouTube video id in that link.')
@@ -263,12 +324,38 @@ async function youtubeViews(url: string): Promise<Resolved> {
   }
 
   try {
+    // `snippet` ONLY WHEN SOMEBODY ASKED FOR IT. `videos.list` is one quota unit
+    // per call whatever parts are requested, so this is not about quota - it is
+    // about the response, which grows from a few hundred bytes to several
+    // kilobytes with a description in it. The sweep reads hundreds of rows an
+    // hour and has no use for any of it.
+    const parts = meta ? 'statistics,snippet' : 'statistics'
     const body = await getText(
-      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${id}&key=${encodeURIComponent(key)}`,
+      `https://www.googleapis.com/youtube/v3/videos?part=${parts}&id=${id}&key=${encodeURIComponent(key)}`,
     )
     const parsed = JSON.parse(body)
-    const views = parsed?.items?.[0]?.statistics?.viewCount
-    if (views != null) return { ...base, videoId: id, canonicalUrl, views: Number(views), error: null }
+    const item = parsed?.items?.[0]
+    const views = item?.statistics?.viewCount
+    if (views != null) {
+      const sn = item?.snippet
+      return {
+        ...base,
+        videoId: id,
+        canonicalUrl,
+        views: Number(views),
+        error: null,
+        // The TITLE is the hook on YouTube, and the description is the
+        // description - the opposite way round from Instagram and TikTok, where
+        // one caption is both. Sending the title as the caption would be a lie
+        // about which field it is, so both are joined in reading order and the
+        // tracker's own `hook_from_caption` takes the first line, which is the
+        // title. See migration 212.
+        caption: sn ? [sn.title, sn.description].filter(Boolean).join('\n') || null : null,
+        author: sn?.channelTitle ?? null,
+        thumbnail: sn?.thumbnails?.high?.url ?? sn?.thumbnails?.default?.url ?? null,
+        postedAt: sn?.publishedAt ?? null,
+      }
+    }
     return fail({ ...base, videoId: id, canonicalUrl }, 'no_video_id',
       'YouTube has no video with that id, or its owner has hidden its statistics.')
   } catch (e) {
@@ -587,7 +674,16 @@ export type IgCache = {
 }
 export const newIgCache = (): IgCache => ({ reels: new Map(), owners: new Map() })
 
-type IgOwner = { username: string | null; mediaType: number | null; productType: string | null }
+type IgOwner = {
+  username: string | null
+  mediaType: number | null
+  productType: string | null
+  // Best-effort, and read from a response that was going to be fetched anyway.
+  // See the note in `igFetchOwner`.
+  caption?: string | null
+  thumbnail?: string | null
+  takenAt?: string | null
+}
 
 async function igDocIds(which: 'reels' | 'post'): Promise<string[]> {
   const s = await secrets()
@@ -667,10 +763,20 @@ async function igFetchOwner(shortcode: string): Promise<IgOwner | null> {
     const item = info?.items?.[0]
     if (!item) continue
     const user = (item.user ?? {}) as Record<string, unknown>
+    // THE CAPTION AND THE POSTER FRAME, WHICH THIS RESPONSE ALREADY CARRIES.
+    // `igFetchOwner` was written to answer "who posted this and is it a video",
+    // and the same item states what was written with it and when. Reading them
+    // costs nothing here - the request has already been made and paid for - so
+    // they ride along and the caller decides whether to use them.
+    const cap = (item.caption ?? null) as Record<string, unknown> | null
+    const images = (item.image_versions2 ?? null) as { candidates?: { url?: string }[] } | null
     return {
       username: typeof user.username === 'string' ? user.username : null,
       mediaType: typeof item.media_type === 'number' ? item.media_type : null,
       productType: typeof item.product_type === 'string' ? item.product_type : null,
+      caption: typeof cap?.text === 'string' ? cap.text : null,
+      thumbnail: typeof images?.candidates?.[0]?.url === 'string' ? images.candidates[0].url : null,
+      takenAt: typeof item.taken_at === 'number' ? new Date(item.taken_at * 1000).toISOString() : null,
     }
   }
   return null
@@ -684,7 +790,12 @@ function igOwner(cache: IgCache, shortcode: string): Promise<IgOwner | null> {
   return p
 }
 
-async function instagramViews(url: string, cache: IgCache, handleHint: string | null = null): Promise<Resolved> {
+async function instagramViews(
+  url: string,
+  cache: IgCache,
+  handleHint: string | null = null,
+  meta = false,
+): Promise<Resolved> {
   const code = igShortcodeFrom(url)
   const canonicalUrl = code ? `https://www.instagram.com/reel/${code}/` : null
   const base = { platform: 'Instagram' as const, approx: false, videoId: code, canonicalUrl }
@@ -705,7 +816,23 @@ async function instagramViews(url: string, cache: IgCache, handleHint: string | 
 
   if (guess) {
     const views = await lookIn(guess)
-    if (views != null) return { ...base, views, error: null }
+    if (views != null) {
+      // THE FAST PATH STAYS FAST UNLESS SOMEBODY ASKED FOR MORE. The reels tab
+      // gave us the number in one request and knows nothing about the caption,
+      // so the post lookup below is a SECOND request - worth it for one video
+      // being added by hand, never worth it for four hundred on a cron.
+      if (!meta) return { ...base, views, error: null }
+      const extra = await igOwner(cache, code)
+      return {
+        ...base,
+        views,
+        error: null,
+        caption: extra?.caption ?? null,
+        author: extra?.username ?? guess,
+        thumbnail: extra?.thumbnail ?? null,
+        postedAt: extra?.takenAt ?? null,
+      }
+    }
   }
 
   const owner = await igOwner(cache, code)
@@ -713,6 +840,13 @@ async function instagramViews(url: string, cache: IgCache, handleHint: string | 
     return fail(base, 'no_video_id',
       'Instagram has no post with that code. Usually deleted, or the account is private.')
   }
+  // Everything from here on already HAS the owner lookup in hand, so the
+  // metadata is free on every one of these paths - `extras` is spread into each
+  // return rather than repeated field by field.
+  const extras = meta
+    ? { caption: owner.caption ?? null, author: owner.username, thumbnail: owner.thumbnail ?? null, postedAt: owner.takenAt ?? null }
+    : {}
+
   // A photo (1) or a carousel (8) has no plays because it is not a video, which
   // is a different thing from a video whose plays we could not read.
   if (owner.mediaType === 1 || owner.mediaType === 8) {
@@ -723,7 +857,7 @@ async function instagramViews(url: string, cache: IgCache, handleHint: string | 
   }
   if (!guess || owner.username.toLowerCase() !== guess) {
     const views = await lookIn(owner.username)
-    if (views != null) return { ...base, views, error: null }
+    if (views != null) return { ...base, views, error: null, ...extras }
   }
 
   // We know who posted it and we read their tab. If it is not there, it is
@@ -754,7 +888,11 @@ export function platformOf(host: string): Platform | null {
 async function resolveOne(
   url: string,
   knownId: string | null = null,
-  opts: { igCache?: IgCache; igHandle?: string | null } = {},
+  // `meta` is OFF for the sweep and ON for a probe. See the note on `Resolved`:
+  // two of the four platforms need an extra call to say what a post says, and
+  // the sweep reads hundreds of rows an hour. A tracker adding one video by
+  // hand can afford a second request; a cron reading four hundred cannot.
+  opts: { igCache?: IgCache; igHandle?: string | null; meta?: boolean } = {},
 ): Promise<Resolved> {
   let target: URL
   try {
@@ -766,10 +904,10 @@ async function resolveOne(
     return fail({}, 'bad_url', 'Only http(s) links.')
   }
   switch (platformOf(target.hostname)) {
-    case 'TikTok': return tiktokViews(target.toString(), knownId)
+    case 'TikTok': return tiktokViews(target.toString(), knownId, !!opts.meta)
     case 'Instagram':
-      return instagramViews(target.toString(), opts.igCache ?? newIgCache(), opts.igHandle ?? null)
-    case 'YouTube': return youtubeViews(target.toString())
+      return instagramViews(target.toString(), opts.igCache ?? newIgCache(), opts.igHandle ?? null, !!opts.meta)
+    case 'YouTube': return youtubeViews(target.toString(), !!opts.meta)
     case 'Facebook': return facebookViews(target.toString(), knownId)
     default:
       return fail({}, 'unsupported',
@@ -1035,7 +1173,12 @@ Deno.serve(async (req) => {
   // may touch real data.
   if (body.probe) {
     const started = Date.now()
-    const r = await resolveOne(String(body.probe))
+    // METADATA IS ON FOR A PROBE AND OFF EVERYWHERE ELSE. A probe is one link,
+    // asked for by a person who is looking at the answer - the Testing Centre's
+    // views lab, and the video tracker's "Read it from the platform". Both want
+    // to know what the post SAYS as well as how many watched it, and one extra
+    // request is nothing at that scale. See the note on `Resolved`.
+    const r = await resolveOne(String(body.probe), null, { meta: true })
     const have = await secrets()
     return json(req, {
       ...r,

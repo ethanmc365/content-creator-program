@@ -132,9 +132,17 @@ export function getVideoPreview(url) {
         if (m) videoId = m[1]
       }
       const thumbnail = j?.thumbnail_url || staticThumb || null
+      // THE DISPLAY NAME AND THE @HANDLE ARE DIFFERENT FACTS, and until the
+      // video tracker needed both, only the first was kept. TikTok's oEmbed
+      // states the handle outright as `author_unique_id` and again in
+      // `author_url`; YouTube states neither, and its `author_url` is a channel
+      // URL which may be an @handle or a /channel/UC... id - only the first of
+      // those is a handle, so the other is left null rather than guessed at.
+      const fromUrl = String(j?.author_url || '').match(/\/@([A-Za-z0-9._-]{1,40})/)?.[1] || null
+      const authorHandle = j?.author_unique_id || fromUrl || null
       // Keep the row if we got a thumbnail OR a resolvable video id.
       const result = (thumbnail || videoId)
-        ? { thumbnail, title: j?.title || null, author: j?.author_name || null, videoId }
+        ? { thumbnail, title: j?.title || null, author: j?.author_name || null, authorHandle, videoId }
         : null
       cache.set(url, result)
       return result

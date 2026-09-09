@@ -97,6 +97,11 @@ const TOOLS = [
   { id: 'history', to: '/admin/challenges/history', icon: 'book', title: 'Challenge log' },
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
   { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },
+  // BESIDE ANALYTICS, NOT INSIDE IT. Both read the same challenges and both are
+  // about performance, and they answer opposite questions: analytics says how
+  // the programme did, the tracker says what to make next. `video` is free -
+  // see the note above about every icon in this grid appearing exactly once.
+  { id: 'videos', to: '/admin/videos', icon: 'video', title: 'Video tracker' },
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },

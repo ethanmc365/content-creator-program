@@ -85,6 +85,7 @@ const AdminResults = lazyRoute(chunk.AdminResults)
 const AdminRewards = lazyRoute(chunk.AdminRewards)
 const AdminAnalytics = lazyRoute(chunk.AdminAnalytics)
 const AdminChallengeAnalytics = lazyRoute(chunk.AdminChallengeAnalytics)
+const AdminVideoTracker = lazyRoute(chunk.AdminVideoTracker)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
 const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminJobs = lazyRoute(chunk.AdminJobs)
@@ -328,6 +329,7 @@ export default function App() {
             <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/analytics/:id" element={<AdminChallengeAnalytics />} />
+            <Route path="/admin/videos" element={<AdminVideoTracker />} />
             {/* Community network folded into Analytics as its Connections tab.
                 It was a second door onto "how is the community doing". */}
             <Route path="/admin/network" element={<Navigate to="/admin/analytics?tab=network" replace />} />

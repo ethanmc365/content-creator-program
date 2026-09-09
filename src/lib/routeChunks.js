@@ -66,6 +66,7 @@ export const chunk = {
   AdminRewards: () => import('../pages/admin/AdminRewards'),
   AdminAnalytics: () => import('../pages/admin/AdminAnalytics'),
   AdminChallengeAnalytics: () => import('../pages/admin/AdminChallengeAnalytics'),
+  AdminVideoTracker: () => import('../pages/admin/AdminVideoTracker'),
   AdminEvents: () => import('../pages/admin/AdminEvents'),
   AdminResources: () => import('../pages/admin/AdminResources'),
   AdminJobs: () => import('../pages/admin/AdminJobs'),
@@ -177,6 +178,9 @@ const SHAPES = [
   [/^\/(events)/, 'calendar'],
   [/^\/(challenges|milestones|admin\/analytics)/, 'feature'],
   [/^\/(settings|global\/settings|admin$)/, 'settings'],
+  // The video tracker is a GRID OF CARDS, not the admin panel's tile wall
+  // and not a form. `cards` is the shape it actually lands as.
+  [/^\/admin\/videos/, 'cards'],
   [/^\/admin\/(challenges|events|resources|notes|email)/, 'form'],
   [/^\/admin/, 'panel'],
 ]
