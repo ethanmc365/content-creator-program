@@ -96,6 +96,21 @@ export default function Reveal({
   // already separated in time by the act of scrolling to them, and a delay
   // there would just be a page that lags behind your thumb.
   delay = 0,
+  // THE CONTAINER'S DOM NODE, FOR A CALLER THAT NEEDS TO DRIVE IT.
+  //
+  // `Reveal` already owns `ref` on the element it renders (`setNode` below,
+  // which is state rather than a ref precisely so the observer effect re-runs),
+  // so a caller cannot simply pass one in and this is not a `forwardRef`
+  // candidate on React 18. The one caller that needs the node is the landing
+  // page's `Rail`: the container is the SCROLLER, so paging it, measuring
+  // whether it is at either end, and watching it resize all need the element.
+  //
+  // A CALLBACK, NOT A REF OBJECT. Writing `innerRef.current` here would be
+  // mutating a prop, which the React compiler's immutability rule rejects and
+  // is right to: a component that writes into an object it was handed is a
+  // second owner of that object. The caller keeps its own ref and decides what
+  // to do with the node.
+  innerRef = null,
   ...rest
 }) {
   const [shown, setShown] = useState(false)
@@ -140,6 +155,13 @@ export default function Reveal({
   // rendered grid leaked an observer. State is also what makes the effect
   // re-run when a grid unmounts and comes back.
   const [node, setNode] = useState(null)
+  // Publish the same node to the caller's ref. Written in the SAME callback
+  // rather than in an effect: `Rail` measures on mount and an effect here would
+  // run after the caller's, so it would measure `null`.
+  const innerRefCb = useCallback((el) => {
+    setNode(el)
+    innerRef?.(el)
+  }, [innerRef])
   // HAS THE HIDDEN STATE BEEN PAINTED YET?
   //
   // THE BUG THIS FIXES. A CSS transition needs the browser to have painted the
@@ -433,7 +455,7 @@ export default function Reveal({
 
   return (
     <Tag
-      ref={setNode}
+      ref={innerRefCb}
       data-from={from}
       className={`reveal${dense ? ' reveal-dense' : ''}${!perItem && shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{

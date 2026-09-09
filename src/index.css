@@ -1493,6 +1493,66 @@ html[data-reduce-motion] *::after {
    and ~150px (about four centimetres) on a desktop, in two layers so the
    near edge is warm and the reach is faint. `clamp` on the viewport width is
    what makes it scale between the two rather than being two rules that drift. */
+/* A DIALOG ARRIVES IN TWO PARTS AND BOTH OF THEM SHOULD MOVE (9 Sep 2026).
+ *
+ * Ethan: "whenever a creator's little profile pop up shows up, it's a bit
+ * glitchy. Better animations on some of the new things you built, just to
+ * ensure that they have animations and look clean."
+ *
+ * The card was animating and the SCRIM was not. `bg-ink/40` painted at full
+ * strength on the frame the dialog mounted, so the sequence a reader actually
+ * saw was: the page goes dark instantly, and THEN a white card slides up into
+ * it. That hard cut is the glitch - the card's own 400ms entrance was never the
+ * problem, it was the 0ms one underneath it.
+ *
+ * Slightly shorter than the card (240ms against 400ms) so the ground is settled
+ * by the time the thing standing on it arrives, which is the order these two
+ * read best in.
+ *
+ * This is on `Modal` and therefore on every dialog in the product, which is the
+ * point: one entrance, learned once.
+ */
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.scrim-in { animation: scrim-in 240ms ease-out both; }
+
+/* A BOTTOM SHEET COMES UP FROM THE BOTTOM.
+ *
+ * `animate-fade-up` is a 12px rise, which is right for a card that appears in
+ * the middle of a desktop window and wrong for a sheet whose whole design is
+ * that it is attached to the bottom edge of a phone: a 12px hop reads as a
+ * flicker, not as a sheet being pulled up. Below `sm` it travels its own full
+ * height instead; at `sm` and above the same element is a floating card again
+ * and gets the original rise.
+ *
+ * The curve overshoots very slightly (the 1.12 control point) so it arrives
+ * rather than decelerating into place - the same curve the tour card and the
+ * account menu use, so sheets in this product all move alike.
+ */
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* The desktop half is written out rather than reusing Tailwind's `fade-up`:
+   that keyframe only exists in the built stylesheet while some element still
+   carries the `animate-fade-up` UTILITY, so borrowing it by name here would be
+   a rule that silently stops animating the day the last such element is
+   deleted. */
+@keyframes sheet-in-wide {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sheet-in { animation: sheet-in 340ms cubic-bezier(0.22, 1.12, 0.36, 1) both; }
+@media (min-width: 640px) {
+  .sheet-in { animation: sheet-in-wide 340ms ease-out both; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrim-in, .sheet-in { animation: none; opacity: 1; transform: none; }
+}
+
 @keyframes tour-glow-breathe {
   0%, 100% { opacity: 0.86; }
   50%      { opacity: 1; }
@@ -1508,6 +1568,20 @@ html[data-reduce-motion] *::after {
     inset 0 0 var(--tour-reach) calc(var(--tour-reach) * 0.12) rgba(217, 68, 7, 0.30),
     inset 0 0 calc(var(--tour-reach) * 2) calc(var(--tour-reach) * 0.2) rgba(245, 133, 63, 0.14);
   animation: tour-glow-breathe 3.6s ease-in-out infinite;
+  /* PROMOTE IT, AND THE WHOLE WALKTHROUGH GETS ITS FRAMES BACK (9 Sep 2026).
+     Ethan: "even the screen seemed to be lagging."
+
+     This element is the full viewport carrying three inset box-shadows, one of
+     which has a 300px blur, and it breathes its opacity for the entire length
+     of the walk. An opacity animation is only cheap when the element is on its
+     own compositor layer; without one the browser has no cached texture to fade
+     and re-rasterises a viewport-sized triple-shadow on every frame - for two
+     minutes, underneath every other animation in this component.
+
+     `will-change: opacity` is the promotion, and it is the one case where a
+     permanent `will-change` is right rather than wasteful: the animation it is
+     for is infinite, and the element only exists while the walk is running. */
+  will-change: opacity;
 }
 
 /* --- the spotlight ------------------------------------------------------ */
@@ -1535,6 +1609,13 @@ html[data-reduce-motion] *::after {
   position: fixed;
   pointer-events: none;
   border-radius: 16px;
+  /* The scrim is a 9,999px spread shadow, so every write to this element's box
+     repaints the viewport. It cannot be composited away - a moving hole in a
+     scrim is a repaint by definition - but it can be given its own layer so
+     that repaint is not entangled with the page underneath it. Paired with the
+     rAF loop standing down during the glide (see TourHost), this is the
+     difference between the travel having the main thread and sharing it. */
+  will-change: top, left, width, height;
   box-shadow:
     0 0 0 9999px rgba(17, 17, 17, 0.22),
     0 0 0 3px rgba(255, 255, 255, 0.9),
@@ -1663,6 +1744,38 @@ html[data-reduce-motion] *::after {
     left 0.82s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
+/* A RESTING CARD FOLLOWS ITS OWN HEIGHT, AND IT GLIDES WHILE IT DOES
+   (9 Sep 2026).
+
+   Ethan, on the last step: "the card goes to the home screen, which is good,
+   but then it jumps down a bit - like it was in the middle, and it jumps down."
+
+   An anchorless card is bottom-anchored arithmetic: `restingPlace` computes
+   `top = vh - height - 32`. So whenever the card's measured height changes -
+   which it does after every step change, once the "Nice one" tick and the
+   goal row have settled - its TOP has to change with it, or the gap under it
+   is wrong. The height already eased over 500ms; the top did not ease at all,
+   because the position transition is only switched on during the travel window
+   and that window has closed by then. Half of one movement animated and the
+   other half was applied on the spot.
+
+   Matching the curve and the duration to the height's is what makes it
+   disappear: top and height then change by the same amount over the same time,
+   so `top + height` is constant and the card's BOTTOM EDGE does not move at
+   all. It grows and shrinks upwards from where it sits, which is what a card
+   resting against the foot of the screen should do.
+
+   `[data-travel='no']` is load-bearing rather than tidy. This selector and the
+   travel one above it have the same specificity, and this rule is later, so
+   without it a resting card mid-glide would be given the 500ms curve instead
+   of the 820ms travel one and would arrive out of step with the spotlight. */
+.tour-card--float[data-centre='yes'][data-travel='no'] {
+  transition:
+    top 0.5s cubic-bezier(0.42, 0, 0.18, 1),
+    left 0.5s cubic-bezier(0.42, 0, 0.18, 1),
+    height 0.5s cubic-bezier(0.42, 0, 0.18, 1);
+}
+
 /* THE BOX CHANGES SIZE BETWEEN STEPS AND THAT SHOULD BE A MOVEMENT TOO.
    Ethan: "the card shrinks a bit - smooth animation." Steps carry different
    amounts of text, so the card is 210px on one and 330px on the next, and the
@@ -1674,6 +1787,13 @@ html[data-reduce-motion] *::after {
    IT IS ALWAYS ON, not only while travelling: unlike position, a height is
    never chased by a scroll, so there is nothing for it to swim behind. */
 .tour-card--float { transition: height 0.5s cubic-bezier(0.42, 0, 0.18, 1); }
+
+/* THE CARD'S OWN RELAYOUT STAYS INSIDE THE CARD. Its height eases over 500ms
+   at the same time as its position glides over 820ms, and without containment
+   every frame of that height change invalidates layout for the document it is
+   fixed inside. `layout style` and not `paint`: the card's shadow is drawn
+   outside its own box on purpose. */
+.tour-card { contain: layout style; }
 
 /* AND IT LEAVES THE WAY IT ARRIVED. Ethan, on the last step: "they click finish
    and it just appears away." A card that has spent two minutes gliding around
@@ -2191,6 +2311,43 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   animation: landing-sheen 2.6s cubic-bezier(0.4, 0, 0.2, 1) 0.6s both;
 }
 
+/* NOTHING ON THE FRONT PAGE MOVES UNTIL THE BOOT LAYER HAS GONE.
+ *
+ * Ethan (9 Sep 2026): "the Create. Travel. Earn. - there's still no animation
+ * there, it just loads in."
+ *
+ * There was one, and this is where it went. `index.html` paints an opaque
+ * `#boot` layer on the first frame and main.jsx removes it once React has
+ * something real to hand over to. The hero entrance starts when React COMMITS,
+ * which is earlier - so on a phone the whole 900ms of it played underneath a
+ * white sheet, and on a faster desktop most of it did not, which is exactly the
+ * difference between the two reports.
+ *
+ * Every entrance on this page is therefore held at frame zero and released
+ * together. `animation-play-state: paused` with `both` fill parks each element
+ * on its own `from` keyframe - invisible, in the right place, no reflow - and
+ * removing the pause resumes from there rather than restarting, so the stagger
+ * between the three words survives intact.
+ *
+ * `is-ready` is added by pages/Landing.jsx from `useBootGone()`, with a 2.5s
+ * timer behind it. THAT TIMER IS NOT OPTIONAL: this rule can hide the entire
+ * page, and the standing rule in this codebase is that content is never gated
+ * on a single mechanism.
+ *
+ * Infinite decoration (the bloom, the live dot) is held too. Starting a
+ * twenty-second drift under a sheet only means the reader joins it part way
+ * through, and there is nothing to gain from that. */
+.landing-page:not(.is-ready) .hero-word,
+.landing-page:not(.is-ready) .hero-pill,
+.landing-page:not(.is-ready) .hero-bloom,
+.landing-page:not(.is-ready) .hero-dot,
+.landing-page:not(.is-ready) .hero-dot-ring,
+.landing-page:not(.is-ready) .stat-in,
+.landing-page:not(.is-ready) .landing-sheen,
+.landing-page:not(.is-ready) .animate-fade-up {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-word, .hero-pill, .stat-in {
     animation: none;
@@ -2201,6 +2358,20 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .hero-dot, .hero-dot-ring, .hero-bloom, .landing-sheen { animation: none; }
   .hero-dot-ring, .landing-sheen { opacity: 0; }
   .landing-lift, .landing-lift-icon { transition: none; }
+  /* A reader who asked for less motion must not be able to end up on a page
+     that is waiting for an animation to be released. Everything above is
+     `animation: none` for them, and this makes the pause a no-op too. */
+  .landing-page:not(.is-ready) .hero-word,
+  .landing-page:not(.is-ready) .hero-pill,
+  .landing-page:not(.is-ready) .hero-bloom,
+  .landing-page:not(.is-ready) .hero-dot,
+  .landing-page:not(.is-ready) .hero-dot-ring,
+  .landing-page:not(.is-ready) .stat-in,
+  .landing-page:not(.is-ready) .landing-sheen,
+  .landing-page:not(.is-ready) .animate-fade-up {
+    animation-play-state: running;
+    opacity: 1;
+  }
 }
 
 /* THE EMPTY DM PANE'S FLOATING ENVELOPE IS GONE (4 Sep 2026).

@@ -455,7 +455,29 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // drift out of step with the fills it names - and bottom-LEFT because the
   // zoom stack, the full-screen button and the tooltip all live on the right
   // and along the top.
-  legend = false }) {
+  legend = false,
+  // THE MAP AS PART OF THE PAGE, NOT AS AN OBJECT ON IT.
+  //
+  // Ethan, 9 Sep 2026, about the landing page: "expand the Meet the Community
+  // map and change the background colour, so that rather than it looking like
+  // it's a map just floating in the middle, it looks like it's actually part of
+  // the screen. And obviously it's interactive - that same square will be
+  // there, but it's white and you'll not even notice it."
+  //
+  // The card is what makes it float: a grey hairline, a 20px radius and
+  // `bg-cloud/60` for the sea, which together say "here is a component". On a
+  // page whose whole design is white space that reads as a widget dropped into
+  // an article. `flush` removes all three, so the sea becomes whatever the
+  // section behind it is painted and the continents sit directly on the page.
+  //
+  // It is a PRESENTATION change only. The svg, the pins, d3-zoom, the pinch
+  // handling and every control are identical - it is exactly as interactive as
+  // the framed version, which is the half of the request that was already true
+  // and needed to stay true.
+  //
+  // Ignored in full screen, where the map owns the window and there is no card
+  // to remove.
+  flush = false }) {
   const tr = useT()
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -1438,6 +1460,20 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // auto-height parent silently applies no limit at all).
   const panelFrame = `pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-start justify-end ${overlayCls}`
 
+  // ONE BUTTON OF THE MAP'S CONTROL GROUP.
+  //
+  // A GROUP MAGNIFIES ITS GLYPH, NOT ITSELF: `hover:scale-105` on a disc inside
+  // a rounded, `overflow-hidden` pill scales it into its own clip and the
+  // corners eat the edges, so the feedback is a ground tint - which is the
+  // house rule for a control already sitting on white anyway.
+  const mapBtn = 'flex h-9 w-9 shrink-0 items-center justify-center text-smoke transition-colors hoverable:hover:bg-cloud active:bg-cloud'
+  // The hairline between two buttons runs ACROSS the group's own axis, and the
+  // group's axis changes at `sm` on an embedded map (a row on a phone, a stack
+  // on a desktop) while a full-screen one is always a stack.
+  const mapBtnDiv = fullscreen
+    ? 'border-t border-gray-100'
+    : 'border-l border-gray-100 sm:border-l-0 sm:border-t'
+
   const mapBox = (
     <div
       // Opts out of the platform-wide pinch guard: this map zooms itself, with
@@ -1445,13 +1481,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       // lib/pinchGuard.
       data-zoomable
       className={cx(
-        fullscreen
-          ? 'relative flex h-full w-full flex-1 items-center justify-center overflow-hidden bg-cloud/60'
-          : 'relative w-full overflow-hidden bg-cloud/60',
+        'relative w-full overflow-hidden',
+        fullscreen && 'flex h-full flex-1 items-center justify-center',
+        // THE SEA. `bg-cloud/60` everywhere except a flush map, where the
+        // section behind it is the sea - see the `flush` prop. Full screen
+        // always paints its own, because there is no page behind it.
+        (!flush || fullscreen) && 'bg-cloud/60',
         // The frame belongs to whichever element is the OUTSIDE of the card. With
         // a caption bar that is the wrapper below, and drawing a second border
         // here would put a hairline between the caption and the map it names.
-        !fullscreen && !header && 'rounded-card border border-gray-100',
+        !fullscreen && !header && !flush && 'rounded-card border border-gray-100',
       )}
     >
       {tooltip && (
@@ -1469,24 +1508,49 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           the left/right ones are the landscape pair and they were missing, so
           + and the exit button sat under the bezel. A little more inset on top
           of that keeps them clear of the corner radius itself. */}
-      <div className={`absolute z-20 flex flex-col gap-1 ${fullscreen ? 'right-4 top-4' : 'right-2 top-2'}`}>
-        <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-        <button type="button" onClick={resetView} aria-label={tr("Reset map view")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
+      {/* ONE GROUP, AND IT GETS OUT OF THE WAY ON A PHONE (9 Sep 2026).
+          Ethan: "we can move where they are - maybe somewhere else, especially
+          for mobile, because it takes up a lot of space on the map."
+
+          Measured at 375px: the map box is ~180px tall and this was four
+          separate 36px discs stacked vertically down the right-hand side with
+          gaps - 156px, or EIGHTY-SEVEN PERCENT of the map's height, of floating
+          controls over the picture they control. Four discs also read as four
+          unrelated buttons rather than as one instrument.
+
+          So it is one white pill with hairline dividers between its buttons,
+          and below `sm` it lies DOWN along the bottom edge, where a world map
+          has nothing but ocean anyway. It costs 32px of height there instead of
+          156. From `sm` up the stack is unchanged - a desktop map is 400px+
+          tall and the vertical group beside the top-right corner is where the
+          eye already expects zoom controls to be. Full screen keeps its own
+          inset, for the notch reason above. */}
+      <div
+        className={cx(
+          'absolute z-20 flex overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur',
+          fullscreen
+            ? 'right-4 top-4 flex-col'
+            : 'bottom-2 right-2 flex-row sm:bottom-auto sm:top-2 sm:flex-col',
+        )}
+      >
+        <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")} className={mapBtn}>
+          <span className="text-lg font-semibold leading-none text-ink">+</span>
+        </button>
+        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")} className={cx(mapBtn, mapBtnDiv)}>
+          <span className="text-lg font-semibold leading-none text-ink">−</span>
+        </button>
+        <button type="button" onClick={resetView} aria-label={tr("Reset map view")} className={cx(mapBtn, mapBtnDiv)}>
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
-        {/* Under the zoom stack, because it belongs to the same "how am I
-            looking at this" group. */}
+        {/* Last in the group, because it belongs to the same "how am I looking
+            at this" question as the zoom. */}
         {allowFullscreen && (
           <button
             type="button"
             onClick={fullscreen ? exitFullscreen : enterFullscreen}
-            aria-label={fullscreen ? 'Exit full screen' : 'Open the map full screen'}
-            title={fullscreen ? 'Exit full screen' : 'Full screen'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95"
+            aria-label={fullscreen ? tr('Exit full screen') : tr('Open the map full screen')}
+            title={fullscreen ? tr('Exit full screen') : tr('Full screen')}
+            className={cx(mapBtn, mapBtnDiv)}
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {fullscreen

@@ -234,6 +234,112 @@
         #boot .page { padding-top: 36px; }
       }
 
+      /* ------------------------------------------------------------------
+         THE FRONT PAGE IS NOT THE APP, AND IT WAS BEING DRAWN AS THE APP.
+
+         Ethan (9 Sep 2026): "for the initial loading, whenever you refresh, it
+         shows up the skeleton cards, but the skeleton cards for the actual
+         worldwide page, not for the landing page, which is weird. Maybe have
+         proper skeleton cards for the landing page - they should be different
+         for each one."
+
+         Exactly right, and it was worse than a wrong shape. The shell above is
+         a signed-in creator's screen: an application header, a stack of card
+         rows and A BOTTOM TAB BAR. A stranger arriving at tryp.com was shown
+         five phone tabs they do not have, on a page that has none, and then the
+         public marketing page faded in behind it.
+
+         It also swallowed the hero animation, which is the OTHER half of the
+         same report ("Create. Earn. Travel. - there's still no animation there,
+         it just loads in"). The words animate the moment React commits, which
+         on a phone is comfortably inside the life of this layer, so the whole
+         entrance played underneath an opaque white sheet. Both halves are one
+         bug: this layer did not know which page was coming.
+
+         `#boot.public` is the shape of the PUBLIC page - the floating nav pill,
+         a centred headline, a paragraph, two stacked buttons, one stats band -
+         and it is set by the inline script below from the path, which is the
+         only thing known before any JavaScript module has been fetched.
+         `src/pages/Landing.jsx` then waits for this layer to leave before it
+         starts its entrance. IF THE LANDING LAYOUT CHANGES, CHANGE THIS. */
+      #boot.public .bar,
+      #boot.public .tabs,
+      #boot.public .page { display: none; }
+      #boot.public .public { display: block; }
+      #boot .public { display: none; flex: 1 1 auto; }
+
+      /* The floating nav pill: inset from the edges, nothing spanning the full
+         width, which is what the real header does over the hero. */
+      #boot .public .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        max-width: 1024px;
+        margin: 0 auto;
+        height: 56px;
+        padding: 0 20px;
+        box-sizing: border-box;
+      }
+      #boot .public .nav .mark { width: 92px; height: 34px; border-radius: 10px; }
+      #boot .public .nav .side { display: flex; align-items: center; gap: 8px; }
+      #boot .public .nav .side i { width: 62px; height: 36px; border-radius: 999px; }
+      #boot .public .nav .side i.cta { width: 88px; }
+
+      /* The hero. Centred, because the real one is - a left-aligned skeleton
+         under a centred headline is a layout that moves when the page lands. */
+      #boot .public .hero {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 32px 20px 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      #boot .public .hero i.t { width: 100%; height: 44px; border-radius: 12px; }
+      #boot .public .hero i.t2 { width: 62%; }
+      #boot .public .hero i.p { width: 92%; height: 14px; margin-top: 10px; }
+      #boot .public .hero i.p2 { width: 84%; margin-top: 0; }
+      #boot .public .hero i.p3 { width: 66%; margin-top: 0; }
+      #boot .public .hero i.btn {
+        width: 100%;
+        max-width: 320px;
+        height: 52px;
+        border-radius: 999px;
+        margin-top: 14px;
+      }
+      #boot .public .hero i.btn.b { margin-top: 0; }
+
+      /* The stats band. A tinted strip with three centred columns, which is
+         what sits directly under the hero on the real page. */
+      #boot .public .band {
+        margin-top: 40px;
+        padding: 34px 20px;
+        background: #FAFAFA;
+        border-top: 1px solid #F3F4F6;
+        border-bottom: 1px solid #F3F4F6;
+      }
+      #boot .public .band .cols {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      #boot .public .band .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      #boot .public .band .col i.n { width: 68%; height: 30px; border-radius: 10px; }
+      #boot .public .band .col i.l { width: 88%; height: 12px; }
+
+      @media (min-width: 640px) {
+        #boot .public .nav { height: 72px; padding: 0 28px; }
+        #boot .public .hero { max-width: 760px; padding-top: 92px; gap: 16px; }
+        #boot .public .hero i.t { height: 66px; }
+        #boot .public .hero i.btn { max-width: 220px; }
+        #boot .public .band .col i.n { height: 46px; }
+      }
+
       /* Somebody who has asked for less motion gets the shapes without the
          sweep - "something is happening" is carried by the layout itself. */
       @media (prefers-reduced-motion: reduce) {
@@ -265,7 +371,46 @@
       <div class="tabs">
         <i></i><i></i><i></i><i></i><i></i>
       </div>
+      <div class="public">
+        <div class="nav">
+          <i class="mark"></i>
+          <span class="side"><i></i><i class="cta"></i></span>
+        </div>
+        <div class="hero">
+          <i class="t"></i>
+          <i class="t t2"></i>
+          <i class="p"></i>
+          <i class="p p2"></i>
+          <i class="p p3"></i>
+          <i class="btn"></i>
+          <i class="btn b"></i>
+        </div>
+        <div class="band">
+          <div class="cols">
+            <span class="col"><i class="n"></i><i class="l"></i></span>
+            <span class="col"><i class="n"></i><i class="l"></i></span>
+            <span class="col"><i class="n"></i><i class="l"></i></span>
+          </div>
+        </div>
+      </div>
     </div>
+    <script>
+      /* WHICH SHAPE, DECIDED FROM THE PATH, BEFORE ANY MODULE IS FETCHED.
+         Inline and synchronous on purpose: this runs in the same parse as the
+         markup above, so the layer is never painted with the wrong shape even
+         for one frame. ONLY THE FRONT PAGE: /login and /signup are a different
+         layout again and would need a third shape rather than this one, and
+         being confidently wrong is the thing this is fixing. A `?demo=1`
+         preview of the landing page inside the Testing Centre is on
+         /admin/testing and correctly gets the shell. */
+      (function () {
+        try {
+          if ((location.pathname.replace(/\/+$/, '') || '/') === '/') {
+            document.getElementById('boot').className = 'public'
+          }
+        } catch (e) { /* the shell is the safe default */ }
+      })()
+    </script>
 
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

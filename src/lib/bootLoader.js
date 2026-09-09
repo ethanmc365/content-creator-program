@@ -101,6 +101,30 @@ function subscribeUp(fn) {
 }
 
 /**
+ * HAS THE BOOT LAYER FINISHED OWNING THE SCREEN?
+ *
+ * For a page that ANIMATES ITSELF IN rather than one that draws a placeholder.
+ * The landing page is the only one, and it is the reason this exists: its hero
+ * entrance starts the moment React commits, which on a phone is comfortably
+ * inside the life of `#boot` - so the whole animation played underneath an
+ * opaque white sheet and Ethan reported, correctly, that "Create. Earn. Travel."
+ * has no animation on mobile. It had one. Nobody could see it.
+ *
+ * Unlike `useBootLoaderSlot` this claims NO slot: a page holding the layer up
+ * while waiting for the layer to go is a deadlock, and this caller is real
+ * content rather than a loader.
+ *
+ * It cannot leave anything invisible for ever. `up` starts false whenever there
+ * is no `#boot` in the document (a hot reload, a second visit inside the same
+ * SPA session), and main.jsx dismisses the layer behind a hard 6s cap, so this
+ * resolves true on every path there is. Callers still put a timer behind it -
+ * see the note in main.jsx: never gate content on one mechanism.
+ */
+export function useBootGone() {
+  return !useSyncExternalStore(subscribeUp, bootLayerUp, () => false)
+}
+
+/**
  * For a full-page loader: hold a slot for as long as it is mounted, and report
  * whether it should draw itself. False while `#boot` is up, because `#boot` IS
  * the loader at that point.
