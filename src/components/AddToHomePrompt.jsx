@@ -41,12 +41,14 @@ import { cx } from '../lib/utils'
 // It still gets the notifications ask, because a browser notification on a
 // desktop works fine and is the whole point of the feature.
 //
-// THE INSTALL HALF IS A WALL NOW; THE NOTIFICATIONS HALF IS STILL AN ASK
-// (4 Sep 2026). Ethan: "there should be no not-now button, this pop up is
-// persistent even if they click out of it - they should not be able to use the
-// mobile view on the website." So on a phone, in a browser, there is no close
-// button, no scrim press and no Escape, and the only way past it is doing the
-// thing. The notifications ask is unchanged: dismissible, once per app open,
+// THE INSTALL HALF IS A WALL; THE NOTIFICATIONS HALF IS STILL AN ASK
+// (4 Sep 2026, and the wall was made absolute on 9 Sep). Ethan: "there should
+// be no not-now button, this pop up is persistent even if they click out of it
+// - they should not be able to use the mobile view on the website." So on a
+// phone, in a browser, there is no close button, no scrim press, no Escape and
+// no per-session memory: it is there on EVERY app open, for everybody,
+// creators and the team alike, and the only way past it is doing the thing.
+// The notifications ask is unchanged: dismissible, once per app open,
 // coordinated through `lib/appNag` so nobody meets three dialogs in a row.
 // `InstallGate` is the older, flag-gated version of the same wall and is still
 // off; this is the one that runs.
@@ -65,9 +67,11 @@ export default function AddToHomePrompt() {
   const tr = useT()
   const { profile } = useAuth()
   const [mode, setMode] = useState(null)          // null | 'install' | 'browser' | 'push'
-  // WHETHER THIS PARTICULAR PERSON CAN GET PAST IT. See `installPromptFor` in
-  // lib/install: a creator meets a wall, an admin meets the same screen with a
-  // way out, so the team is not locked out of /admin on a phone browser.
+  // WHETHER THIS PARTICULAR ASK CAN BE CLOSED. See `installPromptFor` in
+  // lib/install: the install and in-app-browser screens are walls for
+  // everybody, the notifications ask is a dismissible nag. This is false for
+  // the first two and true for the third, and it is what removes the X, the
+  // scrim press and the Escape key from the Modal below.
   const [canClose, setCanClose] = useState(true)
   // Bumped when the nag slot frees up, so the effect below re-runs and this
   // prompt can take its turn in the same app open. See lib/appNag.
@@ -342,17 +346,18 @@ export default function AddToHomePrompt() {
           </p>
         )}
 
-        {/* THE TEAM'S WAY PAST IT, AND ONLY THE TEAM'S. An admin opening a link
-            to /admin on their phone has to be able to reach it; a creator does
-            not have this button at all, because for them the app IS the
-            product. A scrim press would technically be enough, but an invisible
-            exit on a screen that has spent four paragraphs saying there is no
-            way round it is a worse answer than a labelled one. */}
-        {canClose && (
-          <button type="button" onClick={dismiss} className="btn-ghost w-full justify-center !py-2 text-xs">
-            {tr('Not now, keep me in the browser')}
-          </button>
-        )}
+        {/* THERE IS NO WAY PAST THIS SCREEN AND THERE IS NO LONGER ONE FOR THE
+            TEAM EITHER (9 Sep 2026). Ethan: "remove the x at the top and remove
+            the 'not now, keep me in the browser'. We want that pop up to be
+            persistent... we want them to only use that."
+
+            The button that stood here was the admin escape hatch, added the
+            same day on the worry that an admin opening a link to /admin on
+            their phone would be locked out of it. They are not: they install
+            the app and open /admin from the icon, which is the same app on the
+            same origin. A labelled exit on a wall is a door, and the two people
+            with the door were the two people who otherwise never saw what a
+            creator sees. See `installPromptFor` in lib/install. */}
       </div>
     </Modal>
   )

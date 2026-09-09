@@ -225,21 +225,28 @@ export function installSteps() {
 // wall on a defensible worry: the wall has no close button, so an admin who
 // opens /admin from an email on their phone would be locked out of it.
 //
-// Both of those are right, and the mistake was answering them with one switch.
-// The worry is about the WALL, not about the ASK, so the fix is to keep the ask
-// and drop the wall:
+// THE ADMIN ESCAPE HATCH IS NOW GONE TOO (9 Sep 2026, later the same day).
+// Ethan, having seen the dismissible version on his own phone: "currently it
+// shows 'not now, keep me in the browser'. We don't want that at all. We want
+// that pop up to be persistent, and they have to add it to home screen because
+// we want them to only use that. Remove the x at the top and remove the 'not
+// now, keep me in the browser'... ensure that pops up every single time they
+// are logged in and entering the browser."
 //
-//   creator   the wall. No close, no scrim, no Escape - the app is the product
-//             on a phone, and on iOS a browser tab gets no push at all, so a
-//             creator on the website is a creator who cannot be told a
-//             challenge went live.
-//   admin     the same screen, dismissible for this app open. They see it every
-//             time they open the site in a phone browser, which is what was
-//             asked for, and they can still get to /admin.
+// So there is ONE answer for everybody on a phone in a browser now, and it is
+// the wall. The worry it replaced is real and has one answer: an admin installs
+// the app like everybody else and reaches /admin from the icon, which is the
+// same app. A dismissible wall is a door, and a door that the two people most
+// likely to use it walked through every day is how the mobile website stayed
+// the thing the team actually looked at.
 //
-// Ethan is `owner` and Casandra is `global_admin`, so between 7 and 9 Sep this
-// prompt was invisible to both people who would ever check whether it worked.
-// That is why it needs a test rather than a careful reading.
+//   everybody   the wall. No close, no scrim, no Escape, every app open - the
+//               app is the product on a phone, and on iOS a browser tab gets no
+//               push at all, so a creator on the website is a creator who
+//               cannot be told a challenge went live.
+//
+// The NOTIFICATIONS ask is untouched and is still admin-exempt: that is a
+// recurring nag, this is a one-time setup step.
 // ---------------------------------------------------------------------------
 
 /**
@@ -259,12 +266,17 @@ export function installPromptFor({ phone, installed, inApp, wantsPush, isAdmin =
   if (status !== 'active') return { mode: null, dismissible: true }
 
   if (phone && !installed) {
-    // AN IN-APP BROWSER GETS A DOOR, NOT A WALL. Nothing inside an Instagram or
-    // TikTok webview can add anything to a home screen, so walling it would
-    // lock an approved account out of the product with no action available.
-    // It is never dismissible for a creator because the door IS the action.
-    if (inApp) return { mode: 'browser', dismissible: isAdmin }
-    return { mode: 'install', dismissible: isAdmin }
+    // AN IN-APP BROWSER STILL GETS A DOOR RATHER THAN THE STEPS, because
+    // nothing inside an Instagram or TikTok webview can add anything to a home
+    // screen - "tap Share, tap Add to Home Screen" names two controls that are
+    // not on the screen. It is a different SCREEN, not a softer one: it is
+    // exactly as persistent as the install wall, and the way past it is doing
+    // the thing it asks (open this in Safari or Chrome).
+    if (inApp) return { mode: 'browser', dismissible: false }
+    // `isAdmin` is deliberately not read here any more. See the note above: the
+    // wall is the same for everybody, and it is kept in the signature because
+    // the notifications branch below still uses it.
+    return { mode: 'install', dismissible: false }
   }
 
   // THE NOTIFICATIONS ASK IS STILL ADMIN-EXEMPT, and that is the decision of

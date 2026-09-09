@@ -27,8 +27,21 @@ describe('installPromptFor', () => {
     expect(installPromptFor({ ...phoneBrowser, isAdmin: true }).mode).toBe('install')
   })
 
-  it('lets an admin past it, so the team is not locked out of /admin on a phone', () => {
-    expect(installPromptFor({ ...phoneBrowser, isAdmin: true }).dismissible).toBe(true)
+  // AND GIVES THEM NO WAY OUT EITHER (9 Sep 2026, later the same day).
+  //
+  // Ethan, having met the dismissible version on his own phone: "currently it
+  // shows 'not now, keep me in the browser'. We don't want that at all... we
+  // want them to only use that." The escape hatch was written for a real worry
+  // - an admin opening /admin from a phone browser - and that worry has an
+  // answer that is not a door: install the app and open /admin from the icon,
+  // which is the same app on the same origin.
+  it('gives an admin no way out either', () => {
+    expect(installPromptFor({ ...phoneBrowser, isAdmin: true }).dismissible).toBe(false)
+  })
+
+  it('walls an in-app webview for an admin too', () => {
+    expect(installPromptFor({ ...phoneBrowser, inApp: true, isAdmin: true }))
+      .toEqual({ mode: 'browser', dismissible: false })
   })
 
   it('shows nothing once the app is installed and push is already on', () => {
@@ -45,8 +58,12 @@ describe('installPromptFor', () => {
     expect(installPromptFor({ ...phoneBrowser, installed: true, isAdmin: true }).mode).toBe(null)
   })
 
-  it('sends an in-app webview to a real browser rather than walling it', () => {
-    expect(installPromptFor({ ...phoneBrowser, inApp: true }).mode).toBe('browser')
+  // A different SCREEN, not a softer one: the steps name controls that do not
+  // exist inside an Instagram webview, so the only useful instruction is "leave
+  // this webview". It is exactly as persistent as the install wall.
+  it('sends an in-app webview to a real browser rather than showing it the steps', () => {
+    expect(installPromptFor({ ...phoneBrowser, inApp: true }))
+      .toEqual({ mode: 'browser', dismissible: false })
   })
 
   it('leaves a desktop alone except for notifications', () => {
