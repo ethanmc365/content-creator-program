@@ -95,8 +95,10 @@ moves.
    its own - no dashboard step, no configuration.
 2. Vercel → Project → Settings → Deployment Protection → Vercel Authentication
    → **Standard Protection**. This is already on.
-3. Nothing to change in Supabase. Both sites use the same project, so the auth
-   redirect URLs, the RLS policies and the edge functions are shared.
+3. The RLS policies and the edge functions are shared, because both sites use
+   the same Supabase project - but the origin allow-lists are NOT. See the next
+   section: a new hostname needs adding to Cloudflare Turnstile, and to
+   Supabase's redirect URLs if Google sign-in is to work there.
 
 ## A NEW ORIGIN IS THREE ALLOW-LISTS, AND THIS IS WHERE THE FIRST ATTEMPT DIED
 
