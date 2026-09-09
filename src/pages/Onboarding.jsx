@@ -12,6 +12,7 @@ import PhotoBoard from '../components/PhotoBoard'
 import Icon from '../components/Icon'
 import AutoTextarea from '../components/AutoTextarea'
 import SubmittedCard from '../components/SubmittedCard'
+import TrypPlaneBanner from '../components/TrypPlaneBanner'
 import SocialMark, { brandForUrl, BRAND_COLOR } from '../components/SocialMark'
 import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
@@ -1150,6 +1151,29 @@ function Welcome({ name, pending }) {
           "TEAM", NOT "CREW" (3 Sep 2026). Ethan: "I like the welcome to the
           crew - I would say welcome to the team rather than crew." */}
       <h1 className="text-3xl font-bold">Welcome to the team{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
+      {/* THE PLANE, BETWEEN THE GREETING AND THE THREE ROWS (9 Sep 2026).
+          Ethan: "below the title and above those three cards, we can add in the
+          Tryp.com animated plane with the little contrails coming out the back
+          of it. I think it would add some colour, really improve it, make sure
+          it looks good on both desktop and mobile."
+
+          The colour is the whole argument. Everything else on this screen is
+          ink and grey on white by design - the icon that used to sit above the
+          heading was removed on exactly that ground ("a heart in a tinted
+          square is decoration on the one screen whose job is to be got
+          through"). What makes this different is that it is not decoration in
+          the same place: it is not competing with the heading for the top of
+          the screen, it is the one thing between the welcome and the work, and
+          the plane is the product's own mark rather than a stock glyph.
+
+          `animate-fade-up` on the wrapper so the band ARRIVES rather than being
+          there - the plane's own takeoff then plays inside it. Two entrances
+          rather than one is deliberate: the card rises into place and the plane
+          flies in, which is the same layered arrival the landing page hero
+          uses. See components/TrypPlaneBanner for the contrails. */}
+      <div className="animate-fade-up" style={{ animationDelay: '0.12s' }}>
+        <TrypPlaneBanner className="mx-auto max-w-sm" />
+      </div>
       {/* TWO ROWS, AND BOTH OF THEM ARE ABOUT THEM.
           There were four. Ethan on the other two: "about three minutes, nine
           short screens, one thing each - don't like that, doesn't really make
