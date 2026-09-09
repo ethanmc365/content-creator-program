@@ -251,7 +251,7 @@
       #boot .b-page .b-h2 { width: 260px; max-width: 70%; height: 16px; margin-top: 12px; }
       #boot .b-page .b-hero { width: 100%; height: 132px; border-radius: 20px; margin-top: 26px; }
       #boot .b-page .b-row { width: 100%; height: 68px; border-radius: 16px; margin-top: 12px; }
-      #boot .b-page .b-row.b { width: 92%; }
+      #boot .b-page .b-row.b-b { width: 92%; }
 
       /* The bottom tab strip, phone only - five items above the home indicator. */
       #boot .b-tabs {
@@ -291,16 +291,16 @@
          entrance played underneath an opaque white sheet. Both halves are one
          bug: this layer did not know which page was coming.
 
-         `#boot.public` is the shape of the PUBLIC page - the floating nav pill,
+         `#boot.b-public` is the shape of the PUBLIC page - the floating nav pill,
          a centred headline, a paragraph, two stacked buttons, one stats band -
          and it is set by the inline script below from the path, which is the
          only thing known before any JavaScript module has been fetched.
          `src/pages/Landing.jsx` then waits for this layer to leave before it
          starts its entrance. IF THE LANDING LAYOUT CHANGES, CHANGE THIS. */
-      #boot.public .b-bar,
-      #boot.public .b-tabs,
-      #boot.public .b-page { display: none; }
-      #boot.public .b-public { display: block; }
+      #boot.b-public .b-bar,
+      #boot.b-public .b-tabs,
+      #boot.b-public .b-page { display: none; }
+      #boot.b-public .b-public { display: block; }
       #boot .b-public { display: none; flex: 1 1 auto; }
 
       /* The floating nav pill: inset from the edges, nothing spanning the full
@@ -319,7 +319,7 @@
       #boot .b-public .b-nav .b-mark { width: 92px; height: 34px; border-radius: 10px; }
       #boot .b-public .b-nav .b-side { display: flex; align-items: center; gap: 8px; }
       #boot .b-public .b-nav .b-side i { width: 62px; height: 36px; border-radius: 999px; }
-      #boot .b-public .b-nav .b-side i.cta { width: 88px; }
+      #boot .b-public .b-nav .b-side i.b-cta { width: 88px; }
 
       /* The hero. Centred, because the real one is - a left-aligned skeleton
          under a centred headline is a layout that moves when the page lands. */
@@ -333,19 +333,19 @@
         align-items: center;
         gap: 12px;
       }
-      #boot .b-public .b-hero i.t { width: 100%; height: 44px; border-radius: 12px; }
-      #boot .b-public .b-hero i.t2 { width: 62%; }
-      #boot .b-public .b-hero i.p { width: 92%; height: 14px; margin-top: 10px; }
-      #boot .b-public .b-hero i.p2 { width: 84%; margin-top: 0; }
-      #boot .b-public .b-hero i.p3 { width: 66%; margin-top: 0; }
-      #boot .b-public .b-hero i.btn {
+      #boot .b-public .b-hero i.b-t { width: 100%; height: 44px; border-radius: 12px; }
+      #boot .b-public .b-hero i.b-t2 { width: 62%; }
+      #boot .b-public .b-hero i.b-p { width: 92%; height: 14px; margin-top: 10px; }
+      #boot .b-public .b-hero i.b-p2 { width: 84%; margin-top: 0; }
+      #boot .b-public .b-hero i.b-p3 { width: 66%; margin-top: 0; }
+      #boot .b-public .b-hero i.b-btn {
         width: 100%;
         max-width: 320px;
         height: 52px;
         border-radius: 999px;
         margin-top: 14px;
       }
-      #boot .b-public .b-hero i.btn.b { margin-top: 0; }
+      #boot .b-public .b-hero i.b-btn.b-b { margin-top: 0; }
 
       /* The stats band. A tinted strip with three centred columns, which is
          what sits directly under the hero on the real page. */
@@ -364,15 +364,15 @@
         margin: 0 auto;
       }
       #boot .b-public .b-band .b-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-      #boot .b-public .b-band .b-col i.n { width: 68%; height: 30px; border-radius: 10px; }
-      #boot .b-public .b-band .b-col i.l { width: 88%; height: 12px; }
+      #boot .b-public .b-band .b-col i.b-n { width: 68%; height: 30px; border-radius: 10px; }
+      #boot .b-public .b-band .b-col i.b-l { width: 88%; height: 12px; }
 
       @media (min-width: 640px) {
         #boot .b-public .b-nav { height: 72px; padding: 0 28px; }
         #boot .b-public .b-hero { max-width: 760px; padding-top: 92px; gap: 16px; }
-        #boot .b-public .b-hero i.t { height: 66px; }
-        #boot .b-public .b-hero i.btn { max-width: 220px; }
-        #boot .b-public .b-band .b-col i.n { height: 46px; }
+        #boot .b-public .b-hero i.b-t { height: 66px; }
+        #boot .b-public .b-hero i.b-btn { max-width: 220px; }
+        #boot .b-public .b-band .b-col i.b-n { height: 46px; }
       }
 
       /* Somebody who has asked for less motion gets the shapes without the
