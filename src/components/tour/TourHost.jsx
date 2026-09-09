@@ -137,6 +137,36 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const travelUntil = useRef(0)
   const advanced = useRef(false)
 
+  // IS THIS STEP LIVE? A REF, BECAUSE `ready` IS A FRAME BEHIND WHERE IT
+  // MATTERS (9 Sep 2026).
+  //
+  // Ethan: "whenever I click 'show me around', the card temporarily went down,
+  // which should not be happening. Fix that - and then it moved up to the top."
+  //
+  // Exactly one frame of the rAF loop caused that, and it is a React ordering
+  // problem rather than a geometry one. Advancing a step re-renders with the
+  // new step, and effects then run in declaration order:
+  //
+  //   1  the height effect measures the NEW card and writes `targetH`
+  //   2  the step-entry effect calls `setReady(false)`
+  //   3  the LOOP effect re-runs - because `step.anchor` is in its deps - and
+  //      `ready` is still `true` in this render's closure, because a state
+  //      update queued one line earlier has not re-rendered anything yet.
+  //
+  // So the loop starts, with the new step's anchor, on a page that has not
+  // scrolled to it yet. The anchor is off screen, which the loop correctly
+  // treats as "no anchor", so it puts the card in its RESTING place - computed
+  // from the new, shorter height, and `restingPlace` is bottom-anchored
+  // (`top = vh - h - 32`), so a shorter card gets a LARGER top. The card glides
+  // DOWN. A beat later the scroll settles, `ready` really is true, the anchor is
+  // visible, and it glides back up to the tab bar. Down, then up: precisely
+  // what he saw, on precisely the step where the walk first has to scroll.
+  //
+  // `ready` cannot be trusted here because it is state; this ref is written
+  // synchronously by the step-entry effect, which runs BEFORE the loop effect,
+  // so the loop sees the truth on the frame it needs it.
+  const live = useRef(false)
+
   const lastWrite = useRef({})
   // HOW MANY CONSECUTIVE FRAMES THE GEOMETRY HAS BEEN IDENTICAL, and what it
   // was. See the loop below: this is what lets the tracker stand down instead
@@ -229,12 +259,40 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   useEffect(() => {
     const card = cardRef.current
     if (!card || isPhone) return undefined
-    const apply = () => {
+    // A RE-MEASURE THAT MOVES THE CARD BY THREE PIXELS IS NOT WORTH HAVING
+    // (9 Sep 2026).
+    //
+    // Ethan, on the last step: "the card goes to the home screen, which is
+    // good, but then it jumps down a bit - like it was in the middle, and it
+    // jumps down."
+    //
+    // The resting place is bottom-anchored (`top = vh - h - 32` in
+    // lib/tourPlacement), so the card's TOP is a function of its HEIGHT. The
+    // two re-measures below exist for real reasons - webfonts and the "Nice
+    // one" tick settle after the first paint - but a webfont settling changes
+    // the height by a couple of pixels, and on a resting card that is a couple
+    // of pixels of downward movement, applied mid-glide, on top of a 500ms
+    // height transition. Two animations of the same edge, in the same moment,
+    // which is exactly what reads as a jump.
+    //
+    // So a re-measure has to be worth something: 5px is well under the smallest
+    // real content change (a line of text is ~20px) and well over anything font
+    // settling produces. Below that the first measurement stands.
+    const MIN_DELTA = 5
+    const apply = (force = false) => {
       card.style.height = 'auto'
       const h = card.scrollHeight
-      if (h > 0) { targetH.current = h; card.style.height = `${h}px` }
+      if (h <= 0) return
+      if (!force && targetH.current && Math.abs(h - targetH.current) < MIN_DELTA) {
+        // Put the height back exactly as it was: reading `scrollHeight` needed
+        // `auto`, and leaving it there would drop the transition's from-value.
+        card.style.height = `${targetH.current}px`
+        return
+      }
+      targetH.current = h
+      card.style.height = `${h}px`
     }
-    apply()
+    apply(true)
     const t1 = setTimeout(apply, 60)
     const t2 = setTimeout(apply, 220)
     return () => { clearTimeout(t1); clearTimeout(t2) }
@@ -278,6 +336,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
   // ----------------------------------------------------- entering a step ---
   useEffect(() => {
+    // SYNCHRONOUS, AND BEFORE ANYTHING ELSE IN THIS EFFECT. See the note on
+    // `live`: the loop effect re-runs later in this same commit with a stale
+    // `ready`, and this is the only thing that can tell it not to.
+    live.current = false
     setReady(false)
     advanced.current = false
     travelUntil.current = Date.now() + TRAVEL_MS
@@ -403,7 +465,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     let settled = false
     let poll = 0
     let cap = 0
-    const settle = () => { if (!settled) { settled = true; setReady(true) } }
+    const settle = () => { if (!settled) { settled = true; live.current = true; setReady(true) } }
     const startSettle = () => {
       let lastY = window.scrollY
       let still = 0
@@ -702,9 +764,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     const tick = () => {
       try {
         const sig = measure()
-        // WHILE TRAVELLING IT NEVER IDLES. `measure` returns null during the
-        // travel window precisely so this cannot stand down mid-glide, which
-        // would be the one moment accuracy is actually needed.
+        // `null` means "could not measure" (no spotlight element yet), which is
+        // not the same as "nothing changed" - so it resets the counter. The
+        // travel window used to return null for the same purpose and no longer
+        // does; see the long note in `measure`.
         if (sig == null || sig !== lastSig.current) { still.current = 0; lastSig.current = sig }
         else still.current += 1
       } catch {
@@ -723,6 +786,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     const measure = () => {
       const spot = spotRef.current
       if (!spot) return null
+      // THE STEP IS NOT LIVE YET - WRITE NOTHING AT ALL. See the note on
+      // `live`. A constant signature rather than `null` so the loop stands down
+      // after a few frames instead of spinning at display rate through a wait
+      // that is mostly a smooth scroll: the scroll is exactly the animation
+      // these frames would be stealing from.
+      if (!live.current) return 'held'
 
       const target = findAnchor(anchorName)
       const r = target?.getBoundingClientRect()
@@ -743,9 +812,41 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // THE SIGNATURE THE IDLE CHECK COMPARES. It is every input the writes
       // below depend on, rounded to the pixel they are written at - so two
       // frames with the same signature cannot produce different output, which
-      // is the property that makes skipping the second one safe. `null` while
-      // travelling means "do not idle", not "nothing changed".
-      const sig = travelling ? null : [
+      // is the property that makes skipping the second one safe.
+      //
+      // AND IT NOW IDLES *DURING* THE GLIDE TOO, WHICH IS THE OPPOSITE OF WHAT
+      // THIS USED TO DO (9 Sep 2026).
+      //
+      // Ethan: "it moved up to the top so I could click on challenges, but it
+      // was a really juttery and laggy animation - even the screen seemed to be
+      // lagging."
+      //
+      // This returned `null` while travelling, explicitly so the loop could
+      // never stand down mid-glide - the reasoning being that a glide is when
+      // accuracy matters most. That reasoning is backwards, and it was costing
+      // the animation the frames it needed.
+      //
+      // Nothing this function measures CHANGES during a glide. The page has
+      // already stopped moving (that is what the settle poll upstream waits
+      // for), the anchor is where it is, and the destination is computed from
+      // `targetH`, which is a constant for the step. The movement itself is a
+      // CSS transition: the loop's only job is to have written the destination
+      // once. So for the whole 820ms it was re-running `findAnchor`, a
+      // `getBoundingClientRect`, a `querySelectorAll('[data-tour-keepout]')`, a
+      // rect for each of those and an `offsetWidth` - fifty-odd forced layout
+      // flushes, on the main thread, competing for exactly the frames the
+      // spotlight's full-viewport scrim repaint needs. Measured on a static
+      // step this loop already drops from 60 rect calls a second to 4; the
+      // glide was the one place still paying the old price, and the glide is
+      // the only part anybody watches.
+      //
+      // `travelling` is IN the signature rather than excluded from it, so the
+      // frame where the window closes has a different signature and wakes the
+      // loop up to flip `data-travel` off. Anything that could genuinely move
+      // the page mid-glide - a scroll, a resize, a transition ending - wakes it
+      // instantly through the listeners below.
+      const sig = [
+        travelling ? 'T' : 'S',
         visible ? `${Math.round(r.top)},${Math.round(r.left)},${Math.round(r.width)},${Math.round(r.height)}` : 'none',
         vw, vh, isPhone ? 'p' : 'd',
       ].join('|')
@@ -899,10 +1000,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       put(card, 'top', top)
       put(card, 'left', left)
       // THE CARD'S OWN HEIGHT IS PART OF THE SIGNATURE, because `placeCard`
-      // reads it and it eases over 500ms after a step change. Without it the
-      // loop could idle while the height was still settling and leave the card
-      // placed against a box it no longer is.
-      return sig == null ? null : `${sig}|${Math.round(cardBox.h)}`
+      // reads it and `targetH` is re-measured twice after a step change (see
+      // the height effect). Without it the loop could idle through a re-measure
+      // and leave the card placed against a box it no longer is.
+      return `${sig}|${Math.round(cardBox.h)}`
     }
 
     // ANYTHING THAT COULD MOVE THE PAGE WAKES IT, INSTANTLY.
