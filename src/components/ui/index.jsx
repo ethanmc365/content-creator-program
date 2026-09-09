@@ -308,9 +308,25 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
 
 /** Simple stat tile used on dashboards. Pass `onClick` to make it a button
  *  that lifts on hover (same motion language as the app's buttons). */
+/**
+ * EVERY TILE IN A ROW IS THE SAME HEIGHT, AND THAT IS WHAT `h-full` IS FOR.
+ *
+ * Ethan, on the analytics pages: "I noticed some of the squares are like
+ * different sizes." They were, and the cause was not the grid - a CSS grid
+ * already stretches its items. It was that this card was `height: auto` inside
+ * a stretched cell, so a tile WITH a hint grew and a tile without it did not,
+ * and a row of four came out as two tall and two short. Every analytics grid
+ * mixes hinted and unhinted tiles, so the fault showed on all of them.
+ *
+ * `h-full` makes the card fill the cell the grid already gave it, the column
+ * pushes the hint to the bottom with `mt-auto`, and the numbers therefore sit
+ * on one line across a row whatever each tile has to say underneath. Nothing
+ * here changes what a tile CONTAINS - the fix is that the box now obeys the
+ * grid instead of the text.
+ */
 export function StatCard({ label, value, hint, accent = false, onClick }) {
   const className = cx(
-    'card',
+    'card flex h-full flex-col',
     accent && 'border-brand-tint bg-brand-tint/40',
     onClick && 'w-full cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
   )
@@ -318,7 +334,7 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
     <>
       <p className="text-sm font-medium text-smoke">{label}</p>
       <p className={cx('mt-2 text-3xl font-bold tracking-tight', accent && 'text-brand')}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-smoke">{hint}</p>}
+      {hint && <p className="mt-auto pt-1 text-xs text-smoke">{hint}</p>}
     </>
   )
   if (onClick) return <button type="button" onClick={onClick} className={className}>{inner}</button>

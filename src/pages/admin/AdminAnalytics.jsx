@@ -16,7 +16,6 @@ import Growth from './analytics/Growth'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
 import { convert } from '../../lib/programme'
-import MarketScope from '../../components/admin/MarketScope'
 
 // THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
 //
@@ -540,15 +539,99 @@ export default function AdminAnalytics() {
     setParams(q, { replace: true })
   }
 
-  const marketPicker = (
-    <MarketScope
-      markets={markets}
-      value={market}
-      onChange={setMarket}
-      note={market
-        ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges run here`
-        : null}
-    />
+  // ---------------------------------------------------------------------
+  // ONE FILTER BAR, NOT FOUR ROWS OF CONTROLS.
+  //
+  // Ethan (9 Sep 2026): "I feel like there's way too many tabs, buttons,
+  // filters etcetera all at the top is taking up space and looks confusing. For
+  // example we have the overview challenges growth community etcetera. Then we
+  // have worldwide Germany Nordics Portugal etcetera. Then we have money,
+  // EUR/GBP. Then we have where all markets and all time. Then we have summary,
+  // then challenges, and the export and the log the challenge button. So many
+  // buttons."
+  //
+  // He is counting six horizontal bands of chrome above the first number on the
+  // page, and the reason there were six is that each one was added by whoever
+  // needed it, in its own row, without anybody looking at the stack. Three of
+  // them asked the same two questions twice: this page had a market scope AND
+  // the Challenges tab had its own "Where"; this page had a currency toggle AND
+  // the Challenges tab had its own "Money".
+  //
+  // WHAT IS LEFT IS TWO BANDS. The tabs, then one bar that holds every control
+  // that narrows what you are reading - where, and in what money - with the
+  // scope note as quiet text at its end rather than as a row of its own. The
+  // period and the actions belong to the Challenges tab and stay with it, one
+  // row, above the content they act on.
+  //
+  // The bar SCROLLS SIDEWAYS below `sm` for the same reason the tab strip does:
+  // eight market chips wrapped is three rows of chrome on a phone, which is the
+  // complaint, in miniature, being made by the fix for it.
+  // ---------------------------------------------------------------------
+  const scopeNote = market
+    ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges here`
+    : null
+
+  const filterBar = (
+    <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          type="button"
+          onClick={() => setMarket('')}
+          aria-pressed={!market}
+          className={cx(
+            'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+            !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+          )}
+        >
+          Worldwide
+        </button>
+        {markets.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setMarket(m.id)}
+            aria-pressed={market === m.id}
+            className={cx(
+              'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+              market === m.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+            )}
+          >
+            {m.name}
+          </button>
+        ))}
+      </div>
+
+      {scopeNote && <span className="shrink-0 px-1 text-[11px] text-smoke max-lg:hidden">{scopeNote}</span>}
+
+      {/* THE REPORTING CURRENCY. Half the markets are in euros and half in
+          pounds, and a figure that does not say which is not a figure. EUR is
+          the default because it is what the programme reports in; the toggle
+          converts rather than re-reads, so the two views are always the same
+          money.
+
+          IT IS ON EVERY TAB BECAUSE IT WAS ON TWO AND SHOULD HAVE BEEN ON ALL.
+          The Overview shows four money figures that all read `currency` and all
+          convert correctly, and the control simply was not rendered there - so
+          the whole thing was reachable by typing `?ccy=GBP` into the address
+          bar. Now it lives once, here, and the Challenges tab is handed the
+          same value rather than keeping a second one that could disagree. */}
+      <div className="flex shrink-0 items-center gap-0.5 border-gray-100 pl-3 max-sm:border-l-0 sm:border-l">
+        {['EUR', 'GBP'].map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCurrency(c)}
+            aria-pressed={currency === c}
+            className={cx(
+              'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+              currency === c ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+            )}
+          >
+            {c === 'EUR' ? '€ EUR' : '£ GBP'}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 
   // IT SCROLLS SIDEWAYS, IT DOES NOT WRAP.
@@ -564,7 +647,7 @@ export default function AdminAnalytics() {
   // row at every width. `-mb-px` is on the ROW now rather than each button, so
   // the active tab's underline lands on the rule wherever it has scrolled to.
   const tabBar = (
-    <div className="mb-8 border-b border-gray-100">
+    <div className="mb-5 border-b border-gray-100">
       <div className="-mb-px flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <button
@@ -582,35 +665,12 @@ export default function AdminAnalytics() {
     </div>
   )
 
-  // THE REPORTING CURRENCY. Half the markets are in euros and half in pounds,
-  // and a figure that does not say which is not a figure. EUR is the default
-  // because it is what the programme reports in; the toggle converts rather
-  // than re-reads, so the two views are always the same money.
-  const currencyToggle = (
-    <div className="mb-6 flex w-fit gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
-      {['EUR', 'GBP'].map((c) => (
-        <button
-          key={c}
-          type="button"
-          onClick={() => setCurrency(c)}
-          aria-pressed={currency === c}
-          className={cx(
-            'rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors',
-            currency === c ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-          )}
-        >
-          {c === 'EUR' ? '€ EUR' : '£ GBP'}
-        </button>
-      ))}
-    </div>
-  )
-
   if (tab === 'growth') {
     return (
       <div className="page">
         <PageHeader back="/admin" title="Analytics" subtitle={`How ${scopeLabel} grew, and whether it still is.`} />
         {tabBar}
-        {marketPicker}
+        {filterBar}
         <Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />
       </div>
     )
@@ -620,8 +680,7 @@ export default function AdminAnalytics() {
       <div className="page">
         <PageHeader back="/admin" title="Analytics" subtitle={`Who delivers in ${scopeLabel}, and what they cost.`} />
         {tabBar}
-        {marketPicker}
-        {currencyToggle}
+        {filterBar}
         <PerCreator raw={scoped} currency={currency} scopeLabel={scopeLabel} />
       </div>
     )
@@ -632,8 +691,8 @@ export default function AdminAnalytics() {
         <PageHeader
           back="/admin" title="Analytics" subtitle="What the programme costs and what it returns." />
         {tabBar}
-        {marketPicker}
-        <ProgrammePerformance market={marketName} />
+        {filterBar}
+        <ProgrammePerformance market={marketName} currency={currency} />
       </div>
     )
   }
@@ -642,7 +701,7 @@ export default function AdminAnalytics() {
       <div className="page">
         <PageHeader back="/admin" title="Analytics" subtitle={`Who is here, who takes part, and who we can reach in ${scopeLabel}.`} />
         {tabBar}
-        {marketPicker}
+        {filterBar}
         <CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
       </div>
     )
@@ -671,7 +730,7 @@ export default function AdminAnalytics() {
       <div className="page">
         <PageHeader back="/admin" title="Analytics" subtitle={`Who is connecting with whom in ${scopeLabel}, and who holds the community together.`} />
         {tabBar}
-        {marketPicker}
+        {filterBar}
         <AdminNetwork market={market} memberRows={raw?.memberRows || []} />
       </div>
     )
@@ -691,18 +750,15 @@ export default function AdminAnalytics() {
     <div className="page">
       <PageHeader back="/admin" title="Analytics" subtitle="The programme's pulse: growth, output, reach and spend." />
       {tabBar}
-      {marketPicker}
-      {/* THE OVERVIEW SHOWS FOUR MONEY FIGURES AND HAD NO WAY TO CHANGE THE
-          CURRENCY (3 Sep 2026). Cash prizes paid, voucher value, cash CPM and
-          total CPM all read `currency` and convert correctly - the control was
-          simply only rendered on the Per creator tab, so the whole thing was
-          reachable only by typing `?ccy=GBP` into the address bar. The brief
-          asked for "EUR default with GBP toggle and conversion"; the conversion
-          was done and the toggle was one tab short. */}
-      {currencyToggle}
-
+      {filterBar}
       {/* ---- Headline numbers ---- */}
-      <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      {/* EIGHT TILES, SO THE COLUMN COUNTS ARE THE ONES THAT DIVIDE EIGHT.
+          `sm:grid-cols-3` left two tiles alone on a third row at tablet width,
+          and a part-filled row of cards reads as something that failed to
+          load. `auto-rows-fr` makes every row the same height, which with the
+          card filling its cell (see ui/StatCard) is the whole of "some of the
+          squares are different sizes". */}
+      <div className="mb-10 grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
         <StatCard
           label="Challenges run"
@@ -757,7 +813,7 @@ export default function AdminAnalytics() {
         <section className="card">
           <h2 className="mb-1 font-semibold">Community health</h2>
           <p className="mb-6 text-xs text-smoke">Tap a tile to jump straight to the right page</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid auto-rows-fr grid-cols-2 gap-4">
             <StatCard label="Active members" value={derived.community.active} accent onClick={() => navigate('/admin/creators')} />
             <StatCard label="Awaiting review" value={derived.community.pendingReview} onClick={() => navigate('/admin/applications')} />
             <StatCard label="Incomplete signups" value={derived.community.notCompleted} onClick={() => navigate('/admin/creators')} />
@@ -769,7 +825,7 @@ export default function AdminAnalytics() {
       {/* ---- Platform activity this week ---- */}
       <div className="mb-10">
         <h2 className="mb-4 text-lg font-semibold">Platform activity</h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />
           <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint="all-time, all modes" onClick={() => navigate('/game')} />
           <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => navigate('/admin/network')} />
@@ -780,7 +836,7 @@ export default function AdminAnalytics() {
       {/* ---- Engagement snapshot ---- */}
       <div className="mb-10">
         <h2 className="mb-4 text-lg font-semibold">Engagement</h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Chat messages" value={derived.engagement.chatMessages} />
           <StatCard label="Reactions" value={derived.engagement.reactions} />
           <StatCard label="Poll votes" value={derived.engagement.pollVotes} />

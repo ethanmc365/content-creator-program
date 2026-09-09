@@ -354,3 +354,64 @@ export function filterChallenges(rows, { query = '', status = 'all', sort = 'rec
   if (sort === 'views') return out.sort((a, b) => (b.views || 0) - (a.views || 0))
   return out.sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')))
 }
+
+// WHAT IS ACTUALLY RUNNING, WHICH IS A QUESTION ABOUT THE CALENDAR AND NOT
+// ABOUT A STORED STATUS.
+//
+// Ethan (9 Sep 2026): "I like the running now that shows the ones that are
+// currently running... this should obviously update for anyone that are running
+// live in the community, not just ones that have been added from the other
+// platform."
+//
+// THE BUG BEHIND THAT SENTENCE, MEASURED. The pinned block was
+// `status === 'active' || 'draft' || 'scheduled'`, and `admin_challenge_metrics`
+// maps a logged challenge's `running` onto `active`. Nobody goes back into the
+// imported log to close a challenge off, so on the day this was written the
+// three rows under "Running now" were Portugal's June, Germany's July and the
+// UK's July - the newest of them five weeks finished - and there was no fourth
+// row for anything on the platform. The section was not preferring the imported
+// rows; it was showing whatever had been left switched on, and the imported
+// rows are the only ones nobody switches off.
+//
+// So the dates decide, and the status only says whether the row is a contest at
+// all. That answers both halves at once: a platform challenge that goes live
+// appears here the moment its start date passes, and an imported one stops
+// appearing the day after it ends, with nobody having to remember either.
+//
+// `draft` IS DELIBERATELY NOT RUNNING. A draft is not published to anybody -
+// "running live in the community" is exactly what it is not - and the metrics
+// RPC does not return platform drafts in the first place.
+//
+// Returns the rows in start order with `phase` on each: 'live' for a contest
+// inside its window, 'soon' for one whose start date has not arrived. Both pin,
+// because a challenge opening on Friday is something an admin wants at the top
+// of the page, and they are labelled differently because they are different.
+const RUNNABLE = new Set(['active', 'upcoming', 'scheduled'])
+
+export function runningChallenges(rows, now = Date.now()) {
+  const t = now instanceof Date ? now.getTime() : now
+  // END OF DAY, NOT START OF IT. `end_date` on a logged challenge is a bare
+  // date, so comparing it to a timestamp retires a challenge at midnight on the
+  // morning of the day it is still open for entries.
+  const endOf = (d) => {
+    const ms = Date.parse(d)
+    return Number.isNaN(ms) ? null : ms + 86_400_000
+  }
+  const startOf = (d) => {
+    const ms = Date.parse(d)
+    return Number.isNaN(ms) ? null : ms
+  }
+  return (rows ?? [])
+    .filter((r) => RUNNABLE.has(r.status))
+    .map((r) => {
+      const ends = endOf(r.end_date)
+      const starts = startOf(r.start_date)
+      // A MISSING END DATE IS NOT AN EXPIRED ONE. Some imported rows have no
+      // window at all; those keep whatever their status claims rather than
+      // being silently retired by a date that was never recorded.
+      if (ends != null && ends <= t) return null
+      return { ...r, phase: starts != null && starts > t ? 'soon' : 'live' }
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.start_date || '').localeCompare(String(b.start_date || '')))
+}

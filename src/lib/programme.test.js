@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal, filterChallenges } from './programme'
+import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal, filterChallenges, runningChallenges } from './programme'
 
 // A challenge row shaped like admin_challenge_metrics() returns.
 const row = (over = {}) => ({
@@ -300,5 +300,60 @@ describe('filterChallenges', () => {
     const before = rows.map((r) => r.id)
     filterChallenges(rows, { sort: 'recent' })
     expect(rows.map((r) => r.id)).toEqual(before)
+  })
+})
+
+// "RUNNING NOW" IS A CLAIM ABOUT THE CALENDAR.
+//
+// The regression these guard is the one Ethan reported: the pinned block read a
+// stored status, and the imported challenge log is never closed off, so on 9 Sep
+// 2026 it was showing Portugal's June, Germany's July and the UK's July - all
+// finished - and nothing that was actually open.
+describe('runningChallenges', () => {
+  const NOW = Date.parse('2026-09-09T12:00:00Z')
+  const row = (o) => ({ id: o.id, status: o.status, start_date: o.start, end_date: o.end })
+
+  it('drops a challenge whose end date has passed, whatever its status says', () => {
+    const rows = [
+      row({ id: 'stale-import', status: 'active', start: '2026-06-02', end: '2026-06-28' }),
+      row({ id: 'stale-uk', status: 'active', start: '2026-07-20', end: '2026-08-20' }),
+    ]
+    expect(runningChallenges(rows, NOW)).toEqual([])
+  })
+
+  it('keeps a platform challenge that is inside its window, and marks it live', () => {
+    const rows = [row({ id: 'live', status: 'active', start: '2026-09-01', end: '2026-09-30' })]
+    const out = runningChallenges(rows, NOW)
+    expect(out.map((r) => r.id)).toEqual(['live'])
+    expect(out[0].phase).toBe('live')
+  })
+
+  it('pins one that has not started yet, separately labelled', () => {
+    const rows = [row({ id: 'soon', status: 'upcoming', start: '2026-09-20', end: '2026-09-30' })]
+    expect(runningChallenges(rows, NOW)[0].phase).toBe('soon')
+  })
+
+  it('treats the end date as end of day, so the final day is still open', () => {
+    const rows = [row({ id: 'last-day', status: 'active', start: '2026-09-01', end: '2026-09-09' })]
+    expect(runningChallenges(rows, NOW).map((r) => r.id)).toEqual(['last-day'])
+  })
+
+  it('never pins a draft: unpublished is the opposite of running live', () => {
+    const rows = [row({ id: 'd', status: 'draft', start: '2026-09-01', end: '2026-09-30' })]
+    expect(runningChallenges(rows, NOW)).toEqual([])
+  })
+
+  it('keeps a row with no recorded end date rather than retiring it on a missing value', () => {
+    const rows = [row({ id: 'no-window', status: 'active', start: null, end: null })]
+    expect(runningChallenges(rows, NOW).map((r) => r.id)).toEqual(['no-window'])
+  })
+
+  it('mixes the two sources and orders by start date', () => {
+    const rows = [
+      row({ id: 'platform', status: 'active', start: '2026-09-05', end: '2026-10-05' }),
+      row({ id: 'logged', status: 'active', start: '2026-09-01', end: '2026-09-25' }),
+      row({ id: 'finished', status: 'archived', start: '2026-08-01', end: '2026-08-25' }),
+    ]
+    expect(runningChallenges(rows, NOW).map((r) => r.id)).toEqual(['logged', 'platform'])
   })
 })

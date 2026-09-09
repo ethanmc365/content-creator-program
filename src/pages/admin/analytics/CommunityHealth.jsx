@@ -164,7 +164,33 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
         admins: admins.length,
         adminsWithPush: adminsWithPush.length,
         chatMuted: chatMuted.length,
-        list: [...creators].sort((a, b) => Number(b.devices) - Number(a.devices) || (a.name || '').localeCompare(b.name || '')),
+        // ---- THE LIST IS EVERYBODY; THE PERCENTAGE IS CREATORS ----
+        //
+        // Ethan (9 Sep 2026): "for the who has push notifications enabled, I
+        // noticed it's not showing up any admins. Can you also show up the
+        // admin so I can see who's got them enabled? Like just everyone in the
+        // community, obviously not the test accounts, but everyone else."
+        //
+        // It was `[...creators]`, which is `push_.filter(p => !p.is_admin)` -
+        // so the one account on the platform with THREE devices registered, his
+        // own, was the one this list could not show him. The exclusion was
+        // right for the ADOPTION FIGURE and got applied to the register as
+        // well: "9% of creators can be reached" is a statement about the
+        // audience a challenge is announced to, and the team is not that
+        // audience, so admins stay out of the numerator and the denominator of
+        // the tiles above.
+        //
+        // The list answers a different question - "who, specifically, has this
+        // switched on" - and for that the answer is everyone. Test accounts are
+        // already excluded by `admin_push_adoption` itself, so what arrives
+        // here is exactly the real community.
+        //
+        // Enabled first, then by devices, then by name: this list is read to
+        // find out who CAN be reached, and the people who can should not be
+        // below forty who cannot.
+        list: [...push_].sort((a, b) => Number(b.devices) - Number(a.devices) || (a.name || '').localeCompare(b.name || '')),
+        listWithPush: push_.filter((x) => Number(x.devices) > 0).length,
+        listTotal: push_.length,
       },
       funnel: {
         total: scorecard_.length,
@@ -183,7 +209,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
   if (!data) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>
         <Skeleton className="h-80 w-full" />
@@ -202,7 +228,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           Push has to be switched on per device. Anyone without it only finds out about a new challenge
           by opening the app, which is exactly the behaviour we are trying to create.
         </p>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label="Push enabled"
             value={`${reach.pushPct}%`}
@@ -212,6 +238,17 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           <StatCard label="Devices registered" value={reach.devices} hint="some people have two" />
           <StatCard label="Unreachable" value={reach.creators - reach.withPush} hint="no push on any device" />
           <StatCard label="Chat push muted" value={reach.chatMuted} hint="switched it off in Settings" />
+          {/* THE TEAM'S OWN NUMBER, WHICH WAS COMPUTED AND NEVER SHOWN.
+              `admins` and `adminsWithPush` have been in this memo the whole
+              time with nothing reading them. It belongs beside the creator
+              figure rather than mixed into it: an admin who cannot be reached is
+              a different problem from a creator who cannot, and it is one we can
+              fix by asking somebody at the next stand-up. */}
+          <StatCard
+            label="Team reachable"
+            value={`${reach.adminsWithPush} of ${reach.admins}`}
+            hint="admins with push on"
+          />
         </div>
         {/* THE AMBER PARAGRAPH IS GONE (8 Sep 2026). Ethan: "I would remove
             the pop-up that says only nine percent of creators can be reached
@@ -228,13 +265,26 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
         <details className="mt-4 rounded-card border border-gray-100 shadow-card">
           <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">
             Who has notifications on
-            <span className="ml-2 text-xs font-normal text-smoke">({reach.withPush} of {reach.creators})</span>
+            <span className="ml-2 text-xs font-normal text-smoke">
+              ({reach.listWithPush} of {reach.listTotal} people, the team included)
+            </span>
           </summary>
           <div className="max-h-96 overflow-y-auto overscroll-contain border-t border-gray-100">
             {reach.list.map((p) => (
               <div key={p.creator_id} className="flex items-center gap-3 border-b border-gray-50 px-5 py-2.5 text-sm last:border-0">
                 <span className={cx('h-2 w-2 shrink-0 rounded-full', Number(p.devices) > 0 ? 'bg-green-500' : 'bg-gray-300')} />
-                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {p.name}
+                  {/* WHOSE ROW IS THIS. Without the tag, adding the team to the
+                      list makes the tiles above look wrong - five names enabled
+                      against a percentage computed from four. The chip is what
+                      reconciles them at a glance. */}
+                  {p.is_admin && (
+                    <span className="ml-2 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-smoke">
+                      Team
+                    </span>
+                  )}
+                </span>
                 <span className="shrink-0 text-xs text-smoke">
                   {Number(p.devices) > 0
                     ? `${p.devices} device${Number(p.devices) === 1 ? '' : 's'} · on since ${day(p.first_enabled)}`

@@ -117,7 +117,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Creators now" value={total} hint={scopeLabel} />
         <Stat
           label="Joined this month"

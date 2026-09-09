@@ -12,7 +12,7 @@ import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
   challengeEconomics, blendEconomics, groupBy, label, filterChallenges,
-  FALLBACK_RATES, publishFxRates,
+  runningChallenges, FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
 import HistoryForm from '../../../components/admin/HistoryForm'
 import { loadMarkets } from '../../../lib/markets'
@@ -61,15 +61,15 @@ const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximu
 // worldwide. It used to have its own dropdown, which meant this tab remembered
 // a different market from the one every other tab was showing - see the note on
 // the picker in AdminAnalytics. One control, at the top, for all six tabs.
-export default function ProgrammePerformance({ market: scopeMarket = null }) {
+// `currency` IS THE PAGE'S, NOT THIS TAB'S (9 Sep 2026). It was a second
+// EUR/GBP toggle with its own state, so the Overview could be reading euros
+// while the Challenges tab beside it read pounds - two controls answering one
+// question, which is half of "there's way too many buttons at the top". The
+// shell owns it now and hands it down; see the filter bar in AdminAnalytics.
+export default function ProgrammePerformance({ market: scopeMarket = null, currency = 'EUR' }) {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
-  // EUR IS THE DEFAULT. Five of the six open markets price in euro, and the
-  // programme is reported to the business in euro; sterling is the exception,
-  // not the base. Ethan asked for it explicitly and it is one keystroke back.
-  const [currency, setCurrency] = useState('EUR')
   const [rates, setRates] = useState(FALLBACK_RATES)
-  const [marketFilter, setMarketFilter] = useState('all')
   // WHEN, AS WELL AS WHERE (8 Sep 2026).
   //
   // Ethan: "because we have a lot of analytics now, I want to be able to filter
@@ -91,9 +91,24 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   // different times, and stacking them meant scrolling past whichever you did
   // not come for.
   const [view, setView] = useState('summary')
-  // The page-level scope wins; the local dropdown is only reachable when the
-  // page is showing everything.
-  const effectiveMarket = scopeMarket || marketFilter
+  // A CLOCK THE COMPONENT OWNS, BECAUSE "RUNNING NOW" IS A CLAIM ABOUT NOW.
+  //
+  // Reading `Date.now()` inside the memo would make it impure and would also
+  // freeze: nothing invalidates a memo because time passed, so a challenge that
+  // ends while the tab is open would go on being pinned until a reload. A tick
+  // a minute is far finer than the day-level boundary it is deciding, and it is
+  // the same shape LiveNowRow uses on the creator side.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  // THE PAGE OWNS THE SCOPE, AND THERE IS NO LONGER A SECOND CONTROL FOR IT.
+  // This tab had its own "Where" dropdown, hidden whenever the page was scoped
+  // - so on the worldwide view there were two market pickers on screen, one of
+  // which the other five tabs did not have. `'all'` is the worldwide value the
+  // memo below already understood.
+  const effectiveMarket = scopeMarket || 'all'
 
   // Logging a challenge that ran off the platform. See components/admin/
   // HistoryForm: the form already existed on /admin/challenges/history, which
@@ -220,17 +235,21 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
           return { month: m.month, spend: Math.round(spend), views, challenges }
         })
       })(),
-      // Live and planned challenges get pinned to the top of the list. Ethan:
-      // "I think the challenges [should] show there as soon as they're active,
-      // or even when they're planned, just to show the challenges."
-      running: scoped.filter((r) => r.status === 'active' || r.status === 'draft' || r.status === 'scheduled'),
+      // Live and about-to-start challenges get pinned to the top of the list.
+      // Ethan: "I think the challenges [should] show there as soon as they're
+      // active, or even when they're planned, just to show the challenges."
+      //
+      // THE DATES DECIDE, NOT THE STORED STATUS. See `runningChallenges` in
+      // lib/programme for what this used to do and why three finished imports
+      // were sitting under a heading that said "Running now".
+      running: runningChallenges(scoped, now),
     }
-  }, [rows, currency, rates, effectiveMarket, year, month])
+  }, [rows, currency, rates, effectiveMarket, year, month, now])
 
   if (!data) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>
         <Skeleton className="h-96 w-full" />
@@ -290,91 +309,75 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   return (
     <div className="space-y-8">
       {/* ---------------------------------------------------------------
-          THE CONTROLS, IN THREE NAMED GROUPS.
+          ONE ROW: WHAT YOU ARE LOOKING AT, WHEN, AND THE TWO THINGS YOU CAN DO.
 
-          They were one flex row of eight controls in no order: a currency
-          toggle, a market select, a year, a month, a clear, an export, a log
-          button and a jump link, all the same size, all the same weight. That
-          is a toolbar you have to READ every time rather than one you learn.
+          It was three named groups - Money, Where, When - plus a clear, an
+          export and a log button, in a band of its own, sitting under the
+          page's own market chips and the page's own currency toggle. Two of the
+          three groups were duplicates of a control one row above them, which is
+          the fault Ethan actually described: not that any single control is
+          wrong, but that the same question is asked twice in two shapes before
+          you reach a number.
 
-          Money / Where / When are the three questions this tab is filtered by,
-          and the two BUTTONS are pushed to the far end because they do
-          something rather than narrow something - the rule the chip variant
-          was introduced for. --------------------------------------------- */}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-          <Group label="Money">
-            <div className="flex items-center gap-1 rounded-xl border border-gray-200 p-1">
-              {['EUR', 'GBP'].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCurrency(c)}
-                  aria-pressed={currency === c}
-                  className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-                    currency === c ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </Group>
-
-          {/* HIDDEN WHILE THE PAGE IS SCOPED. Two controls that both mean
-              "which market" is how a reader ends up looking at Spain's chart
-              under a heading that says Germany. */}
-          {!scopeMarket && data.markets.length > 0 && (
-            <Group label="Where">
-              <Select
-                value={marketFilter}
-                onChange={setMarketFilter}
-                variant="chip"
-                className="w-40"
-                ariaLabel="Filter by market"
-                options={[
-                  { value: 'all', label: 'All markets' },
-                  ...data.markets.map((m) => ({ value: m, label: m })),
-                  { value: 'Unspecified', label: 'Unspecified' },
-                ]}
-              />
-            </Group>
-          )}
-
-          {/* The month select only appears once a year is chosen, because
-              "August" across every year the programme has run is not a period
-              anybody means. */}
-          <Group label="When">
-            <div className="flex items-center gap-2">
-              <Select
-                value={year}
-                onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
-                variant="chip"
-                className="w-32"
-                ariaLabel="Filter by year"
-                options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
-              />
-              {year !== 'all' && (
-                <Select
-                  value={month}
-                  onChange={setMonth}
-                  variant="chip"
-                  className="w-36"
-                  ariaLabel="Filter by month"
-                  options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
-                />
+          Money is gone (the page owns it). Where is gone (the page's chips own
+          it). What is left is genuinely this tab's: WHICH of the two documents
+          you want, over WHAT period, and the two actions that operate on the
+          rows in front of you. They fit on one line, and the line sits directly
+          above the thing it changes rather than in a toolbar at the top of the
+          page. -------------------------------------------------------------- */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="flex w-full gap-1 rounded-xl border border-gray-200 bg-white p-1 sm:w-fit">
+          {[
+            { key: 'summary', label: 'Summary', icon: 'chart' },
+            { key: 'list', label: `Challenges (${data.scoped.length})`, icon: 'reorder' },
+          ].map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => setView(v.key)}
+              aria-pressed={view === v.key}
+              className={cx(
+                'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none',
+                view === v.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand',
               )}
-              {(year !== 'all' || (!scopeMarket && marketFilter !== 'all')) && (
-                <button
-                  onClick={() => { setYear('all'); setMonth('all'); setMarketFilter('all') }}
-                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </Group>
+            >
+              <Icon name={v.icon} className="h-4 w-4" />
+              {v.label}
+            </button>
+          ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* The month select only appears once a year is chosen, because
+              "August" across every year the programme has run is not a period
+              anybody means. */}
+          <Select
+            value={year}
+            onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
+            variant="chip"
+            className="w-32"
+            ariaLabel="Filter by year"
+            options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
+          />
+          {year !== 'all' && (
+            <Select
+              value={month}
+              onChange={setMonth}
+              variant="chip"
+              className="w-36"
+              ariaLabel="Filter by month"
+              options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
+            />
+          )}
+          {year !== 'all' && (
+            <button
+              onClick={() => { setYear('all'); setMonth('all') }}
+              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
+            >
+              Clear
+            </button>
+          )}
+          <span className="mx-1 hidden h-6 w-px bg-gray-100 sm:block" />
           <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
             <Icon name="download" className="h-4 w-4" /> Export
           </button>
@@ -386,46 +389,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
             <Icon name="plus" className="h-4 w-4" /> Log a challenge
           </button>
         </div>
-      </div>
-
-      {/* ---------------------------------------------------------------
-          TWO VIEWS, NOT ONE SCROLL.
-
-          Ethan: "currently it seems a bit awkward - I'm having to scroll down
-          way to the bottom to see [the challenges]... rebuild it now, not just
-          a button that brings you to the bottom."
-
-          He is right that the button was a plaster. The tab was one column
-          holding two different documents: a REPORT (ten tiles, four charts,
-          three breakdowns) and a LIST of fifty challenges. Those are read at
-          different times for different reasons - the report when somebody asks
-          how the programme is doing, the list when you want one challenge - and
-          stacking them means whichever you came for, you scroll past the other.
-
-          A segmented control is the right shape because the two are peers, the
-          choice is binary, and both labels can carry a number. It also means
-          each view can have its OWN controls - the list gets a search box and a
-          status filter that would be meaningless over a chart - without the
-          toolbar growing to serve both. ------------------------------------ */}
-      <div className="flex w-full gap-1 rounded-xl border border-gray-200 bg-white p-1 sm:w-fit">
-        {[
-          { key: 'summary', label: 'Summary', icon: 'chart' },
-          { key: 'list', label: `Challenges (${data.scoped.length})`, icon: 'reorder' },
-        ].map((v) => (
-          <button
-            key={v.key}
-            type="button"
-            onClick={() => setView(v.key)}
-            aria-pressed={view === v.key}
-            className={cx(
-              'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none',
-              view === v.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand',
-            )}
-          >
-            <Icon name={v.icon} className="h-4 w-4" />
-            {v.label}
-          </button>
-        ))}
       </div>
 
       {view === 'summary' ? (
@@ -443,7 +406,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
                 average of averages. Money is what has actually been awarded, including prizes still to pay.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
               {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS. Cash alone is what
                   leaves the business - a Tryp.com voucher is redeemed against a
                   booking we make margin on, so it does not cost its face value
@@ -570,17 +533,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null }) {
   )
 }
 
-// A labelled group of controls. The label is what turns a row of eight
-// look-alike widgets into three things you can aim at.
-function Group({ label: text, children }) {
-  return (
-    <div>
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{text}</p>
-      {children}
-    </div>
-  )
-}
-
 // One of the quiet ratios under the headline four.
 function Ratio({ label: text, value }) {
   return (
@@ -692,18 +644,32 @@ function ChallengeList({ rows, running, currency }) {
 
   return (
     <div className="space-y-6">
-      {/* ---- Running now, pinned ---- */}
+      {/* ---- Running now, pinned ----
+          TRYP.COM ORANGE, NOT A WASH OF IT. Ethan: "I would put these in
+          tryp.com orange rather than the weird orange you have." The weird
+          orange was `bg-brand-tint/20` - brand orange at a fifth of its
+          strength over white, which lands on a pale peach that belongs to no
+          palette and reads as a card that has gone slightly wrong rather than
+          one that is lit up. The colour is now the real `#d94407`, and it is
+          carried by the things that should be loud (the heading, the live pill,
+          the rule down the left edge) rather than smeared across the whole card
+          at an opacity chosen to keep the text readable. That is the same rule
+          this platform uses everywhere else for a picked thing: solid brand
+          with white on it, never a tint. */}
       {runningShown.length > 0 && (
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <span className="relative flex h-2 w-2">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand" />
             </span>
-            Running now
-          </h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-brand">Running now</h2>
+            <span className="text-xs text-smoke">
+              {runningShown.length} challenge{runningShown.length === 1 ? '' : 's'} open across the community
+            </span>
+          </div>
           <div className="space-y-3">
-            {runningShown.map((r) => <LogCard key={r.id} r={r} currency={currency} live />)}
+            {runningShown.map((r) => <LogCard key={r.id} r={r} currency={currency} live phase={r.phase} />)}
           </div>
         </section>
       )}
@@ -770,7 +736,7 @@ function ChallengeList({ rows, running, currency }) {
   )
 }
 
-function LogCard({ r, currency, live = false }) {
+function LogCard({ r, currency, live = false, phase = 'live' }) {
   const figures = [
     { label: 'Spend', value: money(r.spend, currency, 0) },
     // `formatViews` shortens: 4,200,000 -> 4.2m. A challenge with real reach
@@ -793,15 +759,34 @@ function LogCard({ r, currency, live = false }) {
     <Link
       to={`/admin/analytics/${r.id}`}
       className={cx(
-        'card group block !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift',
+        'card group relative block overflow-hidden !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift',
         // A live challenge is the one row on this page that is still changing,
-        // so it is the one row drawn in the colour that means "now".
-        live && '!border-brand/40 bg-brand-tint/20',
+        // so it is the one row drawn in the colour that means "now" - as a
+        // solid brand edge and a white-on-orange pill, not as a tint over the
+        // whole card. See the note on the section heading above.
+        live && '!border-brand/50 pl-6 shadow-lift',
       )}
     >
+      {/* THE SOLID BRAND EDGE. A 6px rule of real #d94407 down the side of the
+          card says "this one is different" at a glance and costs the card
+          nothing: the white ground, the type colours and the contrast of every
+          figure on it are unchanged, which a tint over the whole card cannot
+          claim. */}
+      {live && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-brand" />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+          <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+            {live && (
+              <span className={cx(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest',
+                // SOLID BRAND WITH WHITE ON IT for the one that is open right
+                // now; the outline for one that has not started, because "opens
+                // Friday" is information and not an alarm.
+                phase === 'live' ? 'bg-brand text-white' : 'border border-brand/50 text-brand',
+              )}>
+                {phase === 'live' ? 'Live' : 'Starts soon'}
+              </span>
+            )}
             {r.title}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-smoke">

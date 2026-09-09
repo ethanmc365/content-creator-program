@@ -117,7 +117,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Cash CPM</p>
           <p className="mt-1.5 text-2xl font-bold tabular-nums">
