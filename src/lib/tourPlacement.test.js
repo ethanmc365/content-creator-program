@@ -133,18 +133,39 @@ describe('restingPlace', () => {
   const vp = { w: 1440, h: 900 }
   const card = { w: CARD_W, h: 260 }
 
-  it('sits the card on the bottom edge, horizontally centred', () => {
+  // LIFTED OFF THE BOTTOM EDGE, HORIZONTALLY CENTRED (9 Sep 2026).
+  //
+  // Ethan: "the card should start slightly higher up, not at the very bottom
+  // but more up in the middle - slightly higher up. And when I click show me
+  // around the card gets bigger saying nice one, and it just hides a bit."
+  //
+  // The second half is what makes this a bug rather than a preference: the
+  // acknowledgement GROWS the card, and a card whose bottom edge is already
+  // 32px off the floor has nowhere to grow into, so it grew off the screen.
+  // The lift is an eighth of the viewport, capped at 120px.
+  it('sits the card above the bottom edge, horizontally centred', () => {
     const r = restingPlace(vp, card)
-    expect(r.top).toBe(900 - 260 - 32)
+    expect(r.top).toBe(900 - 260 - 32 - Math.min(900 * 0.125, 120))
     expect(r.left).toBe(Math.round(1440 / 2 - CARD_W / 2))
+  })
+
+  // The lift must not eat the clearance it exists to create.
+  it('leaves room under the card for it to grow into', () => {
+    const r = restingPlace(vp, card)
+    expect(900 - (r.top + 260)).toBeGreaterThan(100)
   })
 
   it('moves out of the centre column when the step needs it kept clear', () => {
     // Every form in this app is a centred column, so a card that says "fill
     // this in" must not be sitting on top of the thing being filled in.
+    // ...and it stops short of the right edge rather than being jammed against
+    // it. Ethan: "I would still bring it out of the corner ever so slightly."
     const r = restingPlace(vp, card, true)
-    expect(r.left).toBe(1440 - CARD_W - 32)
+    expect(r.left).toBe(1440 - CARD_W - 64)
     expect(r.left).toBeGreaterThan(restingPlace(vp, card).left)
+    // Still clear of the centred form column, which is the whole point of it
+    // moving at all.
+    expect(r.left).toBeGreaterThan(1440 / 2)
   })
 
   it('never leaves the viewport, however short the window', () => {

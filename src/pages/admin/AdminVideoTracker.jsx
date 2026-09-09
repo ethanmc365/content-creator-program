@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Skeleton, StatCard, Modal, Spinner, Select } from '../../components/ui'
+import { PageHeader, Skeleton, Modal, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
-import VideoThumb from '../../components/VideoThumb'
 import Reveal from '../../components/network/Reveal'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
-import { cx, formatViews, downloadCsv, timeAgo } from '../../lib/utils'
+import { cx, formatViews, downloadCsv } from '../../lib/utils'
 import {
-  CSV_COLUMNS, PLATFORMS, SORTS, atHandle, challengeOf,
-  challengeOptions, creatorLink, reasonLabel, summarise, toCsvRows, visibleVideos,
+  CSV_COLUMNS, PLATFORMS, SORTS, atHandle, captionRest, challengeOf,
+  challengeOptions, creatorLink, monthLabel, monthsOf, reasonLabel, summarise,
+  toCsvRows, visibleVideos,
 } from '../../lib/videoTracker'
 import { useT } from '../../lib/i18n'
 
@@ -76,7 +76,7 @@ export default function AdminVideoTracker() {
   // of it takes the whole thing (`visibleVideos`) and because that makes
   // "clear all" one line rather than six.
   const [filter, setFilter] = useState({
-    market: '', challenge: '', platform: '', reason: '', q: '', sort: 'views', showRetired: false,
+    market: '', challenge: '', platform: '', reason: '', month: '', q: '', sort: 'views', showRetired: false,
   })
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
@@ -121,7 +121,8 @@ export default function AdminVideoTracker() {
   const totals = useMemo(() => summarise(shown), [shown])
   const retired = useMemo(() => (rows || []).filter((v) => !v.qualifies && !v.pinned).length, [rows])
 
-  const filtered = filter.challenge || filter.platform || filter.reason || filter.q || filter.market
+  const months = useMemo(() => monthsOf(rows || []), [rows])
+  const filtered = filter.challenge || filter.platform || filter.reason || filter.q || filter.market || filter.month
 
   return (
     <div className="page">
@@ -169,149 +170,225 @@ export default function AdminVideoTracker() {
         </p>
       )}
 
-      {/* THE FOUR FIGURES ARE ABOUT WHAT IS ON SCREEN, not about the table.
-          A page whose totals ignore its own filter is a page that tells you the
-          wrong thing every time you use it. */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label={tr('Videos')} value={rows ? totals.count : '—'}
-          hint={totals.measured < totals.count ? `${totals.count - totals.measured} with no view count` : null} />
-        <StatCard label={tr('Views')} value={rows ? formatViews(totals.views) : '—'}
-          hint={totals.measured ? `across ${totals.measured} measured` : null} />
-        <StatCard label={tr('Best video')} accent value={rows && totals.best ? formatViews(totals.best) : '—'} />
-        <StatCard label={tr('Creators')} value={rows ? totals.creators : '—'}
-          hint={totals.average ? `${formatViews(totals.average)} average` : null} />
-      </div>
+      {/* ONE CARD, NOT A WALL OF TILES AND A LOOSE ROW OF PILLS (9 Sep 2026).
+          Ethan: "improve how this looks - have everything in one card, similar
+          to how Worldwide/Germany/Nordics is in one card, and have the filters
+          inside that, still separated but a cleaner design. The export button
+          can even be just to the right of that." And on the tiles: "some of
+          these metrics are not necessary. Why do we need the views from the
+          best videos? Number of videos you can keep, the other two maybe change
+          them or delete them."
 
-      {/* ---------------------------------------------------------- filters -- */}
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <label className="relative min-w-[12rem] flex-1 sm:max-w-xs">
-          <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
-          <input
-            value={filter.q}
-            onChange={(e) => set({ q: e.target.value })}
-            placeholder={tr('Search hooks, captions, creators')}
-            className="no-ios-zoom w-full rounded-full border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-brand"
-            aria-label={tr('Search the tracker')}
-          />
-        </label>
+          So the four StatCards are gone and what survives of them - how many
+          videos, and the best one - is a single line at the top of the same
+          card the filters live in. Two 96px tiles to say "3" and "15.2k" was
+          the page shouting a number it had already put on every card.
 
-        <Select
-          value={filter.challenge}
-          onChange={(v) => set({ challenge: v })}
-          className="min-w-[11rem]"
-          ariaLabel={tr('Challenge')}
-          options={[{ value: '', label: tr('Every challenge') },
-            ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
-        />
-        <Select
-          value={filter.platform}
-          onChange={(v) => set({ platform: v })}
-          className="min-w-[9rem]"
-          ariaLabel={tr('Platform')}
-          options={[{ value: '', label: tr('Every platform') },
-            ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
-        />
-        <Select
-          value={filter.reason}
-          onChange={(v) => set({ reason: v })}
-          className="min-w-[10rem]"
-          ariaLabel={tr('Why it is here')}
-          options={[
-            { value: '', label: tr('Any reason') },
-            { value: 'podium', label: tr('Top of a challenge') },
-            { value: 'threshold', label: tr('Over the view line') },
-            { value: 'manual', label: tr('Added by hand') },
-          ]}
-        />
-        <Select
-          value={filter.sort}
-          onChange={(v) => set({ sort: v })}
-          className="min-w-[10rem]"
-          ariaLabel={tr('Sort')}
-          options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
-        />
-
-        {/* RETIRED ROWS ARE A DELIBERATE VISIT, not a default view. The count is
-            on the button because "show retired" with nothing behind it is a
-            control that does nothing, and there is no way to tell from here. */}
-        {retired > 0 && (
+          The line still describes WHAT IS ON SCREEN rather than the table: a
+          page whose totals ignore its own filter tells you the wrong thing
+          every time you use it. */}
+      <div className="mb-6 rounded-card border border-gray-100 bg-white p-3 shadow-card sm:p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-sm">
+          <span className="font-semibold text-ink">
+            {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
+          </span>
+          {totals.best > 0 && (
+            <>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <span className="text-smoke">
+                {tr('best')} <strong className="font-semibold text-brand">{formatViews(totals.best)}</strong>
+              </span>
+            </>
+          )}
+          {filter.month && (
+            <>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <span className="text-smoke">{monthLabel(filter.month)}</span>
+            </>
+          )}
           <button
             type="button"
-            onClick={() => set({ showRetired: !filter.showRetired })}
-            aria-pressed={filter.showRetired}
-            className={cx(
-              'rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200',
-              filter.showRetired
-                ? 'bg-brand text-white shadow-card'
-                : 'border border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink',
-            )}
+            onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
+            disabled={!shown.length}
+            className="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink"
           >
-            {tr('Retired')} · {retired}
+            <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
+            {tr('Export')}
           </button>
-        )}
-
-        {(filtered || filter.showRetired) && (
-          <button
-            type="button"
-            onClick={() => setFilter({ market: '', challenge: '', platform: '', reason: '', q: '', sort: filter.sort, showRetired: false })}
-            className="rounded-full px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink"
-          >
-            {tr('Clear')}
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => downloadCsv(`tryp-video-tracker-${new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
-          disabled={!shown.length}
-          className="ml-auto rounded-full border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink"
-        >
-          <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
-          {tr('Export')}
-        </button>
-      </div>
-
-      {/* ------------------------------------------------------------ grid -- */}
-      {!rows && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-72 w-full rounded-card" />)}
         </div>
-      )}
 
-      {rows && shown.length === 0 && (
-        <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
-          <Icon name="video" className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-3 text-sm font-semibold text-ink">
-            {rows.length === 0 ? tr('Nothing tracked yet') : tr('Nothing matches that')}
-          </p>
-          <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
-            {rows.length === 0
-              ? tr('Press "Sync from entries" to pull the top videos out of every challenge on the platform, or add one by hand from any market.')
-              : tr('Try a wider filter, or clear them all.')}
-          </p>
-        </div>
-      )}
-
-      {rows && shown.length > 0 && (
-        <Reveal
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          stagger={0.05}
-          maxStagger={9}
-        >
-          {shown.map((v) => (
-            <VideoCard
-              key={v.id}
-              v={v}
-              onOpen={() => setEditing(v)}
-              onPlay={() => setPlaying(v)}
-              onPin={async () => {
-                await supabase.from('tracked_videos').update({ pinned: !v.pinned }).eq('id', v.id)
-                load()
-              }}
+        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+          <label className="relative min-w-[11rem] flex-1 sm:max-w-xs">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+            <input
+              value={filter.q}
+              onChange={(e) => set({ q: e.target.value })}
+              placeholder={tr('Search hooks, captions, creators')}
+              className="no-ios-zoom w-full rounded-full border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-brand"
+              aria-label={tr('Search the tracker')}
             />
-          ))}
-        </Reveal>
-      )}
+          </label>
+
+          <Select
+            value={filter.challenge}
+            onChange={(v) => set({ challenge: v })}
+            className="min-w-[11rem]"
+            ariaLabel={tr('Challenge')}
+            options={[{ value: '', label: tr('Every challenge') },
+              ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
+          />
+          <Select
+            value={filter.platform}
+            onChange={(v) => set({ platform: v })}
+            className="min-w-[9rem]"
+            ariaLabel={tr('Platform')}
+            options={[{ value: '', label: tr('Every platform') },
+              ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
+          />
+          <Select
+            value={filter.reason}
+            onChange={(v) => set({ reason: v })}
+            className="min-w-[10rem]"
+            ariaLabel={tr('Why it is here')}
+            options={[
+              { value: '', label: tr('Any reason') },
+              { value: 'podium', label: tr('Top of a challenge') },
+              { value: 'threshold', label: tr('Over the view line') },
+              { value: 'manual', label: tr('Added by hand') },
+            ]}
+          />
+          <Select
+            value={filter.sort}
+            onChange={(v) => set({ sort: v })}
+            className="min-w-[10rem]"
+            ariaLabel={tr('Sort')}
+            options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
+          />
+
+          {/* RETIRED ROWS ARE A DELIBERATE VISIT, not a default view. The count
+              is on the button because "show retired" with nothing behind it is
+              a control that does nothing, and no way to tell from here. */}
+          {retired > 0 && (
+            <button
+              type="button"
+              onClick={() => set({ showRetired: !filter.showRetired })}
+              aria-pressed={filter.showRetired}
+              className={cx(
+                'rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200',
+                filter.showRetired
+                  ? 'bg-brand text-white shadow-card'
+                  : 'border border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink',
+              )}
+            >
+              {tr('Retired')} · {retired}
+            </button>
+          )}
+
+          {(filtered || filter.showRetired) && (
+            <button
+              type="button"
+              onClick={() => setFilter({ market: '', challenge: '', platform: '', reason: '', month: '', q: '', sort: filter.sort, showRetired: false })}
+              className="rounded-full px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink"
+            >
+              {tr('Clear')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* --------------------------------------------- the grid + the months --
+
+          A MONTH IS A REPORT, AND A REPORT IS THE GRID WITH ONE MORE FILTER ON
+          IT (9 Sep 2026).
+
+          Ethan: "I would love you to generate a monthly report I can click,
+          maybe on the right side another bar I can go month by month and see
+          the best videos from each month."
+
+          The honest version of that is not a second page and a second query -
+          the grid already sorts by views, already shows the hook, the account,
+          the challenge and the placing, and already exports. What it lacked was
+          a way to say "July". So the rail is a filter, the export filename
+          picks up the month, and "the best videos from August" is the page you
+          are already looking at with August selected.
+
+          On a desktop it is a column on the RIGHT, as asked. Below `lg` it
+          becomes a horizontal strip above the grid, because a 12rem column
+          beside a one-card grid on a phone is a column and no grid. */}
+      <div className="lg:flex lg:items-start lg:gap-6">
+        <div className="min-w-0 flex-1">
+          {!rows && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-72 w-full rounded-card" />)}
+            </div>
+          )}
+
+          {rows && shown.length === 0 && (
+            <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
+              <Icon name="video" className="mx-auto h-8 w-8 text-gray-300" />
+              <p className="mt-3 text-sm font-semibold text-ink">
+                {rows.length === 0 ? tr('Nothing tracked yet') : tr('Nothing matches that')}
+              </p>
+              <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
+                {rows.length === 0
+                  ? tr('Press "Sync from entries" to pull the top videos out of every challenge on the platform, or add one by hand from any market.')
+                  : tr('Try a wider filter, or clear them all.')}
+              </p>
+            </div>
+          )}
+
+          {rows && shown.length > 0 && (
+            <Reveal
+              className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              stagger={0.05}
+              maxStagger={9}
+            >
+              {shown.map((v, i) => (
+                <VideoCard
+                  key={v.id}
+                  v={v}
+                  place={filter.sort === 'views' ? i + 1 : null}
+                  onOpen={() => setEditing(v)}
+                  onPlay={() => setPlaying(v)}
+                  onPin={async () => {
+                    await supabase.from('tracked_videos').update({ pinned: !v.pinned }).eq('id', v.id)
+                    load()
+                  }}
+                />
+              ))}
+            </Reveal>
+          )}
+        </div>
+
+        {months.length > 0 && (
+          <aside className="order-first mb-5 lg:order-none lg:mb-0 lg:w-44 lg:shrink-0">
+            <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              {tr('By month')}
+            </p>
+            {/* One scroller, laid out along whichever axis the layout is using.
+                `[-ms-overflow-style]`/`scrollbar-width` for the same reason the
+                landing rails hide theirs: a scrollbar across a row of four
+                chips is taller than the chips. */}
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:mx-0 lg:max-h-[32rem] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
+              <MonthChip
+                label={tr('All months')}
+                count={rows ? rows.filter((v) => v.qualifies || v.pinned).length : 0}
+                active={!filter.month}
+                onClick={() => set({ month: '' })}
+              />
+              {months.map((m) => (
+                <MonthChip
+                  key={m.key}
+                  label={m.label}
+                  count={m.count}
+                  active={filter.month === m.key}
+                  onClick={() => set({ month: filter.month === m.key ? '' : m.key })}
+                />
+              ))}
+            </div>
+          </aside>
+        )}
+      </div>
 
       {editing && (
         <TrackedVideoSheet
@@ -403,12 +480,41 @@ function RulesModal({ rules, onClose, onSaved }) {
 // number beside it, and the caption is the small print. Every other card in
 // this product leads with a person or a title; this one leads with a sentence,
 // because the sentence is what somebody came here to steal.
-function VideoCard({ v, onOpen, onPlay, onPin }) {
+function VideoCard({ v, place, onOpen, onPlay, onPin }) {
   const tr = useT()
   const why = reasonLabel(v)
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
   const challenge = challengeOf(v)
+  const rest = captionRest(v)
+
+  // A REAL FRAME OF THE VIDEO WHERE ONE CAN BE HAD.
+  //
+  // Ethan: "we don't necessarily need the TikTok/Instagram sign there the way
+  // it shows for the other creators", and "maybe actually show a preview of the
+  // video if you can."
+  //
+  // `VideoThumb` paints a 128px orange slab with a giant platform logo on it,
+  // which is the right answer on a challenge entry - it is a link somebody is
+  // about to open, and the platform is the useful fact. On this page it is the
+  // wrong answer twice over: the platform is already a filter and a badge, and
+  // a wall of identical orange rectangles is the opposite of a page whose job
+  // is to help you tell twenty videos apart.
+  //
+  // `getVideoPreview` is the same tokenless oEmbed lookup the submission cards
+  // use - no key, cached per page load, and it resolves for TikTok and YouTube.
+  // Instagram gives nothing, so those keep a quiet tinted panel with the
+  // platform mark small in the corner rather than filling the frame.
+  const [thumb, setThumb] = useState(v.thumbnail_url || null)
+  useEffect(() => {
+    if (v.thumbnail_url) { setThumb(v.thumbnail_url); return undefined }
+    let alive = true
+    import('../../lib/videoPreview')
+      .then((m) => m.getVideoPreview(v.video_url))
+      .then((p) => { if (alive && p?.thumbnail) setThumb(p.thumbnail) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [v.video_url, v.thumbnail_url])
 
   return (
     <article
@@ -419,18 +525,42 @@ function VideoCard({ v, onOpen, onPlay, onPin }) {
         !v.qualifies && 'opacity-70',
       )}
     >
-      {/* The face doubles as the play control, exactly as it does on a profile
+      {/* The frame doubles as the play control, exactly as it does on a profile
           and on a challenge - one gesture for "watch this" everywhere. */}
-      <button type="button" onClick={onPlay} className="relative block w-full text-left" aria-label={tr('Play this video')}>
-        <VideoThumb url={v.video_url} platform={v.platform} className="h-32" />
+      <button
+        type="button"
+        onClick={onPlay}
+        className="relative block h-36 w-full overflow-hidden bg-cloud text-left"
+        aria-label={tr('Play this video')}
+      >
+        {thumb
+          ? <img src={thumb} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          : <span className="absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/25" aria-hidden />}
+        {/* A play affordance that reads on a photograph as well as on a tint. */}
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-card backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+            <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4 text-brand" fill="currentColor" aria-hidden>
+              <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
+            </svg>
+          </span>
+        </span>
         {v.views != null && (
           <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-bold tabular-nums text-white backdrop-blur-sm">
             {formatViews(v.views)}
           </span>
         )}
-        {v.rank && v.rank <= 3 && (
-          <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-brand shadow-card">
-            {v.rank}
+        {/* THE PLACING, and it is two different facts wearing one badge. `rank`
+            is where it came in its CHALLENGE, which is the stronger statement
+            and wins; `place` is where it sits in the list you are looking at,
+            which is what makes a monthly report read as a chart. */}
+        {(v.rank || place) && (
+          <span className="absolute left-2 top-2 flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-brand shadow-card">
+            {v.rank || place}
+          </span>
+        )}
+        {v.platform && (
+          <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke backdrop-blur-sm">
+            {v.platform}
           </span>
         )}
       </button>
@@ -443,27 +573,45 @@ function VideoCard({ v, onOpen, onPlay, onPin }) {
           {v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
 
-        {v.caption && v.caption !== v.hook && (
-          <p className="mt-1.5 text-xs leading-relaxed text-smoke line-clamp-2">{v.caption}</p>
-        )}
+        {/* WHAT THE CAPTION SAYS THAT THE HOOK HAS NOT. Ethan: "it says
+            beautiful outfits, new destinations, and it says it again." The hook
+            IS the caption's first line, so printing both always printed one of
+            them twice. See `captionRest`. */}
+        {rest && <p className="mt-1.5 text-xs leading-relaxed text-smoke line-clamp-2">{rest}</p>}
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-smoke">
-          <span className="font-medium text-ink">{v.creator_name || tr('Unknown creator')}</span>
-          {handle && (account
-            ? (
-              <a href={account} target="_blank" rel="noopener noreferrer"
-                className="font-medium text-brand hover:underline" onClick={(e) => e.stopPropagation()}>
-                {handle}
-              </a>
-            )
-            : <span>{handle}</span>)}
+        {/* THE PERSON, WITH THEIR FACE. Ethan: "as well as just saying Lisa
+            Burns, I would show the profile photo there with a clickable name to
+            bring it there." One row: portrait, name, handle - and the whole row
+            is the link to their account, so there is one target rather than a
+            name that does nothing beside a handle that does. */}
+        <div className="mt-3 flex items-center gap-2.5">
+          <Avatar src={v.creator_photo} name={v.creator_name || handle} size="xs" />
+          <span className="min-w-0 flex-1">
+            {account
+              ? (
+                <a
+                  href={account}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block truncate text-xs font-semibold text-ink transition-colors hover:text-brand"
+                >
+                  {v.creator_name || handle || tr('Unknown creator')}
+                  {handle && <span className="ml-1 font-medium text-brand">{handle}</span>}
+                </a>
+              )
+              : (
+                <span className="block truncate text-xs font-semibold text-ink">
+                  {v.creator_name || tr('Unknown creator')}
+                  {handle && <span className="ml-1 font-medium text-smoke">{handle}</span>}
+                </span>
+              )}
+            {(challenge || v.market_name) && (
+              <span className="block truncate text-[11px] text-smoke">
+                {[challenge, v.market_name].filter(Boolean).join(' · ')}
+              </span>
+            )}
+          </span>
         </div>
-
-        {(challenge || v.market_name) && (
-          <p className="mt-1 truncate text-xs text-smoke">
-            {[challenge, v.market_name].filter(Boolean).join(' · ')}
-          </p>
-        )}
 
         {v.tags?.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -496,14 +644,28 @@ function VideoCard({ v, onOpen, onPlay, onPin }) {
             <IconButton label={tr('Edit')} onClick={onOpen} name="pencil" />
           </span>
         </div>
-
-        {v.views_synced_at && (
-          <p className="mt-2 text-[10px] text-gray-400">
-            {tr('Views read')} {timeAgo(v.views_synced_at)}
-          </p>
-        )}
       </div>
     </article>
+  )
+}
+
+// ONE MONTH IN THE RAIL.
+function MonthChip({ label, count, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 lg:w-full lg:justify-between lg:rounded-xl',
+        active
+          ? 'bg-brand text-white shadow-card'
+          : 'border border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink lg:border-0 lg:bg-transparent lg:hoverable:hover:translate-y-0 lg:hoverable:hover:bg-cloud',
+      )}
+    >
+      <span className="truncate">{label}</span>
+      <span className={cx('text-xs font-bold tabular-nums', active ? 'text-white/75' : 'text-gray-400')}>{count}</span>
+    </button>
   )
 }
 

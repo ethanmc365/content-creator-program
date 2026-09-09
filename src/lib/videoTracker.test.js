@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  challengeKey, challengeOptions, creatorLink, parseTags,
-  reasonLabel, summarise, toCsvRows, visibleVideos,
+  captionRest, challengeKey, challengeOptions, creatorLink, monthKey, monthLabel,
+  monthsOf, parseTags, reasonLabel, summarise, toCsvRows, visibleVideos,
 } from './videoTracker'
 
 // THE VIDEO TRACKER'S FILTER, ORDER AND TOTALS.
@@ -79,6 +79,14 @@ describe('visibleVideos', () => {
     expect(visibleVideos(rows, { q: 'pov' }).map((r) => r.id)).toEqual(['pov'])
     expect(visibleVideos(rows, { q: 'TRANSITION' }).map((r) => r.id)).toEqual(['tagged'])
     expect(visibleVideos(rows, { q: 'denisa' }).map((r) => r.id)).toEqual(['named'])
+  })
+
+  it('filters by month, which is what the monthly report is', () => {
+    const rows = [
+      v({ id: 'jul', posted_at: '2026-07-25T00:00:00Z' }),
+      v({ id: 'sep', posted_at: '2026-09-02T00:00:00Z' }),
+    ]
+    expect(visibleVideos(rows, { month: '2026-07' }).map((r) => r.id)).toEqual(['jul'])
   })
 
   it('is safe with nothing at all', () => {
@@ -189,5 +197,65 @@ describe('toCsvRows', () => {
     expect(row.notes).toBe('')
     expect(row.posted_at).toBe('')
     expect(row.views).toBe('')
+  })
+})
+
+describe('the month rail', () => {
+  it('keys a video by when it was posted, and falls back to when it was added', () => {
+    expect(monthKey(v({ posted_at: '2026-07-25T10:00:00Z' }))).toBe('2026-07')
+    expect(monthKey(v({ posted_at: null, created_at: '2026-09-01T00:00:00Z' }))).toBe('2026-09')
+    expect(monthKey(v({ posted_at: null, created_at: null }))).toBe('')
+    // A row whose date is unparseable must not become the string "NaN-NaN".
+    expect(monthKey(v({ posted_at: 'not a date' }))).toBe('')
+  })
+
+  it('reads a month key back as words', () => {
+    expect(monthLabel('2026-07')).toBe('July 2026')
+    expect(monthLabel('2026-12')).toBe('December 2026')
+  })
+
+  // BUILT FROM THE ROWS, NOT FROM A FIXED START DATE. The one month the tracker
+  // has anything in is July, so a hard floor of August would have drawn an
+  // empty rail over a full grid.
+  it('lists only the months that have videos, newest first, with counts', () => {
+    const rows = [
+      v({ posted_at: '2026-07-25T00:00:00Z' }),
+      v({ posted_at: '2026-07-29T00:00:00Z' }),
+      v({ posted_at: '2026-09-02T00:00:00Z' }),
+    ]
+    expect(monthsOf(rows)).toEqual([
+      { key: '2026-09', count: 1, label: 'September 2026' },
+      { key: '2026-07', count: 2, label: 'July 2026' },
+    ])
+  })
+
+  it('is safe with nothing', () => {
+    expect(monthsOf(null)).toEqual([])
+  })
+})
+
+describe('captionRest', () => {
+  // Ethan: "it says beautiful outfits, new destinations, and it says it again."
+  // The hook IS the caption's first line, so printing both always printed it
+  // twice.
+  it('drops the hook from the front of the caption', () => {
+    expect(captionRest({ hook: 'Beautiful outfits.', caption: 'Beautiful outfits.\nNew destinations' }))
+      .toBe('New destinations')
+  })
+
+  it('returns nothing when the caption is only the hook', () => {
+    expect(captionRest({ hook: 'One line', caption: 'One line' })).toBe('')
+    expect(captionRest({ hook: 'One line', caption: '  One   line ' })).toBe('')
+  })
+
+  it('keeps the whole caption when the hook is not its opening', () => {
+    expect(captionRest({ hook: 'Written by hand', caption: 'Something else entirely' }))
+      .toBe('Something else entirely')
+  })
+
+  it('survives either side being missing', () => {
+    expect(captionRest({ hook: null, caption: 'Just a caption' })).toBe('Just a caption')
+    expect(captionRest({ hook: 'Just a hook', caption: null })).toBe('')
+    expect(captionRest({})).toBe('')
   })
 })

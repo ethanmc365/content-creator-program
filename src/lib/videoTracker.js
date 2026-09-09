@@ -105,7 +105,7 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
  */
 export function visibleVideos(rows, filter = {}) {
   const {
-    market = '', challenge = '', platform = '', reason = '',
+    market = '', challenge = '', platform = '', reason = '', month = '',
     q = '', sort = 'views', showRetired = false,
   } = filter
   const needle = q.trim().toLowerCase()
@@ -116,6 +116,10 @@ export function visibleVideos(rows, filter = {}) {
     if (challenge && challengeKey(v) !== challenge) return false
     if (platform && v.platform !== platform) return false
     if (reason && v.reason !== reason) return false
+    // THE MONTH RAIL IS A FILTER LIKE ANY OTHER, which is the whole reason the
+    // "monthly report" needed almost no new machinery: a report IS the grid
+    // with one more clause on it.
+    if (month && monthKey(v) !== month) return false
     if (needle && !haystack(v).includes(needle)) return false
     return true
   })
@@ -238,4 +242,82 @@ export function parseTags(text) {
     if (out.length >= 12) break
   }
   return out
+}
+
+/**
+ * THE MONTH A VIDEO BELONGS TO, as `YYYY-MM`.
+ *
+ * `posted_at` is the date the platform gave us where the scraper has run, and
+ * the submission date otherwise - which for the UK challenge is what we have.
+ * It is the honest key either way: the question the month rail answers is "what
+ * was working in July", and a video submitted in July was made in July.
+ *
+ * Falls back to `created_at` so a row added by hand with no date still lands
+ * somewhere rather than vanishing out of every month.
+ */
+export function monthKey(v) {
+  const d = v?.posted_at || v?.created_at
+  if (!d) return ''
+  const t = new Date(d)
+  if (Number.isNaN(t.getTime())) return ''
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']
+
+/** "July 2026" out of "2026-07". */
+export function monthLabel(key) {
+  const [y, m] = String(key || '').split('-')
+  const i = Number(m) - 1
+  return MONTH_NAMES[i] ? `${MONTH_NAMES[i]} ${y}` : key
+}
+
+/**
+ * EVERY MONTH THE TRACKER HAS SOMETHING IN, NEWEST FIRST.
+ *
+ * Ethan: "generate a monthly report I can click - on the right side another
+ * scrollable bar where I can choose month by month and see the best videos from
+ * each month."
+ *
+ * Built from the ROWS rather than from a fixed start date. He said "obviously
+ * just from August onwards", and the data disagrees - the UK challenge ran in
+ * July - so a hard-coded floor would have produced an empty rail on the one
+ * month there is anything to show. The rail is a list of months that have
+ * videos in them, which is the same thing he asked for and cannot be wrong.
+ */
+export function monthsOf(rows) {
+  const counts = new Map()
+  for (const v of rows || []) {
+    const k = monthKey(v)
+    if (!k) continue
+    counts.set(k, (counts.get(k) || 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count, label: monthLabel(key) }))
+    .sort((a, b) => b.key.localeCompare(a.key))
+}
+
+/**
+ * WHAT THE CAPTION SAYS THAT THE HOOK HAS NOT ALREADY SAID.
+ *
+ * Ethan: "it says 'beautiful outfits, new destinations' and then it says it
+ * again. You're just pulling the captions of the videos."
+ *
+ * He is right and it is structural rather than a slip: the hook IS the first
+ * line of the caption (`hook_from_caption`), so printing both always prints the
+ * first line twice. The card wants the hook loud and then whatever ELSE was
+ * written, so this returns the remainder - and an empty string when there is
+ * nothing left, which is the common case for a one-line caption.
+ */
+export function captionRest(v) {
+  const caption = (v?.caption || '').trim()
+  const hook = (v?.hook || '').trim()
+  if (!caption) return ''
+  if (!hook) return caption
+  const flat = caption.replace(/\s+/g, ' ')
+  const flatHook = hook.replace(/\s+/g, ' ')
+  if (flat === flatHook) return ''
+  if (flat.startsWith(flatHook)) return flat.slice(flatHook.length).replace(/^[\s\u2013\u2014.,;:!-]+/, '').trim()
+  return caption
 }

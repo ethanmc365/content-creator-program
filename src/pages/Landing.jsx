@@ -230,7 +230,20 @@ export default function Landing() {
           height, and wrong on a phone, where it is a quarter of it. So the
           spacing is a step now rather than a constant, everywhere on this page.
           Nothing about the desktop layout changes. */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-14 pt-8 text-center sm:px-8 sm:pb-24 sm:pt-28">
+      {/* AND THEN IT WAS TOO TIGHT (9 Sep 2026). Ethan, after the compaction:
+          "you seem to have compacted it a bit more. I think there should be
+          more white space around Create Earn Travel, the Become a creator and
+          Log in buttons, and the thing showing the challenges."
+
+          The first pass took a page that was seven screens on a phone down to
+          three and a half, which was right, and then took the hero with it: at
+          `pb-14 pt-8` the headline started 32px under a floating nav and the
+          stats band began 56px under the buttons, so the one screen a stranger
+          actually looks at read as a stack rather than as a poster. The page is
+          still under half what it was; this gives the hero back about 80px of
+          the 300 that came out of it, and spends it all in the three gaps he
+          named. */}
+      <section className="relative mx-auto max-w-6xl px-5 pb-20 pt-14 text-center sm:px-8 sm:pb-28 sm:pt-32">
         <span
           aria-hidden
           className="hero-bloom pointer-events-none absolute left-1/2 top-0 -z-10 h-[28rem] w-[52rem] max-w-[130%] -translate-x-1/2 rounded-full bg-brand-tint/60 blur-3xl"
@@ -257,7 +270,7 @@ export default function Landing() {
           <HeroWord i={2} className="text-brand">{tr("Travel.")}</HeroWord>
         </h1>
         <p
-          className="animate-fade-up mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-smoke sm:mt-8 sm:text-lg"
+          className="animate-fade-up mx-auto mt-7 max-w-xl text-[15px] leading-relaxed text-smoke sm:mt-9 sm:text-lg"
           style={{ animationDelay: '0.46s' }}
         >
           {tr("Join the official community of travel creators making content with Tryp.com. Compete in challenges, win cash and travel vouchers, get offered full time roles and grow alongside other travel creators.")}
@@ -270,7 +283,7 @@ export default function Landing() {
             one width; `sm:flex` hands the row straight back on a desktop, where
             shrink-to-fit is right because they sit side by side. */}
         <div
-          className="animate-fade-up mx-auto mt-8 grid max-w-xs grid-cols-1 gap-3 sm:mt-12 sm:flex sm:max-w-none sm:items-center sm:justify-center sm:gap-4"
+          className="animate-fade-up mx-auto mt-11 grid max-w-xs grid-cols-1 gap-3.5 sm:mt-14 sm:flex sm:max-w-none sm:items-center sm:justify-center sm:gap-4"
           style={{ animationDelay: '0.58s' }}
         >
           <Link
@@ -323,7 +336,7 @@ export default function Landing() {
             point of this tile is that the figure is real money, and "EUR 9k" is
             the register of a dashboard rather than of a number somebody is
             being told with some pride. */}
-        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-2 px-4 py-10 text-center sm:gap-6 sm:px-8 sm:py-14">
+        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-2 px-4 py-14 text-center sm:gap-6 sm:px-8 sm:py-16">
           {[
             { key: 'creators', value: stats?.creators, label: 'Creators', format: (n) => String(n) },
             { key: 'challenges', value: stats?.challenges, label: 'Challenges run', format: (n) => String(n) },
@@ -488,9 +501,23 @@ export default function Landing() {
               actually see, and the pins now land in a capped shower rather than
               all on one frame. Both of those are in CreatorMap, so the
               directory gets them too. */}
+          {/* EDGE TO EDGE, WITH NOTHING BESIDE IT (9 Sep 2026). Ethan:
+                "I do like the improved map, the way it blends in. The only
+                thing is it seems to be cut slightly - it should reach the end
+                smoothly, there's a tiny gap on each side", and on the desktop:
+                "there's quite a big gap on either side. Ensure the map always
+                fits directly to the screen so the edges are just past the
+                screen, so it looks like the whole map is built there."
+
+                It had `px-2 sm:px-6` and a 96rem cap - so on a phone the
+                continents stopped 8px short of both edges, which reads as a
+                picture in a frame rather than as part of the page, and on
+                anything past 1536px there were real margins. No padding and no
+                cap: the svg is `width: 100%` and its own aspect ratio decides
+                the height, so "full width" is all it needs to be told. */}
           {mapData.creators.length > 0 && (
             <Reveal from="up" className="mt-7 sm:mt-11">
-              <div className="mx-auto w-full max-w-[96rem] px-2 sm:px-6">
+              <div className="w-full">
                 <CreatorMap
                   creators={mapData.creators}
                   trips={mapData.trips}
@@ -506,7 +533,15 @@ export default function Landing() {
 
           {featured.length > 0 && (
             <div className="mx-auto max-w-6xl px-5 sm:px-8">
-              <h3 className="mt-14 text-center text-lg font-semibold text-ink sm:mt-20 sm:text-xl">{tr("Recently active creators")}</h3>
+              {/* THE SAME SIZE AS THE OTHER TWO SECTION HEADINGS (9 Sep
+                  2026). Ethan: "recently active creators has a small title
+                  compared to How it works and Why creators join - ensure it has
+                  the same title size." It was an `h3` at 18px because it began
+                  life as a sub-heading of "Meet the community"; it is a section
+                  in its own right and reads as one. Still an `h3` in the
+                  document outline, which is correct - it IS under that h2 -
+                  and simply sized like what it is. */}
+              <h3 className="mt-12 text-center text-[26px] font-bold tracking-tight sm:mt-20 sm:text-4xl">{tr("Recently active creators")}</h3>
               {/* TWENTY PEOPLE, NOT FOUR (9 Sep 2026). Ethan: "it currently
                   shows four - I think we can show, like, the twenty most active
                   creators here, and you can scroll through them. So you're
@@ -540,10 +575,30 @@ export default function Landing() {
                 stagger={0.06}
                 label={tr("Recently active creators")}
               >
+                {/* THE FACES DO SOMETHING NOW (9 Sep 2026). Ethan: "whenever
+                    you click on recently active creators, it seems to show
+                    nothing. It should show the pop up showing a little bit of
+                    info on the creator, and then you have to sign up to see
+                    everything - like it shows on the travel map."
+
+                    They were plain divs, which is the worst of both: they lift
+                    and magnify under a pointer exactly like every other card on
+                    this page, so they promise a press and then swallow it. The
+                    map pin already opens the right thing, and it is the same
+                    dialog and the same argument - meet a person, then be told
+                    that connecting with them needs an account - so this opens
+                    it too rather than growing a second one.
+
+                    `featured_creators` returns no city or country (it is a
+                    public RPC and deliberately narrow), so the dialog draws
+                    what it has. That is why it reads `.city`/`.country`
+                    defensively. */}
                 {featured.map((c) => (
-                  <div
+                  <button
+                    type="button"
                     key={c.name}
-                    className="landing-lift card flex h-full flex-col items-center gap-2.5 !p-5 text-center sm:gap-3 sm:!p-7 hoverable:hover:shadow-lift"
+                    onClick={() => setMiniProfile(c)}
+                    className="landing-lift card flex h-full w-full flex-col items-center gap-2.5 !p-5 text-center sm:gap-3 sm:!p-7 hoverable:hover:shadow-lift"
                   >
                     <span className="landing-lift-icon block">
                       <Avatar src={c.photo_url} name={c.name} size="lg" />
@@ -553,7 +608,7 @@ export default function Landing() {
                     <p className="mt-auto flex items-center justify-center gap-1 pt-1 text-xs font-semibold text-brand">
                       <Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} {tr("countries")}
                     </p>
-                  </div>
+                  </button>
                 ))}
               </Rail>
             </div>
@@ -741,10 +796,20 @@ export default function Landing() {
 
           `.scrim-in` and `.sheet-in` are the same two classes `Modal` uses, so
           this hand-rolled dialog and the fifty built ones now move alike. */}
+      {/* CENTRED AT EVERY WIDTH (9 Sep 2026). Ethan: "on this card, even on
+            the travel map, it's down at the bottom of the screen, which looks
+            weird. It should be in the middle as a nice pop up."
+
+            A bottom sheet is the right shape for something you ACT in - a form,
+            a long list, anything your thumb has to reach. This is a portrait, a
+            sentence and two buttons: it is a card, and a card belongs where the
+            eye already is. `items-center` and a full radius, so it is a
+            floating dialog rather than a drawer, and `animate-fade-up` rather
+            than `sheet-in` because a 12px rise is what a centred card does. */}
       {miniProfile && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`${miniProfile.name}'s profile`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${miniProfile.name}'s profile`}>
           <button aria-label={tr("Close")} className="scrim-in absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setMiniProfile(null)} />
-          <div className="sheet-in relative w-full max-w-sm rounded-t-card bg-white p-7 text-center shadow-lift sm:rounded-card">
+          <div className="animate-fade-up relative max-h-[85vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-card bg-white p-7 text-center shadow-lift">
             <button onClick={() => setMiniProfile(null)} aria-label={tr("Close")}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -819,7 +884,13 @@ export default function Landing() {
           needs separating - they are the end. The two legal links join the
           copyright on one line at `sm` and wrap to their own beneath it on a
           phone, which is the only width where three items do not fit. */}
-      <footer className="pb-9 pt-4 sm:pb-12 sm:pt-6">
+      {/* CLOSER TO THE CARD ABOVE IT (9 Sep 2026). Ethan, on both layouts:
+          "at the very bottom it says 2026 Tryp.com Content Creator Community. I
+          would move that up slightly so there's not as much space between the
+          'your next trip could pay for itself' card and the bottom." The panel
+          above already ends in a generous 48px of its own padding, so this was
+          adding a second gap to a page that had just finished speaking. */}
+      <footer className="pb-8 pt-0 sm:pb-10 sm:pt-1">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-1.5 px-5 text-center text-xs text-smoke sm:flex-row sm:justify-center sm:gap-0 sm:px-8">
           <p>
             © {new Date().getFullYear()} Tryp.com Content Creator Community
@@ -1048,6 +1119,7 @@ function Rail({ children, className = '', itemClassName = '', gap = 'gap-4', sta
     <div className={cx('relative', className)}>
       <Reveal
         innerRef={catchScroller}
+        row
         from="down"
         stagger={stagger}
         role="group"

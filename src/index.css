@@ -439,6 +439,29 @@ html {
      that falls back to repainting every frame is exactly the stutter this is
      supposed to avoid. The z component costs nothing and settles the question.
      `backface-visibility` stops Safari re-rasterising at the halfway point. */
+  /* A ROW'S CARDS ARE ALL THE HEIGHT OF THE TALLEST, AND `height: 100%` IS WHAT
+     STOPPED THAT (9 Sep 2026).
+
+     Ethan, about all three landing rails: "these cards are different sizes. I
+     want all the cards to be the same... even if they have short bios, the card
+     should be the same size."
+
+     `height: 100%` is right in a GRID - the track is already sized, so the
+     percentage resolves against it and the card fills its cell. In a FLEX row
+     it does two wrong things at once: the container's height is `auto`, so the
+     percentage is indefinite and falls back to the item's own content; and
+     giving the item a definite cross-size AT ALL opts it out of
+     `align-items: stretch`, which is the mechanism that would have equalised
+     them. Measured on the creators rail at 375px: 230, 230, 250, 230.
+
+     So a rail says so. `Reveal` adds `reveal-row` when its container is a flex
+     row (see the `row` prop), and there the item goes back to `height: auto`
+     and stretches, which is what a flex row does by default and what the cards
+     inside - every one of them already `h-full` - were written against. */
+  .reveal-row > .reveal-item {
+    height: auto;
+    align-self: stretch;
+  }
   .reveal-item {
     height: 100%;
     opacity: 0;

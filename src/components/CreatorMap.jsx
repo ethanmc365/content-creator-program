@@ -350,7 +350,7 @@ const HELD = { opacity: 0 }
 const Countries = memo(function Countries({
   features, homeNames, exploredView, exploredSet, openName,
   landFill, homeFill, exploredFill, hoverFill, separator,
-  onSelect, onHover,
+  onSelect,
 }) {
   return (
     <Geographies geography={features || EMPTY_GEO}>
@@ -380,8 +380,11 @@ const Countries = memo(function Countries({
                 // THE LAND IS A BUTTON NOW. Tapping a country asks the
                 // community who has been there; see openCountry.
                 onClick={() => onSelect(geo)}
-                onMouseEnter={() => onHover(name)}
-                onMouseLeave={() => onHover('')}
+                // NO HOVER HANDLERS. They existed only to feed the black name
+                // pill, which is gone - and they were lifting a string into
+                // React state on every border crossing, re-rendering the whole
+                // map to do it. The `hover` fill below is CSS-level and does
+                // the visual half without touching React at all.
                 tabIndex={-1}
                 style={{
                   default: { fill: base, stroke: separator, strokeWidth: 0.4, outline: 'none', transition: 'fill 0.18s ease' },
@@ -587,7 +590,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // Everything is classed together or nothing is.
   const entering = painted && !arrived
 
-  const [tooltip, setTooltip] = useState('')
+  // NO HOVER STATE AT ALL ANY MORE. The name pill it fed is gone (see the note
+  // where it used to be drawn), and it was the only reader - so every border
+  // crossing was re-rendering this entire component, pins and all, to update a
+  // string nothing displays. Deleting the state deletes that too.
   const [selected, setSelected] = useState(null)
   // FULL SCREEN.
   //
@@ -1347,7 +1353,25 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // exists (it is what makes the orientation lock possible and what takes the
   // browser chrome away); where it does not, the fixed overlay alone is still a
   // full-window map, which is the point.
+  // WHERE THE PAGE WAS WHEN FULL SCREEN OPENED (9 Sep 2026).
+  //
+  // Ethan: "when exiting full screen it doesn't bring you back to exactly where
+  // on the page, it brings you back to the top. Just fix that - it should bring
+  // you to where you were."
+  //
+  // Opening full screen locks the document (`overlay-lock`, which is
+  // `position: fixed` on the html element) and closing it unlocks - and a
+  // document that becomes `fixed` and then static again has forgotten its
+  // offset, so the browser lands it at zero. Same family as the modal scroll
+  // lock in lib/scrollLock, and the same fix: remember the number and put it
+  // back, INSTANTLY. `behavior: 'instant'` is load-bearing here, not tidiness -
+  // `scroll-behavior: smooth` is set platform-wide, so a plain `scrollTo` would
+  // animate a thousand pixels up the page from a document that stopped being
+  // fixed one line earlier, and the animation loses to the relayout.
+  const scrollBefore = useRef(0)
+
   const enterFullscreen = useCallback(async () => {
+    scrollBefore.current = window.scrollY
     setFullscreen(true)
     const el = fsRef.current
     try {
@@ -1372,7 +1396,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     try { window.screen?.orientation?.unlock?.() } catch { /* see above */ }
     try { if (document.fullscreenElement) document.exitFullscreen() } catch { /* already out */ }
     setClosing(true)
-    setTimeout(() => { setFullscreen(false); setClosing(false) }, 180)
+    setTimeout(() => {
+      setFullscreen(false)
+      setClosing(false)
+      // After the unmount, so the lock has been released and the document can
+      // actually be moved. A frame later still, because the class comes off in
+      // the same commit.
+      const y = scrollBefore.current
+      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }))
+      setTimeout(() => window.scrollTo({ top: y, behavior: 'instant' }), 60)
+    }, 180)
   }, [])
 
   // Leaving by the browser's own route (Escape, the system gesture, the back
@@ -1380,7 +1413,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // browser chrome around it and no way out.
   useEffect(() => {
     if (!fullscreen) return undefined
-    const onChange = () => { if (!document.fullscreenElement) setFullscreen(false) }
+    const onChange = () => {
+      if (document.fullscreenElement) return
+      setFullscreen(false)
+      // The system gesture and the Escape key both land here without going
+      // through `exitFullscreen`, and they lose the offset in exactly the same
+      // way. See the note on `scrollBefore`.
+      const y = scrollBefore.current
+      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }))
+    }
     const onKey = (e) => { if (e.key === 'Escape') exitFullscreen() }
     document.addEventListener('fullscreenchange', onChange)
     document.addEventListener('keydown', onKey)
@@ -1447,18 +1488,25 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   // THE PANEL MUST NOT REACH THE ROW THE COUNTRY NAME SITS IN.
   //
-  // Ethan: "the countries that show up in black at the top are slightly hidden
-  // behind the pop-up box". The name pill is centred at top-3; the panel was
-  // `inset-3`, so on a narrower map (the hub's left column, or any phone in
-  // full screen) a tall card grew up past the halfway point and swallowed the
-  // label naming the very country it was describing.
+  // IT IS CENTRED NOW, NOT WEDGED INTO THE BOTTOM-LEFT CORNER (9 Sep 2026).
   //
-  // Raising the pill's z-index would only trade one problem for another: it
-  // would sit ON the card. Giving the panel a floor of `top-14` means it can
-  // never get there, and `bottom-3 + top-14` is still the DEFINITE box the card
-  // needs to be allowed to shrink inside (a percentage max-height against an
-  // auto-height parent silently applies no limit at all).
-  const panelFrame = `pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-start justify-end ${overlayCls}`
+  // Ethan, on the desktop landing page: "whenever you click on a country or a
+  // person, the pop up showing the country info or the person is on the left,
+  // it's really in the corner. I think it should be centered and actually show
+  // up in the very center, like a pop up card in the middle."
+  //
+  // It was `items-start justify-end` - bottom-left - which was the right answer
+  // while the map was a 72rem card with filter pills along its foot. The map is
+  // now full-bleed and nearly two thousand pixels wide, so the same corner is
+  // no longer "beside the map", it is a long way from wherever you clicked and
+  // half off the edge of a wide screen.
+  //
+  // The `top-14` floor stays, and the reason it was added has not gone away
+  // even though the black name pill it was dodging has: `bottom-3 + top-14` is
+  // the DEFINITE box the card needs in order to be allowed to shrink inside it
+  // (a percentage max-height against an auto-height parent silently applies no
+  // limit at all, and this card scrolls).
+  const panelFrame = `pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-center justify-center ${overlayCls}`
 
   // ONE BUTTON OF THE MAP'S CONTROL GROUP.
   //
@@ -1493,73 +1541,85 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         !fullscreen && !header && !flush && 'rounded-card border border-gray-100',
       )}
     >
-      {tooltip && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
-          {tooltip}
-        </div>
-      )}
+      {/* THE BLACK NAME PILL IS GONE (9 Sep 2026). Ethan: "the way it shows up
+          whenever clicking on a country, it shows up on the actual map in
+          black - Italy, France - or it shows their name. Because we have the
+          pop up directly below the map, I would remove that black thing on the
+          map because it's not needed."
+
+          Right on both counts. It named the thing you had just tapped, one
+          beat before a panel appeared saying the same word and a great deal
+          more; and it is the only element in this component that was pure
+          chrome over the picture. `tooltip` is still tracked because the hover
+          handlers set it and the country hit-testing reads it - it simply is
+          not drawn any more. */}
 
       {/* THE KEY IS NO LONGER ON THE MAP. See `legendStrip` below. */}
 
-      {/* THE CORNER OF A PHONE IS NOT WHERE THE SCREEN ENDS. In full screen the
+      {/* ONE BUTTON OUTSIDE FULL SCREEN, AND THE FULL SET INSIDE IT
+          (9 Sep 2026).
+
+          Ethan: "we don't actually need the zoom in on mobile because we can
+          easily zoom with our fingers, and I don't need the reset button. All
+          we need is a full screen button, in the top right, just as an icon, no
+          card or anything." And for the desktop: "get rid of the plus and minus
+          zoom button, and the reset button. To zoom in there will be the full
+          screen button - not in the very corner, but on the right."
+
+          Both follow from the decision above it: gestures are refused outside
+          full screen (see `filterZoomEvent`), so a `+` there would be the only
+          way to reach a state nothing else can reach and nothing can undo. A
+          control that is the sole route into a mode is not a control, it is a
+          trapdoor. Inside full screen the map IS the page, pinch works, and the
+          zoom stack earns its place back for anybody on a mouse.
+
+          NO CARD, NO PILL, NO DIVIDERS outside full screen: one 36px glyph on
+          a translucent white disc, inset from the corner rather than jammed
+          into it. It is the smallest thing that can still be hit with a thumb.
+
+          THE CORNER OF A PHONE IS NOT WHERE THE SCREEN ENDS. In full screen the
           map is edge to edge, and a landscape phone puts its rounded corners
           and its notch on the SHORT sides - which is exactly where these
-          buttons are. The parent already pads for the top and bottom insets;
-          the left/right ones are the landscape pair and they were missing, so
-          + and the exit button sat under the bezel. A little more inset on top
-          of that keeps them clear of the corner radius itself. */}
-      {/* ONE GROUP, AND IT GETS OUT OF THE WAY ON A PHONE (9 Sep 2026).
-          Ethan: "we can move where they are - maybe somewhere else, especially
-          for mobile, because it takes up a lot of space on the map."
+          buttons are, so they carry their own inset on top of the parent's safe
+          -area padding. */}
+      {!fullscreen && allowFullscreen && (
+        <button
+          type="button"
+          onClick={enterFullscreen}
+          aria-label={tr('Open the map full screen')}
+          title={tr('Full screen')}
+          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 sm:right-5 sm:top-5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+        </button>
+      )}
 
-          Measured at 375px: the map box is ~180px tall and this was four
-          separate 36px discs stacked vertically down the right-hand side with
-          gaps - 156px, or EIGHTY-SEVEN PERCENT of the map's height, of floating
-          controls over the picture they control. Four discs also read as four
-          unrelated buttons rather than as one instrument.
-
-          So it is one white pill with hairline dividers between its buttons,
-          and below `sm` it lies DOWN along the bottom edge, where a world map
-          has nothing but ocean anyway. It costs 32px of height there instead of
-          156. From `sm` up the stack is unchanged - a desktop map is 400px+
-          tall and the vertical group beside the top-right corner is where the
-          eye already expects zoom controls to be. Full screen keeps its own
-          inset, for the notch reason above. */}
-      <div
-        className={cx(
-          'absolute z-20 flex overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur',
-          fullscreen
-            ? 'right-4 top-4 flex-col'
-            : 'bottom-2 right-2 flex-row sm:bottom-auto sm:top-2 sm:flex-col',
-        )}
-      >
-        <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")} className={mapBtn}>
-          <span className="text-lg font-semibold leading-none text-ink">+</span>
-        </button>
-        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")} className={cx(mapBtn, mapBtnDiv)}>
-          <span className="text-lg font-semibold leading-none text-ink">−</span>
-        </button>
-        <button type="button" onClick={resetView} aria-label={tr("Reset map view")} className={cx(mapBtn, mapBtnDiv)}>
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
-        </button>
-        {/* Last in the group, because it belongs to the same "how am I looking
-            at this" question as the zoom. */}
-        {allowFullscreen && (
+      {fullscreen && (
+        <div className="absolute right-4 top-4 z-20 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur">
+          <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")} className={mapBtn}>
+            <span className="text-lg font-semibold leading-none text-ink">+</span>
+          </button>
+          <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")} className={cx(mapBtn, mapBtnDiv)}>
+            <span className="text-lg font-semibold leading-none text-ink">−</span>
+          </button>
+          <button type="button" onClick={resetView} aria-label={tr("Reset map view")} className={cx(mapBtn, mapBtnDiv)}>
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
+          </button>
           <button
             type="button"
-            onClick={fullscreen ? exitFullscreen : enterFullscreen}
-            aria-label={fullscreen ? tr('Exit full screen') : tr('Open the map full screen')}
-            title={fullscreen ? tr('Exit full screen') : tr('Full screen')}
+            onClick={exitFullscreen}
+            aria-label={tr('Exit full screen')}
+            title={tr('Exit full screen')}
             className={cx(mapBtn, mapBtnDiv)}
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {fullscreen
-                ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
-                : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+              <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
             </svg>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <ComposableMap
         width={WIDTH}
@@ -1591,6 +1651,31 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           center={position.coordinates}
           minZoom={1}
           maxZoom={40}
+          // THE MAP DOES NOT TAKE THE PAGE'S SCROLL ANY MORE (9 Sep 2026).
+          //
+          // Ethan: "whenever you're scrolling down through the website and you
+          // reach the map, it starts scrolling the map, and then there's
+          // literally no way past it unless you go up and scroll down again...
+          // scrolling up is where it just starts zooming into the map."
+          //
+          // A full-width map across the middle of a marketing page is a
+          // scroll trap: d3-zoom claims the wheel over its whole area, the page
+          // stops moving, and the reader is stuck in a control they never asked
+          // to use. Every fix that keeps wheel-zoom is a heuristic - require a
+          // modifier, require a second of hovering, only zoom over land - and
+          // every one of them is a rule the reader has to learn.
+          //
+          // Ethan reached the simpler answer himself: "we're not going to be
+          // able to zoom in on the map at all while normally scrolling. It'll
+          // just be the full map stretching from side to side. To zoom in there
+          // will be the full screen button." So gestures are refused entirely
+          // outside full screen, and inside it - where the map IS the page and
+          // there is nothing behind it to steal from - everything works.
+          //
+          // `filterZoomEvent` is d3-zoom's own filter, so this rejects the
+          // gesture at source rather than fighting it afterwards. Clicking a
+          // country or a creator is untouched: a click is not a zoom event.
+          filterZoomEvent={() => fullscreen}
           // Keep the map inside the frame: you can nudge it a little (the small
           // margin) but never drag it completely out of view, even fully zoomed
           // out. d3-zoom clamps panning to this world-extent.
@@ -1623,7 +1708,6 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             hoverFill={HOVER_FILL}
             separator={SEPARATOR}
             onSelect={openCountry}
-            onHover={setTooltip}
           />
 
           {/* Everything that sits ON the land waits for the land. */}
@@ -1765,15 +1849,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
           {paintOrder.map((town, ti) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
-            const label = town.creators.length === 1
-              ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
-              : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
             return (
-              <g
-                key={town.key}
-                onMouseEnter={() => setTooltip(label)}
-                onMouseLeave={() => setTooltip('')}
-              >
+              <g key={town.key}>
                 <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
                   onSelect={selectTown} landing={entering} queue={ti} />
               </g>
@@ -1995,7 +2072,6 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   return (
     <div ref={rootRef} className="w-full">
       {mapCard}
-      {legendStrip}
       {/* PHONES GET THE COUNTRY UNDER THE MAP, NOT OVER IT.
           The map box is about 180px tall at 375px wide. An overlay inside it is
           a card covering the thing it describes, with the creator list squeezed
@@ -2004,8 +2080,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           where it was unusable. Below the map it gets the full width of the
           page and as much height as it needs, and the country stays highlighted
           in orange above it so you can see what you tapped. */}
+      {/* AND IT COMES BEFORE THE KEY, NOT AFTER IT (9 Sep 2026). Ethan: "for
+          the pop up, I would put it directly below the map, and I would put the
+          'where we live' and 'where we have filmed' below the pop up, because I
+          think it will look better." He is right, and there is a reason beyond
+          taste: the panel is the ANSWER to the tap that produced it, and a key
+          sitting between the map and the answer puts a legend in the middle of
+          a sentence. With nothing selected the key sits straight under the map
+          exactly as before. */}
       {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
       {townPanel && <div className="mt-3 sm:hidden">{townPanel}</div>}
+      {legendStrip}
       {/* Mobile: the same filters in a wrapping row below the map. */}
       {!travelOnlyView && (
         <div className="mt-3 flex flex-wrap gap-2 sm:hidden">

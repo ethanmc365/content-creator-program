@@ -96,6 +96,12 @@ export default function Reveal({
   // already separated in time by the act of scrolling to them, and a delay
   // there would just be a page that lags behind your thumb.
   delay = 0,
+  // IS THIS CONTAINER A FLEX ROW? See `.reveal-row` in index.css: the wrapper's
+  // `height: 100%` is correct in a grid and actively harmful in a row, where it
+  // both resolves against nothing and opts the item out of `align-items:
+  // stretch`. A caller laying its children out in a row says so, and gets
+  // equal-height cards.
+  row = false,
   // THE CONTAINER'S DOM NODE, FOR A CALLER THAT NEEDS TO DRIVE IT.
   //
   // `Reveal` already owns `ref` on the element it renders (`setNode` below,
@@ -457,7 +463,7 @@ export default function Reveal({
     <Tag
       ref={innerRefCb}
       data-from={from}
-      className={`reveal${dense ? ' reveal-dense' : ''}${!perItem && shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
+      className={`reveal${row ? ' reveal-row' : ''}${dense ? ' reveal-dense' : ''}${!perItem && shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{
         '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
         '--reveal-base': `${Math.round(delay * 1000)}ms`,

@@ -131,9 +131,42 @@ export function restingPlace(viewport, card, keepClear = false) {
   const { w: vw, h: vh } = viewport
   const cw = card.w || CARD_W
   const ch = card.h || 260
-  const top = Math.max(EDGE, vh - ch - RESTING_GAP)
+  // IT SITS ABOVE THE FOOT OF THE SCREEN, NOT ON IT (9 Sep 2026).
+  //
+  // Ethan, on the first step: "the card should start slightly higher up, not at
+  // the very bottom but more up in the middle - slightly higher up. And when I
+  // click show me around the card gets bigger saying nice one, and it just
+  // hides a bit."
+  //
+  // Both are the same measurement. `vh - ch - 32` put the card's bottom edge
+  // 32px off the floor, so a card that then GROWS - which is exactly what the
+  // "Nice one" acknowledgement does - had nowhere to grow into and pushed
+  // itself off the bottom of the window. Lifting the resting place by an eighth
+  // of the viewport leaves ~100px of clearance on a laptop and ~90px on a
+  // phone, which is more than the tick has ever added, and it also puts the
+  // opening card where the eye is rather than where the taskbar is.
+  //
+  // THE LIFT IS A CONSTANT, NOT A CLAMP, and that matters: the card is still
+  // BOTTOM-ALIGNED, so two cards of different heights still differ in `top` by
+  // exactly their height difference. That is the property that lets the height
+  // transition and the position transition run on the same curve and read as
+  // one movement (see `[data-centre][data-travel='no']` in index.css). A
+  // `Math.min(vh / 2, ...)` was tried here first and broke it - both heights
+  // clamped to the same number and the card stopped following its own box.
+  const lift = Math.min(vh * 0.125, 120)
+  const top = Math.max(EDGE, vh - ch - RESTING_GAP - lift)
+  // AND OUT OF THE CORNER, NOT WEDGED INTO IT (9 Sep 2026). Ethan, on the
+  // payment step: "it animates nicely down to the bottom right corner. I would
+  // still bring it out of the corner ever so slightly."
+  //
+  // `RESTING_GAP` is 32px, which is right for the distance from the bottom edge
+  // - that edge has a whole viewport above it - and mean against the right one,
+  // where the card is already the last thing before the screen ends. Doubling
+  // it costs nothing (the centre column it is keeping clear is 672px wide on a
+  // 1440px window, so there is 380px of slack) and stops the card reading as
+  // something that fell down the side of the page.
   const left = keepClear
-    ? Math.max(EDGE, vw - cw - RESTING_GAP)
+    ? Math.max(EDGE, vw - cw - RESTING_GAP * 2)
     : Math.max(EDGE, Math.round(vw / 2 - cw / 2))
   return { top, left, placement: keepClear ? 'resting-right' : 'resting-centre' }
 }

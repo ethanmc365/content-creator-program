@@ -167,6 +167,26 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // so the loop sees the truth on the frame it needs it.
   const live = useRef(false)
 
+  // THE WORDS CHANGE WHEN THE CARD STARTS MOVING, NOT BEFORE (9 Sep 2026).
+  //
+  // Ethan: "it shows the card while still in the corner - it should animate and
+  // show the new card WHILE it's moving, not immediately while still in the
+  // same place."
+  //
+  // Exactly what it did. Pressing a step advances `i`, React re-renders the
+  // card with the next step's title, body and instruction on that very frame,
+  // and the card then sits at the OLD position wearing the NEW words for as
+  // long as the settle poll takes - which on a step that scrolls is most of a
+  // second. The reader gets the answer before the movement that was supposed to
+  // deliver it, and the movement then looks like an afterthought.
+  //
+  // So the CONTENT runs one beat behind the GEOMETRY. `i` still changes
+  // immediately - the anchor, the scroll and the destination all have to be the
+  // new step's, because that is what is being travelled towards - and `shown`
+  // only catches up inside `settle()`, which is the moment the travel window
+  // opens. One index for where the card is going, one for what it says.
+  const [shown, setShown] = useState(i)
+
   const lastWrite = useRef({})
   // HOW MANY CONSECUTIVE FRAMES THE GEOMETRY HAS BEEN IDENTICAL, and what it
   // was. See the loop below: this is what lets the tracker stand down instead
@@ -232,6 +252,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   useEffect(() => { saveStep(layout, i) }, [layout, i])
 
   const step = steps[Math.min(i, steps.length - 1)]
+  // WHAT THE CARD SAYS RIGHT NOW, which lags `step` by one settle. See the note
+  // on `shown`: `step` is where it is going, `said` is what it is still saying
+  // until it sets off. They are the same object except during a step change.
+  const said = steps[Math.min(shown, steps.length - 1)]
 
   // THE CARD'S HEIGHT IS WRITTEN IN PIXELS SO THE CSS TRANSITION HAS SOMETHING
   // TO MOVE BETWEEN. `height: auto` cannot be transitioned.
@@ -296,7 +320,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     const t1 = setTimeout(apply, 60)
     const t2 = setTimeout(apply, 220)
     return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [step?.key, isPhone, hit])
+    // KEYED ON WHAT IS DRAWN. `said`, not `step`: the box has to be the size of
+    // the words currently in it, and those lag by one settle now.
+  }, [said?.key, isPhone, hit])
   const last = i >= steps.length - 1
   const goal = step ? stepGoal(step, network) : null
   const part = partOf(step)
@@ -465,7 +491,14 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     let settled = false
     let poll = 0
     let cap = 0
-    const settle = () => { if (!settled) { settled = true; live.current = true; setReady(true) } }
+    const settle = () => {
+      if (settled) return
+      settled = true
+      live.current = true
+      // The words and the movement start together. See the note on `shown`.
+      setShown(i)
+      setReady(true)
+    }
     const startSettle = () => {
       let lastY = window.scrollY
       let still = 0
@@ -1195,9 +1228,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
             the last step's position. A short fade, and only on the content -
             the card itself is one element for the whole walk so it can travel
             (see `data-travel`). */}
-        <div className="tour-scroll" key={step.key}>
-        <p className="tour-title tour-fade text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
-        <p className="tour-body tour-fade mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
+        <div className="tour-scroll" key={said.key}>
+        <p className="tour-title tour-fade text-[17px] font-bold leading-snug tracking-tight">{said.title}</p>
+        <p className="tour-body tour-fade mt-1.5 text-sm leading-relaxed text-smoke">{said.body}</p>
 
         {/* THE INSTRUCTION. The one line that matters if they read nothing
             else, so it gets the brand colour and its own row.
@@ -1211,9 +1244,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
             chevron inside the pill reads as "the thing is over there", and the
             thing is a tab at the bottom of the screen in the other direction.
             The spotlight is what points; this line is what says. */}
-        {step.do && !hit && (
+        {said.do && !hit && (
           <p className="tour-do mt-3 rounded-xl bg-brand-tint/60 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
-            {step.do}
+            {said.do}
           </p>
         )}
 
