@@ -812,8 +812,27 @@ export default function Settings() {
             onClick={() => setSection(s.key)}
             className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
-              <Icon name={s.icon} className="h-5 w-5" />
+            {/* THE ICON, NOT AN ICON IN A BOX (9 Sep 2026).
+                Ethan: "for this settings page, I don't like how the current
+                icons look - the weird orange background and then the icon. I
+                think it's better to remove that background completely and just
+                have the icon in the Tryp.com orange."
+
+                Same change and the same reason as the landing page's cards: a
+                44px tinted rounded square is the app's own shape for something
+                you press, so a column of them reads as buttons inside a button.
+                It also spent the brand colour on a wash - the tint is 8% orange
+                behind a 20px glyph, so the loudest mark in the row was a pale
+                rectangle. The glyph grows to fill the space the tile held and
+                takes the full orange, so the footprint is unchanged and the
+                colour is now on the thing with a shape.
+
+                The width is kept explicitly (`w-11`) even though there is no
+                longer a box: it is what keeps every label in the list starting
+                on the same vertical line, which is most of why the menu scans
+                as a menu. */}
+            <span className="flex w-11 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
+              <Icon name={s.icon} className="h-6 w-6" />
             </span>
             <span className="min-w-0 flex-1">
               {/* SECTIONS is data, so the translation happens where it is
@@ -832,8 +851,8 @@ export default function Settings() {
             onClick={() => setSection('admin')}
             className="card flex w-full items-center gap-4 border-brand/20 bg-brand-tint/30 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-              <Icon name="shield" className="h-5 w-5" />
+            <span className="flex w-11 shrink-0 items-center justify-center text-brand">
+              <Icon name="shield" className="h-6 w-6" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">{tr('Admin settings')}</span>

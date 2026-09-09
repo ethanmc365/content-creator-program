@@ -415,9 +415,14 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
         ? { height: vp.height, transform: `translateY(${vp.offsetTop}px)` }
         : { bottom: 0 }}
     >
+      {/* THE SCRIM FADES IN TOO. See `.scrim-in` in index.css: it used to paint
+          at full strength on the frame the dialog mounted, so the page went
+          dark instantly and the card then slid up into an already-black
+          screen. That cut is what "a bit glitchy" describes; the card's own
+          entrance was never the problem. */}
       {dismissible
-        ? <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onClose} />
-        : <div className="absolute inset-0 bg-ink/40" aria-hidden />}
+        ? <button aria-label={tr("Close")} className="scrim-in absolute inset-0 bg-ink/40" onClick={onClose} />
+        : <div className="scrim-in absolute inset-0 bg-ink/40" aria-hidden />}
       {/* On mobile the sheet variant runs to the edge of the screen, where the
           tab bar sits over it - so the last control inside gets the tab bar's
           height (plus the home-indicator safe area) as padding, or a tall
@@ -429,7 +434,13 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           scroll to the page once it reaches its end. Both were needed. */}
       <div
         className={cx(
-          'relative overflow-y-auto overscroll-contain bg-white shadow-lift animate-fade-up',
+          'relative overflow-y-auto overscroll-contain bg-white shadow-lift',
+          // A SHEET COMES UP FROM THE EDGE IT IS ATTACHED TO; A CARD RISES A
+          // LITTLE WHERE IT STANDS. `.sheet-in` is both - the full-height
+          // travel below `sm` and the 12px rise above it - because that is one
+          // element playing two roles, and a 12px hop on something pinned to
+          // the bottom of a phone reads as a flicker rather than as a sheet.
+          sheet ? 'sheet-in' : 'animate-fade-up',
           sheet
             ? 'w-full rounded-t-card p-6 sm:rounded-card sm:p-8 sm:pb-8'
             : 'w-full rounded-card p-5 sm:p-7',
