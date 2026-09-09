@@ -6,10 +6,15 @@
 // at screen sizes. This is what keeps the free 1 GB storage tier lasting.
 //
 // iPhones default to HEIC/HEIF, which most browsers (Chrome, Android) can't
-// decode via <canvas>. Those are converted to JPEG first (heic2any, loaded
+// decode via <canvas>. Those are converted to JPEG first (`heic-to`, loaded
 // lazily so it never bloats the main bundle). If we genuinely can't process an
 // image we THROW a clear message so the uploader can tell the user, instead of
 // silently uploading a file that will store broken.
+//
+// THE CONVERTER'S AGE IS A CORRECTNESS PROPERTY, NOT A HOUSEKEEPING ONE. This
+// used `heic2any`, last published 2021, and it refused every photograph from
+// an iPhone on iOS 18 - see the long note at the call site. Whatever decodes
+// HEIC here has to be kept current, because the format has kept moving.
 const WEB_SAFE = ['image/jpeg', 'image/png', 'image/webp']
 
 function isHeic(file) {
@@ -38,10 +43,20 @@ function isHeic(file) {
 // ISO-BMFF puts a box length in bytes 0-4 and the tag `ftyp` in bytes 4-8, with
 // the brand in 8-12. The brand list below is the HEIF still-image set; `avif`
 // is deliberately NOT on it, because browsers decode AVIF natively and sending
-// it to heic2any would be paying 1.35 MB to do worse than the canvas.
-const HEIF_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']
+// it to the converter would be paying three megabytes to do worse than the
+// canvas.
+//
+// `tmap` IS ON IT (9 Sep 2026). It is Apple's tone-mapped HDR still - what
+// every iPhone has produced since iOS 18 - and it is the brand that broke the
+// old converter. Both test files off this machine carry `heic` as their MAJOR
+// brand and `tmap` only in the compatible list, so this line was not the fault;
+// it is here because a file whose major brand is `tmap` is a HEIF still, and
+// this list is the one place that decides whether we even try. The AVIF worry
+// does not apply: this sniff is only consulted for files the browser has
+// already failed to decode on its own.
+const HEIF_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1', 'tmap']
 
-async function sniffHeic(file) {
+export async function sniffHeic(file) {
   try {
     const head = new Uint8Array(await file.slice(0, 12).arrayBuffer())
     if (head.length < 12) return false
@@ -311,7 +326,46 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
       )
     }
     try {
-      const heic2any = (await import('heic2any')).default
+      // ---------------------------------------------------------------
+      // THE CONVERTER IS `heic-to`, NOT `heic2any`, AND THAT IS THE WHOLE BUG
+      // (9 Sep 2026).
+      //
+      // Ethan: "you assured me that we were able to accept HEIC format photos,
+      // but this is not the case. It's still not working. It just shows the
+      // uploading circle forever and doesn't actually upload. Same for the
+      // travel photos. I want you to actually fix it this time."
+      //
+      // Two previous attempts fixed two real faults - a CSP that refused the
+      // decoder's worker, and decodes with no deadline - and neither of them
+      // was why the photograph in his camera roll would not convert. Measured
+      // here, against two actual iPhone files off this machine:
+      //
+      //   heic2any -> ERR_LIBHEIF format not supported     (9ms and 176ms)
+      //
+      // Nine milliseconds. It was not hanging and it was not slow; it was
+      // refusing the file outright, and the sentence the creator saw ("we could
+      // not read that photo") was the honest report of a decoder that genuinely
+      // could not.
+      //
+      // WHY IT COULD NOT. Both files carry `tmap` in their ftyp brand list -
+      // Apple's tone-mapped HDR gain-map HEIC, which is what every iPhone has
+      // shot since iOS 18. The primary item is a DERIVED image, and libheif
+      // only learned to resolve those in 1.17. `heic2any` is version 0.0.4,
+      // last published in 2021, and it bundles an asm.js libheif from before
+      // that. So the converter was not broken - it was five years old, and the
+      // format moved. Every recent iPhone photo is a file it predates, which is
+      // exactly the photo a travel creator is uploading.
+      //
+      // `heic-to` is the maintained replacement, built on current libheif-js.
+      // Same shape of API, a real WebAssembly build, and it decodes both test
+      // files (see the verification note below).
+      //
+      // THE `/csp` BUILD IS THE FALLBACK, NOT THE DEFAULT. Both builds run
+      // libheif in a blob worker; they differ in what they need from the
+      // policy. The probe above already knows whether a blob worker can be
+      // constructed here, so the answer is chosen rather than guessed, and a
+      // browser that refuses one is no longer a dead end.
+      const { heicTo } = await import('heic-to')
       // NINETY SECONDS, NOT THIRTY, AND THE REASON IS THAT THE CLOCK NOW WORKS.
       //
       // The old 30s was set against a decode that could not finish at all, so
@@ -322,12 +376,11 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
       // is a genuinely slow old phone chewing a 12-megapixel photo. Cutting
       // that off at 30s fails the exact creator most likely to be shooting
       // HEIC. It is a backstop against a hang, not a performance budget.
-      const out = await withTimeout(
-        heic2any({ blob: file, toType: 'image/jpeg', quality }),
+      const blob = await withTimeout(
+        heicTo({ blob: file, type: 'image/jpeg', quality }),
         90000,
         'slow-decode',
       )
-      const blob = Array.isArray(out) ? out[0] : out
       source = new File([blob], (file.name || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg' })
     } catch (err) {
       // NO MORE CAMERA-SETTINGS LECTURE.
