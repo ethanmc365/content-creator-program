@@ -1207,7 +1207,10 @@ export default function NetworkChat() {
         data-chat-scroller
         onScroll={onScroll}
         className={cx(
-          'flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5',
+          // The rooms share the DM overlay's geometry and therefore its trap:
+          // see the long note on the thread scroller in Messages.jsx. An empty
+          // room is commoner than an empty DM, not rarer.
+          'flex-1 space-y-4 overflow-y-auto overscroll-none overflow-x-hidden px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5 after:block after:h-px after:w-full after:shrink-0 after:content-[""]',
           // See `settled` above. Opacity only, and never `visibility` or a
           // conditional render: the rows have to be laid out for the pin to
           // have a scroll height to pin to.

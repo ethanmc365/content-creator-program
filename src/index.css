@@ -1630,6 +1630,10 @@ html[data-reduce-motion] *::after {
    rather than a 2px outline for the same reason the frame is. */
 .tour-spot {
   position: fixed;
+  /* Same contract as the card: pinned to the origin, moved by its transform. */
+  top: 0;
+  left: 0;
+  transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0);
   pointer-events: none;
   border-radius: 16px;
   /* The scrim is a 9,999px spread shadow, so every write to this element's box
@@ -1638,7 +1642,14 @@ html[data-reduce-motion] *::after {
      that repaint is not entangled with the page underneath it. Paired with the
      rAF loop standing down during the glide (see TourHost), this is the
      difference between the travel having the main thread and sharing it. */
-  will-change: top, left, width, height;
+  /* THE HINT NOW NAMES A PROPERTY THAT CAN ACTUALLY BE PROMOTED (9 Sep 2026).
+     `will-change: top, left, width, height` was a request no engine can grant:
+     layout properties are not compositable, so it bought a line of CSS and
+     nothing else while the comment above claimed a layer it never had. The box
+     is MOVED by a transform now (see `putXY` in TourHost) and only RESIZED by
+     layout, so the hint is true and the travel's position component really is
+     handed to the compositor. */
+  will-change: transform;
   box-shadow:
     0 0 0 9999px rgba(17, 17, 17, 0.22),
     0 0 0 3px rgba(255, 255, 255, 0.9),
@@ -1687,8 +1698,7 @@ html[data-reduce-motion] *::after {
    and, not coincidentally, how an aeroplane moves. */
 .tour-spot[data-travel='yes'] {
   transition:
-    top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
-    left 0.82s cubic-bezier(0.42, 0, 0.18, 1),
+    transform 0.82s cubic-bezier(0.42, 0, 0.18, 1),
     width 0.82s cubic-bezier(0.42, 0, 0.18, 1),
     height 0.82s cubic-bezier(0.42, 0, 0.18, 1),
     opacity 0.3s ease;
@@ -1727,9 +1737,34 @@ html[data-reduce-motion] *::after {
 
 /* --- the card ----------------------------------------------------------- */
 
+/* THE ENTRANCE AND THE POSITION SHARE ONE `transform`, SO THEY SHARE ONE
+   SOURCE OF TRUTH (9 Sep 2026).
+
+   The card is placed by a transform now rather than by `top`/`left` (see
+   `putXY` in TourHost - it is what makes the glide composited instead of
+   juddery). That put this keyframe on a collision course with it: an
+   `animation` beats an inline style for as long as it runs, so a card entering
+   at `translateY(10px)` would have spent 340ms at the TOP-LEFT CORNER of the
+   screen before snapping to where it belongs.
+
+   The position is therefore held in two custom properties and composed INTO
+   the keyframes, so the entrance is a 10px rise from wherever the card is
+   rather than from the origin. `var()` inside `@keyframes` resolves against
+   the element at the time it runs, so a card that is repositioned mid-entrance
+   simply rises to the new place.
+
+   Both stops name the same function list - `translate3d` then `scale` - so the
+   interpolation stays componentwise instead of falling back to matrix
+   decomposition, which is what makes a scale-and-rise read as one gesture. */
 @keyframes tour-card-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translate3d(var(--tour-x, 0px), calc(var(--tour-y, 0px) + 10px), 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0) scale(1);
+  }
 }
 
 @keyframes tour-sheet-in {
@@ -1751,6 +1786,22 @@ html[data-reduce-motion] *::after {
 }
 
 .tour-card--float {
+  /* THE FLOATING CARD IS MOVED BY ITS TRANSFORM, so its box is pinned to the
+     origin and never touched again - see `putXY` in TourHost. Without the two
+     offsets the element would fall back to its static position, which for a
+     fixed element inside a portal is wherever the portal happens to sit.
+
+     ON `--float` RATHER THAN ON `.tour-card`: the phone's `--sheet` variant is
+     positioned by CSS from the other three edges (`left`/`right`/`bottom`) and
+     slides with a transform of its own. A `top: 0` on the shared base would
+     have stretched it the height of the screen, and a base transform would have
+     fought its slide-in. The two variants have never shared a positioning
+     mechanism and this is the rule that keeps it that way. */
+  top: 0;
+  left: 0;
+  transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0);
+  /* Genuinely promoted: this is the property the glide runs on. */
+  will-change: transform;
   animation: tour-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -1762,9 +1813,7 @@ html[data-reduce-motion] *::after {
    few frames behind the page it is anchored to. TourHost's loop flips the
    attribute. */
 .tour-card--float[data-travel='yes'] {
-  transition:
-    top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
-    left 0.82s cubic-bezier(0.42, 0, 0.18, 1);
+  transition: transform 0.82s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
 /* A RESTING CARD FOLLOWS ITS OWN HEIGHT, AND IT GLIDES WHILE IT DOES
@@ -1794,8 +1843,7 @@ html[data-reduce-motion] *::after {
    of the 820ms travel one and would arrive out of step with the spotlight. */
 .tour-card--float[data-centre='yes'][data-travel='no'] {
   transition:
-    top 0.5s cubic-bezier(0.42, 0, 0.18, 1),
-    left 0.5s cubic-bezier(0.42, 0, 0.18, 1),
+    transform 0.5s cubic-bezier(0.42, 0, 0.18, 1),
     height 0.5s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
@@ -1863,9 +1911,23 @@ html[data-reduce-motion] *::after {
 /* No `translateX(-50%)` in here any more either: the card is placed by its own
    left edge, so the entrance is a plain lift. Leaving the -50% in would have
    shifted every resting card half its width off its computed position. */
+/* EVERY ONE OF THESE COMPOSES THE POSITION IN. See `tour-card-in` above: the
+   card is placed by its transform now, and an `animation` outranks the inline
+   custom properties' own rule for as long as it runs - so any keyframe here
+   that says `transform: none` is saying "go to the top-left corner of the
+   screen for 360ms". `tour-card-in` was reconciled first and these three were
+   not, which put the resting card - the commonest state in the whole
+   walkthrough - in the corner on every entrance. Found by reading the computed
+   style off a running walk rather than by reasoning about it. */
 @keyframes tour-card-centre-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translate3d(var(--tour-x, 0px), calc(var(--tour-y, 0px) + 12px), 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0) scale(1);
+  }
 }
 
 /* A STEP THAT ASKS YOU TO TYPE MOVES OUT OF THE COLUMN (4 Sep 2026).
@@ -1882,8 +1944,14 @@ html[data-reduce-motion] *::after {
 }
 
 @keyframes tour-card-clear-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translate3d(var(--tour-x, 0px), calc(var(--tour-y, 0px) + 12px), 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0) scale(1);
+  }
 }
 
 /* AND IT GETS OUT OF THE WAY WHILE YOU TYPE, AT EVERY WIDTH.
@@ -1906,7 +1974,8 @@ html[data-reduce-motion] *::after {
 .tour-card--float[data-clear='yes'][data-typing='yes'] {
   animation: none;
   opacity: 0;
-  transform: translateY(14px);
+  /* Leaves DOWNWARDS FROM WHERE IT IS, not from the origin. */
+  transform: translate3d(var(--tour-x, 0px), calc(var(--tour-y, 0px) + 14px), 0);
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -2082,10 +2151,18 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .tour-fade,
   .tour-hit { animation: none; }
   .tour-card--float[data-travel='yes'] { transition: none; }
+  /* `transform: none` would be `position: 0,0` for this card - it is how the
+     card is placed. Reduced motion removes the MOVEMENT, not the placement. */
   .tour-card--float[data-centre='yes'],
-  .tour-card--float[data-centre='yes'][data-clear='yes'] { animation: none; transform: none; }
+  .tour-card--float[data-centre='yes'][data-clear='yes'] {
+    animation: none;
+    transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0);
+  }
   .tour-card--sheet { transition: none; }
-  .tour-card--float[data-clear='yes'][data-typing='yes'] { transition: none; transform: none; }
+  .tour-card--float[data-clear='yes'][data-typing='yes'] {
+    transition: none;
+    transform: translate3d(var(--tour-x, 0px), var(--tour-y, 0px), 0);
+  }
   .tour-do .animate-pulse { animation: none; }
 }
 
@@ -2245,8 +2322,19 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
      for ever is a memory cost with no benefit, so the value is `auto` once the
      hover transition is the only thing left). */
   will-change: transform, opacity;
-  animation: hero-word-in 620ms cubic-bezier(0.22, 1.15, 0.36, 1) both;
-  animation-delay: calc(var(--word-i, 0) * 90ms + 90ms);
+  animation: hero-word-in 520ms cubic-bezier(0.22, 1.15, 0.36, 1) both;
+  /* TIGHTER, AND STARTING SOONER (9 Sep 2026). Ethan, on the whole page:
+     "the animation for the numbers comes in kind of too slow - it's delayed
+     between everything else. Maybe just speed it up a bit so it actually
+     starts a bit sooner."
+
+     The numbers are at the END of a chain that begins here, so every
+     millisecond taken out of the headline is a millisecond off the stats
+     band too. 90ms of dead air before the first word and 90ms between each
+     was tuned when this ran the instant React committed; it now runs after a
+     boot layer the reader has already been watching, and a stagger that
+     reads as considered on first paint reads as hesitant after a wait. */
+  animation-delay: calc(var(--word-i, 0) * 75ms + 30ms);
   /* The hover transition is a SEPARATE property list from the entrance, and it
      has to be: a `transition: transform` while an `animation` on transform is
      running does nothing, and after it finishes this is the only thing moving
@@ -2321,7 +2409,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.stat-in { animation: stat-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stat-in { animation: stat-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* ONE PASS OF LIGHT ACROSS THE FINAL CALL TO ACTION, on arrival only. */
 @keyframes landing-sheen {

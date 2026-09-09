@@ -50,6 +50,10 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
     tags: (row?.tags || []).join(', '),
     notes: row?.notes || '',
     pinned: !!row?.pinned,
+    // Not an editable field - there is no box for it. It rides along so that a
+    // frame found by "Read it from the platform" survives the save, instead of
+    // the card having to go and find it again on the next page load.
+    thumbnail_url: row?.thumbnail_url || '',
   }))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -130,6 +134,12 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       // is what "@Lisa | ..." looked like on the first pass.
       const handle = r?.author || o?.authorHandle || null
       const name = o?.author || null
+      // THE STILL FRAME, TAKEN HERE SO THE CARD NEVER HAS TO GO AND ASK.
+      // oEmbed first because it answers in ~100ms and its URLs do not expire;
+      // the probe is what covers Instagram, which publishes no oEmbed at all.
+      // See lib/videoThumbs for the same order and for what happens when a
+      // signed Instagram URL eventually stops working.
+      const thumbnail = o?.thumbnail || r?.thumbnail || null
 
       const got = []
       const patch = {}
@@ -145,6 +155,10 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       }
       if (handle && !form.creator_handle.trim()) { patch.creator_handle = handle; got.push(tr('account')) }
       if (name && !form.creator_name.trim()) { patch.creator_name = name; got.push(tr('name')) }
+      // Not counted in `got`: nobody typed a thumbnail, so "read thumbnail" is
+      // a line about our plumbing rather than about their video. It shows up as
+      // the picture on the card, which is the report that matters.
+      if (thumbnail) patch.thumbnail_url = thumbnail
       if (Object.keys(patch).length) set(patch)
 
       // A FAILED VIEW READ IS NOT A FAILED CALL. Every one of these errors has
@@ -199,6 +213,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       tags: parseTags(form.tags),
       notes: form.notes.trim() || null,
       pinned: form.pinned,
+      thumbnail_url: form.thumbnail_url || null,
     }
 
     const res = row?.id

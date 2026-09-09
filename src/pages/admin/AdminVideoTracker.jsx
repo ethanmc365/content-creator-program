@@ -12,6 +12,7 @@ import {
   challengeOptions, creatorLink, monthLabel, monthsOf, reasonLabel, summarise,
   toCsvRows, visibleVideos,
 } from '../../lib/videoTracker'
+import { resolveThumbnail, forgetThumbnail } from '../../lib/videoThumbs'
 import { useT } from '../../lib/i18n'
 
 // THE VIDEO TRACKER.
@@ -76,7 +77,7 @@ export default function AdminVideoTracker() {
   // of it takes the whole thing (`visibleVideos`) and because that makes
   // "clear all" one line rather than six.
   const [filter, setFilter] = useState({
-    market: '', challenge: '', platform: '', reason: '', month: '', q: '', sort: 'views', showRetired: false,
+    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', showRetired: false,
   })
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
@@ -117,12 +118,18 @@ export default function AdminVideoTracker() {
   }
 
   const challenges = useMemo(() => challengeOptions(rows || []), [rows])
+  // The selected challenge as a whole object - its label and its market - for
+  // the heading above the grid.
+  const chosenChallenge = useMemo(
+    () => challenges.find((c) => c.key === filter.challenge) || null,
+    [challenges, filter.challenge],
+  )
   const shown = useMemo(() => visibleVideos(rows || [], filter), [rows, filter])
   const totals = useMemo(() => summarise(shown), [shown])
   const retired = useMemo(() => (rows || []).filter((v) => !v.qualifies && !v.pinned).length, [rows])
 
   const months = useMemo(() => monthsOf(rows || []), [rows])
-  const filtered = filter.challenge || filter.platform || filter.reason || filter.q || filter.market || filter.month
+  const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month
 
   return (
     <div className="page">
@@ -152,23 +159,27 @@ export default function AdminVideoTracker() {
         </p>
       )}
 
-      <MarketScope markets={markets} value={filter.market} onChange={(m) => set({ market: m })}
-        note={rows ? `${shown.length} ${shown.length === 1 ? 'video' : 'videos'}` : ''} />
+      {/* NO `note` HERE. It said "3 videos", eighty pixels above a line in the
+          filter card that says "3 videos · best 15.2k" - the same fact twice on
+          one screen, which is a third of what "there's too much going on"
+          meant. The card's version is the one that stays: it is beside the
+          filters that change it. */}
+      <MarketScope markets={markets} value={filter.market} onChange={(m) => set({ market: m })} />
 
-      {/* WHAT THE SYNC IS CURRENTLY LOOKING FOR, SAID OUT LOUD. A page whose
-          contents are decided by two numbers nobody can see is a page that
-          looks broken every time it disagrees with somebody's expectation -
-          "why isn't my video in here" has an answer, and this is it. */}
-      {rules && (
-        <p className="-mt-2 mb-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-smoke">
-          <Icon name="bulb" className="h-3.5 w-3.5 shrink-0 text-brand" />
-          {tr('Syncing the top')} <strong className="font-semibold text-ink">{rules.top_per_challenge}</strong> {tr('of every challenge, plus anything over')}{' '}
-          <strong className="font-semibold text-ink">{formatViews(rules.view_threshold)}</strong> {tr('views')}.
-          <button type="button" onClick={() => setTuning(true)} className="font-semibold text-brand hover:underline">
-            {tr('Change')}
-          </button>
-        </p>
-      )}
+      {/* (The standing "syncing the top 3 of every challenge, plus anything over
+          10k views" line used to sit here as a paragraph of its own. Ethan: "I
+          don't like how it says top three of every challenge plus everything
+          over ten thousand views. This is not necessarily needed there - it
+          could be an actual button somewhere, the Change button. Maybe just
+          build it into the design better, because currently it looks like
+          there's too much going on."
+
+          Right, and the reason is that it was answering a question nobody had
+          asked yet. It exists for "why isn't my video in here", which is asked
+          about ONCE, by somebody who is already looking for a control. So it is
+          a control: `3 / 10k` beside Export, which says the same two numbers in
+          six characters and opens the panel that explains them in full. See
+          `RulesModal`.) */}
 
       {/* ONE CARD, NOT A WALL OF TILES AND A LOOSE ROW OF PILLS (9 Sep 2026).
           Ethan: "improve how this looks - have everything in one card, similar
@@ -206,11 +217,27 @@ export default function AdminVideoTracker() {
               <span className="text-smoke">{monthLabel(filter.month)}</span>
             </>
           )}
+          {/* THE RULES, AS SIX CHARACTERS AND A DOOR. See the note above the
+              card: the sentence this replaces was a paragraph of standing text
+              explaining a state that is almost always the default one. */}
+          {rules && (
+            <button
+              type="button"
+              onClick={() => setTuning(true)}
+              title={tr('What gets tracked')}
+              className="ml-auto rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
+            >
+              {tr('Top')} {rules.top_per_challenge} <span className="text-gray-300" aria-hidden>/</span> {formatViews(rules.view_threshold)}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
             disabled={!shown.length}
-            className="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink"
+            className={cx(
+              'rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink',
+              !rules && 'ml-auto',
+            )}
           >
             <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
             {tr('Export')}
@@ -232,7 +259,14 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.challenge}
             onChange={(v) => set({ challenge: v })}
-            className="min-w-[11rem]"
+            // FIXED WIDTHS, NOT MINIMUMS. A `min-w` select grows to fit
+            // whatever is chosen, so picking "Tryp.com Creative Challenge"
+            // pushed the two selects to its right along by 55px - the same
+            // complaint as the Clear button ("I don't like how everything
+            // moves"), from a different cause. The trigger truncates instead;
+            // the full label is one click away and is also now the heading
+            // above the grid.
+            className="w-[13rem] shrink-0"
             ariaLabel={tr('Challenge')}
             options={[{ value: '', label: tr('Every challenge') },
               ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
@@ -240,27 +274,23 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.platform}
             onChange={(v) => set({ platform: v })}
-            className="min-w-[9rem]"
+            className="w-[9.5rem] shrink-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
           />
-          <Select
-            value={filter.reason}
-            onChange={(v) => set({ reason: v })}
-            className="min-w-[10rem]"
-            ariaLabel={tr('Why it is here')}
-            options={[
-              { value: '', label: tr('Any reason') },
-              { value: 'podium', label: tr('Top of a challenge') },
-              { value: 'threshold', label: tr('Over the view line') },
-              { value: 'manual', label: tr('Added by hand') },
-            ]}
-          />
+          {/* THE "ANY REASON" FILTER IS GONE (9 Sep 2026). Ethan: "for the any
+              reason, I would delete that filter. We don't need that filter."
+
+              Agreed, and it was the weakest of the five: every card already
+              wears its reason as a badge, there are only three of them, and a
+              filter for "added by hand" answers a question about our
+              bookkeeping rather than about the videos. `reasonLabel` stays -
+              the badge is the useful half. */}
           <Select
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
-            className="min-w-[10rem]"
+            className="w-[10rem] shrink-0"
             ariaLabel={tr('Sort')}
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
@@ -284,15 +314,32 @@ export default function AdminVideoTracker() {
             </button>
           )}
 
-          {(filtered || filter.showRetired) && (
-            <button
-              type="button"
-              onClick={() => setFilter({ market: '', challenge: '', platform: '', reason: '', month: '', q: '', sort: filter.sort, showRetired: false })}
-              className="rounded-full px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink"
-            >
-              {tr('Clear')}
-            </button>
-          )}
+          {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE (9 Sep 2026).
+              Ethan: "when I click on July 2026 it changes how the card above
+              looks, because the Clear button appears on everything just so it's
+              to the left of it. I don't like how everything moves."
+
+              A control that appears when it becomes useful is a reasonable
+              instinct and it is wrong in a WRAPPING row: adding a fifth item to
+              a flex-wrap line does not add a button, it re-flows every button
+              on the line. So the space is reserved permanently and only the
+              button's visibility changes - nothing to its left can move,
+              because nothing to its left changes size.
+
+              `invisible` rather than `opacity-0`: it must also leave the tab
+              order when it does nothing. */}
+          <button
+            type="button"
+            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, showRetired: false })}
+            aria-hidden={!(filtered || filter.showRetired)}
+            tabIndex={filtered || filter.showRetired ? 0 : -1}
+            className={cx(
+              'rounded-full px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink',
+              !(filtered || filter.showRetired) && 'invisible',
+            )}
+          >
+            {tr('Clear')}
+          </button>
         </div>
       </div>
 
@@ -334,6 +381,32 @@ export default function AdminVideoTracker() {
                   ? tr('Press "Sync from entries" to pull the top videos out of every challenge on the platform, or add one by hand from any market.')
                   : tr('Try a wider filter, or clear them all.')}
               </p>
+            </div>
+          )}
+
+          {/* THE CHALLENGE NAMES ITSELF ONCE, ABOVE ITS OWN VIDEOS (9 Sep 2026).
+              Ethan: "whenever you filter by challenge, just show them up with
+              the challenge name on top of it - the community flag or market,
+              whatever."
+
+              With a challenge selected, every card in the grid is wearing the
+              same challenge badge, which is twenty repetitions of a fact that
+              belongs at the top of the page exactly once. It is also the state
+              this page is USED in - "show me the UK challenge" is the question
+              somebody arrives with - so the answer deserves a heading rather
+              than a filter chip. */}
+          {rows && shown.length > 0 && filter.challenge && chosenChallenge && (
+            <div className="mb-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
+              <h2 className="text-lg font-bold tracking-tight text-ink">{chosenChallenge.label}</h2>
+              {chosenChallenge.market && (
+                <span className="rounded-full bg-brand-tint/60 px-2.5 py-0.5 text-xs font-semibold text-brand">
+                  {chosenChallenge.market}
+                </span>
+              )}
+              <span className="text-sm text-smoke">
+                {shown.length} {shown.length === 1 ? tr('video') : tr('videos')}
+                {filter.month ? ` · ${monthLabel(filter.month)}` : ''}
+              </span>
             </div>
           )}
 
@@ -501,20 +574,52 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
   // a wall of identical orange rectangles is the opposite of a page whose job
   // is to help you tell twenty videos apart.
   //
-  // `getVideoPreview` is the same tokenless oEmbed lookup the submission cards
-  // use - no key, cached per page load, and it resolves for TikTok and YouTube.
-  // Instagram gives nothing, so those keep a quiet tinted panel with the
-  // platform mark small in the corner rather than filling the frame.
+  // EVERY PLATFORM GETS A FRAME NOW, INCLUDING INSTAGRAM (9 Sep 2026).
+  //
+  // Ethan: "for some of them, like the TikTok one, you have the nice preview
+  // that shows up. But for Instagram this doesn't seem to work. Make sure you
+  // can build this preview into all of them."
+  //
+  // He is describing a real asymmetry with a boring cause: TikTok and YouTube
+  // publish tokenless oEmbed endpoints and Instagram does not, so the
+  // browser-side lookup could only ever answer for two of the three. The third
+  // answer has existed since this morning and nothing was asking for it - the
+  // `view-sync` probe reads Instagram server-side for the view count and brings
+  // a `thumbnail` back with it. `resolveThumbnail` is the one place that knows
+  // all three routes and the order to try them in; see lib/videoThumbs.
+  //
+  // WHAT IS FOUND IS WRITTEN BACK to `tracked_videos.thumbnail_url`, so this
+  // costs one lookup per video ever rather than one per page view - and when
+  // Instagram's signed URL eventually expires, `onError` on the <img> below
+  // throws the cache away and asks again. A frame that heals is why caching an
+  // expiring URL is the right thing to do rather than a corner cut.
   const [thumb, setThumb] = useState(v.thumbnail_url || null)
+  const [retried, setRetried] = useState(false)
   useEffect(() => {
-    if (v.thumbnail_url) { setThumb(v.thumbnail_url); return undefined }
+    if (v.thumbnail_url && !retried) { setThumb(v.thumbnail_url); return undefined }
     let alive = true
-    import('../../lib/videoPreview')
-      .then((m) => m.getVideoPreview(v.video_url))
-      .then((p) => { if (alive && p?.thumbnail) setThumb(p.thumbnail) })
-      .catch(() => {})
+    resolveThumbnail(v.video_url, { probe: true }).then((url) => {
+      if (!alive || !url) return
+      setThumb(url)
+      // Best effort, and deliberately unawaited: the picture is already on
+      // screen, and whether the note survives to the next page load is not
+      // something the reader should be made to wait for.
+      if (url !== v.thumbnail_url) {
+        supabase.from('tracked_videos').update({ thumbnail_url: url }).eq('id', v.id).then(() => {})
+      }
+    })
     return () => { alive = false }
-  }, [v.video_url, v.thumbnail_url])
+  }, [v.video_url, v.thumbnail_url, v.id, retried])
+
+  // ONE RETRY, AND ONLY ONE. A URL that has expired resolves to a new one; a
+  // URL that is simply wrong would otherwise loop for ever against an endpoint
+  // that is going to keep saying no.
+  const onThumbError = () => {
+    setThumb(null)
+    if (retried) return
+    forgetThumbnail(v.video_url)
+    setRetried(true)
+  }
 
   return (
     <article
@@ -534,7 +639,7 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
         aria-label={tr('Play this video')}
       >
         {thumb
-          ? <img src={thumb} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          ? <img src={thumb} alt="" onError={onThumbError} referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : <span className="absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/25" aria-hidden />}
         {/* A play affordance that reads on a photograph as well as on a tint. */}
         <span className="absolute inset-0 flex items-center justify-center">

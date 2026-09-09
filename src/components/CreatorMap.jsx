@@ -1528,6 +1528,32 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       // d3-zoom, and draws more map rather than bigger pixels. See
       // lib/pinchGuard.
       data-zoomable
+      // ONE FINGER IS THE PAGE'S. TWO ARE THE MAP'S. (9 Sep 2026)
+      //
+      // Ethan: "the map, I'm unable to zoom on it at all... and scrolling
+      // normally on the map doesn't move anything at all, whereas it should.
+      // But I should be able to pinch to zoom with my fingers on the map like
+      // normal mobile. I don't know why you really messed up the map on
+      // mobile."
+      //
+      // Both halves are ONE line of CSS. `[data-zoomable]` carries
+      // `touch-action: none` (index.css) - a promise to the browser that this
+      // element handles every gesture itself. That was true when the map
+      // zoomed on a drag. It stopped being true the moment gestures were
+      // refused outside full screen to fix the desktop scroll trap
+      // (`filterZoomEvent` below): the browser had already been told to keep
+      // its hands off, and the only other handler now says no. Between the
+      // two, the map became a hole in the page that ate every touch.
+      //
+      // `pan-y` is the honest version of the same promise: the BROWSER keeps
+      // vertical scrolling, so a finger dragged up the map scrolls the page
+      // exactly like a finger dragged up a paragraph. Everything else - which
+      // on a phone means a pinch, and nothing else - is still delivered to us,
+      // so d3-zoom gets it and `preventDefault` still works during the gesture.
+      //
+      // Full screen keeps `none`: there the map IS the page, there is nothing
+      // behind it to scroll, and one-finger panning is what you want.
+      style={{ touchAction: fullscreen ? 'none' : 'pan-y' }}
       className={cx(
         'relative w-full overflow-hidden',
         fullscreen && 'flex h-full flex-1 items-center justify-center',
@@ -1588,11 +1614,24 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onClick={enterFullscreen}
           aria-label={tr('Open the map full screen')}
           title={tr('Full screen')}
-          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 sm:right-5 sm:top-5"
+          // A GLYPH ON A PHONE, A LABELLED BUTTON ON A DESKTOP (9 Sep 2026).
+          //
+          // Ethan: "we have the full screen button in the top right, but I want
+          // actual full screen text beside it - only for the desktop. The
+          // mobile should still just be the icon."
+          //
+          // Which is the right split, and for a reason worth writing down: on a
+          // phone this button is a convenience (you can already pinch the map
+          // where it sits), so a glyph is enough. On a desktop it is THE ONLY
+          // WAY IN - the wheel is the page's now - so it has to say what it is.
+          // An unlabelled icon that hides the only door is how the door gets
+          // missed.
+          className="absolute right-3 top-3 z-20 flex h-9 items-center justify-center gap-1.5 rounded-full bg-white/90 px-0 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 max-sm:w-9 sm:right-5 sm:top-5 sm:px-3.5"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
           </svg>
+          <span className="hidden text-xs font-semibold sm:inline">{tr('Full screen')}</span>
         </button>
       )}
 
@@ -1675,7 +1714,23 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // `filterZoomEvent` is d3-zoom's own filter, so this rejects the
           // gesture at source rather than fighting it afterwards. Clicking a
           // country or a creator is untouched: a click is not a zoom event.
-          filterZoomEvent={() => fullscreen}
+          //
+          // EXCEPT A PINCH, WHICH IS NEVER AMBIGUOUS (9 Sep 2026). The rule
+          // above was written about the WHEEL, where the ambiguity is real: one
+          // wheel gesture has to mean either "read on" or "zoom", and on a page
+          // it has to mean "read on". Two fingers deliberately placed on a map
+          // have never meant anything but zoom, on any phone, ever - so there
+          // is nothing to steal and no rule to learn.
+          //
+          // d3-zoom only consults this filter on `touchstart` (and on wheel,
+          // mousedown, dblclick), so counting the touches here is the whole
+          // gate: one finger never starts a gesture, which is what leaves the
+          // scroll to the browser, and the `touch-action: pan-y` above is what
+          // lets the browser take it. See the note on the container.
+          filterZoomEvent={(event) => (
+            fullscreen
+            || (event?.type === 'touchstart' && (event.touches?.length ?? 0) >= 2)
+          )}
           // Keep the map inside the frame: you can nudge it a little (the small
           // margin) but never drag it completely out of view, even fully zoomed
           // out. d3-zoom clamps panning to this world-extent.

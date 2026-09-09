@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
@@ -718,12 +719,52 @@ export default function AppLayout() {
 
       {/* ------- Mobile bottom tab bar -------
           Bottom padding includes the iPhone home-indicator safe area so the
-          tabs sit higher and stay easily tappable. */}
-      <nav
+          tabs sit higher and stay easily tappable.
+
+          IT CAME OFF THE BOTTOM OF THE SCREEN AND WALKED UP THE PAGE
+          (9 Sep 2026, second report). Ethan, with a photograph of it sitting
+          across the middle of the hub: "the worldwide, challenges, rooms bar
+          suddenly started, as I scrolled, going up through the screen,
+          covering things. It looks really weird. Obviously that should never
+          happen. I told you about it before and you didn't really know how to
+          fix it, and you obviously didn't, because it happened again."
+
+          Fair. Last time I looked for the cause and could not find one, and
+          shipped nothing. Everything that can detach a `position: fixed`
+          element is removed this time, whichever of them it actually was:
+
+          1. A TRANSFORMED ANCESTOR. `position: fixed` resolves against the
+             nearest ancestor carrying a transform, filter, perspective or
+             `will-change` - and against one of those it is not fixed to the
+             screen at all, it is fixed to that box, which scrolls. Nothing in
+             this tree has one TODAY (`page-in` is deliberately opacity-only,
+             see tailwind.config.js), and nothing can be allowed to acquire one
+             tomorrow either: the bar is PORTALLED to the body, so the entire
+             app tree stops being its ancestry. React context crosses a portal,
+             so `NavLink` and the router are unaffected.
+
+          2. `backdrop-filter` ON A FIXED ELEMENT. This is a known WebKit
+             compositing failure and it produces exactly the photograph: the
+             blurred layer is promoted, and Safari then fails to re-pin it
+             during a scroll that also moves the address bar, so it rides up
+             with the content. It is also the change that costs nothing to
+             make - the ground was already `bg-white/95`, and a 5% window onto
+             a blur is not a design, it is a rounding error. Opaque white.
+
+          3. NO LAYER OF ITS OWN. `translateZ(0)` is the oldest fix in iOS web
+             development for a fixed element that lags or jumps while
+             scrolling, and it is the right one once (2) is gone: the bar gets
+             a compositing layer that is pinned by the compositor rather than
+             re-rasterised per frame by the main thread. The keyboard slide
+             composes into the SAME property so there are never two mechanisms
+             writing one transform. */}
+      {createPortal(
+        <nav
         className={cx(
-          'fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur transition-transform duration-200 lg:hidden',
-          keyboardOpen && 'pointer-events-none translate-y-full'
+          'fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] transition-transform duration-200 lg:hidden',
+          keyboardOpen && 'pointer-events-none'
         )}
+        style={{ transform: keyboardOpen ? 'translate3d(0, 100%, 0)' : 'translate3d(0, 0, 0)' }}
         aria-hidden={keyboardOpen}
         aria-label={tr("Mobile")}
       >
@@ -748,7 +789,9 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </div>
-      </nav>
+      </nav>,
+        document.body,
+      )}
     </div>
   )
 }

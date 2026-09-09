@@ -57,14 +57,16 @@ describe('visibleVideos', () => {
     expect(visibleVideos(rows, { sort: 'views' }).map((r) => r.id)).toEqual(['small', 'big'])
   })
 
-  it('filters by market, platform and reason', () => {
+  it('filters by market and platform', () => {
     const rows = [
       v({ id: 'uk-tt' }),
       v({ id: 'es-ig', community_id: 'es', platform: 'Instagram', reason: 'manual' }),
     ]
     expect(visibleVideos(rows, { market: 'es' }).map((r) => r.id)).toEqual(['es-ig'])
     expect(visibleVideos(rows, { platform: 'Instagram' }).map((r) => r.id)).toEqual(['es-ig'])
-    expect(visibleVideos(rows, { reason: 'manual' }).map((r) => r.id)).toEqual(['es-ig'])
+    // `reason` is deliberately NOT a filter any more (see visibleVideos): an
+    // unknown key must be ignored rather than silently emptying the list.
+    expect(visibleVideos(rows, { reason: 'manual' }).map((r) => r.id).sort()).toEqual(rows.map((r) => r.id).sort())
   })
 
   // The search is the thing this page is actually used with - "did anybody do a

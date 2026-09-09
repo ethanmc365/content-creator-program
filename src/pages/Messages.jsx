@@ -87,6 +87,28 @@ function dmPreview(m) {
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
+// A 1:1 NOBODY HAS SPOKEN IN IS NOT IN ANYBODY'S INBOX.
+//
+// See migration 214 for the whole of it: `last_message_at` is NULL until the
+// first message arrives and is stamped by a trigger from then on, so this reads
+// a fact the database maintains rather than keeping a second one in step. It is
+// applied to the LIST, not to the fetch, because opening one by its URL must
+// still work - a link somebody was sent, or the thread you are in the middle of
+// starting.
+//
+// Groups are exempt on purpose: being added to a group nobody has posted in yet
+// is something that happened TO you and belongs in your inbox. Opening a 1:1 and
+// changing your mind is something you did, to nobody.
+//
+// AT MODULE SCOPE so the CACHED inbox can be strained through it too. A device
+// that wrote its page cache before this shipped is holding rows with the old
+// `now()` timestamp, and without this they would be on screen until the fetch
+// came back - which is precisely the "shows on mobile, not on desktop" Ethan
+// reported, one more time and for one more second.
+export function isListableConversation(c) {
+  return c?.kind === 'group' || !!c?.last_message_at
+}
+
 export default function Messages() {
   const tr = useT()
   const { conversationId } = useParams()
@@ -97,7 +119,10 @@ export default function Messages() {
   // `loadConversations` still runs on every visit; the cache only decides what
   // is on screen while it does. See lib/pageCache.
   const cachedInbox = useCachedPage(DM_CACHE_KEY)
-  const [conversations, setConversations] = useState(cachedInbox ?? []) // enriched with profile/members + unread
+  // Strained on the way IN as well as on the way out - see the note on
+  // `isListableConversation`: a cache written before migration 214 still holds
+  // abandoned threads carrying a `now()` timestamp.
+  const [conversations, setConversations] = useState(() => (cachedInbox ?? []).filter(isListableConversation)) // enriched with profile/members + unread
   // GROUPS.
   //
   // The inbox holds two shapes now. A 'direct' conversation is the pair it has
@@ -420,10 +445,11 @@ export default function Messages() {
 
   // ---------- Inbox ----------
   const loadConversations = useCallback(async () => {
-    const [{ data: convos }, myInvites] = await Promise.all([
+    const [{ data: allConvos }, myInvites] = await Promise.all([
       supabase.from('conversations').select('*').order('last_message_at', { ascending: false }),
       loadMyInvites(user.id),
     ])
+    const convos = (allConvos ?? []).filter(isListableConversation)
     setInvites(myInvites)
     if (!convos?.length) {
       setConversations([])
@@ -2130,8 +2156,33 @@ export default function Messages() {
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
                 onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
+                // A THREAD WITH NOTHING IN IT MUST STILL OWN THE GESTURE (9 Sep 2026).
+                //
+                //    Ethan: "on mobile, scrolling on a chat with no messages or only one or two
+                //    messages causes a weird laggy glitch where the screen starts juttering."
+                //
+                //    Only on the short ones, and that is the whole clue. A scroller whose
+                //    content fits has no scroll range, so iOS does not treat the drag as
+                //    belonging to it and hands the gesture up the tree. What is up the tree on
+                //    this screen is an overlay whose `top`, `height` and `transform` are all
+                //    computed from `visualViewport` (see `mobileStyle`) - so a gesture that
+                //    reaches the page moves the visual viewport, the hook re-reads it, the
+                //    overlay re-renders into a new position, and a 300ms height transition eases
+                //    towards a target that has already changed again. That is the judder, and it
+                //    is unreachable on a full thread because a full thread absorbs the drag.
+                //
+                //    `overscroll-none` rather than `overscroll-contain`: `contain` stops the
+                //    scroll CHAINING to an ancestor but still permits the local bounce, and the
+                //    bounce is what iOS reports as viewport movement. `none` removes both.
+                //
+                //    `after:h-px` is the other half and it is not a hack, it is the precondition
+                //    `none` needs: `overscroll-behavior` only applies to a scroll CONTAINER, and
+                //    a box with no overflow is not one. One transparent pixel below the last
+                //    message is enough to make it scrollable, which is enough to make it the
+                //    owner of every drag that starts inside it. It costs nothing to the pin -
+                //    `scrollTop = scrollHeight` clamps to the same place either way.
                 className={cx(
-                  'min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain overflow-x-hidden touch-pan-y touch-pinch-zoom px-5 py-6',
+                  'min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-none overflow-x-hidden touch-pan-y touch-pinch-zoom px-5 py-6 after:block after:h-px after:w-full after:shrink-0 after:content-[""]',
                   // See `settled`. Opacity only, and never a conditional
                   // render: the rows have to be laid out for the pin to have a
                   // scroll height to pin to.

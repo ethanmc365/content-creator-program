@@ -271,7 +271,7 @@ export default function Landing() {
         </h1>
         <p
           className="animate-fade-up mx-auto mt-7 max-w-xl text-[15px] leading-relaxed text-smoke sm:mt-9 sm:text-lg"
-          style={{ animationDelay: '0.46s' }}
+          style={{ animationDelay: '0.30s' }}
         >
           {tr("Join the official community of travel creators making content with Tryp.com. Compete in challenges, win cash and travel vouchers, get offered full time roles and grow alongside other travel creators.")}
         </p>
@@ -284,7 +284,7 @@ export default function Landing() {
             shrink-to-fit is right because they sit side by side. */}
         <div
           className="animate-fade-up mx-auto mt-11 grid max-w-xs grid-cols-1 gap-3.5 sm:mt-14 sm:flex sm:max-w-none sm:items-center sm:justify-center sm:gap-4"
-          style={{ animationDelay: '0.58s' }}
+          style={{ animationDelay: '0.40s' }}
         >
           <Link
             to="/signup"
@@ -360,7 +360,7 @@ export default function Landing() {
             // it is on screen from the first frame and never moves.
             { key: 'prizes', value: prizeFloor(stats?.prizes), label: 'Prizes awarded', format: money, suffix: prizeFloor(stats?.prizes) < stats?.prizes ? '+' : '' },
           ].map((s, i) => (
-            <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 60}ms` } : undefined}>
+            <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 45}ms` } : undefined}>
               {/* TABULAR FIGURES, AND THE WHOLE REASON THIS BAND WAS JUDDERING
                   (9 Sep 2026). Ethan: "those numbers animate in now, but it's a
                   bit glitchy at the start, it goes really juttery."
@@ -391,7 +391,7 @@ export default function Landing() {
                   `sm:text-5xl` still takes over completely at 640px. */}
               <p className="text-[clamp(1.15rem,6.1vw,1.875rem)] font-bold leading-tight tracking-tight text-brand [font-variant-numeric:tabular-nums] sm:text-5xl">
                 {stats
-                  ? <><Tally value={s.value} format={s.format} delay={520 + i * 60} />{s.suffix}</>
+                  ? <><Tally value={s.value} format={s.format} delay={420 + i * 45} />{s.suffix}</>
                   /* THE PLACEHOLDER IS INVISIBLE, NOT ORANGE (8 Sep 2026).
                      Ethan: "whenever it's first loading it shows up like the
                      orange square there, and then the numbers start appearing
@@ -515,8 +515,23 @@ export default function Landing() {
                 anything past 1536px there were real margins. No padding and no
                 cap: the svg is `width: 100%` and its own aspect ratio decides
                 the height, so "full width" is all it needs to be told. */}
+          {/* THE TITLE BELONGS TO THE MAP, SO IT SITS ON IT (9 Sep 2026).
+              Ethan, twice in one message - once for each width: "do the same
+              thing where you move the Meet the community and the description
+              title down a bit closer to the actual map", and "the community
+              map seems to be too far away from the title. That title and
+              description should be a bit closer to the map."
+
+              28/44px of gap was the same measurement every other section on
+              this page uses between its heading and its content, and it is
+              right for all of them - because in every other section the
+              content is a row of cards with their own white space built in.
+              The map has none: it is a full-bleed picture with land right at
+              its top edge, so an identical gap reads as a much bigger one and
+              the heading floats between two sections instead of naming the
+              one below it. */}
           {mapData.creators.length > 0 && (
-            <Reveal from="up" className="mt-7 sm:mt-11">
+            <Reveal from="up" className="mt-4 sm:mt-6">
               <div className="w-full">
                 <CreatorMap
                   creators={mapData.creators}
@@ -1223,7 +1238,7 @@ function prizeFloor(total) {
   return Math.floor(n / PRIZE_STEP) * PRIZE_STEP
 }
 
-const COUNT_MS = 1600
+const COUNT_MS = 1250
 
 // ONE FORMATTER, BUILT ONCE, AND IT IS PART OF WHY THE BAND STUTTERED.
 //
@@ -1255,9 +1270,12 @@ const money = (n) => MONEY.format(n || 0)
 // this loop rewriting the text, and - because Poppins' figures are proportional
 // by default - a text re-layout and re-centre caused by that rewrite. The two
 // halves of the fix are `tabular-nums` on the readout (see the stats band) and
-// `delay` here, which puts the entrance and the count in SEQUENCE. 520ms is the
-// length of `stat-in`; the counter is then the only thing moving, which is what
-// makes a straight line read as a straight line.
+// `delay` here, which puts the entrance and the count in SEQUENCE. The delay
+// tracks the length of `stat-in` (420ms since 9 Sep 2026 - see the note on
+// `hero-word-in`); the counter is then the only thing moving, which is what
+// makes a straight line read as a straight line. Keep the two numbers together:
+// a `delay` shorter than `stat-in` puts the rewrite back on the same frames as
+// the translate, which is the judder this was written to remove.
 //
 // It also means the tile is not blank while it waits: the readout holds `0` -
 // or `€0` - from the first frame, which is where the count starts anyway.

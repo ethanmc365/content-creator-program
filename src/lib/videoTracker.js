@@ -105,7 +105,7 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
  */
 export function visibleVideos(rows, filter = {}) {
   const {
-    market = '', challenge = '', platform = '', reason = '', month = '',
+    market = '', challenge = '', platform = '', month = '',
     q = '', sort = 'views', showRetired = false,
   } = filter
   const needle = q.trim().toLowerCase()
@@ -115,7 +115,11 @@ export function visibleVideos(rows, filter = {}) {
     if (market && v.community_id !== market) return false
     if (challenge && challengeKey(v) !== challenge) return false
     if (platform && v.platform !== platform) return false
-    if (reason && v.reason !== reason) return false
+    // (There is no `reason` clause. There was, and Ethan cut the control on
+    // 9 Sep 2026 - "for the any reason, I would delete that filter, we don't
+    // need that filter" - so the clause went with it rather than lingering as
+    // an option nothing can set. `reason` is still on every row and still
+    // drives the badge; see `reasonLabel`.)
     // THE MONTH RAIL IS A FILTER LIKE ANY OTHER, which is the whole reason the
     // "monthly report" needed almost no new machinery: a report IS the grid
     // with one more clause on it.

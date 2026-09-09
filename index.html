@@ -163,8 +163,28 @@
         /* The fade out. `visibility` rides along so the layer stops taking
            presses the instant it starts leaving, rather than 420ms later.
            NO SCALE, and no colour change: the layer is the same white as the
-           page under it, so all that is left to do is stop being there. */
-        transition: opacity 300ms ease-out, visibility 300ms ease-out;
+           page under it, so all that is left to do is stop being there.
+
+           160ms, AND THE NUMBER IS LOAD-BEARING (9 Sep 2026). Ethan: "we were
+           supposed to have those cool animations of Create, Earn and Travel,
+           and everything floats in nicely. But we still don't have that. It
+           shows the loading screen for ages and then it just flashes up
+           solidly."
+
+           `releaseBootLayer()` and `classList.add('gone')` happen on the SAME
+           line of main.jsx, so the landing page unpauses its entrance at the
+           instant this layer begins to leave - and at 300ms that meant the
+           first HALF of a 620ms word animation played behind an opaque white
+           sheet. What was left to see was a word already most of the way in,
+           arriving abruptly. That is the same bug the boot layer caused
+           before, one order of magnitude smaller: an animation that runs
+           perfectly where nobody can see it.
+
+           At 160ms the two genuinely cross-fade. The word is still near
+           invisible on its own account while the sheet is still mostly opaque,
+           so nothing is lost behind it, and by the time the sheet is gone the
+           entrance is barely a quarter through. */
+        transition: opacity 160ms ease-out, visibility 160ms ease-out;
       }
       #boot.gone { opacity: 0; visibility: hidden; }
 
