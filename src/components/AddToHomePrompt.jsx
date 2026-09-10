@@ -50,8 +50,10 @@ import { cx } from '../lib/utils'
 // creators and the team alike, and the only way past it is doing the thing.
 // The notifications ask is unchanged: dismissible, once per app open,
 // coordinated through `lib/appNag` so nobody meets three dialogs in a row.
-// `InstallGate` is the older, flag-gated version of the same wall and is still
-// off; this is the one that runs.
+// THIS IS THE ONLY ONE. There used to be a second implementation, `InstallGate`,
+// behind an `install_gate_enabled` flag that was never switched on - and a note
+// saying "the wall is built, nobody is behind it" that was therefore true about
+// the dead copy and wrong about the product. Both are deleted (10 Sep 2026).
 //
 // WHY IT WAITS FOR `status === 'active'`: a pending applicant has nothing to be
 // notified about and no reason to install anything - they are waiting on a

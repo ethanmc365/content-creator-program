@@ -489,13 +489,21 @@ export default function Landing() {
       {(mapData.creators.length > 0 || featured.length > 0) && (
         // LESS AIR UNDER THE RAIL THAN OVER THE HEADING. Ethan: "there's too
         // much space between Recently active creators and the How it works
-        // title." Measured, the two section paddings meeting there came to
-        // 128px on a phone - the same as everywhere else on the page, and the
-        // reason it reads as more is what is directly above it: the map sits
-        // 48px under its own heading and the faces 24px under theirs, so this
-        // section is tight all the way down and then ends in the page's
-        // standard gap. Two thirds of that gap is enough to close the section
-        // without the two headings running together.
+        // title - that should be the same as the other ones."
+        //
+        // MEASURED FIRST, AND IT ALREADY WAS the same: 140px from the bottom of
+        // the faces to "How it works", and 140px from the bottom of the How it
+        // works cards to "Why creators join". So what he is seeing is not this
+        // boundary being bigger than its neighbours, it is this boundary being
+        // bigger than everything ABOVE it inside the same section - the map sits
+        // 12px under its own heading and the faces 24px under theirs, so the
+        // section is tight the whole way down and then ends in the page's
+        // standard gap, which by contrast reads as a hole. Closing the section's
+        // own bottom padding rather than the page's rhythm takes it to 116px,
+        // near enough to its neighbour to stop reading as a gap and short enough
+        // to stop the section trailing off.
+        // (If what was actually wanted was 140 everywhere, this is the one line
+        // to put back.)
         <section className="pb-10 pt-16 sm:pb-16 sm:pt-24">
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>

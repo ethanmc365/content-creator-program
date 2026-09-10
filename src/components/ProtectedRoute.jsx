@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PlaneLoader, Spinner } from './ui'
 import RouteSkeleton from './RouteSkeleton'
-import InstallGate, { shouldShowInstallGate } from './InstallGate'
-import { useAppFlag } from '../lib/appFlags'
 import SubmittedCard from './SubmittedCard'
 import { formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -134,9 +132,6 @@ export function ProtectedRoute() {
   const tr = useT()
   const { user, profile, profileLoaded, profileError, loading, sessionChecked, storedSession, isSuspended, signOut, refreshProfile, retryProfile } = useAuth()
   const location = useLocation()
-  // Starts false and never blocks a render: a full-screen gate that appears a
-  // beat AFTER the app has painted is worse than one that arrives a beat late.
-  const installGate = useAppFlag('install_gate_enabled')
 
   if (loading) return <FullPageSpinner />
   // NOBODY IS LOGGED IN HERE, OR WE JUST DO NOT KNOW YET? THEY ARE NOT THE SAME.
@@ -196,15 +191,26 @@ export function ProtectedRoute() {
     return <ReviewPending signOut={signOut} />
   }
 
-  // ON A PHONE, ASK FOR THE HOME SCREEN FIRST.
+  // THE HOME-SCREEN WALL IS NOT HERE, AND THERE IS NOW ONLY ONE OF IT
+  // (10 Sep 2026).
   //
-  // Behind its own switch (off), so nobody currently using the platform meets
-  // it. It is an ASK and not a wall - see InstallGate for why hard-blocking
-  // locks out exactly the people most likely to arrive from an Instagram or
-  // TikTok link, whose in-app browser cannot install anything at all.
-  if (installGate && profile.status === 'active' && !profile.is_admin && shouldShowInstallGate()) {
-    return <InstallGate onSkip={refreshProfile} />
-  }
+  // Ethan: "you said 'ship the install gate, install_gate_enabled is still off,
+  // you built the wall and nobody's behind it'. If that's the pop-up they can't
+  // get out of that makes them add it to the home screen, ensure it is shipped -
+  // every creator should be seeing that."
+  //
+  // They already are, and my own note was wrong rather than the code. There
+  // were TWO implementations of this idea: `InstallGate`, gated on
+  // `install_gate_enabled`, which never ran; and `AddToHomePrompt`, mounted in
+  // AppLayout, which needs no flag and has been walling every phone in a browser
+  // since 9 September - no close button, no scrim press, no Escape, admins
+  // included. Verified on an Android UA at 375px: the dialog is up, Escape and
+  // a scrim press leave it up, and the only controls are the two sets of steps
+  // and "I have already added it", which re-checks `isStandalone()`.
+  //
+  // `InstallGate` and the flag are DELETED rather than left switched off. A
+  // second, dead copy of a shipped feature is how a note ends up saying the
+  // opposite of what production does, which is exactly what happened here.
 
   // THE CONNECT WALL IS RETIRED, AND IT IS WHY THE TUTORIAL "STILL DIDN'T SHOW
   // UP WHEN A NEW USER FIRST OPENS THE APP" (4 Sep 2026).

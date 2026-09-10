@@ -147,9 +147,9 @@ export async function promptInstall() {
 // THE "THEY SKIPPED IT" FLAG IS GONE (3 Sep 2026).
 //
 // `skippedInstall` / `skipInstall` / `clearInstallSkip` stored a per-device
-// note that somebody had pressed "Continue in the browser for now", and
-// `shouldShowInstallGate` lifted the gate for good once it was set. That is
-// what made the gate an ask.
+// note that somebody had pressed "Continue in the browser for now", and the old
+// `InstallGate` (deleted 10 Sep 2026) lifted the gate for good once it was set.
+// That is what made the gate an ask.
 //
 // Ethan asked for a wall: "they shouldn't be able to enter the app unless they
 // follow the steps to add it to their home screen." A wall that remembers being
