@@ -202,49 +202,6 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     el.style[prop] = `${px}px`
   }, [])
 
-  // WHERE, AS A TRANSFORM. THIS IS THE GLIDE (9 Sep 2026).
-  //
-  // Ethan, after everything else in the walkthrough was fixed: "the only thing
-  // is those gliding animations are still quite laggy and juttery. Just really
-  // work on making it extremely clean, because it just wants to glide across
-  // the screen."
-  //
-  // It was gliding by transitioning `top` and `left`. Those are LAYOUT
-  // properties: every one of the fifty frames of an 820ms journey invalidated
-  // layout, ran it, repainted and only then composited - all on the main
-  // thread, all while React was also settling a step change, a height
-  // transition and a scroll. No amount of tuning the curve fixes that, because
-  // the curve was never the problem; the property was.
-  //
-  // `transform` is the one geometric property the compositor can animate by
-  // itself. The element is laid out ONCE at (0,0) and then moved as a texture,
-  // so the frames cost approximately nothing and cannot be starved by anything
-  // happening on the main thread. This is the single biggest change in this
-  // file and it is four lines.
-  //
-  // `translate3d` rather than `translate`, deliberately: the z component is
-  // what guarantees the layer, on the engines that still want to be asked.
-  //
-  // The 1px deadband is the same one `put` applies and it matters more here -
-  // both axes go through ONE property, so a sub-pixel change on either would
-  // otherwise rewrite the whole transform every frame of an idle loop.
-  //
-  // IT WRITES TWO CUSTOM PROPERTIES, NOT THE TRANSFORM ITSELF. The entrance
-  // keyframes animate `transform` as well, and an animation outranks an inline
-  // style for as long as it runs - so an inline `transform` here would be
-  // ignored for the first 340ms and the card would enter at the top-left corner
-  // of the screen. `--tour-x`/`--tour-y` are composed into both the base rule
-  // and the keyframes (see `.tour-card` in index.css), so the position holds
-  // through the entrance and there is still exactly one thing that decides it.
-  const putXY = useCallback((el, x, y) => {
-    const key = `${el.dataset.tourEl || 'x'}:xy`
-    const prev = lastWrite.current[key]
-    if (prev && Math.abs(prev[0] - x) < 1 && Math.abs(prev[1] - y) < 1) return
-    lastWrite.current[key] = [x, y]
-    el.style.setProperty('--tour-x', `${Math.round(x)}px`)
-    el.style.setProperty('--tour-y', `${Math.round(y)}px`)
-  }, [])
-
 
 
 
@@ -285,11 +242,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       { w: card.offsetWidth || CARD_W, h: card.offsetHeight || 260 },
       !!steps[Math.min(i, steps.length - 1)]?.keepClear,
     )
-    // Transform, not top/left - see `putXY`. Written directly rather than
-    // through it because the write cache belongs to the loop, which has not
-    // started yet.
-    card.style.setProperty('--tour-x', `${Math.round(rest.left)}px`)
-    card.style.setProperty('--tour-y', `${Math.round(rest.top)}px`)
+    card.style.top = `${rest.top}px`
+    card.style.left = `${rest.left}px`
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -980,28 +934,18 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
       if (visible && lit) {
         spot.dataset.on = 'yes'
-        // POSITION ON THE COMPOSITOR, SIZE WHERE IT HAS TO BE (9 Sep 2026).
-        // The hole moves and resizes at the same time, and only one of those
-        // can be composited - but the scrim is a 9,999px spread shadow, so the
-        // half that CAN be is worth a great deal. `will-change: transform` in
-        // index.css now actually earns the layer it always claimed to: it was
-        // `will-change: top, left, width, height`, and no engine promotes an
-        // element for layout properties, so the hint had been doing nothing
-        // but taking up a line.
-        putXY(spot, lit.left - PAD, lit.top - PAD)
+        put(spot, 'top', lit.top - PAD)
+        put(spot, 'left', lit.left - PAD)
         put(spot, 'width', lit.right - lit.left + PAD * 2)
         put(spot, 'height', lit.bottom - lit.top + PAD * 2)
       } else {
         spot.dataset.on = 'no'
-        // Dead centre and zero-sized. In pixels now rather than `50%`, because
-        // the box is positioned by a transform from (0,0) and a percentage in a
-        // transform resolves against the ELEMENT's own size, not the viewport's
-        // - which for a zero-sized element is zero.
-        spot.style.setProperty('--tour-x', `${Math.round(vw / 2)}px`)
-        spot.style.setProperty('--tour-y', `${Math.round(vh / 2)}px`)
+        spot.style.top = '50%'
+        spot.style.left = '50%'
         spot.style.width = '0px'
         spot.style.height = '0px'
-        // The next write must not be deduplicated against a stale number.
+        // Percentages cannot go through `put`, so the cache is cleared instead:
+        // the next pixel write must not be deduplicated against a stale number.
         lastWrite.current = {}
       }
 
@@ -1037,7 +981,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       if (!visible) {
         card.dataset.centre = 'yes'
         const rest = restingPlace({ w: vw, h: vh }, cardBox, !!step.keepClear)
-        putXY(card, rest.left, rest.top)
+        put(card, 'top', rest.top)
+        put(card, 'left', rest.left)
         return sig
       }
 
@@ -1085,7 +1030,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // step changes, so the destination is a constant for the whole journey.
       const { top, left } = placeCard(lit, { w: vw, h: vh }, cardBox.h)
 
-      putXY(card, left, top)
+      put(card, 'top', top)
+      put(card, 'left', left)
       // THE CARD'S OWN HEIGHT IS PART OF THE SIGNATURE, because `placeCard`
       // reads it and `targetH` is re-measured twice after a step change (see
       // the height effect). Without it the loop could idle through a re-measure
@@ -1128,7 +1074,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       window.removeEventListener('transitionend', wake)
       window.removeEventListener('animationend', wake)
     }
-  }, [ready, step?.anchor, step?.keepClear, isPhone, put, putXY])
+  }, [ready, step?.anchor, step?.keepClear, isPhone, put])
 
   // THE DOCUMENT KNOWS THE WALK IS RUNNING.
   //
