@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  captionRest, challengeKey, challengeOptions, creatorLink, monthKey, monthLabel,
+  challengeKey, challengeOptions, creatorLink, monthKey, monthLabel,
   monthsOf, parseTags, reasonLabel, summarise, toCsvRows, visibleVideos,
 } from './videoTracker'
 
@@ -236,28 +236,3 @@ describe('the month rail', () => {
   })
 })
 
-describe('captionRest', () => {
-  // Ethan: "it says beautiful outfits, new destinations, and it says it again."
-  // The hook IS the caption's first line, so printing both always printed it
-  // twice.
-  it('drops the hook from the front of the caption', () => {
-    expect(captionRest({ hook: 'Beautiful outfits.', caption: 'Beautiful outfits.\nNew destinations' }))
-      .toBe('New destinations')
-  })
-
-  it('returns nothing when the caption is only the hook', () => {
-    expect(captionRest({ hook: 'One line', caption: 'One line' })).toBe('')
-    expect(captionRest({ hook: 'One line', caption: '  One   line ' })).toBe('')
-  })
-
-  it('keeps the whole caption when the hook is not its opening', () => {
-    expect(captionRest({ hook: 'Written by hand', caption: 'Something else entirely' }))
-      .toBe('Something else entirely')
-  })
-
-  it('survives either side being missing', () => {
-    expect(captionRest({ hook: null, caption: 'Just a caption' })).toBe('Just a caption')
-    expect(captionRest({ hook: 'Just a hook', caption: null })).toBe('')
-    expect(captionRest({})).toBe('')
-  })
-})

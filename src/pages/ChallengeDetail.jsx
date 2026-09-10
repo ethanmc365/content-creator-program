@@ -1019,7 +1019,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             {submissions.map((s) => (
               <div key={s.id} className="card group flex flex-col overflow-hidden !p-0">
                 <button type="button" onClick={() => setPlaying(s)} className="block w-full text-left" aria-label={`Play ${s.profiles?.name || 'this'} entry`}>
-                  <VideoThumb url={s.video_url} platform={s.platform} />
+                  <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} />
                 </button>
                 <div className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-center gap-3">

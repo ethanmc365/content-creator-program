@@ -8,7 +8,7 @@ import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScop
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
 import { cx, formatViews, downloadCsv } from '../../lib/utils'
 import {
-  CSV_COLUMNS, PLATFORMS, SORTS, atHandle, captionRest, challengeOf,
+  CSV_COLUMNS, PLATFORMS, SORTS, atHandle, challengeOf,
   challengeOptions, creatorLink, monthLabel, monthsOf, reasonLabel, summarise,
   toCsvRows, visibleVideos,
 } from '../../lib/videoTracker'
@@ -274,7 +274,14 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.platform}
             onChange={(v) => set({ platform: v })}
-            className="w-[9.5rem] shrink-0"
+            // WIDE ENOUGH FOR ITS OWN PLACEHOLDER (10 Sep 2026). Ethan: "the
+            // Every platform filter only says 'plat fo', it doesn't show the
+            // rest of the word - and we have the space, so show it." 9.5rem is
+            // 152px, of which the padding, the chevron and its gap take 52, so
+            // "Every platform" had 100px to render 112px of text in. The fixed
+            // width is still the rule here (see the note above), it was just
+            // the wrong fixed width.
+            className="w-[11rem] shrink-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
@@ -559,7 +566,6 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
   const challenge = challengeOf(v)
-  const rest = captionRest(v)
 
   // A REAL FRAME OF THE VIDEO WHERE ONE CAN BE HAD.
   //
@@ -632,22 +638,45 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
     >
       {/* The frame doubles as the play control, exactly as it does on a profile
           and on a challenge - one gesture for "watch this" everywhere. */}
+      {/* 4:5, NOT A 144px LETTERBOX (10 Sep 2026). Ethan: "make the preview
+          even bigger - you can see in the second one the whole person's face is
+          cut off. Make the card a little bit longer."
+
+          Every video here is shot 9:16 and the frame was `h-36` on a card about
+          300px wide, so `object-cover` was showing 48% of the picture's height
+          and throwing away the rest from both ends at once. Faces sit in the
+          top half of a vertical frame, which is why it was faces that went. 4:5
+          shows 71% of it and is still a card rather than a poster; 3:4 was
+          tried and makes a three-column grid two screens tall. */}
       <button
         type="button"
         onClick={onPlay}
-        className="relative block h-36 w-full overflow-hidden bg-cloud text-left"
+        className="relative block aspect-[4/5] w-full overflow-hidden bg-cloud text-left"
         aria-label={tr('Play this video')}
       >
         {thumb
           ? <img src={thumb} alt="" onError={onThumbError} referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : <span className="absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/25" aria-hidden />}
-        {/* A play affordance that reads on a photograph as well as on a tint. */}
+        {/* THE GLYPH IS THE CONTROL, WITHOUT THE DISC (10 Sep 2026). Ethan:
+            "rather than having the white circle with the orange play button, I
+            would only have the orange play button, slightly bigger. Don't need
+            that white circle."
+
+            The disc was there to guarantee contrast on an unknown photograph,
+            and a shadow does that job without putting a 44px white plate over
+            the middle of the frame this card exists to show. Two shadows, not
+            one: a tight dark one for edge definition on a pale frame and a
+            wider soft one so the mark still separates from a busy dark one. */}
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-card backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
-            <svg viewBox="0 0 24 24" className="ml-0.5 h-4 w-4 text-brand" fill="currentColor" aria-hidden>
-              <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
-            </svg>
-          </span>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-12 w-12 text-brand transition-transform duration-300 group-hover:scale-110"
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.45)) drop-shadow(0 6px 18px rgba(0,0,0,0.35))' }}
+            fill="currentColor"
+            aria-hidden
+          >
+            <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
+          </svg>
         </span>
         {v.views != null && (
           <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-bold tabular-nums text-white backdrop-blur-sm">
@@ -678,11 +707,18 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
           {v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
 
-        {/* WHAT THE CAPTION SAYS THAT THE HOOK HAS NOT. Ethan: "it says
-            beautiful outfits, new destinations, and it says it again." The hook
-            IS the caption's first line, so printing both always printed one of
-            them twice. See `captionRest`. */}
-        {rest && <p className="mt-1.5 text-xs leading-relaxed text-smoke line-clamp-2">{rest}</p>}
+        {/* AND THE REST OF THE CAPTION IS GONE ENTIRELY (10 Sep 2026). Ethan:
+            "condense the bottom a bit - you don't need to show the second
+            caption. All you need is the caption you pulled from it, then the
+            creator, then the link button and the added button."
+
+            `captionRest` was already the fix for printing the hook twice, and
+            it was the wrong fix for the right complaint: the remainder of a
+            caption is hashtags and a shop link. It is two lines of noise under
+            the one line this page is FOR, and every pixel it takes is a pixel
+            the frame above it does not have. The full caption is still on the
+            row and is still in the edit sheet, which is where somebody who
+            wants it goes. */}
 
         {/* THE PERSON, WITH THEIR FACE. Ethan: "as well as just saying Lisa
             Burns, I would show the profile photo there with a clickable name to

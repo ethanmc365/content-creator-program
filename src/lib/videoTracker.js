@@ -302,26 +302,3 @@ export function monthsOf(rows) {
     .sort((a, b) => b.key.localeCompare(a.key))
 }
 
-/**
- * WHAT THE CAPTION SAYS THAT THE HOOK HAS NOT ALREADY SAID.
- *
- * Ethan: "it says 'beautiful outfits, new destinations' and then it says it
- * again. You're just pulling the captions of the videos."
- *
- * He is right and it is structural rather than a slip: the hook IS the first
- * line of the caption (`hook_from_caption`), so printing both always prints the
- * first line twice. The card wants the hook loud and then whatever ELSE was
- * written, so this returns the remainder - and an empty string when there is
- * nothing left, which is the common case for a one-line caption.
- */
-export function captionRest(v) {
-  const caption = (v?.caption || '').trim()
-  const hook = (v?.hook || '').trim()
-  if (!caption) return ''
-  if (!hook) return caption
-  const flat = caption.replace(/\s+/g, ' ')
-  const flatHook = hook.replace(/\s+/g, ' ')
-  if (flat === flatHook) return ''
-  if (flat.startsWith(flatHook)) return flat.slice(flatHook.length).replace(/^[\s\u2013\u2014.,;:!-]+/, '').trim()
-  return caption
-}

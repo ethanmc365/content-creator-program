@@ -17,6 +17,25 @@
 //     count, which returns `thumbnail` alongside it. Admin-only by the
 //     function's own check, which is exactly who is looking at this page.
 //
+// AND SINCE 10 SEP 2026 THE ANSWER IS COPIED INTO OUR OWN STORAGE.
+//
+// Ethan: "copy video thumbnails into our own storage - is this necessary?
+// Ensure everything's working correctly. We don't want it to take up an insane
+// amount of storage, but even with thousands of videos it probably won't."
+//
+// It is, and not really because of the expiry. The probe in step 3 is
+// ADMIN-ONLY - `view-sync` holds the Instagram session cookies and refuses
+// anybody else, which is correct - so the two pages that most want a frame, a
+// challenge board and a creator's profile, could never have had one for an
+// Instagram entry however many times they asked. A stored file is the only
+// version of this that works for the people those pages are FOR.
+//
+// `thumb-cache` (supabase/functions) copies whatever was resolved into the
+// `video-thumbs` bucket and writes the permanent URL back onto BOTH
+// `submissions` and `tracked_videos`. From then on every viewer, signed in or
+// not, gets one URL from our own origin: no probe, no expiry, no CDN host in
+// the CSP. A 640px cover is 20-60KB, so a thousand videos is about 40MB.
+//
 // AND IT IS SELF-HEALING, WHICH IS NOT OPTIONAL FOR INSTAGRAM.
 //
 // The URL Instagram hands back is a SIGNED CDN url, and signatures expire -
@@ -41,6 +60,65 @@ import { supabase } from './supabase'
 /** url -> Promise<string|null>, for the lifetime of the page. */
 const inFlight = new Map()
 
+/** Where a stored frame lives. Anything else is a platform URL that will rot. */
+const STORE = '/storage/v1/object/public/video-thumbs/'
+
+/** True for a URL this app has already copied into its own bucket. */
+export function isStored(url) {
+  return typeof url === 'string' && url.includes(STORE)
+}
+
+// THREE AT A TIME, AND THAT IS NOT A PERFORMANCE TWEAK.
+//
+// A challenge board is forty entries. Without a queue, opening it as an admin
+// fires forty probes at Instagram inside one frame - which is a rate limit, a
+// row of failures, and forty cards that decide there is no picture. It only
+// has to be slow ONCE: everything resolved here is copied into storage, so the
+// second visit reads forty rows and asks nothing.
+const MAX_IN_FLIGHT = 3
+let running = 0
+const queue = []
+function pump() {
+  while (running < MAX_IN_FLIGHT && queue.length) {
+    const job = queue.shift()
+    running += 1
+    job().finally(() => { running -= 1; pump() })
+  }
+}
+function enqueue(fn) {
+  return new Promise((resolve) => {
+    queue.push(() => fn().then(resolve, () => resolve(null)))
+    pump()
+  })
+}
+
+/**
+ * Copy a resolved frame into our own storage and return the permanent URL.
+ *
+ * Never throws and never blocks the picture: the caller already has something
+ * to draw, and this is about the NEXT reader rather than this one. A failure
+ * (an expired source, a host we do not trust, a video that is not ours) simply
+ * means the platform URL is used for now and asked for again next time.
+ *
+ * @param {string} videoUrl the post's URL - the key everything is filed under
+ * @param {string} [src] a frame already resolved by the caller. Required for
+ *        Instagram, whose covers only the admin probe can find; TikTok and
+ *        YouTube the function can resolve for itself.
+ * @returns {Promise<string|null>} the permanent URL, or null
+ */
+export async function storeThumbnail(videoUrl, src) {
+  if (!videoUrl) return null
+  try {
+    const { data, error } = await supabase.functions.invoke('thumb-cache', {
+      body: src ? { url: videoUrl, src } : { url: videoUrl },
+    })
+    if (error) return null
+    return typeof data?.url === 'string' && data.url ? data.url : null
+  } catch {
+    return null
+  }
+}
+
 async function fromProbe(url) {
   const { data, error } = await supabase.functions.invoke('view-sync', { body: { probe: url } })
   if (error) return null
@@ -56,24 +134,31 @@ async function fromProbe(url) {
  *        Off by default so a non-admin surface can use this safely.
  * @returns {Promise<string|null>}
  */
-export function resolveThumbnail(url, { probe = false } = {}) {
+export function resolveThumbnail(url, { probe = false, store = true } = {}) {
   if (!url) return Promise.resolve(null)
   const key = `${probe ? 'p' : 'o'}:${url}`
   if (inFlight.has(key)) return inFlight.get(key)
 
-  const run = (async () => {
+  const run = enqueue(async () => {
+    let found = null
     try {
       const mod = await import('./videoPreview')
       const preview = await mod.getVideoPreview(url)
-      if (preview?.thumbnail) return preview.thumbnail
+      if (preview?.thumbnail) found = preview.thumbnail
     } catch { /* oEmbed is best-effort by definition */ }
-    if (!probe) return null
-    try {
-      return await fromProbe(url)
-    } catch {
-      return null
+    if (!found && probe) {
+      try { found = await fromProbe(url) } catch { found = null }
     }
-  })()
+    if (!found) return null
+    // KEEP IT. The permanent URL is better than the one we just found in every
+    // way there is, so it wins when it arrives - and when the copy fails, the
+    // platform URL still draws a picture today.
+    if (store) {
+      const kept = await storeThumbnail(url, found)
+      if (kept) return kept
+    }
+    return found
+  })
 
   inFlight.set(key, run)
   return run

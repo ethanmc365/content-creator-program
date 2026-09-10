@@ -1,14 +1,39 @@
+import { useEffect, useState } from 'react'
 import { detectPlatformFromUrl } from '../lib/videoPreview'
+import { forgetThumbnail, isStored, resolveThumbnail } from '../lib/videoThumbs'
+import { useAuth } from '../context/AuthContext'
 import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
 import { cx } from '../lib/utils'
 
-// The face of a submitted entry. Deliberately no thumbnail fetch (Instagram
-// needs a token we don't have and the others were inconsistent). Every face is
-// the single Tryp.com brand orange with white content - the only thing that
-// changes per platform is the logo + name. That platform mark sits big and
-// centred, right across the card, and IS the play control: the caller wraps this
-// whole block in a button that opens the inline player. The caption + "Open Link"
-// button live below on the card and are unchanged.
+// THE FACE OF AN ENTRY, AND SINCE 10 SEP 2026 IT IS THE VIDEO'S OWN.
+//
+// Ethan: "I really like these preview cards on the tracker. I want you to build
+// this function in for the challenges as well - currently the entries just show
+// Instagram, TikTok, Instagram as a word. Build in the preview for all of them.
+// Start with the UK past challenge and ensure it's also going to update on the
+// creators' profiles."
+//
+// This used to be, deliberately, an orange slab with a platform logo on it, and
+// the comment above it said thumbnails were impossible: "Instagram needs a token
+// we don't have and the others were inconsistent." Both halves of that have
+// since stopped being true - `lib/videoThumbs` knows three routes to a frame and
+// `thumb-cache` copies whatever it finds into our own bucket - so the slab is
+// now the FALLBACK rather than the design. What a card shows, in order:
+//
+//   1. `thumbnailUrl` from the row. A permanent URL in our own storage; no
+//      request, no expiry, and it is what every viewer gets after the first.
+//   2. A frame resolved on the spot (TikTok and YouTube publish tokenless
+//      oEmbed; an ADMIN can additionally probe Instagram), which is then copied
+//      into storage so nobody has to resolve it again.
+//   3. The platform face. Still the right answer for a private post, a dead
+//      link, or a platform none of the above can read - it says what the link
+//      is rather than pretending there is nothing there.
+//
+// WHY AN ADMIN IS THE ONE WHO FILLS INSTAGRAM IN. The probe is `view-sync`,
+// which holds the session cookies and refuses anybody else. So the first admin
+// to open a challenge board caches every Instagram cover on it, permanently,
+// for every creator who opens it afterwards. That is not a workaround; it is the
+// only place in the system where those credentials exist.
 //
 // Pure visual block - the caller wraps it in its own button/link so we never nest
 // anchors.
@@ -62,22 +87,96 @@ const PLATFORMS = {
   },
 }
 
-export default function VideoThumb({ url, platform, className }) {
+// THE PLAY GLYPH, WITHOUT A DISC BEHIND IT. Ethan, about the tracker's version
+// and then about these: "rather than having the white circle with the orange
+// play button, I would only have the orange play button, slightly bigger. Don't
+// need that white circle." The disc existed to guarantee contrast over an
+// unknown photograph; two drop shadows do that without putting a plate over the
+// middle of the frame the card is there to show.
+const PLAY_SHADOW = 'drop-shadow(0 1px 2px rgba(0,0,0,0.45)) drop-shadow(0 6px 18px rgba(0,0,0,0.35))'
+
+/**
+ * @param {string} url          the post's URL
+ * @param {string} [platform]   as recorded on the row; detected from the URL if absent
+ * @param {string} [thumbnailUrl] the row's stored frame, if it has one
+ * @param {string} [className]
+ */
+export default function VideoThumb({ url, platform, thumbnailUrl, className }) {
   const plat = platform || detectPlatformFromUrl(url)
   const p = PLATFORMS[plat] || PLATFORMS.Other
+  // An admin is the only caller who can reach the Instagram probe. Read here
+  // rather than passed down, because every caller would otherwise have to know
+  // about a credential that is none of their business.
+  const { isAdmin } = useAuth()
 
+  const [thumb, setThumb] = useState(thumbnailUrl || null)
+  const [retried, setRetried] = useState(false)
+
+  useEffect(() => {
+    // A frame already in OUR bucket is final: it cannot expire, so there is
+    // nothing to go and check. A platform URL on the row is a leftover from
+    // before this bucket existed and is re-resolved like anything else.
+    if (thumbnailUrl && isStored(thumbnailUrl) && !retried) { setThumb(thumbnailUrl); return undefined }
+    let alive = true
+    resolveThumbnail(url, { probe: !!isAdmin }).then((found) => {
+      if (alive && found) setThumb(found)
+    })
+    return () => { alive = false }
+  }, [url, thumbnailUrl, isAdmin, retried])
+
+  // ONE RETRY, AND ONLY ONE. An expired URL resolves to a new one; a URL that
+  // is simply wrong would otherwise loop against an endpoint that keeps saying
+  // no. Same rule as the tracker's, which is where it was learned.
+  const onError = () => {
+    setThumb(null)
+    if (retried) return
+    forgetThumbnail(url)
+    setRetried(true)
+  }
+
+  // 4:5 EVERYWHERE, and it is the tracker's measurement rather than a new one:
+  // these are all 9:16 videos, and a letterbox strip shows about a third of the
+  // picture and takes the third with the face in it. The platform face fills the
+  // same box, so a board of entries is one grid whether every frame resolved or
+  // none of them did.
   return (
-    <div className={cx('group/thumb relative flex h-28 w-full items-center justify-center overflow-hidden text-white', BRAND_FACE, className)}>
-      {/* Warm highlight + a gentle top/bottom shade so the white mark stays crisp. */}
-      <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
-
-      {/* Big platform logo + name, centred across the card. This is the play
-          control (the caller's button opens the inline player); it lifts on hover. */}
-      <div className="relative flex items-center gap-3 px-4 transition-transform duration-200 group-hover/thumb:scale-105">
-        <span className="h-9 w-9 shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.28)]">{p.icon}</span>
-        <span className="text-2xl font-semibold tracking-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.28)]">{p.label}</span>
-      </div>
+    <div className={cx('group/thumb relative w-full overflow-hidden', thumb ? 'aspect-[4/5] bg-cloud' : cx('aspect-[4/5] text-white', BRAND_FACE), className)}>
+      {thumb
+        ? (
+          <>
+            <img
+              src={thumb}
+              alt=""
+              onError={onError}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
+            />
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand transition-transform duration-300 group-hover/thumb:scale-110" style={{ filter: PLAY_SHADOW }} fill="currentColor" aria-hidden>
+                <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
+              </svg>
+            </span>
+            {/* The platform is still a fact worth having, and on a photograph it
+                belongs in a corner rather than across the middle. */}
+            <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke backdrop-blur-sm">
+              {p.label}
+            </span>
+          </>
+        )
+        : (
+          <>
+            {/* Warm highlight + a gentle top/bottom shade so the white mark stays crisp. */}
+            <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative flex items-center gap-3 px-4 transition-transform duration-200 group-hover/thumb:scale-105">
+                <span className="h-9 w-9 shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.28)]">{p.icon}</span>
+                <span className="text-2xl font-semibold tracking-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.28)]">{p.label}</span>
+              </div>
+            </div>
+          </>
+        )}
     </div>
   )
 }

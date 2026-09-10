@@ -1098,7 +1098,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
         className="relative block"
         aria-label={`Watch this ${s.platform || ''} video`.trim()}
       >
-        <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+        <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} className="rounded-b-none" />
       </a>
 
       <div className="flex min-w-0 flex-1 flex-col p-4">
