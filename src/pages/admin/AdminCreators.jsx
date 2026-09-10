@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from '../../components/admin/creatorSheet'
 import Icon from '../../components/Icon'
+import MarketScope from '../../components/admin/MarketScope'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
@@ -475,18 +476,53 @@ export default function AdminCreators() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
+      {/* THE MARKET IS A ROW OF PILLS AGAIN, AND IT IS THE SAME ONE EVERY OTHER
+          ADMIN PAGE USES (10 Sep 2026).
+
+          Ethan: "the way it shows All markets when we select from there - I
+          think it's weird, because normally we have the markets where you just
+          click from. So it's better to have that in and remove that."
+
+          He is right, and the note this replaces was wrong for a reason worth
+          keeping: it argued that "an unbounded list is not a row of buttons",
+          which is true of a list that grows without limit and false of this
+          one. There are seven markets and there will be a handful more; that is
+          a control, not a list. And the same question - which market am I
+          reading - is answered by `MarketScope` on Analytics, Rewards, Email,
+          the challenge log and the video tracker. A country manager who learns
+          it on one page should not meet a dropdown on this one.
+
+          IT TAKES NAMES, NOT IDS, HERE ALONE. `marketOf` maps a creator to the
+          market NAMES they belong to (that is what the export column wants), so
+          the pills are keyed by name and `marketFilter` keeps the exact meaning
+          it always had. "No market" rides along as one more pill, because
+          "which of these people has not been placed yet" is a real question an
+          admin asks and it has nowhere else to be asked from.
+
+          The counts are gone with the dropdown. The status strip underneath is
+          the control whose numbers are worth reading - a zero there means there
+          is nothing to do in that column - and two rows of counts is one row of
+          counts too many. */}
+      {markets.length > 1 && (
+        <MarketScope
+          markets={[
+            ...markets.map(([m]) => ({ id: m, name: m })),
+            ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
+              ? [{ id: '__none', name: 'No market' }]
+              : []),
+          ]}
+          value={marketFilter}
+          onChange={setMarketFilter}
+        />
+      )}
+
       {/* ONE TOOLBAR, NOT FOUR ROWS OF LOOSE BUTTONS.
           There were four stacked bands above the list - a row of status pills,
           a row of market pills, a search box, a sort box - each floating on the
-          page with nothing holding it together, and the market row grew a pill
-          per market so it was going to keep getting worse. That is the "bunch
-          of buttons and looks bad" report.
-          It is one panel now. Search, market and sort go on the top line
-          because they are all "narrow the list to what I mean"; the status
-          strip goes underneath because it is the one control whose COUNTS are
-          worth reading in their own right - a zero there means there is nothing
-          to do in that column. Market moved into a dropdown for the same reason
-          the sort is one: an unbounded list is not a row of buttons. */}
+          page with nothing holding it together. That is the "bunch of buttons
+          and looks bad" report. It is one panel now: search and sort on the top
+          line because they are both "narrow the list to what I mean", the
+          status strip underneath. */}
       <div className="mb-6 rounded-card border border-gray-100 bg-white p-3 shadow-card">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
@@ -496,23 +532,20 @@ export default function AdminCreators() {
               value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
             />
           </div>
-          {markets.length > 1 && (
-            <Select
-              className="sm:w-[190px]"
-              ariaLabel="Filter by market"
-              value={marketFilter}
-              onChange={setMarketFilter}
-              options={[
-                { value: '', label: `All markets (${creators.length})` },
-                ...markets.map(([m, n]) => ({ value: m, label: `${m} (${n})` })),
-                ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
-                  ? [{ value: '__none', label: `No market (${creators.filter((c) => !(marketOf[c.id] ?? []).length).length})` }]
-                  : []),
-              ]}
-            />
-          )}
+          {/* SQUARED OFF, LIKE THE FIELD BESIDE IT. Ethan: "we can still have
+              the toggle for most recently active, quietest first, newest
+              members, name A to Z - but I would make that match the style more,
+              square it out like the search bar."
+
+              `variant="field"` is exactly that: the same radius, the same
+              padding and the same 16px-on-mobile as `.input`, so the two
+              controls on this line are one shape rather than a rounded pill
+              next to a rectangle. The rule the rest of the admin follows still
+              holds - a FILTER is a chip, an ACTION is a pill - and this row is
+              neither, it is a pair of fields. */}
           <Select
-            className="sm:w-[200px]"
+            variant="field"
+            className="sm:w-[210px]"
             ariaLabel="Sort creators"
             value={sort}
             onChange={setSort}

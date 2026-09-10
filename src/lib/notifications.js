@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
 import { showLocalNotification, closeNotificationsForPath } from './push'
 import { toast } from './toast'
@@ -15,6 +15,11 @@ import { toast } from './toast'
 // So the data, the realtime feed, and every operation on a notification live
 // here, and the two surfaces are just two shapes for the same hook. Adding
 // "clear this one" meant adding it once.
+//
+// AND SINCE 10 SEP THE ROWS THEMSELVES ARE SHARED TOO, not just the code that
+// fetches them - see "the store" below. One hook with `useState` in it is still
+// two lists when two components call it, which is the whole of "I mark them as
+// read, go to another tab, and they're all back again".
 
 // Pathname a notification's link points at (dropping any query/hash), so we can
 // tell when the reader is looking at the exact page an alert was for.
@@ -98,6 +103,77 @@ export function groupByAge(rows) {
   return order.map((k) => [k, bins.get(k)]).filter(([, v]) => v.length)
 }
 
+// ---------------------------------------------------------------- the store
+//
+// ONE LIST, HOWEVER MANY THINGS ARE LOOKING AT IT (10 Sep 2026).
+//
+// Ethan: "I open the bell, read the notifications, mark them as read, clear
+// them, and then I go to another tab, open it, and they're all back again. It
+// doesn't update instantly. After a refresh it does update."
+//
+// The write was never the problem - a `mark all read` really does set every row
+// (verified: 36 unread to 0, status 204). The problem is that this hook used to
+// keep its rows in `useState`, and there are TWO callers: the bell in the top
+// bar, which never unmounts, and `/notifications`, which holds 150 rows and
+// mounts fresh every visit. Two copies of one list, each perfectly correct
+// about its own history and blind to the other's. Read everything on the page,
+// come back, and the bell is still holding the list it fetched when the app
+// started - which is exactly "they're all back again", and exactly why a
+// reload fixes it.
+//
+// So the rows live HERE, in module scope, with the subscriber pattern this
+// codebase already uses for the boot layer. Every surface reads the same array
+// and every operation is seen by all of them on the same frame.
+//
+// AND THE FEED CARRIES UPDATES AND DELETES, NOT JUST INSERTS. That is the
+// second half of what was asked - "even for switching apps". A phone and a
+// laptop signed in as the same person are two more copies of this list, and
+// Postgres already knows when one of them marks a row read; it simply was not
+// being listened to. `read` flipping on another device now lands here in the
+// same beat it lands there.
+let rows = null                 // null = not loaded yet
+let leavingIds = new Set()      // mid-animation, gone as far as the counts go
+const subs = new Set()
+const emit = () => { for (const fn of [...subs]) fn() }
+// ONE OBJECT PER CHANGE. `useSyncExternalStore` compares snapshots by identity
+// and re-reads on every render, so a snapshot that is rebuilt each call is an
+// infinite loop and a snapshot that is mutated in place never re-renders.
+let snap = { rows, leaving: leavingIds }
+function publish() {
+  snap = { rows, leaving: leavingIds }
+  emit()
+}
+function subscribe(fn) {
+  subs.add(fn)
+  return () => subs.delete(fn)
+}
+const getSnapshot = () => snap
+// Server-side and in a test there is nothing loaded and nothing leaving.
+const EMPTY = { rows: null, leaving: new Set() }
+const getServerSnapshot = () => EMPTY
+
+function setRows(next) {
+  rows = typeof next === 'function' ? next(rows) : next
+  publish()
+}
+function setLeaving(next) {
+  leavingIds = typeof next === 'function' ? next(leavingIds) : next
+  publish()
+}
+
+/** Forget everything. Called on sign-out so the next person sees their own. */
+export function resetNotifications() {
+  rows = null
+  leavingIds = new Set()
+  publish()
+}
+
+// HOW MANY ROWS THE STORE HOLDS. One store, two surfaces, two appetites: the
+// bell shows 30 and the page shows 150. Holding the larger of the two and
+// letting the bell slice is the only version of this that does not have the
+// page's extra rows disappear the moment the bell reloads.
+const HOLD = 150
+
 /**
  * Everything the bell and the notifications page both need.
  *
@@ -105,17 +181,12 @@ export function groupByAge(rows) {
  * @param {string} opts.userId       whose notifications
  * @param {string} opts.pathname     where the reader is right now
  * @param {object} opts.pushPrefs    `profile.notif_prefs`, for OS notifications
- * @param {number} opts.limit        how many to hold
- * @param {boolean} opts.live        subscribe to new ones (the bell does; a
- *                                   second subscriber on the same page would be
- *                                   a duplicate channel topic)
+ * @param {number} opts.limit        how many THIS surface shows
+ * @param {boolean} opts.live        subscribe to changes. Ref-counted, so two
+ *                                   live callers still open one channel.
  */
 export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live = true }) {
-  const [items, setItems] = useState(null)
-  // THE ROWS AN OPERATION IS IN THE MIDDLE OF REMOVING. A dismissed row leaves
-  // on an animation, so it has to stay in the DOM for the length of it while
-  // already being gone as far as the counts are concerned.
-  const [leaving, setLeaving] = useState(() => new Set())
+  const { rows: all, leaving } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const prefsRef = useRef(pushPrefs)
   useEffect(() => { prefsRef.current = pushPrefs }, [pushPrefs])
@@ -127,41 +198,16 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
       .from('notifications')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(limit)
-    setItems(data ?? [])
-  }, [limit])
+      .limit(HOLD)
+    setRows(data ?? [])
+  }, [])
 
   useEffect(() => {
     if (!userId) return undefined
     load()
     if (!live) return undefined
-    // Realtime: prepend new notifications for me the moment they are created.
-    const channel = supabase
-      .channel(`notifications-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` },
-        (payload) => {
-          const n = payload.new
-          // If it is for the page they are already looking at, mark it read on
-          // the spot instead of badging - they are seeing the content now.
-          if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
-            setItems((prev) => [{ ...n, read: true }, ...(prev || [])].slice(0, limit))
-            supabase.from('notifications').update({ read: true }).eq('id', n.id).then(() => {})
-            return
-          }
-          setItems((prev) => [n, ...(prev || [])].slice(0, limit))
-          // Pop an OS notification when the app is not in the foreground, unless
-          // the creator has turned push off for this category.
-          const pushOn = prefsRef.current?.[n.type] !== false
-          if (pushOn && document.visibilityState !== 'visible') {
-            showLocalNotification({ title: n.title, body: n.body, link: n.link || '/notifications', tag: n.id })
-          }
-        }
-      )
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [userId, load, live, limit])
+    return openFeed(userId, prefsRef, pathRef)
+  }, [userId, load, live])
 
   // Landing on the page a notification was for clears it, however you got
   // there - tapping the alert, a link, or straight navigation.
@@ -169,7 +215,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     if (!userId || !pathname) return
     // Being on the notifications page is not the target of any alert.
     if (pathname === '/notifications') return
-    setItems((prev) => prev?.map((n) => (!n.read && linkPathname(n.link) === pathname ? { ...n, read: true } : n)) ?? prev)
+    setRows((prev) => prev?.map((n) => (!n.read && linkPathname(n.link) === pathname ? { ...n, read: true } : n)) ?? prev)
     supabase.from('notifications').update({ read: true })
       .eq('recipient_id', userId).eq('read', false).eq('link', pathname)
       .then(() => {})
@@ -177,12 +223,12 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   }, [pathname, userId])
 
   const markRead = useCallback(async (id) => {
-    setItems((prev) => prev?.map((x) => (x.id === id ? { ...x, read: true } : x)) ?? prev)
+    setRows((prev) => prev?.map((x) => (x.id === id ? { ...x, read: true } : x)) ?? prev)
     await supabase.from('notifications').update({ read: true }).eq('id', id)
   }, [])
 
   const markAllRead = useCallback(async () => {
-    setItems((prev) => prev?.map((x) => ({ ...x, read: true })) ?? prev)
+    setRows((prev) => prev?.map((x) => ({ ...x, read: true })) ?? prev)
     await supabase.from('notifications').update({ read: true }).eq('recipient_id', userId).eq('read', false)
   }, [userId])
 
@@ -207,7 +253,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
       return
     }
     setTimeout(() => {
-      setItems((prev) => prev?.filter((x) => x.id !== id) ?? prev)
+      setRows((prev) => prev?.filter((x) => x.id !== id) ?? prev)
       setLeaving((s) => { const n = new Set(s); n.delete(id); return n })
     }, 260)
   }, [])
@@ -216,16 +262,90 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   // on a list where the unread ones are the entire point is a button whose most
   // likely use is a mistake. Unread rows survive it and the label says so.
   const clearRead = useCallback(async () => {
-    const kept = items || []
-    setItems(kept.filter((x) => !x.read))
+    const kept = all || []
+    setRows(kept.filter((x) => !x.read))
     const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId).eq('read', true)
     // Same rollback as `dismiss`, for the same reason: a batch delete that
     // fails must not leave the page claiming it worked.
-    if (error) { setItems(kept); toast('Those would not clear. Try again in a moment.') }
-  }, [userId, items])
+    if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
+  }, [userId, all])
 
-  const unread = useMemo(() => (items || []).filter((n) => !n.read).length, [items])
-  const readCount = useMemo(() => (items || []).filter((n) => n.read).length, [items])
+  // THE COUNTS ARE OVER EVERYTHING HELD, NOT OVER WHAT THIS SURFACE DRAWS. A
+  // bell that shows thirty rows and badges "30" while the page behind it has a
+  // hundred and fifty is a bell that is quietly wrong about the only number it
+  // exists to report.
+  const items = useMemo(() => (all ? all.slice(0, limit) : null), [all, limit])
+  const unread = useMemo(() => (all || []).filter((n) => !n.read).length, [all])
+  const readCount = useMemo(() => (all || []).filter((n) => n.read).length, [all])
 
-  return { items, loading: items === null, leaving, unread, readCount, markRead, markAllRead, dismiss, clearRead, reload: load }
+  return { items, loading: all === null, leaving, unread, readCount, markRead, markAllRead, dismiss, clearRead, reload: load }
+}
+
+// ------------------------------------------------------------------ the feed
+//
+// REF-COUNTED, because two live callers on one page would be two subscriptions
+// to one channel topic - which Supabase resolves by refusing the second, and
+// which is why the page used to pass `live: false` and go without. It does not
+// have to any more: whoever mounts first opens it and whoever leaves last
+// closes it.
+let feed = null
+let feedUsers = 0
+
+function openFeed(userId, prefsRef, pathRef) {
+  feedUsers += 1
+  if (!feed) {
+    feed = supabase
+      .channel(`notifications-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` },
+        (payload) => {
+          const n = payload.new
+          // If it is for the page they are already looking at, mark it read on
+          // the spot instead of badging - they are seeing the content now.
+          if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
+            setRows((prev) => [{ ...n, read: true }, ...(prev || [])].slice(0, HOLD))
+            supabase.from('notifications').update({ read: true }).eq('id', n.id).then(() => {})
+            return
+          }
+          setRows((prev) => [n, ...(prev || [])].slice(0, HOLD))
+          // Pop an OS notification when the app is not in the foreground, unless
+          // the creator has turned push off for this category.
+          const pushOn = prefsRef.current?.[n.type] !== false
+          if (pushOn && document.visibilityState !== 'visible') {
+            showLocalNotification({ title: n.title, body: n.body, link: n.link || '/notifications', tag: n.id })
+          }
+        },
+      )
+      // READ SOMEWHERE ELSE IS READ HERE. Marking a row read on a phone should
+      // not leave a laptop badging it for the rest of the session.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` },
+        (payload) => {
+          const n = payload.new
+          setRows((prev) => prev?.map((x) => (x.id === n.id ? { ...x, ...n } : x)) ?? prev)
+        },
+      )
+      // AND CLEARED SOMEWHERE ELSE IS CLEARED HERE. A DELETE payload carries the
+      // primary key and nothing else, which is all this needs.
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const id = payload.old?.id
+          if (!id) return
+          setRows((prev) => prev?.filter((x) => x.id !== id) ?? prev)
+        },
+      )
+      .subscribe()
+  }
+  return () => {
+    feedUsers -= 1
+    if (feedUsers <= 0 && feed) {
+      supabase.removeChannel(feed)
+      feed = null
+      feedUsers = 0
+    }
+  }
 }

@@ -108,7 +108,13 @@ export default function Notifications() {
     pathname: location.pathname,
     pushPrefs: profile?.notif_prefs,
     limit: 150,
-    live: false,
+    // LIVE HERE TOO NOW (10 Sep 2026). This used to be `false` because two
+    // subscribers meant two subscriptions to one channel topic, which Supabase
+    // resolves by refusing the second - so the page that shows the most rows
+    // was the one that never updated. The feed is ref-counted in
+    // lib/notifications: whoever mounts first opens it, whoever leaves last
+    // closes it, and there is still exactly one channel.
+    live: true,
   })
 
   function open(n) {

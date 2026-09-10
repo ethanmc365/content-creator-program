@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { adoptProfileLocale } from '../lib/i18n'
 import { adoptTestDataVisibility } from '../lib/testData'
 import { clearPageCache } from '../lib/pageCache'
+import { resetNotifications } from '../lib/notifications'
 import { clearScopeCache } from '../lib/scope'
 import { identifyForMonitoring } from '../lib/monitoring'
 
@@ -658,6 +659,11 @@ export function AuthProvider({ children }) {
       // account changes underneath them. See lib/pageCache.
       clearPageCache()
       clearScopeCache()
+      // And the notification store, for the same reason and with the same
+      // failure mode: it is module state now (lib/notifications), so without
+      // this the next person to sign in on this device sees the last one's
+      // bell until their own fetch lands.
+      resetNotifications()
       return supabase.auth.signOut({ scope: 'local' })
     },
 
