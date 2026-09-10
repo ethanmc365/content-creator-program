@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } fr
 import PendingLabel from '../components/PendingLabel'
 import { confirm, notice } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
@@ -114,6 +114,46 @@ export default function Messages() {
   const { conversationId } = useParams()
   const { user, profile, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // BACK OUT OF A THREAD AND YOU ARE IN THE INBOX, WHEREVER YOU CAME FROM
+  // (10 Sep 2026).
+  //
+  // Ethan, on his iPhone: "if I'm on a DM of Jacob and then click the back
+  // button, it should obviously just take me back to the screen I was on, which
+  // is probably gonna be the DM screen. But instead it takes you back to the
+  // Worldwide page."
+  //
+  // Both halves of that are true and they are not in conflict: the browser was
+  // doing exactly what a browser does. A thread is reached from four places -
+  // the inbox, a push notification, the bell, and a creator's profile - and
+  // only the first of them leaves the inbox in the history behind it. Open a
+  // DM from the bell while standing on Worldwide and the stack really is
+  // [/global, /messages/:id], so Back really does mean Worldwide. On a desktop
+  // that is defensible, because the inbox and the thread are on screen
+  // TOGETHER and leaving the thread is not leaving the page. On a phone they
+  // are two screens, and backing out of the second one has exactly one sensible
+  // destination.
+  //
+  // So an arrival that did not come from the inbox puts the inbox underneath
+  // itself: replace this entry with the inbox, then push the thread back on
+  // top. One extra entry, no reload (both are client-side), and Back is
+  // suddenly the same gesture whatever route brought you here. Everything that
+  // navigates from WITHIN this page carries `fromInbox` so it is left alone -
+  // without that flag the inbox's own rows would insert a second copy of the
+  // inbox and Back would need pressing twice to reach the page before it.
+  //
+  // The ref makes it once per mount: moving between threads afterwards is
+  // ordinary pushing, and backing through them one at a time is right.
+  const inboxBehind = useRef(false)
+  useEffect(() => {
+    if (!conversationId || inboxBehind.current) return
+    inboxBehind.current = true
+    if (location.state?.fromInbox) return
+    navigate('/messages', { replace: true })
+    navigate(`/messages/${conversationId}`, { state: { fromInbox: true } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId])
 
   // SECOND AND LATER VISITS TO THE DM TAB DRAW THE INBOX, NOT FOUR GREY ROWS.
   // `loadConversations` still runs on every visit; the cache only decides what
@@ -572,7 +612,7 @@ export default function Messages() {
       if (existing) {
         setSearch('')
         setDraftTo(null)
-        navigate(`/messages/${existing.id}`)
+        navigate(`/messages/${existing.id}`, { state: { fromInbox: true } })
         return
       }
       // Who they are, for the header and the @-chips. A draft thread has no
@@ -610,7 +650,7 @@ export default function Messages() {
       setDraftTo(null)
       // `replace`, so Back does not land on the draft URL of a thread that now
       // exists at a different address.
-      navigate(`/messages/${id}`, { replace: true })
+      navigate(`/messages/${id}`, { replace: true, state: { fromInbox: true } })
       return id
     })()
     ensuringRef.current = p
@@ -1075,7 +1115,7 @@ export default function Messages() {
     const { error } = yes ? await acceptInvite(invite, user.id) : await declineInvite(invite)
     if (error) { notice(error); loadConversations(); return }
     await loadConversations()
-    if (yes) navigate(`/messages/${invite.conversation_id}`)
+    if (yes) navigate(`/messages/${invite.conversation_id}`, { state: { fromInbox: true } })
   }
   // ONE TIMER, AND THE FLAG IS CLEARED WHEN THE PRESS STARTS.
   //
@@ -1766,8 +1806,8 @@ export default function Messages() {
                 key={c.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`) } }}
+                onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) } }}
                 onTouchStart={() => startConvPress(c)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
                 onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
                 onContextMenu={(e) => { e.preventDefault(); setConvSheet(c) }}
@@ -2596,7 +2636,7 @@ export default function Messages() {
         onCreated={async (id) => {
           setShowNewGroup(false)
           await loadConversations()
-          navigate(`/messages/${id}`)
+          navigate(`/messages/${id}`, { state: { fromInbox: true } })
         }}
       />
 

@@ -12,7 +12,7 @@ import PhotoBoard from '../components/PhotoBoard'
 import Icon from '../components/Icon'
 import AutoTextarea from '../components/AutoTextarea'
 import SubmittedCard from '../components/SubmittedCard'
-import TrypPlaneBanner from '../components/TrypPlaneBanner'
+import TrypPlane from '../components/network/TrypPlane'
 import SocialMark, { brandForUrl, BRAND_COLOR } from '../components/SocialMark'
 import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
@@ -1166,13 +1166,30 @@ function Welcome({ name, pending }) {
           the screen, it is the one thing between the welcome and the work, and
           the plane is the product's own mark rather than a stock glyph.
 
+          IT IS THE SAME DRAWING AS THE HOME CARD NOW (10 Sep 2026). Ethan:
+          "the contrails coming out of it doesn't look good. I want you to
+          replicate the contrails that you have on the worldwide page, the
+          Tryp.com Content Creator Community card on desktop - you have the
+          automated plane with the contrails coming out nicely there. Replicate
+          those exact contrails, same styles, same plane-in animation."
+
+          `TrypPlaneBanner` was a second, parallel implementation of one mark:
+          a 2px solid bar scaled out of the tailcone on a 2.4s loop, against
+          `TrypPlane`'s dashed line under a `userSpaceOnUse` fade with the
+          dashes marching away from the tail. Two drawings of the same aircraft
+          that do not agree is worse than either of them, and the one the rest
+          of the product uses is the one that stays. `variant="inline"` is
+          exactly this case - the plane, centred, on nothing - and it carries
+          `text-brand`, so the trail is orange here and white on the orange
+          card without either being told about the other. The banner file is
+          deleted; it had no other caller.
+
           `animate-fade-up` on the wrapper so the band ARRIVES rather than being
-          there - the plane's own takeoff then plays inside it. Two entrances
-          rather than one is deliberate: the card rises into place and the plane
-          flies in, which is the same layered arrival the landing page hero
-          uses. See components/TrypPlaneBanner for the contrails. */}
+          there, and the aircraft's own cruise then runs inside it: the card
+          rises into place and the plane is already flying, which is the same
+          layered arrival the landing page hero uses. */}
       <div className="animate-fade-up" style={{ animationDelay: '0.12s' }}>
-        <TrypPlaneBanner className="mx-auto max-w-sm" />
+        <TrypPlane variant="inline" id="onboarding" className="mx-auto" />
       </div>
       {/* TWO ROWS, AND BOTH OF THEM ARE ABOUT THEM.
           There were four. Ethan on the other two: "about three minutes, nine
