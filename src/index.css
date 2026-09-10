@@ -692,7 +692,7 @@ html {
     transform-box: fill-box;
     transform-origin: 0% 50%;
     animation: map-thread-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: calc(240ms + var(--thread-i, 0) * 55ms);
+    animation-delay: calc(180ms + var(--thread-i, 0) * 55ms);
   }
 
   /* THE PINS DROP ONTO THE MAP TOGETHER AND SETTLE.
@@ -723,7 +723,7 @@ html {
        entrance still finishes in under 700ms whatever the community's size -
        which is the constraint an earlier uncapped per-pin ladder broke. */
     animation: map-pin-land 700ms cubic-bezier(0.34, 1.24, 0.64, 1) both;
-    animation-delay: calc(360ms + var(--pin-i, 0) * 45ms);
+    animation-delay: calc(300ms + var(--pin-i, 0) * 45ms);
   }
 
   /* The aircraft lift in once the pins are down. They fly on their own SMIL
@@ -735,10 +735,24 @@ html {
     from { opacity: 0; transform: scale(0.4); }
     to   { opacity: 1; transform: scale(1); }
   }
+  /* THE AIRCRAFT WERE A SECOND BEHIND THE MAP THEY FLY OVER (10 Sep 2026).
+     Ethan, on the desktop landing page: "the plane animation doesn't start
+     straight away, it's very delayed - first they're frozen, then it suddenly
+     starts."
+
+     They are not frozen; they are INVISIBLE and already flying. `animateMotion`
+     runs on the SVG's own timeline from the moment the element exists, and this
+     rule held the aircraft at `opacity: 0` for the first 960ms of it - so what
+     arrived at 960ms was a plane that had been under way for a second, dropped
+     into the middle of its path with no movement having been seen. The order
+     land -> threads -> pins -> traffic is still the right one and is kept; it
+     just does not need a whole second to say it. 520ms puts the aircraft in
+     while the pins are still settling (they run 300ms + 700ms), which is when
+     a map full of journeys should start to look busy. */
   .map-plane-in {
     transform-box: fill-box;
     transform-origin: 50% 50%;
-    animation: map-plane-in 300ms cubic-bezier(0.34, 1.3, 0.64, 1) 960ms both;
+    animation: map-plane-in 300ms cubic-bezier(0.34, 1.3, 0.64, 1) 520ms both;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -2332,7 +2346,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.stat-in { animation: stat-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stat-in { animation: stat-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* ONE PASS OF LIGHT ACROSS THE FINAL CALL TO ACTION, on arrival only. */
 @keyframes landing-sheen {
@@ -2363,7 +2377,8 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
  * removing the pause resumes from there rather than restarting, so the stagger
  * between the three words survives intact.
  *
- * `is-ready` is added by pages/Landing.jsx from `useBootGone()`, with a 2.5s
+ * `is-ready` is added by pages/Landing.jsx from `useBootCleared()` - the END
+ * of the boot layer's fade, not the start of it - with a 2.5s
  * timer behind it. THAT TIMER IS NOT OPTIONAL: this rule can hide the entire
  * page, and the standing rule in this codebase is that content is never gated
  * on a single mechanism.

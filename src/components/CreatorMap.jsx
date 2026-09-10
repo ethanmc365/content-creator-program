@@ -571,13 +571,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // a flag here survives the transition and the second mount draws the map in
   // its settled state. The timer has to outlast the WHOLE sequence or the class
   // comes off mid-animation and whatever was still moving snaps to its end
-  // state. The last step is the aircraft, at 960ms + 300ms, so 1400ms.
+  // state. The longest step is now the pins, at 300ms + 700ms, and the aircraft
+  // finish at 520ms + 300ms - so 1100ms covers the whole sequence with a frame
+  // to spare. (It was 1400ms while the aircraft were held for a second; see
+  // `.map-plane-in` in index.css for why they no longer are.)
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
     // Off `painted`, not `features`: the clock has to start when the animation
     // does, or the two frames it waits come out of the end of the sequence.
     if (!painted || arrived) return undefined
-    const t = setTimeout(() => setArrived(true), 1400)
+    const t = setTimeout(() => setArrived(true), 1100)
     return () => clearTimeout(t)
   }, [painted, arrived])
 
@@ -1626,7 +1629,27 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // WAY IN - the wheel is the page's now - so it has to say what it is.
           // An unlabelled icon that hides the only door is how the door gets
           // missed.
-          className="absolute right-3 top-3 z-20 flex h-9 items-center justify-center gap-1.5 rounded-full bg-white/90 px-0 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 max-sm:w-9 sm:right-5 sm:top-5 sm:px-3.5"
+          // AND ON A FLUSH MAP IT SITS ON THE MAP, NOT ABOVE IT (10 Sep 2026).
+          //
+          // Ethan: "the full screen should actually be on the map, like, to the
+          // right of Russia." A flush map has no card and no sea tint, so the
+          // top of its box is the page's own white - and `top-3` put the button
+          // in that white, floating above the world rather than on it.
+          //
+          // Measured off the rendered svg: the viewBox is 880x480 and the land
+          // runs from y=57 to y=437, so the northern coast is 11.9% of the way
+          // down and Russia's latitude band is about 15-30%. 19% lands the
+          // button beside Russia's eastern edge at every width, because the svg
+          // keeps that aspect ratio whatever the window does. `right-4` clears
+          // the far-east coast (x=836 of 880, so 5% in) with room to spare.
+          //
+          // Percentages of the CONTAINER, which is exactly the svg's box here;
+          // a boxed map still uses the corner, where it has a tinted sea to sit
+          // on and no landmass to cover.
+          className={cx(
+            'absolute z-20 flex h-9 items-center justify-center gap-1.5 rounded-full bg-white/90 px-0 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 max-sm:w-9 sm:px-3.5',
+            flush ? 'right-4 top-[19%] sm:right-6' : 'right-3 top-3 sm:right-5 sm:top-5',
+          )}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />

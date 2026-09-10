@@ -41,9 +41,20 @@ import { useLayoutEffect, useSyncExternalStore } from 'react'
 // Live until main.jsx says otherwise. Read from the DOM so that a hot reload,
 // or any render that happens after the layer is already gone, starts false.
 let up = typeof document !== 'undefined' && !!document.getElementById('boot')
+// SEPARATE FROM `up`, AND THE 160ms BETWEEN THEM IS THE WHOLE POINT.
+//
+// `releaseBootLayer` fires when the layer STARTS to fade; the fade is 160ms
+// (see `#boot` in index.html). Anything that animates itself in off that signal
+// therefore spends its first 160ms behind a sheet that is still mostly opaque -
+// which for the landing hero is a quarter of the entrance, and the quarter that
+// carries the movement. `cleared` is the OTHER end of the same fade: the layer
+// is gone, the page is the only thing on screen, and an entrance started now is
+// seen from its first frame. Starts true when there is no layer at all.
+let cleared = typeof document === 'undefined' || !document.getElementById('boot')
 let mounted = 0
 
 const upSubs = new Set()
+const clearedSubs = new Set()
 const idleSubs = new Set()
 
 function emit(subs) {
@@ -60,6 +71,23 @@ export function releaseBootLayer() {
   if (!up) return
   up = false
   emit(upSubs)
+}
+
+/** True once the boot layer has finished fading and is off the screen. */
+export function bootLayerCleared() {
+  return cleared
+}
+
+/** Called by main.jsx at the END of the fade. Idempotent. */
+export function clearBootLayer() {
+  if (cleared) return
+  cleared = true
+  emit(clearedSubs)
+}
+
+function subscribeCleared(fn) {
+  clearedSubs.add(fn)
+  return () => clearedSubs.delete(fn)
 }
 
 // THE COUNT DIPS TO ZERO IN THE MIDDLE OF A COMMIT, AND THAT IS NOT IDLE.
@@ -101,7 +129,7 @@ function subscribeUp(fn) {
 }
 
 /**
- * HAS THE BOOT LAYER FINISHED OWNING THE SCREEN?
+ * HAS THE BOOT LAYER FINISHED LEAVING?
  *
  * For a page that ANIMATES ITSELF IN rather than one that draws a placeholder.
  * The landing page is the only one, and it is the reason this exists: its hero
@@ -110,18 +138,26 @@ function subscribeUp(fn) {
  * opaque white sheet and Ethan reported, correctly, that "Create. Earn. Travel."
  * has no animation on mobile. It had one. Nobody could see it.
  *
+ * IT IS THE END OF THE FADE, NOT THE START (10 Sep 2026). `releaseBootLayer` -
+ * which this used to read - fires when the sheet BEGINS its 160ms fade, which
+ * is the right signal for a loader (it is being handed the screen) and the
+ * wrong one for an entrance. Half the fix landed and the reader still saw the
+ * first 130ms of every word behind a sheet that was still mostly opaque; what
+ * is left of a 26px rise after that is a word appearing, which is exactly what
+ * Ethan reported next: "they just appear up, everything there flashes up."
+ *
  * Unlike `useBootLoaderSlot` this claims NO slot: a page holding the layer up
  * while waiting for the layer to go is a deadlock, and this caller is real
  * content rather than a loader.
  *
- * It cannot leave anything invisible for ever. `up` starts false whenever there
- * is no `#boot` in the document (a hot reload, a second visit inside the same
- * SPA session), and main.jsx dismisses the layer behind a hard 6s cap, so this
- * resolves true on every path there is. Callers still put a timer behind it -
+ * It cannot leave anything invisible for ever. `cleared` starts TRUE whenever
+ * there is no `#boot` in the document (a hot reload, a second visit inside the
+ * same SPA session), and main.jsx dismisses the layer behind a hard 6s cap, so
+ * this resolves on every path there is. Callers still put a timer behind it -
  * see the note in main.jsx: never gate content on one mechanism.
  */
-export function useBootGone() {
-  return !useSyncExternalStore(subscribeUp, bootLayerUp, () => false)
+export function useBootCleared() {
+  return useSyncExternalStore(subscribeCleared, bootLayerCleared, () => true)
 }
 
 /**

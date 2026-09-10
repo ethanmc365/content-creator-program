@@ -7,7 +7,7 @@ import { CommunityProvider } from './context/CommunityContext'
 import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
-import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
+import { clearBootLayer, releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
 import { getLocale, loadLocale } from './lib/i18n'
 import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
@@ -142,6 +142,13 @@ function dismissBoot() {
     cancel()
     releaseBootLayer()
     boot.classList.add('gone')
+    // TWO SIGNALS, ONE FADE. `releaseBootLayer` is the START of it, which is
+    // what a loader needs to know (it is being handed the screen);
+    // `clearBootLayer` is the END, which is what an ENTRANCE needs to know.
+    // 180ms is the 160ms transition in index.html plus a frame - held here
+    // rather than read from the element, because a transition that never fires
+    // (a background tab, `prefers-reduced-motion`) must still clear it.
+    setTimeout(clearBootLayer, 180)
     setTimeout(() => boot.remove(), 360)
   }
   // Whichever of the frame pair and the timer gets here first hands over; the

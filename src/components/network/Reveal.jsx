@@ -96,6 +96,19 @@ export default function Reveal({
   // already separated in time by the act of scrolling to them, and a delay
   // there would just be a page that lags behind your thumb.
   delay = 0,
+  // HOW FAR BELOW THE FOLD THE OBSERVER STARTS WATCHING, as a percentage of the
+  // viewport height.
+  //
+  // 15% is one flick of a thumb and is right for a card, which is cheap to draw
+  // and 24px from home. It is NOT right for something that has work to do after
+  // it is told to arrive - the community map has 349 country paths, forty pins
+  // and a one-second landing sequence of its own, and by the time all of that
+  // has run the reader has been looking at the space where it should be for
+  // most of a second. Ethan, on the phone: "whenever scrolling down the
+  // community map appears delayed - you're actually there seeing a blank
+  // screen." Anything expensive should be given a bigger head start rather than
+  // a shorter animation.
+  early = 15,
   // IS THIS CONTAINER A FLEX ROW? See `.reveal-row` in index.css: the wrapper's
   // `height: 100%` is correct in a grid and actively harmful in a row, where it
   // both resolves against nothing and opts the item out of `align-items:
@@ -270,7 +283,7 @@ export default function Reveal({
       },
       // The same head start the container observer gets: start it a flick of a
       // thumb before the card is on screen so the motion FINISHES as it lands.
-      { rootMargin: '0px 0px 12% 0px' },
+      { rootMargin: `0px 0px ${early}% 0px` },
     )
     els.forEach((el) => io.observe(el))
 
@@ -299,7 +312,7 @@ export default function Reveal({
       window.removeEventListener('scroll', net)
       window.removeEventListener('resize', net)
     }
-  }, [perItem, node, children])
+  }, [perItem, node, children, early])
 
   useEffect(() => {
     if (!node || shown) return undefined
@@ -327,11 +340,11 @@ export default function Reveal({
     // than starting once it is already being looked at.
     const io = new IntersectionObserver(
       (entries) => { if (entries.some((e) => e.isIntersecting)) setShown(true) },
-      { rootMargin: '0px 0px 15% 0px' },
+      { rootMargin: `0px 0px ${early}% 0px` },
     )
     io.observe(node)
     return () => io.disconnect()
-  }, [node, shown])
+  }, [node, shown, early])
 
   // Belt and braces, BUT ONLY FOR WHAT IS ACTUALLY ON SCREEN.
   //

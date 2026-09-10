@@ -7,7 +7,7 @@ import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
 import Reveal from '../components/network/Reveal'
-import { useBootGone } from '../lib/bootLoader'
+import { useBootCleared } from '../lib/bootLoader'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -83,13 +83,22 @@ export default function Landing() {
     return () => window.removeEventListener('keydown', onKey)
   }, [miniProfile])
 
-  const bootGone = useBootGone()
+  // THE ENTRANCE STARTS WHEN THE SHEET HAS GONE, NOT WHEN IT STARTS TO GO
+  // (10 Sep 2026). Ethan, on the phone: "we still don't have those animations
+  // for Create Earn Travel - they just appear up, everything there flashes up."
+  //
+  // `useBootGone` fires when `#boot` begins its 160ms fade, so the first 130ms
+  // of a 520ms word - the part carrying the 26px rise and the overshoot - ran
+  // underneath a sheet that was still most of the way opaque. What is left after
+  // that is the tail of an ease, which is a word appearing. `useBootCleared` is
+  // the far end of the same fade. See lib/bootLoader.
+  const bootCleared = useBootCleared()
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    if (bootGone) { setReady(true); return undefined }
+    if (bootCleared) { setReady(true); return undefined }
     const t = setTimeout(() => setReady(true), 2500)
     return () => clearTimeout(t)
-  }, [bootGone])
+  }, [bootCleared])
 
   useEffect(() => {
     supabase.rpc('landing_stats').then(({ data }) => {
@@ -359,8 +368,16 @@ export default function Landing() {
             // The plus is a fact about the figure, not about the animation, so
             // it is on screen from the first frame and never moves.
             { key: 'prizes', value: prizeFloor(stats?.prizes), label: 'Prizes awarded', format: money, suffix: prizeFloor(stats?.prizes) < stats?.prizes ? '+' : '' },
+            // SOONER (10 Sep 2026). Ethan: "the 48 creators, challenges run and
+            // prizes awarded animation is slightly delayed - just make it start
+            // slightly sooner." The tile's own entrance is 340ms now rather than
+            // 420 (`.stat-in` in index.css) and the ladder between the three is
+            // 35ms rather than 45, so the last figure begins counting 160ms
+            // earlier than it did. The count still waits for the tile to land -
+            // see `Tally` - because those two running on the same frames is what
+            // made the band judder.
           ].map((s, i) => (
-            <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 45}ms` } : undefined}>
+            <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 35}ms` } : undefined}>
               {/* TABULAR FIGURES, AND THE WHOLE REASON THIS BAND WAS JUDDERING
                   (9 Sep 2026). Ethan: "those numbers animate in now, but it's a
                   bit glitchy at the start, it goes really juttery."
@@ -391,7 +408,7 @@ export default function Landing() {
                   `sm:text-5xl` still takes over completely at 640px. */}
               <p className="text-[clamp(1.15rem,6.1vw,1.875rem)] font-bold leading-tight tracking-tight text-brand [font-variant-numeric:tabular-nums] sm:text-5xl">
                 {stats
-                  ? <><Tally value={s.value} format={s.format} delay={420 + i * 45} />{s.suffix}</>
+                  ? <><Tally value={s.value} format={s.format} delay={340 + i * 35} />{s.suffix}</>
                   /* THE PLACEHOLDER IS INVISIBLE, NOT ORANGE (8 Sep 2026).
                      Ethan: "whenever it's first loading it shows up like the
                      orange square there, and then the numbers start appearing
@@ -470,7 +487,16 @@ export default function Landing() {
           was, on a phone as well, which is the half of the request that was
           already true and had to stay true. */}
       {(mapData.creators.length > 0 || featured.length > 0) && (
-        <section className="py-16 sm:py-24">
+        // LESS AIR UNDER THE RAIL THAN OVER THE HEADING. Ethan: "there's too
+        // much space between Recently active creators and the How it works
+        // title." Measured, the two section paddings meeting there came to
+        // 128px on a phone - the same as everywhere else on the page, and the
+        // reason it reads as more is what is directly above it: the map sits
+        // 48px under its own heading and the faces 24px under theirs, so this
+        // section is tight all the way down and then ends in the page's
+        // standard gap. Two thirds of that gap is enough to close the section
+        // without the two headings running together.
+        <section className="pb-10 pt-16 sm:pb-16 sm:pt-24">
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
             <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
@@ -530,8 +556,32 @@ export default function Landing() {
               its top edge, so an identical gap reads as a much bigger one and
               the heading floats between two sections instead of naming the
               one below it. */}
+          {/* AND IT STARTS ARRIVING HALF A SCREEN EARLY (10 Sep 2026).
+                Ethan, on the phone: "after it loads, whenever scrolling down,
+                the community map appears delayed - you're actually there seeing
+                a blank screen before it. Obviously you can trigger that a bit
+                sooner."
+
+                He is right and the reason is that this Reveal is not wrapping a
+                card. Behind it are 349 country paths, forty-odd pins, the
+                threads between them and a one-second landing sequence that only
+                begins once all of that has painted - so the default 15% head
+                start, which is about a thumb-flick and is exactly right for a
+                row of cards, is nowhere near enough here. 55% of the viewport
+                is roughly half a screen of scrolling, which on a phone is the
+                difference between the map being ready when it arrives and the
+                reader watching it assemble.
+
+                THE GAP ABOVE IT IS SMALLER AGAIN. Ethan, on the desktop: "the
+                Meet the Community sign is still slightly too far away from the
+                map." It is, and the number in this class is only half of why:
+                the svg's northern coast is 11.9% of its own height below its
+                top edge (measured - viewBox 880x480, land starts at y=57), so
+                whatever gap is set here, about eighty pixels of empty sky get
+                added to it on a desktop. Which is why 24px reads as 100px and
+                why this is now 4px. */}
           {mapData.creators.length > 0 && (
-            <Reveal from="up" className="mt-4 sm:mt-6">
+            <Reveal from="up" early={55} className="mt-1 sm:mt-1">
               <div className="w-full">
                 <CreatorMap
                   creators={mapData.creators}
@@ -738,7 +788,18 @@ export default function Landing() {
               movement on hover rather than riding the card's;
             * they arrive in turn, and they magnify under a pointer like
               everything else on the page now does. */}
-      <section className="bg-cloud/50 py-16 sm:py-24">
+      {/* WHITE, LIKE THE REST OF THE PAGE (10 Sep 2026). Ethan, on both
+          layouts: "for the Why creators joined, for some reason it's like a
+          grey background instead of a white background - it should still be the
+          same white. We want the whole screen to be nice white."
+
+          It was `bg-cloud/50` to separate four cards from the section above
+          them, which is a job the cards' own shadow already does - and the
+          moment the map above it went flush white, this band was the only grey
+          left below the fold and read as a different page. The cards keep a
+          hairline ring so they still have an edge on white rather than relying
+          on the shadow alone at low brightness. */}
+      <section className="py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
           <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Why creators join")}</h2>
           <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
@@ -773,7 +834,7 @@ export default function Landing() {
             ].map((b, i) => (
               <div
                 key={b.title}
-                className="landing-lift group relative flex h-full flex-col overflow-hidden rounded-card bg-white p-5 shadow-card sm:p-7 hoverable:hover:shadow-lift"
+                className="landing-lift group relative flex h-full flex-col overflow-hidden rounded-card bg-white p-5 shadow-card ring-1 ring-black/[0.04] sm:p-7 hoverable:hover:shadow-lift"
               >
                 {/* The rule number, quiet enough to be furniture and present
                     enough to make the four read in order. */}
