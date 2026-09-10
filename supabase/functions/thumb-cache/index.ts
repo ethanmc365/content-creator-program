@@ -85,10 +85,97 @@ function youtubeId(url: string): string | null {
   return m ? m[1] : null
 }
 
-async function tiktokCover(url: string): Promise<string | null> {
+// A browser's user agent. Instagram's CDN and TikTok's oEmbed both answer a
+// default fetch agent with a redirect to a login wall or a 400.
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+
+// THE PLATFORM PAGES WE ARE WILLING TO ASK, as opposed to the CDNs we are
+// willing to download from. Two lists, because they are two different
+// permissions: this one is "may be followed", `IMAGE_HOSTS` is "may be read".
+const PAGE_HOSTS = ['instagram.com', 'tiktok.com']
+function pageAllowed(u: string): boolean {
   try {
-    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
-      headers: { accept: 'application/json' },
+    const { hostname, protocol } = new URL(u)
+    if (protocol !== 'https:') return false
+    return PAGE_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
+// FOLLOW A REDIRECT CHAIN BY HAND, CHECKING EVERY HOP.
+//
+// `redirect: 'follow'` would hand the whole chain to fetch and give us a body
+// from wherever it ended up, which is the shape of every SSRF-by-redirect
+// there is. Walking it manually means each hop is checked against the two
+// allow-lists BEFORE it is requested, and nothing is downloaded on the way:
+// HEAD, and only the final URL is returned.
+async function followTo(start: string, hops = 5): Promise<string | null> {
+  let u = start
+  for (let i = 0; i < hops; i++) {
+    if (!pageAllowed(u) && !hostAllowed(u)) return null
+    let res: Response
+    try {
+      res = await fetch(u, {
+        method: 'HEAD',
+        redirect: 'manual',
+        headers: { 'user-agent': UA, accept: '*/*' },
+        signal: AbortSignal.timeout(8000),
+      })
+      // Some endpoints refuse HEAD outright. One retry, still no body read.
+      if (res.status === 405 || res.status === 501) {
+        res = await fetch(u, {
+          redirect: 'manual',
+          headers: { 'user-agent': UA, accept: '*/*' },
+          signal: AbortSignal.timeout(8000),
+        })
+        res.body?.cancel()
+      }
+    } catch {
+      return null
+    }
+    const loc = res.headers.get('location')
+    if (res.status >= 300 && res.status < 400 && loc) {
+      try { u = new URL(loc, u).toString() } catch { return null }
+      continue
+    }
+    return u
+  }
+  return null
+}
+
+// TIKTOK, INCLUDING THE TWO SHAPES THAT USED TO COME BACK EMPTY (10 Sep 2026).
+//
+// Ethan: "some of them don't have any cards, like Shannon's one just shows a
+// TikTok with the orange background... a few more TikTok ones that aren't
+// showing. Why is this?"
+//
+// Every one of them was a `vm.tiktok.com` short link, and every one of those
+// resolved to a `/photo/` URL - a TikTok PHOTO POST, which is a carousel of
+// stills rather than a video. Two separate refusals:
+//
+//   * oEmbed does not resolve short links at all. It needs the canonical
+//     `/@user/video/<id>`, so the short link has to be followed first.
+//   * oEmbed returns `{"message":"Something went wrong","code":400}` for a
+//     `/photo/` URL - and returns the full record, cover and all, for the SAME
+//     ID asked for as `/video/`. Verified on all five: every one has a cover on
+//     `p16-common-sign.tiktokcdn-eu.com`.
+//
+// So the id is what matters and the noun in the path is not.
+async function tiktokCover(url: string): Promise<string | null> {
+  let target = url
+  if (/(?:vm|vt)\.tiktok\.com/i.test(url)) {
+    const resolved = await followTo(url)
+    if (!resolved) return null
+    target = resolved
+  }
+  // Drop the query - TikTok's oEmbed is fussy about the tracking parameters a
+  // shared link carries - and ask for the id as a video whatever it is called.
+  target = target.split('?')[0].replace('/photo/', '/video/')
+  if (!pageAllowed(target)) return null
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(target)}`, {
+      headers: { accept: 'application/json', 'user-agent': UA },
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) return null
@@ -98,6 +185,29 @@ async function tiktokCover(url: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+// INSTAGRAM, WITHOUT A TOKEN AND WITHOUT AN ADMIN (10 Sep 2026).
+//
+// `www.instagram.com/p/<code>/media/?size=l` redirects to the post's cover on
+// `cdninstagram.com`. No key, no cookie, no session - and it answers for a
+// CAROUSEL, which is the one thing the `view-sync` probe cannot do: that probe
+// asks the media endpoint for a video and returns `not_a_video` for a post that
+// is a set of stills. One of the UK entries is exactly that.
+//
+// It is also the more important half of this change: the probe is admin-only,
+// so before this, an Instagram entry had no cover until an admin happened to
+// open the page it was on. This route works for anybody, which means a creator
+// looking at their own profile fills their own covers in.
+function instagramCode(url: string): string | null {
+  const m = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]{5,})/)
+  return m ? m[1] : null
+}
+
+async function instagramCover(url: string): Promise<string | null> {
+  const code = instagramCode(url)
+  if (!code) return null
+  return await followTo(`https://www.instagram.com/p/${code}/media/?size=l`)
 }
 
 async function keyFor(videoUrl: string): Promise<string> {
@@ -183,6 +293,7 @@ Deno.serve(async (req) => {
   if (src && !hostAllowed(src)) return json(req, { error: 'source host not allowed' }, 400)
   if (!src) {
     if (/tiktok\.com/i.test(videoUrl)) src = (await tiktokCover(videoUrl)) ?? ''
+    else if (/instagram\.com/i.test(videoUrl)) src = (await instagramCover(videoUrl)) ?? ''
     else {
       const yt = youtubeId(videoUrl)
       if (yt) src = `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`
@@ -196,7 +307,7 @@ Deno.serve(async (req) => {
   try {
     const res = await fetch(src, {
       redirect: 'error',
-      headers: { accept: 'image/*' },
+      headers: { accept: 'image/*', 'user-agent': UA },
       signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return json(req, { error: `source ${res.status}` }, 502)

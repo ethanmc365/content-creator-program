@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, Modal, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
+import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
 import Reveal from '../../components/network/Reveal'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
@@ -136,7 +137,6 @@ export default function AdminVideoTracker() {
       <PageHeader
         back="/admin"
         title={tr('Video tracker')}
-        subtitle={tr('The best videos the community has made, with the hook that made each one work. Built for briefing creators and for sharing with the rest of the team.')}
         action={
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={sync} disabled={syncing} className="btn-secondary disabled:opacity-50">
@@ -198,54 +198,27 @@ export default function AdminVideoTracker() {
           The line still describes WHAT IS ON SCREEN rather than the table: a
           page whose totals ignore its own filter tells you the wrong thing
           every time you use it. */}
-      <div className="mb-6 rounded-card border border-gray-100 bg-white p-3 shadow-card sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-sm">
-          <span className="font-semibold text-ink">
-            {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
-          </span>
-          {totals.best > 0 && (
-            <>
-              <span className="text-gray-300" aria-hidden>·</span>
-              <span className="text-smoke">
-                {tr('best')} <strong className="font-semibold text-brand">{formatViews(totals.best)}</strong>
-              </span>
-            </>
-          )}
-          {filter.month && (
-            <>
-              <span className="text-gray-300" aria-hidden>·</span>
-              <span className="text-smoke">{monthLabel(filter.month)}</span>
-            </>
-          )}
-          {/* THE RULES, AS SIX CHARACTERS AND A DOOR. See the note above the
-              card: the sentence this replaces was a paragraph of standing text
-              explaining a state that is almost always the default one. */}
-          {rules && (
-            <button
-              type="button"
-              onClick={() => setTuning(true)}
-              title={tr('What gets tracked')}
-              className="ml-auto rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
-            >
-              {tr('Top')} {rules.top_per_challenge} <span className="text-gray-300" aria-hidden>/</span> {formatViews(rules.view_threshold)}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
-            disabled={!shown.length}
-            className={cx(
-              'rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink',
-              !rules && 'ml-auto',
-            )}
-          >
-            <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
-            {tr('Export')}
-          </button>
-        </div>
+      {/* ONE STRIP, NOT TWO ROWS AND A RULE (10 Sep 2026).
+          Ethan: "the searching, the Every challenge, Every platform, Most views
+          - that's taking up a lot of space. Maybe you can find a way to clean
+          that up. Those filters are good, so just find a way to improve the UI."
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-          <label className="relative min-w-[11rem] flex-1 sm:max-w-xs">
+          They ARE all worth having, so nothing is deleted. What was taking the
+          space is that the card was two stacked rows with a hairline between
+          them - a summary line with the export controls, then the filters - and
+          on a desktop both were half empty. They are one wrapping row now: the
+          search grows into whatever is left, the three selects keep their fixed
+          widths (the rule below still holds - nothing in this row may move when
+          anything in it changes), and the summary and its two buttons are one
+          right-anchored group, so the group's RIGHT edge is what is pinned and
+          a count going from "3 videos" to "13 videos" moves nothing but its own
+          left edge. 120px of chrome becomes about 60.
+
+          Below `lg` it wraps back into two lines by itself, which is the right
+          answer on a phone and needs no second rule to say so. */}
+      <div className="mb-6 rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-[9rem] flex-1 basis-44 sm:max-w-[15rem]">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
             <input
               value={filter.q}
@@ -264,9 +237,9 @@ export default function AdminVideoTracker() {
             // pushed the two selects to its right along by 55px - the same
             // complaint as the Clear button ("I don't like how everything
             // moves"), from a different cause. The trigger truncates instead;
-            // the full label is one click away and is also now the heading
-            // above the grid.
-            className="w-[13rem] shrink-0"
+            // the full label is one click away and is also the heading above
+            // the grid.
+            className="w-[11rem] shrink-0"
             ariaLabel={tr('Challenge')}
             options={[{ value: '', label: tr('Every challenge') },
               ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
@@ -275,29 +248,17 @@ export default function AdminVideoTracker() {
             value={filter.platform}
             onChange={(v) => set({ platform: v })}
             // WIDE ENOUGH FOR ITS OWN PLACEHOLDER (10 Sep 2026). Ethan: "the
-            // Every platform filter only says 'plat fo', it doesn't show the
-            // rest of the word - and we have the space, so show it." 9.5rem is
-            // 152px, of which the padding, the chevron and its gap take 52, so
-            // "Every platform" had 100px to render 112px of text in. The fixed
-            // width is still the rule here (see the note above), it was just
-            // the wrong fixed width.
-            className="w-[11rem] shrink-0"
+            // Every platform filter only says 'plat fo'." The padding, the
+            // chevron and its gap take 52px, so the label needs 112 of its own.
+            className="w-[10.5rem] shrink-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
           />
-          {/* THE "ANY REASON" FILTER IS GONE (9 Sep 2026). Ethan: "for the any
-              reason, I would delete that filter. We don't need that filter."
-
-              Agreed, and it was the weakest of the five: every card already
-              wears its reason as a badge, there are only three of them, and a
-              filter for "added by hand" answers a question about our
-              bookkeeping rather than about the videos. `reasonLabel` stays -
-              the badge is the useful half. */}
           <Select
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
-            className="w-[10rem] shrink-0"
+            className="w-[9rem] shrink-0"
             ariaLabel={tr('Sort')}
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
@@ -323,15 +284,14 @@ export default function AdminVideoTracker() {
 
           {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE (9 Sep 2026).
               Ethan: "when I click on July 2026 it changes how the card above
-              looks, because the Clear button appears on everything just so it's
-              to the left of it. I don't like how everything moves."
+              looks, because the Clear button appears. I don't like how
+              everything moves."
 
               A control that appears when it becomes useful is a reasonable
-              instinct and it is wrong in a WRAPPING row: adding a fifth item to
-              a flex-wrap line does not add a button, it re-flows every button
-              on the line. So the space is reserved permanently and only the
-              button's visibility changes - nothing to its left can move,
-              because nothing to its left changes size.
+              instinct and it is wrong in a WRAPPING row: adding an item to a
+              flex-wrap line does not add a button, it re-flows every button on
+              the line. So the space is reserved permanently and only the
+              button's visibility changes.
 
               `invisible` rather than `opacity-0`: it must also leave the tab
               order when it does nothing. */}
@@ -347,7 +307,50 @@ export default function AdminVideoTracker() {
           >
             {tr('Clear')}
           </button>
+
+          <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span className="font-semibold text-ink">
+            {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
+          </span>
+          {totals.best > 0 && (
+            <>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <span className="text-smoke">
+                {tr('best')} <strong className="font-semibold text-brand">{formatViews(totals.best)}</strong>
+              </span>
+            </>
+          )}
+          {filter.month && (
+            <>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <span className="text-smoke">{monthLabel(filter.month)}</span>
+            </>
+          )}
+          {/* THE RULES, AS SIX CHARACTERS AND A DOOR. See the note above the
+              card: the sentence this replaces was a paragraph of standing text
+              explaining a state that is almost always the default one. */}
+          {rules && (
+            <button
+              type="button"
+              onClick={() => setTuning(true)}
+              title={tr('What gets tracked')}
+              className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
+            >
+              {tr('Top')} {rules.top_per_challenge} <span className="text-gray-300" aria-hidden>/</span> {formatViews(rules.view_threshold)}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
+            disabled={!shown.length}
+            className="rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink"
+          >
+            <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
+            {tr('Export')}
+          </button>
+          </div>
         </div>
+
       </div>
 
       {/* --------------------------------------------- the grid + the months --
@@ -657,27 +660,13 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
         {thumb
           ? <img src={thumb} alt="" onError={onThumbError} referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : <span className="absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/25" aria-hidden />}
-        {/* THE GLYPH IS THE CONTROL, WITHOUT THE DISC (10 Sep 2026). Ethan:
-            "rather than having the white circle with the orange play button, I
-            would only have the orange play button, slightly bigger. Don't need
-            that white circle."
-
-            The disc was there to guarantee contrast on an unknown photograph,
-            and a shadow does that job without putting a 44px white plate over
-            the middle of the frame this card exists to show. Two shadows, not
-            one: a tight dark one for edge definition on a pale frame and a
-            wider soft one so the mark still separates from a busy dark one. */}
-        <span className="absolute inset-0 flex items-center justify-center">
-          <svg
-            viewBox="0 0 24 24"
-            className="h-12 w-12 text-brand transition-transform duration-300 group-hover:scale-110"
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.45)) drop-shadow(0 6px 18px rgba(0,0,0,0.35))' }}
-            fill="currentColor"
-            aria-hidden
-          >
-            <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
-          </svg>
-        </span>
+        {/* NO PLAY MARK. Ethan: "completely remove the play button from the
+            middle and just still have the function there to click anywhere on
+            that." The frame IS the button - this whole block is one - so the
+            triangle was announcing an affordance rather than carrying it, and
+            it landed on the face every time, because a face is what a vertical
+            video puts in the middle. Same change on the challenge board and on
+            a creator's profile; see components/VideoThumb. */}
         {v.views != null && (
           <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-bold tabular-nums text-white backdrop-blur-sm">
             {formatViews(v.views)}
@@ -692,9 +681,13 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
             {v.rank || place}
           </span>
         )}
-        {v.platform && (
-          <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke backdrop-blur-sm">
-            {v.platform}
+        {/* THE PLATFORM AS ITS OWN MARK. Ethan: "change that to the actual
+            social media brand icon, the logo, instead of just general
+            Instagram, TikTok in white and grey." Same marks as the challenge
+            board, imported rather than copied. */}
+        {v.platform && PLATFORM_MARKS[v.platform] && (
+          <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
+            <span className="h-4 w-4">{PLATFORM_MARKS[v.platform].icon}</span>
           </span>
         )}
       </button>

@@ -1206,7 +1206,12 @@ function Welcome({ name, pending }) {
           What survives is the length, said plainly, and the one row Ethan
           singled out to keep: "then the team reviews it, a person reads every
           application. This is good, I would keep this in." */}
-      <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">
+      {/* NO EXTRA TOP PADDING. `space-y-5` on the column already puts 20px
+          between the plane and this list, and the 8px on top of it was the
+          other half of the uneven gap Ethan reported - the first half being the
+          44% of empty sky that used to be inside the plane's own box (see
+          `TIGHT` in TrypPlane). */}
+      <div className="mx-auto max-w-sm space-y-2.5 text-left">
         {/* THE TITLES ONLY (4 Sep 2026). Ethan: "remove 'Short screens, and you
             can come back to it' and remove 'A person reads every application'.
             I just want the titles."

@@ -134,30 +134,38 @@ async function fromProbe(url) {
  *        Off by default so a non-admin surface can use this safely.
  * @returns {Promise<string|null>}
  */
-export function resolveThumbnail(url, { probe = false, store = true } = {}) {
+export function resolveThumbnail(url, { probe = false } = {}) {
   if (!url) return Promise.resolve(null)
   const key = `${probe ? 'p' : 'o'}:${url}`
   if (inFlight.has(key)) return inFlight.get(key)
 
   const run = enqueue(async () => {
-    let found = null
-    try {
-      const mod = await import('./videoPreview')
-      const preview = await mod.getVideoPreview(url)
-      if (preview?.thumbnail) found = preview.thumbnail
-    } catch { /* oEmbed is best-effort by definition */ }
-    if (!found && probe) {
-      try { found = await fromProbe(url) } catch { found = null }
-    }
+    // THE SERVER GOES FIRST NOW (10 Sep 2026), and it used to go last.
+    //
+    // The browser's own route was TikTok's and YouTube's tokenless oEmbed, and
+    // it could not reach three whole classes of post: a `vm.tiktok.com` short
+    // link (oEmbed will not resolve one), a TikTok PHOTO post (oEmbed refuses
+    // `/photo/` and answers happily for the same id as `/video/`), and any
+    // Instagram post at all. `thumb-cache` knows all of those - including
+    // `instagram.com/p/<code>/media/`, which needs no token and answers for a
+    // CAROUSEL, the one shape even the admin probe returns `not_a_video` for.
+    //
+    // Asking it first also makes the answer PERMANENT for everybody rather than
+    // for whoever happened to look: what it finds it stores, so the next reader
+    // gets a URL from our own origin and no lookup at all.
+    const kept = await storeThumbnail(url)
+    if (kept) return kept
+
+    // AND AN ADMIN HAS ONE MORE DOOR. `view-sync` holds the Instagram session
+    // cookies, so it can still answer where the tokenless route cannot - a
+    // post that has been age-gated, say. Handing what it finds straight back to
+    // `thumb-cache` is what makes that answer permanent too, before the signed
+    // URL it returned has a chance to expire.
+    if (!probe) return null
+    let found
+    try { found = await fromProbe(url) } catch { /* the probe is best effort */ }
     if (!found) return null
-    // KEEP IT. The permanent URL is better than the one we just found in every
-    // way there is, so it wins when it arrives - and when the copy fails, the
-    // platform URL still draws a picture today.
-    if (store) {
-      const kept = await storeThumbnail(url, found)
-      if (kept) return kept
-    }
-    return found
+    return (await storeThumbnail(url, found)) || found
   })
 
   inFlight.set(key, run)

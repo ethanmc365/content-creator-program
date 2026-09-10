@@ -1042,9 +1042,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     </div>
                   </div>
                   {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
-                  {s.logged_views != null && (
-                    <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
-                  )}
 
                   {/* ---- WHAT THIS ENTRY CLAIMED ----
                       Ethan: "it should show +1 point or plus x points on the
@@ -1124,9 +1121,39 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       </div>
                     </div>
                   )}
-                  {/* THE TEAM'S NOTE. The creator sees it on their own entry;
+                  {/* THE FOOT OF THE CARD IS ONE BLOCK, AND IT IS PINNED
+                      (10 Sep 2026).
+
+                      Ethan: "the cards are different sizes, some of them are in
+                      a different range depending on the caption they added. Fix
+                      this so the cards are always the same size - Open Link
+                      should always be at the bottom, Leave feedback for this
+                      entry just above it, and the views just above that. Then
+                      there can be extra space above if someone wrote a short
+                      caption."
+
+                      The cards were already the same HEIGHT - they are grid
+                      items and a grid stretches its row. What was different was
+                      where everything inside them sat, because only the Open
+                      Link row had `mt-auto`: the slack landed between the
+                      feedback box and the button, so on a short caption the
+                      three things at the foot were spread down the card and on
+                      a long one they were bunched. Moving the whole trio into
+                      one `mt-auto` block puts the slack ABOVE them, which is
+                      where an unused line belongs, and lines the three rows up
+                      across every card in the row.
+
+                      The views moved down here from just under the caption for
+                      the same reason - they are part of the foot, not part of
+                      the story.
+
+                      THE TEAM'S NOTE. The creator sees it on their own entry;
                       an admin sees the editor on every entry. Nobody else sees
                       anything, because nobody else's query returns a row. */}
+                  <div className="mt-auto flex flex-col gap-3 pt-1">
+                  {s.logged_views != null && (
+                    <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
+                  )}
                   {s.creator_id === user.id && <EntryFeedbackNote feedback={feedback[s.id]} />}
                   {isAdmin && (
                     <EntryFeedbackEditor
@@ -1137,7 +1164,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     />
                   )}
 
-                  <div className="mt-auto flex gap-2">
+                  <div className="flex gap-2">
                     <a
                       href={s.video_url}
                       target="_blank"
@@ -1153,6 +1180,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     {s.creator_id === user.id && isLive && (
                       <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">{tr("Remove")}</button>
                     )}
+                  </div>
                   </div>
                 </div>
               </div>

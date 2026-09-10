@@ -73,7 +73,26 @@ function rotateAboutCentre(px, py, cx, cy, deg) {
   return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)]
 }
 
-function Drawing({ id, animate }) {
+// HOW MUCH SKY THE BOX CONTAINS.
+//
+// The drawing is laid out in a 400x220 field with the aircraft occupying
+// y=96..214, which is 44% empty above it and 3% below. That asymmetry is
+// invisible on the `hero` card, where the box is anchored into a corner and the
+// sky is what keeps the aircraft off the heading. It is very visible when the
+// plane is a CENTRED block in a column: Ethan, on the onboarding welcome
+// screen, "the spacing between Welcome to the team and the plane is too big -
+// it should be the same as the spacing between the bottom of the plane and the
+// list below it."
+//
+// It was, in the layout. `space-y-5` puts exactly 20px on both sides of it. The
+// other 54px above the aircraft was inside the picture, so no amount of margin
+// arithmetic could ever have made the two look equal - the fix has to be the
+// box, not the gap. `tight` crops the viewBox to the aircraft plus a dozen
+// units of air on each side, so the element's edges are the aircraft's edges
+// and the spacing around it is entirely the column's.
+const TIGHT = { y: 84, h: 146 }
+
+function Drawing({ id, animate, tight = false }) {
   const VB_W = 400
   const VB_H = 220
   const PLANE_W = 300
@@ -91,7 +110,12 @@ function Drawing({ id, animate }) {
   )
 
   return (
-    <svg viewBox={`0 0 ${VB_W} ${VB_H}`} fill="none" aria-hidden className="h-full w-full">
+    <svg
+      viewBox={tight ? `0 ${TIGHT.y} ${VB_W} ${TIGHT.h}` : `0 0 ${VB_W} ${VB_H}`}
+      fill="none"
+      aria-hidden
+      className="h-full w-full"
+    >
       <defs>
         {/* Strong where it leaves the tail, gone by the edge of the card. A
             dashed line of constant opacity reads as a border, not as exhaust.
@@ -194,9 +218,13 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
         // `xMidYMid meet`, so a box at 2.00 against a viewBox at 1.82 letterboxes
         // the drawing and shrinks the aircraft by about 9% to fit. Tying the box
         // to the viewBox makes that impossible.
-        className={cx('pointer-events-none block aspect-[20/11] w-56 text-brand sm:w-80', className)}
+        // The ratio tracks the CROPPED viewBox (400x146), for the same reason
+        // the hero's tracks the full one: `xMidYMid meet` letterboxes anything
+        // that drifts, and a letterboxed plane is a smaller plane sitting in
+        // exactly the empty space this crop exists to remove.
+        className={cx('pointer-events-none block aspect-[200/73] w-56 text-brand sm:w-80', className)}
       >
-        <Drawing id={`${id}-inline`} animate={animate} />
+        <Drawing id={`${id}-inline`} animate={animate} tight />
       </span>
     )
   }

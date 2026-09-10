@@ -47,7 +47,17 @@ const EXPLORED = '#fce1d0' // countries the community has FILMED in
 // Every plane flies at EXACTLY the same speed. Duration = true curve length /
 // speed, with NO clamping - clamping was what made short hops crawl and long
 // hops race. Speed is in projection units per second.
-const PLANE_SPEED = 10
+//
+// 10 -> 24 (10 Sep 2026). Ethan: "it shows the community map and it's just
+// frozen, the planes aren't animating." Half of that was the arrival being over
+// before he arrived (see `seen` below) and half of it was arithmetic: the
+// viewBox is 880 units across a 1440px map, so a unit is about 1.6 pixels and
+// 10 units a second is SIXTEEN PIXELS A SECOND. A transatlantic hop took 33
+// seconds. Watch that for two seconds - which is what anybody scrolling past
+// does - and the aircraft has moved 32px, which is indistinguishable from
+// stopped. At 24 the same hop is 14 seconds and the movement reads as flight
+// without turning the map into a screensaver.
+const PLANE_SPEED = 24
 const flightDur = (len) => len / PLANE_SPEED
 
 // Arc length of the quadratic curve we draw (M a Q c b), sampled. Using the
@@ -505,16 +515,103 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
+  // THE ARRIVAL PLAYS WHEN THE MAP IS SEEN, NOT WHEN THE ATLAS LOADS
+  // (10 Sep 2026).
+  //
+  // Ethan, on the landing page: "I scrolled on and it shows the community map
+  // and it's just frozen... occasionally, if I refresh and scroll down quickly,
+  // it'll actually show the animation where the icons drop in nice and the
+  // planes are immediately going."
+  //
+  // That is the whole bug in one sentence, and the word that gives it away is
+  // "quickly". The arrival started on `painted` - which is when the TopoJSON
+  // finishes parsing, on page load, with the map a thousand pixels below the
+  // fold. Land, threads and pins were therefore all over within about a second
+  // of the page arriving, and what a reader who scrolled at a normal speed met
+  // was the finished picture. Racing it was the only way to see it.
+  //
+  // So the arrival now needs BOTH: the atlas drawn AND the map on screen.
+  //
+  // THE HEAD START IS DELIBERATELY TINY, which is the opposite of the rule for
+  // every other reveal on this page. A card is 24px of travel and wants to have
+  // FINISHED as it lands, so it starts a thumb-flick early. This is a
+  // 1.1-second sequence that is the whole point of the section, and Ethan asked
+  // for it "exactly as I scrolled on, not the delay" - so it has to start as
+  // the map comes up, not before. Measured: 25% was 225px on a 900px window and
+  // the map's top sits 1064px down, so the observer fired AT SCROLL ZERO and
+  // reintroduced the exact bug it was added to fix. 6% is 54px.
+  //
+  // THE NET IS NOT OPTIONAL, because `HELD` keeps this map at opacity 0 until
+  // the arrival begins: no IntersectionObserver at all (an old browser, an
+  // in-app webview that stubs it) means `seen` starts true, and an observer
+  // that exists but never delivers is caught by the timer. This app's audience
+  // arrives through Instagram and TikTok webviews and both failure modes are
+  // real there.
+  //
+  // AND THE NET ASKS "IS THE OBSERVER WORKING", NOT "HAS IT BEEN A WHILE".
+  // The first version was a flat 4s and it quietly undid the whole change: a
+  // reader who spends five seconds on the hero - which is everybody - had the
+  // arrival played to an empty screen before they ever scrolled, which is the
+  // bug this is here to fix wearing a timer. A live observer delivers an entry
+  // for an observed element on the next frame WHETHER OR NOT it intersects, so
+  // "nothing has been delivered at all after a second and a half" is the honest
+  // test for a broken one, and it never fires on a browser that works.
+  const boxRef = useRef(null)
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    if (seen) return undefined
+    const el = boxRef.current
+    // FAIL OPEN. `HELD` keeps this map invisible until the arrival can start,
+    // so there is no version of this effect that is allowed to do nothing: no
+    // node means observe nothing means a blank card for ever.
+    if (!el) { setSeen(true); return undefined }
+    let delivered = false
+    const io = new IntersectionObserver(
+      (entries) => {
+        delivered = true
+        if (entries.some((e) => e.isIntersecting)) setSeen(true)
+      },
+      { rootMargin: '0px 0px 6% 0px' },
+    )
+    io.observe(el)
+    const net = setTimeout(() => { if (!delivered) setSeen(true) }, 1500)
+    return () => { io.disconnect(); clearTimeout(net) }
+  }, [seen])
+
   // The atlas, from the one shared parse. See lib/mapCountries: handing
   // `<Geographies>` the parsed object rather than a URL is what keeps a page
   // with several maps on it from decoding a megabyte of TopoJSON per map.
   const [features, setFeatures] = useState(null)
 
+  // THE ATLAS IS 614KB OF TOPOJSON AND PARSING IT IS A LONG TASK (10 Sep 2026).
+  //
+  // Ethan, about the phone: "sometimes I don't see the Create Earn Travel
+  // animation - after I refresh they just appear. It takes so long to load,
+  // it's like I missed the animation."
+  //
+  // The entrance was released at the right moment; what was eating it was this.
+  // `feature()` over 240 countries is a single synchronous block of a few
+  // hundred milliseconds on a phone, and this effect fires on MOUNT - which on
+  // the landing page is while the hero is animating, a thousand pixels above a
+  // map nobody will reach for several seconds. One long task dropped in the
+  // middle of a 520ms entrance does not slow it down, it removes most of it.
+  //
+  // So on a map that is not on screen yet the load waits a beat, and `seen`
+  // cancels the wait the moment the reader heads towards it. A map that is
+  // already in view (the creator directory, a market page) starts immediately,
+  // because `seen` is true on its first effect. `loadMapFeatures` is one shared
+  // promise for the session, so the re-run when `seen` flips joins the flight
+  // rather than starting a second one.
   useEffect(() => {
     let cancelled = false
-    loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
-    return () => { cancelled = true }
-  }, [])
+    const go = () => { loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) }) }
+    if (seen) {
+      go()
+      return () => { cancelled = true }
+    }
+    const t = setTimeout(go, 1200)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [seen])
 
   // THE ENTRANCE DOES NOT START ON THE FRAME THAT DRAWS THE WORLD.
   //
@@ -575,14 +672,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // finish at 520ms + 300ms - so 1100ms covers the whole sequence with a frame
   // to spare. (It was 1400ms while the aircraft were held for a second; see
   // `.map-plane-in` in index.css for why they no longer are.)
+
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
-    // Off `painted`, not `features`: the clock has to start when the animation
-    // does, or the two frames it waits come out of the end of the sequence.
-    if (!painted || arrived) return undefined
+    // Off `painted && seen`, not `features`: the clock has to start when the
+    // animation does, or the two frames it waits come out of the end of the
+    // sequence.
+    if (!painted || !seen || arrived) return undefined
     const t = setTimeout(() => setArrived(true), 1100)
     return () => clearTimeout(t)
-  }, [painted, arrived])
+  }, [painted, seen, arrived])
 
   // THE ONE FLAG EVERY ARRIVAL CLASS IS OFF, and it has to be one flag rather
   // than `!arrived` per element. A CSS animation's clock starts the moment its
@@ -591,7 +690,30 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // (or, on the slow commit this is guarding against, a hundred and fifty
   // milliseconds) further through their sequence than the land beneath them.
   // Everything is classed together or nothing is.
-  const entering = painted && !arrived
+  const entering = painted && seen && !arrived
+
+  // AND THE AIRCRAFT ARE PUT BACK TO THE START OF THEIR PATHS.
+  //
+  // The flights are SMIL (`<animateMotion>`), which runs on the SVG's own
+  // timeline rather than on any clock React can see - and that timeline has
+  // been running since the element existed, which by now is however long the
+  // reader spent above the fold. So without this, the arrival's aircraft lift
+  // in wherever they happen to be, mid-ocean, often two of them on top of each
+  // other. Rewinding to zero at the moment the entrance starts puts every
+  // aircraft on the first frame of its own route, which is what makes them read
+  // as taking off with everything else.
+  //
+  // `unpauseAnimations` first: Chrome suspends a time container whose SVG has
+  // not been painted, and this map spends its whole life so far off screen.
+  useEffect(() => {
+    if (!entering) return
+    const svg = boxRef.current?.querySelector('svg')
+    if (!svg?.setCurrentTime) return
+    try {
+      svg.unpauseAnimations?.()
+      svg.setCurrentTime(0)
+    } catch { /* an engine without a SMIL time container has nothing to rewind */ }
+  }, [entering])
 
   // NO HOVER STATE AT ALL ANY MORE. The name pill it fed is gone (see the note
   // where it used to be drawn), and it was the only reader - so every border
@@ -1527,6 +1649,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const mapBox = (
     <div
+      ref={boxRef}
       // Opts out of the platform-wide pinch guard: this map zooms itself, with
       // d3-zoom, and draws more map rather than bigger pixels. See
       // lib/pinchGuard.
@@ -1629,26 +1752,25 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // WAY IN - the wheel is the page's now - so it has to say what it is.
           // An unlabelled icon that hides the only door is how the door gets
           // missed.
-          // AND ON A FLUSH MAP IT SITS ON THE MAP, NOT ABOVE IT (10 Sep 2026).
+          // AND ON A FLUSH MAP IT IS INSET FROM THE EDGE, NOT WEDGED INTO THE
+          // CORNER (10 Sep 2026).
           //
-          // Ethan: "the full screen should actually be on the map, like, to the
-          // right of Russia." A flush map has no card and no sea tint, so the
-          // top of its box is the page's own white - and `top-3` put the button
-          // in that white, floating above the world rather than on it.
+          // Two rounds on this one. First: "the full screen should actually be
+          // on the map, like, to the right of Russia" - so it came down to 19%
+          // of the map's height, which is Russia's latitude band. Then: "the
+          // full screen icon should be at the very top of the map. Currently
+          // it's like below. It should be at the top in the right, just to the
+          // right of Russia, but level to the top of it."
           //
-          // Measured off the rendered svg: the viewBox is 880x480 and the land
-          // runs from y=57 to y=437, so the northern coast is 11.9% of the way
-          // down and Russia's latitude band is about 15-30%. 19% lands the
-          // button beside Russia's eastern edge at every width, because the svg
-          // keeps that aspect ratio whatever the window does. `right-4` clears
-          // the far-east coast (x=836 of 880, so 5% in) with room to spare.
-          //
-          // Percentages of the CONTAINER, which is exactly the svg's box here;
-          // a boxed map still uses the corner, where it has a tinted sea to sit
-          // on and no landmass to cover.
+          // So the horizontal reading was the part that mattered and the
+          // vertical one was not: right of Russia, at the TOP. `right-6` on a
+          // desktop clears the far-east coast (x=836 of the 880-wide viewBox,
+          // so 5% in from the edge) while staying beside it rather than in the
+          // gutter, and a boxed map keeps the tighter corner inset it always
+          // had, because there it has a tinted sea to sit on.
           className={cx(
             'absolute z-20 flex h-9 items-center justify-center gap-1.5 rounded-full bg-white/90 px-0 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 max-sm:w-9 sm:px-3.5',
-            flush ? 'right-4 top-[19%] sm:right-6' : 'right-3 top-3 sm:right-5 sm:top-5',
+            flush ? 'right-4 top-4 sm:right-6' : 'right-3 top-3 sm:right-5 sm:top-5',
           )}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1772,7 +1894,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           {features && (
           <g
             className={entering ? 'map-arrive' : undefined}
-            style={painted || arrived ? undefined : HELD}
+            // Held until the ARRIVAL can begin, which needs the atlas drawn AND
+            // the map on screen. This is what makes the map its own reveal -
+            // see `seen` above - and it is why the landing page no longer wraps
+            // it in a `Reveal` as well.
+            style={(painted && seen) || arrived ? undefined : HELD}
           >
           <Countries
             features={features}

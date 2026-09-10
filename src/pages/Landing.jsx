@@ -564,44 +564,48 @@ export default function Landing() {
               its top edge, so an identical gap reads as a much bigger one and
               the heading floats between two sections instead of naming the
               one below it. */}
-          {/* AND IT STARTS ARRIVING HALF A SCREEN EARLY (10 Sep 2026).
-                Ethan, on the phone: "after it loads, whenever scrolling down,
-                the community map appears delayed - you're actually there seeing
-                a blank screen before it. Obviously you can trigger that a bit
-                sooner."
+          {/* THE MAP IS ITS OWN REVEAL NOW, SO IT IS NOT WRAPPED IN ONE
+              (10 Sep 2026).
 
-                He is right and the reason is that this Reveal is not wrapping a
-                card. Behind it are 349 country paths, forty-odd pins, the
-                threads between them and a one-second landing sequence that only
-                begins once all of that has painted - so the default 15% head
-                start, which is about a thumb-flick and is exactly right for a
-                row of cards, is nowhere near enough here. 55% of the viewport
-                is roughly half a screen of scrolling, which on a phone is the
-                difference between the map being ready when it arrives and the
-                reader watching it assemble.
+              Ethan: "I scrolled on and it shows the community map and it's just
+              frozen... occasionally, if I refresh and scroll down quickly,
+              it'll actually show the animation where the icons drop in nice and
+              the planes are immediately going. So just as I scroll down,
+              everything should appear nicely, not the delay."
 
-                THE GAP ABOVE IT IS SMALLER AGAIN. Ethan, on the desktop: "the
-                Meet the Community sign is still slightly too far away from the
-                map." It is, and the number in this class is only half of why:
-                the svg's northern coast is 11.9% of its own height below its
-                top edge (measured - viewBox 880x480, land starts at y=57), so
-                whatever gap is set here, about eighty pixels of empty sky get
-                added to it on a desktop. Which is why 24px reads as 100px and
-                why this is now 4px. */}
+              There were TWO entrances here and they knew nothing about each
+              other. `Reveal` faded the whole block in when it came near the
+              fold; CreatorMap ran its own land-scale, thread-draw, pin-drop and
+              take-off sequence when the ATLAS finished parsing - which is on
+              page load, with the map a thousand pixels below the fold. So the
+              good one was always over before the reader got there and the one
+              that was left was a plain fade. Racing it was the only way to see
+              the real thing, which is exactly what he described.
+
+              CreatorMap now waits to be on screen before it arrives (see `seen`
+              there), which makes the wrapper redundant AND made it harmful: a
+              `Reveal` at opacity 0 is not painted, and Chrome suspends the SMIL
+              time container of an SVG that is not being painted - so the
+              aircraft were not merely late, they were stopped.
+
+              THE GAP ABOVE IT IS SMALL FOR A REASON. Ethan, earlier: "the Meet
+              the Community sign is still slightly too far away from the map."
+              The number here is only half of why: the svg's northern coast is
+              11.9% of its own height below its top edge (measured - viewBox
+              880x480, land starts at y=57), so about eighty pixels of empty sky
+              get added to whatever is set here on a desktop. */}
           {mapData.creators.length > 0 && (
-            <Reveal from="up" early={55} className="mt-1 sm:mt-1">
-              <div className="w-full">
-                <CreatorMap
-                  creators={mapData.creators}
-                  trips={mapData.trips}
-                  exploredCountries={mapData.visited}
-                  exploredActive
-                  legend
-                  flush
-                  onCreatorClick={setMiniProfile}
-                />
-              </div>
-            </Reveal>
+            <div className="mt-1 w-full sm:mt-1">
+              <CreatorMap
+                creators={mapData.creators}
+                trips={mapData.trips}
+                exploredCountries={mapData.visited}
+                exploredActive
+                legend
+                flush
+                onCreatorClick={setMiniProfile}
+              />
+            </div>
           )}
 
           {featured.length > 0 && (
@@ -690,7 +694,14 @@ export default function Landing() {
       )}
 
       {/* ---------- How it works ---------- */}
-      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+      {/* THE SAME CLOSING GAP AS THE SECTION ABOVE IT (10 Sep 2026). Ethan:
+          "there's slightly too much space between How it works, those cards,
+          and the Why creators join title - just tidy it up and make sure it's
+          even." Measured on a phone: 116px under the recently-active rail (its
+          own bottom padding was closed last pass) against 140px here, so this
+          was the one left standing at the page's old rhythm. Both are pb-10
+          now, and every heading on the page has the same amount of air over it. */}
+      <section className="mx-auto max-w-6xl px-5 pb-10 pt-16 sm:px-8 sm:pb-16 sm:pt-24">
         <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("How it works")}</h2>
         <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">{tr("Three steps between you and your first payout.")}</p>
         {/* THE THREE STEPS ARRIVE IN ORDER, which is the one place on this page

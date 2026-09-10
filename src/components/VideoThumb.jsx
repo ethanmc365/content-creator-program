@@ -42,7 +42,11 @@ import { cx } from '../lib/utils'
 const BRAND_FACE = 'bg-[linear-gradient(140deg,#e35410_0%,#d94407_55%,#c23d06_100%)]'
 const WARM_GLOW = 'radial-gradient(circle at 82% 16%, rgba(255,255,255,0.22), transparent 60%)'
 
-const PLATFORMS = {
+// EXPORTED, because the video tracker draws its own frame (it carries a rank
+// badge and a view count this component knows nothing about) and drew the
+// platform as a WORD until 10 Sep. One set of marks, two callers - the
+// alternative was a second copy of four brand paths that could drift.
+export const PLATFORMS = {
   Instagram: {
     label: 'Instagram',
     icon: (
@@ -87,13 +91,20 @@ const PLATFORMS = {
   },
 }
 
-// THE PLAY GLYPH, WITHOUT A DISC BEHIND IT. Ethan, about the tracker's version
-// and then about these: "rather than having the white circle with the orange
-// play button, I would only have the orange play button, slightly bigger. Don't
-// need that white circle." The disc existed to guarantee contrast over an
-// unknown photograph; two drop shadows do that without putting a plate over the
-// middle of the frame the card is there to show.
-const PLAY_SHADOW = 'drop-shadow(0 1px 2px rgba(0,0,0,0.45)) drop-shadow(0 6px 18px rgba(0,0,0,0.35))'
+// AND THEN THE PLAY MARK WENT ALTOGETHER (10 Sep 2026).
+//
+// Ethan: "I would actually completely remove the play button from the middle
+// and just still have the function there to click anywhere on that, brings up
+// that preview video. We can remove the play button because it just covers the
+// display."
+//
+// Two rounds to get here and the second one is the right answer. A white disc
+// with an orange triangle was a control drawn over the picture; the triangle
+// alone was a smaller control drawn over the same place. But the card is
+// already a button - every caller wraps this whole block in one - so the mark
+// was never carrying the affordance, it was announcing it. On a wall of covers
+// the announcement is the only thing they have in common, and it lands on the
+// face every time, because a face is what a vertical video puts in the middle.
 
 /**
  * @param {string} url          the post's URL
@@ -152,28 +163,48 @@ export default function VideoThumb({ url, platform, thumbnailUrl, className }) {
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
             />
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand transition-transform duration-300 group-hover/thumb:scale-110" style={{ filter: PLAY_SHADOW }} fill="currentColor" aria-hidden>
-                <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
-              </svg>
-            </span>
-            {/* The platform is still a fact worth having, and on a photograph it
-                belongs in a corner rather than across the middle. */}
-            <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke backdrop-blur-sm">
-              {p.label}
+            {/* THE PLATFORM IS ITS OWN MARK, NOT ITS OWN NAME (10 Sep 2026).
+                Ethan: "where it says Instagram in the top right corner, or
+                TikTok - I would change that to the actual social media brand
+                icon, the logo, and have that there instead of just general
+                Instagram, TikTok in white and grey. It will look better."
+
+                He is right and there is a reason worth keeping: the word is
+                nine characters of grey type on a photograph, which is the one
+                thing a corner badge must not be. A logo is read at a glance, at
+                a third of the width, and it is the mark people already sort
+                these platforms by. `text-ink` rather than each brand's own
+                colour - four different accent colours on one grid is a wall of
+                confetti, and the disc is what makes it legible on any frame. */}
+            <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
+              <span className="h-4 w-4">{p.icon}</span>
             </span>
           </>
         )
         : (
           <>
-            {/* Warm highlight + a gentle top/bottom shade so the white mark stays crisp. */}
+            {/* THE FALLBACK IS THE MARK ON THE ORANGE, AND NOTHING ELSE
+                (10 Sep 2026). Ethan, about the handful that had no cover: "if
+                there's no possible way to do it, rather than just a generic
+                white logo with the TikTok, actually use the brand social media
+                logo with the orange card."
+
+                It always drew the logo; what it also drew was the WORD, at
+                24px, beside it - which is how a card with no picture ended up
+                shouting the one fact the corner badge already carries on every
+                card that does have one. The mark alone, large and centred, is a
+                placeholder that looks deliberate instead of broken.
+
+                This is now genuinely rare: `thumb-cache` resolves TikTok short
+                links, TikTok photo posts and Instagram carousels, which were
+                all six of the ones Ethan could see. What is left is a private
+                post, a deleted one, or a platform none of the routes know. */}
             <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative flex items-center gap-3 px-4 transition-transform duration-200 group-hover/thumb:scale-105">
-                <span className="h-9 w-9 shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.28)]">{p.icon}</span>
-                <span className="text-2xl font-semibold tracking-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.28)]">{p.label}</span>
-              </div>
+              <span className="h-14 w-14 drop-shadow-[0_2px_10px_rgba(0,0,0,0.28)] transition-transform duration-200 group-hover/thumb:scale-105">
+                {p.icon}
+              </span>
             </div>
           </>
         )}
