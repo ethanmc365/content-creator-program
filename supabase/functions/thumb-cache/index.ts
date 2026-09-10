@@ -162,29 +162,98 @@ async function followTo(start: string, hops = 5): Promise<string | null> {
 //     `p16-common-sign.tiktokcdn-eu.com`.
 //
 // So the id is what matters and the noun in the path is not.
-async function tiktokCover(url: string): Promise<string | null> {
+/** What a platform will tell us about a post without being asked for a key. */
+type Meta = {
+  thumbnail: string | null
+  caption: string | null
+  author: string | null
+  handle: string | null
+}
+const NOTHING: Meta = { thumbnail: null, caption: null, author: null, handle: null }
+
+/** `https://www.tiktok.com/@someone` -> `someone`. */
+function handleFromAuthorUrl(u: unknown): string | null {
+  if (typeof u !== 'string') return null
+  const m = u.match(/\/@([A-Za-z0-9._-]+)/)
+  return m ? m[1] : null
+}
+
+async function tiktokMeta(url: string): Promise<Meta> {
   let target = url
   if (/(?:vm|vt)\.tiktok\.com/i.test(url)) {
     const resolved = await followTo(url)
-    if (!resolved) return null
+    if (!resolved) return NOTHING
     target = resolved
   }
   // Drop the query - TikTok's oEmbed is fussy about the tracking parameters a
   // shared link carries - and ask for the id as a video whatever it is called.
   target = target.split('?')[0].replace('/photo/', '/video/')
-  if (!pageAllowed(target)) return null
+  if (!pageAllowed(target)) return NOTHING
   try {
     const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(target)}`, {
       headers: { accept: 'application/json', 'user-agent': UA },
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return null
-    const body = await res.json()
-    const thumb = body?.thumbnail_url
-    return typeof thumb === 'string' && thumb ? thumb : null
+    if (!res.ok) return NOTHING
+    const b = await res.json()
+    return {
+      thumbnail: typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : null,
+      caption: typeof b?.title === 'string' ? b.title : null,
+      author: typeof b?.author_name === 'string' ? b.author_name : null,
+      handle: handleFromAuthorUrl(b?.author_url),
+    }
   } catch {
-    return null
+    return NOTHING
   }
+}
+
+async function youtubeMeta(url: string): Promise<Meta> {
+  const id = youtubeId(url)
+  if (!id) return NOTHING
+  // The deterministic still is the floor: it needs no request and never fails,
+  // so a bot-blocked oEmbed costs a caption rather than a picture.
+  const floor: Meta = { ...NOTHING, thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` }
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`,
+      { headers: { accept: 'application/json', 'user-agent': UA }, signal: AbortSignal.timeout(8000) },
+    )
+    if (!res.ok) return floor
+    const b = await res.json()
+    return {
+      thumbnail: typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : floor.thumbnail,
+      caption: typeof b?.title === 'string' ? b.title : null,
+      author: typeof b?.author_name === 'string' ? b.author_name : null,
+      handle: null,
+    }
+  } catch {
+    return floor
+  }
+}
+
+// EVERYTHING A PLATFORM WILL SAY FOR FREE, IN ONE PLACE.
+//
+// Ethan: "auto-fill an entry the moment a link is pasted - cover, caption,
+// handle and view count all resolve server-side already. Submitting becomes
+// paste-and-confirm."
+//
+// Three of those four, honestly. The COVER comes back for every platform,
+// including the shapes the browser cannot reach on its own (a TikTok short
+// link, a TikTok photo post, an Instagram carousel). The CAPTION and the HANDLE
+// come back for TikTok and YouTube, which publish them in their oEmbed;
+// Instagram publishes no tokenless oEmbed at all, so an Instagram paste gets a
+// picture and the creator types their own caption - which they were doing
+// anyway. The VIEW COUNT is not here on purpose: it needs `view-sync`, which
+// holds session cookies and is admin-only, and it is swept hourly regardless,
+// so asking for it at paste time would be a slow request for a number that is
+// about to be fetched properly.
+async function metaFor(videoUrl: string): Promise<Meta> {
+  if (/tiktok\.com/i.test(videoUrl)) return await tiktokMeta(videoUrl)
+  if (/instagram\.com/i.test(videoUrl)) {
+    return { ...NOTHING, thumbnail: await instagramCover(videoUrl) }
+  }
+  if (/youtu\.?be/i.test(videoUrl)) return await youtubeMeta(videoUrl)
+  return NOTHING
 }
 
 // INSTAGRAM, WITHOUT A TOKEN AND WITHOUT AN ADMIN (10 Sep 2026).
@@ -270,9 +339,28 @@ Deno.serve(async (req) => {
   const uid = await verifyUser(jwt)
   if (!uid) return json(req, { error: 'invalid token' }, 401)
 
-  const body = (await req.json().catch(() => ({}))) as { url?: string; src?: string; force?: boolean }
+  const body = (await req.json().catch(() => ({}))) as { url?: string; src?: string; force?: boolean; preview?: boolean }
   const videoUrl = typeof body.url === 'string' ? body.url.trim() : ''
   if (!videoUrl) return json(req, { error: 'bad request' }, 400)
+
+  // PREVIEW: WHAT IS AT THE END OF THIS LINK, WITHOUT WRITING ANYTHING.
+  //
+  // This is what makes submitting an entry paste-and-confirm. It runs BEFORE
+  // the row check below, and it has to: the whole point is that the entry does
+  // not exist yet.
+  //
+  // THAT IS NOT A HOLE, AND IT IS WORTH SAYING WHY. The row check has never
+  // been the thing standing between this function and an open proxy - the two
+  // allow-lists are. Nothing here fetches a URL the caller supplied: every
+  // request is built from an id parsed out of it (`instagram.com/p/<code>`,
+  // `youtube/<id>`) or is checked against `PAGE_HOSTS` before it is made
+  // (`followTo`, the oEmbed target). And nothing is downloaded and nothing is
+  // stored, so a preview cannot put a byte in our bucket. The row check stays
+  // exactly where it matters: on the path that WRITES.
+  if (body.preview === true) {
+    const meta = await metaFor(videoUrl)
+    return json(req, meta)
+  }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
@@ -291,14 +379,7 @@ Deno.serve(async (req) => {
 
   let src = typeof body.src === 'string' ? body.src.trim() : ''
   if (src && !hostAllowed(src)) return json(req, { error: 'source host not allowed' }, 400)
-  if (!src) {
-    if (/tiktok\.com/i.test(videoUrl)) src = (await tiktokCover(videoUrl)) ?? ''
-    else if (/instagram\.com/i.test(videoUrl)) src = (await instagramCover(videoUrl)) ?? ''
-    else {
-      const yt = youtubeId(videoUrl)
-      if (yt) src = `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`
-    }
-  }
+  if (!src) src = (await metaFor(videoUrl)).thumbnail ?? ''
   if (!src) return json(req, { error: 'no source' }, 422)
   if (!hostAllowed(src)) return json(req, { error: 'source host not allowed' }, 400)
 

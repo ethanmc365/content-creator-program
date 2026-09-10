@@ -119,6 +119,46 @@ export async function storeThumbnail(videoUrl, src) {
   }
 }
 
+/**
+ * WHAT IS AT THE END OF THIS LINK, BEFORE ANYTHING IS SUBMITTED.
+ *
+ * Ethan: "auto-fill an entry the moment a link is pasted - cover, caption,
+ * handle and view count all resolve server-side already. Submitting becomes
+ * paste-and-confirm."
+ *
+ * Three of the four, and the shortfall is worth stating rather than papering
+ * over: the COVER comes back for every platform, the CAPTION and HANDLE for
+ * TikTok and YouTube (Instagram publishes no tokenless oEmbed, so an Instagram
+ * paste gets a picture and the creator writes their own caption - which they
+ * were doing anyway), and the VIEW COUNT is deliberately not asked for. It
+ * needs the admin-only `view-sync`, and it is swept hourly regardless, so it
+ * would be a slow request for a number that is about to arrive properly.
+ *
+ * Writes nothing and stores nothing - the entry does not exist yet. Never
+ * throws: a preview that fails is a form with nothing extra on it, which is the
+ * form that worked yesterday.
+ *
+ * @param {string} url
+ * @returns {Promise<{thumbnail: string|null, caption: string|null, author: string|null, handle: string|null}|null>}
+ */
+export async function previewLink(url) {
+  if (!url) return null
+  try {
+    const { data, error } = await supabase.functions.invoke('thumb-cache', {
+      body: { url, preview: true },
+    })
+    if (error || !data) return null
+    return {
+      thumbnail: data.thumbnail || null,
+      caption: data.caption || null,
+      author: data.author || null,
+      handle: data.handle || null,
+    }
+  } catch {
+    return null
+  }
+}
+
 async function fromProbe(url) {
   const { data, error } = await supabase.functions.invoke('view-sync', { body: { probe: url } })
   if (error) return null

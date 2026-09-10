@@ -216,23 +216,53 @@ describe('the month rail', () => {
     expect(monthLabel('2026-12')).toBe('December 2026')
   })
 
-  // BUILT FROM THE ROWS, NOT FROM A FIXED START DATE. The one month the tracker
-  // has anything in is July, so a hard floor of August would have drawn an
-  // empty rail over a full grid.
-  it('lists only the months that have videos, newest first, with counts', () => {
+  // THE FLOOR COMES FROM THE ROWS AND THE CEILING FROM THE CALENDAR. A hard
+  // start date is still refused - the UK challenge ran in JULY, so "obviously
+  // from August" would have drawn an empty rail over the only full month.
+  it('counts the months that have videos, newest first', () => {
     const rows = [
       v({ posted_at: '2026-07-25T00:00:00Z' }),
       v({ posted_at: '2026-07-29T00:00:00Z' }),
       v({ posted_at: '2026-09-02T00:00:00Z' }),
     ]
-    expect(monthsOf(rows)).toEqual([
+    expect(monthsOf(rows, new Date('2026-09-10T00:00:00Z'))).toEqual([
       { key: '2026-09', count: 1, label: 'September 2026' },
+      { key: '2026-08', count: 0, label: 'August 2026' },
       { key: '2026-07', count: 2, label: 'July 2026' },
     ])
   })
 
-  it('is safe with nothing', () => {
-    expect(monthsOf(null)).toEqual([])
+  // "There's only a July 2026 and no August 2026. All the ones up to the
+  // current date should be there even if there's no videos in it yet."
+  it('fills in the months with nothing in them, up to today', () => {
+    const rows = [v({ posted_at: '2026-07-25T00:00:00Z' })]
+    expect(monthsOf(rows, new Date('2026-10-04T00:00:00Z')).map((m) => [m.key, m.count])).toEqual([
+      ['2026-10', 0],
+      ['2026-09', 0],
+      ['2026-08', 0],
+      ['2026-07', 1],
+    ])
+  })
+
+  // "Every time there's a new month it should automatically show up." Same
+  // rows, one day later in the calendar, one more entry in the rail.
+  it('grows on its own when the month turns over', () => {
+    const rows = [v({ posted_at: '2026-12-02T00:00:00Z' })]
+    expect(monthsOf(rows, new Date('2026-12-31T00:00:00Z')).map((m) => m.key)).toEqual(['2026-12'])
+    expect(monthsOf(rows, new Date('2027-01-01T00:00:00Z')).map((m) => m.key)).toEqual(['2027-01', '2026-12'])
+  })
+
+  // A platform clock that is ahead of ours must not file a video under a month
+  // the rail does not draw.
+  it('reaches past today when a row says so', () => {
+    const rows = [v({ posted_at: '2026-11-02T00:00:00Z' })]
+    expect(monthsOf(rows, new Date('2026-09-10T00:00:00Z')).map((m) => m.key))
+      .toEqual(['2026-11', '2026-10', '2026-09'])
+  })
+
+  it('is safe with nothing, and still names this month', () => {
+    expect(monthsOf(null, new Date('2026-09-10T00:00:00Z')))
+      .toEqual([{ key: '2026-09', count: 0, label: 'September 2026' }])
   })
 })
 

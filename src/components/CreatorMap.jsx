@@ -273,27 +273,77 @@ function Pin({ group, zoom, active, dim, onSelect, landing = false, queue = 0 })
   )
 }
 
-// An airplane that FLIES along a path (animateMotion), nose pointed the way it
-// travels. Used both for the "we're all connected" threads and the travelling-
-// now journeys, so every plane on the map moves. `dur` (seconds) is set by the
-// caller from path length so all planes share one speed.
-function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false }) {
+// CAN THIS ENGINE PUT AN ELEMENT ON A PATH WITHOUT SMIL?
+//
+// Chrome 55+, Safari 16+, Firefox 72+. Everything this programme's creators
+// use, and the check costs one call at module load - but it is here so that
+// anything older keeps the `<animateMotion>` it has always had rather than
+// getting a row of aircraft parked at the origin.
+const CAN_MOTION_PATH = typeof CSS !== 'undefined'
+  && typeof CSS.supports === 'function'
+  && CSS.supports('offset-path', 'path("M 0 0 L 1 1")')
+
+// An airplane that FLIES along a path, nose pointed the way it travels. Used
+// both for the "we're all connected" threads and the travelling-now journeys,
+// so every plane on the map moves. `dur` (seconds) is set by the caller from
+// path length so all planes share one speed.
+//
+// IT IS A CSS MOTION PATH NOW, NOT SMIL (10 Sep 2026).
+//
+// Ethan, on the desktop landing page, after the arrival itself was fixed: "the
+// icons come in nicely, but the plane animation is frozen, and then suddenly it
+// jumps to where it should have been."
+//
+// That last clause is the whole diagnosis. A thing that is stopped and then
+// CONTINUES was paused; a thing that is stopped and then APPEARS WHERE IT WOULD
+// HAVE BEEN was never paused at all - its clock ran the whole time and only the
+// drawing was stale. That is Chrome's SMIL time container: it is suspended for
+// an SVG that is not being painted, and this map spends its first seconds held
+// at `opacity: 0` below the fold, so by the time it is on screen the container
+// has to reconcile with the wall clock and every aircraft teleports to the
+// position it would have reached. `svg.setCurrentTime(0)` on the frame the
+// entrance starts was an attempt to rewind that, and it cannot win: setting the
+// time on a container that has not started yet does not start it.
+//
+// The pins and the threads never had this problem, and they are the evidence:
+// they are ordinary CSS animations. So the aircraft are too. `offset-path`
+// takes the same path string `animateMotion` took, in the same user units, and
+// `offset-rotate: auto` is the same as `rotate="auto"` - but it runs on the
+// document's animation timeline, which pauses and resumes like everything else
+// on the page and cannot get out of step with what is on screen.
+//
+// `flying` is what holds them at the start of their routes until the map is
+// actually being looked at. A paused animation sits at frame zero, which is the
+// beginning of the path, so they set off together with the rest of the arrival
+// instead of fading in mid-ocean.
+function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false, flying = true }) {
   const s = 0.85 / Math.max(zoom, 1)
   return (
-    // THREE NESTED GROUPS, AND EACH ONE OWNS EXACTLY ONE TRANSFORM.
+    // FOUR NESTED GROUPS, AND EACH ONE OWNS EXACTLY ONE TRANSFORM.
     //
-    // THE TRAP. `<animateMotion>` drives its PARENT element's transform, and a
-    // CSS transform on an element overrides the SVG transform on that same
-    // element. So putting the arrival animation on this outer g - which is what
-    // it used to be, back when the arrival was a bare fade and there was no
-    // transform in it to collide - would park every plane at the top-left
-    // corner of the map for the length of its entrance. This is the same trap
-    // that silently flattened the Flight Path aircraft to scale 1 for weeks.
+    // THE TRAP, WHICH OUTLIVED SMIL. `offset-path` writes the element's
+    // transform exactly as `<animateMotion>` drove its parent's, and a CSS
+    // transform on an element overrides the SVG transform on that same element.
+    // So the movement, the arrival and the counter-scale each need a group of
+    // their own - putting any two on one element parks every aircraft at the
+    // top-left corner of the map. This is the same trap that silently flattened
+    // the Flight Path aircraft to scale 1 for weeks.
     //
-    //   outer   the flight path (animateMotion)
+    //   outer   opacity only
+    //   motion  the flight path (offset-path, or animateMotion on old engines)
     //   middle  the arrival (CSS)
     //   inner   the counter-scale and the nose-up rotation (SVG attribute)
     <g style={{ pointerEvents: 'none', opacity }}>
+      <g
+        style={CAN_MOTION_PATH
+          ? {
+            offsetPath: `path("${path}")`,
+            offsetRotate: 'auto',
+            animation: `map-fly ${dur}s linear infinite`,
+            animationPlayState: flying ? 'running' : 'paused',
+          }
+          : undefined}
+      >
       {/* `arriving` holds the aircraft off until the pins have landed, so the
           arrival reads as land, then threads, then places, then traffic. Once
           the map has settled the class comes off and a plane added later
@@ -313,7 +363,12 @@ function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false }) {
           />
         </g>
       </g>
-      <animateMotion dur={`${dur}s`} repeatCount="indefinite" rotate="auto" path={path} />
+      </g>
+      {/* The old engine's version of the line above. One or the other, never
+          both - two things driving one transform is the trap in the note. */}
+      {!CAN_MOTION_PATH && (
+        <animateMotion dur={`${dur}s`} repeatCount="indefinite" rotate="auto" path={path} />
+      )}
     </g>
   )
 }
@@ -692,7 +747,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // Everything is classed together or nothing is.
   const entering = painted && seen && !arrived
 
-  // AND THE AIRCRAFT ARE PUT BACK TO THE START OF THEIR PATHS.
+  // AND THE AIRCRAFT ARE PUT BACK TO THE START OF THEIR PATHS - ON AN OLD
+  // ENGINE. Everything current animates them with a CSS motion path that is
+  // simply held paused at frame zero until `flying` (see `FlyingPlane`), which
+  // needs no rewinding because it never started. This is the fallback's version
+  // of the same idea, and it is kept for exactly that: `setCurrentTime` cannot
+  // start a time container that has not started, which is why it was not enough
+  // on its own.
   //
   // The flights are SMIL (`<animateMotion>`), which runs on the SVG's own
   // timeline rather than on any clock React can see - and that timeline has
@@ -1939,7 +2000,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                   tidy. All planes share one speed. No destination pulse, so they
                   read differently from the "travelling now" journeys below. */}
               {planeSegments.map((seg) => (
-                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} arriving={entering} />
+                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} arriving={entering} flying={painted && seen} />
               ))}
             </g>
           )}
@@ -1963,7 +2024,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 />
               ))}
               {linkSegments.map((seg) => (
-                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={entering} />
+                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={entering} flying={painted && seen} />
               ))}
             </g>
           )}
@@ -2030,7 +2091,22 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     <circle r="10" fill="none" stroke={BRAND} strokeWidth="2.5" />
                   </g>
                 )}
-                <g>
+                {/* THE SAME MOTION PATH THE THREAD AIRCRAFT USE, and it has to
+                    be: this is the other half of "the plane animation is frozen
+                    and then jumps". A journey aircraft carries a face and a tap
+                    target, so it is written out here rather than through
+                    `FlyingPlane`, but the mechanism is that component's - see
+                    the note there. */}
+                <g
+                  style={CAN_MOTION_PATH
+                    ? {
+                      offsetPath: `path("${j.d}")`,
+                      offsetRotate: 'auto',
+                      animation: `map-fly ${j.dur}s linear infinite`,
+                      animationPlayState: painted && seen ? 'running' : 'paused',
+                    }
+                    : undefined}
+                >
                   {/* generous invisible hit-target so the moving plane is easy to tap */}
                   <circle r={14 / Math.max(z, 1)} fill="transparent" />
                   {/* The arrival on its OWN group, between the motion path and
@@ -2045,7 +2121,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                       />
                     </g>
                   </g>
-                  <animateMotion dur={`${j.dur}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
+                  {!CAN_MOTION_PATH && (
+                    <animateMotion dur={`${j.dur}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
+                  )}
                 </g>
               </g>
             ))}

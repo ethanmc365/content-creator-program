@@ -726,6 +726,24 @@ html {
     animation-delay: calc(300ms + var(--pin-i, 0) * 45ms);
   }
 
+  /* THE FLIGHT ITSELF. `offset-path` is set per aircraft in CreatorMap (each
+     one has its own route); this is the only part of it that is the same for
+     all of them. Linear, because an aeroplane at cruise does not ease, and
+     `infinite` because the map is a picture of a programme that is always
+     moving.
+
+     It replaces `<animateMotion>`, and the note in `FlyingPlane` has the
+     forensics: SMIL runs on its own time container, Chrome suspends that
+     container for an SVG it is not painting, and this map is held invisible
+     below the fold for its first seconds - so the aircraft came back on screen
+     and teleported to where the wall clock said they should be. A CSS animation
+     shares the timeline with the pins and the threads, which never had the
+     problem. */
+  @keyframes map-fly {
+    from { offset-distance: 0%; }
+    to   { offset-distance: 100%; }
+  }
+
   /* The aircraft lift in once the pins are down. They fly on their own SMIL
      timeline, so this only decides when they become visible - but a bare fade
      put them at full size on a map that had just finished moving, and they
@@ -761,6 +779,11 @@ html {
       opacity: 1;
       transform: none;
     }
+    /* A reader who asked for less motion gets the aircraft parked at the start
+       of their routes rather than circling the map for ever. `offset-path` is
+       left alone, so they are still ON their routes and the picture reads the
+       same; only the movement goes. */
+    [style*='offset-path'] { animation: none !important; }
   }
 
   /* The reaction popover growing out of the button that opened it. CSS so the

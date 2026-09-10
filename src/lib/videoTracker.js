@@ -278,27 +278,68 @@ export function monthLabel(key) {
 }
 
 /**
- * EVERY MONTH THE TRACKER HAS SOMETHING IN, NEWEST FIRST.
+ * EVERY MONTH FROM THE FIRST VIDEO TO THIS ONE, NEWEST FIRST.
  *
  * Ethan: "generate a monthly report I can click - on the right side another
  * scrollable bar where I can choose month by month and see the best videos from
  * each month."
  *
- * Built from the ROWS rather than from a fixed start date. He said "obviously
- * just from August onwards", and the data disagrees - the UK challenge ran in
- * July - so a hard-coded floor would have produced an empty rail on the one
- * month there is anything to show. The rail is a list of months that have
- * videos in them, which is the same thing he asked for and cannot be wrong.
+ * THE FLOOR COMES FROM THE ROWS AND THE CEILING COMES FROM THE CALENDAR
+ * (10 Sep 2026). The first version built the rail out of months that HAVE
+ * videos, which is defensible and turned out to be wrong the first time a month
+ * went by without one: "there's only a July 2026 and no August 2026. All the
+ * ones up to the current date should be there even if there's no videos in it
+ * yet, and every time there's a new month it should automatically show up."
+ *
+ * He is right, and the reason is what the rail IS. It is not an index of what
+ * exists, it is a CALENDAR - and a calendar with a gap in it does not read as
+ * "nothing happened in August", it reads as broken. A zero against a month is a
+ * fact worth seeing on a page whose job is to tell you how the programme is
+ * doing.
+ *
+ * A hard-coded start date is still refused, for the reason it always was: the
+ * UK challenge ran in JULY and an "obviously from August" floor would have
+ * drawn an empty rail over the only month with anything in it. So the earliest
+ * month with a video is the floor, today is the ceiling, and every month
+ * between them is listed whether or not it has rows. The next one appears by
+ * itself on the first of the month, with nothing to update.
+ *
+ * @param {Array} rows
+ * @param {Date} [now] injected by the tests; a rail whose contents depend on
+ *        the wall clock cannot be asserted against otherwise.
  */
-export function monthsOf(rows) {
+export function monthsOf(rows, now = new Date()) {
   const counts = new Map()
   for (const v of rows || []) {
     const k = monthKey(v)
     if (!k) continue
     counts.set(k, (counts.get(k) || 0) + 1)
   }
-  return [...counts.entries()]
-    .map(([key, count]) => ({ key, count, label: monthLabel(key) }))
-    .sort((a, b) => b.key.localeCompare(a.key))
+
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // The floor is the earliest month with a video, or this one if there are
+  // none at all - a brand new market gets a rail with one entry rather than a
+  // blank column.
+  const keys = [...counts.keys()].sort()
+  // The EARLIER of "the first video" and "this month", so a rail is never
+  // shorter than the calendar it is pretending to be.
+  let cursor = keys.length && keys[0] < thisMonth ? keys[0] : thisMonth
+  // A month AFTER today can exist: `posted_at` comes from the platform and a
+  // clock somewhere can be ahead. Whatever the newest row says wins, so nothing
+  // is ever filed under a month the rail does not draw.
+  const last = keys.length && keys[keys.length - 1] > thisMonth ? keys[keys.length - 1] : thisMonth
+
+  const out = []
+  // Bounded rather than `while (true)`: a corrupt date that sorts before the
+  // epoch would otherwise spin for ever. Sixty years of months is far past any
+  // plausible programme and still stops.
+  for (let guard = 0; guard < 720 && cursor <= last; guard += 1) {
+    out.push({ key: cursor, count: counts.get(cursor) || 0, label: monthLabel(cursor) })
+    const [y, m] = cursor.split('-').map(Number)
+    cursor = m === 12
+      ? `${y + 1}-01`
+      : `${y}-${String(m + 1).padStart(2, '0')}`
+  }
+  return out.sort((a, b) => b.key.localeCompare(a.key))
 }
 

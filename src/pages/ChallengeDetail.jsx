@@ -10,6 +10,7 @@ import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import VideoThumb from '../components/VideoThumb'
+import { previewLink, storeThumbnail } from '../lib/videoThumbs'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import ScoringPanel from '../components/network/ScoringPanel'
@@ -114,6 +115,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [showSubmit, setShowSubmit] = useState(false)
   const [videoUrl, setVideoUrl] = useState('')
   const [caption, setCaption] = useState('')
+  // PASTE AND CONFIRM (10 Sep 2026).
+  //
+  // Ethan: "auto-fill an entry the moment a link is pasted - cover, caption and
+  // handle resolve server-side already. Submitting becomes paste-and-confirm."
+  //
+  // `null` is "we have not looked", `{ loading: true }` is "we are looking".
+  // See `previewLink` in lib/videoThumbs for what each platform will say
+  // without a key - and for why the view count is deliberately not asked for.
+  const [linkMeta, setLinkMeta] = useState(null)
+  // HAS THE CREATOR TOUCHED THE CAPTION. An auto-fill that overwrites something
+  // somebody typed is worse than no auto-fill, and the two are indistinguishable
+  // from "is the field empty" the moment they clear it on purpose.
+  const [captionTouched, setCaptionTouched] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [errorField, setErrorField] = useState('') // 'url' | 'caption' - rings the offending input
   const [submitting, setSubmitting] = useState(false)
@@ -255,6 +269,36 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmitError(message)
   }
 
+  // ASK THE PLATFORM WHAT THIS IS, A BEAT AFTER THE TYPING STOPS.
+  //
+  // 500ms, and it is a debounce rather than a paste handler on purpose: a link
+  // arrives by paste, by autofill, by typing and by the share sheet, and only
+  // one of those fires `paste`. The dialog closing cancels it, and every result
+  // is checked against the URL that is in the box NOW - a slow lookup for a
+  // link that has since been replaced must not overwrite the fast one that
+  // followed it.
+  useEffect(() => {
+    if (!showSubmit) { setLinkMeta(null); return undefined }
+    const raw = videoUrl.trim()
+    if (!raw || urlProblem(videoUrl)) { setLinkMeta(null); return undefined }
+    const url = normaliseUrl(videoUrl)
+    let alive = true
+    setLinkMeta({ loading: true })
+    const t = setTimeout(() => {
+      previewLink(url).then((meta) => {
+        if (!alive) return
+        setLinkMeta(meta ? { ...meta, url } : null)
+        // The caption is a SUGGESTION, not an answer: it fills an untouched
+        // field and never replaces a word anybody has written.
+        if (meta?.caption && !captionTouched) setCaption(meta.caption)
+      })
+    }, 500)
+    return () => { alive = false; clearTimeout(t) }
+    // `captionTouched` deliberately absent: touching the caption must not
+    // re-run the lookup, it only changes what the NEXT result is allowed to do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoUrl, showSubmit])
+
   async function submitEntry(e) {
     e.preventDefault()
     setSubmitError('')
@@ -288,6 +332,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     }).select('id').single()
     if (error) { setSubmitting(false); return fail('', error.message) }
 
+    // THE COVER IS STORED THE MOMENT THE ROW EXISTS, NOT THE FIRST TIME
+    // SOMEBODY LOOKS AT IT (10 Sep 2026).
+    //
+    // `VideoThumb` would have resolved it eventually - it asks `thumb-cache`
+    // for any entry that has no cover - but "eventually" means the first person
+    // to open the board waits for it, and the first person to open the board is
+    // usually the creator who just posted. Doing it here costs one call at the
+    // one moment somebody is already waiting, and `src` is the frame the
+    // preview above already found, so the platform is asked once rather than
+    // twice.
+    //
+    // Deliberately not awaited and deliberately not fatal: the entry is IN, and
+    // a missing picture is a card that resolves itself on the next view.
+    storeThumbnail(url, linkMeta?.thumbnail || undefined)
+
     // THE CLAIMS ARE WRITTEN AFTER THE ENTRY AND THEY ARE NOT FATAL.
     //
     // If this insert fails the video is still entered, which is the thing that
@@ -308,6 +367,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setShowSubmit(false)
     setVideoUrl('')
     setCaption('')
+    setCaptionTouched(false)
+    setLinkMeta(null)
     setClaiming([])
     // The reload below hasn't landed yet, so count this entry in by hand.
     const mine = submissions.filter((s) => s.creator_id === user.id).length
@@ -1405,10 +1466,39 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 if (errorField === 'url') { setSubmitError(''); setErrorField('') }
               }}
             />
+            {/* WHAT WE FOUND AT THE END OF THE LINK. It replaces a line that
+                said "Detected platform: TikTok" - which is a fact about our
+                parsing rather than about their video, and which they could
+                already see from the link they had just pasted. A cover and
+                their own handle is the same reassurance made of the thing they
+                actually care about: that we found the right post. */}
             {videoUrl.trim() && !urlProblem(videoUrl) && (
-              <p className="mt-2 text-xs text-smoke">
-                {tr("Detected platform:")} <span className="font-semibold text-ink">{detectPlatform(normaliseUrl(videoUrl))}</span>
-              </p>
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2.5">
+                <div className="h-16 w-[3.2rem] shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
+                  {linkMeta?.thumbnail
+                    ? <img src={linkMeta.thumbnail} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    : (
+                      <span className="flex h-full w-full items-center justify-center">
+                        {linkMeta?.loading
+                          ? <Spinner className="h-4 w-4" />
+                          : <Icon name="video" className="h-5 w-5 text-gray-300" />}
+                      </span>
+                    )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-ink">
+                    {detectPlatform(normaliseUrl(videoUrl))}
+                    {linkMeta?.handle && <span className="ml-1.5 font-medium text-brand">@{linkMeta.handle}</span>}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-smoke">
+                    {linkMeta?.loading
+                      ? tr('Reading your post…')
+                      : linkMeta?.thumbnail
+                        ? tr('Found it. Check the caption below and post your entry.')
+                        : tr('We could not read a preview. Your entry still counts.')}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
           <div>
@@ -1423,6 +1513,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               value={caption}
               onChange={(e) => {
                 setCaption(e.target.value)
+                setCaptionTouched(true)
                 if (errorField === 'caption') { setSubmitError(''); setErrorField('') }
               }}
             />

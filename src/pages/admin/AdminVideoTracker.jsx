@@ -77,6 +77,11 @@ export default function AdminVideoTracker() {
   // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer
   // of it takes the whole thing (`visibleVideos`) and because that makes
   // "clear all" one line rather than six.
+  // `q` HAS NO CONTROL AND IS NOT DEAD (10 Sep 2026). The search box was removed
+  // at three videos - see the note on the filter strip - and `visibleVideos`
+  // still reads this and is still tested on it, so putting the input back is one
+  // element. It stays in the shape so that `Clear` and `filtered` keep meaning
+  // the same thing whichever of those two states the page is in.
   const [filter, setFilter] = useState({
     market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', showRetired: false,
   })
@@ -198,37 +203,33 @@ export default function AdminVideoTracker() {
           The line still describes WHAT IS ON SCREEN rather than the table: a
           page whose totals ignore its own filter tells you the wrong thing
           every time you use it. */}
-      {/* ONE STRIP, NOT TWO ROWS AND A RULE (10 Sep 2026).
-          Ethan: "the searching, the Every challenge, Every platform, Most views
-          - that's taking up a lot of space. Maybe you can find a way to clean
-          that up. Those filters are good, so just find a way to improve the UI."
+      {/* ONE LINE, THREE FILTERS, AND NO SEARCH BOX (10 Sep 2026).
+          Ethan: "remove the search bar to search for hooks, captions - we don't
+          need that. Instead just have those filters, every challenge, every
+          platform, most views. And I would square them up rather than having
+          them rounded. Then you can put everything on one line, including the
+          3 videos, best is 15.2k, what gets tracked, and the export button."
 
-          They ARE all worth having, so nothing is deleted. What was taking the
-          space is that the card was two stacked rows with a hairline between
-          them - a summary line with the export controls, then the filters - and
-          on a desktop both were half empty. They are one wrapping row now: the
-          search grows into whatever is left, the three selects keep their fixed
-          widths (the rule below still holds - nothing in this row may move when
-          anything in it changes), and the summary and its two buttons are one
-          right-anchored group, so the group's RIGHT edge is what is pinned and
-          a count going from "3 videos" to "13 videos" moves nothing but its own
-          left edge. 120px of chrome becomes about 60.
+          THE SEARCH BOX WENT BECAUSE OF WHAT IT COST, NOT WHAT IT DID. It was
+          the widest thing on the line - a flexible 240px - and at three videos
+          it answers a question nobody has. `visibleVideos` still takes `q` and
+          is still tested on it (see lib/videoTracker): the FILTER survives, the
+          control does not, and it is one input away from coming back the day
+          this list is four hundred rows.
 
-          Below `lg` it wraps back into two lines by itself, which is the right
-          answer on a phone and needs no second rule to say so. */}
+          SQUARED, TO MATCH THE CARD THEY SIT IN. `variant="field"` is the same
+          `rounded-xl` and the same padding as `.input`, so the three selects and
+          the three buttons beside them are one shape family rather than a row of
+          lozenges inside a rounded rectangle. The buttons pick up the same
+          radius and height by hand.
+
+          Nothing in this row may move when anything in it changes - the widths
+          are fixed and the right-hand group is anchored by its RIGHT edge, so a
+          count going from "3 videos" to "13 videos" moves nothing but its own
+          left edge. Below `lg` it wraps by itself, which is the right answer on
+          a phone and needs no second rule to say so. */}
       <div className="mb-6 rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="relative min-w-[9rem] flex-1 basis-44 sm:max-w-[15rem]">
-            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
-            <input
-              value={filter.q}
-              onChange={(e) => set({ q: e.target.value })}
-              placeholder={tr('Search hooks, captions, creators')}
-              className="no-ios-zoom w-full rounded-full border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-brand"
-              aria-label={tr('Search the tracker')}
-            />
-          </label>
-
           <Select
             value={filter.challenge}
             onChange={(v) => set({ challenge: v })}
@@ -239,7 +240,8 @@ export default function AdminVideoTracker() {
             // moves"), from a different cause. The trigger truncates instead;
             // the full label is one click away and is also the heading above
             // the grid.
-            className="w-[11rem] shrink-0"
+            variant="field"
+            className="w-[13rem] shrink-0"
             ariaLabel={tr('Challenge')}
             options={[{ value: '', label: tr('Every challenge') },
               ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
@@ -250,7 +252,8 @@ export default function AdminVideoTracker() {
             // WIDE ENOUGH FOR ITS OWN PLACEHOLDER (10 Sep 2026). Ethan: "the
             // Every platform filter only says 'plat fo'." The padding, the
             // chevron and its gap take 52px, so the label needs 112 of its own.
-            className="w-[10.5rem] shrink-0"
+            variant="field"
+            className="w-[11rem] shrink-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
@@ -258,7 +261,8 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
-            className="w-[9rem] shrink-0"
+            variant="field"
+            className="w-[10rem] shrink-0"
             ariaLabel={tr('Sort')}
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
@@ -272,10 +276,10 @@ export default function AdminVideoTracker() {
               onClick={() => set({ showRetired: !filter.showRetired })}
               aria-pressed={filter.showRetired}
               className={cx(
-                'rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200',
+                'rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-200',
                 filter.showRetired
                   ? 'bg-brand text-white shadow-card'
-                  : 'border border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink',
+                  : 'border border-gray-200 bg-white text-smoke hoverable:hover:border-brand hoverable:hover:text-ink',
               )}
             >
               {tr('Retired')} · {retired}
@@ -301,7 +305,7 @@ export default function AdminVideoTracker() {
             aria-hidden={!(filtered || filter.showRetired)}
             tabIndex={filtered || filter.showRetired ? 0 : -1}
             className={cx(
-              'rounded-full px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink',
+              'rounded-xl px-3 py-3 text-sm font-medium text-smoke transition-colors hover:text-ink',
               !(filtered || filter.showRetired) && 'invisible',
             )}
           >
@@ -326,24 +330,31 @@ export default function AdminVideoTracker() {
               <span className="text-smoke">{monthLabel(filter.month)}</span>
             </>
           )}
-          {/* THE RULES, AS SIX CHARACTERS AND A DOOR. See the note above the
-              card: the sentence this replaces was a paragraph of standing text
-              explaining a state that is almost always the default one. */}
+          {/* THE RULES, AS A DOOR THAT SAYS WHAT IS BEHIND IT (10 Sep 2026).
+              Ethan: "what gets tracked - maybe name it as What gets tracked
+              rather than Top 3 / 10k."
+
+              Right, and it is the second time this control has been rewritten
+              towards the same thing. It began as a standing paragraph, became
+              `Top 3 / 10k` - which is the ANSWER, in six characters, to a
+              question the reader has not been asked yet - and is now the
+              question. The two numbers are one press away and are the whole
+              content of the panel it opens. */}
           {rules && (
             <button
               type="button"
               onClick={() => setTuning(true)}
-              title={tr('What gets tracked')}
-              className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
+              title={`${tr('Top')} ${rules.top_per_challenge} / ${formatViews(rules.view_threshold)}`}
+              className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
             >
-              {tr('Top')} {rules.top_per_challenge} <span className="text-gray-300" aria-hidden>/</span> {formatViews(rules.view_threshold)}
+              {tr('What gets tracked')}
             </button>
           )}
           <button
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
             disabled={!shown.length}
-            className="rounded-full px-3 py-1.5 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:bg-cloud hoverable:hover:text-ink"
+            className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:border-brand hoverable:hover:text-ink"
           >
             <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
             {tr('Export')}
