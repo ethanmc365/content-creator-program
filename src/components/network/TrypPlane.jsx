@@ -188,7 +188,13 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
     return (
       <span
         aria-hidden
-        className={cx('pointer-events-none block h-28 w-56 text-brand sm:h-36 sm:w-80', className)}
+        // WIDTH AND A RATIO, NOT A WIDTH/HEIGHT PAIR - the same rule the hero
+        // variant below spells out, and it started to matter here the moment
+        // onboarding began using this instead of its own banner. The svg is
+        // `xMidYMid meet`, so a box at 2.00 against a viewBox at 1.82 letterboxes
+        // the drawing and shrinks the aircraft by about 9% to fit. Tying the box
+        // to the viewBox makes that impossible.
+        className={cx('pointer-events-none block aspect-[20/11] w-56 text-brand sm:w-80', className)}
       >
         <Drawing id={`${id}-inline`} animate={animate} />
       </span>
