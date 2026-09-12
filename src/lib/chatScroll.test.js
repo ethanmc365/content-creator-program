@@ -124,7 +124,14 @@ describe('pinToBottom: the reveal is always at the bottom', () => {
     el.getBoundingClientRect = () => ({ top: 0, bottom: client, left: 0, right: 300, width: 300, height: client })
     el.querySelectorAll = () => []
     document.body.appendChild(el)
-    return { el, grow: (by) => { sh += by } }
+    return {
+      el,
+      grow: (by) => { sh += by },
+      // A KEYBOARD IS EXACTLY THIS: the box loses height and the content does
+      // not. Nothing else this function watches for has that shape, which is
+      // how the guard came to be written against `scrollHeight` alone.
+      shrink: (by) => { client -= by },
+    }
   }
 
   it('pins on the way out when the height never settles', () => {
@@ -167,9 +174,10 @@ describe('pinToBottom: the reveal is always at the bottom', () => {
 describe('stickToBottom', () => {
   afterEach(() => { document.body.innerHTML = '' })
 
-  function scroller({ client = 400 } = {}) {
+  function scroller({ client: startClient = 400 } = {}) {
     const el = document.createElement('div')
     let sh = 1000
+    let client = startClient
     Object.defineProperty(el, 'scrollHeight', { get: () => sh, configurable: true })
     Object.defineProperty(el, 'clientHeight', { get: () => client, configurable: true })
     let top = sh - client
@@ -179,7 +187,14 @@ describe('stickToBottom', () => {
       configurable: true,
     })
     document.body.appendChild(el)
-    return { el, grow: (by) => { sh += by } }
+    return {
+      el,
+      grow: (by) => { sh += by },
+      // A KEYBOARD IS EXACTLY THIS: the box loses height and the content does
+      // not. Nothing else this function watches for has that shape, which is
+      // how the guard came to be written against `scrollHeight` alone.
+      shrink: (by) => { client -= by },
+    }
   }
 
   const flush = () => new Promise((r) => setTimeout(r, 20))
@@ -222,5 +237,46 @@ describe('stickToBottom', () => {
 
   it('is harmless when there is no scroller yet', () => {
     expect(() => stickToBottom(() => null, () => true)()).not.toThrow()
+  })
+
+  // THE KEYBOARD CASE, WHICH THE RESIZE SIGNAL WAS NAMED AFTER AND DID NOT
+  // COVER (12 Sep 2026).
+  //
+  // Ethan: "when I click on a chat and view it and then click on the text box
+  // to type something, the keyboard shows up and the last chat gets partly
+  // hidden behind it. This shouldn't be the case - when the keyboard shows up,
+  // the bottom of the last chat should still show up just above, not cut off."
+  //
+  // The RESIZE observer was already attached and its comment already said
+  // "keyboard". `check` then opened with `if (e.scrollHeight === last) return`,
+  // and a keyboard changes the CLIENT height while leaving the CONTENT height
+  // exactly where it was - so every resize the observer delivered was thrown
+  // away on the first line. Every other kind of growth this watches for happens
+  // to move `scrollHeight`, which is why the wrong number looked like the right
+  // one for four months.
+  it('re-pins when the box shrinks under a keyboard and the content does not', async () => {
+    const { el, shrink } = scroller()
+    const cancel = stickToBottom(() => el, () => true)
+    expect(el.scrollHeight - el.scrollTop - el.clientHeight).toBe(0)
+
+    const contentBefore = el.scrollHeight
+    shrink(300)
+    el.appendChild(document.createElement('div'))
+    await flush()
+
+    expect(el.scrollHeight).toBe(contentBefore)
+    expect(el.scrollHeight - el.scrollTop - el.clientHeight).toBe(0)
+    cancel()
+  })
+
+  it('still leaves a reader who scrolled up alone when the keyboard opens', async () => {
+    const { el, shrink } = scroller()
+    el.scrollTop = 100
+    const cancel = stickToBottom(() => el, () => false)
+    shrink(300)
+    el.appendChild(document.createElement('div'))
+    await flush()
+    expect(el.scrollTop).toBe(100)
+    cancel()
   })
 })

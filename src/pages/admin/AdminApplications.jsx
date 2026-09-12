@@ -118,6 +118,33 @@ const LOCAL_LANGUAGE = {
   FR: 'French', IT: 'Italian', NL: 'Dutch', PL: 'Polish',
 }
 
+// WHEN AN APPLICATION ARRIVED, WHICH IS NOT WHEN ITS ACCOUNT WAS MADE.
+//
+// Ethan: "when someone partly applied and then later completes it, after a few
+// days their application should show as new, not signed up 5 days ago. It would
+// make more sense this way because it's when they officially submitted their
+// application."
+//
+// `created_at` is the moment somebody pressed Sign up; `submitted_at`
+// (migration 218) is the moment they finished the form. For anybody who started
+// and came back those are different days, and this queue is sorted and labelled
+// by the wrong one - so an application that landed twenty minutes ago sat at
+// the bottom of a newest-first list under "Applied 6 days ago".
+//
+// THE COALESCE IS NOT DEFENSIVE PADDING, IT IS THE BACKFILL. Every row that had
+// already finished when 218 ran has no honest submission time - the moment was
+// never recorded anywhere - so it keeps its signup date and renders through the
+// same path. It is also what makes this file correct on an origin where 218 has
+// not been applied yet.
+const appliedAt = (app) => app?.submitted_at || app?.created_at
+
+// How many whole days somebody sat on a half-finished form. Only used to decide
+// whether the signup date is worth printing as well.
+function gapDays(app) {
+  if (!app?.submitted_at || !app?.created_at) return 0
+  return Math.floor((new Date(app.submitted_at) - new Date(app.created_at)) / 86400000)
+}
+
 /** The non-English languages a market is spoken in, from its countries. */
 function marketLanguages(m) {
   return [...new Set((m?.country_codes ?? []).map((c) => LOCAL_LANGUAGE[c]).filter(Boolean))]
@@ -341,10 +368,20 @@ export default function AdminApplications() {
     flash(next ? `Marked as followed up.` : 'Follow-up mark removed.')
   }
 
-  const inThisBucket = useMemo(
-    () => (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded)),
-    [apps, bucket],
-  )
+  // NEWEST FIRST BY WHEN IT WAS SUBMITTED.
+  //
+  // The query orders by `created_at`, which is right for the "never finished"
+  // bucket - nothing has been submitted there, so the signup IS the event - and
+  // wrong for this one. Somebody who signed up last Tuesday and finished the
+  // form this morning belongs at the top of the queue, and was landing six rows
+  // down. Re-sorting here rather than in the query because one query fills both
+  // buckets and they want different orders; the list is a page of applications,
+  // not a table of thousands.
+  const inThisBucket = useMemo(() => {
+    const list = (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded))
+    if (bucket !== 'applied') return list
+    return [...list].sort((a, b) => new Date(appliedAt(b)) - new Date(appliedAt(a)))
+  }, [apps, bucket])
 
   const tabs = useMemo(() => {
     const tally = {}
@@ -359,17 +396,19 @@ export default function AdminApplications() {
     incomplete: (apps ?? []).filter((a) => !a.onboarded).length,
   }), [apps])
 
+  // OFF `inThisBucket`, NOT OFF `apps`. It used to re-derive the bucket here,
+  // which meant the submission-date ordering above applied to the tab COUNTS
+  // and not to the list anybody actually reads.
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return (apps ?? []).filter((a) => {
-      if (bucket === 'applied' ? !a.onboarded : a.onboarded) return false
+    return inThisBucket.filter((a) => {
       if (market && marketLabel(a) !== market) return false
       if (!q) return true
       return `${a.name} ${a.country ?? ''} ${a.city ?? ''} ${(a.languages ?? []).join(' ')} ${emails[a.id] ?? ''}`
         .toLowerCase().includes(q)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apps, search, market, suggestion, emails, bucket])
+  }, [inThisBucket, search, market, suggestion, emails])
 
   const linksOf = (a) => [
     { label: 'Instagram', url: a.instagram_url },
@@ -648,8 +687,20 @@ function ApplicationCard({
         </div>
 
         <div className="shrink-0 text-left sm:text-right">
-          <p className="text-xs text-gray-400">Applied {timeAgo(app.created_at)}</p>
-          <p className="text-[11px] text-gray-300">{formatDate(app.created_at)}</p>
+          {/* WHEN THEY SUBMITTED, NOT WHEN THEY SIGNED UP. See `appliedAt` -
+              those are two different days for anybody who started the form and
+              came back to it, and this queue is about the day they finished. */}
+          <p className="text-xs text-gray-400">Applied {timeAgo(appliedAt(app))}</p>
+          <p className="text-[11px] text-gray-300">{formatDate(appliedAt(app))}</p>
+          {/* Said plainly when the two differ by more than a day, because
+              "applied today, signed up last week" is a fact about this person
+              worth having in front of you while you decide - it is the shape of
+              somebody who thought about it. */}
+          {gapDays(app) >= 1 && (
+            <p className="mt-0.5 text-[11px] text-gray-300">
+              Signed up {timeAgo(app.created_at)}
+            </p>
+          )}
         </div>
       </div>
 

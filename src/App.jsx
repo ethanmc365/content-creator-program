@@ -4,6 +4,7 @@ import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { chunk } from './lib/routeChunks'
 import { installLinkPrefetch } from './lib/prefetchLinks'
+import { breadcrumb } from './lib/breadcrumbs'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -195,6 +196,16 @@ export default function App() {
   // Prefetch a route chunk the moment a pointer or a finger lands on a link to
   // it. See lib/prefetchLinks - one delegated listener, every link in the app.
   useEffect(() => installLinkPrefetch(), [])
+  // WHERE THEY HAVE BEEN, FOR A CRASH REPORT TO SAY.
+  //
+  // The route a crash happened ON is already stored; the route they came FROM
+  // is very often the thing that explains it (a page that only breaks when you
+  // arrive from a particular screen is one of the commonest shapes a React bug
+  // takes, and this app has shipped several). It goes here rather than in
+  // AppLayout because the auth screens and the landing page are outside that
+  // shell and are exactly where a first-visit crash happens. Path only - never
+  // the query string, which on /reset-password carries a token.
+  useEffect(() => { breadcrumb('opened', pathname) }, [pathname])
   return (
     <>
       <OfflineScreen />

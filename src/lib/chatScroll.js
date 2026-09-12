@@ -305,12 +305,31 @@ export function stickToBottom(getEl, shouldPin) {
   const el = getEl()
   if (!el) return () => {}
   let last = el.scrollHeight
+  // THE BOX SHRINKING IS A REASON TO RE-PIN, AND IT WAS NOT COUNTED.
+  //
+  // Ethan: "when I click on a chat and view it and then click on the text box
+  // to type something, the keyboard shows up and the last chat gets partly
+  // hidden behind it. This shouldn't be the case - when the keyboard shows up,
+  // the bottom of the last chat should still show up just above, not cut off."
+  //
+  // The RESIZE signal above already fires for exactly that - the comment even
+  // names the keyboard - and then `check` threw the event away on its first
+  // line. A keyboard opening changes the scroller's CLIENT height and leaves
+  // its CONTENT height alone, so `e.scrollHeight === last` was true and the
+  // function returned before doing anything. Every other kind of growth this
+  // watches for happens to move `scrollHeight`, which is why the guard looked
+  // like it was watching the right number for four months.
+  //
+  // Both numbers are tracked now. `scrollHeight - clientHeight` is the actual
+  // quantity that decides where the bottom IS, and either half moving moves it.
+  let lastClient = el.clientHeight
 
   const check = () => {
     const e = getEl()
     if (!e) return
-    if (e.scrollHeight === last) return
+    if (e.scrollHeight === last && e.clientHeight === lastClient) return
     last = e.scrollHeight
+    lastClient = e.clientHeight
     if (shouldPin()) e.scrollTop = e.scrollHeight
   }
 

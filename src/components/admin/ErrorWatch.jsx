@@ -4,6 +4,9 @@ import { useAuth } from '../../context/AuthContext'
 import { Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDateTimeTz, timeAgo } from '../../lib/utils'
+import { CONTEXT_MARK, sentryHome, sentryLink, sentryProjectId } from '../../lib/monitoring'
+import { explain } from '../../lib/errorGuide'
+import { toastSuccess } from '../../lib/toast'
 import { useT } from '../../lib/i18n'
 
 // IS ANYTHING BROKEN RIGHT NOW.
@@ -163,6 +166,38 @@ export default function ErrorWatch() {
         </div>
       </div>
 
+      {/* ---- HOW TO GET INTO SENTRY, WRITTEN DOWN WHERE IT IS NEEDED ----
+          Ethan: "I tried to login and check Sentry but I was having
+          difficulties logging in, it's weird, it seems like a different login
+          screen or something."
+          It is a different login screen. This project's DSN ends
+          `ingest.de.sentry.io`, so the organisation is on Sentry's EU
+          instance, and the EU and US instances are separate installations with
+          separate account databases - signing in at plain sentry.io is signing
+          in somewhere the account does not exist. That fact lived in one
+          character of a URL inside a source file. It lives here now, next to
+          the panel that sends people there. */}
+      <details className="rounded-card border border-gray-100 bg-cloud/40 px-4 py-3">
+        <summary className="cursor-pointer text-xs font-semibold text-smoke">{tr('Signing in to Sentry')}</summary>
+        <div className="mt-3 space-y-2 text-xs leading-relaxed text-ink/75">
+          <p>
+            {tr('This project is on Sentry’s EU instance, which is a separate installation from the one at sentry.io - that is why the login there does not recognise the account.')}
+          </p>
+          <p>
+            <span className="font-semibold">{tr('Sign in at')} </span>
+            <a href={sentryHome()} target="_blank" rel="noreferrer noopener" className="font-mono font-semibold text-brand hover:underline">{sentryHome()}</a>
+            {' '}{tr('with the email the Sentry account was created under, then Forgot password if you are not sure of it.')}
+          </p>
+          <p>
+            {tr('The project to open is id')} <code className="rounded bg-white px-1.5 py-0.5 font-mono">{sentryProjectId()}</code>{' '}
+            {tr('under organisation')} <code className="rounded bg-white px-1.5 py-0.5 font-mono">o4512044607733760</code>.
+          </p>
+          <p className="text-smoke">
+            {tr('Stack traces in Sentry are minified for the same reason they are here: source maps are not being uploaded at build time, which needs a Sentry auth token in the Vercel environment. Until then this panel’s context and trail are the better read.')}
+          </p>
+        </div>
+      </details>
+
       {!rows && <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-20 w-full rounded-card" />)}</div>}
 
       {rows && shown.length === 0 && (
@@ -245,44 +280,184 @@ export default function ErrorWatch() {
               </div>
 
               {/* ---- WHAT IT IS AND HOW TO GET IT TO HAPPEN AGAIN ---- */}
-              {expanded && (
+              {expanded && (() => {
+                const { frames, ctx } = splitDetail(r.detail)
+                const guide = explain(r)
+                return (
                 <div className="border-t border-gray-100 bg-white/70 px-4 py-4">
+                  {/* THE EXPLANATION LEADS, BECAUSE IT IS THE ANSWER.
+                      Everything else on this panel is evidence, and evidence is
+                      only worth reading once you know what you are looking for.
+                      Ethan: "I'm not sure what these errors are, the information
+                      provided doesn't really help me." See lib/errorGuide - a
+                      fault with no entry gets no explanation rather than a
+                      guess, because a confident wrong answer on a monitoring
+                      panel sends somebody looking in the wrong place. */}
+                  {guide ? (
+                    <div className="mb-4 rounded-card border border-brand/20 bg-brand-tint/30 p-4">
+                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                        <Icon name="bulb" className="h-3.5 w-3.5" />
+                        {tr('What this is')}
+                        <span className="rounded-full bg-white/70 px-2 py-0.5 normal-case tracking-normal text-brand/80">{guide.severity}</span>
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-ink">{guide.means}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-ink/75">
+                        <span className="font-semibold">{tr('Usually caused by')}: </span>{guide.cause}
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed text-ink/75">
+                        <span className="font-semibold">{tr('What to do')}: </span>{guide.todo}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mb-4 rounded-card border border-gray-100 bg-cloud/50 p-3 text-xs text-smoke">
+                      {tr('No known explanation for this one yet. The trail below is the best starting point: it says which screens they opened and what they pressed, in order.')}
+                    </p>
+                  )}
+
                   <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                     <Fact label={tr('Where')} value={r.route || '/'} mono />
                     <Fact label={tr('Browser')} value={r.agent} mono />
+                    <Fact label={tr('Screen')} value={ctx?.viewport} mono />
+                    <Fact label={tr('Installed app')} value={ctx ? (ctx.installed ? 'Yes' : 'No, a browser tab') : null} />
+                    <Fact label={tr('Online')} value={ctx?.online === false ? 'No, offline' : ctx?.online === true ? 'Yes' : null} />
+                    <Fact label={tr('How long the app had been open')} value={ctx?.pageAge} />
+                    <Fact label={tr('Language')} value={ctx?.lang} mono />
+                    <Fact label={tr('Reduced motion')} value={ctx?.reduceMotion ? 'On' : null} />
                     <Fact label={tr('First seen')} value={r.first_seen_at ? formatDateTimeTz(r.first_seen_at) : null} />
                     <Fact label={tr('Last seen')} value={r.last_seen_at ? formatDateTimeTz(r.last_seen_at) : null} />
                     <Fact label={tr('Build')} value={r.release ? r.release.slice(0, 7) : null} mono />
                     <Fact label={tr('Fingerprint')} value={r.fingerprint?.slice(0, 12)} mono />
                   </dl>
 
-                  {r.detail && <Trace label={tr('Stack')} body={r.detail} />}
-                  {r.component && <Trace label={tr('Component')} body={r.component} />}
+                  {/* WHAT THEY WERE DOING, AND IT IS THE MOST USEFUL THING HERE.
+                      A production stack is minified to `Fa@ui-BaIenqY-.js:4:29678`
+                      and names nothing. A list of the screens they opened and
+                      the buttons they pressed does not minify, and it is a
+                      reproduction rather than a riddle. See lib/breadcrumbs -
+                      it records labels we wrote and never anything anybody
+                      typed. Rows from before 12 Sep 2026 have no trail. */}
+                  {ctx?.trail?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{tr('What they did, in order')}</p>
+                      <ol className="mt-1.5 space-y-1">
+                        {ctx.trail.map((step, i) => (
+                          <li key={i} className="flex gap-2 text-xs text-ink/80">
+                            <span className="w-4 shrink-0 text-right tabular-nums text-gray-300">{i + 1}</span>
+                            <span className="min-w-0 break-words font-mono">{step}</span>
+                          </li>
+                        ))}
+                        <li className="flex gap-2 text-xs font-semibold text-red-700">
+                          <span className="w-4 shrink-0 text-right tabular-nums text-red-300">×</span>
+                          <span>{tr('crashed')}</span>
+                        </li>
+                      </ol>
+                    </div>
+                  )}
 
-                  <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3 text-xs text-smoke">
+                  {ctx?.reason && (
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{tr('What the failure itself said')}</p>
+                      <dl className="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                        {Object.entries(ctx.reason).map(([k, v]) => <Fact key={k} label={k} value={String(v)} mono />)}
+                      </dl>
+                    </div>
+                  )}
+
+                  {frames && <Trace label={tr('Stack (minified - names are from the built bundle)')} body={frames} />}
+                  {r.component && <Trace label={tr('Component tree (minified)')} body={r.component} />}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3 text-xs text-smoke">
                     <span>
                       {tr('To reproduce: open')} <code className="rounded bg-cloud px-1.5 py-0.5">{r.route || '/'}</code>
-                      {r.agent ? ` ${tr('on')} ${r.agent}` : ''}.
+                      {r.agent ? ` ${tr('on')} ${r.agent}` : ''}
+                      {ctx?.viewport ? ` ${tr('at')} ${ctx.viewport}` : ''}.
                     </span>
-                    {/* Sentry keeps the breadcrumbs and the sourcemapped frames.
-                        A search link rather than a deep link, because the issue
-                        id is Sentry's and we do not store it. */}
+                    {/* EVERYTHING ABOUT THIS ROW, ON THE CLIPBOARD. The point of
+                        the button is that Ethan can paste one block into a
+                        message and have the whole fault travel with it -
+                        message, route, browser, context, trail and frames -
+                        instead of screenshotting a panel four times. */}
+                    <button type="button" onClick={() => copyReport(r, ctx, frames, guide)} className="font-semibold text-brand hover:underline">
+                      {tr('Copy the whole report')}
+                    </button>
+                    {/* THIS LINK USED TO GO TO SOMEBODY ELSE'S SENTRY.
+                        It was hard-coded to `/organizations/sentry/issues/` -
+                        `sentry` being Sentry's OWN org slug, not ours - so
+                        every press landed on a login for an account nobody
+                        here has. Ethan: "I tried to login and check Sentry but
+                        I was having difficulties logging in, it's weird, it
+                        seems like a different login screen or something." That
+                        is exactly what that link produces.
+
+                        AND THIS PROJECT IS ON SENTRY'S EU REGION, which the
+                        DSN says plainly (`...ingest.de.sentry.io/...`) and
+                        which is the other half of the same confusion: an EU
+                        account signing in at sentry.io is signing in to the US
+                        instance, where the account does not exist. `sentryHome`
+                        builds the right host from the DSN rather than from a
+                        constant somebody has to remember. */}
                     <a
-                      href={`https://sentry.io/organizations/sentry/issues/?query=${encodeURIComponent(r.message || '')}`}
+                      href={sentryLink(r.message)}
                       target="_blank"
                       rel="noreferrer noopener"
                       className="font-semibold text-brand hover:underline"
                     >
                       {tr('Open in Sentry')} ↗
                     </a>
-                  </p>
+                  </div>
                 </div>
-              )}
+                )
+              })()}
             </div>
           )
         })}
       </div>
     </div>
+  )
+}
+
+// The stored `detail` is the stack, then a marker, then a JSON blob of what the
+// app looked like and what the person had just done. One text column carries
+// both because `client_errors` has no jsonb field for it and adding one is a
+// migration; the two ends agree on the marker. See `buildDetail` in
+// lib/monitoring.
+//
+// A row written before 12 Sep 2026 has no marker and is all stack, which this
+// handles by simply returning it - the panel then draws no context section
+// rather than an empty one.
+export function splitDetail(detail) {
+  const text = String(detail || '')
+  const i = text.indexOf(CONTEXT_MARK)
+  if (i === -1) return { frames: text, ctx: null }
+  const frames = text.slice(0, i)
+  try {
+    return { frames, ctx: JSON.parse(text.slice(i + CONTEXT_MARK.length)) }
+  } catch {
+    // A truncated blob is not a reason to lose the frames.
+    return { frames, ctx: null }
+  }
+}
+
+/** The whole fault as one pasteable block. */
+function copyReport(r, ctx, frames, guide) {
+  const lines = [
+    `${r.message}`,
+    `route: ${r.route || '/'}`,
+    `browser: ${r.agent || 'unknown'}`,
+    `seen: ${r.hits} time(s), ${r.people} person/people`,
+    `first: ${r.first_seen_at}  last: ${r.last_seen_at}`,
+    `build: ${r.release || 'unknown'}  fingerprint: ${r.fingerprint}`,
+  ]
+  if (guide) lines.push('', `likely: ${guide.means}`, `cause: ${guide.cause}`)
+  if (ctx) {
+    lines.push('', 'context:', JSON.stringify({ ...ctx, trail: undefined }, null, 1))
+    if (ctx.trail?.length) lines.push('', 'what they did:', ...ctx.trail.map((s, i) => `  ${i + 1}. ${s}`), '  x. crashed')
+  }
+  if (frames) lines.push('', 'stack:', frames)
+  if (r.component) lines.push('', 'component tree:', r.component)
+  navigator.clipboard?.writeText(lines.join('\n')).then(
+    () => toastSuccess('Report copied.'),
+    () => {},
   )
 }
 

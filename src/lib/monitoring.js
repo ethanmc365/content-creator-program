@@ -14,9 +14,53 @@ const DEFAULT_DSN = 'https://17378c7401c05460b304f92d28488842@o4512044607733760.
 
 import * as Sentry from '@sentry/react'
 import { supabase } from './supabase'
+import { installBreadcrumbs, readTrail } from './breadcrumbs'
 
 /** The DSN actually in use: the env var if set, otherwise the project's own. */
 export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
+
+/**
+ * WHERE THIS PROJECT'S SENTRY ACTUALLY LIVES, READ OFF THE DSN.
+ *
+ * Ethan: "I tried to login and check Sentry but I was having difficulties
+ * logging in, it's weird, it seems like a different login screen or something."
+ *
+ * Two separate things were sending him to the wrong place, and both are here.
+ *
+ * FIRST, THE REGION. This project's DSN is `...ingest.DE.sentry.io/...`, which
+ * means the organisation is on Sentry's EU instance. Sentry runs the EU and US
+ * instances as separate installations with separate account databases, so
+ * signing in at plain `sentry.io` is signing in to a system the account does
+ * not exist in - and what you get is a login screen that looks right, takes the
+ * password, and tells you it is wrong. `eu.sentry.io` is the same product with
+ * the account in it.
+ *
+ * SECOND, THE ORG. The panel's deep link was hard-coded to
+ * `/organizations/sentry/issues/`, and `sentry` is SENTRY'S OWN org slug. Every
+ * press of it went to a stranger's dashboard. There is no org slug in a DSN -
+ * only the numeric org and project ids - so the slug comes from
+ * `VITE_SENTRY_ORG` when somebody sets it, and without it the link goes to the
+ * region's front door, which is the honest answer: we know the instance, we do
+ * not know the slug, and sending somebody to the right login beats sending them
+ * to the wrong dashboard.
+ */
+export function sentryHome() {
+  const dsn = sentryDsn()
+  // `o<id>.ingest.<region>.sentry.io` - the region segment is absent for US.
+  const region = dsn.match(/ingest\.([a-z]{2})\.sentry\.io/i)?.[1]
+  return region ? `https://${region.toLowerCase()}.sentry.io` : 'https://sentry.io'
+}
+
+/** The numeric project id, which is the last path segment of the DSN. */
+export const sentryProjectId = () => sentryDsn().split('/').pop() || null
+
+/** A search for one fault, as deep as we can honestly go. */
+export function sentryLink(message) {
+  const org = import.meta.env.VITE_SENTRY_ORG
+  const home = sentryHome()
+  if (!org) return home
+  return `${home}/organizations/${org}/issues/?query=${encodeURIComponent(message || '')}`
+}
 
 // NOISE THAT IS NOT OURS AND NEVER WILL BE.
 //
@@ -108,6 +152,10 @@ export function initMonitoring() {
   })
 
   installGlobalHandlers()
+  // What the person pressed, so a crash report says how to get back to it. One
+  // delegated capture-phase listener; see lib/breadcrumbs for what it is
+  // allowed to record and, more importantly, what it is not.
+  installBreadcrumbs()
 }
 
 // ---------------------------------------------------------------------------
@@ -186,17 +234,94 @@ export function installGlobalHandlers({ report = captureError } = {}) {
     if (!e?.error) return
     const msg = e.error.message || e.message
     if (!worthReporting(msg) || !firstTime(`error:${msg}`)) return
-    report(e.error, { componentStack: e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : null })
+    // `where`, NOT `componentStack`. This is a FILE AND A LINE, and calling it
+    // a component stack put a URL in the panel's "Component" box under a
+    // heading promising the React tree - which is a label that actively misled
+    // whoever read it.
+    report(e.error, { where: e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : null })
   })
 
   window.addEventListener('unhandledrejection', (e) => {
     const reason = e?.reason
-    // A rejection can be thrown with anything at all, including a string or a
-    // supabase error object, so this must not assume an Error.
-    const msg = reason?.message || (typeof reason === 'string' ? reason : null) || 'Unhandled promise rejection'
-    if (!worthReporting(msg) || !firstTime(`reject:${msg}`)) return
-    report(reason instanceof Error ? reason : new Error(msg))
+    // A rejection can be thrown with anything at all - a string, a DOMException,
+    // a supabase error object, a minified class - so this must not assume an
+    // Error. `describeReason` is what keeps whatever identity it had.
+    const d = describeReason(reason)
+    if (!worthReporting(d.message) || !firstTime(`reject:${d.message}`)) return
+
+    // THE OLD LINE HERE THREW THE EVIDENCE AWAY, AND ONE OF THE TWO ERRORS ON
+    // THE PANEL IS THE PROOF (12 Sep 2026).
+    //
+    // It was `report(reason instanceof Error ? reason : new Error(msg))`. For
+    // anything that is not an Error - which is most rejections in a bundled app
+    // - that CONSTRUCTS A FRESH ERROR HERE, so the stack it carries is this
+    // file's own two frames and nothing else. The panel row reads:
+    //
+    //     message  Pa
+    //     detail   @.../monitoring-DfA3rt1F.js:2:71865
+    //              r@.../monitoring-DfA3rt1F.js:2:52195
+    //
+    // "Pa" is a minified identifier that leaked out as somebody's `.message`,
+    // and both stack frames point at the REPORTER. There is not one fact in
+    // that row about the thing that actually failed. Ethan: "the information
+    // provided doesn't really help me" - it could not, because the reporter was
+    // overwriting it.
+    //
+    // So the original is passed through untouched when it is an Error, and when
+    // it is not, the synthesised one is given the reason's OWN type and any
+    // stack the reason had, with the reporter's frames stripped.
+    if (reason instanceof Error) { report(reason, { source: 'unhandled rejection' }); return }
+    const synthetic = new Error(d.message)
+    synthetic.name = d.name
+    if (d.stack) synthetic.stack = d.stack
+    report(synthetic, { source: 'unhandled rejection', reason: d.extra })
   })
+}
+
+/**
+ * WHAT WAS ACTUALLY THROWN, WITHOUT ASSUMING IT WAS AN ERROR.
+ *
+ * A promise can reject with anything. In this app the four shapes that actually
+ * turn up are an Error, a string, a supabase `PostgrestError` (which is a plain
+ * object carrying `code`, `details` and `hint` and is NOT an Error), and a
+ * DOMException. A reporter that only understands the first turns the other
+ * three into "Unhandled promise rejection" with its own stack attached, which
+ * is what made the panel unreadable.
+ *
+ * The `name` is kept because it is often the only identifying thing left:
+ * `NotFoundError` and `QuotaExceededError` are both DOMExceptions and mean
+ * completely different things. And a message that is a bare minified token
+ * (`Pa`) gets the type prefixed to it, so the row at least says what KIND of
+ * object arrived rather than printing two letters.
+ */
+export function describeReason(reason) {
+  if (reason == null) return { name: 'Rejection', message: 'Unhandled promise rejection', stack: null, extra: null }
+  if (typeof reason === 'string') return { name: 'Rejection', message: reason, stack: null, extra: null }
+
+  const name = reason.name || reason.constructor?.name || 'Rejection'
+  let message = reason.message || reason.error_description || reason.error || ''
+  // A supabase error carries the useful half in fields nobody looks at.
+  const extra = {}
+  for (const k of ['code', 'details', 'hint', 'status', 'statusCode']) {
+    if (reason[k] != null && reason[k] !== '') extra[k] = String(reason[k]).slice(0, 200)
+  }
+  if (!message) message = extra.details || extra.hint || 'Unhandled promise rejection'
+  // "Pa" on its own says nothing. "Object: Pa" at least says a non-Error was
+  // thrown, which is the first thing worth knowing about it.
+  // `Object` is what `constructor.name` says about a plain `{}`, which names
+  // nothing - "Object: Pa" is no better than "Pa". A type that means something
+  // (DOMException, PostgrestError) is worth putting in front.
+  const typed = name !== 'Error' && name !== 'Object' && name !== 'Rejection'
+  if (/^[A-Za-z$_][\w$]{0,3}$/.test(message)) {
+    message = typed ? `${name}: ${message}` : `Non-Error thrown: ${message}`
+  }
+
+  return {
+    name,
+    message: String(message).slice(0, 300),
+    stack: typeof reason.stack === 'string' ? reason.stack : null,
+    extra: Object.keys(extra).length ? extra : null,
+  }
 }
 
 /**
@@ -258,10 +383,80 @@ export function browserLabel() {
  * `initMonitoring` - but it still logs to the console, because a developer
  * running locally is precisely who needs to see it.
  */
+/**
+ * THE STATE OF THE APP AT THE MOMENT IT BROKE.
+ *
+ * Everything here is chosen because a real bug on this platform has turned on
+ * it, and none of it is personal:
+ *
+ *   viewport      Half the layout bugs this codebase has shipped were one width
+ *                 only, and the panel could not tell a phone from a laptop.
+ *   installed     An installed PWA and a Safari tab are different environments -
+ *                 different navigation stack, no push on an iOS tab, a
+ *                 different keyboard inset. More than one bug has only ever
+ *                 happened in one of them.
+ *   online        A crash while offline is usually the network, not the code.
+ *   pageAge       A throw eighteen minutes into a session is a different animal
+ *                 from one on the first paint. It also separates "broken on
+ *                 load" from "broke while they were using it", which is the
+ *                 first question worth asking.
+ *   reduceMotion  Animation code paths differ under it.
+ *   lang          The translation layer is a live surface; a missing key throws.
+ *
+ * WHAT IS DELIBERATELY NOT HERE: the full user agent (a tracking surface with
+ * no use on a community app - `browserLabel` reduces it to a family and a major
+ * version, which is the reproduction hint), the URL's query string (a password
+ * reset token lives there), and anything anybody typed.
+ */
+const bootedAt = Date.now()
+
+export function errorContext() {
+  if (typeof window === 'undefined') return {}
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator?.standalone
+  return {
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    installed: !!standalone,
+    online: typeof navigator !== 'undefined' ? navigator.onLine !== false : null,
+    pageAge: `${Math.round((Date.now() - bootedAt) / 1000)}s`,
+    reduceMotion: !!document.documentElement.getAttribute('data-reduce-motion'),
+    lang: document.documentElement.getAttribute('lang') || null,
+  }
+}
+
+// The delimiter the panel splits on. A marker rather than a second column
+// because `client_errors` has no jsonb field to put this in and adding one is a
+// migration; the transport is one text column and both ends agree on the shape.
+// ErrorWatch parses it back out and draws it as facts, so nobody ever reads
+// this line.
+export const CONTEXT_MARK = '\n----- context -----\n'
+
+/** The stack, then the context and the trail, in one 4000-character field. */
+function buildDetail(error, context) {
+  const frames = error?.stack ? String(error.stack).split('\n').slice(0, 14).join('\n') : ''
+  const payload = {
+    ...errorContext(),
+    ...(context?.where ? { where: context.where } : {}),
+    ...(context?.source ? { via: context.source } : {}),
+    ...(context?.reason ? { reason: context.reason } : {}),
+    // WHAT THEY WERE DOING. The one part of a crash report that does not
+    // minify. See lib/breadcrumbs.
+    trail: readTrail(),
+  }
+  let body = `${frames}${CONTEXT_MARK}${JSON.stringify(payload, null, 1)}`
+  // The column is 4000 and truncates from the right, which would cut the
+  // context off and leave twelve frames of minified noise - the exact opposite
+  // of the trade worth making. The frames are what get shortened.
+  if (body.length > 3900) {
+    const tail = `${CONTEXT_MARK}${JSON.stringify(payload, null, 1)}`
+    body = `${frames.slice(0, Math.max(0, 3900 - tail.length))}${tail}`
+  }
+  return body
+}
+
 export function captureError(error, context) {
   if (import.meta.env.DEV) { console.error('[captured]', error, context); return }
   try {
-    Sentry.captureException(error, context ? { extra: context } : undefined)
+    Sentry.captureException(error, { extra: { ...(context || {}), ...errorContext(), trail: readTrail() } })
   } catch {
     /* never let reporting an error throw a second one */
   }
@@ -298,7 +493,12 @@ export function captureError(error, context) {
       // reproduction hint, not a fingerprint, and a full UA is a tracking
       // surface we have no use for on a community app with 16-year-olds on it.
       p_agent: browserLabel(),
-      p_detail: error?.stack ? String(error.stack).split('\n').slice(0, 12).join('\n').slice(0, 4000) : null,
+      // THE STACK IS NO LONGER THE WHOLE OF IT. A production stack reads
+      // `Fa@.../ui-BaIenqY-.js:4:29678` and names nothing without source maps
+      // uploaded to Sentry - so the field now carries the state of the app and
+      // the trail of what was pressed alongside it, which do not minify. See
+      // `buildDetail`.
+      p_detail: buildDetail(error, context),
     }).then(() => {}, () => {})
   } catch { /* the app is already broken; do not make it worse */ }
 }

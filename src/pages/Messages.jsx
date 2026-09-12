@@ -431,9 +431,30 @@ export default function Messages() {
         // negative, which would ride the overlay up above the header.
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
         paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
-        // The overlay grows in the SAME 300ms the header slides in, so the two
-        // read as one movement rather than as a gap opening and then filling.
-        transition: 'top 300ms cubic-bezier(0.32,0.72,0,1), height 300ms cubic-bezier(0.32,0.72,0,1)',
+        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (12 Sep 2026.)
+        //
+        // Ethan, of the DMs: "try to smooth out the UI, lag, between these
+        // happening."
+        //
+        // This is the same fault the rooms had and fixed on 1 Sep, in the file
+        // the rooms were copied FROM - it said `transition: top 300ms, height
+        // 300ms` so that the box would grow in the same beat as the header's
+        // slide, which reads beautifully in a description and janks on a phone.
+        // `top` and `height` are LAYOUT properties: every frame of that
+        // transition relaid out the overlay, its flex column, the scroller and
+        // every message row in the thread, sixty times a second, while iOS was
+        // separately animating the keyboard over the top of it.
+        //
+        // And it made the OTHER half of this bug worse. The thread's re-pin
+        // fires when the keyboard opens; with the box still shrinking for
+        // another 300ms afterwards, whatever it scrolled to was already the
+        // wrong place by the time it got there - which is the last message
+        // ending up under the keyboard. Snapping removes the moving target;
+        // `stickToBottom` now watching clientHeight removes the rest of it.
+        //
+        // The header still slides, on `transform`, which is compositor-only and
+        // cannot jank. It is z-40 over this z-20 box, so it still reads as one
+        // movement.
       }
     : undefined
 
@@ -1259,11 +1280,25 @@ export default function Messages() {
     prevLenRef.current = thread.length
   }, [thread, atBottom, user.id, scrollToBottom])
 
-  // Keep the latest message visible as the keyboard opens/closes or the visible
-  // viewport resizes (only if we were already following the newest).
+  // Keep the latest message visible as the keyboard opens or closes.
+  //
+  // `auto`, NOT `smooth`, AND THAT IS THE WHOLE OF THE SECOND HALF OF THE BUG.
+  //
+  // A smooth scroll is an animation with a target fixed at the moment it
+  // starts. The keyboard takes about a quarter of a second to arrive and the
+  // scroller is losing height the entire time, so a smooth scroll begun on the
+  // first frame aims at where the bottom WAS and finishes short of where it now
+  // is - which is a last message sitting behind the keyboard, having visibly
+  // slid most of the way there first. It also ran at the same time as
+  // `stickToBottom`'s own correction, and two mechanisms scrolling one element
+  // is this codebase's most repeated bug.
+  //
+  // So this is now one instant correction, and `stickToBottom` - which watches
+  // the scroller's clientHeight as of 12 Sep - owns every frame after it. Both
+  // write `scrollTop = scrollHeight`, so even when they overlap they agree.
   useEffect(() => {
-    if (atBottom) scrollToBottom('smooth')
-  }, [kbOpen, vpHeight, atBottom, scrollToBottom])
+    if (atBottomRef.current) scrollToBottom('auto')
+  }, [kbOpen, vpHeight, scrollToBottom])
 
   // Track whether the reader is pinned to the bottom of the thread.
   const onScrollMessages = useCallback(() => {
