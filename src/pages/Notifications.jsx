@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import { timeAgo, cx } from '../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../lib/notifications'
 import { useT } from '../lib/i18n'
@@ -193,7 +194,12 @@ export default function Notifications() {
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        /* THE GROUPS ARRIVE, ONE AFTER ANOTHER. `dense`, because these are
+           rows and not cards: 10px over 320ms with no compositor layer
+           promised, which is what a list of twenty notifications wants. See
+           the `dense` prop in Reveal. Keyed on the filter so switching between
+           "All" and "People" is a movement rather than a swap. */
+        <Reveal key={filter} className="space-y-6" dense stagger={0.05}>
           {groups.map(([heading, group]) => (
             <section key={heading}>
               <p className="mb-2 flex items-baseline gap-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
@@ -207,7 +213,7 @@ export default function Notifications() {
               </div>
             </section>
           ))}
-        </div>
+        </Reveal>
       )}
     </div>
   )

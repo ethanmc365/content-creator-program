@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import { formatDate, formatMoney } from '../lib/utils'
 import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
@@ -61,10 +62,12 @@ export default function Rewards() {
         <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
       ) : (
         <>
-          <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* The two figures arrive as a pair, then the ledger under them.
+              This page drew itself on one frame; see the note in Reveal. */}
+          <Reveal className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2" row stagger={0.07}>
             <StatCard label={tr("Total received")} value={showTotal(earned)} accent />
             <StatCard label={tr("Pending")} value={showTotal(pending)} hint={pending.amount > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
-          </div>
+          </Reveal>
 
           {rewards.length === 0 ? (
             <EmptyState
@@ -74,7 +77,8 @@ export default function Rewards() {
               action={<Link to="/challenges" className="btn-primary">{tr("See the challenge")}</Link>}
             />
           ) : (
-            <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+            /* `dense`, because these are ledger rows and not cards. */
+            <Reveal className="overflow-hidden rounded-card border border-gray-100 shadow-card" dense delay={0.1}>
               {rewards.map((r) => (
                 <div key={r.id} className="flex flex-wrap items-center gap-3 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand" aria-hidden>
@@ -100,7 +104,7 @@ export default function Rewards() {
                   <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
                 </div>
               ))}
-            </div>
+            </Reveal>
           )}
         </>
       )}

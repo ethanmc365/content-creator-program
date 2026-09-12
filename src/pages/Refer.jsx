@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import { formatDate } from '../lib/utils'
 import { referralStage } from '../lib/referrals'
 import { useT } from '../lib/i18n'
@@ -74,6 +75,8 @@ export default function Refer() {
         title={tr("Refer a creator")}
       />
 
+      {/* The page assembles top to bottom rather than appearing whole. */}
+      <Reveal stagger={0.06}>
       {/* Reward incentive + progress */}
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
         <p className="text-xl font-bold sm:text-2xl">{tr("Refer 3 creators, earn a €20 Tryp.com voucher")}</p>
@@ -174,6 +177,7 @@ export default function Refer() {
           </div>
         )}
       </section>
+      </Reveal>
     </div>
   )
 }

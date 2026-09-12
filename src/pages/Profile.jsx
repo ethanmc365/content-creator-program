@@ -16,6 +16,7 @@ import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualCreators } from '../lib/connections'
 import { confirm, notice } from '../lib/confirm'
 import { flagForCountry } from '../lib/flags'
+import Reveal from '../components/network/Reveal'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { airport } from '../lib/airports'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
@@ -994,7 +995,16 @@ export default function Profile() {
           measured every image twice and loaded the world atlas twice, all to
           paint one of them. Cheap for a settings panel, not for this page. */}
       {isMobile ? (
-      <div className="flex flex-col gap-6">
+      /* THE SECTIONS ARRIVE ONE AFTER ANOTHER, ON A PHONE TOO (12 Sep 2026).
+         Ethan: "all the other pages on mobile also need those nice smooth
+         animations built in... profiles". This page had none at either width:
+         the whole body appeared on one frame, which on a page this long is the
+         "sections just flash and appear in" report exactly.
+         `Reveal` observes each section separately once the column is taller
+         than the screen, which a profile always is - so a section animates when
+         you reach it rather than having finished five screens before you did.
+         See the per-item note in components/network/Reveal. */
+      <Reveal className="flex flex-col gap-6" stagger={0.05}>
         {about}
         {/* Right under About, which is the other thing this person wrote about
             themselves - and off the top of the page, where it was squashed. */}
@@ -1016,18 +1026,21 @@ export default function Profile() {
             so it ends the page instead of interrupting it - and it used to have
             the flight log and the challenge wall stacked underneath it here. */}
         {showcase}
-      </div>
+      </Reveal>
 
       ) : (
       /* ---------------- TWO COLUMNS, FROM `lg` ---------------- */
       <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-8">
+        {/* The two columns do not arrive the same way: the article rises and
+            the rail slides in from the edge it lives against. Same pattern as
+            the calendar and the hub. */}
+        <Reveal className="min-w-0 space-y-8" stagger={0.06}>
           {about}
           {worldMap}
           {photos}
           {showcase}
-        </div>
-        <aside className="min-w-0 space-y-4">
+        </Reveal>
+        <Reveal as="aside" from="right" className="min-w-0 space-y-4" stagger={0.05} delay={0.08}>
           {clock}
           {glance}
           {headedNextSection}
@@ -1036,7 +1049,7 @@ export default function Profile() {
           {flightLog}
           {challengeWall}
           {puzzles}
-        </aside>
+        </Reveal>
       </div>
       )}
       {/* Mounted at the page root rather than beside the button: Modal portals

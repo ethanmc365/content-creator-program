@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import { timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -82,7 +83,8 @@ export default function Jobs() {
           hint={tr("We post new positions here first. Keep creating great content and you'll be top of mind.")}
         />
       ) : (
-        <div className="space-y-6">
+        /* One card per role, arriving in order. */
+        <Reveal className="space-y-6" stagger={0.06}>
           {jobs.map((j) => {
             const app = applied.get(j.id)
             const st = app ? APPLICANT_STATUS[app.status] || APPLICANT_STATUS.new : null
@@ -117,7 +119,7 @@ export default function Jobs() {
               </article>
             )
           })}
-        </div>
+        </Reveal>
       )}
 
       {/* Apply modal */}

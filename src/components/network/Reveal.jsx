@@ -133,6 +133,12 @@ export default function Reveal({
   ...rest
 }) {
   const [shown, setShown] = useState(false)
+  // Read by the per-item measurement, which must not change its mind after the
+  // container has already answered. A ref rather than the state itself so the
+  // measure effect does not have to re-run (and re-measure) every time `shown`
+  // flips - see the note there.
+  const shownRef = useRef(false)
+  useEffect(() => { shownRef.current = shown }, [shown])
   // ---------------------------------------------------------------------
   // WHEN THE CONTAINER IS TALLER THAN THE SCREEN, EACH ITEM ANSWERS FOR ITSELF.
   //
@@ -163,6 +169,30 @@ export default function Reveal({
   // ---------------------------------------------------------------------
   const [perItem, setPerItem] = useState(false)
   const [shownItems, setShownItems] = useState(() => new Set())
+  // WHICH ITEMS HAVE FINISHED MOVING, IN PER-ITEM MODE.
+  //
+  // Ethan: "animations on the mobile app version is something that needs
+  // improved - even on the worldwide screen, the sections just seem to flash
+  // and appear in."
+  //
+  // THIS IS THE SAME BUG THE STYLESHEET ALREADY DOCUMENTS, REINTRODUCED IN THE
+  // BRANCH THAT EXISTS TO FIX MOBILE. The note beside `.reveal.is-done` in
+  // index.css spells it out: `will-change` used to be withdrawn on `is-in` -
+  // the very class that STARTS the transition - so a card lost its promised
+  // compositor layer on the frame it began moving and had to be re-rasterised
+  // mid-slide. That was fixed for the CONTAINER path by adding `is-done` on a
+  // timer once the stagger was over.
+  //
+  // The per-item path then wrote `' is-in is-done'`, both classes, in one
+  // commit - which is the original fault exactly, with no timer at all. And
+  // per-item mode is the MOBILE mode: it engages whenever a container is taller
+  // than 1.25 viewports, which is what every stacked single-column section on a
+  // phone is. So the branch added to make mobile animate properly was, for
+  // every card it governed, cancelling the layer hint on the starting frame.
+  //
+  // `is-done` is now what it is on the container: a thing that arrives when the
+  // movement is actually over.
+  const [doneItems, setDoneItems] = useState(() => new Set())
   const itemNodes = useRef([])
   const setItemNode = useCallback((i) => (el) => { itemNodes.current[i] = el }, [])
 
@@ -234,6 +264,21 @@ export default function Reveal({
       // A zero-height viewport is a host that cannot answer (a headless pane,
       // a hidden iframe). Keep the simpler mode rather than guessing.
       if (!vh) return
+      // ONCE THE CONTAINER HAS ANSWERED FOR ITS CHILDREN, IT KEEPS ANSWERING.
+      //
+      // The ResizeObserver above re-measures whenever the container changes
+      // shape, and half of these grids are filled from a query - so a section
+      // that fitted the screen while it was empty can become taller than it a
+      // second later, mid-animation. Switching to per-item mode at that moment
+      // takes `is-in` off the CONTAINER (the class is `!perItem && shown`), and
+      // every child that was part-way through its 720ms snaps back to opacity 0
+      // and waits for its own observer to notice it. That is a flash, and it
+      // lands on exactly the sections whose contents arrive late: the map, the
+      // live challenge, the creator rail.
+      //
+      // The mode is a decision about WHICH OBSERVER decides the moment, and
+      // once the moment has passed there is nothing left to decide.
+      if (shownRef.current) return
       setPerItem(node.offsetHeight > vh * 1.25)
     }
     measure()
@@ -464,6 +509,21 @@ export default function Reveal({
   // raw children instead reports 1 for a fragment-wrapped rail, which would
   // withdraw the hint a beat before the last card in it had finished moving -
   // the same bug in miniature.
+  // AND THE PER-ITEM VERSION OF THE SAME TIMER. One effect for the whole set
+  // rather than one per card: an item that has just been shown gets its
+  // `is-done` a transition's length later, which is the moment the layer hint
+  // is genuinely spent. There is no stagger in this mode (see the note above
+  // `perItem`), so the delay is just the transition.
+  useEffect(() => {
+    if (!perItem) return undefined
+    const pending = [...shownItems].filter((i) => !doneItems.has(i))
+    if (!pending.length) return undefined
+    const t = setTimeout(() => {
+      setDoneItems((prev) => new Set([...prev, ...pending]))
+    }, (dense ? 320 : 720) + 120)
+    return () => clearTimeout(t)
+  }, [perItem, shownItems, doneItems, dense])
+
   const lastIndex = Math.max(0, Math.min(kids.filter(Boolean).length - 1, maxStagger))
   useEffect(() => {
     if (!shown || done) return undefined
@@ -488,6 +548,8 @@ export default function Reveal({
         // stagger index is forced to 0: see the note above on why a stagger is
         // meaningless once the children arrive one at a time.
         const mine = perItem && shownItems.has(i) && painted
+        // `is-done` only once this item has actually landed. See `doneItems`.
+        const landed = perItem && doneItems.has(i)
         return (
           <div
             // The child's own key is what React needs; this wrapper is
@@ -495,7 +557,7 @@ export default function Reveal({
             key={child?.key ?? i}
             ref={setItemNode(i)}
             data-reveal-idx={i}
-            className={`reveal-item${mine ? ' is-in is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}`}
+            className={`reveal-item${mine ? ' is-in' : ''}${landed ? ' is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}`}
             // Grid cells have to stretch or a card that fills its row height
             // stops filling it the moment a wrapper appears between the two.
             style={{ '--reveal-i': perItem ? 0 : Math.min(i, maxStagger) }}

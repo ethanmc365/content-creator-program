@@ -540,6 +540,18 @@ html {
   .reveal.is-done > .reveal-item,
   .reveal > .reveal-item.is-done { will-change: auto; }
 
+  /* A WRAPPER ROUND NOTHING TAKES UP NO ROOM (12 Sep 2026).
+     `Reveal` puts every child in its own div, and `Children.toArray` drops a
+     child that is `null` - but NOT one that is a fragment which happens to
+     render nothing, which is how half the conditional sections in this codebase
+     are written (`const about = <>{creator.about && <section/>}</>`). Those
+     arrive as real children and get real wrappers, and an empty wrapper inside a
+     `gap-6` column is 24px of blank page between two sections for a creator who
+     left their bio empty.
+     `:empty` is live, so a wrapper whose contents arrive later starts showing
+     itself the moment they do. */
+  .reveal-item:empty { display: none; }
+
   @media (prefers-reduced-motion: reduce) {
     .reveal-item,
     .reveal[data-from] > .reveal-item { transform: none; }
@@ -2453,3 +2465,58 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
    offers people now (see pages/Messages), so there is nothing left for a
    decorative animation to reassure anybody about. Rules deleted rather than
    left behind: an unused keyframe is a thing the next person has to check. */
+
+/* ============================================================================
+   THE CALENDAR MOVES (12 Sep 2026)
+
+   Ethan: "on desktop I noticed the calendar page doesn't have any nice clean
+   animations like the others, please build this in, also animations for when
+   pressing between months and clicking on events etc."
+
+   He is right and the page was the odd one out: every other signed-in page
+   assembles through `Reveal`, and this one drew itself in one frame. Two things
+   are added, and both are CSS for the reason everything on this page is CSS -
+   the calendar is one of the heavier routes already and has no business pulling
+   the Motion runtime for an entrance.
+
+   1. THE MONTH GRID CHANGES DIRECTIONALLY. Pressing "next" and pressing
+      "previous" used to look identical: the numbers in the cells simply became
+      different numbers. A month is a place you move ALONG, so the new grid
+      comes in from the side you were heading, which is the one piece of
+      information the old swap threw away. The cells are laid out by a grid that
+      does not move, so this is a transform and an opacity on one wrapper -
+      never a per-cell animation, which on a 42-cell grid is 42 layers.
+
+      SHORT, AND SHORTER THAN THE HOUSE 720ms. A month change is a control
+      responding to a press, not a section arriving; anything above about a
+      fifth of a second between pressing the chevron and being able to read the
+      dates reads as the page lagging behind the button.
+
+   2. A DAY'S EVENTS ARRIVE. The panel already grows from 0fr to 1fr, which
+      handles the box; its contents used to be inside it at full opacity from
+      the first frame, so the card was readable before the box was tall enough
+      to hold it. They now ride in on the same beat.
+   ============================================================================ */
+@keyframes cal-month-next {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cal-month-prev {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.cal-month-next { animation: cal-month-next 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.cal-month-prev { animation: cal-month-prev 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* The month's name changes with its grid, and reads better rising than sliding:
+   it is one short string in a fixed-width slot, and a horizontal move on a word
+   that is already changing length is two movements at once. */
+@keyframes cal-label-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.cal-label-in { animation: cal-label-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-month-next, .cal-month-prev, .cal-label-in { animation: none; }
+}

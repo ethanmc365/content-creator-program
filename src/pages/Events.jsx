@@ -23,6 +23,7 @@ import TimezonePrompt from '../components/calendar/TimezonePrompt'
 import { DeadlineReminderModal } from '../components/NotificationPreferences'
 import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
+import Reveal from '../components/network/Reveal'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -408,18 +409,46 @@ export default function Events() {
   // the typing guard is what stops `t` doing it while somebody writes a poll.
   const monthRef = useRef(month)
   useEffect(() => { monthRef.current = month }, [month])
+
+  // WHICH MONTH IS ON SCREEN, AND WHICH WAY IT ARRIVED.
+  //
+  // `monthKey` is what remounts the grid so its entrance keyframe plays again.
+  // A keyframe runs when an element is CREATED, so re-rendering the same node
+  // with new dates in it animates nothing - which is why "it only animates the
+  // first time" is such a common shape.
+  //
+  // THE DIRECTION IS SET WHERE THE MONTH IS, NOT DERIVED DURING RENDER.
+  // Deriving it by comparing against a ref is a ref written during render,
+  // which the compiler's rules reject and are right to; deriving it in an
+  // EFFECT is worse, because the effect runs after the new grid has already
+  // mounted and started animating the wrong way. `goToMonth` is the one door,
+  // and every route in - the chevrons, the swipe, the arrow keys, Today - goes
+  // through it.
+  const monthKey = `${month.getFullYear()}-${month.getMonth()}`
+  const [monthDir, setMonthDir] = useState(1)
+  const goToMonth = useCallback((next) => {
+    setMonth((cur) => {
+      const to = typeof next === 'function' ? next(cur) : next
+      const a = cur.getFullYear() * 12 + cur.getMonth()
+      const b = to.getFullYear() * 12 + to.getMonth()
+      // "Today" from the month you are already on is not a direction; leave the
+      // last one alone rather than snapping it to forwards.
+      if (b !== a) setMonthDir(b > a ? 1 : -1)
+      return to
+    })
+  }, [])
   useEffect(() => {
     if (view !== 'month') return undefined
     const onKey = (e) => {
       if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'ArrowLeft') setMonth(addMonths(monthRef.current, -1))
-      else if (e.key === 'ArrowRight') setMonth(addMonths(monthRef.current, 1))
-      else if (e.key === 't' || e.key === 'T') { setMonth(new Date()); setSelectedDay(null) }
+      if (e.key === 'ArrowLeft') goToMonth(addMonths(monthRef.current, -1))
+      else if (e.key === 'ArrowRight') goToMonth(addMonths(monthRef.current, 1))
+      else if (e.key === 't' || e.key === 'T') { goToMonth(new Date()); setSelectedDay(null) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [view])
+  }, [view, goToMonth])
 
   const dayEvents = selectedDay ? eventsOn(selectedDay) : []
   const cardProps = {
@@ -488,16 +517,31 @@ export default function Events() {
         <PageSkeleton shape="calendar" />
       ) : (
         <>
+          {/* THE PAGE ASSEMBLES, LIKE EVERY OTHER ONE (12 Sep 2026).
+              Ethan: "on desktop I noticed the calendar page doesn't have any
+              nice clean animations like the others, please build this in."
+              It was the odd page out - it drew itself in a single frame while
+              the hub, the markets, the challenges and the flight log all arrive
+              through `Reveal`. Section by section, top to bottom, with the
+              increasing `delay` the hub uses so the three above the fold do not
+              all fire on the same frame and read as one block. It is CSS, which
+              matters here more than most places: this route already carries
+              date-fns and the whole calendar, and an entrance is not worth the
+              Motion runtime on top. */}
           {/* ---------- On now ----------
               At the very top, above the next-up strip, because a thing that is
               happening beats a thing that is going to. */}
           {liveNow.length > 0 && (
-            <section className="mb-6 space-y-3">
+            <Reveal as="section" className="mb-6 space-y-3" delay={0} stagger={0.06}>
               {liveNow.map((e) => <EventCard key={e.id} e={e} {...cardProps} live />)}
-            </section>
+            </Reveal>
           )}
 
-          {nextEvent && <NextUp e={nextEvent} now={now} zone={tz.zone} rsvps={rsvps} myId={user?.id} connectedIds={connectedIds} />}
+          {nextEvent && (
+            <Reveal delay={0.06}>
+              <NextUp e={nextEvent} now={now} zone={tz.zone} rsvps={rsvps} myId={user?.id} connectedIds={connectedIds} />
+            </Reveal>
+          )}
 
           {/* ---------- The controls ----------
               THE VIEW SWITCH SPANS THE WHOLE WIDTH ON A PHONE. Ethan: "rather
@@ -506,7 +550,7 @@ export default function Events() {
               above." It is a real segmented control with a sliding highlight,
               not three buttons that change colour; the slide is what tells you
               the three are one thing. */}
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Reveal className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" delay={0.12} row>
             <div className="relative flex w-full rounded-full bg-cloud p-1 sm:w-auto">
               <span
                 className="absolute inset-y-1 rounded-full bg-white shadow-card transition-transform duration-300 ease-out"
@@ -535,34 +579,55 @@ export default function Events() {
 
             {view === 'month' && (
               <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <h2 className="text-lg font-bold tabular-nums sm:min-w-[9.5rem]">{format(month, 'MMMM yyyy')}</h2>
+                {/* KEYED ON THE MONTH, so React replaces the element and the
+                    entrance keyframe runs again. Re-rendering the same node
+                    with different text would not restart an animation - a
+                    keyframe only plays when the element is created or the class
+                    changes, and that is the trap that makes "it animates the
+                    first time and never again" so common. */}
+                <h2 key={monthKey} className="cal-label-in text-lg font-bold tabular-nums sm:min-w-[9.5rem]">{format(month, 'MMMM yyyy')}</h2>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setMonth(addMonths(month, -1))} aria-label={tr("Previous month")}
+                  <button onClick={() => goToMonth(addMonths(month, -1))} aria-label={tr("Previous month")}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
                     <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
-                  <button onClick={() => { setMonth(new Date()); setSelectedDay(null) }}
+                  <button onClick={() => { goToMonth(new Date()); setSelectedDay(null) }}
                     className="rounded-full px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-95">
                     {tr("Today")}
                   </button>
-                  <button onClick={() => setMonth(addMonths(month, 1))} aria-label={tr("Next month")}
+                  <button onClick={() => goToMonth(addMonths(month, 1))} aria-label={tr("Next month")}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
                     <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             )}
-          </div>
+          </Reveal>
 
           {view === 'month' && (
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-              <div className="lg:col-span-2">
+              {/* THE TWO COLUMNS DO NOT ARRIVE THE SAME WAY. The grid rises and
+                  the rail slides in from the edge it lives against, which is
+                  the house pattern for a two-column page (see the `from` prop
+                  in Reveal) and is what makes a layout read as composed rather
+                  than merely animated. */}
+              <Reveal className="lg:col-span-2" delay={0.18}>
+              <div>
+                {/* A MONTH IS A PLACE YOU MOVE ALONG, AND THE GRID SAYS WHICH
+                    WAY. Pressing "next" and pressing "previous" used to look
+                    identical - the numbers in the cells simply became different
+                    numbers - so the one fact the change carried was thrown
+                    away. `monthKey` remounts the wrapper; `monthDir` picks the
+                    side it comes in from. One wrapper, never per cell: 42 cells
+                    each animating is 42 compositor layers for one press. */}
+                <div key={monthKey} className={monthDir >= 0 ? 'cal-month-next' : 'cal-month-prev'}>
                 <MonthGrid
                   days={days} month={month} eventsOn={eventsOn} travelDays={travelDays}
                   selectedDay={selectedDay} onSelect={setSelectedDay}
                   liveIds={liveIds}
-                  onSwipe={(dir) => { setMonth(addMonths(monthRef.current, dir)); setSelectedDay(null) }}
+                  onSwipe={(dir) => { goToMonth(addMonths(monthRef.current, dir)); setSelectedDay(null) }}
                 />
+                </div>
                 <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-smoke">
                   <span>
                     <span className="font-semibold text-ink">{monthSummary.n}</span>
@@ -625,35 +690,47 @@ export default function Events() {
                 </div>
               </div>
 
-              <aside>
-                <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                  <Icon name="clock" className="h-5 w-5 text-brand" />
-                  {tr("Coming up")}
-                </h2>
-                <UpcomingList rows={upcoming.slice(0, 6)} cardProps={cardProps} />
-              </aside>
+              </Reveal>
+
+              <Reveal as="aside" from="right" delay={0.24}>
+                <div>
+                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                    <Icon name="clock" className="h-5 w-5 text-brand" />
+                    {tr("Coming up")}
+                  </h2>
+                  <UpcomingList rows={upcoming.slice(0, 6)} cardProps={cardProps} />
+                </div>
+              </Reveal>
             </div>
           )}
 
+          {/* THE OTHER TWO VIEWS ARRIVE TOO, and they are keyed on `view` so
+              that SWITCHING between them is a movement rather than a swap. The
+              segmented control's highlight already slides; the panel under it
+              used to change without acknowledging that anything had happened. */}
           {view === 'week' && (
-            <WeekView
-              days={weekDays} eventsOn={eventsOn} travelDays={travelDays} liveIds={liveIds}
-              cardProps={cardProps}
-              onShift={(n) => setWeekAnchor(addDays(weekDays[0], n * 7))}
-              onToday={() => setWeekAnchor(null)}
-            />
+            <Reveal key="week" delay={0.18}>
+              <WeekView
+                days={weekDays} eventsOn={eventsOn} travelDays={travelDays} liveIds={liveIds}
+                cardProps={cardProps}
+                onShift={(n) => setWeekAnchor(addDays(weekDays[0], n * 7))}
+                onToday={() => setWeekAnchor(null)}
+              />
+            </Reveal>
           )}
 
           {view === 'agenda' && (
-            <Agenda rows={upcoming} cardProps={cardProps} liveIds={liveIds} />
+            <Reveal key="agenda" delay={0.18}>
+              <Agenda rows={upcoming} cardProps={cardProps} liveIds={liveIds} />
+            </Reveal>
           )}
 
           {/* Availability polls, creator event ideas, and (admins) post-event ratings */}
-          <div className="mt-12">
+          <Reveal className="mt-12">
             <EventPolls />
             <SuggestEvent open={suggestOpen} onClose={() => setSuggestOpen(false)} />
             <EventRatingsAdmin />
-          </div>
+          </Reveal>
         </>
       )}
 

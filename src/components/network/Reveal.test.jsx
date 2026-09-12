@@ -113,6 +113,59 @@ describe('Reveal', () => {
     expect(b.classList.contains('is-in')).toBe(false)
   })
 
+  // THE LAYER HINT MUST OUTLIVE THE MOVEMENT IT WAS PROMISED FOR.
+  //
+  // `will-change: opacity, transform` is withdrawn by `is-done` (see the note
+  // beside `.reveal.is-done` in index.css). The container path learned on 9 Sep
+  // to add that class on a TIMER, once the stagger was over, because adding it
+  // alongside `is-in` makes every card lose its compositor layer on the frame
+  // it starts moving and be re-rasterised mid-slide. The per-item path was then
+  // written as `' is-in is-done'` - both in one commit, the original fault
+  // exactly, with no timer at all.
+  //
+  // And per-item IS the phone: it engages whenever a container is taller than
+  // 1.25 viewports, which is what a stacked single-column section is. So the
+  // branch that exists to make mobile animate properly was cancelling the hint
+  // on the starting frame of every card it governed. Ethan: "the sections just
+  // seem to flash and appear in."
+  it('does not withdraw a child\'s layer hint on the frame it starts moving', () => {
+    vi.useFakeTimers()
+    try {
+      setHeights({ container: 1400, viewport: 800 })
+      const view = render(<Cards />)
+      paint()
+      const [a] = items(view)
+
+      io.fire(a)
+      expect(a.classList.contains('is-in')).toBe(true)
+      expect(a.classList.contains('is-done')).toBe(false)
+
+      // ...and it IS withdrawn once the card has landed, or a page of
+      // permanently promoted layers is the opposite mistake.
+      act(() => { vi.advanceTimersByTime(900) })
+      expect(a.classList.contains('is-done')).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // A section that fits the screen while it is empty and grows past it when its
+  // query lands would otherwise switch modes mid-animation - and switching
+  // takes `is-in` off the CONTAINER, snapping every child back to opacity 0.
+  it('does not change its mind about which observer owns it after revealing', () => {
+    setHeights({ container: 400, viewport: 800 })
+    const view = render(<Cards />)
+    paint()
+    const grid = view.container.querySelector('.reveal')
+    io.fire(grid)
+    expect(grid.classList.contains('is-in')).toBe(true)
+
+    // The contents arrive and the section is now three screens tall.
+    setHeights({ container: 2400, viewport: 800 })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(grid.classList.contains('is-in')).toBe(true)
+  })
+
   it('drops the stagger in the tall mode: a child arriving alone must not hesitate', () => {
     setHeights({ container: 1400, viewport: 800 })
     const view = render(<Cards />)
