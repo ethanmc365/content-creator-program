@@ -1,5 +1,5 @@
 import { cx } from '../lib/utils'
-import { useT } from '../lib/i18n'
+import { useT, usePlural } from '../lib/i18n'
 
 // THE ONE MARK THAT SAYS "SOMETHING WAS SAID HERE AND YOU HAVE NOT READ IT".
 //
@@ -47,6 +47,7 @@ export default function UnreadDot({ className, size = 'md', label }) {
 // stops fitting.
 export function UnreadCount({ n, className }) {
   const tr = useT()
+  const pl = usePlural()
   if (!n) return null
   return (
     <span
@@ -55,7 +56,12 @@ export function UnreadCount({ n, className }) {
         className,
       )}
       role="status"
-      aria-label={`${n} ${tr('New messages')}`}
+      // ONE OR MANY IS TWO SENTENCES, not a number in front of a plural. It
+      // read "1 New messages", which is the shape `${n} ${tr('New messages')}`
+      // always produces. `usePlural` writes both forms out in full so the
+      // translator sees two real sentences - Spanish agrees the noun as well as
+      // the number. See lib/i18n.
+      aria-label={pl(n, '1 room with new messages', '{n} rooms with new messages')}
     >
       <span className="absolute inset-0 rounded-full bg-brand/50 animate-ping-slow" aria-hidden />
       <span className="relative">{n > 9 ? '9+' : n} {tr('new')}</span>

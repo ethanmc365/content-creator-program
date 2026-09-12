@@ -1780,10 +1780,28 @@ export default function NetworkChat() {
                           here ? 'text-brand' : 'text-ink',
                         )}
                       >
-                        <span className={cx(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-base leading-none',
-                          here ? 'bg-brand-tint' : 'bg-cloud',
-                        )} aria-hidden>{place.flags || '🌍'}</span>
+                        {/* ONE FLAG IN THE TILE, WHATEVER THE MARKET.
+                            `place.flags` is every country code joined, which is
+                            fine in a wide row and wrong in a 28px square: the
+                            Nordics has four, and four double-width emoji in a
+                            28px box pushed the market's own name out of the
+                            card. Flag emoji are double-width, so this is not a
+                            tuning problem - the box holds one. The full list is
+                            the title, which is the same bargain FlagStack
+                            strikes and for the same reason: a market's identity
+                            is its NAME, and the flag is a glance. */}
+                        <span
+                          className={cx(
+                            'flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg text-base leading-none',
+                            here ? 'bg-brand-tint' : 'bg-cloud',
+                          )}
+                          title={(place.country_codes || []).join(', ')}
+                          aria-hidden
+                        >
+                          {place.kind === 'network'
+                            ? '🌍'
+                            : (flagFromIso((place.country_codes || [])[0]) || '🌍')}
+                        </span>
                         <span className="min-w-0 truncate text-sm font-bold tracking-[-0.01em]">{place.name}</span>
                       </Link>
                       {/* A card whose rooms are all further down the column
