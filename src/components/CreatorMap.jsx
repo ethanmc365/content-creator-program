@@ -58,7 +58,25 @@ const EXPLORED = '#fce1d0' // countries the community has FILMED in
 // stopped. At 24 the same hop is 14 seconds and the movement reads as flight
 // without turning the map into a screensaver.
 const PLANE_SPEED = 24
-const flightDur = (len) => len / PLANE_SPEED
+// SPEED IS A SCREEN SPEED, SO THE LENGTH HAS TO BE A SCREEN LENGTH (12 Sep 2026).
+//
+// Ethan, of a market map: "it shows plane animation between each but because
+// the pins are so close, it's super laggy, the planes are flying really fast."
+//
+// Every length in this file comes out of `projection(...)`, which is the map at
+// zoom 1. `ZoomableGroup` then applies `scale(zoom)` to the whole group, so at
+// the zoom a single-country market opens at - measured: Romania fits at 22,
+// because all six of its creators are within half a degree of Bucharest - a
+// path that is two projection units long is FORTY-FOUR units long on the
+// screen. The duration was computed from the two, so the aircraft crossed a
+// visible gap in under a tenth of a second. Twenty-two times too fast, and the
+// "really fast" is arithmetic rather than easing.
+//
+// The world map is unaffected by the correction, which is the tell that it is
+// the right one: with creators from -121 to +116 longitude it fits at zoom
+// 1.01, so a screen unit and a projection unit have been the same thing
+// everywhere this constant has ever been looked at.
+const flightDur = (screenLen) => screenLen / PLANE_SPEED
 
 // Arc length of the quadratic curve we draw (M a Q c b), sampled. Using the
 // straight-line chord instead would make curved (bulged) routes run fast, so we
@@ -78,7 +96,26 @@ function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
 // Planes only ride the longer threads, so dense clusters (Ireland/UK, mainland
 // Europe) stay tidy. The dashed line still connects EVERY town - only the plane
 // count is thinned.
-const MIN_PLANE_LEN = 90 // projection units; shorter hops get line but no plane
+//
+// ON SCREEN, NOT IN PROJECTION UNITS, for the reason above. Ethan: "for the
+// markets, we don't need the plane animation for ones that are close by, only
+// the ones further away - for example they could be in the Romanian market but
+// living in the UK now, in that case a plane animation at the correct speed
+// similar to the creator network map would be great."
+//
+// Measured in projection units this threshold could never express that: six
+// creators around Bucharest are one or two units apart, which is under 90 - so
+// `long` came out EMPTY, the "fly one anyway" fallback below handed the pool
+// every short hop in the market, and the map drew seven aircraft sprinting
+// between adjacent suburbs. Measured on screen the same six are 22 to 44 units
+// apart and get no plane at all, while Porto to Chambéry - the Portuguese
+// market's creator who lives in France - is about five hundred and gets one at
+// twenty seconds, which is the world map's own pace.
+//
+// The number is unchanged because the world map fits at zoom 1.01: this is the
+// same rule it has always followed, finally applied in the units it was written
+// in.
+const MIN_PLANE_LEN = 90 // SCREEN units; shorter hops get the line but no plane
 const MAX_PLANES = 7
 
 // A TOWN THAT HOLDS SEVERAL CREATORS: WHAT ITS PIN LOOKS LIKE.
@@ -489,6 +526,18 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // with whether it has filters, so it is its own prop, defaulting to the old
   // behaviour for every caller that does not care.
   allowFullscreen = controls,
+  // CAN THIS MAP BE MOVED ABOUT WHERE IT SITS?
+  //
+  // Ethan: "seems to be no ability to move about or zoom in or out on the map,
+  // this functionality should be there too."
+  //
+  // Off by default, because the maps that sit in the middle of a long page (the
+  // landing page, the profile) are the ones the scroll-trap rule was written
+  // for and nothing about them should change. On a market map - a boxed card
+  // that is the point of the page it is on - it turns on drag-to-pan and draws
+  // the +/-/reset stack outside full screen. The WHEEL stays the page's on
+  // every map, navigable or not: see `filterZoomEvent`.
+  navigable = false,
   // A CAPTION THAT BELONGS TO THE MAP, DRAWN BY THE MAP.
   //
   // The creator directory wants a "45 creators from around the world" bar
@@ -833,6 +882,12 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // Tracks the zoom DURING a gesture so pin/plane counter-scaling keeps up.
   const [liveZoom, setLiveZoom] = useState(1.3)
   const didInitCenter = useRef(false)
+  // HAS THE READER TAKEN THE CAMERA? Set the moment d3-zoom accepts a gesture
+  // (see `filterZoomEvent`), cleared by the reset button. It is what stops the
+  // auto-fit from pulling the view back out from under somebody who has just
+  // dragged to look at something. See the fit effect below for why the fit has
+  // to keep running until then rather than firing once.
+  const userMoved = useRef(false)
 
   // Resolve any legacy profile that has a town but no stored coordinates.
   useEffect(() => {
@@ -1045,25 +1100,57 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       const bulge = Math.min(chord * 0.22, 70)
       const cx = mx + (-dy / chord) * bulge, cyc = my + (dx / chord) * bulge
       const curve = quadLength(ax, ay, cx, cyc, bx, by)
+      // NO `dur` HERE. The duration depends on the zoom and this list does not,
+      // so computing it in the same memo would rebuild every path string every
+      // time somebody finished a pinch. See `planeSegments`.
       segs.push({
         key: `${i}-${Math.round(ax)},${Math.round(ay)}`,
         d: `M${ax} ${ay} Q ${cx} ${cyc} ${bx} ${by}`,
         curve,
-        dur: flightDur(curve),
       })
     }
     return segs
   }, [towns])
 
+  // THE ZOOM EVERY FLIGHT TIME IS MEASURED AT.
+  //
+  // Every path in this file is drawn in projection units and then scaled by
+  // `ZoomableGroup`, so a screen length is a projection length times the zoom.
+  // The SETTLED zoom, never the live one: re-timing a plane on every frame of a
+  // pinch restarts its animation sixty times a second, which is the cost the
+  // tracking-loop note elsewhere in this file is about. Once per finished
+  // gesture is the right granularity, and it is a moment the view is already
+  // changing under the reader anyway.
+  const planeZoom = Math.max(1, position.zoom || 1)
+
   // Which threads actually carry a plane: the longest ones, capped, so short
   // hops in dense areas don't turn into a swarm. Every thread is still drawn.
+  //
+  // BOTH THE THRESHOLD AND THE DURATION ARE IN SCREEN UNITS, so a market map
+  // zoomed to 22 and a world map at 1.01 fly at the same visible speed and
+  // apply the same "is this hop worth an aircraft" rule. See MIN_PLANE_LEN.
+  //
+  // It reads the SETTLED zoom, not the live one: re-timing the planes on every
+  // frame of a pinch would restart the animation sixty times a second, which is
+  // the cost the tracking-loop note elsewhere in this file warns about. Once
+  // per finished gesture is the right granularity.
   const planeSegments = useMemo(() => {
-    const long = segments.filter((s) => s.curve >= MIN_PLANE_LEN)
-    // Nothing long enough (a tightly-clustered community)? Still fly one, so the
-    // "we're all connected" idea always reads.
-    const pool = long.length ? long : segments.slice()
-    return [...pool].sort((a, b) => b.curve - a.curve).slice(0, MAX_PLANES)
-  }, [segments])
+    const scaled = segments.map((s) => {
+      const screen = s.curve * planeZoom
+      return { ...s, screen, dur: flightDur(screen) }
+    })
+    const long = scaled.filter((s) => s.screen >= MIN_PLANE_LEN)
+    // Nothing long enough? Fly ONE anyway, so the "we're all connected" idea
+    // still reads for a community that is merely clustered - but only if the
+    // longest hop is within reach of the threshold. A market whose creators all
+    // live in one city gets NO aircraft, which is what Ethan asked for and what
+    // the old fallback made impossible: with every hop below the bar, `long`
+    // was empty and the pool became the whole list.
+    const pool = long.length
+      ? long
+      : scaled.filter((s) => s.screen >= MIN_PLANE_LEN * 0.5)
+    return [...pool].sort((a, b) => b.screen - a.screen).slice(0, MAX_PLANES)
+  }, [segments, planeZoom])
 
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
@@ -1154,8 +1241,12 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // `dest` is already projected and so is useless for working out what
           // the map should be framing; the fit needs real coordinates.
           destLngLat: dest,
-          // Same uniform speed as every other plane on the map.
-          dur: flightDur(quadLength(ax, ay, cx2, cy2, bx, by)),
+          // The PROJECTION length only. The duration is a screen measurement
+          // and therefore depends on the zoom, which this memo deliberately
+          // does not: see `planeZoom`, where it is applied at render. Putting
+          // the zoom in here would give `journeys` a new identity on every
+          // gesture, and `journeys` feeds the camera fit.
+          curve: quadLength(ax, ay, cx2, cy2, bx, by),
         })
         break
       }
@@ -1252,7 +1343,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       const cy = (ay + by) / 2 + (dx / chord) * bulge
       const d = `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`
       const curve = quadLength(ax, ay, cx, cy, bx, by)
-      out.push({ key: k, d, curve, dur: flightDur(curve) })
+      out.push({ key: k, d, curve })
     }
     // Longest few, so the picks are visually distinct rather than a cluster.
     return out.sort((a, b) => b.curve - a.curve).slice(0, 5)
@@ -1296,9 +1387,35 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     return { coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }
   }, [fitPoints, maxFitZoom])
 
-  // Fit to everyone on first load.
+  // FIT TO EVERYONE - AND KEEP FITTING UNTIL SOMEBODY TAKES THE CAMERA.
+  //
+  // Ethan: "it shouldn't be completely zoomed into the country if it's cutting
+  // a creator out that's elsewhere. It should be zoomed in depending on where
+  // the creators are based - if every creator's pin was in Romania then yes
+  // zoom in further there."
+  //
+  // THE FIT WAS RIGHT AND IT RAN TOO EARLY. This was a once-only effect keyed on
+  // `located.length === 0`, so it fired on the first frame that had ANY pin and
+  // then refused to run again. But a creator whose town has no stored
+  // coordinates is geocoded in the browser, asynchronously, and joins `located`
+  // seconds later - by which time the camera had been committed and could not
+  // be corrected.
+  //
+  // That is not hypothetical, it is two of the three small markets. Germany has
+  // Munich and Amberg stored and BERLIN geocoded late: the map fitted the two
+  // southern pins at zoom 22 and Berlin was off the top of it. Portugal has four
+  // Portuguese towns stored and Esménia, who lives in Chambéry in FRANCE,
+  // geocoded late: fitted to Portugal, she was off the right-hand edge entirely.
+  // Exactly the creator "elsewhere" being cut out.
+  //
+  // So the rule is ownership rather than timing: the camera belongs to the map
+  // until the reader moves it, and to the reader from then on. `userMoved` is
+  // set by `filterZoomEvent` - the moment d3-zoom ACCEPTS a gesture - and
+  // cleared by the reset button, which is what "reset" should mean. Romania,
+  // whose six creators really are all within half a degree of Bucharest, keeps
+  // zooming right in, because that is what fitting them says to do.
   useEffect(() => {
-    if (didInitCenter.current || located.length === 0) return
+    if (located.length === 0 || userMoved.current) return
     didInitCenter.current = true
     setPosition(fitView)
     setLiveZoom(fitView.zoom)
@@ -1403,7 +1520,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const zoomBy = (factor) => {
     setPosition((p) => ({ ...p, zoom: Math.min(40, Math.max(1, p.zoom * factor)) }))
   }
-  const resetView = () => { setPosition(fitView); setLiveZoom(fitView.zoom) }
+  const resetView = () => {
+    // Reset hands the camera back: the map resumes re-framing itself as late
+    // pins arrive, which is what somebody pressing "reset" is asking for.
+    userMoved.current = false
+    setPosition(fitView)
+    setLiveZoom(fitView.zoom)
+  }
 
   // The three view filters. Rendered twice: as an overlay on desktop, and in a
   // row beneath the map on phones (where an overlay would cover the map).
@@ -1841,6 +1964,30 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </button>
       )}
 
+      {/* THE ZOOM STACK, ON A NAVIGABLE MAP, OUTSIDE FULL SCREEN.
+          The note above explains why a `+` used to be a trapdoor: gestures were
+          refused, so it was the only way into a state nothing could undo. On a
+          navigable map that is no longer true - a drag pans, a pinch zooms, and
+          reset is right here - so the stack is a control again rather than a
+          one-way door. It sits under the full-screen button, which keeps its
+          own place at the top right.
+
+          FULL SCREEN KEEPS ITS OWN COPY, so the exit button stays grouped with
+          the zoom it belongs to. */}
+      {!fullscreen && navigable && (
+        <div className="absolute right-3 top-14 z-20 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur sm:right-5 sm:top-16">
+          <button type="button" onClick={() => { userMoved.current = true; zoomBy(1.6) }} aria-label={tr("Zoom in")} className={mapBtn}>
+            <span className="text-lg font-semibold leading-none text-ink">+</span>
+          </button>
+          <button type="button" onClick={() => { userMoved.current = true; zoomBy(1 / 1.6) }} aria-label={tr("Zoom out")} className={cx(mapBtn, mapBtnDiv)}>
+            <span className="text-lg font-semibold leading-none text-ink">−</span>
+          </button>
+          <button type="button" onClick={resetView} aria-label={tr("Reset map view")} className={cx(mapBtn, mapBtnDiv)}>
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
+          </button>
+        </div>
+      )}
+
       {fullscreen && (
         <div className="absolute right-4 top-4 z-20 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur">
           <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")} className={mapBtn}>
@@ -1933,10 +2080,37 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // gate: one finger never starts a gesture, which is what leaves the
           // scroll to the browser, and the `touch-action: pan-y` above is what
           // lets the browser take it. See the note on the container.
-          filterZoomEvent={(event) => (
-            fullscreen
-            || (event?.type === 'touchstart' && (event.touches?.length ?? 0) >= 2)
-          )}
+          // AND A `navigable` MAP CAN BE DRAGGED WITHOUT BEING FULL SCREEN
+          // (12 Sep 2026).
+          //
+          // Ethan, of the market maps: "seems to be no ability to move about or
+          // zoom in or out on the map, this functionality should be there too."
+          //
+          // The rule above stands and is not being reversed: a WHEEL over a map
+          // in the middle of a page has to mean "read on", or the page becomes
+          // a trap you cannot scroll past. That was a real report and the fix
+          // was right. But "no wheel zoom" and "no panning at all" are two
+          // different things, and only the first one was ever argued for - a
+          // market map is a boxed card a few hundred pixels tall, and dragging
+          // inside it steals nothing from anybody.
+          //
+          // So on a navigable map: a mouse DRAG pans (mousedown, which is never
+          // ambiguous - you do not press and hold a map to scroll a page), a
+          // double click zooms, and the wheel is still the page's. On a phone
+          // one finger still scrolls the page and two still pinch, exactly as
+          // before. Zooming without a wheel is the +/- stack, which navigable
+          // maps now draw outside full screen.
+          //
+          // ACCEPTING A GESTURE IS WHAT MARKS THE CAMERA AS THE READER'S. This
+          // filter is the only place that knows a real gesture has started, so
+          // it is where `userMoved` is set - see the fit effect.
+          filterZoomEvent={(event) => {
+            const allowed = fullscreen
+              || (event?.type === 'touchstart' && (event.touches?.length ?? 0) >= 2)
+              || (navigable && (event?.type === 'mousedown' || event?.type === 'dblclick'))
+            if (allowed) userMoved.current = true
+            return allowed
+          }}
           // Keep the map inside the frame: you can nudge it a little (the small
           // margin) but never drag it completely out of view, even fully zoomed
           // out. d3-zoom clamps panning to this world-extent.
@@ -2024,7 +2198,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 />
               ))}
               {linkSegments.map((seg) => (
-                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={entering} flying={painted && seen} />
+                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={flightDur(seg.curve * planeZoom)} zoom={z} opacity={0.95} arriving={entering} flying={painted && seen} />
               ))}
             </g>
           )}
@@ -2102,7 +2276,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     ? {
                       offsetPath: `path("${j.d}")`,
                       offsetRotate: 'auto',
-                      animation: `map-fly ${j.dur}s linear infinite`,
+                      animation: `map-fly ${flightDur(j.curve * planeZoom)}s linear infinite`,
                       animationPlayState: painted && seen ? 'running' : 'paused',
                     }
                     : undefined}
@@ -2122,7 +2296,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     </g>
                   </g>
                   {!CAN_MOTION_PATH && (
-                    <animateMotion dur={`${j.dur}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
+                    <animateMotion dur={`${flightDur(j.curve * planeZoom)}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
                   )}
                 </g>
               </g>

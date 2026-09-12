@@ -41,25 +41,42 @@ import { useT } from '../../lib/i18n'
 
 const TOP = 62           // where the first node sits
 
-// WHY THE PHONE LAYOUT IS A LANE AND NOT A SMALLER SERPENTINE.
+// THE PHONE SERPENTINES TOO, AND THE OLD REASON IT DID NOT WAS AN ARITHMETIC
+// ONE THAT NO LONGER APPLIES (12 Sep 2026).
 //
-// It used to serpentine on a phone too, in a 150-unit-wide box with nodes at
-// x=40 and x=104 and the labels pushed to whatever was left. For the right-hand
-// nodes that was `(150 - 104 - 30) / 150` of the width - ELEVEN PER CENT - so
-// every other milestone's title wrapped one character per line down the side of
-// the screen. That is the "nothing is formatted correctly" report, and it is not
-// a tuning problem: alternating labels need width to alternate INTO, and 375px
-// does not have it.
+// Ethan: "I think the milestones mobile page can be improved, make it more like
+// desktop - currently the box shows on only one side and there isn't much
+// movement. Similar to desktop, the line should be more wavy and the cards
+// should show up alternating sides and fit nicely."
 //
-// So the phone gets one lane down the left and a full-width column of labels to
-// its right. The route still snakes - the control points wave even though the
-// nodes are in a column - so it reads as a flight path rather than a list.
+// WHAT ACTUALLY WENT WRONG THE FIRST TIME. The phone used to serpentine in a
+// 150-unit-wide box with nodes at x=40 and x=104, and the labels took whatever
+// was left. For a right-hand node that was `(150 - 104 - 30) / 150` - ELEVEN
+// PER CENT of the width - so every other milestone's title wrapped one
+// character per line. The note here concluded "alternating labels need width to
+// alternate INTO, and 375px does not have it", and that conclusion is wrong.
+// The width was never the problem: the NODES WERE 64 UNITS APART IN THE MIDDLE
+// OF THE BOX, so each card had to fit in the margin beyond them.
+//
+// Put the nodes on the EDGES instead and the arithmetic comes out the other
+// way. A dot is about 20 units across, so a node at x=40 leaves 258 of 320 for
+// its card and a node at x=280 leaves exactly the same on the other side: 80%
+// each, symmetrically. The lane layout it replaced gave 74%. Alternating costs
+// six per cent of the width and buys a route that swings 240 units across the
+// screen instead of 26 - which is the movement he is asking for, and it is the
+// same drawing the desktop makes rather than a second one.
 const LAYOUT = {
   wide: { W: 340, left: 76, right: 264, gap: 150, wave: 0, labelPct: 38 },
   // `gap` here is only the fallback for the very first paint, before the
   // container has been measured; the real phone gap is derived from
   // NARROW_SLOT_PX below so that a slot is the same height on every screen.
-  narrow: { W: 320, left: 34, right: 34, gap: 122, wave: 26, labelPct: 74 },
+  //
+  // `wave` is small rather than zero. With the nodes on the edges the curve
+  // already has its S; a little extra bend on top deepens the belly of each leg
+  // so the line reads as a flown route rather than as a zigzag between two
+  // columns. On the desktop the legs are 150 units tall against 188 across and
+  // need no help, which is why that row is still 0.
+  narrow: { W: 320, left: 40, right: 280, gap: 122, wave: 14, labelPct: 76 },
 }
 
 // How much vertical room every stop card gets on a phone, in CSS pixels. The
@@ -248,7 +265,6 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   const L = narrow
     ? { ...LAYOUT.narrow, gap: Math.round((NARROW_SLOT_PX * LAYOUT.narrow.W) / Math.max(box || LAYOUT.narrow.W, 240)) }
     : LAYOUT.wide
-  const isMobile = narrow
 
   useEffect(() => {
     if (!box0) return undefined
@@ -616,9 +632,11 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
         const isNext = !done && i === reached + 1
         const x = nodeX(i, L)
         const y = nodeY(i, L)
-        // On a phone every card sits to the right of the lane. On desktop they
-        // alternate so the curve has room to breathe.
-        const rightSide = isMobile ? true : i % 2 === 0
+        // ONE RULE AT EVERY WIDTH: the card sits on the far side of the dot
+        // from the edge the dot is hugging. It used to be pinned right on a
+        // phone, which is what made that layout a list with a squiggle beside
+        // it rather than a route. See LAYOUT.
+        const rightSide = i % 2 === 0
         // Everybody who has got at least this far. Accurate BECAUSE the route
         // is gated: a count of stops reached is now a prefix length, so
         // "reached >= i" really does mean "has passed this stop".

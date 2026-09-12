@@ -73,9 +73,19 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
       // has a travel list, and tapping Japan should find them.
       creators={creators}
       // Much closer than the world map's ceiling: a single-country market wants
-      // city separation, not continent shape.
+      // city separation, not continent shape. The fit itself now keeps running
+      // until the reader moves the camera, so a creator whose town is geocoded
+      // in the browser - Germany's Berliner, Portugal's creator who lives in
+      // France - is inside the frame rather than off the edge of it. See the
+      // fit effect in CreatorMap.
       maxFitZoom={22}
       controls={false}
+      // MOVE ABOUT IN IT WITHOUT OPENING IT FULL SCREEN (12 Sep 2026).
+      // Ethan: "seems to be no ability to move about or zoom in or out on the
+      // map, this functionality should be there too." Drag to pan, a +/-/reset
+      // stack, pinch on a phone. The wheel is still the page's on every map -
+      // that rule was written about a scroll trap and it still holds.
+      navigable
       // ...but it still opens full screen. A market map is the smallest map in
       // the app and the one most likely to be a single city's worth of pins.
       allowFullscreen
