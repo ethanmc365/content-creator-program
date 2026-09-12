@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useUnread } from '../context/UnreadContext'
 import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
+import FlagStack from './network/FlagStack'
 import { enablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -27,17 +29,36 @@ const PUSH_EVER_KEY = 'tryp-push-granted-once'
 // below), so the flag currently does nothing but is left in place: it records
 // which categories are worth an email if and when they come back.
 export const CATEGORIES = [
-  { key: 'announcement', label: 'Announcements', hint: 'Official updates from the Tryp.com Team.', emailable: true },
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.', emailable: true },
   { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.', emailable: true },
-  { key: 'dm', label: 'Direct messages', hint: 'When another creator messages you directly.' },
-  // Chat notifications are throttled server-side (one per channel every 15
-  // minutes, and never while you're actively in the app), so a busy #general
-  // costs a nudge rather than a stream of buzzes. See migration 067.
-  { key: 'chat', label: 'Community chat', hint: 'New messages in #general and #content-tips, at most one nudge every 15 minutes.', pushOnly: true },
+  { key: 'dm', label: 'Direct messages', hint: 'When another creator messages you directly, or in a group.' },
+  // Chat notifications are throttled server-side (one per room every 15
+  // minutes, and never while you're actively in the app), so a busy room costs
+  // a nudge rather than a stream of buzzes. See migrations 067 and 217.
+  { key: 'chat', label: 'Room messages', hint: 'New messages in the rooms you are in. At most one nudge per room every 15 minutes.', pushOnly: true },
+  { key: 'mention', label: 'Mentions and replies', hint: 'When somebody @-names you in a room. Arrives even from a room you have switched off.' },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
+]
+
+// WHAT CANNOT BE SWITCHED OFF, AND WHY IT IS A LIST RATHER THAN AN ABSENCE.
+//
+// Ethan: "creators should have ability to choose custom settings like turn off
+// notifications for certain chats, but never for announcements or anything from
+// the Tryp.com."
+//
+// `announcement` used to be the first row of CATEGORIES with a toggle on it, so
+// the one channel the programme uses to reach everybody - a challenge closing,
+// a payout, a change of rules - was the easiest one to turn off. It is shown
+// here instead, drawn as a row with a padlock where the switch was, because
+// silently dropping it from the list would read as a feature that had gone
+// missing. The rule is ALSO enforced in the database (`room_muted` answers
+// false for an announcements room whatever the saved array says) and in
+// notify-dispatch, because a client that forgets to hide a switch must not be
+// able to take the broadcast channel down.
+export const LOCKED_CATEGORIES = [
+  { key: 'announcement', label: 'Announcements from Tryp.com', hint: 'Challenge deadlines, payouts and anything the team needs every creator to see. These always arrive.' },
 ]
 
 // Admin-only alerts (hidden from regular creators). Push and the in-app bell
@@ -52,7 +73,9 @@ export const ADMIN_CATEGORIES = [
   { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.', emailable: true },
 ]
 
-const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
+const DEFAULT_PREFS = Object.fromEntries(
+  [...CATEGORIES, ...LOCKED_CATEGORIES].map((c) => [c.key, true]),
+)
 // Only the emailable categories default to on; everything else is push-only.
 const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, dm: false, chat: false, connection: false, results: false, reward: false }
 
@@ -84,6 +107,33 @@ export function useNotificationPrefs() {
     const next = { ...prefs, [key]: value }
     setPrefs(next)
     await supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id)
+    refreshProfile()
+  }
+
+  // ONE ROOM OFF, RATHER THAN ALL OF THEM.
+  //
+  // Ethan: "be able to turn off 'meetups' chat." The list lives in the SAME
+  // `notif_prefs` blob as the category switches - `muted_rooms`, an array of
+  // namespaced channel keys - rather than in a table of its own, because it is
+  // a preference of exactly the same kind and a second store would be a second
+  // thing to keep in step. Every write carries the whole object, which is why
+  // this state is owned once by the parent (see the note above the hook): two
+  // components each holding their own copy would overwrite each other's keys.
+  //
+  // An ANNOUNCEMENTS room can never enter the array. The UI does not offer it,
+  // and the database ignores it if it somehow arrives - see `room_muted`.
+  const mutedRooms = useMemo(() => {
+    const list = prefs?.muted_rooms
+    return new Set(Array.isArray(list) ? list : [])
+  }, [prefs])
+
+  async function toggleRoom(channel, on) {
+    if (!channel || channel.split(':').pop() === 'announcements') return
+    const next = new Set(mutedRooms)
+    if (on) next.delete(channel); else next.add(channel)
+    const merged = { ...prefs, muted_rooms: [...next] }
+    setPrefs(merged)
+    await supabase.from('profiles').update({ notif_prefs: merged }).eq('id', user.id)
     refreshProfile()
   }
   async function toggleEmail(key, value) {
@@ -155,7 +205,7 @@ export function useNotificationPrefs() {
     setHadPush(true)
   }, [permission])
 
-  return { prefs, emailPrefs, reminderDays, permission, hadPush, busy, pushMsg, togglePush, toggleEmail, toggleReminderDay, turnOnPush }
+  return { prefs, emailPrefs, reminderDays, permission, hadPush, busy, pushMsg, mutedRooms, togglePush, toggleEmail, toggleReminderDay, toggleRoom, turnOnPush }
 }
 
 // A single per-type row with a push toggle (and, once email is live, an email one).
@@ -179,6 +229,113 @@ function PrefRow({ c, state }) {
             : <span className="text-[11px] text-gray-300" title={tr("This one is in-app and push only")}>-</span>}
         </div>
       )}
+    </div>
+  )
+}
+
+// A setting that exists and is not yours to change. A padlock where the switch
+// would be, at the same size and in the same column, so the row still scans as
+// part of the list rather than as a gap in it.
+function LockedRow({ label, hint }) {
+  const tr = useT()
+  return (
+    <div className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{tr(label)}</p>
+        <p className="text-xs text-smoke">{tr(hint)}</p>
+      </div>
+      <span
+        className="flex w-11 shrink-0 items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand"
+        title={tr('This one cannot be switched off')}
+      >
+        <Icon name="lock" className="h-3.5 w-3.5" />
+      </span>
+    </div>
+  )
+}
+
+// ROOM BY ROOM.
+//
+// Ethan: "creators should have ability to choose custom settings like turn off
+// notifications for certain chats, but never for announcements or anything from
+// the Tryp.com, but for example be able to turn off 'meetups' chat."
+//
+// THE SHAPE IS THE ROOMS PAGE'S SHAPE, ON PURPOSE. A flat list of rooms in a
+// six-market community is four Generals, four Announcements and four Meetups
+// with nothing to say which is which - the exact problem /rooms exists to
+// solve. Grouped by place, with the flag, it is the same mental model in both
+// screens, so a creator who wants "stop telling me about Germany" can see
+// Germany.
+//
+// It reads its room list from the shared unread store rather than issuing a
+// query of its own: that store already knows every room you are in, keyed by
+// the same namespaced channel string the mute is saved under.
+function RoomNotifications({ state }) {
+  const tr = useT()
+  const { rooms } = useUnread()
+
+  const places = useMemo(() => {
+    const out = new Map()
+    for (const r of rooms) {
+      if (!out.has(r.community_id)) out.set(r.community_id, { place: r.place, rooms: [] })
+      out.get(r.community_id).rooms.push(r)
+    }
+    return [...out.values()].sort(
+      (a, b) => (b.place.kind === 'network') - (a.place.kind === 'network')
+        || a.place.name.localeCompare(b.place.name),
+    )
+  }, [rooms])
+
+  const mutedCount = state.mutedRooms.size
+
+  if (!places.length) {
+    return <p className="mt-2 text-sm text-smoke">{tr('Your rooms appear here once you have joined a market.')}</p>
+  }
+
+  return (
+    <div className="mt-2 space-y-5">
+      {places.map(({ place, rooms: rs }) => (
+        <div key={place.id}>
+          <div className="flex items-center gap-2 pb-1">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cloud text-[13px] leading-none">
+              {place.kind === 'network'
+                ? <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
+                : <FlagStack codes={place.country_codes} className="text-[13px]" max={1} />}
+            </span>
+            <p className="min-w-0 truncate text-[13px] font-bold text-ink">{place.name}</p>
+          </div>
+          <div className="rounded-xl border border-gray-100">
+            {rs.map((r) => {
+              const locked = r.key === 'announcements'
+              const on = !state.mutedRooms.has(r.channel)
+              return (
+                <div key={r.id} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-0">
+                  <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : 'text-gray-300')} />
+                  <span className={cx('min-w-0 flex-1 truncate text-[13px]', on ? 'font-medium text-ink' : 'text-smoke')}>
+                    {tr(r.label)}
+                  </span>
+                  {locked ? (
+                    <span className="flex w-11 shrink-0 items-center justify-center text-brand" title={tr('This one cannot be switched off')}>
+                      <Icon name="lock" className="h-3.5 w-3.5" />
+                    </span>
+                  ) : (
+                    <div className="flex w-11 shrink-0 justify-center">
+                      <Toggle on={on} onChange={(v) => state.toggleRoom(r.channel, v)} label={`${place.name} ${r.label}`} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {/* WHAT YOU HAVE DONE, IN ONE SENTENCE. A screen of thirty switches that
+          never summarises itself is a screen you have to re-read to audit. */}
+      <p className="text-xs text-smoke">
+        {mutedCount === 0
+          ? tr('Every room can reach you. Announcements always can.')
+          : `${mutedCount} ${mutedCount === 1 ? tr('room is switched off. You will still see its messages in the app, and you will still be told when somebody names you in it.') : tr('rooms are switched off. You will still see their messages in the app, and you will still be told when somebody names you in one.')}`}
+      </p>
     </div>
   )
 }
@@ -306,8 +463,31 @@ export function CreatorNotifications({ state }) {
           </div>
         )}
         <div className="mt-2">
+          {/* The locked ones lead, because a list that opens with eight
+              switches and buries the one thing you cannot change at the bottom
+              is a list that has hidden it. */}
+          {LOCKED_CATEGORIES.map((c) => <LockedRow key={c.key} label={c.label} hint={c.hint} />)}
           {CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
         </div>
+      </Panel>
+
+      {/* ---- Room by room ----
+          Only worth drawing when "Room messages" is on: a per-room switch
+          underneath a master switch that is already off is a control that
+          cannot do anything, and offering it is how somebody ends up believing
+          they have turned a room back on. */}
+      <Panel>
+        <BlockTitle
+          title={tr("Your rooms")}
+          hint={tr("Switch off a room you would rather not be nudged about. You still see everything in the app.")}
+        />
+        {state.prefs.chat === false ? (
+          <p className="mt-2 rounded-xl bg-cloud px-4 py-3 text-sm text-smoke">
+            {tr("Room messages are off above, so no room is sending you anything. Turn them back on to choose room by room.")}
+          </p>
+        ) : (
+          <RoomNotifications state={state} />
+        )}
       </Panel>
 
       {/* ---- Challenge deadline reminders ---- */}

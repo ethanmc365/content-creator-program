@@ -3,13 +3,14 @@ import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
-import { useAuth } from '../context/AuthContext'
+import { useUnread, scopedChannel } from '../context/UnreadContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
+import UnreadDot, { UnreadCount } from '../components/UnreadDot'
 import { EmptyState } from '../components/ui'
 import PageSkeleton from '../components/PageSkeleton'
 import { stripMarkup } from '../lib/richText'
@@ -49,7 +50,10 @@ const loadRoomOrder = () => {
 // second question everybody asks and it was previously unanswerable without
 // opening all of them.
 
-const scopedKey = (place, key) => (place.kind === 'network' ? key : `${place.slug}:${key}`)
+// The namespaced channel string, imported rather than redefined: the watermark
+// is written under this string and the dot is read under it, so three files
+// having their own copy of the rule is three chances for them to disagree.
+const scopedKey = scopedChannel
 
 // ONE ROOM, LAID OUT LIKE A CHAT LIST AND NOT LIKE A TABLE.
 //
@@ -138,13 +142,11 @@ function RoomRow({ to, room, last, unread }) {
               {shortAgo(last.created_at)}
             </span>
           )}
-          {unread && (
-            <span
-              className="h-2 w-2 shrink-0 self-center rounded-full bg-brand"
-              role="status"
-              aria-label={tr('New messages')}
-            />
-          )}
+          {/* AND IT PULSES. A still dot is a bullet point; this one is the only
+              moving thing on a page of static rows, which is what makes it the
+              thing you find without looking for it. See components/UnreadDot -
+              the solid centre never fades, so it is still countable. */}
+          {unread && <UnreadDot className="self-center" />}
         </span>
         {/* The last thing said, or what the room is for if nothing has been.
             An empty room that explains itself is an invitation; an empty room
@@ -160,55 +162,59 @@ function RoomRow({ to, room, last, unread }) {
 }
 
 function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleProps, dragging }) {
+  const tr = useT()
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
   const unreadCount = rooms.filter((r) => unreadKeys.has(scopedKey(place, r.key))).length
   return (
-    /* THE PLACE IS A BANNER, NOT A CAPTION (8 Sep 2026).
-       Ethan: "I want the rooms UI page improved. Before you actually click on
-       the chat - the way the rooms actually work - I'm thinking maybe the
-       'Worldwide'/'UK & Ireland' title should be stronger, maybe a Tryp.com
-       orange card around it or something. And then we have the general chat
-       and the rest, which look good. So it's just improving that."
+    /* THE PLACE IS A HEADING WITH A FLAG ON IT. NO TINTED BAND (12 Sep 2026).
+       Ethan: "I don't like the current way it looks on mobile with the light
+       orange background behind the country names, improve it too."
 
-       On a phone this page is four or five of these stacked, and the market
-       name was the same weight and colour as the room names underneath it -
-       14px semibold ink against 14px semibold ink - so scrolling it read as one
-       long list of Generals and Announcements with the odd flag in it. There
-       was nothing to tell you which community's General you were about to open,
-       which is the one question the page exists to answer.
+       The band was the previous answer to a real problem - the market name used
+       to be the same 14px semibold ink as the room names under it, so five
+       stacked cards read as one long list of Generals and Announcements - and
+       it solved that by painting `bg-brand-tint` across the card's top edge.
+       Five of those down a phone screen is five orange stripes, which is the
+       same mistake the orange icon tiles made on this very page: the loudest
+       colour on the platform used as a divider rather than as an accent.
 
-       So the header takes the card's top edge as its own band: brand tint,
-       flush to the corners (`-m-4 mb-3` cancels the card's padding), and the
-       name in brand. The rooms keep exactly the styling he says looks good.
-       That is the platform's own rule about orange - an ACCENT that does a job,
-       here dividing one market from the next - rather than a colour applied for
-       decoration. */
+       What separates the places now is TYPE and a FLAG, not a fill. The name
+       steps up to 17px bold ink - bigger than anything under it by a clear
+       margin - and the flag gets a real 34px tile instead of being an emoji
+       floating at 14px beside it, so a glance down the page reads as flag,
+       flag, flag rather than as a wall of text. The card's own edge is the
+       only rule; the hairline under the header is a hairline, not a band.
+       That is the platform rule about orange applied honestly: it is spent on
+       the unread dot, which is information, and on nothing decorative. */
     <section className={cx(
-      'overflow-hidden rounded-card border bg-white p-4 transition-shadow duration-150',
-      isNetwork ? 'border-brand/25' : 'border-gray-100',
+      'overflow-hidden rounded-card border bg-white p-4 transition-all duration-200',
+      unreadCount > 0 ? 'border-brand/30' : 'border-gray-100',
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
-      <div className={cx(
-        '-mx-4 -mt-4 mb-3 flex items-center gap-2.5 border-b px-4 py-3',
-        isNetwork ? 'border-brand/20 bg-brand-tint/70' : 'border-brand/10 bg-brand-tint/40',
-      )}>
-        {isNetwork
-          ? <Icon name="globe" className="h-4 w-4 shrink-0 text-brand" />
-          : <FlagStack codes={place.country_codes} className="text-sm" />}
+      <div className="-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+        {/* The flag, at a size you can actually see. A 34px rounded tile with
+            the flag at 20px in it - the same object the market header uses, so
+            the two surfaces agree about what a place looks like. Worldwide gets
+            the globe glyph in brand, because there is no flag for everywhere. */}
+        <span className={cx(
+          'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl',
+          isNetwork ? 'bg-brand-tint text-brand' : 'bg-cloud',
+        )}>
+          {isNetwork
+            ? <Icon name="globe" className="h-[19px] w-[19px]" />
+            : <FlagStack codes={place.country_codes} className="text-[19px]" />}
+        </span>
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
-          className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em] text-brand transition-opacity hover:opacity-80">
+          className="min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] text-ink transition-colors hover:text-brand">
           {place.name}
         </Link>
-        {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN BANNER, so a
-            collapsed-looking card three screens down is still findable without
-            opening it. */}
+        {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN HEADER, so a
+            card three screens down is still findable without opening it. */}
         {unreadCount > 0 ? (
-          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
-            {unreadCount} new
-          </span>
+          <UnreadCount n={unreadCount} />
         ) : (
-          <span className="shrink-0 text-[11px] font-semibold text-brand/70">
-            {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
+          <span className="shrink-0 text-[11px] font-semibold text-gray-400">
+            {rooms.length} {rooms.length === 1 ? tr('room') : tr('rooms')}
           </span>
         )}
         {/* The grip. A real affordance rather than a hidden long-press: on a
@@ -218,7 +224,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
           <button
             type="button"
             {...handleProps}
-            className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-brand/40 transition-colors hover:bg-white/60 hover:text-brand active:cursor-grabbing"
+            className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke active:cursor-grabbing"
           >
             <Icon name="grip" className="h-4 w-4" />
           </button>
@@ -247,18 +253,18 @@ export default function Rooms() {
   // below still run every time; the cache only decides what is on screen while
   // they do. See lib/pageCache.
   const cached = useCachedPage(ROOMS_CACHE_KEY)
-  const { user } = useAuth()
   const [rooms, setRooms] = useState(cached?.rooms ?? null)
-  const [lastByChannel, setLastByChannel] = useState(() => new Map(cached?.last ?? []))
-  // WHERE YOU HAD READ UP TO, PER ROOM.
+  // WHAT IS UNREAD, AND WHAT WAS SAID LAST, COME FROM THE SHARED STORE.
   //
-  // `channel_reads` is the same watermark table the chat itself writes on open
-  // (see NetworkChat), keyed by the same namespaced channel string - so there
-  // is one definition of "read" and this page cannot disagree with the room it
-  // links to. NOT cached with the page: a stale read watermark shows an orange
-  // dot on a room you are looking at, which is the one state that makes the
-  // whole signal untrustworthy.
-  const [readAt, setReadAt] = useState(null)
+  // This page used to own both: a 300-row message query and a `channel_reads`
+  // read of its own, with the diff in a `useMemo` right here. Three other
+  // surfaces needed the same answer (the desktop sidebar, the mobile tab strip
+  // over a conversation, the bottom nav), and on a desktop this page REDIRECTS,
+  // so the one screen that could see it was the one desktop users never open.
+  // One fetch, one subscription, one definition of "read" - see
+  // context/UnreadContext. `markRead` there is what puts the dot out on the
+  // frame a room opens rather than a round trip later.
+  const { unread: unreadKeys, lastByChannel } = useUnread()
 
   const placeIds = useMemo(() => myCommunities.map((c) => c.id), [myCommunities])
 
@@ -279,75 +285,15 @@ export default function Rooms() {
     return () => { alive = false }
   }, [placeIds, ctxLoading])
 
-  // The most recent message in each room, in ONE query rather than one per room.
-  // Ordering by created_at and keeping the first per channel is cheaper than a
-  // lateral join and, at this table size, indistinguishable in wall clock.
-  useEffect(() => {
-    if (!rooms?.length) return undefined
-    const keys = rooms.map((r) => {
-      const place = myCommunities.find((c) => c.id === r.community_id)
-      return place ? scopedKey(place, r.key) : null
-    }).filter(Boolean)
-    if (!keys.length) return undefined
-    let alive = true
-    supabase.from('messages')
-      .select('channel, body, created_at, sender_id, profiles:sender_id(name, photo_url)')
-      .in('channel', keys)
-      .eq('deleted', false)
-      .order('created_at', { ascending: false })
-      .limit(300)
-      .then(({ data }) => {
-        if (!alive) return
-        const map = new Map()
-        for (const m of data || []) if (!map.has(m.channel)) map.set(m.channel, m)
-        setLastByChannel(map)
-      })
-    return () => { alive = false }
-  }, [rooms, myCommunities])
-
-  useEffect(() => {
-    if (!user?.id) return undefined
-    let alive = true
-    supabase.from('channel_reads')
-      .select('channel, last_read_at')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
-        if (alive) setReadAt(new Map((data || []).map((r) => [r.channel, r.last_read_at])))
-      })
-    return () => { alive = false }
-  }, [user?.id])
-
-  // A ROOM IS UNREAD IF SOMEBODY ELSE SAID SOMETHING AFTER YOU LAST LOOKED.
-  //
-  // Three rules, and each one is a state that would otherwise light a dot for
-  // nothing:
-  //   - your OWN last message never counts. Posting into a room and then being
-  //     told it has something new in it is the fastest way to teach somebody to
-  //     ignore the dot.
-  //   - a room with no messages at all is not unread, it is empty.
-  //   - never having opened a room that HAS messages IS unread. That is the
-  //     case that matters most here: a creator who has never pressed their
-  //     market's General has no `channel_reads` row at all.
-  // Held back entirely until the watermarks land, so the page never flashes
-  // every room as unread on the way in.
-  const unreadKeys = useMemo(() => {
-    const out = new Set()
-    if (!readAt) return out
-    for (const [channel, last] of lastByChannel) {
-      if (!last || last.sender_id === user?.id) continue
-      const seen = readAt.get(channel)
-      if (!seen || new Date(last.created_at) > new Date(seen)) out.add(channel)
-    }
-    return out
-  }, [lastByChannel, readAt, user?.id])
-
-  // Remember it for the next visit. A Map does not survive being stored as
-  // itself and read back by another mount's `useState`, so it goes in as
-  // entries and comes back out as a Map. See lib/pageCache.
+  // Remember the room list for the next visit, so a second arrival draws the
+  // cards rather than a placeholder. The last message and the watermarks are
+  // deliberately NOT cached: a stale watermark puts an orange dot on the room
+  // you are looking at, and one wrong dot is all it takes for the signal to
+  // stop being believed. See lib/pageCache.
   useEffect(() => {
     if (!rooms) return
-    writePageCache(ROOMS_CACHE_KEY, { rooms, last: [...lastByChannel] })
-  }, [rooms, lastByChannel])
+    writePageCache(ROOMS_CACHE_KEY, { rooms })
+  }, [rooms])
 
   const places = useMemo(() => {
     if (!rooms) return []

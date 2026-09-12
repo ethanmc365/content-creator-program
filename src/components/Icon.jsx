@@ -13,12 +13,10 @@ const PATHS = {
   envelope: 'M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75',
   // "speaker-wave" reads cleanly as broadcast / announcement.
   megaphone: 'M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.009 9.009 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z',
-  // Heroicons' "lifebuoy": a ring with four spokes, which is the one glyph in
-  // this set that says "somebody will come and get you" rather than "read a
-  // document". It is LAYERED because the ring, the hub and the spokes are
-  // separate subpaths and a single `d` with all of them joins the spokes to the
-  // rim with a stroke the drawing does not have.
-  lifebuoy: 'M16.712 4.33l-3.448 4.138m3.448-4.137a8.955 8.955 0 00-4.712-1.33c-1.734 0-3.356.49-4.73 1.34m9.442 0a9.01 9.01 0 013.291 4.303m-3.291-4.304l-4.138 3.448M4.33 7.288l4.137 3.448M4.33 7.289A8.955 8.955 0 003 12c0 .898.131 1.765.376 2.583m0 0a9.01 9.01 0 003.291 4.303m0 0l3.448-4.138m-3.448 4.138a8.954 8.954 0 004.712 1.33c1.734 0 3.356-.49 4.73-1.34m0 0l-3.448-4.138m3.448 4.137a9.01 9.01 0 003.291-4.303m0 0l-4.138-3.448m4.138 3.448A8.998 8.998 0 0021 12a8.955 8.955 0 00-1.376-4.79m-4.5 4.79a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z',
+  // `lifebuoy` IS LAYERED. See LAYERED_PATHS below - this note used to sit over
+  // a single-`d` copy of the Heroicons glyph and CLAIM it was layered, which is
+  // exactly why it drew wrong.
+  lock: 'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z',
   bulb: 'M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18',
   trophy: 'M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0',
   money: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z',
@@ -153,6 +151,39 @@ const PATHS = {
 // default outline set). `magnifier` is the Guess the Country mark - a bold
 // magnifying glass with a glint inside the lens.
 const LAYERED_PATHS = {
+  // A LIFE RING THAT IS ACTUALLY A LIFE RING (12 Sep 2026).
+  //
+  // Ethan, of the Get help card in Settings: "the icon for it is really bad, I
+  // like the idea of a lifering but it's distorted, please fix it and have an
+  // actual good lifering icon."
+  //
+  // WHAT WAS WRONG, AND IT IS NOT A MATTER OF TASTE. The old glyph was
+  // Heroicons' `lifebuoy` pasted into `PATHS` as ONE `d` string - and a comment
+  // directly above it explaining that it had to be LAYERED, because the rim,
+  // the hub and the four spokes are separate subpaths and a single path joins
+  // them with strokes the drawing does not have. The comment was right; nobody
+  // had acted on it. What you got was a ring with four chords cutting across
+  // its corners and a hub hanging off one of them: a distorted life ring,
+  // exactly as reported. Worse, the Heroicons artwork draws the rim as EIGHT
+  // arc segments broken by the spoke ends, so any rounding error in the arc
+  // maths shows up as notches in the circle at 20px.
+  //
+  // So it is drawn from first principles instead of patched: two true circles
+  // and four straight spokes on the diagonals, which is the whole anatomy of
+  // the object. Rim r=9, hub r=4, spokes from the hub's edge to the rim's at
+  // 45 degrees (12 ± 4cos45 out to 12 ± 9cos45). Nothing is an approximation,
+  // so nothing can notch. The spokes are a touch heavier than the rings because
+  // in the real object they are rope over a float, and because four hairlines
+  // inside a ring vanish at nav size.
+  lifebuoy: [
+    // The rim.
+    { d: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', strokeWidth: 1.7 },
+    // The hub.
+    { d: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z', strokeWidth: 1.7 },
+    // The four grab ropes, on the diagonals so they never collide with the
+    // hub's or the rim's tangents.
+    { d: 'M14.83 9.17 18.36 5.64M14.83 14.83 18.36 18.36M9.17 14.83 5.64 18.36M9.17 9.17 5.64 5.64', strokeWidth: 1.9 },
+  ],
   // A HAND THAT IS ACTUALLY WAVING (1 Sep 2026).
   //
   // Ethan: "I want the introductions icon changed to this one I attached but

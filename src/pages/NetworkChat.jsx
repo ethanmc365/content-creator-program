@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 import { confirm, notice } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
+import { useUnread, scopedChannel } from '../context/UnreadContext'
+import UnreadDot from '../components/UnreadDot'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
@@ -72,8 +74,10 @@ import { testFlags } from '../lib/testData'
 // (see the notes in useKeyboardInset). This uses the same geometry rather than
 // inventing a second answer that will drift from it.
 
-const scopedKey = (community, key) =>
-  community?.kind === 'network' ? key : `${community.slug}:${key}`
+// Imported rather than redefined: the read watermark is written under this
+// string and the unread dot is looked up under it, so a second copy of the rule
+// is a second chance for the two to disagree. See context/UnreadContext.
+const scopedKey = scopedChannel
 
 // The reader's own order for the market cards in the sidebar. Per device, like
 // every other reorderable list here: it is a preference about a layout, not a
@@ -717,6 +721,18 @@ export default function NetworkChat() {
   // when you come back from the UK's.
   const draftKey = `net-chat-${roomKey || 'none'}`
 
+  // ---- The unread dots --------------------------------------------------
+  //
+  // Which OTHER rooms have something new in them, for the sidebar and the tab
+  // strip. `markRead` is the optimistic half of the watermark below: opening a
+  // room puts its dot out on the same frame rather than after the throttled
+  // upsert has been acknowledged, which is the difference between a signal you
+  // trust and one that lingers on the thing you are reading.
+  const { unread, markRead } = useUnread()
+  useEffect(() => {
+    if (roomKey) markRead(roomKey)
+  }, [roomKey, markRead])
+
   // ---- The outbox -------------------------------------------------------
   //
   // THE MARKET ROOMS HAD NO OPTIMISTIC SEND AT ALL. `postMessage` awaited the
@@ -1125,24 +1141,35 @@ export default function NetworkChat() {
             role="tablist"
             aria-label={`${community.name} rooms`}
           >
-            {channels.map((c) => (
-              <button
-                key={c.id}
-                role="tab"
-                data-room-tab={c.key}
-                aria-selected={active?.key === c.key}
-                onClick={() => navigate(`${base}/${c.key}`)}
-                className={cx(
-                  // Smaller than they were. Every pixel this strip gives back is
-                  // a pixel of conversation, which is what the screen is for.
-                  'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
-                  active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
-                )}
-              >
-                <Icon name={c.icon || 'chat'} className="h-4 w-4 shrink-0" />
-                {tr(c.label)}
-              </button>
-            ))}
+            {channels.map((c) => {
+              // A ROOM WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN TAB. On a
+              // phone this strip IS the navigation between rooms, and it was
+              // the one place that never said which of the four had been
+              // spoken in - you had to open each one to find out, which is
+              // exactly the complaint. Never the tab you are standing on.
+              const key = scopedKey(community, c.key)
+              const isNew = key !== roomKey && unread.has(key)
+              return (
+                <button
+                  key={c.id}
+                  role="tab"
+                  data-room-tab={c.key}
+                  aria-selected={active?.key === c.key}
+                  onClick={() => navigate(`${base}/${c.key}`)}
+                  className={cx(
+                    // Smaller than they were. Every pixel this strip gives back is
+                    // a pixel of conversation, which is what the screen is for.
+                    'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                    active?.key === c.key ? 'bg-brand-tint text-brand'
+                      : isNew ? 'text-ink hover:bg-cloud' : 'text-smoke hover:bg-cloud hover:text-ink',
+                  )}
+                >
+                  <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', isNew && active?.key !== c.key && 'text-brand')} />
+                  {tr(c.label)}
+                  {isNew && <UnreadDot size="sm" />}
+                </button>
+              )
+            })}
 
             {/* NO "ALL ROOMS" BUTTON. It sat at the end of a horizontal scroller,
                 which is the one place on the strip you cannot see without scrolling
@@ -1717,25 +1744,51 @@ export default function NetworkChat() {
               // shadow on the wrapper is a shadow at the wrong corner radius,
               // and its four grey arcs poking past the card are what read as
               // an outline down this column.
+              /* THE MARKET IS THE HEADING OF ITS OWN CARD (12 Sep 2026).
+                 Ethan: "the way the rooms appear on the left sidebar to choose
+                 from, I think you can make the UI better and market names and
+                 flags bigger and more clear there."
+
+                 They were `text-[11px] font-semibold text-smoke` with the flag
+                 emoji inline at that size - which is to say the name of the
+                 place was SMALLER and QUIETER than the names of the rooms
+                 underneath it (13px ink). The heading was the least legible
+                 thing on the card it was the heading of, and a column of six
+                 cards read as thirty rooms with grey captions between them.
+
+                 Now: a 28px flag tile, the name at 14px bold ink, and a hairline
+                 under it so the header is visibly the card's head rather than
+                 its first row. The rooms grow to 13.5px and get 2.5px more
+                 height each, because this column is 240px wide and was using
+                 about half of it. */
               renderItem={(place, { handleProps, dragging }) => {
                 const here = place.id === community.id
                 const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
+                const placeUnread = place.rooms.filter(
+                  (c) => scopedKey(place, c.key) !== roomKey && unread.has(scopedKey(place, c.key)),
+                ).length
                 return (
                   <div className={cx(
                     'group rounded-card border bg-white p-2 transition-shadow',
                     dragging ? 'border-brand/40 shadow-lift' : 'border-gray-100 shadow-card',
                   )}>
-                    <div className="flex items-center gap-1 px-1 pb-1.5 pt-1">
+                    <div className="mb-1.5 flex items-center gap-2 border-b border-gray-100 px-1 pb-2 pt-1">
                       <Link
                         to={place.kind === 'network' ? '/global' : `/c/${place.slug}`}
                         className={cx(
-                          'flex min-w-0 flex-1 items-center gap-2 text-[11px] font-semibold transition-colors hover:text-brand',
-                          here ? 'text-brand' : 'text-smoke',
+                          'flex min-w-0 flex-1 items-center gap-2 transition-colors hover:text-brand',
+                          here ? 'text-brand' : 'text-ink',
                         )}
                       >
-                        <span aria-hidden>{place.flags || '🌍'}</span>
-                        <span className="min-w-0 truncate">{place.name}</span>
+                        <span className={cx(
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-base leading-none',
+                          here ? 'bg-brand-tint' : 'bg-cloud',
+                        )} aria-hidden>{place.flags || '🌍'}</span>
+                        <span className="min-w-0 truncate text-sm font-bold tracking-[-0.01em]">{place.name}</span>
                       </Link>
+                      {/* A card whose rooms are all further down the column
+                          still says it has something in it. */}
+                      {placeUnread > 0 && <UnreadDot size="sm" />}
                       <span
                         {...handleProps}
                         title={tr("Drag to reorder")}
@@ -1749,21 +1802,28 @@ export default function NetworkChat() {
                         // The row you are reading. Only ever a highlight - the
                         // row does not move, and neither does its card.
                         const on = here && active?.key === c.key
+                        // The room you are IN is never unread, whatever the
+                        // watermark has got round to writing. Without this the
+                        // dot sits on the open room for the two and a half
+                        // seconds the watermark throttle holds it back.
+                        const key = scopedKey(place, c.key)
+                        const isNew = key !== roomKey && unread.has(key)
                         return (
                           <Link
                             key={c.id}
                             to={`${roomBase}/${c.key}`}
                             aria-current={on ? 'page' : undefined}
                             className={cx(
-                              'flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors duration-200',
-                              on ? 'bg-brand-tint font-medium text-brand' : 'text-ink hover:bg-cloud',
+                              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-200',
+                              on ? 'bg-brand-tint font-semibold text-brand' : 'text-ink hover:bg-cloud',
                             )}
                           >
-                            <Icon name={c.icon || 'chat'} className={cx('h-3.5 w-3.5 shrink-0', on ? 'text-brand' : 'text-smoke')} />
-                            <span className="min-w-0 flex-1 truncate text-[13px]">{tr(c.label)}</span>
+                            <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : isNew ? 'text-brand' : 'text-smoke')} />
+                            <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                             {c.visibility === 'staff' && (
                               <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">{tr("Staff")}</span>
                             )}
+                            {isNew && <UnreadDot size="sm" />}
                           </Link>
                         )
                       })}

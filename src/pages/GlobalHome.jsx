@@ -58,16 +58,48 @@ const HUB_CACHE_KEY = 'global-hub'
 
 const MotionLink = motion.create(Link)
 
+// THE LINK SITS ON THE TITLE'S LINE, NOT BELOW IT (12 Sep 2026).
+//
+// Ethan: "we have the section titles like Creators on the move, community board
+// etc and on the right we have collab board with arrow, and open the board with
+// arrow etc. I think it looks odd that these are lower than the title, they
+// should be in line, centre of the title... I know the text is smaller but
+// should still be centred."
+//
+// IT WAS NOT A MATTER OF TASTE, IT WAS A BASELINE BUG. The row was
+// `items-baseline`, which is usually exactly right for a big heading beside a
+// small link. But the left-hand child was a `<div>` whose first line box is an
+// h2 that is ITSELF `display: flex` - and a flex container's baseline is the
+// baseline of its FIRST flex item, which here is the 20px `<Icon>`. An inline
+// SVG has no text baseline, so the browser uses its bottom margin edge: the
+// h2's reported baseline was therefore the BOTTOM OF THE ICON, several pixels
+// below where the words actually sit. The link dutifully aligned to that and
+// ended up hanging under the title. Adding the icon is what broke it, and
+// nothing about the CSS said so.
+//
+// So the title row and the link are now one `items-center` row of their own,
+// and the hint drops underneath the pair at full width. Centring is what he
+// asked for and it is also the honest instruction here: optical centring
+// against a heading does not depend on either side's font size, which is what
+// makes it hold when a market name is long enough to wrap.
 function SectionHead({ icon, title, hint, to, toLabel }) {
   return (
-    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-      <div>
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Icon name={icon} className="h-5 w-5 shrink-0 text-brand" /> {title}
+    <div className="mb-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
+          <Icon name={icon} className="h-5 w-5 shrink-0 text-brand" />
+          <span className="min-w-0">{title}</span>
         </h2>
-        {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
+        {to && (
+          <Link
+            to={to}
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-brand transition-transform duration-200 hover:scale-105"
+          >
+            {toLabel} <span aria-hidden>→</span>
+          </Link>
+        )}
       </div>
-      {to && <Link to={to} className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">{toLabel} →</Link>}
+      {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
     </div>
   )
 }
@@ -1186,7 +1218,39 @@ export default function GlobalHome() {
             <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="users" title={tr("New in the community")} to="/creators" toLabel={tr('All creators')} />
-                <Reveal className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
+                {/* `grid-cols-1` IS LOAD-BEARING, AND THE BUG IT FIXES IS NOT
+                    OBVIOUS FROM READING IT (12 Sep 2026).
+
+                    Ethan: "in the community on mobile on worldwide, the cards
+                    are not fit to the screen correctly, it appears that they go
+                    away off to the right."
+
+                    Measured at 375px: this grid's computed
+                    `grid-template-columns` was 756.547px and each card was
+                    757px wide in a 375px viewport. `grid` with only a `sm:`
+                    column count leaves the phone with NO explicit track, so the
+                    cards land in an IMPLICIT one, and an implicit track is
+                    `auto` - which is `minmax(min-content, max-content)` and is
+                    therefore not allowed to shrink below its content's
+                    max-content width. The content here is a creator's bio under
+                    `truncate`, and `truncate` sets `white-space: nowrap`, so
+                    its max-content is the WHOLE bio on one line: 675px of
+                    German. The `min-w-0` on the inner div is the right fix for
+                    the flex layer and does nothing at all for the track above
+                    it.
+
+                    `grid-cols-1` is `repeat(1, minmax(0, 1fr))`, and the
+                    explicit `minmax(0, …)` is what lets the track be narrower
+                    than its content. The `html { overflow-x: clip }` safety net
+                    is why this was a card running off the edge rather than a
+                    horizontally scrolling page.
+
+                    THE RULE, because this is a trap and not a typo: a grid
+                    holding anything with `truncate` in it needs an explicit
+                    base column count. A grid of wrapping text gets away
+                    without one, which is why the other twenty in this codebase
+                    have not bitten. */}
+                <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
                   {d.fresh.map((c) => (
                     <MotionLink key={c.id} to={`/profile/${c.id}`} {...cardHover}
                       className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">

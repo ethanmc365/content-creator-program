@@ -166,13 +166,19 @@ export default function DailyPuzzleCallout({ className }) {
           same idea, same lit flame, but "8 day streak" against the UK card's
           "8 days", and 10px against 11px. Two near-identical chips is one chip
           that will drift again, so there is one. */}
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+      {/* `items-center`, NOT `items-baseline`. Same fault as GlobalHome's
+          SectionHead and the same 5.5px of droop: this h2 is itself a flex
+          container, so its baseline is its FIRST FLEX ITEM's - the 20px icon,
+          which has no text baseline and contributes its bottom edge instead.
+          The link aligned to that and sat below the words. Ethan asked for
+          these centred on the title line; measured at 0.0px now. */}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
           <Icon name="joystick" className="h-5 w-5 shrink-0 text-brand" />
           {tr("Today’s puzzles")}
           {streak > 0 && <StreakChip n={streak} title={`${streak}-day streak`} />}
         </h2>
-        <Link to="/game" className="shrink-0 text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>
+        <Link to="/game" className="shrink-0 whitespace-nowrap text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>
       </div>
 
       {/* `counts` is null until the query lands and an OBJECT afterwards. A

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useUnread } from '../../context/UnreadContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
@@ -14,9 +15,7 @@ import BankDetailsPrompt from '../BankDetailsPrompt'
 import AddToHomePrompt from '../AddToHomePrompt'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
-import { showLocalNotification } from '../../lib/push'
 import { startHeartbeat } from '../../lib/presence'
-import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
@@ -206,6 +205,11 @@ export default function AppLayout() {
   // Same ten links, and the same order the reader dragged them into on the hub.
   const menuLinks = orderedLinks(loadLinkOrder())
   const [dmUnread, setDmUnread] = useState(0)
+  // How many rooms have something new in them. One shared store, so the tab
+  // badge, the rooms index and the chat sidebar can never disagree about it.
+  // See context/UnreadContext.
+  const { unread: unreadRooms } = useUnread()
+  const roomsUnread = unreadRooms.size
   const [connReqs, setConnReqs] = useState(0)
   const [newResources, setNewResources] = useState(false)
   const [exiting, setExiting] = useState(false)
@@ -388,21 +392,23 @@ export default function AppLayout() {
     return () => supabase.removeChannel(channel)
   }, [user])
 
-  // General-chat push: when backgrounded and the creator hasn't opted out, pop
-  // an OS notification for new #general messages (no DB row, so it's free).
-  useEffect(() => {
-    if (!user || profile?.notif_prefs?.chat === false) return
-    const channel = supabase
-      .channel('chat-push-general')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'channel=eq.general' },
-        (payload) => {
-          const m = payload.new
-          if (m.sender_id === user.id || !m.body || document.visibilityState === 'visible') return
-          showLocalNotification({ title: 'New message in #general', body: stripMarkup(m.body).slice(0, 120), link: '/chat/general', tag: `chat-${m.id}` })
-        })
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [user, profile?.notif_prefs?.chat])
+  // THE LOCAL #general PUSH IS GONE (12 Sep 2026).
+  //
+  // It subscribed to `channel=eq.general` and popped an OS notification from
+  // the tab, and it was a workaround for a server that only notified two
+  // channels. Three things were wrong with keeping it:
+  //
+  //   - it covered ONE room out of about thirty. Every market room was silent,
+  //     which is the bug this whole pass is about (migration 217).
+  //   - it only worked while the tab was open-but-hidden. A closed PWA - which
+  //     is the state a notification is FOR - got nothing from it.
+  //   - it linked to `/chat/general`, a route that now redirects, and it took
+  //     no notice of the per-room mutes, so a creator who had switched a room
+  //     off would have been buzzed by it anyway.
+  //
+  // `on_chat_message` covers every room now, scoped to the room's own members,
+  // throttled per room, and delivered by notify-dispatch to a device that does
+  // not have the app open at all. One path, not two.
 
   // Pending incoming connection requests, kept live via realtime.
   useEffect(() => {
@@ -548,6 +554,18 @@ export default function AppLayout() {
                 {item.to === '/messages' && dmUnread > 0 && (
                   <span className="absolute right-2 top-0 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
                     {dmUnread > 9 ? '9+' : dmUnread}
+                  </span>
+                )}
+                {/* ROOMS GETS A DOT, NOT A COUNT. The number of DMs waiting is
+                    a useful figure - each one is somebody addressing you. The
+                    number of ROOMS that have moved is not; what you want to
+                    know is whether any of them has, and the sidebar inside says
+                    which. A count here would also fight the Messages badge for
+                    the same corner at the same weight. */}
+                {item.to === '/rooms' && roomsUnread > 0 && (
+                  <span className="absolute right-3.5 top-1 flex h-2 w-2 items-center justify-center" role="status" aria-label={tr('New messages')}>
+                    <span className="absolute inset-0 rounded-full bg-brand/60 animate-ping-slow" aria-hidden />
+                    <span className="relative h-2 w-2 rounded-full bg-brand" aria-hidden />
                   </span>
                 )}
               </NavLink>
@@ -781,8 +799,21 @@ export default function AppLayout() {
             >
               <span className="relative">
                 <Icon name={tab.icon} className="h-6 w-6" />
-                {tab.to === '/messages' && dmUnread > 0 && (
-                  <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-white" aria-label={`${dmUnread} unread`} />
+                {/* THE SAME MARK ON BOTH TABS THAT CAN CARRY ONE. Messages had
+                    it; Rooms did not, so a creator on any other screen had no
+                    way at all of knowing a room had been spoken in - which is
+                    the reported bug. Both pulse now (see components/UnreadDot),
+                    and both sit in the icon's own corner with a white ring so
+                    they read against the glyph. */}
+                {((tab.to === '/messages' && dmUnread > 0) || (tab.to === '/rooms' && roomsUnread > 0)) && (
+                  <span
+                    className="absolute -right-1.5 -top-1 flex h-2.5 w-2.5 items-center justify-center"
+                    role="status"
+                    aria-label={tab.to === '/messages' ? `${dmUnread} unread` : `${roomsUnread} unread`}
+                  >
+                    <span className="absolute inset-0 rounded-full bg-brand/60 animate-ping-slow" aria-hidden />
+                    <span className="relative h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-white" aria-hidden />
+                  </span>
                 )}
               </span>
               {tr(tab.label)}

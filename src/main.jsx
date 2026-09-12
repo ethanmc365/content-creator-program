@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { CommunityProvider } from './context/CommunityContext'
+import { UnreadProvider } from './context/UnreadContext'
 import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
@@ -88,7 +89,12 @@ function mount() {
           {/* Inert while the network preview flag is off: it issues no queries, so
               a live UK creator pays nothing for it being mounted here. */}
           <CommunityProvider>
-            <App />
+            {/* Which rooms have something new in them, answered once for the
+                whole app rather than on the one page that happened to ask.
+                See context/UnreadContext. */}
+            <UnreadProvider>
+              <App />
+            </UnreadProvider>
           </CommunityProvider>
         </AuthProvider>
       </BrowserRouter>

@@ -59,9 +59,19 @@ Deno.serve(async (req) => {
 
     // notif_prefs gates device push per notification type. The in-app row
     // already exists either way, because the bell is the always-on inbox.
+    //
+    // EXCEPT FOR ANNOUNCEMENTS, WHICH NOBODY CAN TURN OFF (12 Sep 2026).
+    // Ethan: "never for announcements or anything from the Tryp.com". The
+    // settings screen no longer draws a switch for it and the database ignores
+    // a mute on an announcements room, and this is the third place the rule
+    // lives - deliberately, because a `notif_prefs.announcement: false` already
+    // saved by the old screen would otherwise keep suppressing them for ever.
+    const LOCKED_TYPES = ['announcement']
     const { data: profile } = await supabase
       .from('profiles').select('notif_prefs').eq('id', n.recipient_id).single()
-    if (profile?.notif_prefs?.[n.type] === false) return new Response('push off', { status: 200 })
+    if (!LOCKED_TYPES.includes(n.type) && profile?.notif_prefs?.[n.type] === false) {
+      return new Response('push off', { status: 200 })
+    }
 
     const { data: subs } = await supabase
       .from('push_subscriptions').select('*').eq('user_id', n.recipient_id)

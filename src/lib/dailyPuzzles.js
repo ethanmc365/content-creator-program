@@ -78,9 +78,45 @@ export const DAILY_KEYS = DAILY_PUZZLES.map((p) => p.key)
  * @returns {{ today: number, played: Set<string>, counts: Record<string, number>|null,
  *             streakDays: number[], daysByPuzzle: Record<string, number[]> }}
  */
+// This device's record of which puzzles were finished on a given day.
+//
+// MODULE LEVEL, so the hook can read it in a lazy `useState` initialiser rather
+// than only in an effect. See the note on `played` below - that difference is
+// the whole of the orange-then-green flash.
+function localPlayed(day) {
+  const done = new Set()
+  for (const p of DAILY_PUZZLES) {
+    try {
+      if (JSON.parse(localStorage.getItem(p.store) || 'null')?.day === day) done.add(p.key)
+    } catch { /* private mode */ }
+  }
+  return done
+}
+
 export function useDailyPuzzles(userId) {
   const [today] = useState(() => ukDayIndex())
-  const [played, setPlayed] = useState(() => new Set())
+  // THE FIRST PAINT ALREADY KNOWS WHAT YOU PLAYED (12 Sep 2026).
+  //
+  // Ethan: "when the worldwide page first loads, the daily puzzles, even if I
+  // played them, they show up as orange and not played, then suddenly change to
+  // green showing I played. It should immediately be green when it loads in if
+  // it was played."
+  //
+  // This was `useState(() => new Set())` with the localStorage read in a
+  // `useEffect` underneath it. An effect runs AFTER the commit, so the browser
+  // had already painted three orange tiles saying "Play" before anything had
+  // looked at the device's own record - and the record was sitting in
+  // localStorage the whole time, available synchronously, costing nothing.
+  // What the reader saw was the card getting it wrong and then correcting
+  // itself, which is worse than a card that waits: a wrong answer that changes
+  // reads as a bug even when the second answer is right.
+  //
+  // The rule this is an instance of: state that CAN be known before the first
+  // paint must be initialised, not effected. The server round trip below is
+  // genuinely asynchronous and still lands later - but it only ever ADDS to the
+  // set (a puzzle played on another device), so it can never take a tick away
+  // and cause the reverse flash.
+  const [played, setPlayed] = useState(() => localPlayed(today))
   const [counts, setCounts] = useState(null)
   const [streakDays, setStreakDays] = useState([])
   const [daysByPuzzle, setDaysByPuzzle] = useState({})
@@ -89,16 +125,10 @@ export function useDailyPuzzles(userId) {
   // ("11 creators played it today") as well as your own tick.
   const [nudge, setNudge] = useState(0)
 
-  // Read this device's record of today, whatever is in it right now.
-  const readLocal = useCallback(() => {
-    const done = new Set()
-    for (const p of DAILY_PUZZLES) {
-      try {
-        if (JSON.parse(localStorage.getItem(p.store) || 'null')?.day === today) done.add(p.key)
-      } catch { /* private mode */ }
-    }
-    return done
-  }, [today])
+  // Read this device's record of today, whatever is in it right now. The
+  // initialiser above reads the same function; this one is for the re-reads
+  // (a puzzle finished without leaving the page, the tab regaining focus).
+  const readLocal = useCallback(() => localPlayed(today), [today])
 
   useEffect(() => {
     const done = readLocal()
