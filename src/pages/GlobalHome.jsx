@@ -739,7 +739,7 @@ export default function GlobalHome() {
                challenge banner, the latest announcement and the puzzles - so
                that is what the placeholder is now, at those heights, so nothing
                reflows when the real thing lands. */
-            <PageSkeleton shape="hub" />
+            <PageSkeleton shape="hub" inLayout />
           ) : (
           <>
 

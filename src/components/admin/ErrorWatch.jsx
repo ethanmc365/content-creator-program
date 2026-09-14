@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDateTimeTz, timeAgo } from '../../lib/utils'
-import { CONTEXT_MARK, sentryHome, sentryLink, sentryProjectId } from '../../lib/monitoring'
+import { CONTEXT_MARK, sentryIssues, sentryLink } from '../../lib/monitoring'
 import { explain } from '../../lib/errorGuide'
 import { toastSuccess } from '../../lib/toast'
 import { useT } from '../../lib/i18n'
@@ -110,93 +110,97 @@ export default function ErrorWatch() {
   return (
     <div className="space-y-6">
       {/* ---- What state is it in ---- */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">{tr('Error monitoring')}</h2>
-          <p className="mt-0.5 text-sm text-smoke">
-            {tr('Every crash that showed somebody the "Mayday" screen, plus any scheduled job that failed. Grouped by fault, newest first.')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* The source filter only draws once there is more than one kind of
-              row to separate - a chip that always says "All" is furniture. */}
-          {sources.length > 1 && ['all', ...sources].map((s) => (
+      {/* THE PAGE ALREADY SAID ALL OF THIS (14 Sep 2026).
+          Ethan: "please clean up the design of that errors page."
+
+          The top of it read "Analytics" / "Anything broken: crashes creators
+          hit, and scheduled jobs that failed." / a tab labelled "Error
+          monitoring" / a heading reading "Error monitoring" / a line explaining
+          what an error is. Three of those five are the same sentence, and the
+          duplicate heading directly under a selected tab of the same name is
+          the clearest kind of redundancy there is: the tab bar is the heading.
+
+          So the introduction goes and the CONTROLS move up into the space it
+          was using. What is left says what state the list is in and offers the
+          two things you can do to it, which is all this row was ever for. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* The source filter only draws once there is more than one kind of
+            row to separate - a chip that always says "All" is furniture. */}
+        {sources.length > 1 && ['all', ...sources].map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSource(s)}
+            className={cx('rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors',
+              source === s ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}
+          >
+            {s === 'all' ? tr('All') : tr(SOURCE_LABEL[s] || s)}
+          </button>
+        ))}
+        {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU
+            ARE (9 Sep 2026). Ethan: "it isn't showing the past ones that have
+            been fixed, like an archive with the ones that have been fixed."
+
+            The archive was built and reachable - through a single button
+            whose label was the state you were NOT in. Sitting on the open
+            list it read "Fixed (0)", which is a status if you have not
+            already worked out that it is a switch, and it says the archive is
+            empty at the same moment as offering to show it to you. Two
+            segments say where you are AND where you can go, both counts are
+            visible at once, and the picked one is solid brand with white on
+            it like every other picked thing on this platform. */}
+        <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5">
+          {[
+            { key: false, label: tr('Open'), count: open.length },
+            { key: true, label: tr('Fixed'), count: done.length },
+          ].map((seg) => (
             <button
-              key={s}
+              key={String(seg.key)}
               type="button"
-              onClick={() => setSource(s)}
-              className={cx('rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors',
-                source === s ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}
+              onClick={() => { setShowResolved(seg.key); setOpenRow(null) }}
+              aria-pressed={showResolved === seg.key}
+              className={cx('rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                showResolved === seg.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
             >
-              {s === 'all' ? tr('All') : tr(SOURCE_LABEL[s] || s)}
+              {seg.label} ({seg.count})
             </button>
           ))}
-          {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU
-              ARE (9 Sep 2026). Ethan: "it isn't showing the past ones that have
-              been fixed, like an archive with the ones that have been fixed."
-
-              The archive was built and reachable - through a single button
-              whose label was the state you were NOT in. Sitting on the open
-              list it read "Fixed (0)", which is a status if you have not
-              already worked out that it is a switch, and it says the archive is
-              empty at the same moment as offering to show it to you. Two
-              segments say where you are AND where you can go, both counts are
-              visible at once, and the picked one is solid brand with white on
-              it like every other picked thing on this platform. */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5">
-            {[
-              { key: false, label: tr('Open'), count: open.length },
-              { key: true, label: tr('Fixed'), count: done.length },
-            ].map((seg) => (
-              <button
-                key={String(seg.key)}
-                type="button"
-                onClick={() => { setShowResolved(seg.key); setOpenRow(null) }}
-                aria-pressed={showResolved === seg.key}
-                className={cx('rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                  showResolved === seg.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand')}
-              >
-                {seg.label} ({seg.count})
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={load} className="btn-secondary !py-1.5 text-xs">
-            <Icon name="reorder" className="h-4 w-4" /> {tr('Refresh')}
-          </button>
         </div>
+        {/* `ml-auto` rather than a `justify-between` on the row: the chips and
+            the segments are one group that should stay together when the row
+            wraps on a phone, and Refresh is the only thing that belongs on the
+            far edge. */}
+        <button type="button" onClick={load} className="btn-secondary ml-auto !py-1.5 text-xs">
+          <Icon name="reorder" className="h-4 w-4" /> {tr('Refresh')}
+        </button>
       </div>
 
-      {/* ---- HOW TO GET INTO SENTRY, WRITTEN DOWN WHERE IT IS NEEDED ----
-          Ethan: "I tried to login and check Sentry but I was having
-          difficulties logging in, it's weird, it seems like a different login
-          screen or something."
-          It is a different login screen. This project's DSN ends
-          `ingest.de.sentry.io`, so the organisation is on Sentry's EU
-          instance, and the EU and US instances are separate installations with
-          separate account databases - signing in at plain sentry.io is signing
-          in somewhere the account does not exist. That fact lived in one
-          character of a URL inside a source file. It lives here now, next to
-          the panel that sends people there. */}
-      <details className="rounded-card border border-gray-100 bg-cloud/40 px-4 py-3">
-        <summary className="cursor-pointer text-xs font-semibold text-smoke">{tr('Signing in to Sentry')}</summary>
-        <div className="mt-3 space-y-2 text-xs leading-relaxed text-ink/75">
-          <p>
-            {tr('This project is on Sentry’s EU instance, which is a separate installation from the one at sentry.io - that is why the login there does not recognise the account.')}
-          </p>
-          <p>
-            <span className="font-semibold">{tr('Sign in at')} </span>
-            <a href={sentryHome()} target="_blank" rel="noreferrer noopener" className="font-mono font-semibold text-brand hover:underline">{sentryHome()}</a>
-            {' '}{tr('with the email the Sentry account was created under, then Forgot password if you are not sure of it.')}
-          </p>
-          <p>
-            {tr('The project to open is id')} <code className="rounded bg-white px-1.5 py-0.5 font-mono">{sentryProjectId()}</code>{' '}
-            {tr('under organisation')} <code className="rounded bg-white px-1.5 py-0.5 font-mono">o4512044607733760</code>.
-          </p>
-          <p className="text-smoke">
-            {tr('Stack traces in Sentry are minified for the same reason they are here: source maps are not being uploaded at build time, which needs a Sentry auth token in the Vercel environment. Until then this panel’s context and trail are the better read.')}
-          </p>
-        </div>
-      </details>
+      {/* ---- ONE LINE ABOUT SENTRY, NOT A FOLDED ESSAY ----
+          It was a `<details>` holding four paragraphs, and three of them existed
+          only because the link beside them did not work: which instance to sign
+          in to, which numeric org id to look for, which numeric project id to
+          open. That is a set of directions for finding a place by hand, and the
+          reason to write directions is that there is no door.
+
+          There is a door now - `sentryIssues()` builds this project's real
+          issue stream, on the org's own subdomain, scoped to the project (see
+          lib/monitoring). So the directions go and the door stays, next to the
+          one paragraph that is still true and is NOT about navigation: the
+          stack traces over there are minified, which is a fact about what you
+          will find when you arrive. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card border border-gray-100 bg-cloud/40 px-4 py-3">
+        <p className="min-w-0 flex-1 text-xs leading-relaxed text-smoke">
+          {tr('Stack traces in Sentry are minified for the same reason they are here - source maps are not uploaded at build time - so this panel\u2019s context and trail are usually the better read.')}
+        </p>
+        <a
+          href={sentryIssues()}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="shrink-0 text-xs font-semibold text-brand hover:underline"
+        >
+          {tr('Open Sentry')} ↗
+        </a>
+      </div>
 
       {!rows && <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-20 w-full rounded-card" />)}</div>}
 
@@ -267,7 +271,14 @@ export default function ErrorWatch() {
                   )}
                   <span className="text-center">
                     <span className="block text-sm font-bold tabular-nums">{r.hits}</span>
-                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">{tr('times')}</span>
+                    {/* "1 TIMES" is not a word, and it is the same fault as the
+                        "1 New messages" the unread dot was carrying on 13 Sep:
+                        a count and a hard-coded plural noun beside it. Written
+                        out in full both ways, because a language that agrees the
+                        noun cannot be served by appending an "s". */}
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                      {r.hits === 1 ? tr('time') : tr('times')}
+                    </span>
                   </span>
                   <button
                     type="button"

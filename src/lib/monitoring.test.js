@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { CONTEXT_MARK, describeReason, installGlobalHandlers, resetReportedForTests } from './monitoring'
+import { CONTEXT_MARK, describeReason, installGlobalHandlers, resetReportedForTests, sentryHome, sentryIssues, sentryLink, sentryOrg, sentryProjectId } from './monitoring'
 import { explain, GUIDE_ENTRIES } from './errorGuide'
 import { splitDetail } from '../components/admin/ErrorWatch'
 
@@ -172,5 +172,53 @@ describe('the error guide', () => {
       expect(g.match).toBeInstanceOf(RegExp)
       for (const k of ['severity', 'means', 'cause', 'todo']) expect(typeof g[k]).toBe('string')
     }
+  })
+})
+
+// THE LINK THAT KEPT NOT WORKING.
+//
+// Ethan, twice: "I tried to login and check Sentry but I was having
+// difficulties logging in", and then, after the first fix, "for the error
+// monitoring the link to Sentry still doesn't work, I think this is correct link
+// https://trypcom-z4.sentry.io/issues/?project=4512045143556176".
+//
+// That URL is the fixture. It is the one link anybody has confirmed reaches the
+// right dashboard, so the test is simply that we build it - not that we build
+// something of roughly the right shape. Two earlier attempts each produced a
+// plausible URL (`/organizations/sentry/issues/`, then `https://de.sentry.io`)
+// and neither was ever compared against a working one, which is the whole
+// reason this went round three times.
+const KNOWN_GOOD = 'https://trypcom-z4.sentry.io/issues/?project=4512045143556176'
+
+describe('sentry links', () => {
+  it('builds exactly the URL that is known to work', () => {
+    expect(sentryIssues()).toBe(KNOWN_GOOD)
+  })
+
+  it('signs in at the org subdomain, not at sentry.io and not at the region', () => {
+    // An EU account at plain sentry.io meets a login it cannot pass, and the
+    // region front door is a home page rather than this project.
+    expect(sentryHome()).toBe('https://trypcom-z4.sentry.io')
+    expect(sentryHome()).not.toContain('de.sentry.io')
+    expect(sentryOrg()).toBe('trypcom-z4')
+  })
+
+  it('reads the project id off the DSN rather than repeating it', () => {
+    expect(sentryProjectId()).toBe('4512045143556176')
+  })
+
+  it('searches for one fault WITHOUT dropping the project scope', () => {
+    // Replacing `?project=` with `?query=` would search the whole organisation,
+    // which for a raw error message is a different and much worse list.
+    const url = sentryLink("Cannot read properties of undefined (reading 'id')")
+    expect(url).toContain('project=4512045143556176')
+    expect(url).toContain('query=Cannot%20read%20properties')
+    expect(url.startsWith(KNOWN_GOOD)).toBe(true)
+  })
+
+  it('falls back to the plain issue stream when there is no message', () => {
+    expect(sentryLink('')).toBe(KNOWN_GOOD)
+    expect(sentryLink(null)).toBe(KNOWN_GOOD)
+    expect(sentryLink('   ')).toBe(KNOWN_GOOD)
   })
 })

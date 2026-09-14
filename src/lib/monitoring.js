@@ -37,14 +37,54 @@ export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
  *
  * SECOND, THE ORG. The panel's deep link was hard-coded to
  * `/organizations/sentry/issues/`, and `sentry` is SENTRY'S OWN org slug. Every
- * press of it went to a stranger's dashboard. There is no org slug in a DSN -
- * only the numeric org and project ids - so the slug comes from
- * `VITE_SENTRY_ORG` when somebody sets it, and without it the link goes to the
- * region's front door, which is the honest answer: we know the instance, we do
- * not know the slug, and sending somebody to the right login beats sending them
- * to the wrong dashboard.
+ * press of it went to a stranger's dashboard.
+ *
+ * THIRD, AND THIS IS WHAT WAS STILL BROKEN (14 Sep 2026). Ethan: "for the error
+ * monitoring the link to Sentry still doesn't work, I think this is correct link
+ * https://trypcom-z4.sentry.io/issues/?project=4512045143556176".
+ *
+ * It is, and it settles both of the things the previous fix could only guess at.
+ *
+ *   THE SLUG IS `trypcom-z4`. A DSN carries the numeric org and project ids and
+ *   no slug at all, so the old code read `VITE_SENTRY_ORG` and, finding it
+ *   unset in every environment, fell back to the region's front door. That is
+ *   an honest answer to "which dashboard" and a useless one to somebody
+ *   pressing "Open in Sentry": it lands on a home page, not on the fault. The
+ *   slug is a public, non-secret routing detail of the same kind as the DSN
+ *   three lines above, so it lives in the source where it cannot be unset.
+ *
+ *   THE HOST IS `<org>.sentry.io`, NOT `<region>.sentry.io`. Sentry has moved
+ *   organisations onto their own subdomains, and an org's own subdomain resolves
+ *   to the right region on its own - which is why Ethan's working URL has no
+ *   `de.` in it even though this project ingests at `ingest.de.sentry.io`.
+ *   Deriving the region from the DSN was reasonable and is now simply the wrong
+ *   axis: the org subdomain already encodes it.
+ *
+ *   AND THE PATH IS `/issues/?project=<id>`, NOT `/organizations/<slug>/issues/`.
+ *   On a customer subdomain the org is the host, so repeating it in the path is
+ *   a redirect at best. `?project=` is what scopes the view to this project
+ *   rather than to every project in the org.
+ *
+ * `VITE_SENTRY_ORG` still overrides, so a fork pointing at its own Sentry keeps
+ * working without touching this file.
+ */
+const DEFAULT_ORG = 'trypcom-z4'
+
+/** The org slug: the env var if somebody set one, otherwise this project's. */
+export const sentryOrg = () => import.meta.env.VITE_SENTRY_ORG || DEFAULT_ORG
+
+/**
+ * The org's own Sentry, which is where signing in and every link should go.
+ *
+ * Falls back to the region host read off the DSN only if the slug has been
+ * explicitly blanked - `VITE_SENTRY_ORG=""` in a fork that has a DSN but no
+ * slug. Without a slug there is no subdomain to go to, and the region's front
+ * door is still better than sentry.io, which for an EU account is a login that
+ * cannot succeed.
  */
 export function sentryHome() {
+  const org = sentryOrg()
+  if (org) return `https://${org}.sentry.io`
   const dsn = sentryDsn()
   // `o<id>.ingest.<region>.sentry.io` - the region segment is absent for US.
   const region = dsn.match(/ingest\.([a-z]{2})\.sentry\.io/i)?.[1]
@@ -54,12 +94,24 @@ export function sentryHome() {
 /** The numeric project id, which is the last path segment of the DSN. */
 export const sentryProjectId = () => sentryDsn().split('/').pop() || null
 
-/** A search for one fault, as deep as we can honestly go. */
+/** This project's issue stream: every fault the app has reported, newest first. */
+export function sentryIssues() {
+  const id = sentryProjectId()
+  return `${sentryHome()}/issues/${id ? `?project=${encodeURIComponent(id)}` : ''}`
+}
+
+/**
+ * One fault in Sentry: the project's issue stream, searched for this message.
+ *
+ * `query` rides alongside `project` rather than replacing it - dropping the
+ * project scopes the search to the whole organisation, which for a search as
+ * loose as a raw error message is a different and worse list.
+ */
 export function sentryLink(message) {
-  const org = import.meta.env.VITE_SENTRY_ORG
-  const home = sentryHome()
-  if (!org) return home
-  return `${home}/organizations/${org}/issues/?query=${encodeURIComponent(message || '')}`
+  const base = sentryIssues()
+  const q = (message || '').trim()
+  if (!q) return base
+  return `${base}${base.includes('?') ? '&' : '?'}query=${encodeURIComponent(q)}`
 }
 
 // NOISE THAT IS NOT OURS AND NEVER WILL BE.

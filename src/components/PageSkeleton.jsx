@@ -196,38 +196,72 @@ export function Thread() {
 // the right (`xl` widens it to 22rem). A single-column placeholder on that page
 // is a placeholder for a different page: the moment the query lands, a
 // 20rem column appears and everything on the left narrows by a third.
-export function Hub() {
+// AND `inLayout` IS THE SAME SKELETON WITH THE FURNITURE TAKEN OFF (14 Sep 2026).
+//
+// Ethan: "on the worldwide page on desktop, the skeleton loading cards are
+// incorrectly laid out."
+//
+// This shape is used from two places that are NOT the same place, and it was
+// drawing the same thing for both. `RouteSkeleton` renders it on its own while
+// the route chunk is still downloading - there is no layout yet, so the
+// switcher, the two columns and the rail all have to be here or the placeholder
+// is the wrong shape for the page. GlobalHome renders it a second time, after
+// the chunk has run, from INSIDE `NetworkLayout` - which has already drawn the
+// switcher and is already a `lg:grid-cols-[minmax(0,1fr)_20rem]` with its own
+// rail placeholder in the right-hand column.
+//
+// So on a desktop the second case nested one copy of the hub's furniture inside
+// another: the article was squeezed into (left column - 20rem), a SECOND stack
+// of five rail cards appeared beside the three the layout had already drawn,
+// and a bar for a switcher that was already on screen sat above the lot. That
+// is the incorrect layout, and it is desktop-only because below `lg` neither
+// grid engages and the two collapse into the same single column.
+//
+// `inLayout` drops exactly the three things the layout owns - the switcher, the
+// column grid and the rail - and keeps the article, which is the part
+// GlobalHome actually needs a placeholder for.
+// The article column on its own: the greeting, the live banner and the sections
+// under it, at the heights the real page uses so nothing reflows when the data
+// lands. Both callers need this part; only the standalone one needs the rest.
+function HubArticle() {
+  return (
+    <div className="min-w-0 space-y-7">
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-52 rounded-lg lg:h-11 lg:w-64" />
+        <Skeleton className="h-4 w-64 max-w-full rounded" />
+      </div>
+      {/* The live challenge banner. It is taller on a desktop, where it
+          carries the leaderboard down its right-hand side. */}
+      <Skeleton className="h-32 w-full rounded-card sm:h-44" />
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-56 rounded" />
+        <Skeleton className="h-36 w-full rounded-card" />
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-44 rounded" />
+        <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-40 rounded" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className={i === 2 ? 'hidden h-24 rounded-card xl:block' : 'h-24 rounded-card'} />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function Hub({ inLayout = false }) {
+  if (inLayout) return <HubArticle />
   return (
     <div className="space-y-7">
       {/* The place switcher, above the columns, exactly as the layout has it. */}
       <Skeleton className="h-14 w-full rounded-full" />
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0 space-y-7">
-          <div className="space-y-3">
-            <Skeleton className="h-9 w-52 rounded-lg lg:h-11 lg:w-64" />
-            <Skeleton className="h-4 w-64 max-w-full rounded" />
-          </div>
-          {/* The live challenge banner. It is taller on a desktop, where it
-              carries the leaderboard down its right-hand side. */}
-          <Skeleton className="h-32 w-full rounded-card sm:h-44" />
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-56 rounded" />
-            <Skeleton className="h-36 w-full rounded-card" />
-          </div>
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-44 rounded" />
-            <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
-              {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-            </div>
-          </div>
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-40 rounded" />
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-              {[0, 1, 2].map((i) => <Skeleton key={i} className={i === 2 ? 'hidden h-24 rounded-card xl:block' : 'h-24 rounded-card'} />)}
-            </div>
-          </div>
-        </div>
+        <HubArticle />
 
         {/* THE RAIL. Five cards, sticky, only from `lg` - below that the real
             rail renders under the article and its cards are the sections
@@ -604,12 +638,15 @@ export const SHAPES = {
  * site, so a page cannot get the accessibility half wrong while getting the
  * drawing half right.
  */
-export default function PageSkeleton({ shape = 'cards', className = '' }) {
+export default function PageSkeleton({ shape = 'cards', className = '', ...rest }) {
   const Shape = SHAPES[shape] || SHAPES.cards
   return (
     <div className={className} aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading</span>
-      <Shape />
+      {/* Shape-specific options (`inLayout` on the hub) ride through, so a page
+          that renders a skeleton from inside its own layout can say so without
+          a second component per shape. */}
+      <Shape {...rest} />
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useUnread } from '../context/UnreadContext'
 import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
-import FlagStack from './network/FlagStack'
+import FlagTile from './network/FlagTile'
 import { enablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -212,7 +212,7 @@ export function useNotificationPrefs() {
 function PrefRow({ c, state }) {
   const tr = useT()
   return (
-    <div className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+    <div className="flex items-center gap-4 border-b border-gray-100 py-3 last:border-0">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">{c.label}</p>
         <p className="text-xs text-smoke">{c.hint}</p>
@@ -239,7 +239,7 @@ function PrefRow({ c, state }) {
 function LockedRow({ label, hint }) {
   const tr = useT()
   return (
-    <div className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+    <div className="flex items-center gap-4 border-b border-gray-100 py-3 last:border-0">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">{tr(label)}</p>
         <p className="text-xs text-smoke">{tr(hint)}</p>
@@ -288,54 +288,122 @@ function RoomNotifications({ state }) {
 
   const mutedCount = state.mutedRooms.size
 
+  // WHICH MARKETS ARE OPEN, AND WHY THE ANSWER DEPENDS ON HOW MANY THERE ARE.
+  //
+  // Ethan: "there's way too much scrolling involved, it needs a much better more
+  // functional design."
+  //
+  // The rooms were the bulk of it. Every market drew a heading and then all four
+  // of its switches, always - on the test account that is seven markets, twenty
+  // nine rows and the better part of two thousand pixels, in the middle of a
+  // page that also carries nine categories, five reminder days and two puzzle
+  // switches. Measured before this change the page was 3,379px on a 720px
+  // desktop window: nearly five screens.
+  //
+  // But collapsing unconditionally would be the opposite mistake. 84 of the 94
+  // creators on the platform are in exactly ONE market, and for them a drawer is
+  // a press standing between them and the only four switches they came for. So
+  // the rule is about the person, not the component: one market opens itself,
+  // several start closed with their state written on the outside.
+  //
+  // Seeded once from the first render that has rooms in it, and NOT kept in sync
+  // afterwards - reopening a market the reader has just closed because a query
+  // settled would be the component arguing with them.
+  const [openIds, setOpenIds] = useState(null)
+  useEffect(() => {
+    if (openIds !== null || !places.length) return
+    setOpenIds(new Set(places.length === 1 ? places.map((p) => p.place.id) : []))
+  }, [places, openIds])
+
   if (!places.length) {
     return <p className="mt-2 text-sm text-smoke">{tr('Your rooms appear here once you have joined a market.')}</p>
   }
 
   return (
-    <div className="mt-2 space-y-5">
+    <div className="mt-2 space-y-2">
+      {/* ONE MARKET PER ROW, OPENED ONE AT A TIME.
+          `single` is the ordinary creator - 84 of the 94 on the platform are in
+          exactly one market - and for them a market that has to be pressed open
+          is a press for nothing, so theirs starts open. See the note on
+          `openIds`. */}
       {places.map(({ place, rooms: rs }) => (
-        <div key={place.id}>
-          <div className="flex items-center gap-2 pb-1">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cloud text-[13px] leading-none">
-              {place.kind === 'network'
-                ? <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
-                : <FlagStack codes={place.country_codes} className="text-[13px]" max={1} />}
-            </span>
-            <p className="min-w-0 truncate text-[13px] font-bold text-ink">{place.name}</p>
-          </div>
-          <div className="rounded-xl border border-gray-100">
-            {rs.map((r) => {
-              const locked = r.key === 'announcements'
-              const on = !state.mutedRooms.has(r.channel)
-              return (
-                <div key={r.id} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-0">
-                  <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : 'text-gray-300')} />
-                  <span className={cx('min-w-0 flex-1 truncate text-[13px]', on ? 'font-medium text-ink' : 'text-smoke')}>
-                    {tr(r.label)}
-                  </span>
-                  {locked ? (
-                    <span className="flex w-11 shrink-0 items-center justify-center text-brand" title={tr('This one cannot be switched off')}>
-                      <Icon name="lock" className="h-3.5 w-3.5" />
-                    </span>
-                  ) : (
-                    <div className="flex w-11 shrink-0 justify-center">
-                      <Toggle on={on} onChange={(v) => state.toggleRoom(r.channel, v)} label={`${place.name} ${r.label}`} />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <PlaceRooms
+          key={place.id}
+          place={place}
+          rooms={rs}
+          state={state}
+          open={!!openIds?.has(place.id)}
+          onToggle={() => setOpenIds((prev) => {
+            const next = new Set(prev || [])
+            if (next.has(place.id)) next.delete(place.id); else next.add(place.id)
+            return next
+          })}
+        />
       ))}
       {/* WHAT YOU HAVE DONE, IN ONE SENTENCE. A screen of thirty switches that
-          never summarises itself is a screen you have to re-read to audit. */}
-      <p className="text-xs text-smoke">
+          never summarises itself is a screen you have to re-read to audit - and
+          it matters more now that most of them are behind a fold, because the
+          answer to "have I switched anything off" must not require opening
+          seven drawers to find out. */}
+      <p className="pt-1 text-xs text-smoke">
         {mutedCount === 0
           ? tr('Every room can reach you. Announcements always can.')
           : `${mutedCount} ${mutedCount === 1 ? tr('room is switched off. You will still see its messages in the app, and you will still be told when somebody names you in it.') : tr('rooms are switched off. You will still see their messages in the app, and you will still be told when somebody names you in one.')}`}
       </p>
+    </div>
+  )
+}
+
+// One market: a summary row that is always visible, and its switches behind it.
+//
+// THE ROW SAYS ENOUGH TO NOT HAVE TO BE OPENED. "All 4 on" / "1 of 4 off" is the
+// only question this screen is ever asked about a market you have not touched,
+// so answering it in the closed state is what makes closing it free.
+function PlaceRooms({ place, rooms, state, open, onToggle }) {
+  const tr = useT()
+  const off = rooms.filter((r) => state.mutedRooms.has(r.channel)).length
+  return (
+    <div className={cx('overflow-hidden rounded-xl border transition-colors', open ? 'border-gray-200' : 'border-gray-100')}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-cloud/60"
+      >
+        {/* ONE FLAG. See components/network/FlagTile - a 24px square holds one
+            glyph, and this tile used to draw a flag AND a "+3" chip. */}
+        <FlagTile codes={place.country_codes} kind={place.kind} title={place.name} />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-ink">{place.name}</span>
+        <span className={cx('shrink-0 text-[11px] font-semibold', off ? 'text-smoke' : 'text-brand')}>
+          {off === 0 ? `${tr('All')} ${rooms.length} ${tr('on')}` : `${off} ${tr('of')} ${rooms.length} ${tr('off')}`}
+        </span>
+        <Icon name="chevron-down" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="border-t border-gray-100">
+          {rooms.map((r) => {
+            const locked = r.key === 'announcements'
+            const on = !state.mutedRooms.has(r.channel)
+            return (
+              <div key={r.id} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-0">
+                <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : 'text-gray-300')} />
+                <span className={cx('min-w-0 flex-1 truncate text-[13px]', on ? 'font-medium text-ink' : 'text-smoke')}>
+                  {tr(r.label)}
+                </span>
+                {locked ? (
+                  <span className="flex w-11 shrink-0 items-center justify-center text-brand" title={tr('This one cannot be switched off')}>
+                    <Icon name="lock" className="h-3.5 w-3.5" />
+                  </span>
+                ) : (
+                  <div className="flex w-11 shrink-0 justify-center">
+                    <Toggle on={on} onChange={(v) => state.toggleRoom(r.channel, v)} label={`${place.name} ${r.label}`} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -462,7 +530,22 @@ export function CreatorNotifications({ state }) {
             <span className="w-11 text-center">{tr("Email")}</span>
           </div>
         )}
-        <div className="mt-2">
+        {/* TWO COLUMNS FROM `sm`, BECAUSE NINE SWITCHES IS A LIST AND NOT A
+            NARRATIVE (14 Sep 2026).
+
+            Ethan: "there's way too much scrolling involved." These rows are a
+            fixed, complete set that a reader SCANS for the one they want, and a
+            single 700px column of them on a 1,400px window wastes the half of
+            the page that would have let them see the whole set at once.
+            `sm:grid-cols-2` halves the height of the block for nothing - the
+            rows were already `min-w-0` and truncation-safe, because the same
+            component draws inside the 20rem admin panel.
+
+            `[&>*]:border-b-0 sm:[&>*:nth-last-child(-n+2)]:border-b-0` is not
+            worth the cleverness: each row keeps its own rule and the last row of
+            a two-column grid keeps one too, which reads as the block's own
+            bottom edge rather than as a row that forgot its divider. */}
+        <div className="mt-2 sm:grid sm:grid-cols-2 sm:gap-x-8">
           {/* The locked ones lead, because a list that opens with eight
               switches and buries the one thing you cannot change at the bottom
               is a list that has hidden it. */}

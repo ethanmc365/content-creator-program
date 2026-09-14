@@ -105,8 +105,30 @@ function dmPreview(m) {
 // `now()` timestamp, and without this they would be on screen until the fetch
 // came back - which is precisely the "shows on mobile, not on desktop" Ethan
 // reported, one more time and for one more second.
-export function isListableConversation(c) {
-  return c?.kind === 'group' || !!c?.last_message_at
+// AND A THREAD YOU HAVE JUST CREATED IS LISTABLE BEFORE ITS FIRST MESSAGE
+// LANDS (14 Sep 2026).
+//
+// Ethan: "when sending a DM, after I type and press send, it temporarily shows
+// the panel with the suggested creators to message while the message is
+// sending, then shows the chat again. It should always be showing the chat."
+//
+// `last_message_at` is written by a trigger when a message row appears, and
+// `ensureConversation` creates the conversation BEFORE the message is queued -
+// it has to, because the outbox needs an id to write into. So for the width of
+// one round trip the new row is a conversation with no last message, this
+// function said "not listable", `loadConversations` dropped it, `realActive`
+// found nothing, `draftTo` had already been cleared, and `threadOpen` went
+// false under a thread somebody was looking at. The discover pane is simply
+// what `!threadOpen` renders.
+//
+// `justCreated` is the set of ids this page has minted in this session. It is a
+// SET AND NOT A FLAG because two threads can be opened before either first
+// message posts, and it is passed in rather than read from module state so the
+// cached-inbox strain at mount (which has no such set) keeps the old, stricter
+// meaning: a cache is a record of the past, and nothing in it was created a
+// moment ago.
+export function isListableConversation(c, justCreated) {
+  return c?.kind === 'group' || !!c?.last_message_at || !!(c?.id && justCreated?.has(c.id))
 }
 
 export default function Messages() {
@@ -162,7 +184,7 @@ export default function Messages() {
   // Strained on the way IN as well as on the way out - see the note on
   // `isListableConversation`: a cache written before migration 214 still holds
   // abandoned threads carrying a `now()` timestamp.
-  const [conversations, setConversations] = useState(() => (cachedInbox ?? []).filter(isListableConversation)) // enriched with profile/members + unread
+  const [conversations, setConversations] = useState(() => (cachedInbox ?? []).filter((c) => isListableConversation(c))) // enriched with profile/members + unread
   // GROUPS.
   //
   // The inbox holds two shapes now. A 'direct' conversation is the pair it has
@@ -318,6 +340,12 @@ export default function Messages() {
   // Guards a double-press: two sends racing would insert two conversations for
   // the same pair, and the pair has no unique constraint to stop it.
   const ensuringRef = useRef(null)
+  // The conversations THIS PAGE created, which are listable before their first
+  // message exists. See `isListableConversation`. A ref rather than state: it is
+  // read inside `loadConversations`, and putting it in state would either make
+  // that callback change identity on every send (re-running the effect that
+  // calls it) or read a stale value from its closure.
+  const justCreatedRef = useRef(new Set())
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
   const [signedUrls, setSignedUrls] = useState(new Map())
   // Scroll bookkeeping so the thread only follows new messages when you're
@@ -510,7 +538,7 @@ export default function Messages() {
       supabase.from('conversations').select('*').order('last_message_at', { ascending: false }),
       loadMyInvites(user.id),
     ])
-    const convos = (allConvos ?? []).filter(isListableConversation)
+    const convos = (allConvos ?? []).filter((c) => isListableConversation(c, justCreatedRef.current))
     setInvites(myInvites)
     if (!convos?.length) {
       setConversations([])
@@ -664,14 +692,51 @@ export default function Messages() {
     // A second press while the first is still in flight must not insert a
     // second row for the same pair.
     if (ensuringRef.current) return ensuringRef.current
+    const other = draftTo
     const p = (async () => {
-      const id = await openConversation(user.id, draftTo.id)
+      const id = await openConversation(user.id, other.id)
       if (!id) return null
-      await loadConversations()
+      // THE THREAD MUST NOT LEAVE THE SCREEN BETWEEN THE DRAFT AND THE ROW.
+      //
+      // The handover below swaps one representation of an open thread for
+      // another - `draftTo` out, `conversationId` in - and it is only seamless
+      // if the row is in `conversations` on the SAME render that clears the
+      // draft. It was not: `loadConversations` refetches, and a conversation
+      // created a moment ago has no `last_message_at` because the message it
+      // was created for has not been queued yet, so the strain dropped it and
+      // the page fell through to its empty state. See
+      // `isListableConversation`.
+      //
+      // Two halves, and both are needed. The id joins `justCreated` so every
+      // FUTURE refetch keeps the row, and the row is spliced in HERE so the
+      // very next render already has it - waiting on a round trip is the whole
+      // bug, so the fix cannot itself wait on one.
+      justCreatedRef.current.add(id)
+      setConversations((prev) => (prev.some((c) => c.id === id) ? prev : [
+        {
+          id,
+          kind: 'direct',
+          participant_a: user.id,
+          participant_b: other.id,
+          other,
+          unread: 0,
+          // Sorted by this, and the thread being written into belongs at the
+          // top. The real value arrives with the refetch a moment later.
+          last_message_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]))
+      // All three of these land in one batch with the splice above, so there is
+      // no frame on which the draft is gone and the row has not arrived.
       setDraftTo(null)
       // `replace`, so Back does not land on the draft URL of a thread that now
       // exists at a different address.
       navigate(`/messages/${id}`, { replace: true, state: { fromInbox: true } })
+      // NOT AWAITED. The optimistic row above is already correct for everything
+      // on screen; this only reconciles the fields the server owns, and making
+      // the send wait for it is what put a round trip in the middle of pressing
+      // Send in the first place.
+      loadConversations()
       return id
     })()
     ensuringRef.current = p

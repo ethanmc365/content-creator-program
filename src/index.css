@@ -462,8 +462,42 @@ html {
     height: auto;
     align-self: stretch;
   }
+  /* AND `height: 100%` WAS ALSO WRONG IN THE THIRD CASE, WHICH IS THE ONE THAT
+     BROKE THE PROFILE PAGE (14 Sep 2026).
+
+     Ethan: "the profile pages, they are completely broken, the layout is all
+     messed up and there's white spaces between each card... on another tab it
+     is working correctly so I don't know what caused this."
+
+     The rule above reasons about the two containers a Reveal usually is - a
+     grid and a flex row - and misses the third: a Reveal that is a plain BLOCK
+     which is itself a GRID ITEM. Profile's desktop layout is exactly that,
+     `<Reveal className="min-w-0 space-y-8">` dropped straight into
+     `grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]`, and so is the rail
+     beside it.
+
+     A grid item is stretched to its track, so its height is DEFINITE - which is
+     precisely the condition that makes a child's `height: 100%` resolve. Every
+     section wrapper therefore became as tall as the whole column. Measured on
+     the live page before this fix: the container was 1398px and all four of its
+     children were 1398px each, stacked at 321 / 1751 / 3182 / 4612 - four
+     column-heights of mostly nothing, which is the "white spaces between each
+     card" exactly.
+
+     AND IT EXPLAINS THE TAB THAT WAS FINE. Whether a percentage height resolves
+     here depends on whether the grid row's size is already known when the
+     percentage is asked for, so it turns on layout timing: a warm tab that
+     painted in one pass and a cold tab that relaid out when a late image or
+     font landed genuinely disagree, and the broken one stays broken through a
+     reload because the reload is just as cold. That is the whole report.
+
+     `align-self: stretch` is what the rule wanted in every case it was right
+     about: it is the DEFAULT in a grid or flex container, so the wrapper still
+     fills its track there and a card inside it still has a definite parent to
+     measure `h-full` against - and it is inert in a block container, so the
+     wrapper goes back to being exactly as tall as the section inside it. */
   .reveal-item {
-    height: 100%;
+    align-self: stretch;
     opacity: 0;
     transform: translate3d(0, 24px, 0);
     will-change: opacity, transform;
