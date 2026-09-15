@@ -20,6 +20,7 @@ import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
 import { repairScrollLock } from '../../lib/scrollLock'
+import { usePinnedToBottom } from '../../lib/pinnedBar'
 import { useT } from '../../lib/i18n'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
@@ -290,6 +291,16 @@ export default function AppLayout() {
   // focus-driven signal so it collapses instantly (iOS often doesn't fire the
   // viewport resize until a scroll).
   const keyboardOpen = useVisualViewport().keyboardOpen
+
+  // THE BAR IS MEASURED AGAINST THE BOTTOM OF THE SCREEN AND PUT BACK IF IT HAS
+  // LEFT IT. Third report, and the first fix that does not depend on having
+  // guessed the mechanism right - see lib/pinnedBar for the whole story and for
+  // why the app-switch clue is what made it solvable. `shifted` is the
+  // deliberate slide-away below: while the keyboard is open the bar is supposed
+  // to be exactly one bar-height below the fold, and correcting THAT would
+  // shove it back over the composer.
+  const tabBarRef = useRef(null)
+  usePinnedToBottom(tabBarRef, keyboardOpen)
 
   // A LEAKED SCROLL LOCK LEAVES THE PAGE FROZEN, SO IT IS AUDITED ON EVERY MOVE.
   //
@@ -778,6 +789,7 @@ export default function AppLayout() {
              writing one transform. */}
       {createPortal(
         <nav
+        ref={tabBarRef}
         className={cx(
           'fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] transition-transform duration-200 lg:hidden',
           keyboardOpen && 'pointer-events-none'
