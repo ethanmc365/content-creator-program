@@ -8,7 +8,7 @@ import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
 import Reorderable from '../components/network/Reorderable'
-import FlagStack from '../components/network/FlagStack'
+import FlagTile from '../components/network/FlagTile'
 import Icon from '../components/Icon'
 import UnreadDot, { UnreadCount } from '../components/UnreadDot'
 import { EmptyState } from '../components/ui'
@@ -192,18 +192,24 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
       <div className="-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b border-gray-100 px-4 py-3">
-        {/* The flag, at a size you can actually see. A 34px rounded tile with
-            the flag at 20px in it - the same object the market header uses, so
-            the two surfaces agree about what a place looks like. Worldwide gets
-            the globe glyph in brand, because there is no flag for everywhere. */}
-        <span className={cx(
-          'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl',
-          isNetwork ? 'bg-brand-tint text-brand' : 'bg-cloud',
-        )}>
-          {isNetwork
-            ? <Icon name="globe" className="h-[19px] w-[19px]" />
-            : <FlagStack codes={place.country_codes} className="text-[19px]" />}
-        </span>
+        {/* The flag, at a size you can actually see. A 34px-high rounded tile
+            with the flags at 19px in it - the same object the sidebar and the
+            notification settings use, so all three surfaces agree about what a
+            place looks like.
+
+            IT GROWS SIDEWAYS FOR A MARKET WITH MORE THAN ONE COUNTRY and keeps
+            its height, which is the fix for Ethan's 15 Sep report: this slot
+            used to be a hard 34px SQUARE with `FlagStack` inside it, so UK &
+            Ireland put two double-width emoji in a box that fits one and the
+            Nordics put two plus a "+2" chip in it. See FlagTile - the arithmetic
+            never worked and the square was never the thing that mattered. */}
+        <FlagTile
+          codes={place.country_codes}
+          kind={isNetwork ? 'network' : 'chapter'}
+          size="h-[34px] w-[34px]"
+          glyph="text-[19px]"
+          title={place.name}
+        />
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
           className="min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] text-ink transition-colors hover:text-brand">
           {place.name}

@@ -370,8 +370,9 @@ function PlaceRooms({ place, rooms, state, open, onToggle }) {
         aria-expanded={open}
         className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-cloud/60"
       >
-        {/* ONE FLAG. See components/network/FlagTile - a 24px square holds one
-            glyph, and this tile used to draw a flag AND a "+3" chip. */}
+        {/* EVERY FLAG, IN A TILE THAT KEEPS ITS HEIGHT. See FlagTile: this
+            drew a flag AND a "+3" chip inside a 24px square, then drew one flag
+            and hid the rest, and now grows sideways instead. */}
         <FlagTile codes={place.country_codes} kind={place.kind} title={place.name} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-ink">{place.name}</span>
         <span className={cx('shrink-0 text-[11px] font-semibold', off ? 'text-smoke' : 'text-brand')}>
