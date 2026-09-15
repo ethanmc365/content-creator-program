@@ -12,6 +12,7 @@ import { clearBootLayer, releaseBootLayer, whenAppLoadersIdle } from './lib/boot
 import { getLocale, loadLocale } from './lib/i18n'
 import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
+import { installTranslationGuard } from './lib/translationGuard'
 import { goCanonical } from './lib/canonicalHost'
 import './index.css'
 
@@ -27,6 +28,14 @@ import './index.css'
 // a few milliseconds of React booting under a page that is being replaced costs
 // nothing. Throwing here would only put noise in the console and in Sentry.
 goCanonical()
+
+// THE PAGE TRANSLATOR CANNOT BE ALLOWED TO KILL A SIGNUP.
+//
+// Before React, for the same reason the pinch guard is: a translator can reach
+// the first painted frame, and a patch applied after the first commit leaves
+// the boot window unguarded. Three creators lost an application form to this
+// between 11 and 15 Sep 2026; the whole story is in lib/translationGuard.
+installTranslationGuard()
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
 initMonitoring()

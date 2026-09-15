@@ -15,6 +15,7 @@ const DEFAULT_DSN = 'https://17378c7401c05460b304f92d28488842@o4512044607733760.
 import * as Sentry from '@sentry/react'
 import { supabase } from './supabase'
 import { installBreadcrumbs, readTrail } from './breadcrumbs'
+import { translationDetected } from './translationGuard'
 
 /** The DSN actually in use: the env var if set, otherwise the project's own. */
 export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
@@ -454,6 +455,15 @@ export function browserLabel() {
  *                 first question worth asking.
  *   reduceMotion  Animation code paths differ under it.
  *   lang          The translation layer is a live surface; a missing key throws.
+ *   translated    WHETHER THE BROWSER WAS REWRITING THE PAGE UNDER REACT. This
+ *                 is here because three signups died of exactly that and it
+ *                 took a breadcrumb trail that happened to record somebody
+ *                 pressing a `<font>` element to find out. A translator
+ *                 reparents the text nodes React is holding references to, and
+ *                 the next update throws `NotFoundError` out of `insertBefore`
+ *                 with a stack made entirely of minified React frames - which
+ *                 names nothing and points nowhere. One boolean answers it.
+ *                 See lib/translationGuard.
  *
  * WHAT IS DELIBERATELY NOT HERE: the full user agent (a tracking surface with
  * no use on a community app - `browserLabel` reduces it to a family and a major
@@ -472,6 +482,7 @@ export function errorContext() {
     pageAge: `${Math.round((Date.now() - bootedAt) / 1000)}s`,
     reduceMotion: !!document.documentElement.getAttribute('data-reduce-motion'),
     lang: document.documentElement.getAttribute('lang') || null,
+    translated: translationDetected(),
   }
 }
 

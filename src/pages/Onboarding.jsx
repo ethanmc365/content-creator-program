@@ -19,7 +19,7 @@ import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob, MIN_AGE } from '../lib/utils'
 import { notice } from '../lib/confirm'
 import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
-import { useT } from '../lib/i18n'
+import { useT, usePlural } from '../lib/i18n'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -205,6 +205,7 @@ export function draftProblems(draft, contact) {
 
 export default function Onboarding() {
   const tr = useT()
+  const plural = usePlural()
   const auth = useAuth()
   const { user, refreshProfile, signOut } = auth
   const navigate = useNavigate()
@@ -865,7 +866,7 @@ export default function Onboarding() {
                     })}
                 />
                 <p className="text-center text-sm font-semibold text-brand">
-                  {draft.countries_visited.length} {draft.countries_visited.length === 1 ? 'country' : 'countries'} and counting
+                  {plural(draft.countries_visited.length, "{n} country and counting", "{n} countries and counting")}
                 </p>
               </div>
             )}
@@ -899,16 +900,16 @@ export default function Onboarding() {
             )}
 
             <div className={cx('mt-8 flex flex-wrap gap-3', step === 0 ? 'justify-center' : 'justify-between')}>
-              {step > 0 && <button onClick={back} className="btn-ghost">← Back</button>}
+              {step > 0 && <button onClick={back} className="btn-ghost">← {tr("Back")}</button>}
               {step < STEPS.length - 1 && (
                 <button onClick={next} className="btn-primary">
-                  {step === 0 ? "Let's go" : current.need ? 'Continue' : 'Continue'} →
+                  {step === 0 ? tr("Let's go") : tr("Continue")} →
                 </button>
               )}
               {step === STEPS.length - 1 && (
                 pending ? (
                   <button onClick={() => finish(false)} disabled={!complete} className="btn-primary disabled:opacity-40 sm:ml-auto">
-                    {busy ? <Spinner /> : 'Submit application →'}
+                    {busy ? <Spinner /> : `${tr("Submit application")} →`}
                   </button>
                 ) : (
                   <div className="flex flex-col gap-3 sm:flex-row">
@@ -924,8 +925,8 @@ export default function Onboarding() {
         {step > 0 && step < STEPS.length - 1 && (
           <p className="mt-5 text-center text-xs text-smoke">
             {problems.length === 0
-              ? 'Everything required is filled in. You can jump to the end from here.'
-              : `${problems.length} thing${problems.length === 1 ? '' : 's'} still to fill in.`}
+              ? tr("Everything required is filled in. You can jump to the end from here.")
+              : plural(problems.length, "{n} thing still to fill in.", "{n} things still to fill in.")}
             {' '}
             <button onClick={() => goTo('review')} className="font-semibold text-brand hover:underline">
               {tr("Go to review")}
