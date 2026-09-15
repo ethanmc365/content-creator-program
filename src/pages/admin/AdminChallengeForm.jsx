@@ -19,6 +19,8 @@ import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 import { testFlags } from '../../lib/testData'
+import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/ChallengeTemplates'
+import { templateFromForm } from '../../lib/challengeTemplates'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
@@ -85,6 +87,40 @@ const DEFAULT_PRIZES = [
   { place: '3rd', prize: '£75 cash' },
 ]
 
+// ONE PRIZE LADDER, RESTATED IN ANOTHER CURRENCY.
+//
+// A prize is a STRING ("£150 cash"), because prizes are not always money - a
+// voucher, a trip, a feature on the account are all prizes - so there is no
+// amount-and-currency pair to convert and the words have to be rewritten.
+//
+// THE NUMBER IS DELIBERATELY NOT CONVERTED. An admin switching a challenge to
+// euros is deciding what the prize IS, not restating a payment already made;
+// 150 pounds becoming 174.30 euros is nobody's prize. The SYMBOL and the CODE
+// are both replaced because admins type both ("£150" and "150 GBP").
+//
+// Pure, and takes the form it is rewriting rather than closing over one. See
+// the note on `setCurrency`: closing over it put a template's prizes back to
+// the defaults a tick after they were applied.
+function swapCurrency(text, fromCode, toCode) {
+  const from = CURRENCY_SYMBOL[fromCode] || ''
+  const to = CURRENCY_SYMBOL[toCode] || ''
+  let out = String(text ?? '')
+  if (from && to && from !== to) out = out.split(from).join(to)
+  if (fromCode && fromCode !== toCode) {
+    out = out.replace(new RegExp(`\\b${fromCode}\\b`, 'g'), toCode)
+  }
+  return out
+}
+
+/** The patch that puts one form's prizes into another currency. */
+export function inCurrency(form, next) {
+  return {
+    prize_currency: next,
+    prize_structure: (form.prize_structure || []).map((p) => ({ ...p, prize: swapCurrency(p.prize, form.prize_currency, next) })),
+    participation_prize: swapCurrency(form.participation_prize, form.prize_currency, next),
+  }
+}
+
 export default function AdminChallengeForm() {
   const { id } = useParams() // present when editing
   const { user } = useAuth()
@@ -116,6 +152,18 @@ export default function AdminChallengeForm() {
   // the link dialog work: opening it moves the selection into a text field in a
   // modal, and forgetting which box you were in at that exact moment is how the
   // link ends up in the other one.
+  // APPLYING A TEMPLATE HAS TO RE-SEED THE TWO RICH EDITORS, AND `docId` IS HOW.
+  //
+  // `RichEditable` is a contentEditable surface: it writes its own DOM, and it
+  // deliberately seeds from `initialMd` ONCE so that React never stamps over
+  // what somebody is typing. `docId` is the component's own documented way of
+  // saying "this is a different document now, read your content again" - it is
+  // what makes the note editor swap between notes. A template is the same
+  // event, so it uses the same mechanism rather than inventing a second one.
+  //
+  // Without this the brief and the rules are the only two fields a template
+  // silently fails to fill, which is the pair that matters most.
+  const [seeded, setSeeded] = useState(0)
   const [writing, setWriting] = useState('brief')
   const activeEditor = writing === 'rules' ? rulesRef : briefRef
   useEffect(() => {
@@ -178,24 +226,23 @@ export default function AdminChallengeForm() {
   // NOT converted: an admin switching to euros is deciding what the prize IS,
   // not restating a payment already made, and 150 pounds becoming 174.30 euros
   // is nobody's prize. Symbol and code both, because both get typed.
-  const setCurrency = (next, extra = {}) => {
-    const from = CURRENCY_SYMBOL[form.prize_currency] || ''
-    const to = CURRENCY_SYMBOL[next] || ''
-    const swap = (text) => {
-      let out = String(text ?? '')
-      if (from && to && from !== to) out = out.split(from).join(to)
-      if (form.prize_currency !== next) {
-        out = out.replace(new RegExp(`\\b${form.prize_currency}\\b`, 'g'), next)
-      }
-      return out
-    }
-    set({
-      ...extra,
-      prize_currency: next,
-      prize_structure: form.prize_structure.map((p) => ({ ...p, prize: swap(p.prize) })),
-      participation_prize: swap(form.participation_prize),
-    })
-  }
+  //
+  // THE REWRITE IS A PURE FUNCTION OF A FORM (`inCurrency`, below this
+  // component), AND THAT IS NOT TIDINESS.
+  //
+  // It was a closure over `form` until 16 Sep 2026, which is correct for the
+  // picker - an event handler reading the state that was on screen when it was
+  // pressed - and silently wrong for the template rail, which needs to swap the
+  // currency of prizes that the SAME event has only just installed. Reading
+  // `form` there reads the state from BEFORE the template was applied, so the
+  // swap ran over the old prize ladder and wrote it back on top of the new one.
+  // The symptom was a template's prizes appearing for a moment and then turning
+  // back into the defaults.
+  //
+  // A function that takes the form it is rewriting cannot have that bug, and it
+  // lets the rail do the whole thing in ONE functional update with no timing in
+  // it at all.
+  const setCurrency = (next, extra = {}) => set({ ...extra, ...inCurrency(form, next) })
 
   const globalCommunity = markets.find((m) => m.kind === 'network')
   const chapterMarkets = markets.filter((m) => m.kind === 'chapter')
@@ -704,6 +751,49 @@ export default function AdminChallengeForm() {
         title={editing ? 'Edit challenge' : 'New challenge'}
       />
 
+      {/* THE RAIL IS ONLY ON A NEW CHALLENGE, and that is not a simplification.
+          Applying a template to a challenge that already exists would overwrite
+          a live brief - its prizes, its point rules, its wording - while people
+          are entering it, and there is no version of that anybody wants a
+          single press away. Starting from a template is a thing you do at the
+          start. */}
+      {!editing && (
+        <ChallengeTemplates
+          markets={markets}
+          onUse={({ form: patch, rules: seededRules, groups: seededGroups }) => {
+            // THE MARKET ALREADY CHOSEN WINS, AND ITS CURRENCY REWRITES THE
+            // PRIZES. A template written in the UK carries "£150 cash" as words
+            // in every prize row, and dropping that straight into a Spanish
+            // challenge would put pounds on a Spanish leaderboard.
+            //
+            // ONE FUNCTIONAL UPDATE, APPLYING THE PATCH AND THEN THE SWAP TO
+            // THE MERGED RESULT. Both halves have to see the same state: the
+            // first version set the form and then swapped the currency a tick
+            // later through `setCurrency`, which reads the form from its own
+            // closure - so it rewrote the prizes from BEFORE the template and
+            // put them back over it. The template's prizes appeared and then
+            // turned into the defaults again. There is no timing left here to
+            // get wrong.
+            setForm((f) => {
+              const merged = { ...f, ...patch }
+              const wanted = markets.find((m) => m.id === f.community_id)?.currency
+              if (!wanted || wanted === merged.prize_currency) return merged
+              return { ...merged, ...inCurrency(merged, wanted) }
+            })
+            setRules(seededRules)
+            setGroups(seededGroups)
+            // The two contentEditable boxes re-read their content on a docId
+            // change; see the note by `seeded`.
+            setSeeded((n) => n + 1)
+            // `instant`, never the default. See lib/scrollBehaviour.test.js:
+            // this app scrolls smoothly platform-wide, and a REPOSITION IS NOT
+            // A SCROLL - animating a thousand pixels here would race the form
+            // re-rendering underneath it.
+            window.scrollTo({ top: 0, behavior: 'instant' })
+          }}
+        />
+      )}
+
       <form onSubmit={save} className="space-y-10">
         {/* ---------------- Where it runs ---------------- */}
         {/* First, deliberately. Everything below reads differently depending on
@@ -963,7 +1053,7 @@ export default function AdminChallengeForm() {
               <p className="label">Brief</p>
               <RichEditable
                 ref={briefRef}
-                docId={`brief-${editing || 'new'}`}
+                docId={`brief-${editing || 'new'}-${seeded}`}
                 initialMd={form.description || ''}
                 onChangeMd={(md) => set({ description: md })}
                 placeholder="What should creators make? What is the angle? What wins?"
@@ -975,7 +1065,7 @@ export default function AdminChallengeForm() {
               <p className="label">Rules</p>
               <RichEditable
                 ref={rulesRef}
-                docId={`rules-${editing || 'new'}`}
+                docId={`rules-${editing || 'new'}-${seeded}`}
                 initialMd={form.rules || ''}
                 onChangeMd={(md) => set({ rules: md })}
                 placeholder="One entry per platform. Tag Tryp.com in the caption."
@@ -1160,7 +1250,23 @@ export default function AdminChallengeForm() {
         {/* SAVE IS THE ORANGE ONE. Ethan asked for it: "perhaps highlight the
             save button in Tryp.com orange, make it more clear". On an edit
             screen saving IS the action, and it was the palest of three. */}
+        {/* SAVE AS TEMPLATE SITS WITH SAVE, NOT IN A MENU. It is the other
+            thing you can do with a finished brief, and Ethan asked for it "at
+            the bottom". It is deliberately on the LEFT of the row and
+            `btn-secondary`: saving the challenge is still the action, and a
+            template is a side-effect of having written a good one.
+
+            It is offered when EDITING too, which the rail is not - templating
+            an existing challenge reads nothing and writes a new row, so it is
+            safe in a way that applying one is not, and the brief worth keeping
+            is usually one that has already run. */}
         <div className="flex flex-wrap items-center justify-end gap-3">
+          <SaveAsTemplate
+            communityId={form.community_id}
+            disabled={busy || !form.title.trim()}
+            build={() => templateFromForm(form, rules, groups)}
+          />
+          <span className="flex-1" />
           <button type="button" onClick={() => navigate(editing ? `/challenges/${editing}` : '/challenges')} className="btn-ghost">Cancel</button>
           {(!editing || form.status === 'draft') && (
             <button type="button" disabled={busy} onClick={(e) => save(e, true)} className="btn-secondary">
