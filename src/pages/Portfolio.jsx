@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
+import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { useT } from '../lib/i18n'
@@ -27,11 +26,16 @@ import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 // portfolio. Nobody needs to be able to rewrite somebody else's bio.
 export default function Portfolio() {
   const tr = useT()
-  const { id } = useParams()
-  const { user } = useAuth()
-  const viewingId = id || user?.id
-  const mine = viewingId === user?.id
-  const readOnly = !mine
+  // ONE MECHANISM FOR "AN ADMIN IS LOOKING AT SOMEBODY ELSE'S PAGE", and it is
+  // the one that already existed. This was `/portfolio/:id` for a day, which is
+  // a SECOND way to express exactly what `?as=` expresses on the dashboard, the
+  // rewards page and the milestones page - a different URL shape, a different
+  // banner, and a second place for the rule to drift. `useViewAs` returns null
+  // for anybody who is not an admin, so the parameter is inert for a creator
+  // who guesses it, and the RLS policy decides what actually comes back either
+  // way. See components/ViewingAs.
+  const { id: viewingId, viewing, person } = useViewAs()
+  const readOnly = viewing
 
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
   const [dirty, setDirty] = useState(false)
@@ -152,19 +156,13 @@ export default function Portfolio() {
   return (
     <div className="page max-w-6xl">
       <PageHeader
-        back={readOnly ? { to: `/profile/${viewingId}`, label: tr('Profile') } : null}
-        title={readOnly ? `${creator?.name || tr('Creator')} — ${tr('portfolio')}` : tr('My portfolio')}
+        title={tr('My portfolio')}
         subtitle={readOnly
           ? tr('You are looking at this the way the creator sees it. Nothing here can be edited by you.')
           : tr('A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.')}
       />
 
-      {readOnly && (
-        <p className="mb-6 flex items-center gap-2 rounded-xl bg-brand-tint/60 px-4 py-3 text-sm font-medium text-brand">
-          <Icon name="eye" className="h-4 w-4 shrink-0" />
-          {tr('Admin view. Read only.')}
-        </p>
-      )}
+      <ViewingAsBanner viewing={viewing} person={person} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* THE DOCUMENT COMES FIRST IN THE DOM. On a phone the preview is what

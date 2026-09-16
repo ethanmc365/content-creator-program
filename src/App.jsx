@@ -92,6 +92,7 @@ const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
 const Portfolio = lazyRoute(chunk.Portfolio)
 const PublicPortfolio = lazyRoute(chunk.PublicPortfolio)
+const VerifyCertificate = lazyRoute(chunk.VerifyCertificate)
 const AdminJobs = lazyRoute(chunk.AdminJobs)
 const AdminReferrals = lazyRoute(chunk.AdminReferrals)
 const AdminEmail = lazyRoute(chunk.AdminEmail)
@@ -237,6 +238,12 @@ export default function App() {
           the whole point is that a brand who has never heard of this platform
           can open it from an Instagram bio. */}
       <Route path="/p/:slug" element={<PublicPortfolio />} />
+      {/* WHAT MAKES A CERTIFICATE A CREDENTIAL. The serial is printed on every
+          one of them; this is where somebody holding the picture can ask
+          whether it is real. Public for the same reason the portfolio is: the
+          person checking is a brand who has never heard of this platform. */}
+      <Route path="/verify" element={<VerifyCertificate />} />
+      <Route path="/verify/:serial" element={<VerifyCertificate />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<Terms />} />
 
@@ -254,11 +261,10 @@ export default function App() {
           <Route path="/home" element={<Navigate to="/global" replace />} />
           <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/profile/:id" element={<Profile />} />
-          {/* `/portfolio` is your own. `/portfolio/:id` is an admin looking at
-              somebody else's, read only - the same shape as the rewards page,
-              and the same reason: checking that it looks right. */}
+          {/* Your own, and `?as=<id>` for an admin checking somebody else's -
+              the same mechanism the dashboard, rewards and milestones use.
+              See components/ViewingAs. */}
           <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/portfolio/:id" element={<Portfolio />} />
           <Route path="/creators" element={<Directory />} />
           {/* The single hard-coded UK conversation is gone. Its messages are
               the worldwide rooms' history (they carry the bare channel keys),

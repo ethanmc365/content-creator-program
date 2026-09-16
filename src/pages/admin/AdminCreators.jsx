@@ -710,11 +710,12 @@ export default function AdminCreators() {
                 components/admin/creatorSheet. */}
             <div>
               <SheetLabel>Their pages</SheetLabel>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <PageTile to={`/profile/${selected.id}`} onClose={() => setSelected(null)} icon="users" label="Profile" />
                 <PageTile to={`/dashboard?as=${selected.id}`} onClose={() => setSelected(null)} icon="chart" label="Dashboard" />
                 <PageTile to={`/rewards?as=${selected.id}`} onClose={() => setSelected(null)} icon="money" label="Rewards" />
                 <PageTile to={`/milestones?as=${selected.id}`} onClose={() => setSelected(null)} icon="trophy" label="Milestones" />
+                <PageTile to={`/portfolio?as=${selected.id}`} onClose={() => setSelected(null)} icon="book" label="Portfolio" />
               </div>
             </div>
 

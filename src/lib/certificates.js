@@ -120,6 +120,86 @@ export function sortCertificates(rows = []) {
   })
 }
 
+// THE EXAMPLE A DESIGN IS PREVIEWED WITH, CHOSEN BY WHAT IT IS FOR.
+//
+// The builder previewed EVERY design against a challenge win, which is honest
+// for three of the four starters and actively misleading for the fourth: build
+// a milestone certificate and the preview says "for finishing 1st in Hidden
+// Gems of Your City", which is a sentence that design can never print. An admin
+// tunes the wording against what they can see, so showing them facts the award
+// will not carry is showing them the wrong job.
+//
+// Real-looking rather than "Lorem": somebody judging whether a body line fits
+// needs a name and a challenge title of PLAUSIBLE LENGTH.
+const SAMPLE_BASE = {
+  name: 'Roxanna Travels',
+  date: '2026-09-30T12:00:00.000Z',
+  serial: 'TRYP-2026-K4M9PX',
+}
+
+export function sampleFacts(design = {}) {
+  if (design.award_on === 'milestone') {
+    return { ...SAMPLE_BASE, milestone: 'Ten videos made' }
+  }
+  if (design.award_on === 'challenge_entry') {
+    return { ...SAMPLE_BASE, challenge: 'Hidden Gems of Your City', market: 'UK & Ireland' }
+  }
+  if (design.award_on === 'manual') {
+    // A hand-given certificate usually has no challenge behind it, so the
+    // example is the leanest one - which is also the case most likely to expose
+    // a body line that falls apart without a challenge to name.
+    return { ...SAMPLE_BASE }
+  }
+  return {
+    ...SAMPLE_BASE,
+    challenge: 'Hidden Gems of Your City',
+    market: 'UK & Ireland',
+    place: Array.isArray(design.ranks) && design.ranks.length ? Math.min(...design.ranks) : 1,
+    views: 124500,
+  }
+}
+
+/**
+ * Why this design will never award anything, or null if it will.
+ *
+ * A RULE THAT CANNOT FIRE IS THE ONE FAULT THIS BUILDER CAN SHIP SILENTLY.
+ * Everything else about a certificate is visible in the preview; "nobody
+ * matches this" looks exactly like "nobody has qualified yet", and an admin
+ * finds out weeks later when a winner asks where their certificate is.
+ */
+export function ruleProblem(design = {}) {
+  if (design.award_on === 'challenge_rank' && !(design.ranks || []).length) {
+    return 'No places are chosen, so nobody can win this. Pick at least one.'
+  }
+  if (design.award_on === 'milestone' && !design.milestone_id) {
+    return 'No milestone is chosen, so this will never be given out.'
+  }
+  if (!design.is_active) {
+    return 'This is a draft. It is never awarded and creators cannot see it.'
+  }
+  return null
+}
+
+/**
+ * Why the body will not print, or null if it will.
+ *
+ * SWITCHING THE TRIGGER CAN SILENTLY EMPTY THE WORDS. A body written for a
+ * challenge ("for finishing {place} in {challenge}") has no fact to fill on a
+ * MILESTONE certificate, so `fillTemplate` correctly drops every line and the
+ * card falls back to its default sentence. The preview is honest about the
+ * result and says nothing about the cause, so an admin sees their own wording
+ * disappear and has no idea it was their trigger change that did it.
+ *
+ * Checked against the SAME example the preview uses, so the warning and the
+ * picture can never disagree.
+ */
+export function bodyProblem(design = {}) {
+  const written = String(design.body || '').trim()
+  if (!written) return null
+  if (fillTemplate(written, sampleFacts(design)).trim()) return null
+  return 'None of your wording can be filled in for this kind of award, so the certificate falls back to a default sentence. Check the {placeholders} against what this award actually knows.'
+}
+
 // The placeholders a design may use, for the builder's own help text. Keeping
 // the list here rather than in the component means the one place that knows
 // what `fillTemplate` understands is the module that implements it.

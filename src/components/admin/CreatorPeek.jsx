@@ -170,10 +170,11 @@ export default function CreatorPeek({ creator, open, onClose }) {
             row-level security decides what comes back. */}
         <div className="border-t border-gray-100 pt-4">
           <SheetLabel>{tr('Their pages')}</SheetLabel>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <PageTile to={`/dashboard?as=${creator.id}`} onClose={onClose} icon="chart" label={tr('Dashboard')} />
             <PageTile to={`/rewards?as=${creator.id}`} onClose={onClose} icon="money" label={tr('Rewards')} />
             <PageTile to={`/milestones?as=${creator.id}`} onClose={onClose} icon="trophy" label={tr('Milestones')} />
+            <PageTile to={`/portfolio?as=${creator.id}`} onClose={onClose} icon="book" label={tr('Portfolio')} />
             <PageTile to={`/admin/creators?open=${creator.id}`} onClose={onClose} icon="shield" label={tr('Admin record')} />
           </div>
         </div>

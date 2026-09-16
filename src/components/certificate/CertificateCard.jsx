@@ -106,13 +106,25 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
             {footnote && (
               <p style={{ fontSize: 12, fontWeight: 500, color: '#9a9a9a', margin: 0 }}>{footnote}</p>
             )}
-            {/* THE CREDENTIAL ID, AND WHY IT IS ON THE FACE OF IT. A picture
-                nobody can check is a JPEG; a picture with an id a brand can ask
-                about is a credential. It is printed small and in the corner
-                because it is for the one person in a hundred who checks. */}
+            {/* THE CREDENTIAL ID, AND WHERE TO CHECK IT. A picture nobody can
+                check is a JPEG; a picture with an id, and an address that
+                resolves it, is a credential. Both are printed small and in the
+                corner because they are for the one person in a hundred who
+                looks - but that one person is the entire reason the certificate
+                is worth anything to the creator. See pages/VerifyCertificate.
+
+                PLAIN TEXT, NOT A LINK. This node is photographed; an anchor in
+                a PNG is a rectangle that does nothing, and one in a PDF that
+                the viewer may or may not linkify is worse than a legible
+                address somebody can type. */}
             {facts.serial && (
               <p style={{ marginTop: 4, fontSize: 11, letterSpacing: '0.16em', color: '#b5b5b5', fontVariantNumeric: 'tabular-nums' }}>
                 {facts.serial}
+              </p>
+            )}
+            {facts.serial && (
+              <p style={{ marginTop: 2, fontSize: 9.5, letterSpacing: '0.06em', color: '#c9c9c9' }}>
+                Check it at tryp.com/verify
               </p>
             )}
           </div>
