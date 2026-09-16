@@ -4,6 +4,7 @@ import { Children, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cx } from '../../lib/utils'
+import { copyToClipboard } from '../../lib/clipboard'
 import { lockScroll } from '../../lib/scrollLock'
 import { useBootLoaderSlot } from '../../lib/bootLoader'
 import Icon from '../Icon'
@@ -542,22 +543,7 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
     e.preventDefault()
     e.stopPropagation()
     if (!value) return
-    try {
-      await navigator.clipboard.writeText(String(value))
-    } catch {
-      // Fallback for older/insecure contexts where the async clipboard API is
-      // unavailable: use a hidden textarea + execCommand.
-      try {
-        const ta = document.createElement('textarea')
-        ta.value = String(value)
-        ta.style.position = 'fixed'
-        ta.style.opacity = '0'
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
-      } catch { return }
-    }
+    if (!await copyToClipboard(value)) return
     setCopied(true)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied(false), 1500)

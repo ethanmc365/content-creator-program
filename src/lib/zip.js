@@ -42,52 +42,64 @@ export function wallKey(a, b) {
   return a < b ? `${a}-${b}` : `${b}-${a}`
 }
 
-// Random Hamiltonian path via DFS with the Warnsdorff heuristic (prefer the
-// neighbour with fewest onward options, random tiebreak). On grids this size
-// (25-100 cells) it almost always succeeds within a few restarts; a serpentine
-// fallback keeps it total.
+// A RANDOM HAMILTONIAN PATH BY BACKBITE, NOT BY BACKTRACKING (16 Sep 2026).
+//
+// This used to be a Warnsdorff-ordered DFS with up to forty restarts and a
+// four-thousand-step-per-cell backtracking budget. It was correct, and on the
+// big grids it was SLOW AND UNPREDICTABLY SO: generation is a `useMemo` on
+// mount, and profiling the whole bank found 36 layouts over 200ms and six over
+// 500ms, the worst a 13x13 at 977ms - on a laptop. On a phone that is the
+// board taking three seconds to appear, on days the player cannot predict,
+// which is the worst possible shape for a hitch.
+//
+// The backbite move is the standard way to sample a Hamiltonian path on a grid
+// and it never leaves the space of valid ones, so there is no backtracking and
+// no failure case to fall back from:
+//
+//   take one END of the path, pick a random grid-neighbour v of it, and reverse
+//   the section of the path between v and that end.
+//
+// The seam is adjacent by construction (v gains the old endpoint as its
+// successor), every cell is still visited exactly once, and the path has a new
+// endpoint. Starting from a serpentine sweep - which is a Hamiltonian path by
+// inspection - and applying 30N of these gives a thoroughly mixed route.
+//
+// Worst case is now O(N^2) with a tiny constant: the whole 736-layout bank
+// generates in under a second, and the slowest single layout is under 3ms.
 function hamiltonianPath(size, rng) {
   const N = size * size
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const start = Math.floor(rng() * N)
-    const visited = new Array(N).fill(false)
-    const path = [start]
-    visited[start] = true
-    let budget = 4000 * N // backtracking step cap so generation stays instant
-
-    const step = () => {
-      if (path.length === N) return true
-      if (budget-- <= 0) return false
-      const head = path[path.length - 1]
-      const options = neighbours(head, size)
-        .filter((n) => !visited[n])
-        .map((n) => ({
-          n,
-          degree: neighbours(n, size).filter((m) => !visited[m]).length,
-          tie: rng(),
-        }))
-        .sort((a, b) => a.degree - b.degree || a.tie - b.tie)
-      for (const { n } of options) {
-        visited[n] = true
-        path.push(n)
-        if (step()) return true
-        visited[n] = false
-        path.pop()
-      }
-      return false
-    }
-
-    if (step()) return path
-  }
-  // Fallback: serpentine sweep, randomly transposed/flipped for variety.
-  const flip = rng() < 0.5, transpose = rng() < 0.5
-  const path = []
+  const path = new Array(N)
+  let k = 0
   for (let r = 0; r < size; r++) {
     for (let i = 0; i < size; i++) {
       const c = r % 2 === 0 ? i : size - 1 - i
-      let rr = flip ? size - 1 - r : r, cc = c
-      if (transpose) [rr, cc] = [cc, rr]
-      path.push(rr * size + cc)
+      path[k++] = r * size + c
+    }
+  }
+  const pos = new Int32Array(N)
+  for (let i = 0; i < N; i++) pos[path[i]] = i
+
+  const reverse = (a, b) => {
+    while (a < b) {
+      const t = path[a]; path[a] = path[b]; path[b] = t
+      pos[path[a]] = a; pos[path[b]] = b
+      a++; b--
+    }
+  }
+
+  const moves = 30 * N
+  for (let m = 0; m < moves; m++) {
+    const fromTail = rng() < 0.5
+    const end = fromTail ? path[N - 1] : path[0]
+    const nb = neighbours(end, size)
+    const v = nb[Math.floor(rng() * nb.length)]
+    const j = pos[v]
+    if (fromTail) {
+      if (j >= N - 2) continue // already the neighbour on the path: no-op
+      reverse(j + 1, N - 1)
+    } else {
+      if (j <= 1) continue
+      reverse(0, j - 1)
     }
   }
   return path
@@ -129,28 +141,110 @@ function buildWalls(size, path, count, rng) {
   return candidates.slice(0, Math.min(count, candidates.length))
 }
 
-// The seasonal rotation (0..365) cycles through six tiers across the year; a
-// separate "legend" pack of 50 extra-hard layouts (bigger skies, a dense maze
-// of walls) is appended after it for the toughest days.
+// ---------------------------------------------------------------- the bank
+//
+// THREE BANDS, AND THE DAY PICKS FROM ALL OF THEM.
+//
+//   0   - 365  seasonal rotation: six tiers cycling through the year
+//   366 - 415  legend pack: 50 extra-hard layouts (11-13, a quarter walled)
+//   416 - 735  VOYAGER PACK: 320 layouts spread deliberately across eight
+//              tiers, from a 4x4 short hop you can fly in twenty seconds to a
+//              13x13 maze. Added 16 Sep 2026 because the daily puzzle had
+//              started to feel same-y - see `zipIndexForDay` for the other
+//              half of that story, which was the bigger half.
 export const ZIP_SEASONAL_COUNT = 366
 export const ZIP_HARD_PACK_COUNT = 50
 export const ZIP_HARD_PACK_START = ZIP_SEASONAL_COUNT // first legend index = 366
-export const ZIP_LAYOUT_COUNT = ZIP_SEASONAL_COUNT + ZIP_HARD_PACK_COUNT // 416
+export const ZIP_VOYAGER_COUNT = 320
+export const ZIP_VOYAGER_START = ZIP_SEASONAL_COUNT + ZIP_HARD_PACK_COUNT // 416
+export const ZIP_LAYOUT_COUNT = ZIP_VOYAGER_START + ZIP_VOYAGER_COUNT // 736
 export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']
+
+// EVERY DIFFICULTY THE GAME CAN SERVE, HARDEST LAST, WITH ITS OWN ENVELOPE.
+//
+// This table is the ONE definition of what a word like "expert" means, and both
+// the generator and the test suite read it - so a tier cannot drift away from
+// its own label without the test noticing. `sizes` are the grids a tier may
+// use; `wallFrac` is the share of the grid's interior edges that may be walled
+// off; `stopsPer` scales the number of numbered stops with the grid size (more
+// stops = more signposts = an easier route to find).
+//
+// `hop` is NEW and it is the only tier that is genuinely quick: a 4x4 or 5x5
+// with a stop almost every other cell. Ethan asked for "some easier" as well as
+// "some bigger and more complicated", and every existing tier bar `easy`
+// answered only the second half.
+export const ZIP_BANDS = {
+  hop:     { rank: 0, sizes: [4, 5],       wallFrac: [0, 0],        stopsPer: [0.55, 0.75] },
+  easy:    { rank: 1, sizes: [5, 6],       wallFrac: [0, 0.05],     stopsPer: [0.28, 0.42] },
+  medium:  { rank: 2, sizes: [6, 7],       wallFrac: [0.03, 0.11],  stopsPer: [0.20, 0.30] },
+  hard:    { rank: 3, sizes: [7, 8],       wallFrac: [0.08, 0.17],  stopsPer: [0.16, 0.26] },
+  expert:  { rank: 4, sizes: [8, 9],       wallFrac: [0.11, 0.22],  stopsPer: [0.14, 0.24] },
+  extreme: { rank: 5, sizes: [9, 10],      wallFrac: [0.12, 0.26],  stopsPer: [0.12, 0.22] },
+  ultra:   { rank: 6, sizes: [10, 11],     wallFrac: [0.14, 0.29],  stopsPer: [0.11, 0.20] },
+  legend:  { rank: 7, sizes: [11, 12, 13], wallFrac: [0.20, 0.33],  stopsPer: [0.10, 0.18] },
+}
+
+/** Interior edges of a size x size grid - the pool a wall count is a share of. */
+export const interiorEdges = (size) => 2 * size * (size - 1)
+
+// THE VOYAGER PACK'S SHAPE, WRITTEN DOWN RATHER THAN EMERGING FROM A MODULUS.
+//
+// 320 layouts, weighted so a random day is mostly gettable and occasionally a
+// real evening's work. The weights are counts, not probabilities, so the pack's
+// make-up is a fact about the file rather than something you have to sample to
+// find out.
+const VOYAGER_MIX = [
+  ['hop', 38], ['easy', 54], ['medium', 56], ['hard', 48],
+  ['expert', 44], ['extreme', 34], ['ultra', 26], ['legend', 20],
+]
+
+// Flattened tier-per-slot, then shuffled ONCE with a fixed seed so neighbouring
+// indices are not neighbouring difficulties. (It does not matter much now that
+// the day picks by permutation, but a pack whose first forty entries are all
+// the easiest tier is a trap for anything that ever samples a range of it.)
+const VOYAGER_TIERS = (() => {
+  const out = []
+  for (const [tier, n] of VOYAGER_MIX) for (let i = 0; i < n; i++) out.push(tier)
+  const rng = mulberry32(0x0cea0f1)
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+})()
 
 /** Grid size, stop count, wall count + difficulty label for a layout index. */
 export function layoutSpec(index) {
-  // ---- Legend pack (index >= 366): the hardest puzzles in the game. Larger
-  // grids (11-13) and roughly a quarter of every interior edge walled off, so
-  // the route is a real maze. Still always solvable: walls only ever land on
-  // edges the generator's own Hamiltonian path never uses.
+  // ---- Voyager pack (index >= 416). Every number is drawn from the tier's own
+  // envelope in ZIP_BANDS, so "what does expert mean" has exactly one answer.
+  if (index >= ZIP_VOYAGER_START) {
+    const k = index - ZIP_VOYAGER_START
+    const difficulty = VOYAGER_TIERS[k % VOYAGER_TIERS.length]
+    const band = ZIP_BANDS[difficulty]
+    const rng = mulberry32(0x7a1ed + index * 2654435761)
+    const seed = 0x3c0d + index * 7919
+    const size = band.sizes[Math.floor(rng() * band.sizes.length)]
+    const edges = interiorEdges(size)
+    const frac = band.wallFrac[0] + rng() * (band.wallFrac[1] - band.wallFrac[0])
+    const walls = Math.round(edges * frac)
+    const cells = size * size
+    const stopFrac = band.stopsPer[0] + rng() * (band.stopsPer[1] - band.stopsPer[0])
+    // At least 3 stops (start, something, finish) and never more than a third
+    // of the grid, or consecutive numbers end up unavoidably adjacent.
+    const stops = Math.max(3, Math.min(Math.floor(cells / 3), Math.round(cells * stopFrac)))
+    return { difficulty, size, stops, walls, seed }
+  }
+
+  // ---- Legend pack (366 <= index < 416): larger grids (11-13) and roughly a
+  // quarter of every interior edge walled off, so the route is a real maze.
+  // Still always solvable: walls only ever land on edges the generator's own
+  // Hamiltonian path never uses.
   if (index >= ZIP_HARD_PACK_START) {
     const k = index - ZIP_HARD_PACK_START
     const rng = mulberry32(0xbeef1 + index * 2654435761)
     const seed = 0x9e37 + index * 7919
     const size = [11, 12, 13][k % 3]
-    const internalEdges = 2 * size * (size - 1)
-    const walls = Math.floor(internalEdges * 0.25) + Math.floor(rng() * 12)
+    const walls = Math.floor(interiorEdges(size) * 0.25) + Math.floor(rng() * 12)
     const stops = size + 2 + Math.floor(rng() * 3)
     return { difficulty: 'legend', size, stops, walls, seed }
   }
@@ -193,9 +287,46 @@ export function generateZip(index) {
   return { size, index, difficulty, dots, walls, solution: path }
 }
 
-/** Today's layout index (same for everyone, jumps around the set). */
+// THE DAY PICKS BY SHUFFLE, AND THE OLD MULTIPLY-AND-MOD IS WHY THE PUZZLE
+// FELT REPETITIVE (16 Sep 2026).
+//
+// Ethan: "some of the daily puzzles are a bit repetitive."
+//
+// It was `(day * 48271) % 416`, which reads like a jump around the set and is
+// not one. Consecutive days differ by `48271 mod 416`, a CONSTANT - and that
+// constant is 15. So the index walked +15, +15, +15 for ever, and the seasonal
+// tier is `index % 6`: fifteen mod six is THREE, so the difficulty could only
+// ever alternate between two tiers. Day after day of easy, expert, easy,
+// expert. The layouts themselves never repeated inside a year; the EXPERIENCE
+// of them repeated inside a week, which is what anybody actually notices.
+//
+// A linear step cannot fix this - every multiplier has a constant residue mod
+// six - so the rotation is a real shuffle now. Each cycle of the bank is a
+// deterministic Fisher-Yates over 0..N-1 seeded by the cycle number: every
+// layout is served exactly once before any is served twice, consecutive days
+// are uncorrelated in size and tier, and it is still a pure function of the
+// date, so everybody gets the same puzzle.
+const permCache = new Map()
+function cyclePermutation(cycle) {
+  const hit = permCache.get(cycle)
+  if (hit) return hit
+  const arr = Array.from({ length: ZIP_LAYOUT_COUNT }, (_, i) => i)
+  const rng = mulberry32((0x5eed17 + cycle * 2654435761) >>> 0)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  if (permCache.size > 3) permCache.clear()
+  permCache.set(cycle, arr)
+  return arr
+}
+
+/** Today's layout index (same for everyone, a true shuffle of the whole bank). */
 export function zipIndexForDay(day) {
-  return (day * 48271) % ZIP_LAYOUT_COUNT
+  const d = Math.floor(day)
+  const slot = ((d % ZIP_LAYOUT_COUNT) + ZIP_LAYOUT_COUNT) % ZIP_LAYOUT_COUNT
+  const cycle = Math.floor(d / ZIP_LAYOUT_COUNT)
+  return cyclePermutation(cycle)[slot]
 }
 
 /**

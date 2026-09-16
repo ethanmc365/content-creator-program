@@ -135,6 +135,32 @@ export const playGearThud = () => play((a) => {
 })
 
 /**
+ * THE HINT, WHEN IT HAS TO TAKE SOMETHING BACK. A short reverse sweep - noise
+ * falling rather than rising, with a tone dropping under it - because the thing
+ * that just happened on screen is the contrail REELING IN, and a sound that
+ * rises would be pulling against the picture.
+ *
+ * Deliberately gentle. This fires when you asked for help and got it; it is not
+ * a wrong answer and must not feel like one. `playWrong` is a fall too, which is
+ * why this one is noise-led and much softer - the ear separates them by texture.
+ */
+export const playHintRewind = () => play((a) => {
+  whoosh(a, { at: 0, dur: 0.34, from: 1250, to: 320, peak: 0.05, q: 0.9, attack: 0.18, seed: 5521 })
+  tone(a, 440.00, 0.02, 0.26, 0.05, 'triangle', 293.66) // A4 -> D4
+})
+
+/**
+ * THE HINT, WHEN THERE WAS NOTHING TO TAKE BACK. Two notes a fourth apart,
+ * rising, quiet: "that is all correct, carry on". The whole point of the button
+ * is that pressing it when you are right costs you nothing, so this is the
+ * smallest sound in the game.
+ */
+export const playHintClear = () => play((a) => {
+  tone(a, 587.33, 0, 0.12, 0.055, 'sine')     // D5
+  tone(a, 880.00, 0.07, 0.20, 0.05, 'sine')   // A5
+})
+
+/**
  * THE PLANE CLIMBING A MILESTONE PATH. A short ascending pass: engine noise
  * sweeping up under a rising two-note figure.
  *

@@ -13,13 +13,20 @@ import { NO_AUTOFILL_SEARCH } from '../../lib/noAutofill'
 import { playCelebrate, playCommiserate, playWrong } from '../../lib/gameSounds'
 import { useT } from '../../lib/i18n'
 
-// Guess the Country: five travel clues revealed one at a time; you get one
-// guess per clue, so guessing early scores more. A new puzzle lands at
-// midnight UK time, the same for everyone. The score row in game_scores is
-// the source of truth for "played today" (so laptop + phone stay in sync);
-// localStorage is only a fast-path cache for the guess list.
-const MAX_CLUES = 5
+// Guess the Country: travel clues revealed one at a time; you get one guess per
+// clue, so guessing early scores more. A new puzzle lands at midnight UK time,
+// the same for everyone. The score row in game_scores is the source of truth for
+// "played today" (so laptop + phone stay in sync); localStorage is only a
+// fast-path cache for the guess list.
+//
+// THE NUMBER OF CLUES IS NOT A CONSTANT ANY MORE (16 Sep 2026). It is whatever
+// today's ROUND STYLE serves - three on an express round, five otherwise - and
+// it is read off the puzzle rather than off this file. `total` on the score row
+// carries it, which is what lets the leaderboard keep saying "guessed in N
+// words" without knowing which style was played. See lib/pinpoint.
 const STORE_KEY = 'tryp_pinpoint'
+
+const ROUND_TONE = { express: 'brand', classic: 'grey', guided: 'light' }
 
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
@@ -39,9 +46,11 @@ export default function PinpointGame({ onExit }) {
   const [day] = useState(() => ukDayIndex())
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
   const country = pinpointForDay(day)
+  // How many clues today serves, and whether the continent comes free with it.
+  const maxClues = country.clues
 
   const stored = useState(() => loadStored(day))[0]
-  const [clues, setClues] = useState(stored ? MAX_CLUES : 1) // revealed count
+  const [clues, setClues] = useState(stored ? maxClues : 1) // revealed count
   const [guesses, setGuesses] = useState(stored?.guesses ?? [])
   const [typed, setTyped] = useState('')
   const cardRef = useRef(null)
@@ -79,11 +88,11 @@ export default function PinpointGame({ onExit }) {
           savedRef.current = true
           if (row.correct > 0) {
             setOutcome('won')
-            setWonOnClue(MAX_CLUES + 1 - row.correct)
+            setWonOnClue(maxClues + 1 - row.correct)
           } else {
             setOutcome('lost')
           }
-          setClues(MAX_CLUES)
+          setClues(maxClues)
         }
         setChecking(false)
       })
@@ -123,7 +132,7 @@ export default function PinpointGame({ onExit }) {
     // Score: 5 points for a first-clue solve down to 1 on the last, 0 for a miss.
     supabase.from('game_scores').insert({
       player_id: user.id, mode: 'pinpoint', region: 'Daily', day_key: day,
-      correct: result === 'won' ? MAX_CLUES + 1 - guessed : 0, total: MAX_CLUES, time_ms,
+      correct: result === 'won' ? maxClues + 1 - guessed : 0, total: maxClues, time_ms,
     }).then(() => {})
   }
 
@@ -145,7 +154,7 @@ export default function PinpointGame({ onExit }) {
       setTyped('')
       setShake(true)
       setTimeout(() => setShake(false), 450)
-      if (clues >= MAX_CLUES) finish('lost', null, next, time_ms)
+      if (clues >= maxClues) finish('lost', null, next, time_ms)
       else setClues((c) => c + 1)
     }
   }
@@ -168,7 +177,7 @@ export default function PinpointGame({ onExit }) {
           number this puzzle had that nothing was drawing. */}
       <PuzzleChrome
         onExit={onExit}
-        progress={(Math.min(clues, MAX_CLUES) / MAX_CLUES) * 100}
+        progress={(Math.min(clues, maxClues) / maxClues) * 100}
         chips={(
           <>
             <Badge tone="light" className="!px-2 !py-1 sm:!px-2.5">
@@ -176,13 +185,20 @@ export default function PinpointGame({ onExit }) {
               <span className="sm:hidden">{tr("Daily")}</span>
               <span className="hidden sm:inline">{tr("Guess the Country · Daily puzzle")}</span>
             </Badge>
+            {/* WHICH KIND OF ROUND TODAY IS. Three clues instead of five is a
+                big change to a puzzle somebody has played thirty mornings in a
+                row, and a board that quietly serves fewer of them without
+                saying so reads as broken rather than as harder. */}
+            <Badge tone={ROUND_TONE[country.round] ?? 'grey'} className="!px-2 !py-0.5 text-[10px]">
+              {tr(country.roundLabel)}
+            </Badge>
             <StreakChip n={streak} title={`${streak}-day daily streak`} />
           </>
         )}
         stats={done
-          ? [{ label: tr('Clue'), value: `${Math.min(clues, MAX_CLUES)} / ${MAX_CLUES}` }]
+          ? [{ label: tr('Clue'), value: `${Math.min(clues, maxClues)} / ${maxClues}` }]
           : [
-            { label: tr('Clue'), value: `${Math.min(clues, MAX_CLUES)} / ${MAX_CLUES}` },
+            { label: tr('Clue'), value: `${Math.min(clues, maxClues)} / ${maxClues}` },
             { label: tr('Time'), value: fmtTime(elapsed), mono: true },
           ]}
       />
@@ -190,7 +206,20 @@ export default function PinpointGame({ onExit }) {
       <div ref={cardRef} className="card flex scroll-mt-2 flex-col items-center gap-4 !py-6 text-center sm:gap-6 sm:!py-10">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("Guess the country")}</p>
-          <p className="mt-1 text-[13px] text-smoke sm:text-sm">{tr("Five clues, one guess per clue. The earlier you get it, the more points.")}</p>
+          <p className="mt-1 text-[13px] text-smoke sm:text-sm">
+            {maxClues} {tr("clues, one guess per clue. The earlier you get it, the more points.")}
+          </p>
+          {/* THE GUIDED ROUND'S ONE CONCESSION. It is the whole difference
+              between that style and a classic one, so it is stated plainly
+              rather than left for the player to notice - and it is only ever
+              the CONTINENT, which narrows the field without answering the
+              question. */}
+          {country.guided && !done && (
+            <p className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-cloud px-3 py-1 text-xs font-semibold text-smoke">
+              <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
+              {tr("Somewhere in")} <span className="text-ink">{tr(country.region)}</span>
+            </p>
+          )}
         </div>
 
         {/* Clue words: revealed ones pop in, the rest wait as locked slots. */}
