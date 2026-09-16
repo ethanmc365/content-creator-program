@@ -33,6 +33,7 @@ const SignupLab = lazy(() => import('./testing/SignupLab'))
 const OnboardingLab = lazy(() => import('./testing/OnboardingLab'))
 const InvoiceLab = lazy(() => import('./testing/InvoiceLab'))
 const ViewsLab = lazy(() => import('./testing/ViewsLab'))
+const WrappedLab = lazy(() => import('./testing/WrappedLab'))
 
 export const LABS = [
   {
@@ -52,6 +53,17 @@ export const LABS = [
     blurb: 'A prize is won and its invoice raises itself. Walk the whole chain, from the reward row to the sent PDF.',
     tags: ['Real functions'],
     element: <InvoiceLab />,
+  },
+  {
+    // NOT A SANDBOX, AND IT SAYS SO ON THE PAGE. Every other lab runs over
+    // invented people; this one runs the real recap over the real community,
+    // because the only question worth asking about a recap is whether THIS
+    // year is worth sending - and made-up numbers answer that dishonestly in
+    // both directions. It writes nothing.
+    key: 'wrapped', title: 'Year in Review', icon: 'sparkles', group: 'The programme',
+    blurb: 'A creator’s personal recap of the year, played card by card and ending in something they can post.',
+    tags: ['Real data', 'Read-only'],
+    element: <WrappedLab />,
   },
   {
     key: 'views', title: 'View counts', icon: 'eye', group: 'The programme',

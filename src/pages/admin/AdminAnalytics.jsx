@@ -13,6 +13,7 @@ import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
 import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
+import MarketLeague from './analytics/MarketLeague'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
 import { convert } from '../../lib/programme'
@@ -37,6 +38,10 @@ import { convert } from '../../lib/programme'
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'programme', label: 'Challenges' },
+  // MARKET AGAINST MARKET, THIRD. It reads the same datasets the Challenges tab
+  // does and answers the question straight after it - "and how does that split
+  // by market" - so it sits next to it rather than at the far end of the strip.
+  { key: 'markets', label: 'Market league' },
   { key: 'growth', label: 'Growth' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
@@ -181,7 +186,10 @@ export default function AdminAnalytics() {
         // than a second set of queries - there is one definition of "a view" on
         // this page and it must not fork.
         supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'),
-        supabase.from('communities').select('id, name, kind, currency, retired_at').order('name'),
+        // `slug` and `country_codes` are for the market league, which draws a flag
+        // per market and needs a stable key for the CSV. Without them the league
+        // rendered every market with an empty flag slot and no way to tell why.
+        supabase.from('communities').select('id, slug, name, kind, currency, country_codes, retired_at').order('name'),
       ])
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
@@ -665,6 +673,24 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'markets') {
+    return (
+      <div className="page">
+        <PageHeader
+          back="/admin"
+          title="Analytics"
+          subtitle="Market against market: views, creators and prize money, all time and by month."
+        />
+        {tabBar}
+        {/* NO MARKET FILTER ON THIS TAB. The page is the comparison, so scoping
+            it to one market would leave a league table with one row in it. The
+            currency toggle still belongs here - the markets are not all in the
+            same one, which is half the reason this had to be computed rather
+            than eyeballed. */}
+        <MarketLeague raw={raw} currency={currency} />
+      </div>
+    )
+  }
   if (tab === 'growth') {
     return (
       <div className="page">
