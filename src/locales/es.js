@@ -1712,4 +1712,84 @@ export default {
   'countries': 'países',
   'Four reasons, and the first one is paid in cash.': 'Cuatro razones, y la primera se paga en efectivo.',
   'Free to join. New briefs go up every month.': 'Unirse es gratis. Cada mes hay briefs nuevos.',
+
+  // ------------------------------------------------- portfolio and awards --
+  //
+  // Added with the media kit, 16 Sep 2026. These are translated AT THE SAME
+  // TIME as the feature and not in a later pass, which is the lesson of the
+  // signup crash above: the flow with English buttons in it is the flow a
+  // Spanish reader machine-translates, and a machine translator is what broke
+  // three applications. A new creator-facing screen ships translated.
+  'My portfolio': 'Mi portafolio',
+  'Portfolio': 'Portafolio',
+  'A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.': 'Un media kit que puedes enviar a una marca, compartir como enlace o descargar en PDF. Cada palabra es tuya para cambiarla.',
+  'You are looking at this the way the creator sees it. Nothing here can be edited by you.': 'Lo estás viendo tal como lo ve el creador. No puedes editar nada desde aquí.',
+  'Admin view. Read only.': 'Vista de administración. Solo lectura.',
+  'Download PDF': 'Descargar PDF',
+  'Page {n} of {total}': 'Página {n} de {total}',
+  'Preparing…': 'Preparando…',
+  'All changes saved': 'Todos los cambios guardados',
+  'Could not export': 'No se ha podido exportar',
+  'Something went wrong making the PDF.': 'Algo ha fallado al crear el PDF.',
+  'We could not find a free web address for that name. Try a different one in Advanced.': 'No hemos encontrado una dirección libre para ese nombre. Prueba con otra en Avanzado.',
+  'Could not publish': 'No se ha podido publicar',
+
+  'Words': 'Texto',
+  'Your videos': 'Tus vídeos',
+  'Tools and platforms': 'Herramientas y plataformas',
+  'Share it': 'Compartirlo',
+  'Every line starts as something you could publish as it is. Change what you want, leave the rest.': 'Cada línea empieza como algo que ya podrías publicar tal cual. Cambia lo que quieras y deja el resto.',
+  'Reset': 'Restablecer',
+  'Line above your name': 'Línea encima de tu nombre',
+  'What you do': 'A qué te dedicas',
+  'About: heading': 'Sobre mí: título',
+  'About: your paragraph': 'Sobre mí: tu párrafo',
+  'Work: heading': 'Trabajo: título',
+  'Work: one line under it': 'Trabajo: una línea debajo',
+  'Awards: heading': 'Reconocimientos: título',
+  'Awards: one line under it': 'Reconocimientos: una línea debajo',
+  'Contact: heading': 'Contacto: título',
+  'Contact: your paragraph': 'Contacto: tu párrafo',
+
+  'Best by views': 'Los más vistos',
+  'Choose my own': 'Elegirlos yo',
+  'Your ten most-viewed entries, updated by themselves as view counts change.': 'Tus diez participaciones más vistas, que se actualizan solas según cambian las visualizaciones.',
+  'Drag order with the arrows. Untick one to take it off. Up to ten.': 'Cambia el orden con las flechas. Quita el que no quieras. Hasta diez.',
+  'Once you enter a challenge, your videos appear here and on your portfolio automatically.': 'En cuanto participes en un reto, tus vídeos aparecerán aquí y en tu portafolio automáticamente.',
+  'Not shown': 'No se muestran',
+  'Ten is the most a portfolio shows. Take one off first.': 'Un portafolio muestra diez como máximo. Quita uno primero.',
+  'That is ten': 'Ya son diez',
+
+  'What you shoot and edit with': 'Con qué grabas y editas',
+  'e.g. iPhone 15 Pro, CapCut, DJI Mini': 'p. ej. iPhone 15 Pro, CapCut, DJI Mini',
+  'Other platforms you post on': 'Otras plataformas donde publicas',
+  'The ones you have entered challenges from are already on there. Add anything else.': 'Las que has usado para participar en retos ya están. Añade las demás.',
+  '@handle': '@usuario',
+  'Add a platform': 'Añadir una plataforma',
+
+  'Show it on my profile': 'Mostrarlo en mi perfil',
+  'Other creators in the community see it on your profile page. It does not go on the web.': 'Los demás creadores de la comunidad lo verán en tu perfil. No se publica en internet.',
+  'Publish it as a link': 'Publicarlo como enlace',
+  'Anybody with the address can open it, and search engines can find it. Nothing else about your account is shown.': 'Cualquiera con la dirección puede abrirlo, y los buscadores pueden encontrarlo. No se muestra nada más de tu cuenta.',
+  'Your web address': 'Tu dirección web',
+  'Copied. Paste it into your bio or send it to a brand.': 'Copiada. Pégala en tu bio o envíasela a una marca.',
+  'This becomes real when you save.': 'Se crea de verdad cuando guardes.',
+  'Also published at /p/{slug}': 'También publicado en /p/{slug}',
+  'Shared with the community': 'Compartido con la comunidad',
+  'Watch them': 'Míralos',
+  'Open the full portfolio': 'Abrir el portafolio completo',
+
+  'Your certificates': 'Tus certificados',
+  'Yours to download and post. They also appear on your portfolio.': 'Son tuyos para descargar y publicar. También aparecen en tu portafolio.',
+  'Certificate': 'Certificado',
+  'Save the picture': 'Guardar la imagen',
+  'That did not save. Try again in a moment.': 'No se ha guardado. Inténtalo de nuevo en un momento.',
+  'Could not save it': 'No se ha podido guardar',
+
+  'Share that you are a Tryp.com creator': 'Cuenta que eres creador de Tryp.com',
+  'Save one of these and put it on your story or your LinkedIn. If somebody joins through you, your referral reward applies.': 'Guarda una de estas y súbela a tu historia o a LinkedIn. Si alguien entra gracias a ti, se te aplica tu recompensa por recomendación.',
+  'That did not save. Check your connection and try again.': 'No se ha guardado. Comprueba tu conexión e inténtalo de nuevo.',
+
+  'Could not save that': 'No se ha podido guardar',
+  'portfolio': 'portafolio',
 }

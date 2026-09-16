@@ -634,6 +634,10 @@ export default function AppLayout() {
                   <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My profile")}</Link>
                   <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Settings")}</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My rewards")}</Link>
+                  {/* Beside rewards on purpose: both are the things the
+                      programme has given this person, and the portfolio is the
+                      one they can hand to somebody else. */}
+                  <Link to="/portfolio" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My portfolio")}</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My dashboard")}</Link>
                   {/* Two things that ARE about you and have no home in the nav:
                       how far along the route you are, and who to ask when
