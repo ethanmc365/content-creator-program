@@ -11,6 +11,7 @@ import Reveal from '../../components/network/Reveal'
 import SocialMark, { brandForUrl } from '../../components/SocialMark'
 import { useMarkets, resolveMarketForCountryName } from '../../lib/markets'
 import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
+import { copyToClipboard, emailList } from '../../lib/clipboard'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -169,6 +170,14 @@ export default function AdminApplications() {
   //   here, so it is a separate list rather than a filter on the same one.
   const [bucket, setBucket] = useState('applied')
   const [zoom, setZoom] = useState(null)
+  // THE SELECTION, AND THE BULK RUN.
+  // `picked` is a Set of creator ids. `running` is what a batch is doing right
+  // now, so the bar can say "Approving 3 of 12" rather than freezing.
+  const [picked, setPicked] = useState(() => new Set())
+  const [running, setRunning] = useState(null)
+  // 'Never finished' gets a filter of its own: after a follow-up round, the
+  // only list worth looking at is the people who have not had one.
+  const [onlyUnfollowed, setOnlyUnfollowed] = useState(false)
   const markets = useMarkets()
 
   async function load() {
@@ -307,6 +316,44 @@ export default function AdminApplications() {
       .filter((x) => x.langs.length > 0)
   }
 
+  // WHICH LANGUAGE CHIPS GO ORANGE, AND WHY THE OLD ANSWER LOOKED BROKEN.
+  //
+  // Ethan, 16 Sep 2026: "for the languages sometimes it shows them grey and
+  // sometimes in orange, it's weird, I don't understand why - like they speak
+  // Spanish and Portuguese and live in Spain but the Portuguese is the language
+  // highlighted."
+  //
+  // That is exactly what the code did, and it is indefensible from the outside.
+  // The highlight was driven by `languageMatches`, which exists to answer a
+  // narrow question - "does a language point at a market OTHER than the one we
+  // are already suggesting" - and so it deliberately EXCLUDES the suggested
+  // market. For a Spaniard who speaks both, Spain is the suggestion, so Spanish
+  // was struck out of the list and Portuguese was the only thing left to light
+  // up. The colour was answering a question nobody had asked, and it read as a
+  // bug because it behaves like one.
+  //
+  // The rule is now the one a reader would guess: a chip is orange when that
+  // language is spoken in ANY of our markets. It means "this language matters
+  // here", which is a stable fact about the language rather than a side effect
+  // of which market we happened to suggest, and the two of them can now be
+  // orange together. English stays grey - it is the programme's working
+  // language and the assumed baseline, so a highlight that fires for everybody
+  // would tell an admin nothing.
+  const marketLanguageSet = useMemo(() => {
+    const set = new Set()
+    for (const m of markets ?? []) {
+      if (m.kind !== 'chapter' || !m.is_active) continue
+      for (const l of marketLanguages(m)) set.add(l.toLowerCase())
+    }
+    return set
+  }, [markets])
+
+  // Which markets a given language is lived in, so the chip can say so.
+  const marketsSpeaking = (lang) => (markets ?? [])
+    .filter((m) => m.kind === 'chapter' && m.is_active
+      && marketLanguages(m).some((l) => l.toLowerCase() === String(lang).toLowerCase()))
+    .map((m) => m.name)
+
   async function approve(app) {
     const slugs = placeIn[app.id] ?? []
     const names = slugs.map((sl) => markets.find((m) => m.slug === sl)?.name ?? sl)
@@ -368,6 +415,87 @@ export default function AdminApplications() {
     flash(next ? `Marked as followed up.` : 'Follow-up mark removed.')
   }
 
+  // ---------------------------------------------------------------- in bulk
+  //
+  // Ethan, 16 Sep 2026: "I want to be able to copy the email from each one
+  // easier, not having to click to see more, and I want actions at the very top
+  // where I can do everything like copy all emails of the current applicants,
+  // or accept all at once, just to speed things up."
+  //
+  // WHAT THE BAR ACTS ON. Nothing ticked means the bar acts on everything
+  // CURRENTLY SHOWN - which is the list after the market chips and the search
+  // box, so "copy all emails" while Spain is selected copies Spain's. Tick
+  // anybody and it acts on the ticked ones instead. That rule is printed on the
+  // bar rather than left to be discovered, because "all" is a dangerous word to
+  // guess at next to a button that approves people.
+  //
+  // WHY THE BATCH IS SEQUENTIAL. `admin_approve_application` writes memberships
+  // and a decision row per creator; firing fifteen at once is fifteen
+  // concurrent transactions against the same two tables for no wall-clock gain
+  // worth having on a list this size. One at a time also means a failure
+  // half-way is legible - the ones before it are approved, the rest are not,
+  // and the toast says how many.
+  const targets = () => (picked.size ? shown.filter((a) => picked.has(a.id)) : shown)
+
+  const toggleAll = () => {
+    setPicked((prev) => (prev.size >= shown.length && shown.every((a) => prev.has(a.id))
+      ? new Set()
+      : new Set(shown.map((a) => a.id))))
+  }
+  const togglePick = (id) => setPicked((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  async function copyEmails(list) {
+    const missing = list.filter((a) => !emails[a.id]).length
+    const text = emailList(list.map((a) => emails[a.id]))
+    if (!text) { flash('No email addresses to copy.'); return }
+    const n = text.split(', ').length
+    if (!await copyToClipboard(text)) { flash('Could not reach the clipboard.'); return }
+    flash(`${n} ${n === 1 ? 'address' : 'addresses'} copied${missing ? `, ${missing} had none on file` : ''}.`)
+  }
+
+  async function approveMany(list) {
+    if (!list.length) return
+    const names = list.length === 1 ? list[0].name : `${list.length} applications`
+    if (!await confirm(
+      `Approve ${names}? Each one goes into the market picked on its own card - ` +
+      'the suggestion unless you changed it. This cannot be undone.',
+    )) return
+    let done = 0
+    const failed = []
+    for (const app of list) {
+      setRunning({ verb: 'Approving', done, total: list.length })
+      const { error } = await supabase.rpc('admin_approve_application', {
+        target: app.id,
+        p_market_slugs: placeIn[app.id] ?? [],
+      })
+      if (error) failed.push(app.name)
+      else done++
+    }
+    setRunning(null)
+    setApps((prev) => prev.filter((a) => !list.some((x) => x.id === a.id && !failed.includes(x.name))))
+    setPicked(new Set())
+    flash(failed.length
+      ? `${done} approved, ${failed.length} failed (${failed.slice(0, 3).join(', ')}).`
+      : `${done} ${done === 1 ? 'creator' : 'creators'} approved.`)
+  }
+
+  async function markManyFollowedUp(list, value) {
+    const ids = list.filter((a) => (value ? !a.followed_up_at : !!a.followed_up_at)).map((a) => a.id)
+    if (!ids.length) { flash(value ? 'They are all marked already.' : 'None of them are marked.'); return }
+    const stamp = value ? new Date().toISOString() : null
+    setRunning({ verb: 'Marking', done: 0, total: ids.length })
+    const { error } = await supabase.from('profiles').update({ followed_up_at: stamp }).in('id', ids)
+    setRunning(null)
+    if (error) { flash(`Could not save that: ${error.message}`); return }
+    setApps((prev) => prev.map((a) => (ids.includes(a.id) ? { ...a, followed_up_at: stamp } : a)))
+    setPicked(new Set())
+    flash(value ? `${ids.length} marked as followed up.` : `${ids.length} marks removed.`)
+  }
+
   // NEWEST FIRST BY WHEN IT WAS SUBMITTED.
   //
   // The query orders by `created_at`, which is right for the "never finished"
@@ -379,9 +507,9 @@ export default function AdminApplications() {
   // not a table of thousands.
   const inThisBucket = useMemo(() => {
     const list = (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded))
-    if (bucket !== 'applied') return list
+    if (bucket !== 'applied') return onlyUnfollowed ? list.filter((a) => !a.followed_up_at) : list
     return [...list].sort((a, b) => new Date(appliedAt(b)) - new Date(appliedAt(a)))
-  }, [apps, bucket])
+  }, [apps, bucket, onlyUnfollowed])
 
   const tabs = useMemo(() => {
     const tally = {}
@@ -449,7 +577,7 @@ export default function AdminApplications() {
             <button
               key={key}
               type="button"
-              onClick={() => { setBucket(key); setMarket(''); setOpenId(null) }}
+              onClick={() => { setBucket(key); setMarket(''); setOpenId(null); setPicked(new Set()) }}
               aria-pressed={bucket === key}
               className={cx(
                 'flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200',
@@ -463,9 +591,9 @@ export default function AdminApplications() {
         </div>
       )}
 
-      {apps !== null && shown.length + (search ? 1 : 0) > 0 && bucket === 'applied' && (
+      {apps !== null && (shown.length > 0 || search || onlyUnfollowed) && (
         <div className="mb-6 space-y-3">
-          {tabs.length > 0 && (
+          {bucket === 'applied' && tabs.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {[['', 'All', inThisBucket.length], ...tabs.map(([m, n]) => [m, m, n])].map(([key, label, count]) => {
                 const on = market === key
@@ -473,7 +601,7 @@ export default function AdminApplications() {
                   <button
                     key={key || 'all'}
                     type="button"
-                    onClick={() => setMarket(key)}
+                    onClick={() => { setMarket(key); setPicked(new Set()) }}
                     aria-pressed={on}
                     className={cx(
                       'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
@@ -489,17 +617,126 @@ export default function AdminApplications() {
               })}
             </div>
           )}
+
           <div className="flex flex-wrap items-center gap-3">
             <input
               type="search"
               className="input sm:max-w-xs"
-              placeholder="Search name, country, language or email…"
+              placeholder={bucket === 'applied'
+                ? 'Search name, country, language or email…'
+                : 'Search name, country or email…'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search applications"
             />
+            {bucket === 'incomplete' && (
+              /* AFTER A ROUND OF FOLLOW-UPS, THE ONLY LIST THAT MATTERS IS THE
+                 ONES WHO HAVE NOT HAD ONE. The mark was already recorded per
+                 person and there was no way to see it as a list. */
+              <button
+                type="button"
+                onClick={() => { setOnlyUnfollowed((v) => !v); setPicked(new Set()) }}
+                aria-pressed={onlyUnfollowed}
+                className={cx(
+                  'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
+                  onlyUnfollowed
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
+                )}
+              >
+                {onlyUnfollowed && <Icon name="check" className="h-3 w-3" />}
+                Not followed up yet
+              </button>
+            )}
             <span className="text-xs text-smoke">{shown.length} shown</span>
           </div>
+
+          {/* ------------------------------------------------- the bulk bar */}
+          {shown.length > 0 && (
+            <div className="sticky top-2 z-20 rounded-card border border-gray-100 bg-white/95 p-3 shadow-card backdrop-blur supports-[backdrop-filter]:bg-white/80">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* THE TICK-ALL IS THE FIRST THING IN THE BAR, because every
+                    other control in it reads "the ticked ones, or everything
+                    shown if nothing is ticked" and that sentence has to be
+                    discoverable from the bar itself. */}
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  aria-pressed={picked.size > 0}
+                  className={cx(
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
+                    picked.size
+                      ? 'border-brand bg-brand-tint text-brand'
+                      : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
+                  )}
+                >
+                  <span className={cx(
+                    'flex h-4 w-4 items-center justify-center rounded border',
+                    picked.size ? 'border-brand bg-brand text-white' : 'border-gray-300',
+                  )}>
+                    {picked.size > 0 && <Icon name="check" className="h-2.5 w-2.5" />}
+                  </span>
+                  {picked.size ? `${picked.size} selected` : 'Select all'}
+                </button>
+
+                <span className="mr-auto text-[11px] text-gray-400">
+                  {picked.size
+                    ? 'Actions apply to the selected.'
+                    : `Actions apply to all ${shown.length} shown.`}
+                </span>
+
+                {running && (
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand">
+                    <Spinner className="h-3.5 w-3.5" />
+                    {running.verb} {running.done + 1} of {running.total}
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => copyEmails(targets())}
+                  disabled={!!running}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50"
+                >
+                  <Icon name="copy" className="h-3.5 w-3.5" />
+                  Copy {picked.size ? `${picked.size}` : 'all'} email{(picked.size || shown.length) === 1 ? '' : 's'}
+                </button>
+
+                {bucket === 'applied' ? (
+                  <button
+                    type="button"
+                    onClick={() => approveMany(targets())}
+                    disabled={!!running}
+                    className="btn-primary inline-flex items-center gap-1.5 !py-1.5 text-xs disabled:opacity-50"
+                  >
+                    <Icon name="check" className="h-3.5 w-3.5" />
+                    Approve {picked.size || shown.length}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => markManyFollowedUp(targets(), false)}
+                      disabled={!!running}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50"
+                    >
+                      <Icon name="close" className="h-3.5 w-3.5" />
+                      Unmark
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => markManyFollowedUp(targets(), true)}
+                      disabled={!!running}
+                      className="btn-primary inline-flex items-center gap-1.5 !py-1.5 text-xs disabled:opacity-50"
+                    >
+                      <Icon name="envelope" className="h-3.5 w-3.5" />
+                      Mark {picked.size || shown.length} followed up
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -526,6 +763,8 @@ export default function AdminApplications() {
                 links={linksOf(a)}
                 suggested={suggestion[a.id]}
                 languageHints={languageMatches(a)}
+                marketLanguages={marketLanguageSet}
+                marketsSpeaking={marketsSpeaking}
                 markets={(markets ?? []).filter((m) => m.kind === 'chapter' && m.is_active)}
                 placeIn={placeIn[a.id] ?? []}
                 onPlaceIn={(slugs) => setPlaceIn((p) => ({ ...p, [a.id]: slugs }))}
@@ -535,6 +774,8 @@ export default function AdminApplications() {
                 onApprove={() => approve(a)}
                 onDecline={() => decline(a)}
                 onZoom={() => a.photo_url && setZoom({ src: a.photo_url, alt: a.name })}
+                selected={picked.has(a.id)}
+                onSelect={() => togglePick(a.id)}
               />
             ) : (
               <UnfinishedCard
@@ -546,6 +787,8 @@ export default function AdminApplications() {
                 onDecline={() => decline(a)}
                 busy={busyId === a.id}
                 onZoom={() => a.photo_url && setZoom({ src: a.photo_url, alt: a.name })}
+                selected={picked.has(a.id)}
+                onSelect={() => togglePick(a.id)}
               />
             )
           ))}
@@ -567,6 +810,54 @@ export default function AdminApplications() {
 
 // ---------------------------------------------------------------------- card
 
+// THE TICK, AND THE ADDRESS, ON THE FACE OF EVERY CARD.
+//
+// Two of Ethan's asks land on the same strip of card and they belong together:
+// "I want to be able to copy the email from each one easier, not having to
+// click to see more", and the bulk bar above needs somewhere to be ticked from.
+//
+// The address used to live only behind "Read the whole application", which is
+// an expand, a scroll and a hunt for a row labelled Email - for the single most
+// copied thing on the page. It is on the summary now, next to the copy button
+// that copies it, which is the rule the rest of this file already follows.
+function PickTick({ selected, onSelect, name }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      role="checkbox"
+      aria-checked={!!selected}
+      aria-label={`Select ${name || 'this application'}`}
+      className={cx(
+        'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all duration-150',
+        selected
+          ? 'border-brand bg-brand text-white'
+          : 'border-gray-300 bg-white hoverable:hover:border-brand',
+      )}
+    >
+      {selected && <Icon name="check" className="h-3 w-3" />}
+    </button>
+  )
+}
+
+function EmailRow({ email }) {
+  if (!email) {
+    return <p className="mt-2 text-xs text-gray-300">No email on file</p>
+  }
+  return (
+    <div className="mt-2 flex items-center gap-1.5">
+      <a
+        href={`mailto:${email}`}
+        className="min-w-0 truncate text-xs font-medium text-smoke underline decoration-gray-200 underline-offset-2 transition-colors hoverable:hover:text-brand hoverable:hover:decoration-brand"
+      >
+        {email}
+      </a>
+      <CopyButton value={email} label="Copy email address" className="!h-6 !w-6 shrink-0" />
+    </div>
+  )
+}
+
+
 // THE "WHAT IS MISSING" CHIPS ARE GONE (4 Sep 2026). Ethan: "the very short
 // bio pointer - actually, I don't think we need any of those pointers at all.
 // You can just remove them, because obviously we can see it ourselves. And we
@@ -579,7 +870,9 @@ export default function AdminApplications() {
 
 function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
+  marketLanguages: marketLanguageSet, marketsSpeaking,
   placeIn, onPlaceIn, open, onToggle, busy, onApprove, onDecline, onZoom,
+  selected, onSelect,
 }) {
   // `profiles.dob` IS NULL ON EVERY ROW AND ALWAYS WILL BE - a BEFORE trigger
   // (mirror_dob_to_private) moves it into creator_private and derives
@@ -598,9 +891,13 @@ function ApplicationCard({
     .filter(Boolean)
 
   return (
-    <div className="card !p-0 overflow-hidden transition-all duration-200 hover:shadow-lift">
+    <div className={cx(
+      'card !p-0 overflow-hidden transition-all duration-200 hover:shadow-lift',
+      selected && 'ring-2 ring-brand/40',
+    )}>
       {/* ------------------------------------------------------- the summary */}
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:p-6">
+        <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {/* The face is a button when there is a photo to open, and a plain
             avatar when there is not - a control that does nothing when pressed
             is worse than no control. */}
@@ -625,6 +922,7 @@ function ApplicationCard({
           <p className="text-sm text-smoke">
             {[app.city, app.country].filter(Boolean).join(', ') || 'No location given'}
           </p>
+          <EmailRow email={email} />
           {app.bio && <p className="mt-1.5 text-sm font-medium leading-relaxed">{app.bio}</p>}
 
           {/* The platforms, as links in their own colours. What an approval
@@ -665,14 +963,18 @@ function ApplicationCard({
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Speaks</span>
               {app.languages.map((l) => {
-                const hit = languageHints.some((h) => h.langs.some((x) => x.toLowerCase() === String(l).toLowerCase()))
+                /* ORANGE MEANS "THIS LANGUAGE IS LIVED IN ONE OF OUR MARKETS",
+                   full stop. It used to mean "…in a market OTHER than the one
+                   we are suggesting", which lit up Portuguese and left Spanish
+                   grey for a Spanish-and-Portuguese speaker living in Spain -
+                   see the note on `marketLanguageSet`. The title says which
+                   markets, so the colour is never a mystery. */
+                const where = marketsSpeaking?.(l) ?? []
+                const hit = marketLanguageSet?.has(String(l).toLowerCase()) ?? false
                 return (
-                  /* A market-relevant language keeps the BRAND, because that
-                     is a signal about THIS decision. Everything else is the
-                     ordinary grey chip - see the note at the top of the file
-                     for why colouring them all was a step backwards. */
                   <span
                     key={l}
+                    title={hit ? `Spoken in ${where.join(' and ')}` : undefined}
                     className={cx(
                       'rounded-full px-2 py-0.5 text-[11px] font-semibold',
                       hit ? 'bg-brand text-white' : 'bg-cloud text-smoke',
@@ -892,11 +1194,15 @@ function ApplicationCard({
 // this card answers a different question: how far did they get, and how do we
 // reach them. `onboardingProgress` derives the step from the columns the flow
 // fills in, in the order it asks for them.
-function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom }) {
+function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom, selected, onSelect }) {
   const progress = onboardingProgress(app, phone ? { phone } : null)
   return (
-    <div className="card !p-0 overflow-hidden transition-all duration-200 hoverable:hover:shadow-lift">
+    <div className={cx(
+      'card !p-0 overflow-hidden transition-all duration-200 hoverable:hover:shadow-lift',
+      selected && 'ring-2 ring-brand/40',
+    )}>
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:p-6">
+        <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {app.photo_url ? (
           <button type="button" onClick={onZoom} aria-label={`See ${app.name}'s photo full size`}
             className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105">
@@ -914,7 +1220,8 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
           <p className="text-sm text-smoke">
             {[app.city, app.country].filter(Boolean).join(', ') || 'No location given'}
           </p>
-          <p className="mt-1 text-sm font-medium text-ink">{progress.summary}</p>
+          <EmailRow email={email} />
+          <p className="mt-1.5 text-sm font-medium text-ink">{progress.summary}</p>
 
           {/* THE STEPS, AS A ROW OF TICKS. A percentage says how much; this
               says WHICH, which is the thing somebody writing them a message
@@ -943,13 +1250,10 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
       </div>
 
       <div className="space-y-3 border-t border-gray-100 px-5 py-4 sm:px-6">
-        {/* THE COPY ICONS SIT BESIDE WHAT THEY COPY. Ethan: "the icons should be
-            beside their email, not way over on the right beside Full profile."
-            An icon is only readable from what it is next to. */}
-        <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-xs text-smoke">{email || 'No email on file'}</span>
-          {email && <CopyButton value={email} label="Copy email address" className="!h-6 !w-6 shrink-0" />}
-        </div>
+        {/* THE EMAIL MOVED UP to the summary, where it is reachable without
+            reading the footer - see `EmailRow`. The phone stays here: it is far
+            less often what somebody wants, and duplicating both would make the
+            card twice as tall for no gain. */}
         {phone && (
           <div className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-xs text-smoke">{phone}</span>

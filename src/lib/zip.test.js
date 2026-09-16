@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { generateZip, validateZip, zipIndexForDay, layoutSpec, wallKey, ZIP_LAYOUT_COUNT } from './zip'
+import { generateZip, validateZip, zipIndexForDay, layoutSpec, wallKey, ZIP_LAYOUT_COUNT, ZIP_BANDS, interiorEdges } from './zip'
 
 describe('flight path layouts', () => {
-  it('every one of the 366 layouts is generated with a valid full-coverage solution', { timeout: 120_000 }, () => {
-    expect(ZIP_LAYOUT_COUNT).toBeGreaterThanOrEqual(365)
+  it('every layout in the bank is generated with a valid full-coverage solution', { timeout: 120_000 }, () => {
+    expect(ZIP_LAYOUT_COUNT).toBeGreaterThanOrEqual(736)
     for (let i = 0; i < ZIP_LAYOUT_COUNT; i++) {
       const puzzle = generateZip(i)
       const { size, dots, walls, solution } = puzzle
@@ -20,19 +20,41 @@ describe('flight path layouts', () => {
     }
   })
 
-  it('difficulties are mixed and match their specs', () => {
-    const byDiff = { easy: 0, medium: 0, hard: 0, expert: 0, extreme: 0, ultra: 0 }
+  it('every layout stays inside the envelope its own tier advertises', () => {
+    // ZIP_BANDS is the one definition of what "expert" means, and this is what
+    // stops a tier drifting away from its label: the generator reads the table,
+    // and so does this - so a size or a wall count that no longer matches the
+    // word the player is shown fails here rather than in the wild.
+    const byDiff = {}
     for (let i = 0; i < ZIP_LAYOUT_COUNT; i++) {
       const spec = layoutSpec(i)
-      byDiff[spec.difficulty]++
-      if (spec.difficulty === 'easy') { expect(spec.size).toBe(5); expect(spec.walls).toBe(0) }
-      if (spec.difficulty === 'hard') { expect(spec.size).toBe(7); expect(spec.walls).toBeGreaterThan(0) }
-      if (spec.difficulty === 'expert') { expect(spec.size).toBe(8); expect(spec.walls).toBeGreaterThanOrEqual(10) }
-      if (spec.difficulty === 'extreme') { expect(spec.size).toBe(10); expect(spec.walls).toBeGreaterThanOrEqual(18) }
-      if (spec.difficulty === 'ultra') { expect(spec.size).toBe(11); expect(spec.walls).toBeGreaterThanOrEqual(30) }
+      const band = ZIP_BANDS[spec.difficulty]
+      expect(band, `layout ${i} has an unknown difficulty ${spec.difficulty}`).toBeTruthy()
+      byDiff[spec.difficulty] = (byDiff[spec.difficulty] || 0) + 1
+      expect(band.sizes, `layout ${i} (${spec.difficulty}) size ${spec.size}`).toContain(spec.size)
+      const edges = interiorEdges(spec.size)
+      expect(spec.walls, `layout ${i} walls`).toBeGreaterThanOrEqual(Math.floor(edges * band.wallFrac[0]))
+      expect(spec.walls, `layout ${i} walls`).toBeLessThanOrEqual(Math.ceil(edges * band.wallFrac[1]))
+      expect(spec.stops).toBeGreaterThanOrEqual(3)
+      // `stopPositions` needs two cells between consecutive stops, so half the
+      // grid is the hard ceiling on how many it can place at all.
+      expect(spec.stops).toBeLessThanOrEqual(Math.floor((spec.size * spec.size) / 2))
     }
-    for (const d of ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']) {
-      expect(byDiff[d], `${d} appears through the year`).toBeGreaterThan(50)
+    // Every tier is actually served, and the spread is a real spread: no tier
+    // is a rounding error and none of them dominates the year.
+    for (const d of Object.keys(ZIP_BANDS)) {
+      expect(byDiff[d], `${d} never appears`).toBeGreaterThan(20)
+      expect(byDiff[d] / ZIP_LAYOUT_COUNT, `${d} dominates the bank`).toBeLessThan(0.3)
+    }
+    // ... and harder tiers really are bigger on average than easier ones.
+    const avgSize = {}
+    for (const d of Object.keys(ZIP_BANDS)) avgSize[d] = 0
+    for (let i = 0; i < ZIP_LAYOUT_COUNT; i++) { const s = layoutSpec(i); avgSize[s.difficulty] += s.size }
+    const ranked = Object.keys(ZIP_BANDS).sort((a, b) => ZIP_BANDS[a].rank - ZIP_BANDS[b].rank)
+    for (let i = 1; i < ranked.length; i++) {
+      const lo = avgSize[ranked[i - 1]] / byDiff[ranked[i - 1]]
+      const hi = avgSize[ranked[i]] / byDiff[ranked[i]]
+      expect(hi, `${ranked[i]} is not bigger than ${ranked[i - 1]}`).toBeGreaterThan(lo)
     }
   })
 
@@ -64,15 +86,34 @@ describe('flight path layouts', () => {
       puzzle.size * puzzle.size === 2 ? [a, b] : [a, b])).toBe(false)
   })
 
-  it('daily index always lands on a real layout', () => {
+  it('the daily rotation is a real shuffle, not a fixed stride', () => {
+    // THE BUG THIS TEST EXISTS FOR. The old mapping was `(day * 48271) % 416`:
+    // a linear step, so consecutive days differed by a CONSTANT (15), and the
+    // seasonal tier was `index % 6` - fifteen mod six being three, the
+    // difficulty could only ever alternate between two tiers for ever. The
+    // layouts never repeated; the experience of them repeated inside a week.
     const seen = new Set()
-    for (let d = 20000; d < 20366; d++) {
+    const tiers = []
+    const strides = new Set()
+    let prev = null
+    // From the START of a cycle: the "every layout exactly once" promise is a
+    // promise about one pass through the bank, and a window straddling two
+    // cycles is two different shuffles.
+    const first = Math.ceil(20000 / ZIP_LAYOUT_COUNT) * ZIP_LAYOUT_COUNT
+    for (let d = first; d < first + ZIP_LAYOUT_COUNT; d++) {
       const idx = zipIndexForDay(d)
       expect(idx).toBeGreaterThanOrEqual(0)
       expect(idx).toBeLessThan(ZIP_LAYOUT_COUNT)
       seen.add(idx)
+      if (d < first + 120) tiers.push(layoutSpec(idx).difficulty)
+      if (prev != null) strides.add(((idx - prev) % ZIP_LAYOUT_COUNT + ZIP_LAYOUT_COUNT) % ZIP_LAYOUT_COUNT)
+      prev = idx
     }
-    // the daily rotation covers a large share of the pool across a year
-    expect(seen.size).toBeGreaterThan(300)
+    // a full cycle serves every layout exactly once
+    expect(seen.size).toBe(ZIP_LAYOUT_COUNT)
+    // and it does not walk the bank at a fixed stride
+    expect(strides.size).toBeGreaterThan(100)
+    // over four months a player meets every tier, not two of them
+    expect(new Set(tiers).size).toBe(Object.keys(ZIP_BANDS).length)
   })
 })

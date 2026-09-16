@@ -20,8 +20,8 @@ export const DAILY_PUZZLES = [
     key: 'pinpoint',
     icon: 'magnifier',
     title: 'Guess the Country',
-    text: 'Five clues, one country. Ask for fewer and score more.',
-    short: 'Five clues, one country.',
+    text: 'Clues one at a time, one country. Ask for fewer and score more.',
+    short: 'Clues one at a time, one country.',
     store: 'tryp_pinpoint',
   },
   {
