@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
+import { allRows } from '../../lib/fetchAll'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
@@ -137,15 +138,22 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     async function load() {
+      // THE BIG ONES ARE PAGED. PostgREST answers with at most a thousand rows
+      // and says so only in a header, so a page that COUNTS over a whole table
+      // does not fail when it crosses that - it starts quietly under-reporting
+      // by a margin that grows every day, with every figure still plausible.
+      // `game_scores` is one row per player per daily puzzle and is the one
+      // about to cross. See lib/fetchAll. The unpaged reads below are bounded
+      // by how many challenges have ever been run.
       const [
-        { data: profiles }, { data: challenges }, { data: history }, { data: submissions },
-        { data: rewards }, { data: messages }, { data: results },
+        profiles, { data: challenges }, { data: history }, submissions,
+        rewards, messages, results,
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
-        { data: gameScores }, { data: connections }, { count: tripCount },
-        { data: decisions }, { data: seenRows }, { data: voucherCounts },
-        { data: memberRows }, { data: marketRows },
+        gameScores, connections, { count: tripCount },
+        decisions, { data: seenRows }, { data: voucherCounts },
+        memberRows, { data: marketRows },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, photo_url, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
+        allRows(() => supabase.from('profiles').select('id, name, photo_url, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at')),
         // `community_id` is what makes a market's challenge list a real list.
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
@@ -158,23 +166,23 @@ export default function AdminAnalytics() {
         // The linked row is dropped here for the same reason it is dropped in
         // `admin_challenge_metrics`: it is the same contest as a live one.
         supabase.from('challenge_history').select('*').is('challenge_id', null),
-        supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
+        allRows(() => supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at')),
         // `creator_id` and `currency` matter now: the per-creator table cannot
         // attribute a payout without the first, and cannot convert it without
         // the second. Without them every creator's spend read as zero, which
         // made every one of them look infinitely efficient.
-        supabase.from('rewards').select('amount, status, challenge_id, reward_type, creator_id, currency, source'),
-        supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false),
+        allRows(() => supabase.from('rewards').select('amount, status, challenge_id, reward_type, creator_id, currency, source')),
+        allRows(() => supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
-        supabase.from('results').select('final_views, challenge_id'),
+        allRows(() => supabase.from('results').select('final_views, challenge_id')),
         supabase.from('feedback').select('status'),
         supabase.from('reactions').select('id', { count: 'exact', head: true }),
         supabase.from('poll_votes').select('id', { count: 'exact', head: true }),
-        supabase.from('game_scores').select('mode, created_at, player_id'),
-        supabase.from('connections').select('status'),
+        allRows(() => supabase.from('game_scores').select('mode, created_at, player_id')),
+        allRows(() => supabase.from('connections').select('status')),
         supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
-        supabase.from('application_decisions').select('decision, created_at'),
+        allRows(() => supabase.from('application_decisions').select('decision, created_at')),
         supabase.rpc('admin_list_last_seen'),
         // Participation vouchers are COUNTED from the entries, not read off a
         // number somebody typed. The typed one was never kept up: on the
@@ -185,7 +193,7 @@ export default function AdminAnalytics() {
         // market at a time. Scoping is a filter over these same datasets rather
         // than a second set of queries - there is one definition of "a view" on
         // this page and it must not fork.
-        supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'),
+        allRows(() => supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
         // `slug` and `country_codes` are for the market league, which draws a flag
         // per market and needs a stable key for the CSV. Without them the league
         // rendered every market with an empty flag slot and no way to tell why.

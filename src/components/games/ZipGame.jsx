@@ -356,7 +356,7 @@ export default function ZipGame({ onExit }) {
     // to "which way now", and once you have flown anywhere that question has a
     // new answer - leaving the arrow up would be the board asserting something
     // it has not checked.
-    if (moved) { engineThrust(); setHintNext(null); setHintMsg(null) }
+    if (moved) { engineThrust(); clearHint() }
     if (reached != null) {
       setPopStop(reached)
       setTimeout(() => setPopStop((c) => (c === reached ? null : c)), 420)
@@ -373,7 +373,11 @@ export default function ZipGame({ onExit }) {
   }
 
   function onPointerDown(e) {
-    if (solved || checking) return
+    // THE REWIND OWNS THE ROUTE WHILE IT IS RUNNING. `walkTo`, `undo` and
+    // `restart` all stand aside for it and this did not, so a tap on the trail
+    // mid-rewind set the path from here while the timer went on popping cells
+    // off it from underneath - two writers, and whichever landed last won.
+    if (solved || checking || rewindRef.current) return
     e.preventDefault()
     try { svgRef.current.setPointerCapture?.(e.pointerId) } catch { /* synthetic events have no active pointer */ }
     const cell = cellFromEvent(e)
@@ -382,6 +386,7 @@ export default function ZipGame({ onExit }) {
     if (idx >= 0) {
       // Grab the trail anywhere along it: cut back to that point and drag on.
       setPathLive(pathRef.current.slice(0, idx + 1))
+      clearHint()
     } else {
       walkTo(cell)
     }
@@ -392,15 +397,26 @@ export default function ZipGame({ onExit }) {
   }
   function onPointerUp() { draggingRef.current = false }
 
+  // THE HEADING IS CLEARED FROM EXACTLY ONE PLACE. It was cleared in `walkTo`,
+  // in `undo` and in `restart` - and NOT in the one remaining path that changes
+  // the route, which is grabbing the trail half way along and dragging on from
+  // there. After a hint, doing that left the target ring sitting on a cell that
+  // was no longer next to the aircraft, and the plane pointing at a cell it
+  // could not reach: a hint that had become a lie.
+  function clearHint() {
+    setHintNext(null)
+    setHintMsg(null)
+  }
+
   function undo() {
     if (solved || rewindRef.current) return
     if (pathRef.current.length > 1) setPathLive(pathRef.current.slice(0, -1))
-    setHintNext(null); setHintMsg(null)
+    clearHint()
   }
   function restart() {
     if (solved || rewindRef.current) return
     setPathLive([startCell])
-    setHintNext(null); setHintMsg(null)
+    clearHint()
   }
 
   // THE HINT.

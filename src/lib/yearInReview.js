@@ -45,13 +45,22 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
  * you are in the bottom 40% of a community you joined last week is the one
  * thing a recap must never do.
  */
-export function standing(values, mine) {
+export function standing(values, mine, { includeMine = false } = {}) {
   const scored = values.filter((v) => v > 0).sort((a, b) => b - a)
-  if (!mine || !scored.length) return null
-  const better = scored.filter((v) => v > mine).length
-  const rank = better + 1
-  const pct = Math.max(1, Math.round((rank / scored.length) * 100))
-  return { rank, of: scored.length, percentile: pct, top: pct <= 50 }
+  if (!mine || mine <= 0) return null
+  // THE FIELD HAS TO CONTAIN THE PERSON BEING RANKED IN IT.
+  //
+  // The tallies are built over ACTIVE, NON-TEST creators, and the recap can be
+  // opened for somebody outside that set - a pending account, or an admin
+  // looking at a test profile in the lab. Their own figure was then missing
+  // from the field while still being ranked against it, which gave "1st of 2"
+  // on a community of three. `includeMine` puts them back rather than pretending
+  // the question cannot be asked.
+  const field = includeMine && !scored.includes(mine) ? [...scored, mine].sort((a, b) => b - a) : scored
+  if (!field.length) return null
+  const rank = field.filter((v) => v > mine).length + 1
+  const pct = Math.max(1, Math.round((rank / field.length) * 100))
+  return { rank, of: field.length, percentile: pct, top: pct <= 50 }
 }
 
 function monthOf(d) {
@@ -138,22 +147,53 @@ export function buildYearInReview({
 
   // ----------------------------------------------------------------- content
   const mySubs = submissions.filter((s) => s.creator_id === meId && inYear(s.submitted_at, year))
-  // A PUBLISHED RESULT BEATS THE CREATOR'S OWN FIGURE, the same rule the
-  // Challenges tab uses - it is the verified count.
-  const myResults = results.filter((r) => r.creator_id === meId)
-  const verifiedByChallenge = new Map()
-  for (const r of myResults) verifiedByChallenge.set(r.challenge_id, Number(r.final_views || 0))
+  const myChallengeIds = new Set(mySubs.map((s) => s.challenge_id).filter(Boolean))
 
-  const viewsFor = (s) => {
-    const v = verifiedByChallenge.get(s.challenge_id)
-    return v != null && v > 0 ? null : Number(s.logged_views || 0)
+  // A RESULT ROW HAS NO YEAR OF ITS OWN, AND PRETENDING IT DOES LEAKED VIEWS
+  // ACROSS YEARS.
+  //
+  // THE BUG: `results` was filtered by creator and nothing else, and then every
+  // verified total in it was added to this year's count - so a creator with a
+  // podium finish in 2025 had those views, that win and that podium counted
+  // again in their 2026 recap, on top of whatever they actually did. On a
+  // programme whose whole point is the view count, that is the headline number
+  // of the whole thing being wrong.
+  //
+  // A result belongs to a CHALLENGE, so it belongs to the year the creator
+  // entered that challenge. `myChallengeIds` is exactly that set and it is
+  // already built from submissions that are in the year, so scoping to it needs
+  // no extra data and cannot drift from the submissions it sits beside.
+  const myResults = results.filter((r) => r.creator_id === meId && myChallengeIds.has(r.challenge_id))
+  // THE VERIFIED COUNT REPLACES THE CREATOR'S OWN FIGURE, it does not add to it.
+  // Counted per challenge rather than per submission, because one verified
+  // total covers every video somebody entered into that contest.
+  //
+  // ONE DEFINITION, USED TWICE. The community total on the last card is the sum
+  // of this over everybody - it used to be a plain sum of `logged_views`, so the
+  // personal card and the community card were counting different things and a
+  // creator's share of the total was quietly wrong wherever a result had been
+  // published.
+  const viewsInYearFor = (id) => {
+    const subs = submissions.filter((x) => x.creator_id === id && inYear(x.submitted_at, year))
+    const entered = new Set(subs.map((x) => x.challenge_id).filter(Boolean))
+    const seen = new Map()
+    for (const r of results) {
+      if (r.creator_id !== id || !entered.has(r.challenge_id)) continue
+      const v = Number(r.final_views || 0)
+      if (v > 0) seen.set(r.challenge_id, v)
+    }
+    let n = 0
+    for (const cid of entered) {
+      const v = seen.get(cid)
+      if (v != null) { n += v; continue }
+      for (const x of subs) if (x.challenge_id === cid) n += Number(x.logged_views || 0)
+    }
+    for (const x of subs) if (!x.challenge_id) n += Number(x.logged_views || 0)
+    return n
   }
-  let views = 0
-  for (const s of mySubs) views += viewsFor(s) ?? 0
-  for (const [, v] of verifiedByChallenge) views += v
+  const views = viewsInYearFor(meId)
 
   const best = mySubs.slice().sort((a, b) => Number(b.logged_views || 0) - Number(a.logged_views || 0))[0] || null
-  const myChallengeIds = new Set(mySubs.map((s) => s.challenge_id).filter(Boolean))
   const wins = myResults.filter((r) => r.rank === 1).length
   const podiums = myResults.filter((r) => r.rank != null && r.rank <= 3).length
 
@@ -238,7 +278,11 @@ export function buildYearInReview({
     }
     return by
   }
-  const viewsBy = tally(submissions.filter((s) => inYear(s.submitted_at, year)), 'creator_id', (s) => Number(s.logged_views || 0))
+  const viewsBy = new Map()
+  for (const id of peerIds) {
+    const n = viewsInYearFor(id)
+    if (n > 0) viewsBy.set(id, n)
+  }
   const videosBy = tally(submissions.filter((s) => inYear(s.submitted_at, year)), 'creator_id', () => 1)
   const gamesBy = tally(gameScores.filter((g) => inYear(g.created_at, year)), 'player_id', () => 1)
   const msgsBy = tally(messages.filter((m) => inYear(m.created_at, year) && !m.deleted), 'sender_id', () => 1)
@@ -248,12 +292,15 @@ export function buildYearInReview({
     kmBy.set(f.creator_id, (kmBy.get(f.creator_id) || 0) + f.dist)
   }
 
+  // `includeMine` matters when the recap is opened for somebody outside the
+  // peer set - see `standing`.
+  const mine = { includeMine: !peerIds.has(meId) }
   const ranks = {
-    views: standing([...viewsBy.values()], views),
-    videos: standing([...videosBy.values()], mySubs.length),
-    games: standing([...gamesBy.values()], myGames.length),
-    messages: standing([...msgsBy.values()], myMessages.length),
-    distance: standing([...kmBy.values()], ft.distance),
+    views: standing([...viewsBy.values()], views, mine),
+    videos: standing([...videosBy.values()], mySubs.length, mine),
+    games: standing([...gamesBy.values()], myGames.length, mine),
+    messages: standing([...msgsBy.values()], myMessages.length, mine),
+    distance: standing([...kmBy.values()], ft.distance, mine),
   }
 
   // -------------------------------------------------------- my busiest month
@@ -275,7 +322,7 @@ export function buildYearInReview({
 
   const everyone = {
     creators: peers.length,
-    views: yearSubs.reduce((n, s) => n + Number(s.logged_views || 0), 0),
+    views: [...peerIds].reduce((n, id) => n + viewsInYearFor(id), 0),
     videos: yearSubs.length,
     flights: yearFlights.length,
     distance: Math.round(yearFlights.reduce((n, f) => n + f.dist, 0)),

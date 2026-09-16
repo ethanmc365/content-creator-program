@@ -180,6 +180,61 @@ describe('the year in review', () => {
     })
   })
 
+  // ---------------------------------------------------------------------
+  // THE BUG THESE EXIST FOR. `results` carries no date, and it was filtered by
+  // creator and nothing else - so every verified total a creator had ever been
+  // given was added to THIS year, on top of what they actually did. On a
+  // programme whose whole point is the view count, that is the headline figure
+  // of the recap being wrong.
+  describe('a published result', () => {
+    const withResults = {
+      ...base,
+      submissions: [
+        ...base.submissions,
+        // entered a 2025 challenge, which is not this year's business
+        { id: 's5', creator_id: ME, challenge_id: 'old', platform: 'tiktok', logged_views: 1_000, submitted_at: '2025-06-01' },
+      ],
+      results: [
+        // ch1 is the one they entered this year: 40k verified replaces the
+        // 15k they logged themselves.
+        { challenge_id: 'ch1', creator_id: ME, final_views: 40_000, rank: 1 },
+        // a podium from LAST year's challenge, which must not appear at all
+        { challenge_id: 'old', creator_id: ME, final_views: 500_000, rank: 2 },
+      ],
+    }
+    const r = buildYearInReview(withResults)
+
+    it('replaces the creator\'s own figure rather than adding to it', () => {
+      expect(r.content.views).toBe(40_000)
+    })
+
+    it('ignores a result for a challenge entered in another year', () => {
+      expect(r.content.wins).toBe(1)
+      expect(r.content.podiums).toBe(1)
+    })
+
+    it('counts the community the same way it counts the creator', () => {
+      // OTHER logged 99k and has no result, so the total is 40k + 99k. It used
+      // to be a plain sum of logged_views, which made the personal card and the
+      // community card count different things.
+      expect(r.everyone.views).toBe(139_000)
+    })
+  })
+
+  it('ranks somebody who is not in the peer set against a field containing them', () => {
+    // A pending account, or a test profile opened in the lab: their own figure
+    // is missing from the tallies, so they used to be "1st of 2" on a community
+    // of three.
+    const pending = {
+      ...base,
+      meId: 'newbie',
+      profiles: [...base.profiles, { id: 'newbie', name: 'New', status: 'pending', created_at: '2026-09-01' }],
+      submissions: [...base.submissions, { id: 's9', creator_id: 'newbie', challenge_id: 'ch1', logged_views: 50_000, submitted_at: '2026-09-02' }],
+    }
+    const r = buildYearInReview(pending)
+    expect(r.ranks.views).toMatchObject({ rank: 2, of: 3 })
+  })
+
   it('does not fall over with nothing at all', () => {
     const empty = buildYearInReview({ year: 2026, meId: 'nobody' })
     expect(empty.me).toBeNull()

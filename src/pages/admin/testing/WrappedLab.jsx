@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { allRows } from '../../../lib/fetchAll'
 import { LabPage, Panel, Note, Choice } from './kit'
 import { Avatar, PlaneLoader, Skeleton } from '../../../components/ui'
 import Icon from '../../../components/Icon'
@@ -56,28 +57,33 @@ export default function WrappedLab() {
   useEffect(() => {
     let alive = true
     async function load() {
+      // EVERY ONE OF THESE IS PAGED. PostgREST stops at a thousand rows and
+      // says so only in a header - `game_scores` is one row per player per
+      // daily puzzle and is the one about to cross, which would have made every
+      // puzzle count, streak and rank on this page quietly too small. See
+      // lib/fetchAll.
       const [
-        { data: profiles }, { data: communities }, { data: memberRows },
-        { data: flights }, { data: submissions }, { data: results },
-        { data: rewards }, { data: challenges }, { data: messages },
-        { data: connections }, { data: collabPosts }, { data: gameScores },
-        { data: reactions }, { data: milestones }, { data: creatorMilestones },
+        profiles, communities, memberRows,
+        flights, submissions, results,
+        rewards, challenges, messages,
+        connections, collabPosts, gameScores,
+        reactions, milestones, creatorMilestones,
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, photo_url, city, country, status, is_test, is_admin, created_at, accepted_at'),
-        supabase.from('communities').select('id, slug, name, kind, retired_at'),
-        supabase.from('community_members').select('community_id, profile_id, is_home').eq('status', 'active'),
-        supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of'),
-        supabase.from('submissions').select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url'),
-        supabase.from('results').select('challenge_id, creator_id, final_views, rank'),
-        supabase.from('rewards').select('creator_id, amount, currency, reward_type, created_at'),
-        supabase.from('challenges').select('id, title'),
-        supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false),
-        supabase.from('connections').select('creator_id, connected_creator_id, status, created_at'),
-        supabase.from('collab_posts').select('creator_id, city, start_date, created_at'),
-        supabase.from('game_scores').select('player_id, mode, day_key, created_at'),
-        supabase.from('reactions').select('creator_id, created_at'),
-        supabase.from('milestones').select('id, title, icon'),
-        supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'),
+        allRows(() => supabase.from('profiles').select('id, name, photo_url, city, country, status, is_test, is_admin, created_at, accepted_at')),
+        allRows(() => supabase.from('communities').select('id, slug, name, kind, retired_at')),
+        allRows(() => supabase.from('community_members').select('community_id, profile_id, is_home').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
+        allRows(() => supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
+        allRows(() => supabase.from('submissions').select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url')),
+        allRows(() => supabase.from('results').select('challenge_id, creator_id, final_views, rank')),
+        allRows(() => supabase.from('rewards').select('creator_id, amount, currency, reward_type, created_at')),
+        allRows(() => supabase.from('challenges').select('id, title')),
+        allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
+        allRows(() => supabase.from('connections').select('creator_id, connected_creator_id, status, created_at')),
+        allRows(() => supabase.from('collab_posts').select('creator_id, city, start_date, created_at')),
+        allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
+        allRows(() => supabase.from('reactions').select('creator_id, created_at')),
+        allRows(() => supabase.from('milestones').select('id, title, icon')),
+        allRows(() => supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
       ])
       if (!alive) return
       setRaw({

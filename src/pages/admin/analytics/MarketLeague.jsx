@@ -171,8 +171,14 @@ export default function MarketLeague({ raw, currency }) {
           <button onClick={exportCsv} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>
         </div>
 
-        {/* ------------------------------------------------------ the period */}
-        <div className="mt-5 flex flex-wrap gap-1.5">
+        {/* THE PERIOD AND THE METRIC SCROLL, THEY DO NOT WRAP.
+            Nine months of pills wrapped to FOUR ROWS on a phone - a screen and
+            a half of furniture between the heading and the table it controls -
+            and the list only grows: twelve by December, twenty-four a year
+            after that. One row that scrolls is the shape the tab strip above
+            already uses for the same reason. `-mx-*` lets a pill bleed to the
+            card's edge so it is obvious there is more. */}
+        <div className="-mx-5 mt-5 flex gap-1.5 overflow-x-auto px-5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
           {[['', 'All time'], ...months.map((m) => [m, monthLabel(m)])].map(([key, label]) => {
             const on = month === key
             return (
@@ -182,7 +188,7 @@ export default function MarketLeague({ raw, currency }) {
                 onClick={() => setMonth(key)}
                 aria-pressed={on}
                 className={cx(
-                  'rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
+                  'shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
                   on
                     ? 'border-brand bg-brand text-white shadow-card'
                     : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
@@ -195,7 +201,7 @@ export default function MarketLeague({ raw, currency }) {
         </div>
 
         {/* ------------------------------------------------------ the metric */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
           {METRICS.map((m) => {
             const on = metricKey === m.key
             return (
@@ -205,7 +211,7 @@ export default function MarketLeague({ raw, currency }) {
                 onClick={() => setMetricKey(m.key)}
                 aria-pressed={on}
                 className={cx(
-                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
+                  'inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
                   on
                     ? 'border-brand bg-brand-tint text-brand'
                     : 'border-gray-200 bg-white text-gray-400 hoverable:hover:border-brand hoverable:hover:text-brand',
@@ -237,38 +243,51 @@ export default function MarketLeague({ raw, currency }) {
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand/[0.14] to-brand/[0.03] transition-all duration-500"
                 style={{ width: `${barWidth(r)}%` }}
               />
-              <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2">
+              {/* TWO LINES, NOT ONE WRAPPING LINE.
+                  This was a single `flex-wrap` row holding the name, six facts,
+                  a sparkline and the headline number, and on a 375px phone it
+                  collapsed: the name squeezed down to "Portu…", every fact took
+                  a line of its own, and one market was four hundred pixels
+                  tall. The identity and the number it is ranked on belong on
+                  one line together - that is what a league table IS - and the
+                  supporting figures belong under them where they have the whole
+                  width to wrap into. */}
+              <div className="relative flex items-center gap-2.5 sm:gap-3">
                 <Medal rank={i + 1} />
-                <span className="text-lg leading-none" aria-hidden="true">
+                <span className="shrink-0 text-lg leading-none" aria-hidden="true">
                   {(r.countries || []).slice(0, 2).map((c) => flagEmoji(c)).join('')}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="truncate text-sm font-bold">{r.name}</span>
-                    {month && <Movement from={prev.get(r.id) ?? null} to={i + 1} />}
-                  </span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-smoke">
-                    <span><b className="text-ink">{r.members}</b> creators</span>
-                    <span><b className="text-ink">{r.challenges}</b> challenges</span>
-                    <span><b className="text-ink">{r.posts}</b> videos</span>
-                    <span><b className="text-ink">{formatMoney(r.spend, currency)}</b> in prizes</span>
-                    {r.cpm != null && <span><b className="text-ink">{formatMoney(r.cpm, currency)}</b> / 1k views</span>}
-                    {/* SAY WHEN A NUMBER IS INCOMPLETE. Fourteen historical
-                        challenges were never measured; a market whose total
-                        covers four of its six contests should say so rather
-                        than let the reader assume it covers all six. */}
-                    {r.measured < r.challenges && (
-                      <span className="text-amber-600">views measured on {r.measured} of {r.challenges}</span>
-                    )}
-                  </span>
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate text-sm font-bold">{r.name}</span>
+                  {month && <Movement from={prev.get(r.id) ?? null} to={i + 1} />}
                 </span>
-                {!month && <Spark byMonth={r.byMonth} months={sparkMonths} />}
+                {/* The sparkline is a nicety and the first thing to go when
+                    there is no room for it. */}
+                {!month && <span className="hidden sm:block"><Spark byMonth={r.byMonth} months={sparkMonths} /></span>}
                 <span className="shrink-0 text-right">
-                  <span className="block text-base font-extrabold tabular-nums text-brand sm:text-lg">
+                  <span className="block text-base font-extrabold tabular-nums leading-tight text-brand sm:text-lg">
                     {metric.fmt(r, currency)}
                   </span>
                   <span className="block text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</span>
                 </span>
+              </div>
+
+              <div className="relative mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-[38px] text-[11px] text-smoke sm:pl-[52px]">
+                <span><b className="text-ink">{r.members}</b> creators</span>
+                <span><b className="text-ink">{r.challenges}</b> challenges</span>
+                <span><b className="text-ink">{r.posts}</b> videos</span>
+                <span><b className="text-ink">{formatMoney(r.spend, currency)}</b> in prizes</span>
+                {r.cpm != null && <span><b className="text-ink">{formatMoney(r.cpm, currency)}</b> / 1k views</span>}
+                {/* SAY WHEN A NUMBER IS INCOMPLETE. Fourteen historical
+                    challenges were never measured; a market whose total covers
+                    four of its six contests should say so rather than let the
+                    reader assume it covers all six. */}
+                {r.measured < r.challenges && (
+                  <span className="text-amber-600">
+                    <span className="sm:hidden">{r.measured}/{r.challenges} measured</span>
+                    <span className="hidden sm:inline">views measured on {r.measured} of {r.challenges}</span>
+                  </span>
+                )}
               </div>
             </div>
           ))}
