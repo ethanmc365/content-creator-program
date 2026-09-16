@@ -59,9 +59,23 @@ describe('guess the country bank', () => {
       expect(p.words.length).toBe(spec.clues)
       expect(p.clues).toBe(spec.clues)
       expect(p.guided).toBe(spec.guided)
-      // the clues in play are always the HARDEST ones from the set, in order
-      const set = p.sets.find((s) => s[0] === p.words[0])
-      expect(set.slice(0, p.clues)).toEqual(p.words)
+      if (p.round === 'mixed') {
+        // A MIXED ROUND KEEPS THE RAMP. Every clue is the clue at its own
+        // position in SOME set, which is what makes the difficulty curve of a
+        // mixed round identical to a normal one - the sets are all ordered
+        // hardest-first, so position 2 of set 1 and position 2 of set 3 are
+        // about equally hard.
+        p.words.forEach((w, i) => {
+          expect(p.sets.some((set) => set[i] === w), `${p.name}: "${w}" is not a position-${i} clue`).toBe(true)
+        })
+        // and it never shows the same clue twice
+        const lower = p.words.map((w) => w.toLowerCase())
+        expect(new Set(lower).size, `${p.name} repeats a clue`).toBe(lower.length)
+      } else {
+        // the clues in play are always the HARDEST ones from the set, in order
+        const set = p.sets.find((set) => set.slice(0, p.clues).every((c, i) => c === p.words[i]))
+        expect(set, `${p.name} words do not match any set`).toBeTruthy()
+      }
     }
   })
 
@@ -101,8 +115,31 @@ describe('guess the country bank', () => {
     expect(share('hard', 'guided')).toBeGreaterThan(share('easy', 'guided'))
     // and every style really does come up for every tier
     for (const t of ['easy', 'medium', 'hard']) {
-      for (const r of ['express', 'classic', 'guided']) expect(byTier[t][r], `${t}/${r}`).toBeGreaterThan(0)
+      for (const r of ['express', 'classic', 'mixed', 'guided']) expect(byTier[t][r], `${t}/${r}`).toBeGreaterThan(0)
     }
+  })
+
+  it('builds a mixed round out of more than one set', () => {
+    // If it only ever drew from one set it would be a classic round wearing a
+    // different badge, which is the way this feature fails quietly.
+    let drewFromSeveral = 0, mixedSeen = 0
+    for (let d = 20000; d < 20000 + PINPOINT_DECK_LENGTH; d++) {
+      const p = pinpointForDay(d)
+      if (p.round !== 'mixed') continue
+      mixedSeen++
+      const setsUsed = new Set()
+      p.words.forEach((w, i) => p.sets.forEach((set, si) => { if (set[i] === w) setsUsed.add(si) }))
+      if (setsUsed.size > 1) drewFromSeveral++
+    }
+    expect(mixedSeen).toBeGreaterThan(40)
+    expect(drewFromSeveral / mixedSeen).toBeGreaterThan(0.9)
+  })
+
+  it('has every country in the world in it', () => {
+    // 196 is every UN member plus the two observer states, which is the
+    // definition most people mean by "every country". Worth pinning: the value
+    // of the bank being complete is that it can be SAID to be complete.
+    expect(PINPOINT_COUNTRIES.length).toBe(196)
   })
 
   it('accepts a country by name and by alias, accents ignored', () => {

@@ -826,6 +826,8 @@ export default {
   'Somewhere in': 'En algún lugar de',
   'Express': 'Exprés',
   'Guided': 'Guiada',
+  'Mixed': 'Mixta',
+  'Corridors': 'Pasillos',
   'Hint': 'Pista',
   'Cooling down': 'Enfriando',
   'Rewind to your last correct move': 'Vuelve a tu último movimiento correcto',

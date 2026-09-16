@@ -26,7 +26,7 @@ import { useT } from '../../lib/i18n'
 // words" without knowing which style was played. See lib/pinpoint.
 const STORE_KEY = 'tryp_pinpoint'
 
-const ROUND_TONE = { express: 'brand', classic: 'grey', guided: 'light' }
+const ROUND_TONE = { express: 'brand', classic: 'grey', mixed: 'grey', guided: 'light' }
 
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)

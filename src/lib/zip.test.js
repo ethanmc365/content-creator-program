@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { generateZip, validateZip, zipIndexForDay, layoutSpec, wallKey, ZIP_LAYOUT_COUNT, ZIP_BANDS, interiorEdges } from './zip'
+import {
+  generateZip, validateZip, zipIndexForDay, layoutSpec, wallKey,
+  ZIP_LAYOUT_COUNT, ZIP_BANDS, ZIP_CORRIDOR_START, interiorEdges,
+} from './zip'
 
 describe('flight path layouts', () => {
   it('every layout in the bank is generated with a valid full-coverage solution', { timeout: 120_000 }, () => {
-    expect(ZIP_LAYOUT_COUNT).toBeGreaterThanOrEqual(736)
+    expect(ZIP_LAYOUT_COUNT).toBeGreaterThanOrEqual(1056)
     for (let i = 0; i < ZIP_LAYOUT_COUNT; i++) {
       const puzzle = generateZip(i)
       const { size, dots, walls, solution } = puzzle
@@ -15,6 +18,21 @@ describe('flight path layouts', () => {
       const steps = new Set()
       for (let s = 1; s < solution.length; s++) steps.add(wallKey(solution[s - 1], solution[s]))
       for (const [a, b] of walls) expect(steps.has(wallKey(a, b)), `layout ${i} wall on route`).toBe(false)
+      // EVERY WALL SITS BETWEEN TWO CELLS THAT ARE ACTUALLY NEXT TO EACH OTHER.
+      // Worth asserting since the corridor pack walks a wall along its own axis
+      // by adding `size` or 1 to both cell ids: a horizontal run that is not
+      // stopped at the edge of the grid wraps onto the next row, where the two
+      // ids are still consecutive and the cells are at opposite ends of the
+      // board.
+      const pairs = new Set()
+      for (const [a, b] of walls) {
+        const k = wallKey(a, b)
+        expect(pairs.has(k), `layout ${i} lists a wall twice`).toBe(false)
+        pairs.add(k)
+        const ra = Math.floor(a / size), ca = a % size
+        const rb = Math.floor(b / size), cb = b % size
+        expect(Math.abs(ra - rb) + Math.abs(ca - cb), `layout ${i} wall ${a}-${b} is not an edge`).toBe(1)
+      }
       // the generator's own path must be a real solution
       expect(validateZip(puzzle, solution), `layout ${i} unsolvable`).toBe(true)
     }
@@ -56,6 +74,54 @@ describe('flight path layouts', () => {
       const hi = avgSize[ranked[i]] / byDiff[ranked[i]]
       expect(hi, `${ranked[i]} is not bigger than ${ranked[i - 1]}`).toBeGreaterThan(lo)
     }
+  })
+
+  it('grows the corridor pack\'s walls into barriers instead of scattering them', () => {
+    // The whole point of the band: a scattered board is solved by probing, a
+    // board with barriers on it is solved by looking. Measured as the average
+    // length of a run of walls along its own axis - if the two bands came out
+    // the same, the pack would be 320 layouts that are not actually different.
+    const runLength = (p) => {
+      const set = new Set(p.walls.map(([a, b]) => wallKey(a, b)))
+      const seen = new Set()
+      const runs = []
+      for (const [a, b] of p.walls) {
+        const k = wallKey(a, b)
+        if (seen.has(k)) continue
+        seen.add(k)
+        const step = b === a + 1 ? p.size : 1
+        let len = 1
+        for (const dir of [1, -1]) {
+          for (let n = 1; ; n++) {
+            const kk = wallKey(a + dir * n * step, b + dir * n * step)
+            if (!set.has(kk) || seen.has(kk)) break
+            seen.add(kk)
+            len++
+          }
+        }
+        runs.push(len)
+      }
+      return runs.length ? runs.reduce((x, y) => x + y, 0) / runs.length : 0
+    }
+    const mean = (from, to) => {
+      let sum = 0, n = 0
+      for (let i = from; i < to; i += 3) {
+        const p = generateZip(i)
+        if (p.walls.length < 4) continue
+        sum += runLength(p)
+        n++
+      }
+      return sum / n
+    }
+    const scattered = mean(416, ZIP_CORRIDOR_START)
+    const grown = mean(ZIP_CORRIDOR_START, ZIP_LAYOUT_COUNT)
+    expect(scattered).toBeLessThan(1.6)
+    expect(grown).toBeGreaterThan(2.2)
+  })
+
+  it('tells the board which kind of walls it has', () => {
+    expect(generateZip(500).wallStyle).toBe('scatter')
+    expect(generateZip(ZIP_CORRIDOR_START + 5).wallStyle).toBe('grown')
   })
 
   it('is deterministic (same index, same puzzle)', () => {

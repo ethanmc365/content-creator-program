@@ -124,21 +124,79 @@ function stopPositions(N, count, rng) {
 // Walls between grid-adjacent cells that are NOT consecutive on the solution
 // path. The generator's route never crosses them, so the puzzle stays solvable
 // while alternative routes get pruned away.
-function buildWalls(size, path, count, rng) {
+//
+// SCATTERED WALLS AND GROWN WALLS ARE TWO DIFFERENT PUZZLES (16 Sep 2026).
+//
+// Every layout until now took its walls by shuffling the legal candidates and
+// slicing off the first N, which spreads them like static. That reads as noise:
+// each wall is a small local surprise and the board has no shape you can see
+// from across the room, so a hard puzzle is hard the way a haystack is hard.
+//
+// `grown` picks a few seeds and extends each one END TO END along its own line,
+// which is what a person drawing a maze does. The result is BARRIERS - walls
+// that run for four or five cells and make corridors, dead ends and rooms - and
+// they are read at a glance and solved by thinking rather than by probing. Same
+// guarantee either way: a wall can only land on an edge the generator's route
+// never uses, so the puzzle is still solvable by construction.
+function buildWalls(size, path, count, rng, style = 'scatter') {
   const onPath = new Set()
   for (let i = 1; i < path.length; i++) onPath.add(wallKey(path[i - 1], path[i]))
+  const legal = (a, b) => !onPath.has(wallKey(a, b))
+
   const candidates = []
   for (let cell = 0; cell < size * size; cell++) {
     const r = Math.floor(cell / size), c = cell % size
-    if (c < size - 1 && !onPath.has(wallKey(cell, cell + 1))) candidates.push([cell, cell + 1])
-    if (r < size - 1 && !onPath.has(wallKey(cell, cell + size))) candidates.push([cell, cell + size])
+    if (c < size - 1 && legal(cell, cell + 1)) candidates.push([cell, cell + 1])
+    if (r < size - 1 && legal(cell, cell + size)) candidates.push([cell, cell + size])
   }
   // deterministic shuffle
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1))
     ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
   }
-  return candidates.slice(0, Math.min(count, candidates.length))
+  if (style !== 'grown') return candidates.slice(0, Math.min(count, candidates.length))
+
+  // ---- grown: take a candidate and walk it outwards along its own axis.
+  //
+  // A wall between `cell` and `cell + 1` is a VERTICAL segment, so the wall
+  // beside it on the same line is between `cell + size` and `cell + size + 1` -
+  // one row down, same column boundary. Walking both ways from a seed gives one
+  // continuous barrier.
+  const taken = new Set()
+  const out = []
+  const push = (a, b) => {
+    const k = wallKey(a, b)
+    if (taken.has(k)) return false
+    taken.add(k)
+    out.push([a, b])
+    return true
+  }
+  for (const seed of candidates) {
+    if (out.length >= count) break
+    const [a, b] = seed
+    const vertical = b === a + 1
+    const step = vertical ? size : 1
+    if (!push(a, b)) continue
+    // How long this barrier wants to be. Short ones read as clutter and a wall
+    // that crosses the whole board makes a sealed corridor, so neither extreme
+    // is useful.
+    const want = 2 + Math.floor(rng() * 3)
+    for (const dir of [1, -1]) {
+      for (let n = 1; n <= want && out.length < count; n++) {
+        const na = a + dir * n * step
+        const nb = b + dir * n * step
+        if (na < 0 || nb < 0 || na >= size * size || nb >= size * size) break
+        // A horizontal run must not wrap round the edge of the grid onto the
+        // next row - the cells stay adjacent by index and stop being adjacent
+        // on the board.
+        if (!vertical && Math.floor(na / size) !== Math.floor(a / size)) break
+        if (vertical && (na % size) !== (a % size)) break
+        if (!legal(na, nb)) break
+        if (!push(na, nb)) break
+      }
+    }
+  }
+  return out.slice(0, count)
 }
 
 // ---------------------------------------------------------------- the bank
@@ -152,12 +210,18 @@ function buildWalls(size, path, count, rng) {
 //              13x13 maze. Added 16 Sep 2026 because the daily puzzle had
 //              started to feel same-y - see `zipIndexForDay` for the other
 //              half of that story, which was the bigger half.
+//   736 -1055  CORRIDOR PACK: 320 more, and the only band whose walls are
+//              GROWN rather than scattered. Same tiers, same sizes, entirely
+//              different puzzle - see `buildWalls`. A scattered board is solved
+//              by probing; a board with barriers on it is solved by looking.
 export const ZIP_SEASONAL_COUNT = 366
 export const ZIP_HARD_PACK_COUNT = 50
 export const ZIP_HARD_PACK_START = ZIP_SEASONAL_COUNT // first legend index = 366
 export const ZIP_VOYAGER_COUNT = 320
 export const ZIP_VOYAGER_START = ZIP_SEASONAL_COUNT + ZIP_HARD_PACK_COUNT // 416
-export const ZIP_LAYOUT_COUNT = ZIP_VOYAGER_START + ZIP_VOYAGER_COUNT // 736
+export const ZIP_CORRIDOR_COUNT = 320
+export const ZIP_CORRIDOR_START = ZIP_VOYAGER_START + ZIP_VOYAGER_COUNT // 736
+export const ZIP_LAYOUT_COUNT = ZIP_CORRIDOR_START + ZIP_CORRIDOR_COUNT // 1056
 export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']
 
 // EVERY DIFFICULTY THE GAME CAN SERVE, HARDEST LAST, WITH ITS OWN ENVELOPE.
@@ -202,6 +266,27 @@ const VOYAGER_MIX = [
 // indices are not neighbouring difficulties. (It does not matter much now that
 // the day picks by permutation, but a pack whose first forty entries are all
 // the easiest tier is a trap for anything that ever samples a range of it.)
+// The corridor pack skips the two smallest tiers: a 4x4 has no room for a
+// barrier that is not simply a wall across the board, and `hop` exists to be
+// quick rather than to be a maze.
+const CORRIDOR_MIX = [
+  ['easy', 34], ['medium', 52], ['hard', 58],
+  ['expert', 54], ['extreme', 46], ['ultra', 40], ['legend', 36],
+]
+
+const shuffledTiers = (mix, seed) => {
+  const out = []
+  for (const [tier, n] of mix) for (let i = 0; i < n; i++) out.push(tier)
+  const rng = mulberry32(seed)
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+const CORRIDOR_TIERS = shuffledTiers(CORRIDOR_MIX, 0x0c04d05)
+
 const VOYAGER_TIERS = (() => {
   const out = []
   for (const [tier, n] of VOYAGER_MIX) for (let i = 0; i < n; i++) out.push(tier)
@@ -215,6 +300,29 @@ const VOYAGER_TIERS = (() => {
 
 /** Grid size, stop count, wall count + difficulty label for a layout index. */
 export function layoutSpec(index) {
+  // ---- Corridor pack (index >= 736). Same tiers as the voyager pack and the
+  // same envelopes, but the walls are GROWN into barriers rather than
+  // scattered, and there are slightly more of them - a barrier blocks less than
+  // the same number of scattered walls would, because its pieces are all in one
+  // place.
+  if (index >= ZIP_CORRIDOR_START) {
+    const k = index - ZIP_CORRIDOR_START
+    const difficulty = CORRIDOR_TIERS[k % CORRIDOR_TIERS.length]
+    const band = ZIP_BANDS[difficulty]
+    const rng = mulberry32(0xc04d05 + index * 2654435761)
+    const seed = 0x6a11 + index * 7919
+    const size = band.sizes[Math.floor(rng() * band.sizes.length)]
+    const edges = interiorEdges(size)
+    const lo = band.wallFrac[0], hi = band.wallFrac[1]
+    // Aim at the upper half of the tier's envelope, and never past it.
+    const frac = Math.min(hi, lo + (0.45 + rng() * 0.55) * (hi - lo))
+    const walls = Math.round(edges * frac)
+    const cells = size * size
+    const stopFrac = band.stopsPer[0] + rng() * (band.stopsPer[1] - band.stopsPer[0])
+    const stops = Math.max(3, Math.min(Math.floor(cells / 3), Math.round(cells * stopFrac)))
+    return { difficulty, size, stops, walls, seed, wallStyle: 'grown' }
+  }
+
   // ---- Voyager pack (index >= 416). Every number is drawn from the tier's own
   // envelope in ZIP_BANDS, so "what does expert mean" has exactly one answer.
   if (index >= ZIP_VOYAGER_START) {
@@ -278,13 +386,13 @@ export function layoutSpec(index) {
  * (kept for the tests, never shown to the player).
  */
 export function generateZip(index) {
-  const { size, stops, walls: wallCount, seed, difficulty } = layoutSpec(index)
+  const { size, stops, walls: wallCount, seed, difficulty, wallStyle } = layoutSpec(index)
   const rng = mulberry32(seed)
   const path = hamiltonianPath(size, rng)
   const positions = stopPositions(path.length, stops, rng)
   const dots = positions.map((p, i) => ({ cell: path[p], n: i + 1 }))
-  const walls = buildWalls(size, path, wallCount, rng)
-  return { size, index, difficulty, dots, walls, solution: path }
+  const walls = buildWalls(size, path, wallCount, rng, wallStyle)
+  return { size, index, difficulty, dots, walls, solution: path, wallStyle: wallStyle || 'scatter' }
 }
 
 // THE DAY PICKS BY SHUFFLE, AND THE OLD MULTIPLY-AND-MOD IS WHY THE PUZZLE

@@ -539,15 +539,17 @@ export default function ZipGame({ onExit }) {
   const RING = 2 * Math.PI * 9.5 // the hint button's cooldown ring
   const coolFrac = cooling ? cooldownLeft / HINT_COOLDOWN_MS : 0
 
-  // Wall segment endpoints (drawn on the shared edge, inset from the corners).
-  const wallSegment = ([a, b]) => {
+  // THE BAR A WALL IS DRAWN AS, on the shared edge and inset from the corners
+  // so two walls meeting at a corner do not fuse into an L.
+  const T = 11 // bar thickness
+  const wallBar = ([a, b]) => {
     const ra = Math.floor(a / size), ca = a % size
-    if (b === a + 1) { // vertical wall to the right of a
+    if (b === a + 1) { // vertical wall, to the right of a
       const x = (ca + 1) * CELL
-      return { x1: x, y1: ra * CELL + 8, x2: x, y2: (ra + 1) * CELL - 8 }
+      return { x: x - T / 2, y: ra * CELL + 7, width: T, height: CELL - 14, vertical: true }
     }
-    const y = (ra + 1) * CELL // horizontal wall below a
-    return { x1: ca * CELL + 8, y1: y, x2: (ca + 1) * CELL - 8, y2: y }
+    const y = (ra + 1) * CELL // horizontal wall, below a
+    return { x: ca * CELL + 7, y: y - T / 2, width: CELL - 14, height: T, vertical: false }
   }
 
   return (
@@ -591,11 +593,15 @@ export default function ZipGame({ onExit }) {
           70% { transform: translateX(2px); }
         }
         /* The wall you actually hit, so the refusal points at something. */
-        .fp-wall-hit { animation: fp-wall-hit 0.42s ease-out both; }
+        /* The wall you actually hit. It is a RECT now, so the animation moves
+           its scale rather than a stroke width it no longer has - and the red
+           is set on the fill in the markup, because a keyframe cannot override
+           a gradient reference. */
+        .fp-wall-hit { animation: fp-wall-hit 0.42s ease-out both; transform-box: fill-box; transform-origin: center; }
         @keyframes fp-wall-hit {
-          0% { stroke: #dc2626; stroke-width: 15; }
-          60% { stroke: #dc2626; stroke-width: 12; }
-          100% { stroke: #d94407; stroke-width: 10; }
+          0% { transform: scale(1.5); }
+          55% { transform: scale(1.22); }
+          100% { transform: scale(1); }
         }
         /* A stop being collected. The coin sound lands on the same frame. */
         .fp-stop-pop { animation: fp-stop-pop 0.42s cubic-bezier(0.22,1,0.36,1) both; transform-box: fill-box; transform-origin: center; }
@@ -617,6 +623,29 @@ export default function ZipGame({ onExit }) {
         }
         .fp-board { animation: fp-board-in 0.4s ease-out both; }
         @keyframes fp-board-in { from { opacity: 0; } to { opacity: 1; } }
+        /* A BAND OF LIGHT DOWN THE FINISHED ROUTE. The dash is far longer than
+           any board's trail, so one rule works whether the route is 16 cells
+           or 169. */
+        .fp-land-sweep {
+          stroke-dasharray: 90 2000;
+          stroke-dashoffset: 120;
+          animation: fp-land-sweep 1.15s cubic-bezier(0.4, 0, 0.2, 1) 0.12s both;
+        }
+        @keyframes fp-land-sweep {
+          from { stroke-dashoffset: 120; opacity: 0; }
+          15% { opacity: 0.85; }
+          to { stroke-dashoffset: -2100; opacity: 0; }
+        }
+        /* The panel arrives after the sweep has had time to travel. */
+        .fp-win-scrim { animation: fp-win-scrim 0.5s ease-out 0.75s both; }
+        @keyframes fp-win-scrim { from { opacity: 0; } to { opacity: 1; } }
+        /* THE STOP YOU NEED NEXT: a solid ring that breathes. The hint's ring
+           is the dashed one that turns, and the two are on screen together. */
+        .fp-next-ring { animation: fp-next-ring 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        @keyframes fp-next-ring {
+          0%, 100% { opacity: 0.45; transform: scale(0.94); }
+          50% { opacity: 0.9; transform: scale(1.04); }
+        }
         /* WHERE THE HINT SAYS TO GO. A dashed ring that turns, on the cell the
            plane has just been pointed at. The heading alone is right but it is
            small - at a glance on a phone a 12-degree difference between two
@@ -646,7 +675,11 @@ export default function ZipGame({ onExit }) {
         @media (prefers-reduced-motion: reduce) {
           .fp-plane-bob, .fp-trail-dash, .fp-trail-dash-far, .fp-wake, .fp-puff,
           .fp-nudge, .fp-wall-hit, .fp-stop-pop, .fp-cell, .fp-board,
-          .fp-target, .fp-target-pulse, .fp-hint-pop, .fp-hint-msg { animation: none; }
+          .fp-target, .fp-target-pulse, .fp-hint-pop, .fp-hint-msg,
+          .fp-next-ring, .fp-land-sweep { animation: none; }
+          /* The winning panel still needs to arrive, or a finished board says
+             nothing at all. */
+          .fp-win-scrim { animation-duration: 0.01s; animation-delay: 0s; }
         }
       `}</style>
 
@@ -668,7 +701,19 @@ export default function ZipGame({ onExit }) {
         chips={(
           <>
             <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> {tr("Flight Path")}</Badge>
-            <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
+            {/* THE BADGE SAYS WHAT THE BOARD IS, NOT ONLY HOW HARD IT IS.
+                There are eight tiers and grids from 4x4 to 13x13 now, and
+                "Expert" on its own does not tell you whether you are about to
+                spend two minutes or twenty. The size does. And a corridor board
+                is a different puzzle from a scattered one - see lib/zip - so
+                when the walls are barriers it says so, because that changes how
+                you should be looking at it. */}
+            <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">
+              {DIFF_LABEL[difficulty]} · {size}×{size}
+            </Badge>
+            {puzzle.wallStyle === 'grown' && walls.length > 0 && (
+              <Badge tone="light" className="!px-2 !py-0.5 text-[10px]">{tr('Corridors')}</Badge>
+            )}
             <StreakChip n={streak} title={`${streak}-day daily streak`} />
           </>
         )}
@@ -705,7 +750,14 @@ export default function ZipGame({ onExit }) {
             ref={svgRef}
             viewBox={`0 0 ${W} ${W}`}
             className="block w-full select-none overflow-hidden rounded-card"
-            style={{ touchAction: 'none' }}
+            style={{
+              touchAction: 'none',
+              // A WINDOW HAS AN EDGE AND SITS ON SOMETHING. The board was a
+              // rectangle of gradient flush against a white card, which is a
+              // painted panel; a soft drop shadow and a hairline of light
+              // around it is the difference between a fill and a view.
+              boxShadow: '0 10px 30px -12px rgba(14,48,77,0.32), inset 0 0 0 1px rgba(255,255,255,0.55)',
+            }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -757,16 +809,50 @@ export default function ZipGame({ onExit }) {
                 <stop offset="52%" stopColor="#e8550f" />
                 <stop offset="100%" stopColor="#c23a03" />
               </linearGradient>
+              {/* A WINDOW, NOT A RECTANGLE OF COLOUR. A large flat gradient has
+                  no edges, so the board read as a panel the card happened to be
+                  painted with. A soft darkening in the corners is the whole
+                  difference between a fill and a view of something. */}
+              <radialGradient id="fp-vignette" cx="50%" cy="46%" r="72%">
+                <stop offset="55%" stopColor="#0b3c63" stopOpacity="0" />
+                <stop offset="100%" stopColor="#0b3c63" stopOpacity="0.14" />
+              </radialGradient>
+              {/* Walls are lit across their short axis, so a bar has a body
+                  rather than being a painted line.
+
+                  TWO GRADIENTS, AND A WALL IS A RECT AND NOT A LINE. A
+                  gradient in the default `objectBoundingBox` units needs an
+                  object with a bounding BOX: a vertical `<line>` has zero
+                  width and a horizontal one zero height, and a browser given a
+                  bbox gradient on a degenerate box draws NOTHING. Every wall on
+                  the board silently disappeared. Rects have a real box, and
+                  each orientation gets the gradient that runs across it. */}
+              <linearGradient id="fp-wall-h" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f5762f" />
+                <stop offset="55%" stopColor="#d94407" />
+                <stop offset="100%" stopColor="#b53703" />
+              </linearGradient>
+              <linearGradient id="fp-wall-v" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#f5762f" />
+                <stop offset="55%" stopColor="#d94407" />
+                <stop offset="100%" stopColor="#b53703" />
+              </linearGradient>
             </defs>
             {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            {/* Sky cells: translucent white panes over the blue. The stroke is
-                a faint INK, not a white one, because the gradient washes out to
-                near-white at the foot of the board and a white edge would
-                disappear down there. */}
+            {/* Sky cells: translucent white panes over the blue.
+
+                AERIAL PERSPECTIVE. A pane near the top of the board sits over
+                the deepest blue and a pane at the foot sits over almost white,
+                so one fixed opacity makes the top row look like a solid tile
+                and the bottom row look like nothing at all. The panes thin out
+                as they go up, which is both what distance does to anything seen
+                through air and the only way the grid reads evenly from top to
+                bottom. */}
             {Array.from({ length: N }).map((_, cell) => {
               const r = Math.floor(cell / size), c = cell % size
               const x = c * CELL, y = r * CELL
+              const depth = size > 1 ? r / (size - 1) : 1
               return (
                 <rect
                   key={cell}
@@ -774,12 +860,14 @@ export default function ZipGame({ onExit }) {
                   style={{ animationDelay: `${Math.min((r + c) * 14, 340)}ms` }}
                   x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
                   fill="#ffffff"
-                  fillOpacity={0.5}
+                  fillOpacity={0.4 + depth * 0.2}
                   stroke="rgba(255,255,255,0.75)"
                   strokeWidth={1.5}
                 />
               )
             })}
+            {/* over the panes, under everything that matters */}
+            <rect x="0" y="0" width={W} height={W} fill="url(#fp-vignette)" style={{ pointerEvents: 'none' }} />
 
             {/* the flown sky: one continuous rounded SNAKE through every cell
                 on the route - a breathing wake glow under a solid rounded body
@@ -813,6 +901,20 @@ export default function ZipGame({ onExit }) {
                     speed, which is what turns a dashed line into moving air. */}
                 <path className="fp-trail-dash-far" d={trailD} fill="none" stroke="#ffffff" strokeOpacity={0.45} strokeWidth={2.5} strokeDasharray="2 28" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                {/* THE LANDING RUNS THE LENGTH OF THE ROUTE. Finishing used to
+                    be a white wash dropped over the board, which hides the one
+                    thing the player just spent ten minutes making. A band of
+                    light travels the whole contrail instead, from the first
+                    stop to the last, and the panel that follows sits over a
+                    thinner scrim so the route is still visible under it. */}
+                {solved && (
+                  <path
+                    className="fp-land-sweep"
+                    d={trailD} fill="none" stroke="#ffffff" strokeOpacity={0.9}
+                    strokeWidth={34} strokeLinecap="round" strokeLinejoin="round"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
                 {puffs.map((pf, i) => (
                   <circle
                     key={i}
@@ -829,38 +931,89 @@ export default function ZipGame({ onExit }) {
               </>
             )}
 
-            {/* no-fly walls: solid Tryp orange bars */}
+            {/* NO-FLY WALLS. Solid bars, lit across their short axis like
+                everything else here - a flat line reads as pen on paper, a bar
+                with a body reads as something in the way. Striped versions were
+                tried and rejected; this is the same bar, given depth. */}
             {walls.map((wpair, i) => {
-              const s = wallSegment(wpair)
+              const bar = wallBar(wpair)
               const hit = hitWall === wallKey(wpair[0], wpair[1])
               return (
-                <line
-                  // Keyed on the hit so the class change remounts the node -
-                  // an animation already applied does not restart itself, so
+                <rect
+                  // Keyed on the hit so the class change remounts the node - an
+                  // animation already applied does not restart itself, so
                   // hitting the same wall twice would flash once.
                   key={`${i}${hit ? '-hit' : ''}`}
-                  {...s}
                   className={hit ? 'fp-wall-hit' : undefined}
-                  stroke={BRAND} strokeWidth={10} strokeLinecap="round"
-                  style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.2))' }}
+                  x={bar.x} y={bar.y} width={bar.width} height={bar.height}
+                  rx={T / 2}
+                  fill={hit ? '#dc2626' : `url(#fp-wall-${bar.vertical ? 'v' : 'h'})`}
+                  style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1.5px 2.5px rgba(20,30,45,0.3))' }}
                 />
               )
             })}
 
-            {/* numbered stops. The stop under the plane hides entirely - its
-                number is shown ON the aircraft instead (below). */}
+            {/* NUMBERED STOPS.
+                The stop under the plane hides entirely - its number rides on
+                the aircraft instead (below).
+
+                THE ONE YOU NEED NEXT IS THE ONE THE BOARD SHOULD BE POINTING
+                AT. On an eleven-by-eleven with eighteen stops, finding "which
+                circle says 7" is a search across a hundred and twenty cells,
+                and it is a search the player repeats after every single stop.
+                The next stop now carries a slow ring around it. Nothing else
+                changes - it is not a hint, it is a label you can see.
+
+                AND THE LAST STOP IS A DESTINATION. It is the only stop with a
+                rule of its own (you may not land on it until the sky is full),
+                and it looked exactly like the other seventeen - so the commonest
+                refusal in the game was the board saying no to something it had
+                given no sign about. It wears a ring. */}
             {dots.map((d) => {
               if (d.cell === head && !solved && !checking) return null
               const [x, y] = centre(d.cell)
               const visited = covered.has(d.cell)
               const popping = popStop === d.cell
+              const isNext = !visited && d.n === expected && !solved && !checking
+              const isLast = d.n === lastN
               return (
                 <g
                   key={popping ? `${d.n}-pop` : d.n}
                   className={popping ? 'fp-stop-pop' : undefined}
                   style={{ pointerEvents: 'none' }}
                 >
-                  <circle cx={x} cy={y} r={27} fill={visited ? BRAND : '#ffffff'} stroke={visited ? '#ffffff' : BRAND} strokeWidth={4} style={{ transition: 'fill 180ms ease-out, stroke 180ms ease-out' }} />
+                  {/* THREE RINGS ON THIS BOARD AND THEY MUST NOT LOOK ALIKE.
+                      A DASHED, TURNING ring is the hint saying "fly here next",
+                      and it only ever appears on an empty cell with a tint
+                      behind it. A SOLID, BREATHING ring is the stop you need
+                      next - it is a label, not an instruction. A FINE DOTTED
+                      ring is the last stop, which is the one place you are not
+                      allowed to land until the sky is full. Dashed and dotted
+                      at a glance were indistinguishable before this. */}
+                  {isNext && (
+                    <circle
+                      className="fp-next-ring"
+                      cx={x} cy={y} r={36}
+                      fill="none" stroke={BRAND} strokeWidth={3}
+                    />
+                  )}
+                  {isLast && !visited && (
+                    <circle
+                      cx={x} cy={y} r={35}
+                      fill="none" stroke={BRAND} strokeOpacity={0.5} strokeWidth={2.5}
+                      strokeDasharray="1.5 6" strokeLinecap="round"
+                    />
+                  )}
+                  <circle
+                    cx={x} cy={y} r={27}
+                    fill={visited ? BRAND : '#ffffff'}
+                    stroke={visited ? '#ffffff' : BRAND}
+                    strokeWidth={4}
+                    style={{
+                      transition: 'fill 180ms ease-out, stroke 180ms ease-out',
+                      filter: 'drop-shadow(0 2px 3px rgba(20,30,45,0.22))',
+                    }}
+                  />
                   <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
                     {d.n}
                   </text>
@@ -907,7 +1060,7 @@ export default function ZipGame({ onExit }) {
           </svg>
 
           {solved && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/85 backdrop-blur-[2px]">
+            <div className="fp-win-scrim absolute inset-0 flex items-center justify-center rounded-card bg-white/70 backdrop-blur-[1px]">
               <div className="flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
                   <Icon name="plane-tryp" className="h-8 w-8" />

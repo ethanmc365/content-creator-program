@@ -139,8 +139,8 @@ describe('buildQuestion', () => {
 describe('the bank after the expansion', () => {
   it('is big enough that a phrase does not come round often', () => {
     const total = LANGUAGES.reduce((n, l) => n + l.phrases.length, 0)
-    expect(LANGUAGES.length, 'languages').toBeGreaterThanOrEqual(55)
-    expect(total, 'phrases').toBeGreaterThanOrEqual(1000)
+    expect(LANGUAGES.length, 'languages').toBeGreaterThanOrEqual(68)
+    expect(total, 'phrases').toBeGreaterThanOrEqual(1200)
     for (const l of LANGUAGES) {
       expect(l.phrases.length, `${l.name} is thinner than the rest`).toBeGreaterThanOrEqual(11)
     }
@@ -164,8 +164,14 @@ describe('the bank after the expansion', () => {
     }
   })
 
-  it('puts every language in a family, and every family has company or a reason not to', () => {
+  it('puts every language in a family, and most families have company', () => {
     for (const l of LANGUAGES) expect(l.family?.trim(), `${l.name} has no family`).toBeTruthy()
+    // A family of one can never supply the sibling a hard question wants, so
+    // the point of adding languages is partly to thin the singletons out.
+    const sizes = {}
+    for (const l of LANGUAGES) sizes[l.family] = (sizes[l.family] || 0) + 1
+    const singletons = Object.values(sizes).filter((n) => n === 1).length
+    expect(singletons / Object.keys(sizes).length, 'too many families of one').toBeLessThan(0.5)
   })
 
   it('NEVER offers two languages that both use the phrase', () => {
@@ -266,15 +272,15 @@ describe('the daily round', () => {
     }
     gaps.sort((a, b) => a - b)
     const median = gaps[Math.floor(gaps.length / 2)]
-    expect(median, 'phrases are coming round too often').toBeGreaterThan(55)
+    expect(median, 'phrases are coming round too often').toBeGreaterThan(80)
     expect(gaps[0], 'a phrase came back almost immediately').toBeGreaterThanOrEqual(3)
     expect(insideAFortnight, 'too many phrases came back inside two weeks').toBeLessThan(6)
   })
 
   it('cannot repeat a phrase until its whole deck has been dealt', () => {
     // The guarantee the deck exists to make, stated as the numbers it produces.
-    expect(phraseCycleDays('easy')).toBeGreaterThan(45)
-    expect(phraseCycleDays('medium')).toBeGreaterThan(120)
-    expect(phraseCycleDays('hard')).toBeGreaterThan(60)
+    expect(phraseCycleDays('easy')).toBeGreaterThan(55)
+    expect(phraseCycleDays('medium')).toBeGreaterThan(150)
+    expect(phraseCycleDays('hard')).toBeGreaterThan(90)
   })
 })
