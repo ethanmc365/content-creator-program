@@ -59,6 +59,26 @@ function loadStored(day) {
   } catch { return null }
 }
 
+// THE COOLDOWN OUTLIVES THE PAGE, OR IT IS NOT A COOLDOWN.
+//
+// It lived in component state, so leaving the puzzle and coming back reset it -
+// and "Back to games, then Flight Path" is two taps. A ten-second wait you can
+// skip in two taps is not a wait, and the whole point of it was to stop the
+// button being leant on. It is written down against the DAY, so tomorrow's
+// puzzle starts clean however today ended.
+const HINT_KEY = 'tryp_zip_hint'
+
+function loadHintState(day) {
+  try {
+    const h = JSON.parse(localStorage.getItem(HINT_KEY) || 'null')
+    return h && h.day === day ? { at: Number(h.at) || 0, used: Number(h.used) || 0 } : { at: 0, used: 0 }
+  } catch { return { at: 0, used: 0 } }
+}
+
+function saveHintState(day, at, used) {
+  try { localStorage.setItem(HINT_KEY, JSON.stringify({ day, at, used })) } catch { /* private mode */ }
+}
+
 // Turn the cell-centre points into a smooth path: straight runs stay straight,
 // every 90-degree turn gets a rounded corner (quadratic curve through the
 // corner point) so the contrail sweeps like a real flight line.
@@ -198,8 +218,9 @@ export default function ZipGame({ onExit }) {
   // not a move, and it clears the moment the player flies anywhere.
   const [hintNext, setHintNext] = useState(null)
   const [hintMsg, setHintMsg] = useState(null)
-  const [hintsUsed, setHintsUsed] = useState(0)
-  const [hintAt, setHintAt] = useState(0)   // when the last hint was taken
+  const storedHint = useState(() => loadHintState(day))[0]
+  const [hintsUsed, setHintsUsed] = useState(storedHint.used)
+  const [hintAt, setHintAt] = useState(storedHint.at)   // when the last hint was taken
   const [now, setNow] = useState(0)         // ticks only while a cooldown runs
   const rewindRef = useRef(null)            // the reel-in timer, if one is running
   const cooldownLeft = hintAt ? Math.max(0, HINT_COOLDOWN_MS - (now - hintAt)) : 0
@@ -239,7 +260,7 @@ export default function ZipGame({ onExit }) {
   // interval running at that rate for the whole game - which on a legend board
   // is half an hour - would be a lot of renders in exchange for nothing.
   useEffect(() => {
-    if (!hintAt) return
+    if (!hintAt) return undefined
     setNow(Date.now())
     const t = setInterval(() => {
       const n = Date.now()
@@ -441,8 +462,11 @@ export default function ZipGame({ onExit }) {
   function takeHint() {
     if (solved || checking || cooling || rewindRef.current) return
     const res = hintForPath(puzzle, pathRef.current)
-    setHintsUsed((n) => n + 1)
-    setHintAt(Date.now())
+    const now = Date.now()
+    const used = hintsUsed + 1
+    setHintsUsed(used)
+    setHintAt(now)
+    saveHintState(day, now, used)
 
     if (res.removed <= 0) {
       setHintNext(res.nextCell)

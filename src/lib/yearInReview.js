@@ -60,7 +60,13 @@ export function standing(values, mine, { includeMine = false } = {}) {
   if (!field.length) return null
   const rank = field.filter((v) => v > mine).length + 1
   const pct = Math.max(1, Math.round((rank / field.length) * 100))
-  return { rank, of: field.length, percentile: pct, top: pct <= 50 }
+  // `top` IS "WORTH SAYING OUT LOUD", NOT "BETTER THAN AVERAGE".
+  //
+  // It was `pct <= 50`, which put "Top 45% for views" on the share card - a
+  // sentence nobody has ever wanted to post, and the one card in the recap that
+  // exists to be posted. Roughly the top third is the line where a standing
+  // stops being a participation notice and starts being a boast.
+  return { rank, of: field.length, percentile: pct, top: pct <= 30 }
 }
 
 function monthOf(d) {
@@ -173,22 +179,40 @@ export function buildYearInReview({
   // personal card and the community card were counting different things and a
   // creator's share of the total was quietly wrong wherever a result had been
   // published.
+  // INDEXED ONCE, NOT SCANNED PER CREATOR. This is called for the viewer and
+  // then for every peer to build the community total and the ranking, so a
+  // filter over the whole submissions table inside it is O(creators x
+  // submissions) - fine at a hundred creators and forty videos, and a wall at a
+  // thousand and ten thousand.
+  const subsByCreator = new Map()
+  for (const x of submissions) {
+    if (!inYear(x.submitted_at, year)) continue
+    const list = subsByCreator.get(x.creator_id)
+    if (list) list.push(x); else subsByCreator.set(x.creator_id, [x])
+  }
+  const resultsByCreator = new Map()
+  for (const r of results) {
+    const list = resultsByCreator.get(r.creator_id)
+    if (list) list.push(r); else resultsByCreator.set(r.creator_id, [r])
+  }
+
   const viewsInYearFor = (id) => {
-    const subs = submissions.filter((x) => x.creator_id === id && inYear(x.submitted_at, year))
+    const subs = subsByCreator.get(id) || []
+    if (!subs.length) return 0
     const entered = new Set(subs.map((x) => x.challenge_id).filter(Boolean))
     const seen = new Map()
-    for (const r of results) {
-      if (r.creator_id !== id || !entered.has(r.challenge_id)) continue
+    for (const r of resultsByCreator.get(id) || []) {
+      if (!entered.has(r.challenge_id)) continue
       const v = Number(r.final_views || 0)
       if (v > 0) seen.set(r.challenge_id, v)
     }
     let n = 0
-    for (const cid of entered) {
-      const v = seen.get(cid)
-      if (v != null) { n += v; continue }
-      for (const x of subs) if (x.challenge_id === cid) n += Number(x.logged_views || 0)
+    for (const x of subs) {
+      if (!x.challenge_id) { n += Number(x.logged_views || 0); continue }
+      if (seen.has(x.challenge_id)) continue          // counted once, below
+      n += Number(x.logged_views || 0)
     }
-    for (const x of subs) if (!x.challenge_id) n += Number(x.logged_views || 0)
+    for (const [, v] of seen) n += v
     return n
   }
   const views = viewsInYearFor(meId)

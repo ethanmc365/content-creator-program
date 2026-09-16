@@ -459,6 +459,11 @@ export default function AdminApplications() {
 
   async function approveMany(list) {
     if (!list.length) return
+    // THE MARKETS HAVE TO HAVE LOADED FIRST. Each card's picker is seeded from
+    // its suggestion in an effect that waits for `markets`, so approving before
+    // that lands would put everybody into the worldwide community only - a
+    // silent wrong answer on an irreversible action, which is the worst kind.
+    if (!markets?.length) { flash('Still loading the markets - try again in a second.'); return }
     const names = list.length === 1 ? list[0].name : `${list.length} applications`
     if (!await confirm(
       `Approve ${names}? Each one goes into the market picked on its own card - ` +
@@ -706,7 +711,7 @@ export default function AdminApplications() {
                   <button
                     type="button"
                     onClick={() => approveMany(targets())}
-                    disabled={!!running}
+                    disabled={!!running || !markets?.length}
                     className="btn-primary inline-flex items-center gap-1.5 !py-1.5 text-xs disabled:opacity-50"
                   >
                     <Icon name="check" className="h-3.5 w-3.5" />

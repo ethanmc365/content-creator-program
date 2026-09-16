@@ -69,8 +69,19 @@ const base = {
 
 describe('standing', () => {
   it('reads as a percentile, best first', () => {
-    expect(standing([10, 20, 30], 30)).toMatchObject({ rank: 1, of: 3, percentile: 33, top: true })
+    expect(standing([10, 20, 30], 30)).toMatchObject({ rank: 1, of: 3, percentile: 33 })
     expect(standing([10, 20, 30], 10)).toMatchObject({ rank: 3, of: 3 })
+  })
+
+  it('only calls it a standing when it is worth saying out loud', () => {
+    // THE BUG THIS EXISTS FOR. The bar was "better than average", which put
+    // "Top 45% for views" on the card built to be posted. Roughly the top third
+    // is where a standing stops being a participation notice.
+    const field = Array.from({ length: 100 }, (_, i) => i + 1)
+    expect(standing(field, 100).top, 'first of a hundred').toBe(true)
+    expect(standing(field, 75).top, 'top quarter').toBe(true)
+    expect(standing(field, 56).percentile).toBe(45)
+    expect(standing(field, 56).top, 'top 45% is not a boast').toBe(false)
   })
 
   it('does not rank somebody with nothing', () => {

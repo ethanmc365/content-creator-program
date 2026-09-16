@@ -402,11 +402,19 @@ export function ShareCard({ data, className = '', style }) {
     community.connections > 0 && { label: 'Connections', value: community.connections },
   ].filter(Boolean).slice(0, 6)
 
+  // THE BADGE IS THEIR BEST STANDING, NOT THE FIRST ONE IN A LIST.
+  //
+  // It used to take whichever came first in a fixed order, so somebody in the
+  // top 4% for puzzles and the top 45% for views got shown the 45% - the worse
+  // of the two, on the card built to be posted. One card, one line: it should
+  // be the strongest thing that is true.
   const badge = [
-    ranks.views?.top && `Top ${ranks.views.percentile}% for views`,
-    ranks.distance?.top && `Top ${ranks.distance.percentile}% for distance`,
-    ranks.games?.top && `Top ${ranks.games.percentile}% for puzzles`,
-  ].filter(Boolean)[0]
+    ranks.views?.top && { pct: ranks.views.percentile, what: 'for views' },
+    ranks.distance?.top && { pct: ranks.distance.percentile, what: 'for distance' },
+    ranks.videos?.top && { pct: ranks.videos.percentile, what: 'for videos' },
+    ranks.games?.top && { pct: ranks.games.percentile, what: 'for puzzles' },
+    ranks.messages?.top && { pct: ranks.messages.percentile, what: 'for turning up' },
+  ].filter(Boolean).sort((a, b) => a.pct - b.pct)[0]
 
   return (
     <Card palette="ember" footer={false} className={className} bodyClassName="justify-between" style={style}>
@@ -445,7 +453,7 @@ export function ShareCard({ data, className = '', style }) {
         {badge && (
           <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold">
             <Icon name="trophy" className="h-3.5 w-3.5" />
-            {badge}
+            Top {badge.pct}% {badge.what}
           </span>
         )}
         <span className="flex items-center justify-between border-t border-white/25 pt-3.5">
