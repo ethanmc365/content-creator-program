@@ -795,7 +795,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                 {n.blocked && (
                   <p className="mt-1.5 inline-flex items-start gap-1 rounded-lg bg-amber-100/70 px-1.5 py-1 text-[10px] font-medium leading-tight text-amber-800">
                     <Icon name="alert" className="mt-px h-3 w-3 shrink-0" />
-                    {tr("Done — waiting on an earlier stop")}
+                    {tr("Done, waiting on an earlier stop")}
                   </p>
                 )}
 

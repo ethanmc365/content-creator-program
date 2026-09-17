@@ -470,7 +470,7 @@ export default function ZipGame({ onExit }) {
 
     if (res.removed <= 0) {
       setHintNext(res.nextCell)
-      setHintMsg(tr('All correct so far — keep going'))
+      setHintMsg(tr('All correct so far, keep going'))
       playHintClear()
       return
     }

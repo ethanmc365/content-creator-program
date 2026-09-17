@@ -24,6 +24,7 @@
 // Deploy:  supabase functions deploy geocode
 
 import { createRemoteJWKSet, jwtVerify } from 'https://deno.land/x/jose@v5.9.6/index.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 // ---------------------------------------------------------------------------
 // WHO IS CALLING, AND HOW OFTEN.
@@ -138,26 +139,21 @@ async function rateLimited(key: string, max: number, windowMs: number): Promise<
 const MAX_PER_HOUR = 300
 const MAX_PER_HOUR_GLOBAL = 1200
 
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
+// CORS COMES FROM THE SHARED MODULE, AND THE COPY THAT USED TO BE HERE IS WHY.
+//
+// It was `hostname.endsWith('.vercel.app')`: anybody can deploy a site to
+// Vercel, so every Vercel origin on the internet was reflected back. Production
+// was fixed in place and THIS FILE WAS NOT, which meant the repository held a
+// working exploit that the next deploy from source would have shipped. Checked
+// against the live function on 17 Sep 2026 - a preflight from
+// `https://trypcreators-evil.vercel.app` comes back with the primary origin, so
+// prod is correct and this file now matches it.
+//
+// `../_shared/cors.ts` survives the deploy only because it is UPLOADED
+// alongside the entrypoint; a helper that is merely imported fails at bundle
+// time. See the header of that file.
 function cors(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
+  return corsHeaders(req)
 }
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), {

@@ -31,6 +31,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 import * as jose from 'npm:jose@5'
 import { renderEmail, renderText, textToHtml } from '../_shared/emailTemplate.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -46,13 +47,23 @@ const REPLY_TO = Deno.env.get('REPLY_TO') ?? MAIL_FROM.match(/<([^>]+)>/)?.[1] ?
 
 const JWKS = jose.createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+// CORS IS DECIDED BY THE SHARED MODULE, NOT BY A STAR (17 Sep 2026).
+//
+// This answered `Access-Control-Allow-Origin: *` to every caller, which is the
+// widest possible answer and was never a deliberate one - it is what a handler
+// written before `_shared/cors.ts` existed looks like. The other functions were
+// swept; this one and `send-invoice` were missed because the sweep worked from
+// the list of functions a browser calls on a normal page load.
+//
+// Severity, honestly: hygiene. The handler below verifies a real admin JWT out
+// of an explicit Authorization header and no cookie rides along, so a hostile
+// page could never borrow an admin's session - a star here let a stranger's
+// page READ a reply it could equally have got from curl with the publishable
+// key that ships in the bundle. Still worth closing: this function sends mail
+// in Tryp.com's name, and it should not be the loosest door in the building.
+//
+// `cors` and `json` are built PER REQUEST now, so they moved inside the
+// handler where `req` is in scope. Every caller of `json` was already in there.
 
 const FOOTER = 'You are receiving this because your application to the Tryp.com Content Creator Community was accepted.'
 
@@ -93,6 +104,10 @@ async function sendOne(to: string, subject: string, html: string, text: string) 
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req)
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 

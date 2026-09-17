@@ -40,6 +40,24 @@ function walk(dir, out = []) {
 // is that the sentence is not built at the call site.
 const CALL = /\btr\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
+// AND `pl(n, 'one', 'many')`, WHICH THIS HAS NEVER SEEN.
+//
+// Found 17 Sep 2026. `usePlural` has three call sites - UnreadDot, Onboarding
+// and Global Home - and NOT ONE of their sentences has ever appeared in this
+// catalogue, because the only matcher here looks for the four characters `tr(`.
+// The consequence is not cosmetic: the catalogue is what the admin Languages
+// screen lists, so every pluralised sentence in the platform was unreachable
+// from the runtime translation editor. A translator working from that screen
+// could not have found "1 room with new messages" to translate it, and nothing
+// anywhere reported it as missing - it was not untranslated, it was invisible.
+//
+// The first argument is a count expression rather than a string, so it is
+// skipped with `[^)]*?`: that covers `n`, `problems.length`, `d?.creators` and
+// every other call site today. It deliberately will NOT cross a `)`, so
+// `pl(f(x), ...)` would be missed - noted rather than solved, because a regex
+// that balances brackets is the point at which this should become a real parse.
+const PLURAL_CALL = /\b(?:pl|plural)\(\s*[^)]*?,\s*(['"])((?:\\.|(?!\1)[^\\])*)\1\s*,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g
+
 // WHICH SCREEN A FILE IS. The path is the only thing that knows, and the shape
 // of this repository makes it readable: a page is a screen, a component under
 // `components/` is shared furniture, and anything under `admin/` is the team's.
@@ -67,9 +85,15 @@ for (const file of walk(SRC)) {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '')
   const area = areaFor(rel)
+  const unescape = (s) => s.replace(/\\'/g, "'").replace(/\\"/g, '"')
   for (const m of src.matchAll(CALL)) {
-    const key = m[2].replace(/\\'/g, "'").replace(/\\"/g, '"')
-    ;(byArea[area] ||= new Set()).add(key)
+    ;(byArea[area] ||= new Set()).add(unescape(m[2]))
+  }
+  // Both halves of a plural are keys in their own right - `plural` picks one
+  // and hands it straight to `t`, so each has to be translatable on its own.
+  for (const m of src.matchAll(PLURAL_CALL)) {
+    ;(byArea[area] ||= new Set()).add(unescape(m[2]))
+    ;(byArea[area] ||= new Set()).add(unescape(m[4]))
   }
 }
 

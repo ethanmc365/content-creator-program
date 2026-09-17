@@ -195,17 +195,17 @@ export default function AdminMilestones() {
     const m = editing
     if (!m.title.trim()) { notice('Give the milestone a title.'); return }
     if (!m.criteria.length) {
-      notice('A stop needs at least one requirement, or nobody can ever reach it — and because the route runs in order, it would hold up every stop behind it too.')
+      notice('A stop needs at least one requirement, or nobody can ever reach it, and because the route runs in order, it would hold up every stop behind it too.')
       return
     }
     const bad = m.criteria.find((c) => !(Number(c.threshold) > 0))
     if (bad) { notice(`The ${METRIC_BY_VALUE[bad.metric]?.label} requirement has to be more than zero.`); return }
     if (m.reward_kind === 'voucher' && !(Number(m.voucher_amount) > 0)) {
-      notice('A voucher milestone needs an amount — that is what gets paid out when a creator reaches it.')
+      notice('A voucher milestone needs an amount. That is what gets paid out when a creator reaches it.')
       return
     }
     if (m.reward_kind === 'role' && !m.role_title?.trim()) {
-      notice('A role milestone needs the title it grants — that is the text worn beside the creator\'s name.')
+      notice('A role milestone needs the title it grants. That is the text worn beside the creator\'s name.')
       return
     }
 
@@ -358,7 +358,7 @@ export default function AdminMilestones() {
             </p>
             <p className="mt-1 text-xs leading-relaxed text-amber-800">
               Creators have already done the work for these and cannot have them until they clear an earlier
-              stop. That is the route working as intended — but if the number is large, the stop in front is
+              stop. That is the route working as intended, but if the number is large, the stop in front is
               asking for something people are not doing. Drag it later, or soften what it asks for.
             </p>
           </div>
@@ -589,7 +589,7 @@ export default function AdminMilestones() {
                           that makes the ladder look wrong. */}
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-smoke">
                         {(m.criteria || []).length === 0 ? (
-                          <span className="font-medium text-amber-700">No requirements — unreachable</span>
+                          <span className="font-medium text-amber-700">No requirements, unreachable</span>
                         ) : (
                           (m.criteria || []).map((c, i) => (
                             <span key={c.metric} className="flex items-center gap-1.5">

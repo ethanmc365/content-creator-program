@@ -55,6 +55,12 @@ function walk(dir, out = []) {
 // those are not matched on purpose.
 const CALL = /\btr\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
+// AND `pl(n, 'one', 'many')`, which this report has never counted either - so
+// a pluralised sentence with no Spanish has never appeared in the "asked for
+// and not translated" list. Same matcher and same caveat as the catalogue
+// script; see the long note there for what it does and does not reach.
+const PLURAL_CALL = /\b(?:pl|plural)\(\s*[^)]*?,\s*(['"])((?:\\.|(?!\1)[^\\])*)\1\s*,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g
+
 // A JSX text node with at least two letters in it, which is a rough but
 // workable stand-in for "a sentence somebody will read". Numbers, punctuation,
 // single letters and anything inside braces are skipped.
@@ -72,11 +78,21 @@ for (const file of files) {
   // would otherwise report as a string nobody translated.
   const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
   let calls = 0
-  for (const m of src.matchAll(CALL)) {
-    calls += 1
-    const key = m[2].replace(/\\'/g, "'").replace(/\\"/g, '"')
+  const note = (raw) => {
+    const key = raw.replace(/\\'/g, "'").replace(/\\"/g, '"')
     if (!asked.has(key)) asked.set(key, [])
     asked.get(key).push(relative(ROOT, file))
+  }
+  for (const m of src.matchAll(CALL)) {
+    calls += 1
+    note(m[2])
+  }
+  // Both halves of a plural are asked for: `plural` picks one and hands it to
+  // `t`, so each needs its own dictionary entry.
+  for (const m of src.matchAll(PLURAL_CALL)) {
+    calls += 2
+    note(m[2])
+    note(m[4])
   }
   // Bare text left in the markup. Comments are stripped first, or every long
   // note in this codebase would count as untranslated copy.

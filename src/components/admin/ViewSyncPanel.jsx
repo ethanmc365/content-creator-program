@@ -268,7 +268,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
           </p>
           <p className="mt-0.5 text-xs leading-relaxed text-amber-900/80">
             {igRows.length} of {igRows.length} could not be read in the same run. That is almost never
-            {' '}{igRows.length} bad links — it usually means Instagram has renumbered the query we read
+            {' '}{igRows.length} bad links. It usually means Instagram has renumbered the query we read
             view counts from. Pasting the new id fixes every entry at once.
           </p>
           <Link

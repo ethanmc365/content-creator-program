@@ -143,7 +143,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
       <Card
         onDrill={onDrill && (() => onDrill('creators'))}
         title="How the community grew"
-        subtitle="The running total is the size of the programme. The bars are each month's intake — a community can be growing and still have stopped recruiting."
+        subtitle="The running total is the size of the programme. The bars are each month's intake. A community can be growing and still have stopped recruiting."
         tall
         onExport={() => downloadCsv('creator-growth.csv',
           months.map((m) => ({ month: m.month, joined: m.joined, left: m.left, net: m.net, total: m.total })))}

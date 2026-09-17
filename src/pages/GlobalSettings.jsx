@@ -8,7 +8,7 @@ import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import Icon from '../components/Icon'
 import { Avatar, Badge, EmptyState, Select } from '../components/ui'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, promptText } from '../lib/confirm'
 import { COUNTRIES } from '../lib/countries'
 import { COMMON_ZONES, CURRENCIES, zoneForCountries, currencyForCountries } from '../lib/timezones'
 import { cx, timeAgo } from '../lib/utils'
@@ -214,11 +214,24 @@ export default function GlobalSettings() {
   // "No" with no reason is the version that makes somebody feel shut out rather
   // than redirected - a creator who applied to Romania but does not make
   // Romanian content should be told that, because it is answerable.
+  //
+  // NOT `window.prompt`. This was the last native dialog left in the app and it
+  // is the one place the platform-wide rule actually bites: Chrome offers "don't
+  // let this page prompt you again" on a repeated prompt, and once somebody ticks
+  // it every later call returns null WITHOUT DRAWING ANYTHING. The guard below
+  // treats null as "changed my mind", so declining a join request would fail
+  // silently and for ever for that admin, on that browser, with no error to
+  // report. `promptText` is the branded dialog and cannot be suppressed.
   async function decideRequest(r, accept) {
     let reason = null
     if (!accept) {
-      reason = window.prompt(
-        `Why is ${r.profiles?.name ?? 'this creator'} not joining ${r.communities?.name}?\n\nThey are sent this, so make it something they can act on.`,
+      reason = await promptText(
+        `Why is ${r.profiles?.name ?? 'this creator'} not joining ${r.communities?.name}? They are sent this, so make it something they can act on.`,
+        {
+          title: 'Decline the request',
+          placeholder: 'e.g. Romania is for creators making Romanian content',
+          confirmLabel: 'Decline and tell them',
+        },
       )
       if (reason == null || !reason.trim()) return
     }

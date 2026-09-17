@@ -109,7 +109,7 @@ export default function PrizesPanel({ challengeId, onFlash }) {
         <div className="mt-4 border-t border-gray-100 pt-3">
           <p className="text-xs text-smoke">
             {invoices.length} {invoices.length === 1 ? 'invoice' : 'invoices'} raised automatically
-            {' '}({invoices.map((i) => `#${i.number}`).join(', ')}) — nothing is sent until it is approved.{' '}
+            {' '}({invoices.map((i) => `#${i.number}`).join(', ')}). Nothing is sent until it is approved.{' '}
             <Link to="/admin/rewards" className="font-medium text-brand hover:underline">Open the queue →</Link>
           </p>
           {noDetails.length > 0 && (

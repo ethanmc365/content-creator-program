@@ -288,6 +288,11 @@ export default {
   'Not in a group': 'Sin grupo',
 
   // -------------------------------------------------------------- salas y DMs
+  // The unread badge's screen-reader label. It had never been translated
+  // because no report could see it: every `pl(n, 'one', 'many')` string in the
+  // platform was invisible to both i18n scripts until 17 Sep 2026.
+  '1 room with new messages': '1 sala con mensajes nuevos',
+  '{n} rooms with new messages': '{n} salas con mensajes nuevos',
   'Nothing here yet': 'Aquí todavía no hay nada',
   'This room is brand new. It is separate from every other market, so it starts empty.':
     'Esta sala acaba de crearse. Es independiente del resto de mercados, así que empieza vacía.',
@@ -808,7 +813,7 @@ export default {
   'Daily puzzle reminder': 'Recordatorio del juego diario',
   'Daily streak reminder': 'Recordatorio de racha diaria',
   'Delete for everyone': 'Eliminar para todos',
-  'Done — waiting on an earlier stop': 'Hecho: falta una parada anterior',
+  'Done, waiting on an earlier stop': 'Hecho: falta una parada anterior',
   'Drag the plane, drag backwards to undo.': 'Arrastra el avión; arrastra hacia atrás para deshacer.',
   'Drag to choose what stays in the middle when the photo is cropped.': 'Arrastra para elegir qué queda en el centro cuando se recorta la foto.',
   'Drag to resize this photo': 'Arrastra para cambiar el tamaño de esta foto',
@@ -831,7 +836,7 @@ export default {
   'Hint': 'Pista',
   'Cooling down': 'Enfriando',
   'Rewind to your last correct move': 'Vuelve a tu último movimiento correcto',
-  'All correct so far — keep going': 'Todo correcto hasta ahora: sigue así',
+  'All correct so far, keep going': 'Todo correcto hasta ahora: sigue así',
   'Took back': 'Se retiraron',
   'Took back 1 move': 'Se retiró 1 movimiento',
   'moves': 'movimientos',
@@ -1399,12 +1404,20 @@ export default {
   '{name} is in {place} now': '{name} está ahora en {place}',
   '{name} leaves for {place} in {days} days': '{name} sale hacia {place} dentro de {days} días',
 
+  // The singular halves matter here as much as the plural ones: Spanish agrees
+  // the noun with the number, so "1 Vídeos publicados" is wrong in exactly the
+  // way "1 Videos posted" is. A creator with one entry to their name is the
+  // common case, not the edge one.
+  'Creator worldwide': 'Creador en todo el mundo',
   'Creators worldwide': 'Creadores en todo el mundo',
   'across every market': 'en todos los mercados',
+  'Market open': 'Mercado abierto',
   'Markets open': 'Mercados abiertos',
   'and more on the way': 'y vienen más',
+  'Video posted': 'Vídeo publicado',
   'Videos posted': 'Vídeos publicados',
   'to challenges so far': 'en retos hasta ahora',
+  'Kilometre flown': 'Kilómetro volado',
   'Kilometres flown': 'Kilómetros volados',
   'logged by all of us': 'registrados entre todos',
   'connection': 'contacto',
