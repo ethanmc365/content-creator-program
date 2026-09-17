@@ -100,10 +100,22 @@ function PuzzleColumn({ puzzle, done, count, first }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        {/* `truncate`, unlike the stacked version, because a name that wraps to
-            two lines makes this row taller than the two beside it and the three
-            stop reading as one strip. At this width all three fit. */}
-        <span className="block truncate text-sm font-semibold leading-tight text-ink">{tr(puzzle.title)}</span>
+        {/* "AT THIS WIDTH ALL THREE FIT" WAS TRUE OF EXACTLY ONE STATE OF THIS
+            STRIP, AND IT IS NOT THE COMMON ONE. Measured on the hub at 800px:
+            the columns give the name 133px, "Guess the Country" needs 134 and
+            "Guess the language" needs 143 - so the third was already cut to
+            "Guess the langu…" and the first had nothing in hand. It gets worse
+            on its own: a played puzzle swaps a 51px "Play" for a wider "Played"
+            with a tick in it, so finishing one puzzle truncates the other two.
+            Spanish is longer again.
+
+            So the name wraps to two lines instead of being cut. The reason the
+            old comment gave for `truncate` - that a taller column breaks the
+            strip - does not hold here: the parent is
+            `grid items-stretch sm:grid-cols-3`, so the three columns are always
+            the same height as each other whatever one of them contains. The
+            strip grows by a line; nothing goes missing and nothing goes ragged. */}
+        <span className="line-clamp-2 text-sm font-semibold leading-tight text-ink">{tr(puzzle.title)}</span>
         <span className="mt-0.5 block truncate text-[11px] leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening.

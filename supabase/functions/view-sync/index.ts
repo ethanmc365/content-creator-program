@@ -26,6 +26,7 @@
 // Deploy with verify_jwt=false: it authenticates callers itself.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -95,26 +96,29 @@ const SOURCE: Record<Platform, string> = {
 }
 
 // ---------------------------------------------------------------- transport
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && hostname.endsWith('.vercel.app')) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
+// CORS COMES FROM THE SHARED MODULE (17 Sep 2026), AND THIS WAS THE WIDEST OF
+// THEM.
+//
+// The copy that was here read `hostname.endsWith('.vercel.app')` with NO exact
+// host check beside it at all - not even the narrowed prefix pattern the other
+// functions had - so every Vercel origin on the internet was reflected. It was
+// missed twice: once by the sweep that wrote `_shared/cors.ts`, and again by
+// the audit that listed four functions as still open, because both worked from
+// the set of functions a browser calls on a page load and this one is mostly
+// called by cron.
+//
+// Severity, honestly: hygiene, like the rest. Every route below verifies either
+// an admin JWT from an explicit Authorization header or the cron webhook secret,
+// and no cookie rides along, so a hostile page could not make this run as
+// anybody - it could only read a reply it could have got from curl. Closing it
+// anyway, because `x-webhook-secret` is in the allowed-headers list and a wide
+// origin plus a named secret header is the shape of a mistake waiting for its
+// second half.
+//
+// `x-webhook-secret` is this function's own header, so it is passed to the
+// shared helper rather than added to the shared list.
 function cors(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  }
+  return corsHeaders(req, 'x-webhook-secret')
 }
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...cors(req), 'Content-Type': 'application/json' } })

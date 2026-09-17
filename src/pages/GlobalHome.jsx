@@ -32,7 +32,7 @@ import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
 import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
-import { useT } from '../lib/i18n'
+import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 
@@ -247,6 +247,7 @@ function MineChip({ to, icon, value, label }) {
 
 export default function GlobalHome() {
   const tr = useT()
+  const pl = usePlural()
   const { profile, session } = useAuth()
   const { network, chapters, myChapters, error } = useCommunity()
   // SECOND AND LATER VISITS TO THIS TAB DRAW THE HUB, NOT A SCREEN OF GREY.
@@ -888,9 +889,19 @@ export default function GlobalHome() {
                   individually and makes no claim in the meantime. */}
               <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:mt-7 sm:flex sm:flex-wrap sm:items-start sm:gap-x-10">
                 {[
-                  { n: d?.creators, label: tr('Creators worldwide'), hint: tr('across every market') },
-                  { n: openMarkets.length, label: tr('Markets open'), hint: tr('and more on the way') },
-                  { n: me?.videos, label: tr('Videos posted'), hint: tr('to challenges so far') },
+                  // ONE OR MANY IS TWO LABELS, NOT ONE WITH AN S ON IT.
+                  //
+                  // All four of these read "1 Markets open", "1 Videos posted"
+                  // straight off a fresh market or a creator's first entry -
+                  // and the first of those is what a brand new market's admin
+                  // sees on the day they open it, which is the worst possible
+                  // moment for the page to look unfinished. Spanish agrees the
+                  // noun as well as the number, so a `{n}`-suffixed string is
+                  // wrong in both languages; `plural` is the same helper the
+                  // puzzle strip already uses for "1 played today".
+                  { key: 'creators', n: d?.creators, label: pl(d?.creators, 'Creator worldwide', 'Creators worldwide'), hint: tr('across every market') },
+                  { key: 'markets', n: openMarkets.length, label: pl(openMarkets.length, 'Market open', 'Markets open'), hint: tr('and more on the way') },
+                  { key: 'videos', n: me?.videos, label: pl(me?.videos, 'Video posted', 'Videos posted'), hint: tr('to challenges so far') },
                   // KILOMETRES FLOWN, NOT COUNTRIES REACHED.
                   //
                   // "Countries reached" counted distinct entries in
@@ -906,9 +917,12 @@ export default function GlobalHome() {
                   // comes from `community_flight_totals()` - see migration 100
                   // for why an aggregate over private rows is safe and how anon
                   // is kept off it.
-                  { n: flights?.km ?? null, label: tr('Kilometres flown'), hint: tr('logged by all of us') },
+                  { key: 'km', n: flights?.km ?? null, label: pl(flights?.km, 'Kilometre flown', 'Kilometres flown'), hint: tr('logged by all of us') },
                 ].map((s, _i, all) => (
-                  <div key={s.label}>
+                  // KEYED ON THE STAT, NOT ON ITS LABEL. The label now changes
+                  // when a count crosses one, and a changing key would unmount
+                  // the CountUp and replay the whole animation underneath it.
+                  <div key={s.key}>
                     <p className="text-2xl font-bold sm:text-3xl">
                       {all.some((x) => x.n == null)
                         ? '—'

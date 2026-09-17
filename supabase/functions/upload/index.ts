@@ -14,6 +14,7 @@
 // Deploy:  supabase functions deploy upload --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
+import { corsHeaders as sharedCors } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -53,26 +54,21 @@ async function verifyUser(jwt: string): Promise<string | null> {
 const PUBLIC_BUCKETS = new Set(['avatars', 'chat-media', 'gallery'])
 const PRIVATE_BUCKETS = new Set(['dm-media'])
 
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
+// CORS COMES FROM THE SHARED MODULE, AND THE COPY THAT USED TO BE HERE IS WHY.
+//
+// It was `hostname.endsWith('.vercel.app')`: anybody can deploy a site to
+// Vercel, so every Vercel origin on the internet was reflected back. Production
+// was fixed in place and THIS FILE WAS NOT, so the repository held a working
+// exploit that the next deploy from source would have shipped. Verified against
+// the live function on 17 Sep 2026: a preflight from
+// `https://trypcreators-evil.vercel.app` comes back with the primary origin.
+//
+// The three `x-upload-*` request headers are this function's own, so they are
+// passed to the shared helper rather than written into it - nothing else sends
+// them and the shared list should stay the shared list.
+const UPLOAD_HEADERS = 'x-upload-bucket, x-upload-path, x-upload-content-type'
 function corsHeaders(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-upload-bucket, x-upload-path, x-upload-content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
+  return sharedCors(req, UPLOAD_HEADERS)
 }
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } })
