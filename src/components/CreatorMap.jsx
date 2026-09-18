@@ -514,7 +514,33 @@ const TRIP_HORIZON_DAYS = 90
 // has to be the SAME object every render or `<Geographies>` sees a new source.
 const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
+// AND STABLE DEFAULTS FOR THE COLLECTION PROPS, FOR THE SAME REASON ONE LINE UP
+// - except that getting this wrong did not cost a re-parse, it froze the app.
+//
+// THE BUG (18 Sep 2026). Ethan: "if you click on any country in the 'your
+// markets' section, it opens and then you are stuck there, none of the other
+// buttons function any more, no matter what you click."
+//
+// `trips = {}` in the parameter list is a fresh object on EVERY render, and
+// MarketMap is the one caller that does not pass `trips` - the market page has
+// no travel layer. That new identity walked the whole memo chain that hangs off
+// it: `storedTripCoords` -> `journeys` -> `fitPoints` -> `fitView`, each of
+// which had a correct dependency array and each of which therefore recomputed
+// and handed on a NEW object. At the end of that chain sits the auto-fit effect,
+// which depends on `fitView` and calls `setPosition(fitView)` - a new object, so
+// never an equal state, so always another render, which made another `{}`, which
+// made another `fitView`. React gave up at fifty nested updates with "Maximum
+// update depth exceeded" and tore the route down: a blank market page, and a
+// main thread busy enough that the header and the tab bar stopped answering.
+// That is the whole reported "you are stuck there".
+//
+// Every other caller (the hub, the directory, the collab board, the landing
+// page) passes a real `trips` from state, which is why this only ever showed up
+// on market pages.
+const NO_TRIPS = {}
+const NO_CREATORS = []
+
+function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
   // FULL SCREEN IS NOT ONE OF "THE CONTROLS".
   //
   // `controls={false}` was doing two unrelated jobs: dropping the filter pills
@@ -1414,8 +1440,26 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // cleared by the reset button, which is what "reset" should mean. Romania,
   // whose six creators really are all within half a degree of Bucharest, keeps
   // zooming right in, because that is what fitting them says to do.
+  //
+  // AND IT COMPARES THE FIT BY VALUE BEFORE IT APPLIES IT.
+  //
+  // An effect that ends in `setState(someObject)` re-renders unconditionally,
+  // because no two object literals are ever `Object.is`-equal - so if anything
+  // upstream ever hands `fitView` a new identity on every render, this effect is
+  // an infinite loop rather than a no-op. That is exactly what the `trips = {}`
+  // default did (see NO_TRIPS at the top of this file), and fixing the default
+  // fixes today's cause without doing anything about the shape that turned a
+  // wasted memo into a frozen app. A fit that has not MOVED is not a fit worth
+  // committing, whatever its identity: the guard makes re-running this effect
+  // harmless, so the next accidental dependency churn costs a comparison
+  // instead of the route.
+  const appliedFit = useRef(null)
   useEffect(() => {
     if (located.length === 0 || userMoved.current) return
+    const [lng, lat] = fitView.coordinates
+    const last = appliedFit.current
+    if (last && last.lng === lng && last.lat === lat && last.zoom === fitView.zoom) return
+    appliedFit.current = { lng, lat, zoom: fitView.zoom }
     didInitCenter.current = true
     setPosition(fitView)
     setLiveZoom(fitView.zoom)
