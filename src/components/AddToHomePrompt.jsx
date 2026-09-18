@@ -99,7 +99,19 @@ export default function AddToHomePrompt() {
     if (!profile) return
 
     const installed = isStandalone()
-    const wantsPush = pushSupported() && pushPermission() !== 'granted'
+    // ASKABLE, NOT MERELY UNGRANTED (18 Sep 2026).
+    //
+    // THE BUG THIS FIXES. This read `!== 'granted'`, which is true for `denied`
+    // as well - and `denied` is the one state the browser will never let us out
+    // of. So anybody who had ever pressed Block met a full-screen dialog on
+    // EVERY app open whose only button was disabled, over a page it had frozen
+    // (see lib/scrollLock), saying the thing they had to do was somewhere else
+    // entirely. That is not an ask, it is a toll gate with no road behind it.
+    //
+    // The permission still shows as blocked in Settings, where there is a
+    // control that can actually change it, and the moment it goes back to
+    // `default` this asks again by itself.
+    const wantsPush = pushSupported() && pushPermission() === 'default'
                       // iOS gives a browser tab no push at all, so there is
                       // nothing to ask for until it is installed.
                       && (installed || !isIOS())

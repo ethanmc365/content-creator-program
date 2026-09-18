@@ -35,6 +35,35 @@
 let depth = 0
 let saved = null
 
+// WHO ELSE NEEDS TO KNOW THE PAGE IS HELD.
+//
+// THE BUG THIS EXISTS FOR (18 Sep 2026). Ethan, on a phone: "when the worldwide
+// page loads on mobile there is no animations."
+//
+// They were running. They were running underneath a dialog. The notifications
+// ask opens on app open, and `lockScroll` is exactly what it is for - but an
+// IntersectionObserver does not know a scrim is over the page. It sees geometry,
+// nothing else, so every section above the fold reported itself visible on the
+// first frame and spent its 720ms entrance behind a black overlay. By the time
+// the reader pressed Not now the whole top of the hub had already arrived, and
+// the rest of the page could not reveal at all because a locked body cannot be
+// scrolled. Both halves of the report, from one cause.
+//
+// So the lock publishes. `Reveal` holds its motion while the page is held and
+// takes it the moment it is handed back - see the note there. Anything else
+// that spends motion the reader cannot see should do the same.
+const watchers = new Set()
+const announce = () => { watchers.forEach((fn) => { try { fn(depth > 0) } catch { /* a bad listener is not the lock's problem */ } }) }
+
+/** Is anything holding the page still right now? */
+export function isScrollLocked() { return depth > 0 }
+
+/** Subscribe to lock/release. Returns the unsubscribe, for useSyncExternalStore. */
+export function onScrollLockChange(fn) {
+  watchers.add(fn)
+  return () => { watchers.delete(fn) }
+}
+
 /** Freeze the page. Returns the function that releases it. Safe to nest. */
 export function lockScroll() {
   if (typeof document === 'undefined') return () => {}
@@ -59,6 +88,7 @@ export function lockScroll() {
     body.style.width = '100%'
   }
   depth += 1
+  if (depth === 1) announce()
 
   let released = false
   return function release() {
@@ -97,6 +127,7 @@ export function lockScroll() {
     // has no way to say that; the options form does.
     window.scrollTo({ top: saved.y, left: 0, behavior: 'instant' })
     saved = null
+    announce()
   }
 }
 
@@ -147,5 +178,6 @@ export function repairScrollLock() {
   body.style.width = ''
   saved = null
   window.scrollTo({ top: y, left: 0, behavior: 'instant' })
+  announce()
   return true
 }

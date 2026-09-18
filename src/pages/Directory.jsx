@@ -315,6 +315,11 @@ export default function Directory() {
             exploredActive={exploredOn}
             onToggleExplored={() => setExploredOn((v) => !v)}
             myId={user.id}
+            // The same reasoning as the hub map: this is the page you come to
+            // to find a person, and a map you cannot move is a picture. See
+            // `filterZoomEvent` in CreatorMap for why the wheel is safe here
+            // and still refused on the public landing page.
+            navigable
           />
         )}
       </section>

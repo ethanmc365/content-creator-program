@@ -676,13 +676,17 @@ export default function Events() {
                         {dayEvents.length === 0 ? (
                           <p className="text-sm text-smoke">{tr("Nothing planned. A good day to film something.")}</p>
                         ) : (
-                          <div className="reveal is-in space-y-3">
-                            {dayEvents.map((e, i) => (
-                              <div key={e.id} className="reveal-item" style={{ '--reveal-i': i }}>
-                                <EventCard e={e} {...cardProps} compact live={liveIds.has(e.id)} />
-                              </div>
+                          // `Reveal`, NOT a hand-written `reveal is-in`
+                          // (18 Sep 2026). A container born with `is-in` has no
+                          // FROM state to transition out of - the browser
+                          // coalesces the two and the rows simply appear. Every
+                          // list on this page had the same fault; see the note
+                          // in components/network/BoardCard.
+                          <Reveal className="space-y-3" dense stagger={0.05}>
+                            {dayEvents.map((e) => (
+                              <EventCard key={e.id} e={e} {...cardProps} compact live={liveIds.has(e.id)} />
                             ))}
-                          </div>
+                          </Reveal>
                         )}
                       </div>
                     )}
@@ -1053,13 +1057,13 @@ function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onT
           </button>
         </div>
       </div>
-      <div className="reveal is-in grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
-        {days.map((day, i) => {
+      <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" stagger={0.04}>
+        {days.map((day) => {
           const list = eventsOn(day)
           const today = isToday(day)
           const away = travelDays.get(dayKey(day))
           return (
-            <div key={day.toISOString()} className="reveal-item" style={{ '--reveal-i': i }}>
+            <div key={day.toISOString()} className="h-full">
               <div className={cx(
                 'flex h-full flex-col rounded-card border p-3 transition-all duration-200 lg:min-h-[15rem]',
                 today ? 'border-brand bg-brand-tint/30' : away ? 'border-brand-light/40 bg-brand-tint/25' : 'border-gray-100 bg-white shadow-card',
@@ -1107,7 +1111,7 @@ function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onT
             </div>
           )
         })}
-      </div>
+      </Reveal>
       {/* The week's own agenda underneath it, because seven narrow columns can
           hold a title and not a description, a link, an RSVP or a bell. */}
       {weekRows.length > 0 && (
@@ -1153,13 +1157,11 @@ function Agenda({ rows, cardProps, liveIds }) {
               </p>
               <p className="text-xl font-bold tabular-nums leading-tight">{format(day, 'd MMM')}</p>
             </div>
-            <div className="reveal is-in space-y-3">
-              {list.map((e, i) => (
-                <div key={e.id} className="reveal-item" style={{ '--reveal-i': Math.min(gi + i, 12) }}>
-                  <EventCard e={e} {...cardProps} live={liveIds.has(e.id)} />
-                </div>
+            <Reveal className="space-y-3" dense stagger={0.05} delay={Math.min(gi * 0.04, 0.16)}>
+              {list.map((e) => (
+                <EventCard key={e.id} e={e} {...cardProps} live={liveIds.has(e.id)} />
               ))}
-            </div>
+            </Reveal>
           </div>
         )
       })}
@@ -1177,13 +1179,11 @@ function UpcomingList({ rows, cardProps }) {
     )
   }
   return (
-    <div className="reveal is-in space-y-3">
-      {rows.map((e, i) => (
-        <div key={e.id} className="reveal-item" style={{ '--reveal-i': i }}>
-          <EventCard e={e} {...cardProps} compact />
-        </div>
+    <Reveal className="space-y-3" dense stagger={0.05}>
+      {rows.map((e) => (
+        <EventCard key={e.id} e={e} {...cardProps} compact />
       ))}
-    </div>
+    </Reveal>
   )
 }
 

@@ -1,4 +1,5 @@
-import { Children, Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Children, Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { isScrollLocked, onScrollLockChange } from '../../lib/scrollLock'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -132,6 +133,35 @@ export default function Reveal({
   innerRef = null,
   ...rest
 }) {
+  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES (18 Sep 2026).
+  //
+  // Ethan, on a phone: "when the worldwide page loads on mobile there is no
+  // animations." Measured on the worldwide hub at 375px: on app open the
+  // notifications ask is already on screen, `lockScroll` has the body out of
+  // flow, and the first three sections of the page carry `is-in is-done`
+  // BEHIND the scrim. They animated. They animated under a black overlay, and
+  // the page handed back afterwards was one that had finished arriving.
+  //
+  // The second half of the same report - "scrolling should also have clean
+  // animations" - is the same cause one step further on: a locked body cannot
+  // be scrolled, so nothing below the fold could reveal while the ask was up
+  // either, and the observers that would have caught up were the ones being
+  // starved.
+  //
+  // An IntersectionObserver cannot see a scrim; it answers about geometry and
+  // it is right about geometry. So the LOCK says so instead - see
+  // `onScrollLockChange` in lib/scrollLock - and a held page holds its motion.
+  // The effects below are keyed on it, so the observers are armed on the frame
+  // the page is handed back and the sections then arrive in front of somebody.
+  //
+  // A REVEAL THAT IS ITSELF INSIDE THE OVERLAY IS EXEMPT, and that exemption is
+  // not theoretical tidiness: gating it would hide the contents of the very
+  // dialog holding the lock, which turns a missing animation into missing
+  // content - the failure mode every other net in this file exists to prevent.
+  // The test is the dialog itself rather than a prop, so it cannot drift.
+  const locked = useSyncExternalStore(onScrollLockChange, isScrollLocked, () => false)
+  const [inOverlay, setInOverlay] = useState(false)
+  const held = locked && !inOverlay
   const [shown, setShown] = useState(false)
   // Read by the per-item measurement, which must not change its mind after the
   // container has already answered. A ref rather than the state itself so the
@@ -211,6 +241,14 @@ export default function Reveal({
     setNode(el)
     innerRef?.(el)
   }, [innerRef])
+
+  // See `held` above. `role="dialog"` is what every overlay in this codebase
+  // puts on its outer element (Modal, the chat sheet, the command palette), so
+  // it is the one test that does not need each of them to remember anything.
+  useEffect(() => {
+    if (!node) return
+    setInOverlay(!!node.closest?.('[role="dialog"]'))
+  }, [node])
   // HAS THE HIDDEN STATE BEEN PAINTED YET?
   //
   // THE BUG THIS FIXES. A CSS transition needs the browser to have painted the
@@ -304,7 +342,7 @@ export default function Reveal({
   // itself the moment every child has arrived - this is a one-way reveal, so
   // there is nothing left to watch.
   useEffect(() => {
-    if (!perItem || !node) return undefined
+    if (!perItem || !node || held) return undefined
     const els = itemNodes.current.filter(Boolean)
     if (!els.length) return undefined
     // NO OBSERVER MUST NEVER MEAN NO CONTENT. Same rule as the container path:
@@ -357,10 +395,10 @@ export default function Reveal({
       window.removeEventListener('scroll', net)
       window.removeEventListener('resize', net)
     }
-  }, [perItem, node, children, early])
+  }, [perItem, node, children, early, held])
 
   useEffect(() => {
-    if (!node || shown) return undefined
+    if (!node || shown || held) return undefined
     // No IntersectionObserver (very old browser, some test environments) must
     // never mean "invisible content". Show it and move on.
     if (typeof IntersectionObserver === 'undefined') {
@@ -389,7 +427,7 @@ export default function Reveal({
     )
     io.observe(node)
     return () => io.disconnect()
-  }, [node, shown, early])
+  }, [node, shown, early, held])
 
   // Belt and braces, BUT ONLY FOR WHAT IS ACTUALLY ON SCREEN.
   //
@@ -406,7 +444,7 @@ export default function Reveal({
   // something has gone wrong and the content wins. If it is below the fold,
   // waiting IS the correct behaviour and we keep waiting.
   useEffect(() => {
-    if (shown || !node) return undefined
+    if (shown || !node || held) return undefined
     const check = () => {
       const vh = window.innerHeight || 0
       // A viewport of zero height means we are somewhere that cannot answer the
@@ -452,7 +490,7 @@ export default function Reveal({
       window.removeEventListener('resize', check)
       window.removeEventListener('orientationchange', check)
     }
-  }, [shown, node])
+  }, [shown, node, held])
 
   // WHEN THE STAGGER IS ACTUALLY OVER.
   //

@@ -6,6 +6,7 @@ import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { useCachedPage, writePageCache } from '../../lib/pageCache'
+import Reveal from './Reveal'
 
 // THE BOARD, ON THE HUB - AS THREE NOTES, NOT AS THREE ROWS.
 //
@@ -123,58 +124,68 @@ export default function BoardCard({ className }) {
           beats a stylesheet rule, so putting both on one element means the note
           arrives with no motion at all and simply appears. The wrapper does the
           travelling and the note does the tilting. CSS and not Motion because
-          the hub is eagerly routed. */}
-      <div className="reveal is-in grid gap-3 pt-1 sm:grid-cols-3">
-        {rows.map((q, i) => {
+          the hub is eagerly routed.
+
+          AND IT IS `Reveal`, NOT A HAND-WRITTEN `reveal is-in` (18 Sep 2026).
+          THE BUG THIS FIXES: the container was born carrying `is-in`, so the
+          three notes were at their finished opacity and offset on the very
+          first frame. A CSS transition needs the FROM state painted before the
+          TO state arrives; there was no from state, so nothing ever
+          transitioned and the notes simply appeared - the "the sections just
+          seem to flash and appear in" report, in the one place on the hub that
+          had opted out of the component written to prevent exactly this.
+          `Reveal` supplies the observer, the two-frame paint gate and the
+          per-child wrapper this comment already wanted. */}
+      <Reveal className="grid gap-3 pt-1 sm:grid-cols-3" stagger={0.07}>
+        {rows.map((q) => {
           const t = tagInfo(q.tag)
           const answers = Number(q.answer_count || 0)
           const open = answers === 0
           return (
-            <div key={q.id} className="reveal-item" style={{ '--reveal-i': i }}>
-              <Link
-                to={`/board/${q.id}`}
-                className={cx(
-                  'group flex h-full flex-col rounded-card border border-gray-100 bg-white p-4 shadow-card',
-                  'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift',
-                )}
-              >
-                <span className="mb-2 flex items-center gap-1.5">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">
-                    <Icon name={t.icon} className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
-                  </span>
-                  {/* The state, as the one coloured thing on the card, and it
-                      says what it means. It used to read "Open" for a question
-                      nobody had answered and a bare number otherwise - so the
-                      two states were a word and a digit in the same chip, and
-                      neither said what it was counting. "Open" is also
-                      genuinely ambiguous: open as opposed to closed? Locked?
-                      Ethan: "I don't get the 'open' thing." */}
-                  <span className={cx(
-                    'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                    open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
-                  )}>
-                    {open
-                      ? tr('No answers yet')
-                      : answers === 1 ? tr('1 answer') : tr('{n} answers', { n: answers })}
-                  </span>
+            <Link
+              key={q.id}
+              to={`/board/${q.id}`}
+              className={cx(
+                'group flex h-full flex-col rounded-card border border-gray-100 bg-white p-4 shadow-card',
+                'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift',
+              )}
+            >
+              <span className="mb-2 flex items-center gap-1.5">
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">
+                  <Icon name={t.icon} className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
                 </span>
+                {/* The state, as the one coloured thing on the card, and it
+                    says what it means. It used to read "Open" for a question
+                    nobody had answered and a bare number otherwise - so the
+                    two states were a word and a digit in the same chip, and
+                    neither said what it was counting. "Open" is also
+                    genuinely ambiguous: open as opposed to closed? Locked?
+                    Ethan: "I don't get the 'open' thing." */}
+                <span className={cx(
+                  'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                  open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
+                )}>
+                  {open
+                    ? tr('No answers yet')
+                    : answers === 1 ? tr('1 answer') : tr('{n} answers', { n: answers })}
+                </span>
+              </span>
 
-                {/* THE QUESTION AND NOTHING ELSE. This is a doorway, not the
-                    board: three questions in three glances, everything else one
-                    tap away on a page built to hold it. */}
-                <span className="line-clamp-4 text-[14px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
-                  {q.title}
-                </span>
-                <span className="mt-auto flex items-center gap-1.5 pt-3 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                  {formatMessageTime(q.created_at)}
-                  <Icon name="chevronRight" className="ml-auto h-3.5 w-3.5 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
-                </span>
-              </Link>
-            </div>
+              {/* THE QUESTION AND NOTHING ELSE. This is a doorway, not the
+                  board: three questions in three glances, everything else one
+                  tap away on a page built to hold it. */}
+              <span className="line-clamp-4 text-[14px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
+                {q.title}
+              </span>
+              <span className="mt-auto flex items-center gap-1.5 pt-3 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                {formatMessageTime(q.created_at)}
+                <Icon name="chevronRight" className="ml-auto h-3.5 w-3.5 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
+              </span>
+            </Link>
           )
         })}
-      </div>
+      </Reveal>
     </section>
   )
 }

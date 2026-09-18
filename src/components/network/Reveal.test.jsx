@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import Reveal from './Reveal'
+import { lockScroll } from '../../lib/scrollLock'
 
 // THE ANIMATION THAT WAS RUNNING IN THE WRONG PLACE.
 //
@@ -187,6 +188,48 @@ describe('Reveal', () => {
     act(() => { vi.advanceTimersByTime(1500) })
     expect(a.classList.contains('is-in')).toBe(true)
     expect(b.classList.contains('is-in')).toBe(false)
+  })
+
+  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES (18 Sep 2026).
+  //
+  // Ethan, on a phone: "when the worldwide page loads on mobile there is no
+  // animations." The notifications ask opens on app open and freezes the page
+  // (lib/scrollLock); an IntersectionObserver cannot see a scrim, so the whole
+  // top of the hub ran its entrance behind one and was already finished by the
+  // time the reader could look at it.
+  it('holds its motion while an overlay has the page frozen, and takes it back on release', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const release = lockScroll()
+    const view = render(<Cards />)
+    paint()
+    const grid = view.container.querySelector('.reveal')
+    // Nothing is even being observed: there is no moment to decide yet.
+    expect(io.has(grid)).toBe(false)
+    expect(grid.classList.contains('is-in')).toBe(false)
+    // And the 1200ms net does not quietly reveal it either.
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(grid.classList.contains('is-in')).toBe(false)
+
+    act(() => { release() })
+    expect(io.has(grid)).toBe(true)
+    io.fire(grid)
+    expect(grid.classList.contains('is-in')).toBe(true)
+  })
+
+  it('does not hold the contents of the dialog that is doing the freezing', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const release = lockScroll()
+    const view = render(
+      <div role="dialog">
+        <Cards />
+      </div>,
+    )
+    paint()
+    const grid = view.container.querySelector('.reveal')
+    expect(io.has(grid)).toBe(true)
+    io.fire(grid)
+    expect(grid.classList.contains('is-in')).toBe(true)
+    act(() => { release() })
   })
 
   it('shows everything when there is no IntersectionObserver at all', () => {

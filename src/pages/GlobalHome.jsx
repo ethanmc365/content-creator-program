@@ -1179,7 +1179,33 @@ export default function GlobalHome() {
                   is finished before the motion starts. */}
               <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
                 {d
-                  ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
+                  ? (
+                    <CreatorMap
+                      creators={d.mapPeople}
+                      trips={d.mapTrips}
+                      myId={session?.user?.id}
+                      // THE HUB MAP IS A MAP, NOT A PICTURE OF ONE (18 Sep 2026).
+                      //
+                      // Ethan: "for the desktop worldwide page, I seem to be
+                      // unable to scroll to zoom in on the creator network map,
+                      // only on full screen."
+                      //
+                      // It was never given `navigable`, so it refused a drag, a
+                      // double click AND the wheel, and the only door was the
+                      // full-screen button - on the one page whose whole point
+                      // is finding a person on it. The market maps have been
+                      // navigable since 12 Sep and nothing about this map is
+                      // different from those except that it covers the world.
+                      //
+                      // The landing page's copy stays as it is: that is the
+                      // public page the scroll-trap report came from, and a
+                      // reader skimming a marketing page is exactly who must
+                      // not have a control claim their wheel. See
+                      // `filterZoomEvent` in CreatorMap for the gate that lets
+                      // this one take it safely.
+                      navigable
+                    />
+                  )
                   : <MapSkeleton />}
               </WhenVisible>
             </section>

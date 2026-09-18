@@ -915,6 +915,84 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // to keep running until then rather than firing once.
   const userMoved = useRef(false)
 
+  // ---------------------------------------------------------------------
+  // SCROLL TO ZOOM, WITHOUT THE MAP EATING THE PAGE (18 Sep 2026).
+  //
+  // Ethan: "for the desktop worldwide page, I seem to be unable to scroll to
+  // zoom in on the creator network map, only on full screen, please fix this."
+  //
+  // The rule this replaces was right about the thing it was written for and
+  // too broad by one case. The original report - "you reach the map, it starts
+  // scrolling the map, and then there's literally no way past it" - is a
+  // WHEEL-OVER-A-MOVING-PAGE problem: a reader flicking down the hub crosses
+  // the map, d3-zoom claims the wheel mid-flick, and the page stops dead under
+  // somebody who never asked to use a control. Refusing the wheel outright
+  // fixed that and took scroll-to-zoom with it, which is the report above.
+  //
+  // What separates the two is not the gesture, it is whether the page was
+  // already moving. So:
+  //
+  //   A WHEEL THAT ARRIVES WHILE THE PAGE IS SCROLLING BELONGS TO THE PAGE.
+  //   `scrolledAt` is stamped by a passive window listener, and for a quarter
+  //   of a second after any page movement the map will not take a wheel at all.
+  //   That is the whole of the original bug: you cannot be trapped by a
+  //   control that refuses to engage while you are moving.
+  //
+  //   AT EITHER LIMIT THE WHEEL GOES BACK TO THE PAGE. Zoomed all the way out
+  //   and still scrolling down, the map has nothing left to do with the
+  //   gesture, so it hands it back and the page carries on from where it was.
+  //   That is the way OUT, and it needs no cursor move and nothing learned:
+  //   the map you have not zoomed is exactly as transparent to a scroll as it
+  //   was before this change.
+  //
+  //   ONCE A ZOOM IS RUNNING IT KEEPS THE WHEEL for 400ms of quiet, so a
+  //   trackpad's stream of small deltas is one gesture rather than forty
+  //   separate decisions.
+  //
+  // Full screen is untouched: there the map IS the page and everything works.
+  // A phone never reaches any of this - there is no wheel, one finger scrolls
+  // and two pinch, exactly as before.
+  const scrolledAt = useRef(0)
+  const wheelAt = useRef(0)
+  // WHERE THE PAGE WAS WHEN THIS MAP LAST SAW A WHEEL.
+  //
+  // The listener below is the primary signal and the offset is the backstop,
+  // because a scroll EVENT is dispatched by the rendering pipeline and a page
+  // that is not being painted (a background tab, an embedded pane) moves
+  // without ever emitting one. Two readings of the same fact, and the map only
+  // takes the wheel when both of them say the page is still.
+  const scrolledY = useRef(0)
+  useEffect(() => {
+    const onScroll = () => { scrolledAt.current = Date.now() }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  // The zoom the gate reads. A ref rather than the state because
+  // `filterZoomEvent` is handed to d3 once and would otherwise close over the
+  // zoom this render happened to see - the same stale-closure trap `zoomBy`
+  // was fixed for.
+  const zoomRef = useRef(1.3)
+
+  // The gate itself. Returns true only when this wheel is the map's.
+  const wheelIsOurs = (event) => {
+    const now = Date.now()
+    // Mid-gesture: a trackpad sends a stream, and re-deciding on every delta
+    // would drop the map out of a zoom the moment it crossed a limit check on
+    // one stray event.
+    const continuing = now - wheelAt.current < 400
+    // The page was moving. This wheel is part of that movement.
+    const y = typeof window === 'undefined' ? 0 : (window.scrollY || 0)
+    const moved = y !== scrolledY.current
+    scrolledY.current = y
+    if (!continuing && (moved || now - scrolledAt.current < 250)) return false
+    // Nothing left to zoom in this direction: hand it back so the page keeps
+    // going. `deltaY > 0` is scrolling down, which is zooming out.
+    const z = zoomRef.current || 1
+    if (event.deltaY > 0 ? z <= 1.02 : z >= 39.5) return false
+    wheelAt.current = now
+    return true
+  }
+
   // Resolve any legacy profile that has a town but no stored coordinates.
   useEffect(() => {
     let cancelled = false
@@ -1519,7 +1597,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // so React bails out of the render entirely, and what is left is the markers,
   // which have to be re-rendered on a zoom change or they are wrong.
   const z = liveZoom
-  const handleMove = useCallback((pos) => { setLiveZoom(pos.zoom) }, [])
+  const handleMove = useCallback((pos) => { zoomRef.current = pos.zoom; setLiveZoom(pos.zoom) }, [])
   const handleMoveEnd = useCallback((pos) => {
     setPosition(pos)
     setLiveZoom(pos.zoom)
@@ -1538,7 +1616,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // Rather than remember to set it in all four places (and get it wrong in the
   // fourth), it is derived here. The handlers still set it eagerly so there is
   // no lag mid-gesture; this only ever catches what they miss.
-  useEffect(() => { setLiveZoom(position.zoom) }, [position.zoom])
+  useEffect(() => { zoomRef.current = position.zoom; setLiveZoom(position.zoom) }, [position.zoom])
 
   // TWO PLAIN SET-STATES, NOT ONE NESTED INSIDE THE OTHER.
   //
@@ -2018,8 +2096,15 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
           FULL SCREEN KEEPS ITS OWN COPY, so the exit button stays grouped with
           the zoom it belongs to. */}
+      {/* A PHONE DOES NOT GET THE STACK. Ethan, of the embedded maps: "we don't
+          actually need the zoom in on mobile because we can easily zoom with
+          our fingers, and I don't need the reset button. All we need is a full
+          screen button." Two fingers still pinch and one still scrolls the
+          page, so on a phone these three discs are 120px of chrome over the
+          picture that do nothing a finger cannot. They come back at `sm`, where
+          the pointer is a mouse and the wheel gate is the only other way in. */}
       {!fullscreen && navigable && (
-        <div className="absolute right-3 top-14 z-20 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur sm:right-5 sm:top-16">
+        <div className="absolute right-3 top-14 z-20 hidden flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur sm:right-5 sm:top-16 sm:flex">
           <button type="button" onClick={() => { userMoved.current = true; zoomBy(1.6) }} aria-label={tr("Zoom in")} className={mapBtn}>
             <span className="text-lg font-semibold leading-none text-ink">+</span>
           </button>
@@ -2152,6 +2237,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
             const allowed = fullscreen
               || (event?.type === 'touchstart' && (event.touches?.length ?? 0) >= 2)
               || (navigable && (event?.type === 'mousedown' || event?.type === 'dblclick'))
+              || (navigable && event?.type === 'wheel' && wheelIsOurs(event))
             if (allowed) userMoved.current = true
             return allowed
           }}
