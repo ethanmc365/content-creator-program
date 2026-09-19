@@ -18,7 +18,7 @@ import {
   countryMatches, airportMatches, shuffle,
   currencyCountriesForRegion, currencyOptions,
 } from '../lib/countries'
-import { ukDayIndex, ukDayStartIso, dailyStreak } from '../lib/daily'
+import { ukDayIndex, dailyStreak } from '../lib/daily'
 import { DAILY_PUZZLES, DAILY_KEYS, useDailyPuzzles } from '../lib/dailyPuzzles'
 import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
@@ -939,37 +939,40 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
   const pressTimer = useRef(null)
 
+  // THE RANKING HAPPENS WHERE THE ROWS ARE (16 Sep 2026).
+  //
+  // THE BUG: this fetched EVERY score row for the mode and region with no
+  // limit, then worked out each player's best in the browser. PostgREST caps a
+  // response at 1000 rows and says so only in a header - so the moment a mode
+  // crossed a thousand rounds the board would have started dropping players,
+  // silently, with the casualties decided by whatever order Postgres returned
+  // rows in. One row per player per day for ever means the busiest mode crosses
+  // that inside a few weeks of real use, on the most-played screen here.
+  //
+  // `game_mode_leaderboard` does the same thing in SQL - best score, then
+  // fastest time, test accounts never ranked - and returns the streak with it,
+  // which removes the second unbounded query this used to make as well.
   const load = useCallback(async () => {
-    let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url, is_test)').eq('mode', mode).eq('region', region)
-    q = eventId ? q.eq('event_id', eventId) : q.is('event_id', null)
-    // Daily puzzles rank today's solves only (everyone has the same puzzle,
-    // refreshing at midnight UK time).
-    if (daily) q = q.gte('created_at', ukDayStartIso())
-    const { data } = await q
-    const best = {}
-    for (const s of data ?? []) {
-      if (s.profiles?.is_test) continue // QA accounts never rank
-      const cur = best[s.player_id]
-      if (!cur || s.correct > cur.correct || (s.correct === cur.correct && s.time_ms < cur.time_ms)) best[s.player_id] = s
-    }
-    const ranked = Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25)
+    const { data, error } = await supabase.rpc('game_mode_leaderboard', {
+      p_mode: mode,
+      p_region: region,
+      p_event: eventId ?? null,
+      p_daily: !!daily,
+      p_limit: 25,
+    })
+    if (error) { setRows([]); setStreaks({}); return }
+    // Shaped back into the nested form the rows below already read, so moving
+    // the ranking to the server changed the query and nothing else.
+    const ranked = (data ?? []).map((r) => ({
+      ...r,
+      profiles: { id: r.player_id, name: r.name, photo_url: r.photo_url },
+    }))
     setRows(ranked)
-
-    // Daily play streak per creator for this mode (consecutive UK days). Only on
-    // the all-time board - a single event doesn't have a daily cadence. Uses the
-    // daily puzzle rows (day_key set), so it reflects exactly the days played.
-    const ids = ranked.map((r) => r.player_id)
-    if (!eventId && ids.length) {
-      const { data: hist } = await supabase
-        .from('game_scores').select('player_id, day_key').eq('mode', mode).in('player_id', ids).not('day_key', 'is', null)
-      const byPlayer = {}
-      for (const h of hist ?? []) (byPlayer[h.player_id] ||= []).push(h.day_key)
-      const s = {}
-      for (const id of ids) s[id] = dailyStreak(byPlayer[id] || [])
-      setStreaks(s)
-    } else {
-      setStreaks({})
-    }
+    // The streak rides along on the row now. Kept in its own map so every
+    // reader below is unchanged.
+    const s = {}
+    for (const r of ranked) s[r.player_id] = r.streak || 0
+    setStreaks(eventId ? {} : s)
   }, [mode, region, eventId, daily])
 
   useEffect(() => { load() }, [load])

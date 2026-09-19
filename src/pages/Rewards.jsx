@@ -8,6 +8,7 @@ import { formatDate, formatMoney } from '../lib/utils'
 import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
+import CertificateWall from '../components/certificate/CertificateWall'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
@@ -106,6 +107,13 @@ export default function Rewards() {
               ))}
             </Reveal>
           )}
+
+          {/* WHAT YOU WERE PAID, THEN WHAT YOU CAN SHOW FOR IT. Under the
+              ledger and never inside it - see the note in CertificateWall for
+              why a certificate button on every reward ROW was removed and why
+              a section of its own is a different thing. Draws nothing at all
+              until somebody has one. */}
+          <CertificateWall profileId={whose} className="mt-12" readOnly={viewing} />
         </>
       )}
 

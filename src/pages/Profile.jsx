@@ -23,6 +23,7 @@ import SocialMark, { brandForUrl } from '../components/SocialMark'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorPeek from '../components/admin/CreatorPeek'
+import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
@@ -683,6 +684,18 @@ export default function Profile() {
             not before it. */}
         </>
       )
+  // THEIR PORTFOLIO, IF THEY CHOSE TO SHOW IT HERE. Draws absolutely nothing
+  // unless `show_on_profile` is on - which is a separate switch from publishing
+  // to the web, because they are separate decisions. See migration 223.
+  //
+  // FIRST IN THE RAIL, above the milestones: it is the only section on this
+  // page that is the person's WORK rather than a statistic about them, and
+  // somebody who has gone to the trouble of building one has said what they
+  // want to be judged on.
+  const portfolio = (
+    <ProfilePortfolio profileId={creator.id} />
+  )
+
   const milestones = (
         <>
 {/* MILESTONES SIT ABOVE THE FLIGHT LOG. They are the thing with a
@@ -1043,6 +1056,7 @@ export default function Profile() {
         <Reveal as="aside" from="right" className="min-w-0 space-y-4" stagger={0.05} delay={0.08}>
           {clock}
           {glance}
+          {portfolio}
           {headedNextSection}
           {languages}
           {milestones}

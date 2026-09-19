@@ -93,6 +93,11 @@ const TOOLS = [
   { id: 'team', to: '/admin/team', icon: 'shield', title: 'Tryp.com Team', globalOnly: true },
 
   { id: 'milestones', to: '/admin/milestones', icon: 'plane', title: 'Milestones' },
+  // BESIDE MILESTONES, because it is the other half of the same idea: what the
+  // programme GIVES a creator. Milestones are the ladder; this is the picture
+  // they get to post when they reach a rung. `star` is free in this grid - see
+  // the note above about every icon appearing exactly once.
+  { id: 'kit', to: '/admin/creator-kit', icon: 'star', title: 'Creator kit' },
 
   { id: 'history', to: '/admin/challenges/history', icon: 'book', title: 'Challenge log' },
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },

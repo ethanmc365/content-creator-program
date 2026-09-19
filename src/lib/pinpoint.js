@@ -980,6 +980,48 @@ export const PINPOINT_COUNTRIES = [
     ['Bikini Atoll', 'Kwajalein, the world’s largest lagoon', 'Uses the US dollar', 'North of Kiribati', 'Compact of Free Association with the US'],
     ['Jaki-ed weaving', 'Arno Atoll', '29 coral atolls', 'Marshallese language', 'Rising seas threaten it'],
   ] },
+  // ---- The last eight sovereign states (16 Sep 2026). The bank is now every
+  // country on earth, which is a promise worth being able to make.
+  { name: 'Central African Republic', iso2: 'CF', region: 'Africa', tier: 'hard', aliases: ['car'], sets: [
+    ['Landlocked and almost exactly in the middle', 'Diamonds', 'Rainforest and savannah meet here', 'Borders six countries', 'Bangui'],
+    ['Dzanga-Sangha forest elephants', 'Boali Falls', 'Sango language', 'Between Chad, Sudan and the two Congos', 'Ubangi river'],
+    ['Bayaka forest communities', 'Manovo-Gounda St Floris park', 'Was Ubangi-Shari', 'CFA franc', 'Berbérati'],
+  ] },
+  { name: 'Comoros', iso2: 'KM', region: 'Africa', tier: 'hard', sets: [
+    ['The perfume islands', 'Ylang-ylang for the scent trade', 'A volcanic archipelago', 'Between Mozambique and Madagascar', 'Moroni'],
+    ['Mount Karthala', 'Grande Comore, Mohéli and Anjouan', 'Coelacanth waters', 'Vanilla and cloves', 'Indian Ocean island nation'],
+    ['Langouste à la vanille', 'Chiconi', 'Arab, African and French all at once', 'Franc currency', 'Around 850,000 people'],
+  ] },
+  { name: 'Dominica', iso2: 'DM', region: 'North America', tier: 'hard', aliases: ['commonwealth of dominica'], sets: [
+    ['The nature island', 'A lake that boils', 'A 184km hiking trail end to end', 'Eastern Caribbean', 'Roseau'],
+    ['Boiling Lake', 'Waitukubuli Trail', 'Morne Trois Pitons', 'Not the Dominican Republic', 'Between Guadeloupe and Martinique'],
+    ['Kalinago Territory', 'Champagne Reef', 'Sperm whales year round', 'East Caribbean dollar', 'Trafalgar Falls'],
+  ] },
+  { name: 'Equatorial Guinea', iso2: 'GQ', region: 'Africa', tier: 'hard', sets: [
+    ['The only African country where Spanish is official', 'Oil in the Gulf of Guinea', 'A capital on an island', 'Split between a mainland and islands', 'Malabo'],
+    ['Bioko island', 'Río Muni on the mainland', 'Pico Basilé', 'Between Cameroon and Gabon', 'Oyala, a capital built in the forest'],
+    ['Was Spanish Guinea', 'Monte Alén rainforest', 'Drill monkeys', 'CFA franc', 'Bata'],
+  ] },
+  { name: 'Guinea-Bissau', iso2: 'GW', region: 'Africa', tier: 'hard', sets: [
+    ['Cashew nuts are almost the whole economy', 'A maze of mangrove islands', 'Portuguese is official', 'Small nation on the West African coast', 'Bissau'],
+    ['Bijagós Archipelago', 'Saltwater hippos', 'Between Senegal and Guinea', 'Was Portuguese Guinea', 'Orango island'],
+    ['Gumbé music', 'Amílcar Cabral', 'Tarrafes mangroves', 'CFA franc', 'Around 88 islands offshore'],
+  ] },
+  { name: 'Saint Kitts and Nevis', iso2: 'KN', region: 'North America', tier: 'hard', aliases: ['st kitts', 'saint kitts', 'st kitts and nevis'], sets: [
+    ['The smallest country in the Americas', 'A hilltop fortress called the Gibraltar of the Caribbean', 'Two islands joined by a strait', 'Eastern Caribbean', 'Basseterre'],
+    ['Brimstone Hill Fortress', 'A scenic railway round a sugar island', 'Alexander Hamilton was born here', 'Nevis Peak', 'The Narrows'],
+    ['Goat water stew', 'Pinney’s Beach', 'Sugar until 2005', 'East Caribbean dollar', 'Two islands, 261 km²'],
+  ] },
+  { name: 'Saint Vincent and the Grenadines', iso2: 'VC', region: 'North America', tier: 'hard', aliases: ['st vincent', 'saint vincent', 'st vincent and the grenadines'], sets: [
+    ['A chain of yachting islands', 'An active volcano called La Soufrière', 'Pirates of the Caribbean was filmed here', 'Eastern Caribbean', 'Kingstown'],
+    ['The Grenadines', 'Bequia', 'Mustique', 'Tobago Cays', 'La Soufrière erupted in 2021'],
+    ['Roasted breadfruit and jackfish', 'Arrowroot', 'Botanical gardens from 1765', 'East Caribbean dollar', 'Union Island'],
+  ] },
+  { name: 'Sao Tome and Principe', iso2: 'ST', region: 'Africa', tier: 'hard', aliases: ['sao tome', 'são tomé and príncipe', 'sao tome and principe'], sets: [
+    ['Cocoa islands', 'Two islands on the equator', 'Portuguese is official', 'Gulf of Guinea', 'São Tomé'],
+    ['Pico Cão Grande, a volcanic needle', 'Príncipe biosphere reserve', 'Was the world’s biggest cocoa producer', 'Off the coast of Gabon', 'Obo National Park'],
+    ['Roças, the old plantation estates', 'Calulu', 'Africa’s second-smallest country', 'Dobra currency', 'Around 220,000 people'],
+  ] },
 ]
 
 // ---------------------------------------------------------------- the day
@@ -1024,14 +1066,29 @@ export const PINPOINT_ROUNDS = {
   express: { clues: 3, guided: false, label: 'Express', blurb: 'Three clues only, and they are the hard ones.' },
   classic: { clues: 5, guided: false, label: 'Classic', blurb: 'Five clues, one guess each.' },
   guided: { clues: 5, guided: true, label: 'Guided', blurb: 'Five clues, and you are told the continent.' },
+  // A MIXED ROUND IS A NEW PUZZLE OUT OF CLUES THAT ALREADY EXIST.
+  //
+  // The obvious way to add variety was a FOURTH clue set per country. It was
+  // written, and then thrown away: the three sets already use the good clues,
+  // so a fourth is built from leftovers - and leftovers for a country in the
+  // EASY tier are by definition obscure, which turns the gentle tier into the
+  // hard one. More content is not automatically more game.
+  //
+  // What the bank does have is three clues at every POSITION, and because every
+  // set runs hardest-first, position 2 of set 1 and position 2 of set 3 are
+  // about equally hard. Taking each position from a different set therefore
+  // gives a five-clue round that ramps exactly like a normal one, is made
+  // entirely of clues already trusted, and has 3^5 = 243 possible shapes per
+  // country instead of 3.
+  mixed: { clues: 5, guided: false, label: 'Mixed', blurb: 'Five clues, one from each of its sets.' },
 }
 
 // How often each round style comes up, by how well known the country is. A
 // niche country mostly gets the help; a famous one mostly gets less of it.
 const ROUND_MIX = {
-  easy: [['express', 45], ['classic', 40], ['guided', 15]],
-  medium: [['express', 20], ['classic', 55], ['guided', 25]],
-  hard: [['express', 5], ['classic', 45], ['guided', 50]],
+  easy: [['express', 36], ['classic', 26], ['mixed', 24], ['guided', 14]],
+  medium: [['express', 16], ['classic', 34], ['mixed', 27], ['guided', 23]],
+  hard: [['express', 4], ['classic', 28], ['mixed', 22], ['guided', 46]],
 }
 
 // HOW OFTEN EACH COUNTRY COMES ROUND, AND WHY IT IS NOT ONE EACH.
@@ -1193,9 +1250,37 @@ export function pinpointForDay(day) {
   const rng = mulberry32((d * 2654435761 + 0x5171) >>> 0)
   const round = pickWeighted(ROUND_MIX[country.tier] ?? ROUND_MIX.medium, rng())
   const spec = PINPOINT_ROUNDS[round]
+
+  // A MIXED ROUND TAKES EACH POSITION FROM A DIFFERENT SET, and refuses to
+  // repeat a clue: several countries name the same landmark at two positions
+  // across their sets, and a round that showed it twice would be a round with
+  // four clues in it wearing five.
+  let words
+  if (round === 'mixed') {
+    words = []
+    const used = new Set()
+    for (let i = 0; i < spec.clues; i++) {
+      let picked = null
+      // Try the sets in a rotation that starts somewhere different per
+      // position, so the mix is not the same three sets in the same order.
+      const start = Math.floor(rng() * country.sets.length)
+      for (let k = 0; k < country.sets.length; k++) {
+        const candidate = country.sets[(start + k) % country.sets.length][i]
+        if (candidate && !used.has(candidate.toLowerCase())) { picked = candidate; break }
+      }
+      // Every set repeats this clue: fall back to the chosen set's own, which
+      // can only happen if the country has fewer distinct clues than it looks.
+      if (!picked) picked = set[i]
+      used.add(picked.toLowerCase())
+      words.push(picked)
+    }
+  } else {
+    words = set.slice(0, spec.clues)
+  }
+
   return {
     ...country,
-    words: set.slice(0, spec.clues),
+    words,
     round,
     clues: spec.clues,
     guided: spec.guided,

@@ -89,6 +89,10 @@ const AdminChallengeAnalytics = lazyRoute(chunk.AdminChallengeAnalytics)
 const AdminVideoTracker = lazyRoute(chunk.AdminVideoTracker)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
 const AdminResources = lazyRoute(chunk.AdminResources)
+const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
+const Portfolio = lazyRoute(chunk.Portfolio)
+const PublicPortfolio = lazyRoute(chunk.PublicPortfolio)
+const VerifyCertificate = lazyRoute(chunk.VerifyCertificate)
 const AdminJobs = lazyRoute(chunk.AdminJobs)
 const AdminReferrals = lazyRoute(chunk.AdminReferrals)
 const AdminEmail = lazyRoute(chunk.AdminEmail)
@@ -229,6 +233,17 @@ export default function App() {
           in Supabase → Authentication → URL Configuration → Redirect URLs, for
           BOTH Vercel origins. */}
       <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* A CREATOR'S PORTFOLIO, OUTSIDE THE LOGIN. Opt-in and off by default -
+          see migration 224. It is here, above the ProtectedRoute block, because
+          the whole point is that a brand who has never heard of this platform
+          can open it from an Instagram bio. */}
+      <Route path="/p/:slug" element={<PublicPortfolio />} />
+      {/* WHAT MAKES A CERTIFICATE A CREDENTIAL. The serial is printed on every
+          one of them; this is where somebody holding the picture can ask
+          whether it is real. Public for the same reason the portfolio is: the
+          person checking is a brand who has never heard of this platform. */}
+      <Route path="/verify" element={<VerifyCertificate />} />
+      <Route path="/verify/:serial" element={<VerifyCertificate />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<Terms />} />
 
@@ -246,6 +261,10 @@ export default function App() {
           <Route path="/home" element={<Navigate to="/global" replace />} />
           <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/profile/:id" element={<Profile />} />
+          {/* Your own, and `?as=<id>` for an admin checking somebody else's -
+              the same mechanism the dashboard, rewards and milestones use.
+              See components/ViewingAs. */}
+          <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/creators" element={<Directory />} />
           {/* The single hard-coded UK conversation is gone. Its messages are
               the worldwide rooms' history (they carry the bare channel keys),
@@ -346,6 +365,10 @@ export default function App() {
             <Route path="/admin/network" element={<Navigate to="/admin/analytics?tab=network" replace />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/resources" element={<AdminResources />} />
+            {/* The graphics creators repost and the certificates they are
+                awarded. One page because they are one idea - see
+                pages/admin/AdminCreatorKit. */}
+            <Route path="/admin/creator-kit" element={<AdminCreatorKit />} />
             <Route path="/admin/jobs" element={<AdminJobs />} />
             <Route path="/admin/referrals" element={<AdminReferrals />} />
             <Route path="/admin/email" element={<AdminEmail />} />
