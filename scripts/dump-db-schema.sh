@@ -44,9 +44,11 @@ PROJECT_REF="${PROJECT_REF:-heuhqqoxyggawuckxocp}"
 OUT="${OUT:-supabase/schema.sql}"
 
 # The CLI is a standalone Go binary. Node is NOT required to run it - which
-# matters, because node has gone missing from this machine at least once and
-# `npx supabase` stops working the moment it does. Prefer whatever is on PATH,
-# then fall back to the binary npx already cached.
+# matters here because node lives in ~/.local/node/bin and is NOT on the global
+# PATH, so a bare `npx supabase` fails with "env: node: No such file or
+# directory" and reads like a missing install. Prefer whatever is on PATH, then
+# fall back to the binary npx already cached. (`./dev.sh` fixes the PATH for
+# everything else.)
 if command -v supabase >/dev/null 2>&1; then
   SUPABASE=supabase
 else
