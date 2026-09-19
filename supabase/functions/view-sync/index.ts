@@ -239,26 +239,47 @@ function playCountFrom(html: string, videoId: string): number | null {
 // not already gone right. Every field is best-effort and any of them may be
 // null - see the note on `Resolved`.
 //
-// `desc` is TikTok's own key for the caption; `uniqueId` is the @handle and
-// `nickname` is the display name, so the handle is the one worth keeping (it is
-// what a link is built from). `cover` is the poster frame.
+// `uniqueId` is the @handle and `nickName` is the display name, so the handle
+// is the one worth keeping (it is what a link is built from).
+//
+// TWO SCHEMAS, BECAUSE THE KEYS MOVED (18 Sep 2026). This was written against
+// an embed that carried `"desc"` and `"cover"`. The embed now nests the post
+// under `"itemInfos"`, with the caption at `"text"` and the poster frame in a
+// `"covers"` ARRAY - so both of those regexes had stopped matching and this
+// function was returning a null caption and a null thumbnail on every TikTok,
+// silently, because every field here is best-effort by design. Measured on a
+// real entry: `"desc"` and `"cover"` appear ZERO times in the embed now.
+//
+// Both shapes are tried, new name first, so this keeps working whichever
+// TikTok serves. THE VIEW COUNT WAS NEVER AFFECTED - `playCount` is unchanged
+// and `meta` is off in the sweep - so this only ever degraded the tracker's
+// "read it from the platform".
+//
+// SCOPED TO THE ITEM BLOB, for the same reason `playCountFrom` is scoped: the
+// page also carries a hashtag's own description under a `"text"` key, and an
+// unscoped match takes whichever comes first in 290 kB.
 export function tiktokMeta(html: string): Partial<Resolved> {
-  const pick = (re: RegExp) => {
-    const raw = html.match(re)?.[1]
-    if (!raw) return null
-    try {
-      // The blobs are JSON inside HTML, so the values arrive JSON-escaped -
-      // \n, \u00e9 and the rest. Parsing them as a JSON string is the only
-      // correct way to get the characters back; a hand-rolled unescape is how
-      // captions end up full of stray backslashes.
-      return JSON.parse(`"${raw}"`) as string
-    } catch {
-      return raw
+  const start = html.indexOf('"itemInfos"')
+  const seg = start >= 0 ? html.slice(start, start + 12000) : html
+  const pick = (...res: RegExp[]) => {
+    for (const re of res) {
+      const raw = seg.match(re)?.[1] ?? html.match(re)?.[1]
+      if (!raw) continue
+      try {
+        // The blobs are JSON inside HTML, so the values arrive JSON-escaped -
+        // \n, \u00e9 and the rest. Parsing them as a JSON string is the only
+        // correct way to get the characters back; a hand-rolled unescape is how
+        // captions end up full of stray backslashes.
+        return JSON.parse(`"${raw}"`) as string
+      } catch {
+        return raw
+      }
     }
+    return null
   }
-  const caption = pick(/"desc":"((?:[^"\\]|\\.)*)"/)
+  const caption = pick(/"text":"((?:[^"\\]|\\.)*)"/, /"desc":"((?:[^"\\]|\\.)*)"/)
   const author = pick(/"uniqueId":"((?:[^"\\]|\\.)*)"/)
-  const thumbnail = pick(/"cover":"((?:[^"\\]|\\.)*)"/)
+  const thumbnail = pick(/"covers":\["((?:[^"\\]|\\.)*)"/, /"cover":"((?:[^"\\]|\\.)*)"/)
   const created = html.match(/"createTime":"?(\d{9,10})"?/)?.[1]
   return {
     caption: caption || null,
@@ -559,7 +580,6 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
 // Cost is per CREATOR, not per video: one page carries twelve reels, so a
 // creator's whole set of entries is usually one request. That keeps the
 // programme's footprint on Instagram in single digits per sweep.
-const IG_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
 // Meta rotates persisted-query ids. Both are stored as comma-separated lists so
 // a rotation is a paste into the connections panel rather than a redeploy, and
@@ -595,18 +615,11 @@ export function igHandleFrom(url: string | null | undefined): string | null {
   return /^[A-Za-z0-9._]{1,30}$/.test(first) ? first.toLowerCase() : null
 }
 
-// The shortcode IS the media id, base64'd against Instagram's own alphabet.
-// Kept because the id is what `platform_video_id` stores and what pins an entry
-// to one post rather than to something near it on a page.
-export function igMediaId(shortcode: string): string | null {
-  let n = 0n
-  for (const ch of shortcode) {
-    const i = IG_ALPHABET.indexOf(ch)
-    if (i < 0) return null
-    n = n * 64n + BigInt(i)
-  }
-  return n.toString()
-}
+// (`igMediaId` lived here: the shortcode base64-decoded to Instagram's numeric
+// media id. Removed 18 Sep 2026 - nothing called it, here or anywhere in the
+// repo, and the comment justifying it was wrong: `platform_video_id` stores the
+// SHORTCODE for Instagram, not the numeric id. The browser keeps its own tested
+// copy in `src/lib/videoLinks.js` if the conversion is ever needed again.)
 
 // Instagram calls the number "views" on a reel; the field behind it is the play
 // count. `video_view_count` is deliberately NOT read anywhere: it is a legacy

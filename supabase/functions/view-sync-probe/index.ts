@@ -6,7 +6,13 @@
 //      the YouTube Data API instead of reading the watch page.
 //   2. Which cookies does Instagram's media endpoint actually want? sessionid
 //      alone gets a 302 to itself; sessionid + ds_user_id + csrftoken + ig_did
-//      + mid returns the media. That answer is now igCookie() in view-sync.
+//      + mid returns the media.
+//
+// That second answer is now HISTORY, not code (note corrected 18 Sep 2026: it
+// used to say "that answer is now igCookie() in view-sync", and no such
+// function has existed since 25 Aug 2026). Instagram warned the Tryp.com UK
+// account for automated behaviour, so the session cookie was deleted outright
+// and view-sync reads the PUBLIC reels tab with no credential at all.
 //
 // Stubbed rather than deleted, for the same reason as social-sync and
 // broadcast-email: removing the function from the repo leaves the previous
