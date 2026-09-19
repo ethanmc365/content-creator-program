@@ -20,6 +20,7 @@ import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
 import { repairScrollLock } from '../../lib/scrollLock'
+import { resetPageSettled } from '../../lib/pageSettled'
 import { usePinnedToBottom } from '../../lib/pinnedBar'
 import { useT } from '../../lib/i18n'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
@@ -312,6 +313,14 @@ export default function AppLayout() {
   // wearing one. It is a no-op in every normal case, including with a dialog
   // genuinely open across a route change.
   useEffect(() => { repairScrollLock() }, [pathname])
+
+  // A ROUTE CHANGE IS A NEW PAGE OF CONTENT ARRIVING, AND IT ARRIVES THE SAME
+  // WAY. See lib/pageSettled: sections whose queries land late move everything
+  // below them, and a `Reveal` asked where it is while that is happening gets a
+  // true answer about a layout that no longer exists a second later. The hub
+  // reached from the rooms tab has exactly the same problem as the hub reached
+  // by typing the address, so the watch starts again with the page.
+  useEffect(() => { resetPageSettled() }, [pathname])
 
   // Presence heartbeat: while the app is open, stamp our own row so admins can
   // see who is online and when a creator was last active.

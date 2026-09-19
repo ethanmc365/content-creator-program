@@ -1,5 +1,7 @@
 import { Children, Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { isScrollLocked, onScrollLockChange } from '../../lib/scrollLock'
+import { RevealContext } from '../../lib/revealContext'
+import { isPageSettled, onPageSettled } from '../../lib/pageSettled'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -197,6 +199,67 @@ export default function Reveal({
   // relationship between things arriving together; when they arrive one at a
   // time, a per-child delay is just a card that hesitates before moving.
   // ---------------------------------------------------------------------
+  // IS THERE ANYTHING IN HERE TO ANIMATE YET? (19 Sep 2026)
+  //
+  // THE BUG. Ethan, on a phone: "for mobile there is still no real visible
+  // animations, the hey Ethan title animates in nicely but the latest
+  // announcements, today's puzzles and everyone right now doesn't."
+  //
+  // Measured on the hub at 375px, polling every 70ms through a load: a section
+  // sat at `offsetHeight: 0` for a full second after its `Reveal` had mounted,
+  // and reached 457px only once its query came back. The observer had long
+  // since reported the empty box as on screen, so the 720ms entrance ran on
+  // nothing at all - and the content, when it finally arrived, arrived into a
+  // container that had already finished. The greeting animates because the
+  // greeting is text: it is complete on the frame it mounts. Every section that
+  // waits on data was spending its motion before it had anything to move.
+  //
+  // So a container with no height has not got anything to reveal, and waiting
+  // is the correct behaviour rather than a delay. The ResizeObserver below is
+  // already watching for exactly this and wakes it the moment the content
+  // lands, which is also the moment it should start.
+  //
+  // IT IS HEIGHT, NOT A `ready` PROP. A prop would have to be passed correctly
+  // at forty call sites and would be wrong at the one that forgot; height is
+  // the actual question ("is there something on screen to move") and no caller
+  // can get it wrong.
+  const [hasBody, setHasBody] = useState(false)
+  // HAS THE PAGE STOPPED MOVING UNDER THIS SECTION? (19 Sep 2026)
+  //
+  // THE CASCADE. `hasBody` above stops a section spending its entrance on its
+  // own empty box. It does nothing about the damage that box does to everything
+  // BELOW it, and on the hub that is most of the page.
+  //
+  // `WhoToMeet` returns `null` until its own query lands, and an empty
+  // `.reveal-item` is `display: none`, so its section is genuinely 0px tall for
+  // about a second - measured on the hub at 375px, polling through a load: 0,
+  // then 457. The moment the picks arrive, everything under it moves down 457
+  // pixels. Every section in that half of the page had already been asked "are
+  // you on screen" while it was sitting 457px higher than it belongs, and the
+  // honest answer at the time was yes. So they revealed, they ran their 720ms
+  // against nobody, and then the page pushed them below the fold - finished.
+  // Scroll down to them and they are simply there. That is Ethan's "today's
+  // puzzles and everyone right now don't [animate]", and it is why the greeting
+  // is the one thing that does: nothing ever moves the top of the page.
+  //
+  // The observer was not wrong. It answered a question about a layout that was
+  // still arriving. So for the first few seconds of a page's life a reveal is
+  // PROVISIONAL: if the section ends up entirely below the fold again, it was
+  // never seen, and it gets its moment back.
+  //
+  // WHY THIS CANNOT MAKE THE PAGE RESTLESS - the thing the one-way rule exists
+  // to prevent. A reveal is only ever taken back when the element's top is at
+  // or beyond the BOTTOM of the viewport, which is the one position from which
+  // nobody can have seen it. And it stops entirely once the window closes.
+  //
+  // AND THE WINDOW IS MEASURED, NOT GUESSED. The first version of this was four
+  // seconds from mount, which is the same shape of guess the bug is about -
+  // Ethan: "I think it depends on how long it takes for the page to load." A
+  // fixed window is right on a fast connection and has closed before the data
+  // lands on a slow one. `lib/pageSettled` watches the document's height
+  // instead, with one observer for the whole page, and answers the question
+  // that actually matters: has anything moved lately.
+  const settled = useSyncExternalStore(onPageSettled, isPageSettled, () => true)
   const [perItem, setPerItem] = useState(false)
   const [shownItems, setShownItems] = useState(() => new Set())
   // WHICH ITEMS HAVE FINISHED MOVING, IN PER-ITEM MODE.
@@ -298,6 +361,10 @@ export default function Reveal({
   useEffect(() => {
     if (!node) return undefined
     const measure = () => {
+      // FIRST, AND BEFORE ANY EARLY RETURN. This is what arms the observers at
+      // all (see `hasBody`), so a host that cannot report a viewport height
+      // must not also cost the page its content.
+      setHasBody(node.offsetHeight > 0)
       const vh = window.innerHeight || 0
       // A zero-height viewport is a host that cannot answer (a headless pane,
       // a hidden iframe). Keep the simpler mode rather than guessing.
@@ -320,6 +387,18 @@ export default function Reveal({
       setPerItem(node.offsetHeight > vh * 1.25)
     }
     measure()
+    // AND ON A FEW TIMERS, BECAUSE `hasBody` NOW GATES THE REVEAL.
+    //
+    // The ResizeObserver below is the accurate signal and these are the
+    // guarantee, which is the same pairing as the frames-and-a-timer behind
+    // `painted`. The rule this file keeps relearning is that nothing which can
+    // withhold content may depend on a single mechanism: a ResizeObserver is
+    // not delivered in a host that is not painting, and a section whose content
+    // arrived while nothing was watching would then never be asked again and
+    // would stay at opacity 0 for the life of the page. Four cheap reads of
+    // `offsetHeight`, spread over the window in which a query can land, and
+    // then it stops.
+    const retries = [400, 1200, 2500, 5000].map((ms) => setTimeout(measure, ms))
     // AND WHENEVER THE CONTAINER ITSELF CHANGES SHAPE. Half of these grids are
     // filled from a query - the featured creators, the map, a challenge list -
     // so the height at first commit is the height of an empty grid, and by the
@@ -333,6 +412,7 @@ export default function Reveal({
     window.addEventListener('orientationchange', measure)
     return () => {
       ro?.disconnect()
+      retries.forEach(clearTimeout)
       window.removeEventListener('resize', measure)
       window.removeEventListener('orientationchange', measure)
     }
@@ -342,7 +422,7 @@ export default function Reveal({
   // itself the moment every child has arrived - this is a one-way reveal, so
   // there is nothing left to watch.
   useEffect(() => {
-    if (!perItem || !node || held) return undefined
+    if (!perItem || !node || held || !hasBody || !settled) return undefined
     const els = itemNodes.current.filter(Boolean)
     if (!els.length) return undefined
     // NO OBSERVER MUST NEVER MEAN NO CONTENT. Same rule as the container path:
@@ -356,13 +436,14 @@ export default function Reveal({
     const io = new IntersectionObserver(
       (entries) => {
         const arrived = entries.filter((e) => e.isIntersecting).map((e) => Number(e.target.dataset.revealIdx))
-        if (!arrived.length) return
-        setShownItems((prev) => {
-          const next = new Set(prev)
-          arrived.forEach((i) => next.add(i))
-          return next
-        })
-        entries.filter((e) => e.isIntersecting).forEach((e) => io.unobserve(e.target))
+        if (arrived.length) {
+          setShownItems((prev) => {
+            const next = new Set(prev)
+            arrived.forEach((i) => next.add(i))
+            return next
+          })
+          entries.filter((e) => e.isIntersecting).forEach((e) => io.unobserve(e.target))
+        }
       },
       // The same head start the container observer gets: start it a flick of a
       // thumb before the card is on screen so the motion FINISHES as it lands.
@@ -382,7 +463,10 @@ export default function Reveal({
       const vh = window.innerHeight || 0
       if (!vh) { setShownItems(new Set(els.map((_, i) => i))); return }
       const arrived = els
-        .map((el, i) => (el.getBoundingClientRect().top < vh ? i : null))
+        // THE SAME LEAD THE OBSERVER GETS. See the note on the container's
+        // net below: a net that only catches what is already on screen is a
+        // net that reveals things late, which reads as no animation at all.
+        .map((el, i) => (el.getBoundingClientRect().top < vh * (1 + early / 100) ? i : null))
         .filter((i) => i !== null)
       if (arrived.length) setShownItems((prev) => new Set([...prev, ...arrived]))
     }
@@ -395,10 +479,32 @@ export default function Reveal({
       window.removeEventListener('scroll', net)
       window.removeEventListener('resize', net)
     }
-  }, [perItem, node, children, early, held])
+  }, [perItem, node, children, early, held, hasBody, settled])
 
   useEffect(() => {
-    if (!node || shown || held) return undefined
+    if (!node || held || !hasBody) return undefined
+    // `shownRef`, not `shown`, and the reason is the line below: this effect is
+    // keyed on `settled`, which arrives AFTER the reveal on a page the reader
+    // scrolled through. Reading the state would re-run it on the frame it
+    // fired; the ref answers the same question without being a dependency.
+    if (shownRef.current) return undefined
+    // AND IT DOES NOT DECIDE ANYTHING WHILE THE PAGE IS STILL ARRIVING.
+    //
+    // This is the other half of `settled`, and it is the half that makes the
+    // behaviour the same every time instead of most of the time. Ethan: "most
+    // of the time they don't seem to work, I think it depends on how long it
+    // takes for the page to load." He is right, and that is the whole
+    // diagnosis: the observer fires the instant the sections commit, which is
+    // the instant the browser is busiest - parsing an atlas, decoding forty
+    // avatars, running three more queries - and a 720ms transform on a big card
+    // in the middle of that either judders or is dropped to its final frame.
+    // Whether it looked right depended entirely on what the connection did.
+    //
+    // A page that waits for its own layout to stop moving runs its entrance
+    // once, in order, with a main thread that has nothing else to do. The cost
+    // is 400ms; the 1,200ms net below is what guarantees the content appears
+    // regardless, so this can never be the reason something is missing.
+    if (!settled) return undefined
     // No IntersectionObserver (very old browser, some test environments) must
     // never mean "invisible content". Show it and move on.
     if (typeof IntersectionObserver === 'undefined') {
@@ -427,7 +533,7 @@ export default function Reveal({
     )
     io.observe(node)
     return () => io.disconnect()
-  }, [node, shown, early, held])
+  }, [node, early, held, hasBody, settled])
 
   // Belt and braces, BUT ONLY FOR WHAT IS ACTUALLY ON SCREEN.
   //
@@ -444,7 +550,7 @@ export default function Reveal({
   // something has gone wrong and the content wins. If it is below the fold,
   // waiting IS the correct behaviour and we keep waiting.
   useEffect(() => {
-    if (shown || !node || held) return undefined
+    if (shown || !node || held || !hasBody) return undefined
     const check = () => {
       const vh = window.innerHeight || 0
       // A viewport of zero height means we are somewhere that cannot answer the
@@ -452,7 +558,20 @@ export default function Reveal({
       // resolve to showing the content, never to hiding it.
       if (vh === 0) { setShown(true); return }
       const r = node.getBoundingClientRect()
-      if (r.top < vh) setShown(true)
+      // THE NET HAS TO HAVE THE SAME LEAD AS THE OBSERVER (19 Sep 2026).
+      //
+      // This read `r.top < vh`, which is the element already touching the
+      // bottom of the screen - a full 15% of a viewport LATER than the moment
+      // the IntersectionObserver above was set up to fire. That is fine as a
+      // test for "something is broken, show the content", which is what it was
+      // written for. It is wrong now that this listener also has to cover a
+      // scroll the observer was slow to report on - and a phone flicking
+      // through 800px in a third of a second is exactly that case. Revealing a
+      // section the moment its top crosses the fold means the 720ms entrance
+      // starts under the reader's thumb and finishes somewhere off the bottom
+      // of the screen, which is the difference between a page that arrives and
+      // Ethan's "today's puzzles and everyone right now doesn't [animate]".
+      if (r.top < vh * (1 + early / 100)) setShown(true)
     }
     const t = setTimeout(check, 1200)
     // AND ON SCROLL, WHICH IS THE ONLY CASE THE NET DID NOT CATCH.
@@ -490,7 +609,7 @@ export default function Reveal({
       window.removeEventListener('resize', check)
       window.removeEventListener('orientationchange', check)
     }
-  }, [shown, node, held])
+  }, [shown, node, held, hasBody, early])
 
   // WHEN THE STAGGER IS ACTUALLY OVER.
   //
@@ -588,11 +707,21 @@ export default function Reveal({
         const mine = perItem && shownItems.has(i) && painted
         // `is-done` only once this item has actually landed. See `doneItems`.
         const landed = perItem && doneItems.has(i)
+        // THE MOMENT THIS PARTICULAR CARD BEGINS TO ARRIVE, PUBLISHED.
+        //
+        // See lib/revealContext for what reads it and why an observer of its
+        // own was the wrong instrument. The two modes answer differently and
+        // both answers are here: in container mode every child arrives on the
+        // container's moment, offset by its place in the stagger; in per-item
+        // mode the child arrives on its own moment and there is no stagger to
+        // offset by (see the note above `perItem`).
+        const revealed = mine || (!perItem && shown && painted)
+        const delayMs = perItem
+          ? 0
+          : Math.round(delay * 1000 + Math.min(i, maxStagger) * stagger * 1000)
         return (
+          <RevealContext.Provider key={child?.key ?? i} value={{ revealed, delayMs }}>
           <div
-            // The child's own key is what React needs; this wrapper is
-            // positional and never reorders independently of it.
-            key={child?.key ?? i}
             ref={setItemNode(i)}
             data-reveal-idx={i}
             className={`reveal-item${mine ? ' is-in' : ''}${landed ? ' is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}`}
@@ -602,6 +731,7 @@ export default function Reveal({
           >
             {child}
           </div>
+          </RevealContext.Provider>
         )
       })}
     </Tag>

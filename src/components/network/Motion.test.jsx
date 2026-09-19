@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { countDuration, countEase, COUNT_MS } from './Motion'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, act } from '@testing-library/react'
+import { countDuration, countEase, COUNT_MS, COUNT_LEAD_MS, CountUp } from './Motion'
+import { RevealContext } from '../../lib/revealContext'
 
 // THE COUNTER CANNOT BE WATCHED IN THE PREVIEW BROWSER.
 // `document.hidden` is true there and requestAnimationFrame never ticks, so a
@@ -104,5 +106,102 @@ describe('countEase', () => {
       expect(v).toBeGreaterThanOrEqual(prev)
       prev = v
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// THE COUNTER RUNS ON THE CARD'S CLOCK (19 Sep 2026).
+//
+// Ethan, on the worldwide page: "sometimes it shows the numbers counting up in
+// the animated format, other times it shows 0 and counts up a few seconds
+// later, and other times the numbers just immediately show." Three orderings of
+// three timers that had nothing to do with each other - see lib/revealContext.
+// These pin the two halves of the fix: the count starts when the CARD says it
+// is arriving, and the figure itself is never left to requestAnimationFrame.
+describe('CountUp', () => {
+  let frames
+  beforeEach(() => {
+    vi.useFakeTimers()
+    frames = []
+    vi.stubGlobal('requestAnimationFrame', (cb) => { frames.push(cb); return frames.length })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    // `useInView` constructs one even when a card is driving the count.
+    vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} })
+  })
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+
+  const onCard = (revealed, delayMs = 0) => ({ revealed, delayMs })
+
+  it('does not run while the card it sits on is still hidden', () => {
+    const view = render(
+      <RevealContext.Provider value={onCard(false)}>
+        <CountUp value={120} />
+      </RevealContext.Provider>,
+    )
+    // THE REGRESSION. The counter used to observe itself, and an
+    // IntersectionObserver reports an opacity-0 card as perfectly visible - so
+    // the whole count ran and finished behind a card nobody could see yet.
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(view.container.textContent).toBe('0')
+    expect(frames).toHaveLength(0)
+  })
+
+  it('starts when the card begins to arrive, and lands on the figure', () => {
+    const view = render(
+      <RevealContext.Provider value={onCard(true)}>
+        <CountUp value={120} />
+      </RevealContext.Provider>,
+    )
+    act(() => { vi.advanceTimersByTime(COUNT_LEAD_MS + 1) })
+    expect(frames.length).toBeGreaterThan(0)
+    act(() => { frames.shift()(0) })
+    act(() => { frames.shift()(COUNT_MS) })
+    expect(view.container.textContent).toBe('120')
+  })
+
+  it('waits out the card\'s own place in the arrival ladder', () => {
+    render(
+      <RevealContext.Provider value={onCard(true, 300)}>
+        <CountUp value={9} />
+      </RevealContext.Provider>,
+    )
+    act(() => { vi.advanceTimersByTime(COUNT_LEAD_MS + 299) })
+    expect(frames).toHaveLength(0)
+    act(() => { vi.advanceTimersByTime(2) })
+    expect(frames).toHaveLength(1)
+  })
+
+  // NEVER GATE THE NUMBER ITSELF ON rAF. It does not run in a background tab or
+  // while a phone is launching an installed app, and what was left on screen
+  // was a hard zero: "other times it shows 0."
+  it('still shows the figure when not a single frame ever runs', () => {
+    const view = render(
+      <RevealContext.Provider value={onCard(true)}>
+        <CountUp value={4471} />
+      </RevealContext.Provider>,
+    )
+    act(() => { vi.advanceTimersByTime(COUNT_LEAD_MS + COUNT_MS + 1000) })
+    expect(frames.length).toBeGreaterThan(0)   // it did ask for frames
+    expect(view.container.textContent).toBe('4471')  // and did not depend on them
+  })
+
+  it('counts when the data lands after the card has already arrived', () => {
+    // The hub's statistics come from two requests and the strip renders an
+    // em-dash until the slower one is in, so this is the ordinary case, not an
+    // edge one.
+    const view = render(
+      <RevealContext.Provider value={onCard(true)}>
+        <CountUp value={null} />
+      </RevealContext.Provider>,
+    )
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(view.container.textContent).toBe('0')
+    view.rerender(
+      <RevealContext.Provider value={onCard(true)}>
+        <CountUp value={88} />
+      </RevealContext.Provider>,
+    )
+    act(() => { vi.advanceTimersByTime(COUNT_LEAD_MS + COUNT_MS + 1000) })
+    expect(view.container.textContent).toBe('88')
   })
 })

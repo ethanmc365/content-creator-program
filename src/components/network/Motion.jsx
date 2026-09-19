@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'motion/react'
 import { reveal, EASE } from '../../lib/motion'
 import { cx } from '../../lib/utils'
+import { useRevealed } from '../../lib/revealContext'
 
 // Small motion pieces used across the network pages.
 //
@@ -100,6 +101,12 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
 // flicker, short enough that nobody is waiting on the card.
 export const COUNT_MS = 1600
 
+// How long after a card BEGINS to arrive its numbers start counting. The card
+// fades up over 720ms; a count that starts on the first frame of that spends
+// its opening third against a number nobody can read yet, and one that waits
+// for the full 720ms reads as a card that arrived and then thought about it.
+export const COUNT_LEAD_MS = 220
+
 // Exported so it can be tested without a component. The preview browser freezes
 // requestAnimationFrame (document.hidden is true), so a counter cannot be
 // watched there at all - which means the only honest way to check what was
@@ -119,7 +126,31 @@ export const countEase = (t) => t
 
 export function CountUp({ value, duration, className, format = (n) => n }) {
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' })
+  // THE CARD'S CLOCK, NOT ONE OF ITS OWN (19 Sep 2026).
+  //
+  // See lib/revealContext for the whole diagnosis. In short: this observed
+  // ITSELF, with a NEGATIVE bottom margin, while the card it sits on was
+  // observed by `Reveal` with a POSITIVE one - so on the same element, on the
+  // same scroll, the number and the card started at two different moments, and
+  // which came first depended on how fast the page had loaded. That is exactly
+  // the three outcomes Ethan described: the count finishing behind an opacity-0
+  // card, the count starting a second after the card had settled, and
+  // occasionally the two happening to line up.
+  //
+  // Inside a `Reveal` the card says when it is arriving and this follows it.
+  // Outside one - a stats page that does not use the component - it still
+  // observes itself, and the margin is now ZERO rather than -10%: a counter
+  // that waits until it is a tenth of a screen INSIDE the viewport is a counter
+  // that starts after you have read the number it is counting to.
+  const onCard = useRevealed()
+  const selfInView = useInView(ref, { once: true, margin: '0px' })
+  const started = onCard ? onCard.revealed : selfInView
+  // The card's own place in the page's arrival ladder, plus a beat. The card
+  // takes 720ms to fade up; starting the count on the very first frame of that
+  // spends a third of it behind an almost-invisible number, so it waits until
+  // the card is legible and then runs. Nothing to configure: it is derived from
+  // the same ladder that ordered the sections.
+  const startAfter = onCard ? onCard.delayMs + COUNT_LEAD_MS : 0
   const reduced = useReducedMotion()
   const target = Number(value) || 0
   // `shown` exists for the FIRST PAINT and for reduced motion only. Every frame
@@ -160,16 +191,18 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
   // an update after adding a flight animate to the new total instead of
   // snapping to it.
   useEffect(() => {
-    if (!inView) return undefined
+    if (!started) return undefined
     if (reduced) { shownRef.current = target; setShown(target); return undefined }
     const from = shownRef.current
     if (from === target) return undefined
     const node = ref.current
     let raf = 0
+    let begin = 0
+    // Declared before `tick`, which clears it on its last frame.
+    let net = 0
     // The caller can still name a duration; nothing does, and the derived one
     // is the point - see countDuration above.
     const ms = duration ?? countDuration()
-    const start = performance.now()
     const paint = (v) => {
       shownRef.current = v
       // STRAIGHT TO THE DOM. Not setState: this runs sixty times a second on up
@@ -178,18 +211,43 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
       // be smooth. `textContent` is one string assignment.
       if (node) node.textContent = String(formatRef.current(v))
     }
+    // NULL, NOT 0. The clock is taken from the first frame that actually runs
+    // rather than from when the effect was set up, so the ladder delay above
+    // does not eat the front of the count - and a timestamp of 0, which is what
+    // a fake clock hands you, is a real reading rather than "not started yet".
+    let start = null
     const tick = (now) => {
+      if (start === null) start = now
       const t = Math.min(1, (now - start) / ms)
       paint(Math.round(from + (target - from) * countEase(t)))
       if (t < 1) raf = requestAnimationFrame(tick)
       // The last frame is committed to state as well, so the number survives
       // the next React render. Without it the node's text would be thrown away
       // the moment the parent re-rendered for any other reason.
-      else setShown(target)
+      else { setShown(target); clearTimeout(net) }
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [inView, target, duration, reduced])
+    // NEVER GATE THE NUMBER ITSELF ON rAF (19 Sep 2026).
+    //
+    // This is the rule `Reveal.painted` and `lib/chatScroll` each learned the
+    // hard way, and the counter was still breaking it: the only thing that ever
+    // wrote the real figure was a requestAnimationFrame callback, and rAF does
+    // not run in a background tab and is throttled to nothing while a phone is
+    // launching an installed app. A page that came back from either of those
+    // showed a hard `0` - not a stale number, the wrong one - until something
+    // else happened to re-render it. "Other times it shows 0."
+    //
+    // The frames are the animation; this is the guarantee. It is a whole count
+    // plus a margin, so it never fires on a run that is merely slow.
+    net = setTimeout(() => {
+      cancelAnimationFrame(raf)
+      paint(target)
+      setShown(target)
+    }, startAfter + ms + 400)
+    // The ladder step. A zero delay still goes through the timer so there is
+    // one code path, and `setTimeout(fn, 0)` is the next task, not a frame.
+    begin = setTimeout(() => { raf = requestAnimationFrame(tick) }, startAfter)
+    return () => { clearTimeout(begin); clearTimeout(net); cancelAnimationFrame(raf) }
+  }, [started, startAfter, target, duration, reduced])
 
   return (
     <span ref={ref} className={cx('tabular-nums', className)}>

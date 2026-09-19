@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import Reveal from './Reveal'
 import { lockScroll } from '../../lib/scrollLock'
+import { resetPageSettled } from '../../lib/pageSettled'
 
 // THE ANIMATION THAT WAS RUNNING IN THE WRONG PLACE.
 //
@@ -31,18 +32,27 @@ function installObserver() {
       const io = watched.get(el)
       if (io) act(() => io.cb([{ target: el, isIntersecting: true }]))
     },
+    /** The element is no longer intersecting, and its top is at `top`. */
+    leave(el, top) {
+      const io = watched.get(el)
+      if (io) act(() => io.cb([{ target: el, isIntersecting: false, boundingClientRect: { top } }]))
+    },
     has: (el) => watched.has(el),
     count: () => watched.size,
   }
 }
 
-/** Force what every element reports as its height, and the viewport's. */
+/** Force what every element reports as its height, and the viewport's.
+ *  Returns a setter so a test can make a container GROW, which is what half of
+ *  the sections on the hub do a second after they mount. */
 function setHeights({ container, viewport = 800 }) {
   window.innerHeight = viewport
+  let h = container
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
     configurable: true,
-    get() { return this.classList.contains('reveal') ? container : 100 },
+    get() { return this.classList.contains('reveal') ? h : 100 },
   })
+  return (next) => { h = next }
 }
 
 const Cards = (props) => (
@@ -59,6 +69,10 @@ describe('Reveal', () => {
   let io
   beforeEach(() => {
     vi.useFakeTimers()
+    // `lib/pageSettled` is module state and a test is a fresh page. Without
+    // this, one test's pending quiet timer is thrown away by the next test's
+    // fake clock and the page never settles again.
+    resetPageSettled()
     io = installObserver()
     // rAF does not run in a background tab or an embedded pane, which is why
     // `painted` is backed by an 80ms timer. Tests drive the timer.
@@ -72,7 +86,11 @@ describe('Reveal', () => {
     delete HTMLElement.prototype.offsetHeight
   })
 
-  const paint = () => act(() => { vi.advanceTimersByTime(100) })
+  // PAST BOTH GATES. `painted` is two frames or 80ms (a transition needs its
+  // FROM state drawn first), and the observers do not arm until `lib/pageSettled`
+  // reports the document has stopped changing height - 400ms of quiet. A test
+  // that only advanced past the first one was testing a page still mid-load.
+  const paint = () => act(() => { vi.advanceTimersByTime(500) })
 
   it('observes the container when the grid fits on a screen', () => {
     setHeights({ container: 300, viewport: 800 })
@@ -230,6 +248,77 @@ describe('Reveal', () => {
     io.fire(grid)
     expect(grid.classList.contains('is-in')).toBe(true)
     act(() => { release() })
+  })
+
+  // AN ENTRANCE SPENT ON AN EMPTY BOX IS AN ENTRANCE NOBODY SEES (19 Sep 2026).
+  //
+  // Ethan: "for mobile there is still no real visible animations... the latest
+  // announcements, today's puzzles and everyone right now [don't]". Measured on
+  // the hub: a section sat at offsetHeight 0 for a second while its query ran,
+  // and its 720ms ran against nothing.
+  it('will not begin while the container has nothing in it yet', () => {
+    const grow = setHeights({ container: 0, viewport: 800 })
+    const view = render(<Cards />)
+    paint()
+    const grid = view.container.querySelector('.reveal')
+    // Not even observed: there is nothing to decide about.
+    expect(io.has(grid)).toBe(false)
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(grid.classList.contains('is-in')).toBe(false)
+
+    // The query lands. THE TIMER FINDS IT, not the ResizeObserver - which is
+    // the point of the timers: a host that is not painting delivers no resize
+    // entries at all, and a section that filled while nothing was watching must
+    // not be left at opacity 0 for the life of the page.
+    grow(300)
+    act(() => { vi.advanceTimersByTime(1300) })
+    expect(io.has(grid)).toBe(true)
+    io.fire(grid)
+    expect(grid.classList.contains('is-in')).toBe(true)
+  })
+
+  // A REVEAL IS FINAL. Re-animating a section every time it scrolls past is a
+  // page that will not sit still, and the whole component is built on not doing
+  // that. The cascade is fixed by never deciding while the page is moving (the
+  // test above), not by changing this.
+  it('never takes a reveal back once it has happened', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const view = render(<Cards />)
+    paint()
+    const grid = view.container.querySelector('.reveal')
+    io.fire(grid)
+    io.leave(grid, 900)
+    expect(grid.classList.contains('is-in')).toBe(true)
+  })
+
+  // THE LOAD RACE, WHICH IS WHAT MADE IT WORK "MOST OF THE TIME" (19 Sep 2026).
+  //
+  // Ethan: "most of the time they don't seem to work, I think it depends on how
+  // long it takes for the page to load." The observer used to fire on the frame
+  // the sections committed, which is the frame the browser is busiest, so
+  // whether a 720ms entrance was smooth, juddered, or was dropped to its last
+  // frame depended on the connection.
+  it('does not decide anything while the page is still changing height', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const view = render(<Cards />)
+    const grid = view.container.querySelector('.reveal')
+    // Painted, but the page has not been quiet yet.
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(io.has(grid)).toBe(false)
+    act(() => { vi.advanceTimersByTime(400) })
+    expect(io.has(grid)).toBe(true)
+  })
+
+  it('shows the content anyway if the page never stops moving', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const view = render(<Cards />)
+    const grid = view.container.querySelector('.reveal')
+    grid.getBoundingClientRect = () => ({ top: 10 })
+    // The net does not wait for anything. Whatever else is wrong, a section on
+    // screen after 1.2 seconds is a section the reader gets.
+    act(() => { vi.advanceTimersByTime(100) })
+    act(() => { vi.advanceTimersByTime(1300) })
+    expect(grid.classList.contains('is-in')).toBe(true)
   })
 
   it('shows everything when there is no IntersectionObserver at all', () => {
