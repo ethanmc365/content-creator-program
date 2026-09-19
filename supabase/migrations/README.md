@@ -25,51 +25,77 @@ abort the thing it is bookkeeping.** Wrap it and notify somebody instead.
 
 ## THE REPO IS BEHIND THE DATABASE
 
-As of 26 Aug 2026, **19 migrations exist in production and not in this folder.**
-They were applied through the Supabase MCP / Management API without a file being
-written. Numbering here jumps 114 → 126 and the gap is real, not cosmetic.
+**Re-measured 19 Sep 2026, by listing every function in `public` and asking this
+folder whether it defines it. THIRTY-SEVEN DO NOT EXIST HERE AT ALL:**
 
 ```
-20260825134839  admin_panel_layout_per_admin
-20260825142931  participation_vouchers_are_counted_not_typed
-20260825170717  leaderboard_rebuilds_itself_from_the_entries
-20260825170912  removing_an_entry_removes_it_from_the_board
-20260825171009  leaderboard_reconciler
-20260825171632  schedule_a_message_in_any_room
-20260825172756  cpm_from_real_money_cash_and_vouchers_apart
-20260825173357  invoices_one_per_prize_seen_when_raised_closed_when_sent
-20260825195716  markets_can_be_deleted_led_by_several_and_asked_to_join
-20260825200552  delete_market_ignores_its_own_leads
-20260825200954  audit_everything_by_watching_the_tables
-20260825201631  membership_role_is_creator_not_member
-20260825201655  the_view_as_creator_sandbox_is_everywhere_and_silent
-20260825202019  the_sandbox_cannot_dm_either
-20260825203043  notes_are_private_until_shared
-20260825203343  resources_can_carry_links
-20260825204817  bonus_points_are_awarded_to_an_entry
-20260826081139  milestone_progress_qualifies_its_columns
+admin_decline_application      log_application_approved      reward_follows_invoice
+admin_delete_challenge         market_gets_its_rooms         same_flight
+admin_find_user_id_by_email    mint_referral_reward          sandbox_cannot_speak
+audit                          move_creator_market           sandbox_follows_new_market
+audit_change                   on_event_poll_created         seed_challenge_point_rules
+award_bonus                    on_event_suggestion           set_entry_feedback
+challenge_voucher_counts       public_live_challenge         set_market_leads
+day_key_month                  purge_old_audit_log           set_market_retired
+decide_join_request            reconcile_stale_leaderboards  touch_last_seen
+delete_market                  reopen_invoice                views_leaderboard
+fx_convert                     resnapshot_invoice            withdraw_bonus
+game_mode_leaderboard          results_follow_deleted_entry
+increment_referral_click
+invoice_terms
 ```
+
+36 of the 37 are SECURITY DEFINER and 11 are trigger functions. 989 lines,
+33 kB. They are here because migrations kept being applied through the Supabase
+MCP / Management API without a file being written beside them; numbering in this
+folder jumps 114 → 126 and the gap is real, not cosmetic.
+
+Some of them are load-bearing, which is the reason this matters rather than
+being tidiness: `purge_old_audit_log` DELETES THE AUDIT TRAIL, `move_creator_market`
+moves a creator between markets, `views_leaderboard` feeds CPM, `award_bonus`
+and `withdraw_bonus` move the points that become prize money, and
+`increment_referral_click` and `public_live_challenge` are two of the five
+functions deliberately exposed to anon.
+
+Note what a missing definition does to a comment. `131_a_leaderboard_of_views_not_points.sql`
+says "see the deployed `views_leaderboard(p_community uuid)`" — the file is
+pointing at something that exists only on the server. Follow that instruction
+and you are reading production, not the repo.
 
 Consequences, in order of how much they should worry you:
 
 1. **This folder cannot rebuild the database.** A restore from these files alone
-   would produce a schema roughly a week behind production.
+   would come up 37 functions short, silently — tables and policies would build,
+   and the first call to any of them would fail at run time.
 2. **A file here may not be what is running.** `114_award_challenge_prizes.sql`
    still contains the ORIGINAL, correct `on_reward_draft_invoice`; production
    ran a different and broken one for a day. Anybody reading 114 to find out
    what the trigger does would have been reading fiction. That is exactly how
-   the retype happened.
+   the retype at the top of this file happened.
 
-They are all recoverable — Supabase keeps the SQL:
+### Fixing it — and NOT by hand
+
+Everything is recoverable. VERIFIED 19 Sep 2026: `supabase_migrations.schema_migrations`
+holds **250 rows, every one of them with its SQL**, back to 27 Jun 2026.
 
 ```sql
 select version, name, array_to_string(statements, E';\n') as sql
-from supabase_migrations.schema_migrations
-where version > '20260825132250' order by version;
+from supabase_migrations.schema_migrations order by version;
 ```
 
-**Back-fill them.** Until that is done, treat `pg_get_functiondef` as the source
-of truth for anything defined after 114, not this folder.
+**Do not back-fill by copying function bodies through a chat window.** That is
+the bet described at the top of this file, taken 37 times. Read the bytes off
+the server instead:
+
+```bash
+supabase login            # once
+./scripts/dump-db-schema.sh
+```
+
+which writes `supabase/schema.sql` — the complete current `public` schema,
+byte-exact, no retyping — and should be committed and re-run after any schema
+change. Until that exists, treat `pg_get_functiondef` as the source of truth for
+anything defined after 114, not this folder.
 
 ## Applying one
 
