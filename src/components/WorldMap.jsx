@@ -6,6 +6,7 @@ import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
 import CountryPanel from './CountryPanel'
 import { lockScroll } from '../lib/scrollLock'
+import { thumbUrl } from '../lib/avatarUrl'
 import { useT } from '../lib/i18n'
 
 // Interactive world map for "countries visited".
@@ -421,7 +422,8 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                   </clipPath>
                   {here.photo ? (
                     <image
-                      href={here.photo}
+                      // At marker size, not at upload size - see lib/avatarUrl.
+                      href={thumbUrl(here.photo, 36)}
                       x={-9} y={-9} width={18} height={18}
                       clipPath="url(#profile-here-clip)"
                       preserveAspectRatio="xMidYMid slice"

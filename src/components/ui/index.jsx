@@ -4,6 +4,7 @@ import { Children, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cx } from '../../lib/utils'
+import { thumbUrl } from '../../lib/avatarUrl'
 import { copyToClipboard } from '../../lib/clipboard'
 import { lockScroll } from '../../lib/scrollLock'
 import { useBootLoaderSlot } from '../../lib/bootLoader'
@@ -13,6 +14,20 @@ import { useVisualViewport } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 
 /** Circular profile photo with an initials fallback. */
+// THE PHOTO IS FETCHED AT THE SIZE IT IS DRAWN (19 Sep 2026).
+//
+// The same fault the map pins had - see lib/avatarUrl for the measurements -
+// and this component is where most of the copies of it are: the creator
+// directory draws a hundred of these at 48px, and every one of them was pulling
+// the original upload. `thumbUrl` only rewrites our own storage URLs, so a
+// Google account picture from OAuth is untouched.
+//
+// AND IT FALLS BACK. An edge that cannot produce a transform would otherwise
+// leave a broken image where a face was, which is worse than the full-size
+// photograph this replaces. `onError` puts the original back, once - the guard
+// matters, because a src that fails twice would otherwise loop.
+const AVATAR_PX = { xs: 28, sm: 36, md: 48, lg: 80, xl: 112 }
+
 export function Avatar({ src, name = '', size = 'md', className = '' }) {
   const sizes = { xs: 'h-7 w-7 text-[10px]', sm: 'h-9 w-9 text-xs', md: 'h-12 w-12 text-sm', lg: 'h-20 w-20 text-xl', xl: 'h-28 w-28 text-3xl' }
   const initials = name
@@ -23,7 +38,16 @@ export function Avatar({ src, name = '', size = 'md', className = '' }) {
     .join('')
     .toUpperCase()
   return src ? (
-    <img src={src} alt={name} className={cx('shrink-0 rounded-full object-cover ring-2 ring-white', sizes[size], className)} />
+    <img
+      src={thumbUrl(src, AVATAR_PX[size] || 48)}
+      alt={name}
+      onError={(e) => {
+        if (e.currentTarget.dataset.raw) return
+        e.currentTarget.dataset.raw = '1'
+        e.currentTarget.src = src
+      }}
+      className={cx('shrink-0 rounded-full object-cover ring-2 ring-white', sizes[size], className)}
+    />
   ) : (
     <div
       aria-label={name}

@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import { loadMapFeatures, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { cx, formatDate } from '../lib/utils'
+import { thumbUrl } from '../lib/avatarUrl'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
 import CountryPanel, { TownPanel } from './CountryPanel'
@@ -280,20 +281,31 @@ function Pin({ group, zoom, active, dim, onSelect, landing = false, queue = 0 })
           <path d={body} />
           <circle cx={0} cy={cy} r={disc} />
         </g>
-        {/* avatar photo (perfect circle via objectBoundingBox) or initials, centred on (0,cy) */}
-        {lead.photo_url ? (
+        {/* THE INITIALS ARE ALWAYS UNDERNEATH, AND THAT IS THE FALLBACK.
+            They used to be the `else` of the photo, so a pin whose image failed
+            to load - a deleted object, a transform the edge could not produce -
+            drew an empty white disc with nothing in it. Painting them first and
+            letting the photo cover them costs one circle and one string per
+            pin, needs no error handling in an SVG element that is awkward to
+            attach any to, and means a missing photo degrades to the same thing
+            a creator with no photo at all gets. */}
+        <circle cx={0} cy={cy} r={r} fill="#fbe6da" />
+        <text x={0} y={cy} textAnchor="middle" dominantBaseline="central"
+          fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(lead.name)}</text>
+        {lead.photo_url && (
           <image
-            href={lead.photo_url}
+            // AT PIN SIZE, NOT AT UPLOAD SIZE. See lib/avatarUrl: forty pins
+            // were pulling about two and a half megabytes of full-resolution
+            // photographs to fill circles 24 units across, which is Ethan's
+            // "it takes a lot of time for the profile pictures to load in on
+            // the pins". 64 is generous for the default zoom and still sharp
+            // deep into one: the pin counter-scales at `zoom^0.3`, so it is
+            // about 72 CSS pixels across at the maximum zoom this map allows.
+            href={thumbUrl(lead.photo_url, 64)}
             x={-r} y={cy - r} width={r * 2} height={r * 2}
             clipPath="url(#creator-pin-clip)"
             preserveAspectRatio="xMidYMid slice"
           />
-        ) : (
-          <>
-            <circle cx={0} cy={cy} r={r} fill="#fbe6da" />
-            <text x={0} y={cy} textAnchor="middle" dominantBaseline="central"
-              fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(lead.name)}</text>
-          </>
         )}
         <circle cx={0} cy={cy} r={r} fill="none" stroke={active ? BRAND : '#ffffff'} strokeWidth={active ? 3 : 2} />
         {count > 1 && (
@@ -2386,7 +2398,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
                     <circle cy="1.8" r="13" fill="rgba(20,20,30,0.22)" />
                     <circle r="13" fill="#ffffff" />
                     {j.photo_url ? (
-                      <image href={j.photo_url} x="-10" y="-10" width="20" height="20"
+                      <image href={thumbUrl(j.photo_url, 48)} x="-10" y="-10" width="20" height="20"
                         clipPath="url(#creator-pin-clip)" preserveAspectRatio="xMidYMid slice" />
                     ) : (
                       <text x="0" y="0" textAnchor="middle" dominantBaseline="central"

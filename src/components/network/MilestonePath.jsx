@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Avatar, Modal } from '../ui'
 import { cx } from '../../lib/utils'
+import { thumbUrl } from '../../lib/avatarUrl'
 import { EASE } from '../../lib/motion'
 import { REWARD_NOUN, criterionLabel, milestoneFraction } from '../../lib/milestones'
 import { useT } from '../../lib/i18n'
@@ -208,7 +209,8 @@ function RouteFace({ who }) {
       {who?.photo_url
         ? (
           <image
-            href={who.photo_url}
+            // At the size the face is drawn - see lib/avatarUrl.
+            href={thumbUrl(who.photo_url, 40)}
             x="-17" y="-17" width="34" height="34"
             preserveAspectRatio="xMidYMid slice"
             clipPath="url(#milestone-face)"
