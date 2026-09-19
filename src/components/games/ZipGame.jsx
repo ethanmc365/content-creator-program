@@ -8,7 +8,6 @@ import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { hintForPath } from '../../lib/zipHint'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
-import { playCelebrate, playCoin, playWrong, playGearThud, playHintRewind, playHintClear, engineThrust, engineStop } from '../../lib/gameSounds'
 import { useT } from '../../lib/i18n'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
@@ -273,11 +272,12 @@ export default function ZipGame({ onExit }) {
   // The reel-in is a chain of timeouts, and it must not outlive the board.
   useEffect(() => () => clearTimeout(rewindRef.current), [])
 
-  // THE ENGINE MUST NOT OUTLIVE THE GAME. It is a looping WebAudio graph, not a
-  // one-shot, so leaving the page while it is fading would leave a propeller
-  // running under the leaderboard - and under every page after that.
-  useEffect(() => engineStop, [])
-  useEffect(() => { if (solved) engineStop() }, [solved])
+  // FLIGHT PATH IS SILENT (19 Sep 2026). Ethan, plainly: he did not like the
+  // sound and wanted it gone, not defaulted off. So the coin, the engine loop,
+  // the gear thud, the fanfare, the wall bump and the two hint sounds are all
+  // removed from this game. Every one of them doubled something visual, and the
+  // visual half was always the load-bearing one: the wall FLASHES, the stop
+  // POPS, the win animates. The other puzzles keep their sound.
 
   // My daily streak for this game (consecutive UK days played).
   useEffect(() => {
@@ -314,19 +314,9 @@ export default function ZipGame({ onExit }) {
       setHitWall(k)
       setTimeout(() => setHitWall((cur) => (cur === k ? null : cur)), 420)
     }
-    playWrong()
   }
 
   function win() {
-    // LANDED, THEN WELL DONE - IN THAT ORDER.
-    //
-    // The thud is the event (the route is complete, the aircraft is down) and
-    // the arpeggio is the reaction to it. Played together they are mush; played
-    // in sequence, with the celebration a beat behind, the ear reads them as
-    // cause and effect. 260ms is roughly the length of the gear thump itself,
-    // so the fanfare starts as it finishes rather than over the top of it.
-    playGearThud()
-    setTimeout(playCelebrate, 260)
     const time_ms = Date.now() - startRef.current
     setSolved(true)
     setSolveMs(time_ms)
@@ -367,17 +357,15 @@ export default function ZipGame({ onExit }) {
       if (num === lastN && cur.length + 1 !== N) { blocked(); break } // land last
       cur.push(next)
       moved = true
-      // THE COIN. A numbered stop is the only thing in this puzzle that is an
-      // achievement rather than a move, so it is the only thing that gets a
-      // sound of its own. Not on the final stop: that one lands on the win
-      // fanfare a fraction of a second later and the two would collide.
-      if (num != null && num !== lastN) { playCoin(); reached = next }
+      // A numbered stop POPS. Not the final one: that lands on the win
+      // animation a fraction of a second later and the two would collide.
+      if (num != null && num !== lastN) reached = next
     }
     // THE HEADING IS SPENT THE MOMENT IT IS USED (or ignored). It is the answer
     // to "which way now", and once you have flown anywhere that question has a
     // new answer - leaving the arrow up would be the board asserting something
     // it has not checked.
-    if (moved) { engineThrust(); clearHint() }
+    if (moved) clearHint()
     if (reached != null) {
       setPopStop(reached)
       setTimeout(() => setPopStop((c) => (c === reached ? null : c)), 420)
@@ -471,11 +459,9 @@ export default function ZipGame({ onExit }) {
     if (res.removed <= 0) {
       setHintNext(res.nextCell)
       setHintMsg(tr('All correct so far, keep going'))
-      playHintClear()
       return
     }
 
-    playHintRewind()
     setHintMsg(res.removed === 1 ? tr('Took back 1 move') : `${tr('Took back')} ${res.removed} ${tr('moves')}`)
     const keep = res.path.length
     const stepMs = Math.max(14, Math.min(34, 320 / res.removed))
