@@ -87,7 +87,7 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <PageHeader title={tr("My dashboard")} subtitle="Your performance in the community, at a glance." />
+      <PageHeader title={tr("Dashboard")} subtitle="Your performance in the community, at a glance." />
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -101,7 +101,7 @@ export default function Dashboard() {
 
       {/* ---------- My results history ---------- */}
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold">{tr("My challenge results")}</h2>
+        <h2 className="mb-4 text-lg font-semibold">{tr("Challenge results")}</h2>
         {data.results.length === 0 ? (
           <EmptyState
             icon={<Icon name="chart" className="h-7 w-7" />}

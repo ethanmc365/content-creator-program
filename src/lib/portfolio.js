@@ -25,8 +25,23 @@
 // creator can rewrite every word on it and reorder the videos; they cannot
 // reorder the argument, because the argument is the value we are adding.
 
-export const PAGE_W = 1123
-export const PAGE_H = 794
+// SIXTEEN BY NINE, NOT A4 (20 Sep 2026).
+//
+// These were 1123x794 - A4 landscape at 96dpi, root-2 - because the original
+// brief said "it will be a4 size landscape". Ethan, looking at the result:
+// "the slide seems to be a weird shape not an actual like um like google slide
+// or powerpoint slide size seems to be more square shaped". He is right, and
+// root-2 IS noticeably squarer than everything else anybody looks at: 1.41
+// against 1.78.
+//
+// A media kit is not a printed document. It is opened on a laptop, in Gmail, in
+// a PDF viewer that fits the page to a 16:9 screen - so A4 wastes a band down
+// each side and makes the page look short and wide-margined. 1280x720 is the
+// PowerPoint and Google Slides widescreen default, and `portfolioPdf` writes
+// the matching 960x540pt page (13.333in x 7.5in) so the PDF is the same shape
+// as the preview rather than a stretched copy of it.
+export const PAGE_W = 1280
+export const PAGE_H = 720
 
 // The slides, in order. `key` is what the `copy` jsonb is keyed on, so renaming
 // one orphans whatever a creator wrote - add, never rename.
@@ -96,9 +111,34 @@ export function slugify(name, suffix = '') {
  *     that helpfully appends "and here are your other good ones" under a
  *     hand-picked six is overruling the person whose portfolio it is.
  */
-export function orderedVideos(all = [], picks = [], limit = 10) {
+/**
+ * WHICH OF THE TWO MODES A PORTFOLIO IS IN, STORED RATHER THAN GUESSED.
+ *
+ * It used to be inferred: `picks.length === 0` meant automatic. That is wrong
+ * in one state and Ethan hit it immediately - "when I click the choose my own
+ * button, it doesn't highlight orange and nothing happens". A creator with NO
+ * entries yet (an admin testing, or anybody before their first challenge) has
+ * nothing on screen for "choose my own" to seed the list from, so `picks` stays
+ * `[]`, so the inference says automatic, so the button appears not to work. The
+ * same bug bites a creator who unticks their last video.
+ *
+ * The mode now lives in the `copy` jsonb, which needs no migration - `picks` is
+ * `uuid[] not null`, so it cannot carry a third "nobody has chosen" state, and
+ * DDL is blocked. Rows written before this fall back to the old inference, so
+ * nothing already saved changes meaning.
+ */
+export function workMode(portfolio) {
+  const stored = portfolio?.copy?.work_mode
+  if (stored === 'manual' || stored === 'auto') return stored
+  return portfolio?.picks?.length ? 'manual' : 'auto'
+}
+
+export function orderedVideos(all = [], picks = [], limit = 10, mode = null) {
   const list = (all || []).filter(Boolean)
-  if (picks?.length) {
+  // `mode === null` keeps the historic behaviour for callers that do not pass
+  // one, which is what every existing test asserts.
+  const manual = mode === 'manual' || (mode == null && !!picks?.length)
+  if (manual) {
     const byId = new Map(list.map((v) => [v.id, v]))
     // `filter(Boolean)` matters: a picked video can be deleted, and a portfolio
     // must not render a hole where it was.

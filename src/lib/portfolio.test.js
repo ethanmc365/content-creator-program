@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { slugify, orderedVideos, statsFrom, compactViews, platformsFrom, copyFor, DEFAULT_COPY } from './portfolio'
+import { slugify, orderedVideos, statsFrom, compactViews, platformsFrom, copyFor, workMode, DEFAULT_COPY } from './portfolio'
 
 describe('slugify', () => {
   it('makes a link somebody would type', () => {
@@ -122,5 +122,45 @@ describe('copyFor', () => {
 
   it('is blank rather than undefined for a slot with no default', () => {
     expect(copyFor({}, 'nonexistent')).toBe('')
+  })
+})
+
+describe('workMode', () => {
+  // The bug this exists for: "choose my own" did nothing for a creator with no
+  // videos, because an empty `picks` was read as "automatic".
+  it('is manual when stored manual, even with nothing picked', () => {
+    expect(workMode({ picks: [], copy: { work_mode: 'manual' } })).toBe('manual')
+  })
+  it('is auto when stored auto, even with picks left over', () => {
+    expect(workMode({ picks: ['a'], copy: { work_mode: 'auto' } })).toBe('auto')
+  })
+  it('falls back to the old inference for rows written before the flag', () => {
+    expect(workMode({ picks: ['a'] })).toBe('manual')
+    expect(workMode({ picks: [] })).toBe('auto')
+  })
+  it('survives a missing portfolio', () => {
+    expect(workMode(undefined)).toBe('auto')
+    expect(workMode({})).toBe('auto')
+  })
+  it('ignores a junk value rather than trusting it', () => {
+    expect(workMode({ picks: [], copy: { work_mode: 'banana' } })).toBe('auto')
+  })
+})
+
+describe('orderedVideos with an explicit mode', () => {
+  const all = [
+    { id: 'a', logged_views: 10 },
+    { id: 'b', logged_views: 30 },
+    { id: 'c', logged_views: 20 },
+  ]
+  it('manual with nothing picked shows nothing - it does not fall back to best', () => {
+    expect(orderedVideos(all, [], 10, 'manual')).toEqual([])
+  })
+  it('auto ignores leftover picks and ranks by views', () => {
+    expect(orderedVideos(all, ['a'], 10, 'auto').map((v) => v.id)).toEqual(['b', 'c', 'a'])
+  })
+  it('no mode given behaves exactly as it always did', () => {
+    expect(orderedVideos(all, ['a']).map((v) => v.id)).toEqual(['a'])
+    expect(orderedVideos(all, []).map((v) => v.id)).toEqual(['b', 'c', 'a'])
   })
 })

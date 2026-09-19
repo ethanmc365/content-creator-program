@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { EmptyState, Skeleton, Spinner, Toggle } from '../../ui'
 import Icon from '../../Icon'
 import { cx } from '../../../lib/utils'
+import { pickClass } from '../../../lib/pick'
 import { confirm, notice } from '../../../lib/confirm'
 import { kitUrl, uploadKitImage } from '../../../pages/admin/AdminCreatorKit'
 
@@ -195,17 +196,30 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove }) {
           aria-label="Title"
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={row.kind}
-            onChange={(e) => onPatch({ kind: e.target.value })}
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-smoke"
-            aria-label="What it is for"
-          >
-            {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
-          </select>
+        {/* A NATIVE <select> IS A DIFFERENT APP'S UI. Ethan: "these pop-ups
+            are not matching the UI of the website. They're like the weird
+            Apple one." He is describing macOS's own dropdown, which is what a
+            bare <select> opens - system font, system chrome, system animation,
+            none of which this page controls. Five short, mutually exclusive
+            options do not need a menu that has to be opened at all: they fit on
+            one row as chips, they show the current choice without a click, and
+            they are drawn by the same `pickClass` every other selected/unselected
+            control on the platform uses. */}
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="What it is for">
+          {KINDS.map((k) => (
+            <button
+              key={k.key}
+              type="button"
+              onClick={() => onPatch({ kind: k.key })}
+              aria-pressed={row.kind === k.key}
+              title={k.hint}
+              className={pickClass(row.kind === k.key, 'rounded-lg border px-2.5 py-1 text-[11px] font-semibold')}
+            >
+              {k.label}
+            </button>
+          ))}
           {row.width && row.height && (
-            <span className="text-[11px] tabular-nums text-gray-400">{row.width}x{row.height}</span>
+            <span className="ml-auto text-[11px] tabular-nums text-gray-400">{row.width}x{row.height}</span>
           )}
         </div>
 

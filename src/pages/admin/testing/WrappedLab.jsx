@@ -65,7 +65,7 @@ export default function WrappedLab() {
       const [
         profiles, communities, memberRows,
         flights, submissions, results,
-        rewards, challenges, messages,
+        rewards, challenges, history, messages,
         connections, collabPosts, gameScores,
         reactions, milestones, creatorMilestones,
       ] = await Promise.all([
@@ -77,6 +77,10 @@ export default function WrappedLab() {
         allRows(() => supabase.from('results').select('challenge_id, creator_id, final_views, rank')),
         allRows(() => supabase.from('rewards').select('creator_id, amount, currency, reward_type, created_at')),
         allRows(() => supabase.from('challenges').select('id, title')),
+        // The off-platform record: the challenges the programme ran before this
+        // app existed. `challenge_id is null` is the same filter AdminAnalytics
+        // uses, and without it the community card counts 0.2% of the year.
+        allRows(() => supabase.from('challenge_history').select('starts_at, total_views, posts, creators, challenge_id').is('challenge_id', null)),
         allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
         allRows(() => supabase.from('connections').select('creator_id, connected_creator_id, status, created_at')),
         allRows(() => supabase.from('collab_posts').select('creator_id, city, start_date, created_at')),
@@ -89,7 +93,7 @@ export default function WrappedLab() {
       setRaw({
         profiles: profiles || [], communities: communities || [], memberRows: memberRows || [],
         flights: flights || [], submissions: submissions || [], results: results || [],
-        rewards: rewards || [], challenges: challenges || [], messages: messages || [],
+        rewards: rewards || [], challenges: challenges || [], history: history || [], messages: messages || [],
         connections: connections || [], collabPosts: collabPosts || [], gameScores: gameScores || [],
         reactions: reactions || [], milestones: milestones || [], creatorMilestones: creatorMilestones || [],
       })

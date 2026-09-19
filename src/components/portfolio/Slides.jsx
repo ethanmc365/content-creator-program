@@ -3,15 +3,18 @@ import SocialMark from '../SocialMark'
 import { PAGE_W, PAGE_H, compactViews, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
 import { fillTemplate, formatAwardDate, tierOf } from '../../lib/certificates'
 
-// THE PAGES OF A MEDIA KIT, AT A4 LANDSCAPE.
+// THE PAGES OF A MEDIA KIT, AT 16:9.
 //
 // Ethan: "Perhaps it should show on the screen exactly how the pdf will look
-// like you can scroll vertically down to see each new page. It will be a4 size
-// landscape."
+// like you can scroll vertically down to see each new page."
+//
+// These were A4 landscape until 20 Sep 2026 and are now 1280x720 - see the note
+// on PAGE_W in lib/portfolio for why root-2 read as "a weird shape... more
+// square shaped" and why the PDF page moved with it.
 //
 // EXACTLY HOW THE PDF WILL LOOK IS A CONSTRAINT, NOT A DESCRIPTION. It is only
-// true if there is ONE layout, so these pages are a fixed 1123x794 - A4
-// landscape at 96dpi - and are never responsive. The screen scales them with a
+// true if there is ONE layout, so these pages are a fixed size and are never
+// responsive. The screen scales them with a
 // transform and the export photographs them at 2x. A responsive page would mean
 // the preview and the PDF were two different documents and the preview would be
 // a lie, which is the exact bug `lib/domSnapshot` was written to end.
@@ -51,8 +54,19 @@ function Footer({ name, n, total }) {
   )
 }
 
+// THE BAND ALONG THE BOTTOM. Ethan: "there's like a little tiny orange bar at
+// the bottom that's gradient, I think it's tiny and doesn't look good." It was
+// 7px of a two-stop gradient, which at 1280 wide reads as a hairline somebody
+// forgot to remove rather than as a deliberate edge. 16px and a three-stop ramp
+// that returns to the brand colour gives it weight and stops it looking like it
+// is fading out at one end.
 function Rule() {
-  return <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 7, background: `linear-gradient(90deg, ${BRAND}, ${LIGHT})` }} />
+  return (
+    <div style={{
+      position: 'absolute', bottom: 0, left: 0, right: 0, height: 16,
+      background: `linear-gradient(90deg, ${BRAND} 0%, ${LIGHT} 48%, ${BRAND} 100%)`,
+    }} />
+  )
 }
 
 // ------------------------------------------------------------------ cover ---
@@ -62,38 +76,75 @@ function Rule() {
 // SIMPLE IS THE BRIEF AND IT IS ALSO RIGHT. A cover has one job - say whose
 // this is - and every extra element on it is competing with a person's name.
 export function Cover({ creator, copy, total }) {
+  // THE COVER PHOTO IS OVERRIDABLE. Ethan: "it currently uses their profile
+  // picture, which I think is great, but they should also have the option to
+  // change that to a different photo if they'd like." It lives in the `copy`
+  // jsonb rather than a column of its own because that needs no migration, and
+  // DDL is currently blocked. Empty/absent falls back to the profile picture,
+  // so the default behaviour is unchanged.
+  const chosen = typeof copy?.cover_photo === 'string' ? copy.cover_photo.trim() : ''
+  const photo = chosen || creator?.photo_url
   return (
-    <div style={page({ display: 'flex' })}>
-      <div style={{ flex: '0 0 46%', position: 'relative', background: `linear-gradient(150deg, ${BRAND}0f 0%, #ffffff 60%)` }}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {creator?.photo_url ? (
-            <img
-              src={creator.photo_url}
-              alt=""
-              crossOrigin="anonymous"
-              style={{ width: 300, height: 300, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 24px 60px rgba(0,0,0,0.14)' }}
-            />
-          ) : (
-            <div style={{ width: 300, height: 300, borderRadius: '50%', background: `${BRAND}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 84, fontWeight: 800, color: BRAND }}>
-              {(creator?.name || '?').slice(0, 1).toUpperCase()}
-            </div>
-          )}
-        </div>
+    // ONE BACKGROUND ACROSS THE WHOLE PAGE.
+    //
+    // Ethan: "the colour scheme doesn't really work, like it looks like a
+    // gradient but then it's split on the right, like there's only a gradient
+    // on the left". Exactly what it was: the 46% photo panel carried
+    // `linear-gradient(150deg, BRAND0f, #fff 60%)` and the text half was flat
+    // white, so the two met in a hard vertical seam down the middle of the
+    // cover. The gradient now belongs to the PAGE and the panels are
+    // transparent, so it crosses the whole slide and there is no seam to see.
+    <div style={page({
+      display: 'flex',
+      background: `linear-gradient(112deg, ${BRAND}1f 0%, ${BRAND}0a 34%, #ffffff 68%)`,
+    })}>
+      <div style={{ flex: '0 0 42%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            crossOrigin="anonymous"
+            style={{ width: 316, height: 316, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 28px 70px rgba(0,0,0,0.16)', border: '6px solid #ffffff' }}
+          />
+        ) : (
+          <div style={{ width: 316, height: 316, borderRadius: '50%', background: `${BRAND}1a`, border: '6px solid #ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 92, fontWeight: 800, color: BRAND }}>
+            {(creator?.name || '?').slice(0, 1).toUpperCase()}
+          </div>
+        )}
       </div>
 
-      <div style={{ flex: 1, padding: '78px 68px 0 20px', display: 'flex', flexDirection: 'column' }}>
-        <img src="/brand/tryp-logo.png" alt="Tryp.com" crossOrigin="anonymous" style={{ width: 92, height: 92, borderRadius: 18, objectFit: 'cover' }} />
-        <p style={{ marginTop: 34, fontSize: 12, fontWeight: 700, letterSpacing: '0.34em', textTransform: 'uppercase', color: BRAND }}>
+      <div style={{ flex: 1, padding: '96px 78px 0 12px', display: 'flex', flexDirection: 'column' }}>
+        {/* THE LOGO AT ITS OWN SHAPE. It was `width: 92, height: 92,
+            objectFit: 'cover'` - and the asset is a 1200x630 card, so a square
+            box with `cover` threw away nearly half its width and squeezed what
+            was left. Ethan: "it's like really crammed into that square". The
+            app header has always drawn it correctly (`h-9`, natural width), so
+            this now does the same thing: fix the HEIGHT, let the width follow. */}
+        <img
+          src="/brand/tryp-logo.png"
+          alt="Tryp.com"
+          crossOrigin="anonymous"
+          style={{ height: 58, width: 'auto', borderRadius: 12, objectFit: 'contain', alignSelf: 'flex-start' }}
+        />
+
+        {/* 0.34em of tracking on 12px is about four pixels between every
+            letter, which is what made this line read as "weirdly spaced out".
+            0.14em still reads as a kicker and still reads as words. */}
+        <p style={{ marginTop: 32, fontSize: 13, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: BRAND }}>
           {copyFor(copy, 'cover_kicker')}
         </p>
-        <p style={{ marginTop: 22, fontSize: 60, fontWeight: 800, lineHeight: 1.02, letterSpacing: '-0.03em' }}>
+
+        <p style={{ marginTop: 20, fontSize: 66, fontWeight: 800, lineHeight: 1.02, letterSpacing: '-0.035em' }}>
           {creator?.name || 'Creator'}
         </p>
-        <p style={{ marginTop: 16, fontSize: 21, fontWeight: 600, color: SMOKE }}>
+
+        <p style={{ marginTop: 18, fontSize: 22, fontWeight: 600, color: SMOKE }}>
           {copyFor(copy, 'cover_role')}
         </p>
+
         {(creator?.city || creator?.country) && (
-          <p style={{ marginTop: 10, fontSize: 15, color: FAINT }}>
+          <p style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 7, fontSize: 15, color: FAINT }}>
+            <Icon name="pin" className="h-4 w-4" />
             {[creator.city, creator.country].filter(Boolean).join(', ')}
           </p>
         )}

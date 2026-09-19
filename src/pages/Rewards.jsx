@@ -55,7 +55,7 @@ export default function Rewards() {
 
   return (
     <div className="page max-w-4xl">
-      <PageHeader title={tr("My rewards")} subtitle="Everything you've earned in the community, in cash and Tryp.com vouchers." />
+      <PageHeader title={tr("Rewards")} subtitle="Everything you've earned in the community, in cash and Tryp.com vouchers." />
 
       <ViewingAsBanner viewing={viewing} person={person} />
 

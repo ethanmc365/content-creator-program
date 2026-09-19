@@ -41,7 +41,7 @@ export default function AdminCreatorKit() {
         subtitle="The graphics and certificates creators can put on their stories, their LinkedIn and their portfolio."
       />
 
-      <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" role="tablist">
+      <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}

@@ -93,6 +93,7 @@ export function buildYearInReview({
   results = [],
   rewards = [],
   challenges = [],
+  history = [],
   messages = [],
   connections = [],
   collabPosts = [],
@@ -344,10 +345,36 @@ export function buildYearInReview({
   const everyoneCountries = new Set()
   for (const f of yearFlights) for (const a of [f.from, f.to]) if (a.country) everyoneCountries.add(a.country)
 
+  // THE PROGRAMME'S YEAR IS BOTH HALVES, AND THIS CARD ONLY HAD ONE.
+  //
+  // Ethan: "the views together, which is showing every creator across every
+  // market... I'm not sure why it's only showing 43 because obviously from
+  // analytics, you should see that there's a lot of views. So please properly
+  // do that. Not just taking the data from the challenge on the platform, but
+  // from all the challenge for the year."
+  //
+  // MEASURED, 20 Sep 2026: the platform's own submissions for 2026 carry 43,412
+  // views (which is what "43K" on the card was). `challenge_history` rows with
+  // a null `challenge_id` - the challenges the programme ran BEFORE this app
+  // existed, which is most of them - carry 19,654,970 across 47 contests. The
+  // card was showing 0.2% of the year and calling it "together".
+  //
+  // AdminAnalytics has always summed both halves (see the note there on
+  // `history`), which is exactly why the two screens disagreed so wildly.
+  //
+  // CREATORS IS DELIBERATELY *NOT* ADDED TO. `history.creators` is a per-contest
+  // headcount - 348 across 47 rows - and the same person entering nine
+  // challenges is nine of those. Adding it to `peers.length` would claim a
+  // community several times its real size. Views and posts are genuine totals
+  // and do sum.
+  const histInYear = (history || []).filter((h) => !h.challenge_id && inYear(h.starts_at, year))
+  const histViews = histInYear.reduce((n, h) => n + Number(h.total_views || 0), 0)
+  const histPosts = histInYear.reduce((n, h) => n + Number(h.posts || 0), 0)
+
   const everyone = {
     creators: peers.length,
-    views: [...peerIds].reduce((n, id) => n + viewsInYearFor(id), 0),
-    videos: yearSubs.length,
+    views: [...peerIds].reduce((n, id) => n + viewsInYearFor(id), 0) + histViews,
+    videos: yearSubs.length + histPosts,
     flights: yearFlights.length,
     distance: Math.round(yearFlights.reduce((n, f) => n + f.dist, 0)),
     countries: everyoneCountries.size,

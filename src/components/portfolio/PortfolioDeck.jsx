@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useState } from 'react'
 import { About, Awards, Contact, Cover, Work } from './Slides'
-import { PAGE_H, PAGE_W, orderedVideos } from '../../lib/portfolio'
+import { PAGE_H, PAGE_W, orderedVideos, workMode } from '../../lib/portfolio'
 
 // THE WHOLE DOCUMENT, SCALED TO THE COLUMN IT IS IN.
 //
@@ -45,7 +45,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
   ref,
 ) {
   const all = videos || []
-  const picked = orderedVideos(all, portfolio?.picks || [])
+  const picked = orderedVideos(all, portfolio?.picks || [], 10, workMode(portfolio))
   const pages = buildPages({ videos: picked, certificates: certificates || [] })
   const scale = width / PAGE_W
 

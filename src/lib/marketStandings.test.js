@@ -1,3 +1,4 @@
+import { openingMonth } from '../pages/admin/analytics/MarketLeague'
 import { describe, it, expect } from 'vitest'
 import { marketStandings, monthsInRecord, monthKey, monthLabel, previousRanks } from './marketStandings'
 
@@ -146,5 +147,29 @@ describe('market standings', () => {
     expect(marketStandings(null)).toEqual([])
     expect(marketStandings({}, {})).toEqual([])
     expect(monthsInRecord({})).toEqual([])
+  })
+})
+
+describe('openingMonth', () => {
+  const months = ['2026-09', '2026-08', '2026-07']   // newest first, as monthsInRecord returns
+  it('opens on the current month when the record has it', () => {
+    expect(openingMonth(null, months, new Date('2026-09-20T10:00:00Z'))).toBe('2026-09')
+  })
+  it('falls back to the newest month rather than showing an empty table', () => {
+    // 1 Oct: nothing has run this month yet, so open on September rather than
+    // on a provably empty table.
+    expect(openingMonth(null, months, new Date('2026-10-01T10:00:00Z'))).toBe('2026-09')
+  })
+  it('opens on all time when there is no record at all', () => {
+    expect(openingMonth(null, [], new Date('2026-09-20T10:00:00Z'))).toBe('')
+  })
+  it('an explicit All time choice sticks and is not re-defaulted', () => {
+    expect(openingMonth('', months, new Date('2026-09-20T10:00:00Z'))).toBe('')
+  })
+  it('an explicit month choice sticks', () => {
+    expect(openingMonth('2026-07', months, new Date('2026-09-20T10:00:00Z'))).toBe('2026-07')
+  })
+  it('pads a single-digit month so it matches the record keys', () => {
+    expect(openingMonth(null, ['2026-03'], new Date('2026-03-04T10:00:00Z'))).toBe('2026-03')
   })
 })

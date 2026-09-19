@@ -95,13 +95,41 @@ export function Eyebrow({ children, palette = 'ember' }) {
  * "4" and "17,248,109" at the same font size means either the small one is lost
  * or the big one wraps, and a recap's hero number must never wrap.
  */
+/**
+ * How big the big number can be, given how many characters it is.
+ *
+ * Ethan: "I noticed an issue where some of the months that have more letters
+ * don't fit onto the cards... ensuring that in every possible scenario for
+ * every card, you've accounted for every possibility and then it all fits."
+ *
+ * The ladder had three rungs and the middle one covered 8 to 10 characters at
+ * 72px, which is where the month card lives: "September" is nine characters and
+ * ran off the side. The rungs are finer now and start stepping down at seven,
+ * so the longest month names (September, February, November, December) land two
+ * sizes below "May".
+ *
+ * Exported because it is the kind of thing that only ever breaks for one value
+ * nobody thought of, and a test is cheaper than finding out on somebody's
+ * recap.
+ */
+export function heroSize(value) {
+  const len = String(value ?? '').length
+  if (len > 14) return 'text-[32px] sm:text-[40px]'
+  if (len > 11) return 'text-[38px] sm:text-[48px]'
+  if (len > 7) return 'text-[46px] sm:text-[58px]'
+  if (len > 5) return 'text-[58px] sm:text-[72px]'
+  return 'text-[72px] sm:text-[92px]'
+}
+
 export function Hero({ value, unit, palette = 'ember' }) {
   const p = PALETTES[palette] || PALETTES.ember
-  const len = String(value).length
-  const size = len > 10 ? 'text-[46px] sm:text-[58px]' : len > 7 ? 'text-[58px] sm:text-[72px]' : 'text-[72px] sm:text-[92px]'
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2.5">
-      <span className={cx('font-extrabold leading-[0.92] tracking-tight', size)}>{value}</span>
+    // `min-w-0` + `break-words` is the backstop: the ladder handles every value
+    // we can predict, and this stops anything we cannot from leaving the card.
+    <p className="flex w-full max-w-full flex-wrap items-baseline gap-x-2.5">
+      <span className={cx('min-w-0 max-w-full break-words font-extrabold leading-[0.92] tracking-tight', heroSize(value))}>
+        {value}
+      </span>
       {unit && <span className="text-lg font-bold" style={{ color: p.soft }}>{unit}</span>}
     </p>
   )

@@ -254,3 +254,37 @@ describe('the year in review', () => {
     expect(empty.busiest).toBeNull()
   })
 })
+
+describe('the community total counts the whole programme, not just this app', () => {
+  // MEASURED against production on 20 Sep 2026: submissions carried 43,412
+  // views for 2026 and `challenge_history` carried 19,654,970 across 47
+  // off-platform contests. The card showed the first number and called it
+  // "together", which is what Ethan caught.
+  const history = [
+    { challenge_id: null, starts_at: '2026-03-01', total_views: 1_000_000, posts: 120, creators: 40 },
+    { challenge_id: null, starts_at: '2026-06-01', total_views: 500_000, posts: 80, creators: 30 },
+    // Already counted through `submissions`, so it must NOT be added again.
+    { challenge_id: 'ch-1', starts_at: '2026-06-01', total_views: 999, posts: 9, creators: 9 },
+    // A different year.
+    { challenge_id: null, starts_at: '2025-06-01', total_views: 777_000, posts: 70, creators: 20 },
+  ]
+  it('adds off-platform views for this year and nothing else', () => {
+    const without = buildYearInReview({ ...base })
+    const withHist = buildYearInReview({ ...base, history })
+    expect(withHist.everyone.views).toBe(without.everyone.views + 1_500_000)
+  })
+  it('adds off-platform posts to the video count', () => {
+    const without = buildYearInReview({ ...base })
+    const withHist = buildYearInReview({ ...base, history })
+    expect(withHist.everyone.videos).toBe(without.everyone.videos + 200)
+  })
+  it('does NOT add per-contest headcounts to the creator count, which would double-count people', () => {
+    const without = buildYearInReview({ ...base })
+    const withHist = buildYearInReview({ ...base, history })
+    expect(withHist.everyone.creators).toBe(without.everyone.creators)
+  })
+  it('is unchanged when there is no history at all', () => {
+    expect(buildYearInReview({ ...base, history: [] }).everyone.views)
+      .toBe(buildYearInReview({ ...base }).everyone.views)
+  })
+})

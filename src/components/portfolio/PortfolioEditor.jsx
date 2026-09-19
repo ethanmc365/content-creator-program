@@ -5,7 +5,7 @@ import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
-import { DEFAULT_COPY, compactViews, copyFor, slugify } from '../../lib/portfolio'
+import { DEFAULT_COPY, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
 //
@@ -67,17 +67,35 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
 }
 
 // ------------------------------------------------------------------ words ---
+// EVERY FIELD HAS A CEILING, AND THE CEILING IS THE SLIDE.
+//
+// Ethan, on the about box: "if they type too much it doesn't fit in so limit it
+// so that all the words fit in on the actual slide". The page is a fixed
+// 1280x720 with `overflow: hidden`, so there was no feedback at all - the
+// eleventh line of a paragraph simply was not painted, and the creator found
+// out when a brand opened the PDF.
+//
+// `max` is measured against the box each string actually lands in. `about_body`
+// renders at 16px/1.72 in a column about 600px wide, which is ~62 characters a
+// line and ten lines before it reaches the tools row: 600. The rest are sized
+// the same way. They are generous - the point is to stop the invisible cliff,
+// not to make people write telegrams.
+//
+// `lines` is the height of the EDITOR box, not the slide. Ethan: "make that box
+// bigger whenever they're typing in that box... rather than them having to
+// expand it themselves." Six rows for a ten-line paragraph meant scrolling a
+// textarea to read your own bio.
 const WORD_FIELDS = [
-  { key: 'cover_kicker', label: 'Line above your name', lines: 1 },
-  { key: 'cover_role', label: 'What you do', lines: 1 },
-  { key: 'about_title', label: 'About: heading', lines: 1 },
-  { key: 'about_body', label: 'About: your paragraph', lines: 6 },
-  { key: 'work_title', label: 'Work: heading', lines: 1 },
-  { key: 'work_body', label: 'Work: one line under it', lines: 2 },
-  { key: 'awards_title', label: 'Awards: heading', lines: 1, needsCerts: true },
-  { key: 'awards_body', label: 'Awards: one line under it', lines: 2, needsCerts: true },
-  { key: 'contact_title', label: 'Contact: heading', lines: 1 },
-  { key: 'contact_body', label: 'Contact: your paragraph', lines: 4 },
+  { key: 'cover_kicker', label: 'Line above your name', lines: 1, max: 52 },
+  { key: 'cover_role', label: 'What you do', lines: 1, max: 44 },
+  { key: 'about_title', label: 'About: heading', lines: 1, max: 34 },
+  { key: 'about_body', label: 'About: your paragraph', lines: 10, max: 600 },
+  { key: 'work_title', label: 'Work: heading', lines: 1, max: 34 },
+  { key: 'work_body', label: 'Work: one line under it', lines: 3, max: 150 },
+  { key: 'awards_title', label: 'Awards: heading', lines: 1, max: 34, needsCerts: true },
+  { key: 'awards_body', label: 'Awards: one line under it', lines: 3, max: 150, needsCerts: true },
+  { key: 'contact_title', label: 'Contact: heading', lines: 1, max: 34 },
+  { key: 'contact_body', label: 'Contact: your paragraph', lines: 7, max: 420 },
 ]
 
 function Words({ portfolio, onChange, certificates, tr }) {
@@ -92,28 +110,44 @@ function Words({ portfolio, onChange, certificates, tr }) {
       {fields.map((f) => {
         const written = copy[f.key]
         const changed = typeof written === 'string' && written.trim() && written !== DEFAULT_COPY[f.key]
+        const value = copyFor(copy, f.key)
+        const left = f.max - value.length
+        // Silent until it matters. A counter on every field all the time reads
+        // as a form with ten limits in it; one that appears in the last fifth
+        // reads as the page telling you where the edge is.
+        const showCount = left <= Math.max(12, Math.round(f.max * 0.2))
         return (
           <div key={f.key}>
             <div className="mb-1 flex items-baseline justify-between gap-2">
               <p className="label !mb-0">{tr(f.label)}</p>
-              {changed && (
-                <button type="button" onClick={() => set(f.key, '')}
-                  className="text-[10px] font-semibold text-gray-400 hover:text-brand">
-                  {tr('Reset')}
-                </button>
-              )}
+              <div className="flex items-baseline gap-2">
+                {showCount && (
+                  <span className={cx('text-[10px] font-semibold tabular-nums',
+                    left <= 0 ? 'text-brand' : 'text-gray-400')}>
+                    {left <= 0 ? tr('Full') : `${left}`}
+                  </span>
+                )}
+                {changed && (
+                  <button type="button" onClick={() => set(f.key, '')}
+                    className="text-[10px] font-semibold text-gray-400 hover:text-brand">
+                    {tr('Reset')}
+                  </button>
+                )}
+              </div>
             </div>
             {f.lines > 1 ? (
               <textarea
-                value={copyFor(copy, f.key)}
-                onChange={(e) => set(f.key, e.target.value)}
+                value={value}
+                onChange={(e) => set(f.key, e.target.value.slice(0, f.max))}
+                maxLength={f.max}
                 rows={f.lines}
                 className="input resize-y text-[13px]"
               />
             ) : (
               <input
-                value={copyFor(copy, f.key)}
-                onChange={(e) => set(f.key, e.target.value)}
+                value={value}
+                onChange={(e) => set(f.key, e.target.value.slice(0, f.max))}
+                maxLength={f.max}
                 className="input text-[13px]"
               />
             )}
@@ -135,11 +169,17 @@ function Words({ portfolio, onChange, certificates, tr }) {
 // what they chose - see `orderedVideos`.
 function Videos({ portfolio, videos, shown, onChange, tr }) {
   const picks = portfolio.picks || []
-  const auto = picks.length === 0
+  // THE MODE IS READ, NOT INFERRED - see `workMode`. Inferring it from
+  // `picks.length` made this whole control dead for anybody with no videos yet.
+  const auto = workMode(portfolio) === 'auto'
+  const copy = portfolio.copy || {}
+  const setMode = (mode, extra = {}) => onChange({ copy: { ...copy, work_mode: mode }, ...extra })
 
+  // Unticking the LAST video used to drop the portfolio back to automatic,
+  // because empty picks meant automatic. It now stays where the creator put it.
   const toggle = (id) => {
     const next = picks.includes(id) ? picks.filter((p) => p !== id) : [...picks, id]
-    onChange({ picks: next })
+    setMode('manual', { picks: next })
   }
   const move = (id, by) => {
     const list = [...picks]
@@ -147,18 +187,18 @@ function Videos({ portfolio, videos, shown, onChange, tr }) {
     const to = from + by
     if (from < 0 || to < 0 || to >= list.length) return
     list.splice(to, 0, list.splice(from, 1)[0])
-    onChange({ picks: list })
+    setMode('manual', { picks: list })
   }
   // Switching from automatic to hand-picked starts from what is ON SCREEN, not
   // from nothing. Somebody pressing "choose them myself" wants to adjust the
   // six they can see, and handing them an empty portfolio to rebuild is a
   // punishment for touching the control.
-  const startPicking = () => onChange({ picks: shown.map((v) => v.id) })
+  const startPicking = () => setMode('manual', { picks: shown.map((v) => v.id) })
 
   return (
     <>
       <div className="flex gap-2">
-        <button type="button" onClick={() => onChange({ picks: [] })}
+        <button type="button" onClick={() => setMode('auto', { picks: [] })}
           className={pickClass(auto, 'flex-1 rounded-xl border px-3 py-2 text-xs font-semibold')}>
           {tr('Best by views')}
         </button>
@@ -176,6 +216,11 @@ function Videos({ portfolio, videos, shown, onChange, tr }) {
       {videos.length === 0 && (
         <p className="rounded-xl bg-cloud/60 px-3 py-3 text-[12px] text-smoke">
           {tr('Once you enter a challenge, your videos appear here and on your portfolio automatically.')}
+        </p>
+      )}
+      {videos.length > 0 && !auto && picks.length === 0 && (
+        <p className="rounded-xl bg-amber-50 px-3 py-3 text-[12px] text-amber-800">
+          {tr('Nothing is picked, so the work page is empty. Tick one below, or switch back to Best by views.')}
         </p>
       )}
 

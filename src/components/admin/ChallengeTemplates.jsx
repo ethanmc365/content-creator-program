@@ -111,7 +111,7 @@ export default function ChallengeTemplates({ onUse, markets = [] }) {
             obviously cut off rather than obviously missing - the cue that tells
             a thumb there is more to the right. `snap-x` makes the flick land on
             a card rather than between two. */}
-        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
           {rows.map((row) => {
             const summary = templateSummary(row.payload, tr)
             const market = marketName(row.community_id)

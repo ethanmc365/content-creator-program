@@ -64,7 +64,7 @@ export default function KitStrip({ className }) {
         </p>
       </div>
 
-      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {rows.map((row) => (
           <div key={row.id} className="w-[168px] shrink-0 snap-start overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             <div

@@ -21,16 +21,21 @@ import { PAGE_H, PAGE_W } from './portfolio'
 // or two rather than fifty kilobytes. For a document whose whole job is to be
 // LOOKED AT, that is the correct trade.
 //
-// EXPORTED AT 2x, so the A4 page carries 2246x1588 pixels - about 190dpi, which
-// is past the point where type looks soft on a laptop screen or in print at
-// arm's length, and half the file size of 3x.
+// EXPORTED AT 2x, so the page carries 2560x1440 pixels - about 190dpi at this
+// size, which is past the point where type looks soft on a laptop screen or in
+// print at arm's length, and half the file size of 3x.
 const SCALE = 2
 
-// A4 landscape in PostScript points, which is the unit pdf-lib works in.
-const A4_LANDSCAPE = { w: 841.89, h: 595.28 }
+// THE PDF PAGE HAS TO BE THE SAME SHAPE AS THE PREVIEW, or the snapshot is
+// stretched onto it and every circle becomes an ellipse. It used to be A4
+// landscape (841.89 x 595.28, root-2) and the pages were 1123x794 to match.
+// Both moved to 16:9 together on 20 Sep 2026 - see the note on PAGE_W. This is
+// 13.333in x 7.5in in PostScript points, which is what PowerPoint and Google
+// Slides call widescreen.
+const SLIDE_16_9 = { w: 960, h: 540 }
 
 /**
- * @param {HTMLElement[]} nodes   the page nodes, at their natural 1123x794
+ * @param {HTMLElement[]} nodes   the page nodes, at their natural 1280x720
  * @param {(done:number,total:number)=>void} [onProgress]
  * @returns {Promise<Blob>}
  */
@@ -67,11 +72,11 @@ export async function portfolioPdf(nodes, onProgress) {
     const png = await snapshotNode(node, { scale: SCALE, background: '#ffffff' })
     if (!png) throw new Error('One of the pages could not be drawn.')
     const image = await doc.embedPng(await png.arrayBuffer())
-    const page = doc.addPage([A4_LANDSCAPE.w, A4_LANDSCAPE.h])
+    const page = doc.addPage([SLIDE_16_9.w, SLIDE_16_9.h])
     // Full bleed. The pages are authored at exactly A4's ratio (1123:794 is
     // root-2), so there is no letterboxing to reason about and no margin to
     // add - the margins are drawn INSIDE the page, where the designer put them.
-    page.drawImage(image, { x: 0, y: 0, width: A4_LANDSCAPE.w, height: A4_LANDSCAPE.h })
+    page.drawImage(image, { x: 0, y: 0, width: SLIDE_16_9.w, height: SLIDE_16_9.h })
   }
 
   return new Blob([await doc.save()], { type: 'application/pdf' })

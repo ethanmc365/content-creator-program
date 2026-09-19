@@ -7,7 +7,7 @@ import { useT } from '../lib/i18n'
 import { notice } from '../lib/confirm'
 import { downloadBlob } from '../lib/domSnapshot'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
-import { PAGE_W, orderedVideos, slugify } from '../lib/portfolio'
+import { PAGE_W, orderedVideos, slugify, workMode } from '../lib/portfolio'
 import PortfolioEditor from '../components/portfolio/PortfolioEditor'
 import KitStrip from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
@@ -24,6 +24,10 @@ import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 // READ ONLY for them, and that is enforced by the RLS policy as well as by this
 // component - see migration 223. An admin needs to LOOK at a creator's
 // portfolio. Nobody needs to be able to rewrite somebody else's bio.
+// How long a run of edits counts as ONE undo step, and how many steps are kept.
+const UNDO_COALESCE_MS = 700
+const UNDO_DEPTH = 50
+
 export default function Portfolio() {
   const tr = useT()
   // ONE MECHANISM FOR "AN ADMIN IS LOOKING AT SOMEBODY ELSE'S PAGE", and it is
@@ -39,6 +43,9 @@ export default function Portfolio() {
 
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
   const [dirty, setDirty] = useState(false)
+  const [past, setPast] = useState([])          // portfolio snapshots, oldest first
+  const stateRef = useRef(null)
+  const lastUndoPush = useRef(0)
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(null)
   const [holder, width] = useFluidWidth(280)
@@ -80,14 +87,53 @@ export default function Portfolio() {
       })),
     })
     setDirty(false)
+    setPast([])
+    lastUndoPush.current = 0
   }, [viewingId])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { stateRef.current = state }, [state])
+
+  // UNDO, AND WHY IT IS NOT ONE STEP PER KEYSTROKE.
+  //
+  // Ethan: "there should be also a back button to undo a change that you made".
+  // Every control here calls `setPortfolio`, including a textarea on every
+  // character - so a naive stack would make Undo a very slow backspace, and
+  // twelve presses would still be inside the same sentence.
+  //
+  // So a change only becomes an undo point if it is the FIRST of a burst:
+  // pushes inside `UNDO_COALESCE_MS` of the last one are folded into it. Typing
+  // a paragraph is one entry (the state before you started typing), and so is
+  // dragging a video up three places in quick succession, which is what a
+  // person means by "the change I just made".
+  //
+  // `stateRef` exists because this callback has no deps and must not get them:
+  // re-creating it on every state change re-renders the whole editor panel
+  // under the cursor of whoever is typing into it.
+  const pushUndo = useCallback((snapshot) => {
+    const now = Date.now()
+    if (now - lastUndoPush.current < UNDO_COALESCE_MS) return
+    lastUndoPush.current = now
+    setPast((h) => [...h.slice(-(UNDO_DEPTH - 1)), snapshot])
+  }, [])
 
   const setPortfolio = useCallback((patch) => {
-    setState((s) => ({ ...s, portfolio: { ...s.portfolio, ...patch } }))
+    const current = stateRef.current?.portfolio
+    if (current) pushUndo(current)
+    setState((s) => (s ? { ...s, portfolio: { ...s.portfolio, ...patch } } : s))
     setDirty(true)
-  }, [])
+  }, [pushUndo])
+
+  const undo = useCallback(() => {
+    if (!past.length) return
+    const previous = past[past.length - 1]
+    setPast((h) => h.slice(0, -1))
+    setState((s) => (s ? { ...s, portfolio: previous } : s))
+    setDirty(true)
+    // The next edit after an undo is its own undo point rather than being
+    // coalesced into whatever was typed before it.
+    lastUndoPush.current = 0
+  }, [past])
 
   async function save() {
     setSaving(true)
@@ -151,12 +197,12 @@ export default function Portfolio() {
   }
 
   const { creator, portfolio, videos, certificates } = state
-  const shownVideos = orderedVideos(videos, portfolio.picks)
+  const shownVideos = orderedVideos(videos, portfolio.picks, 10, workMode(portfolio))
 
   return (
     <div className="page max-w-6xl">
       <PageHeader
-        title={tr('My portfolio')}
+        title={tr('Portfolio')}
         subtitle={readOnly
           ? tr('You are looking at this the way the creator sees it. Nothing here can be edited by you.')
           : tr('A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.')}
@@ -178,6 +224,11 @@ export default function Portfolio() {
             {!readOnly && dirty && (
               <button type="button" onClick={save} disabled={saving} className="btn-secondary">
                 {saving ? <Spinner /> : tr('Save changes')}
+              </button>
+            )}
+            {!readOnly && past.length > 0 && (
+              <button type="button" onClick={undo} className="btn-secondary" title={tr('Undo the last change')}>
+                <Icon name="chevronLeft" className="h-4 w-4" /> {tr('Undo')}
               </button>
             )}
             {!readOnly && !dirty && (

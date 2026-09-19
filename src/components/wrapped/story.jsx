@@ -1,5 +1,6 @@
 import { Card, Eyebrow, Hero, Line, Facts, Chips, Standing, formatViews, formatMoney, flagEmoji } from './cards'
 import Icon from '../Icon'
+import { cx } from '../../lib/utils'
 
 
 // EVERY SCREEN OF THE RECAP, IN ORDER, AS DATA.
@@ -21,15 +22,45 @@ const MODE_NAME = {
   flags: 'Guess the flag', map: 'Find it on the map', airports: 'Airport codes', currencies: 'What do they spend?',
 }
 
-/** Something human to compare a distance to. */
-function distanceLine(t) {
-  if (t.timesRoundEarth >= 1) {
-    const n = t.timesRoundEarth
-    return `That is ${n >= 2 ? `${n.toFixed(1)} times` : 'once'} around the world.`
+/**
+ * How big a flag can be when there are N of them on one card. Six fill a card
+ * at 48px; forty need 20px to stay on it. Anything past 60 is rare enough that
+ * the smallest step can just hold.
+ */
+export function flagScale(n) {
+  if (n <= 4) return 'text-5xl'
+  if (n <= 10) return 'text-4xl'
+  if (n <= 20) return 'text-3xl'
+  if (n <= 34) return 'text-2xl'
+  if (n <= 60) return 'text-xl'
+  return 'text-base'
+}
+
+/**
+ * A distance, always as a share of the way round the Earth.
+ *
+ * Ethan: "rather than saying it near enough to London or Sydney or whatever
+ * other phrases you add, I would rather you say what percentage of the, around
+ * the earth it is or how many times around the earth."
+ *
+ * It used to pick between three different yardsticks depending on how far you
+ * had flown - laps of the world, then London-Sydney, then laps of the M25 -
+ * so two creators' recaps were not comparable and the third one was a joke
+ * about a motorway. One yardstick, every time.
+ *
+ * Under a tenth of a percent there is no honest figure to print (it rounds to
+ * nothing), so that case keeps a line about the logging instead.
+ */
+export function distanceLine(t) {
+  const laps = t.timesRoundEarth
+  if (laps >= 1) {
+    // 1.04 laps is "once" - "1.0 times around the world" reads like a rounding
+    // error rather than a fact.
+    return `That is ${laps >= 1.05 ? `${laps.toFixed(1)} times` : 'once'} around the world.`
   }
-  if (t.londonSydneys >= 0.8) return `Near enough London to Sydney${t.londonSydneys >= 1.6 ? ' and most of the way back' : ''}.`
-  if (t.distance >= 2000) return `About ${Math.round(t.distance / 344)} laps of the M25, if you insist on driving.`
-  return 'Every one of them logged, down to the aircraft.'
+  const pct = laps * 100
+  if (pct < 0.1) return 'Every one of them logged, down to the aircraft.'
+  return `That is ${pct >= 10 ? Math.round(pct) : Number(pct.toFixed(1))}% of the way around the world.`
 }
 
 export function buildCards(data) {
@@ -101,17 +132,27 @@ export function buildCards(data) {
         key: 'countries', palette: 'mint', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="mint">The map got busier</Eyebrow>
+            <Eyebrow palette="mint">Where you landed</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={travel.countries} unit={travel.countries === 1 ? 'country' : 'countries'} palette="mint" />
-              <div className="flex flex-wrap gap-1.5 text-3xl leading-none">
-                {travel.countryList.slice(0, 18).map((c) => (
+              {/* EVERY FLAG, AT A SIZE THAT FITS HOWEVER MANY THERE ARE.
+                  Ethan: "ensure you have the capability so that it works no
+                  matter how few or how many they have... let's say they travel
+                  to 40 countries this year, make sure you have that capability
+                  to fit it nicely on the card or even if they just did one."
+                  It was a fixed text-3xl and a hard `.slice(0, 18)`, so a
+                  well-travelled creator had countries silently deleted from
+                  their own recap - the worst way to be wrong on a card whose
+                  whole point is the number above it. The size steps down
+                  instead, and nothing is dropped. */}
+              <div className={cx('flex flex-wrap justify-center gap-1.5 leading-none', flagScale(travel.countries))}>
+                {travel.countryList.map((c) => (
                   <span key={c} title={c}>{flagEmoji(c) || '🏳️'}</span>
                 ))}
               </div>
               {travel.longest && (
                 <Line palette="mint">
-                  Your longest hop was {travel.longest.from.city} to {travel.longest.to.city},{' '}
+                  Your longest flight was {travel.longest.from.city} to {travel.longest.to.city},{' '}
                   {nf(Math.round(travel.longest.dist))} km.
                 </Line>
               )}

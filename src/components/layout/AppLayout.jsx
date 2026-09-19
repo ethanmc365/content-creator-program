@@ -640,14 +640,14 @@ export default function AppLayout() {
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>
                   </div>
-                  <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My profile")}</Link>
+                  <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Profile")}</Link>
                   <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Settings")}</Link>
-                  <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My rewards")}</Link>
+                  <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Rewards")}</Link>
                   {/* Beside rewards on purpose: both are the things the
                       programme has given this person, and the portfolio is the
                       one they can hand to somebody else. */}
-                  <Link to="/portfolio" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My portfolio")}</Link>
-                  <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My dashboard")}</Link>
+                  <Link to="/portfolio" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Portfolio")}</Link>
+                  <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Dashboard")}</Link>
                   {/* Two things that ARE about you and have no home in the nav:
                       how far along the route you are, and who to ask when
                       something goes wrong. Both belong in the menu that already

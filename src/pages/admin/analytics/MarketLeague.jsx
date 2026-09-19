@@ -89,11 +89,40 @@ function Spark({ byMonth, months }) {
   )
 }
 
+/** `YYYY-MM` for today, in the same shape `monthsInRecord` returns. */
+function thisMonthKey(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * WHICH MONTH THE LEAGUE OPENS ON.
+ *
+ * Ethan: "rather than being all time, all time should still be an option. It
+ * should always start be showing the data from the current month."
+ *
+ * It cannot be a `useState` initial value, because the months only exist once
+ * `raw` has loaded and the first render happens before that. It is DERIVED
+ * instead: `null` means "nobody has chosen yet, use the default", and any
+ * string - INCLUDING the empty string that means all time - is a real choice
+ * that sticks. An effect would work too and would flicker through all-time on
+ * the way; this never renders the wrong month at all.
+ *
+ * Falls back to the newest month on record when the current one has nothing
+ * yet, because opening on a provably empty table looks broken on the 1st.
+ */
+export function openingMonth(chosen, months, now = new Date()) {
+  if (chosen !== null && chosen !== undefined) return chosen
+  const current = thisMonthKey(now)
+  if (months.includes(current)) return current
+  return months[0] ?? ''
+}
+
 export default function MarketLeague({ raw, currency }) {
-  const [month, setMonth] = useState('')   // '' = all time
+  const [chosenMonth, setMonth] = useState(null)   // null = not chosen yet; '' = all time
   const [metricKey, setMetricKey] = useState('views')
 
   const months = useMemo(() => monthsInRecord(raw), [raw])
+  const month = useMemo(() => openingMonth(chosenMonth, months), [chosenMonth, months])
   const rows = useMemo(() => marketStandings(raw, { currency, month }), [raw, currency, month])
   const prev = useMemo(() => previousRanks(raw, month, { currency }), [raw, month, currency])
   // Every month, oldest first, for the sparklines - they read left to right.
@@ -178,7 +207,7 @@ export default function MarketLeague({ raw, currency }) {
             after that. One row that scrolls is the shape the tab strip above
             already uses for the same reason. `-mx-*` lets a pill bleed to the
             card's edge so it is obvious there is more. */}
-        <div className="-mx-5 mt-5 flex gap-1.5 overflow-x-auto px-5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-5 mt-5 flex gap-1.5 overflow-x-auto px-5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
           {[['', 'All time'], ...months.map((m) => [m, monthLabel(m)])].map(([key, label]) => {
             const on = month === key
             return (
@@ -201,7 +230,7 @@ export default function MarketLeague({ raw, currency }) {
         </div>
 
         {/* ------------------------------------------------------ the metric */}
-        <div className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
           {METRICS.map((m) => {
             const on = metricKey === m.key
             return (
@@ -278,16 +307,13 @@ export default function MarketLeague({ raw, currency }) {
                 <span><b className="text-ink">{r.posts}</b> videos</span>
                 <span><b className="text-ink">{formatMoney(r.spend, currency)}</b> in prizes</span>
                 {r.cpm != null && <span><b className="text-ink">{formatMoney(r.cpm, currency)}</b> / 1k views</span>}
-                {/* SAY WHEN A NUMBER IS INCOMPLETE. Fourteen historical
-                    challenges were never measured; a market whose total covers
-                    four of its six contests should say so rather than let the
-                    reader assume it covers all six. */}
-                {r.measured < r.challenges && (
-                  <span className="text-amber-600">
-                    <span className="sm:hidden">{r.measured}/{r.challenges} measured</span>
-                    <span className="hidden sm:inline">views measured on {r.measured} of {r.challenges}</span>
-                  </span>
-                )}
+                {/* The "views measured on 4 of 6" caveat used to sit here.
+                    Ethan: "I wouldn't show up where it says views measured on
+                    six of seven and the other places... just show what the
+                    current data is for that we have." The incompleteness is
+                    still carried in the CSV export as `measured_challenges`,
+                    which is where somebody auditing a number will look; it was
+                    only ever noise on a league table. */}
               </div>
             </div>
           ))}
