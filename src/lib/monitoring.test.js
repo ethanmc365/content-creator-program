@@ -114,6 +114,30 @@ describe('what a rejection keeps', () => {
     expect(describeReason({ message: 'Pa' }).message).toBe('Non-Error thrown: Pa')
   })
 
+  it('records the object SHAPE when the message is a minified token, so the next one is traceable', () => {
+    // The real report this exists for said only "Non-Error thrown: La" and sat
+    // unresolved for five days because there was nothing else in the row.
+    const d = describeReason({ message: 'La', code: '23505', details: 'dup', hint: null })
+    expect(d.message).toBe('Non-Error thrown: La')
+    expect(d.extra.keys).toContain('message')
+    expect(d.extra.keys).toContain('code')
+  })
+
+  it('records keys even for a bare object with nothing else on it', () => {
+    const d = describeReason({ message: 'La', foo: 1 })
+    expect(d.extra.keys).toBe('message,foo')
+  })
+
+  it('does not bother recording keys for a normal, readable message', () => {
+    const d = describeReason({ message: 'Something went properly wrong' })
+    expect(d.extra?.keys).toBeUndefined()
+  })
+
+  it('survives an object that throws on enumeration', () => {
+    const hostile = new Proxy({ message: 'La' }, { ownKeys() { throw new Error('no') } })
+    expect(() => describeReason(hostile)).not.toThrow()
+  })
+
   it('falls back to details or hint when there is no message at all', () => {
     expect(describeReason({ details: 'the row was not there' }).message).toBe('the row was not there')
   })

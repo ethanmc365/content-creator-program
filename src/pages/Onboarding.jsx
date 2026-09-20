@@ -308,7 +308,14 @@ export default function Onboarding() {
       if (Array.isArray(cur)) return cur.length ? cur : next
       return (cur === '' || cur == null) ? next : cur
     }
+    // AN UNHANDLED REJECTION ON THIS PAGE IS A CRASH REPORT NOBODY CAN READ.
+    // A dropped connection mid-onboarding rejects this, and with no `.catch()`
+    // it surfaced as an "unhandled rejection" with a minified message and no
+    // indication of where it came from. The draft is prefilled from
+    // `auth.profile` either way, so a failed read here costs a date of birth
+    // being re-typed, not the signup.
     supabase.from('creator_private').select('dob, phone, phone_country').eq('id', user.id).maybeSingle()
+      .catch(() => ({ data: null }))
       .then(({ data: priv }) => {
         if (!alive) return
         setDraft((d) => ({
@@ -348,7 +355,12 @@ export default function Onboarding() {
   const [markets, setMarkets] = useState(null)
   useEffect(() => {
     let alive = true
-    loadMarkets().then((m) => { if (alive) setMarkets(m || []) })
+    // Same reason as the read above: rejecting here left an unreadable report.
+    // `[]` is the honest fallback - it resolves to worldwide-only, which is what
+    // an unknown country should give anyway.
+    loadMarkets()
+      .then((m) => { if (alive) setMarkets(m || []) })
+      .catch(() => { if (alive) setMarkets([]) })
     return () => { alive = false }
   }, [])
   // AN EMPTY STATE IS A CLAIM AND IT NEEDS THE DATA FIRST. `markets` starts as

@@ -365,8 +365,26 @@ export function describeReason(reason) {
   // nothing - "Object: Pa" is no better than "Pa". A type that means something
   // (DOMException, PostgrestError) is worth putting in front.
   const typed = name !== 'Error' && name !== 'Object' && name !== 'Rejection'
-  if (/^[A-Za-z$_][\w$]{0,3}$/.test(message)) {
+  const minified = /^[A-Za-z$_][\w$]{0,3}$/.test(message)
+  if (minified) {
     message = typed ? `${name}: ${message}` : `Non-Error thrown: ${message}`
+    // AND RECORD THE SHAPE, because the name alone is not enough to act on.
+    //
+    // A real one of these sat unresolved for five days: "Non-Error thrown: La",
+    // twice, on /onboarding, Safari/iOS, on a machine-TRANSLATED Spanish page.
+    // Two characters of a minified token cannot be traced back to a throw site
+    // without source maps, and the row carried nothing else - so there was
+    // nothing to do with it but look at it.
+    //
+    // The object's own keys are the cheapest thing that would have identified
+    // it: `{code,details,hint}` is supabase, `{status,body}` is a fetch wrapper,
+    // `{}` is a bare object somebody threw. Capped hard - this goes in a text
+    // column and the point is the SHAPE, not the contents, which may be
+    // somebody's data.
+    try {
+      const keys = Object.keys(reason).slice(0, 12).join(',')
+      if (keys) extra.keys = keys.slice(0, 200)
+    } catch { /* exotic proxies throw on enumeration */ }
   }
 
   return {

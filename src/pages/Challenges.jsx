@@ -229,7 +229,21 @@ export default function Challenges() {
   // bigger thing it is.
   const isGlobal = (c) => !!networkId && c.community_id === networkId
   const live = mine.filter(isLive).sort((a, b) => Number(isGlobal(b)) - Number(isGlobal(a)))
-  const past = mine.filter((c) => !isLive(c))
+  // A DRAFT IS NOT A PAST CHALLENGE. It has not run, it has no winners and no
+  // entries, and filing it under "Past challenges" said it had finished.
+  // Ethan: "this shouldn't be under past challenges, a separate section called
+  // drafts should show up above the past challenges section but below the live
+  // challenge cards".
+  //
+  // ONLY ADMINS EVER SEE ONE, and that is enforced in the DATABASE rather than
+  // here: the `challenges: read published` policy is
+  // `is_admin() OR (is_member() AND status <> 'draft' AND ...)`. Rehearsed
+  // 20 Sep 2026 as a real non-admin creator inside a rolled-back transaction -
+  // one draft in the table, zero rows visible. This section cannot leak one
+  // because the row never arrives; the `isAdmin` guard below is about not
+  // drawing an empty heading, not about access.
+  const drafts = mine.filter((c) => !isLive(c) && c.status === 'draft')
+  const past = mine.filter((c) => !isLive(c) && c.status !== 'draft')
 
   return (
     <div className="page">
@@ -340,6 +354,47 @@ export default function Challenges() {
               />
             </Reveal>
           ))}
+
+          {/* ---------- Drafts (admins only; see the note by `drafts`) ---------- */}
+          {drafts.length > 0 && (
+            <section>
+              <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 className="text-lg font-semibold text-smoke">{tr('Drafts')}</h2>
+                <span className="rounded-full bg-cloud px-2.5 py-0.5 text-[11px] font-semibold text-smoke">
+                  {tr('Only you can see these')}
+                </span>
+              </div>
+              <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {drafts.map((c) => (
+                  // A COMPACT CARD, DELIBERATELY. The past card carries a
+                  // podium, an entry count and a winners gallery; a draft has
+                  // none of those because it has never run. What an admin wants
+                  // from this row is "what is it, when is it meant to run, let
+                  // me finish it" - so it links straight to the editor.
+                  <div key={c.id} className="card group relative border-dashed transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                    <Link
+                      to={`/admin/challenges/${c.id}/edit`}
+                      className="absolute inset-0 z-0 rounded-card"
+                      aria-label={`${c.title} - finish this draft`}
+                    />
+                    <div className="pointer-events-none relative z-10">
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge tone={STATUS_TONE.draft}>{tr('draft')}</Badge>
+                        {(c.start_date || c.end_date) && (
+                          <span className="text-xs text-smoke">
+                            {formatDate(c.start_date)} → {formatDate(c.end_date)}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title || tr('Untitled challenge')}</h3>
+                      {c.description && <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>}
+                      <p className="mt-4 text-xs font-medium text-brand">{tr('Finish and publish →')}</p>
+                    </div>
+                  </div>
+                ))}
+              </Reveal>
+            </section>
+          )}
 
           {/* ---------- Past ---------- */}
           {past.length > 0 && (
