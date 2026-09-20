@@ -999,8 +999,32 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   const cancelPress = () => clearTimeout(pressTimer.current)
 
   return (
-    <section>
-      <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> {heading}</h2>
+    // `min-w-0`, AND IT IS THE WHOLE FIX FOR THE BOARD RUNNING OFF A PHONE.
+    //
+    // Ethan: "on games and daily puzzles the right of the leaderboard is cut
+    // off on each card."
+    //
+    // Measured on a 375px viewport: the grid column came out 422px wide and the
+    // page scrolled to 442, so the right-hand edge of every row - the time, the
+    // score - was past the screen. It looks like a padding bug and it is not.
+    //
+    // A creator's name is `truncate`, which is `white-space: nowrap`. Nowrap
+    // text has NO soft wrap opportunity, so its MIN-CONTENT is the whole string
+    // - and a grid item's automatic minimum size is its min-content, so one
+    // long name sets the width of the track. `overflow: hidden` zeroes the
+    // automatic minimum size of a FLEX item, which is why the name truncates
+    // correctly once it is laid out, but it does nothing for the grid track
+    // that is deciding how much room there is in the first place.
+    //
+    // The name that did it in production is "Leonardo Alfonso Guerrero
+    // Urrutia" at 420px. So this was invisible in English-speaking markets and
+    // arrived with Spain, which is also why it only shows on the daily puzzles:
+    // those are the two-column boards, and their column has every market in it.
+    //
+    // `min-w-0` opts the section out of that minimum, the track becomes the
+    // column width, and the name truncates as it was always meant to.
+    <section className="min-w-0">
+      <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 shrink-0 text-brand" /> {heading}</h2>
       <p className="mb-4 text-sm text-smoke">
         {blurb
           ?? `${tr(MODE_LABEL[mode])} · ${tr(region)}${eventId ? ' · this event' : ' · all-time'}. ${tr('Ranked by score, then speed.')}${!eventId ? ` ${tr("The flame shows a creator's daily play streak in this mode.")}` : ''}`}

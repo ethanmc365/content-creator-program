@@ -17,6 +17,7 @@ import MilestonePath from '../../components/network/MilestonePath'
 import LiveChallengeCard from '../../components/LiveChallengeCard'
 import LiveNowRow from '../../components/network/LiveNowRow'
 import ChatBench from './ChatBench'
+import CertificateBench from './CertificateBench'
 import Icon from '../../components/Icon'
 import RouteSkeleton from '../../components/RouteSkeleton'
 
@@ -261,8 +262,12 @@ function ChatReport() {
 const SKELETON_SHAPES = ['hub', 'thread', 'list', 'cards', 'profile', 'map', 'calendar', 'feature', 'settings', 'form']
 
 export default function Preview() {
+  // The certificate sheet is FIRST, because it is the thing most often being
+  // looked at and the sheet above it is four hundred pixels of skeletons.
   return (
     <div style={{ padding: 24, background: '#fff' }}>
+      <CertificateBench />
+
       {/* THE ROUTE SKELETONS, ALL OF THEM, SIDE BY SIDE.
           A skeleton is only ever on screen for a couple of hundred
           milliseconds on a real navigation, which makes it the hardest thing in

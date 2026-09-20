@@ -51,8 +51,8 @@ const GUIDE = [
     match: /non-error thrown|^rejection: |unhandled promise rejection/i,
     severity: 'report quality',
     means: 'Something rejected a promise with an object that is not an Error, so there is no real stack to read.',
-    cause: 'Usually a supabase client error (a plain object with code/details/hint) or a minified class escaping from a library. The reporter now keeps the original type and fields; a row from before 12 Sep 2026 will have neither.',
-    todo: 'Read the `reason` block in the context below - the supabase code and hint are the actionable half. If there is none, the trail is what to go on.',
+    cause: 'Usually a supabase client error (a plain object with code/details/hint) or a minified class escaping from a library. The reporter now keeps the original type and fields; a row from before 12 Sep 2026 will have neither. If the context says `"translated": true` and every frame in the stack is attributed to the DOCUMENT url rather than to an /assets/ chunk, it is the browser’s own page-translation rewriting the page underneath us - the same cause as "The object can not be found here", and not ours.',
+    todo: 'Read the `reason` block in the context below - the supabase code and hint are the actionable half, and `keys` says what shape of object was thrown (`code,details,hint` is supabase; nothing at all is a bare object from a script that is not ours). If there is none, check `translated` and where the stack frames point before spending time on it.',
   },
   {
     match: /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i,
@@ -67,6 +67,16 @@ const GUIDE = [
     means: 'The browser refused a write to localStorage or IndexedDB because the site is out of space.',
     cause: 'Private browsing (where the quota is tiny or zero) or a device genuinely full. This app writes drafts, the outbox, the reorder preferences and the page cache.',
     todo: 'Every localStorage write in this codebase is meant to be in a try/catch for exactly this. If one reached the panel, find the write that is not wrapped.',
+  },
+  {
+    // BEFORE the generic "is not a function" entry below, which would explain
+    // this one as a value that had not arrived yet - and send whoever read it
+    // looking for a race that is not there.
+    match: /\.?(catch|finally) is not a function|is not a function[^\n]*\.(maybeSingle|single|select|rpc)\(/i,
+    severity: 'ours, and total',
+    means: 'Something called .catch() or .finally() on a Supabase query, which has neither.',
+    cause: 'A `PostgrestBuilder` - what `supabase.from(...).select(...)` returns - is a THENABLE, not a promise. It implements `then` and nothing else. So `.catch(...)` is `undefined(...)` and throws synchronously at the call site, usually inside a `useEffect`, which React turns straight into the error boundary. It reads like ordinary defensive code, which is why it survives review: every other `.catch` on the same screen is on a real promise and is correct. This took every new signup down on 20 Sep 2026 - the German creator who reported it could not get past the first onboarding screen.',
+    todo: 'Find the chain named in the stack and wrap it: `Promise.resolve(query).catch(...)`, or `await` it inside a try, or pass a second argument to `.then`. `src/lib/supabaseThenable.test.js` fails the build on the pattern, so if this reaches the panel again the fault is somewhere that test cannot see - a dynamic chain, or a helper that returns a builder.',
   },
   {
     match: /is not a function|undefined is not an object|cannot read propert(y|ies) of (undefined|null)|null is not an object/i,

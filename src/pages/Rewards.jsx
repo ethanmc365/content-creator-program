@@ -25,10 +25,15 @@ export default function Rewards() {
   //
   // A share-a-certificate button on every reward row, on a page a creator opens
   // to check whether they have been paid. It was the loudest control on the
-  // page and it answered a question nobody had come here to ask. The component
-  // is still in the tree (components/CertificateModal) if it comes back
-  // somewhere it fits - a challenge result, most likely, which is where
-  // finishing actually happens.
+  // page and it answered a question nobody had come here to ask.
+  //
+  // AND THE COMPONENTS ARE NOW DELETED (20 Sep 2026), not parked. `Certificate`
+  // and `CertificateModal` were a SECOND, hard-coded certificate - one design,
+  // its words in the markup, its own bar along the bottom - kept in the tree on
+  // the theory that it might come back somewhere. `certificate/CertificateCard`
+  // is the certificate now, it can make six layouts out of a stored design, and
+  // a second implementation of the same object is the exact thing `domSnapshot`
+  // exists to stop. `CertificateWall`, below, is where a creator finds theirs.
 
   useEffect(() => {
     supabase

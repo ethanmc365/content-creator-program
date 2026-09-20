@@ -1,25 +1,31 @@
-// FOUR CERTIFICATES THAT COVER MOST OF WHAT THIS PROGRAMME GIVES OUT.
+// SIX CERTIFICATES THAT COVER MOST OF WHAT THIS PROGRAMME GIVES OUT.
 //
 // Ethan: "you can start by creating some generic ones I can choose from as
 // examples."
 //
 // AN EXAMPLE IS ONLY USEFUL IF IT IS THE THING YOU WOULD HAVE MADE. These are
 // not lorem: each one is a real award with its trigger already set, so an admin
-// can add the set, change three words, and be finished. They are also the
-// ladder in `lib/certificates` made concrete - one of each tier, so the first
-// thing an admin sees is that these are meant to be different from each other.
+// can pick one, change three words, and be finished.
 //
-// THE BODY NEVER REPEATS THE NAME. The card already prints it, large and in
-// the accent, under "This certifies that" - so a body of "awarded to {name} for
-// winning X" puts the creator's name on the certificate twice, three lines
-// apart. Caught in the preview, which is the whole argument for the preview
-// being the real component. The body starts mid-sentence on purpose: the card's
-// own line is the subject, and the body is what follows it.
+// ONE PER LAYOUT, AND THAT IS THE SECOND JOB THEY DO (20 Sep 2026). The studio
+// can now make six genuinely different objects, and a list of six starters that
+// all used the same one would quietly teach an admin that it cannot. So each
+// starter is on a different layout, a different accent and a different paper -
+// open the gallery and the range is the first thing you see, without reading a
+// word about it. That is also why the accents here are spread rather than all
+// orange: "I want a lot of different colors."
 //
-// THE PARTICIPATION ONE SHIPS AS A DRAFT (`is_active: false`), and that is the
-// one deliberate asymmetry. It fires for EVERY creator who entered, so turning
-// it on is a decision about how common a certificate should be - and a decision
-// like that should be made on purpose, not by pressing "add the starter set".
+// THE BODY NEVER REPEATS THE NAME. The card already prints it, large, under
+// "This certifies that" - so a body of "awarded to {name} for winning X" puts
+// the creator's name on the certificate twice, three lines apart. Caught in the
+// preview, which is the whole argument for the preview being the real
+// component. The body starts mid-sentence on purpose: the card's own line is
+// the subject, and the body is what follows it.
+//
+// TWO OF THEM SHIP AS DRAFTS, and both are deliberate. "Took part" fires for
+// EVERY creator who entered, so turning it on is a decision about how common a
+// certificate should be. "Milestone reached" has no milestone chosen, because
+// only the admin knows which one - the studio says so in the panel.
 export const STARTERS = [
   {
     name: 'Challenge winner',
@@ -27,10 +33,12 @@ export const STARTERS = [
     title: 'Certificate of Achievement',
     subtitle: 'Tryp.com Creator Community',
     body: 'for finishing {place} in {challenge}\n{market}',
-    footnote: 'Verified by the Tryp.com Creator Community',
-    accent: '#d94407',
+    footnote: 'Issued by the Tryp.com Content Creator Community.',
+    accent: '#D94407',
+    layout: 'crest',
+    paper: 'paper',
     emblem: 'trophy',
-    pattern: 'rays',
+    pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
     award_on: 'challenge_rank',
@@ -44,10 +52,12 @@ export const STARTERS = [
     title: 'Certificate of Achievement',
     subtitle: 'Tryp.com Creator Community',
     body: 'for finishing {place} in {challenge}',
-    footnote: 'Verified by the Tryp.com Creator Community',
-    accent: '#d94407',
+    footnote: '',
+    accent: '#37409B',
+    layout: 'rail',
+    paper: 'mist',
     emblem: 'star',
-    pattern: 'wash',
+    pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
     award_on: 'challenge_rank',
@@ -56,13 +66,72 @@ export const STARTERS = [
     is_active: true,
   },
   {
+    name: 'Official creator',
+    tier: 'honour',
+    title: 'Official Tryp.com Content Creator',
+    subtitle: 'Tryp.com Creator Community',
+    body: 'is an official Tryp.com Content Creator',
+    footnote: 'Issued by the Tryp.com Content Creator Community.',
+    accent: '#A8320C',
+    layout: 'columns',
+    paper: 'ivory',
+    emblem: 'shield',
+    pattern: 'plain',
+    signature: 'Tryp.com',
+    signature_role: 'Creator Community',
+    award_on: 'manual',
+    ranks: [],
+    community_ids: [],
+    is_active: true,
+  },
+  {
+    name: 'Creator of the month',
+    tier: 'honour',
+    title: 'Creator of the Month',
+    subtitle: 'Tryp.com Creator Community',
+    body: 'for the month’s stand-out work in {market}',
+    footnote: '',
+    accent: '#6B3A8C',
+    layout: 'plaque',
+    paper: 'tint',
+    emblem: 'star',
+    pattern: 'plain',
+    signature: 'Tryp.com',
+    signature_role: 'Creator Community',
+    award_on: 'manual',
+    ranks: [],
+    community_ids: [],
+    is_active: true,
+  },
+  {
+    name: 'Milestone reached',
+    tier: 'milestone',
+    title: 'Certificate of Achievement',
+    subtitle: 'Tryp.com Creator Community',
+    body: 'for reaching {milestone}',
+    footnote: '',
+    accent: '#0B6B62',
+    layout: 'ticket',
+    paper: 'paper',
+    emblem: 'flag',
+    pattern: 'plain',
+    signature: 'Tryp.com',
+    signature_role: 'Creator Community',
+    award_on: 'milestone',
+    ranks: [],
+    community_ids: [],
+    is_active: false,
+  },
+  {
     name: 'Took part',
     tier: 'participation',
     title: 'Certificate of Participation',
     subtitle: 'Tryp.com Creator Community',
     body: 'for taking part in {challenge}',
     footnote: '',
-    accent: '#475569',
+    accent: '#2B2E36',
+    layout: 'minimal',
+    paper: 'paper',
     emblem: 'check',
     pattern: 'plain',
     signature: 'Tryp.com',
@@ -71,22 +140,5 @@ export const STARTERS = [
     ranks: [],
     community_ids: [],
     is_active: false,
-  },
-  {
-    name: 'Official creator',
-    tier: 'honour',
-    title: 'Official Tryp.com Content Creator',
-    subtitle: 'Tryp.com Creator Community',
-    body: 'is an official Tryp.com Content Creator',
-    footnote: 'Verified by the Tryp.com Creator Community',
-    accent: '#b8860b',
-    emblem: 'shield',
-    pattern: 'rays',
-    signature: 'Tryp.com',
-    signature_role: 'Creator Community',
-    award_on: 'manual',
-    ranks: [],
-    community_ids: [],
-    is_active: true,
   },
 ]

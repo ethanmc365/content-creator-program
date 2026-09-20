@@ -64,10 +64,40 @@ import { useT } from '../../lib/i18n'
 // dismiss button, and it is the whole reason to have the log of fixed ones that
 // Ethan asked for.
 
-// Where a row came from, as a chip. Ink rather than a new hue: the palette is
-// white, ink and the two oranges (see the platform's design rules), so a blue
-// "cron" badge would be the first off-palette colour on the platform.
-const SOURCE_LABEL = { client: 'App', cron: 'Scheduled job', integration: 'Integration', system: 'System' }
+// Where a row came from, as a chip ON THE ROW. Ink rather than a new hue: the
+// palette is white, ink and the two oranges (see the platform's design rules),
+// so a blue "cron" badge would be the first off-palette colour on the platform.
+//
+// `certificates` is here because the award engine reports under its own source
+// (migration 222). Anything not in this list falls back to its raw key, which
+// is why an unlabelled source used to read as `certificates` in lower case.
+const SOURCE_LABEL = {
+  client: 'App',
+  cron: 'Scheduled job',
+  integration: 'Integration',
+  system: 'System',
+  certificates: 'Certificates',
+}
+
+// THE FILTER CHIPS ARE ABOUT WHERE IT HAPPENED, NOT WHICH SUBSYSTEM WROTE IT.
+//
+// They used to be built from the distinct `source` values in the table, so the
+// row read "All · App · certificates" - and `certificates` is not a PLACE, it
+// is the name of the code that happened to call the reporting function once.
+// Ethan: "certificates, I don't get why this is here... it's not like a major
+// thing. I think it should just be an all or an app wherever it occurred as
+// well... we just need all and app."
+//
+// He also said what he expects the other one to mean, and he was describing
+// something the chip did not do: "for the app ones, that is taken from the add
+// to home screen app, right?... The all ones can be anything, the website."
+// That is a genuinely more useful split than client-versus-cron - an installed
+// PWA and a Safari tab are different environments and fail differently, which
+// is exactly why `agent` records it - so the chip now means what he thought it
+// meant. `source` is still on every row that is not a browser crash.
+//
+// The agent string is built by lib/monitoring as `name / os / installed app`.
+const isInstalled = (row) => /(^|\/\s*)installed app\s*$/i.test(row?.agent || '')
 
 export default function ErrorWatch() {
   const tr = useT()
@@ -103,9 +133,9 @@ export default function ErrorWatch() {
   const all = rows || []
   const open = all.filter((r) => !r.resolved_at)
   const done = all.filter((r) => r.resolved_at)
-  const sources = [...new Set(all.map((r) => r.source || 'client'))]
+  const anyInstalled = all.some(isInstalled)
   const shown = (showResolved ? done : open)
-    .filter((r) => source === 'all' || (r.source || 'client') === source)
+    .filter((r) => source === 'all' || isInstalled(r))
 
   return (
     <div className="space-y-6">
@@ -124,17 +154,21 @@ export default function ErrorWatch() {
           was using. What is left says what state the list is in and offers the
           two things you can do to it, which is all this row was ever for. */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* The source filter only draws once there is more than one kind of
-            row to separate - a chip that always says "All" is furniture. */}
-        {sources.length > 1 && ['all', ...sources].map((s) => (
+        {/* Two chips, and only once there is something to separate - a pair
+            that always says "All · Installed app (0)" is furniture. */}
+        {anyInstalled && [
+          { key: 'all', label: tr('All'), count: (showResolved ? done : open).length },
+          { key: 'installed', label: tr('Installed app'), count: (showResolved ? done : open).filter(isInstalled).length },
+        ].map((chip) => (
           <button
-            key={s}
+            key={chip.key}
             type="button"
-            onClick={() => setSource(s)}
+            onClick={() => setSource(chip.key)}
+            aria-pressed={source === chip.key}
             className={cx('rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors',
-              source === s ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}
+              source === chip.key ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}
           >
-            {s === 'all' ? tr('All') : tr(SOURCE_LABEL[s] || s)}
+            {chip.label} ({chip.count})
           </button>
         ))}
         {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU

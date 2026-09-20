@@ -41,7 +41,12 @@ export default function AdminCreatorKit() {
         subtitle="The graphics and certificates creators can put on their stories, their LinkedIn and their portfolio."
       />
 
-      <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" role="tablist">
+      {/* `pick-row` is what stops the hover lift, the scale and the glow being
+          clipped on all four edges - see the note on it in index.css. The
+          horizontal bleed matches `.page`'s own padding exactly, so the row
+          runs to the screen edge on a phone (the cue that says there is more to
+          the right) without giving the page a scrollbar. */}
+      <div className="pick-row -mx-5 flex gap-2 px-5 sm:-mx-8 sm:px-8" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}

@@ -18,9 +18,22 @@
 // showing and two font files from our own origin, which matters: the CSP allows
 // `font-src 'self'` and does NOT allow fetching Google's copy.
 
+// THE FACES THAT HAVE TO BE IN THE PICTURE.
+//
+// Poppins is the UI. Instrument Serif is the certificate and the portfolio
+// cover - see the note in index.css for why it is self-hosted rather than
+// pulled from Google: a face that is on screen and missing from the photograph
+// renders the download in a system fallback with different metrics, and the
+// creator ends up holding a different object from the one they approved.
+//
+// `family` is written out because the two are registered differently: Poppins
+// synthesises five weights from two files, and Instrument Serif is a single
+// weight with a true italic.
 const FONT_FILES = [
-  { url: '/fonts/Poppins-Regular.ttf', weight: 400 },
-  { url: '/fonts/Poppins-Bold.ttf', weight: 700 },
+  { url: '/fonts/Poppins-Regular.ttf', family: 'Poppins', weight: 400 },
+  { url: '/fonts/Poppins-Bold.ttf', family: 'Poppins', weight: 700 },
+  { url: '/fonts/InstrumentSerif-Regular.ttf', family: 'Instrument Serif', weight: 400 },
+  { url: '/fonts/InstrumentSerif-Italic.ttf', family: 'Instrument Serif', weight: 400, style: 'italic' },
 ]
 
 function toDataUrl(blob) {
@@ -49,14 +62,29 @@ function fontFaces() {
     ).then((loaded) => {
       const ok = loaded.filter(Boolean)
       if (!ok.length) return ''
-      const regular = ok.find((f) => f.weight === 400) || ok[0]
-      const bold = ok.find((f) => f.weight === 700) || regular
-      // Only two weights exist on disk. 500 is set from the regular file and
-      // 600/800 from the bold one, so a semibold heading stays heavy rather
-      // than silently falling back to the system stack mid-picture.
-      return [
-        [400, regular], [500, regular], [600, bold], [700, bold], [800, bold],
-      ].map(([weight, file]) => `@font-face{font-family:'Poppins';font-style:normal;font-weight:${weight};src:url(${file.data}) format('truetype');}`).join('')
+      const face = (family, style, weight, file) =>
+        `@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};src:url(${file.data}) format('truetype');}`
+
+      const poppins = ok.filter((f) => f.family === 'Poppins')
+      const regular = poppins.find((f) => f.weight === 400) || poppins[0]
+      const bold = poppins.find((f) => f.weight === 700) || regular
+      // Only two Poppins weights exist on disk. 500 is set from the regular
+      // file and 600/800 from the bold one, so a semibold heading stays heavy
+      // rather than silently falling back to the system stack mid-picture.
+      const css = regular
+        ? [[400, regular], [500, regular], [600, bold], [700, bold], [800, bold]]
+          .map(([weight, file]) => face('Poppins', 'normal', weight, file)).join('')
+        : ''
+
+      // Instrument Serif has ONE weight and a real italic, so it is registered
+      // as it actually is rather than synthesised. Registering 400 only would
+      // leave a `font-weight: 600` serif to the browser's fake bold; there is
+      // none in this design, and if one appears it should look wrong on screen
+      // as well as in the file rather than only in the file.
+      const serif = ok.filter((f) => f.family === 'Instrument Serif')
+      return css + serif
+        .map((f) => face('Instrument Serif', f.style || 'normal', f.weight, f))
+        .join('')
     })
   }
   return fontCssPromise

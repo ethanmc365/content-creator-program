@@ -1,6 +1,39 @@
 /* Poppins - Tryp.com's brand font (free via Google Fonts). */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 
+/* INSTRUMENT SERIF - THE SECOND FACE, AND IT EXISTS FOR ONE OBJECT.
+   Certificates. Ethan, about the first pass: "it's really like AI style, really
+   bad... improve the fonts". A certificate set entirely in the UI's geometric
+   sans reads as a slide, because a geometric sans is what every generated
+   template is set in. A document reads as a document when its display face is a
+   serif, and the rest of the platform is untouched: this is used by
+   `components/certificate` and by the portfolio deck's covers, nowhere else.
+
+   SELF-HOSTED, NOT FROM GOOGLE, and that is not a preference. Certificates are
+   PHOTOGRAPHED by `lib/domSnapshot`, which embeds the font files it is given as
+   data URIs - the CSP allows `font-src 'self'` and does not allow fetching
+   Google's copy. A face loaded over the network for the screen and absent from
+   the photograph would render the download in a system serif with different
+   metrics, which is the preview-and-file-disagree bug that module exists to
+   end. One file, both jobs.
+
+   OFL 1.1 (The Instrument Serif Project Authors), full Latin charset, so an
+   accented creator name sets correctly. */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/InstrumentSerif-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/InstrumentSerif-Italic.ttf') format('truetype');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -279,6 +312,44 @@ html {
   .page {
     @apply mx-auto w-full max-w-6xl px-5 py-8 animate-page-in sm:px-8 sm:py-12;
   }
+
+  /* ---- A ROW OF PICKABLE CHIPS THAT DOES NOT CLIP ITS OWN ANIMATION -------
+     Ethan, on the Creator kit tabs: "with the magnifying of the buttons,
+     whenever I magnify, like go over a button like graphic certificates
+     awarded, it magnifies a bit. And we had that issue with them at the top
+     getting cut off, but it's also getting cut off at the sides... seems to be
+     getting cut off at the bottom too, especially the glow and the one you're
+     actually clicked on."
+
+     All four edges, and one cause. A tab row has to scroll sideways on a phone,
+     so it is `overflow-x: auto` - and CSS does not let you clip one axis and not
+     the other: the moment `overflow-x` is not `visible`, `overflow-y` computes
+     to `auto` as well. So the row was a box that clipped on every side, and the
+     things that stick out of a chip are:
+
+       hover      -translate-y-0.5 and scale(1.03)   ~2px up, ~3px each side
+       picked     .glow-brand, 0 12px 34px -10px     ~12px up, ~36px down, 24px out
+
+     against `pb-1 pt-1` - four pixels. The bottom was worst because the glow is
+     offset downwards, which is exactly what he noticed and exactly what nobody
+     would guess from the markup.
+
+     PADDING, NOT `overflow: visible`, because the row genuinely must scroll.
+     The padding is inside the scroll box, so it is room the shadow can paint
+     into, and `-mt-4` gives the top back so nothing moves. The bottom padding
+     is left standing: it is now the gap under the row, and a tab strip wants
+     air under it anyway.
+
+     HORIZONTAL BLEED IS THE CALLER'S, because it depends on what the row is
+     sitting in - `-mx-5 px-5 sm:-mx-8 sm:px-8` inside a `.page`, something
+     smaller inside a card. Baking `.page`'s padding in here would push the row
+     outside any other container and give the whole screen a scrollbar. */
+  .pick-row {
+    @apply -mt-4 overflow-x-auto pb-9 pt-4;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .pick-row::-webkit-scrollbar { display: none; }
 
   /* ---- WYSIWYG editor (admin Notes + admin chat composer) --------------
      The contentEditable surface renders our small markdown set as itself, so the

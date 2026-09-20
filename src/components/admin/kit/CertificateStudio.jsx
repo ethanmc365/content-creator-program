@@ -9,7 +9,10 @@ import { confirm, notice, promptText } from '../../../lib/confirm'
 import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
-import { PLACEHOLDERS, TIERS, bodyProblem, ruleProblem, sampleFacts, tierOf } from '../../../lib/certificates'
+import {
+  ACCENTS, DEFAULT_ACCENT, LAYOUTS, PAPERS, PLACEHOLDERS, TIERS,
+  bodyProblem, designStyle, ruleProblem, sampleFacts, tierOf,
+} from '../../../lib/certificates'
 import { STARTERS } from './certificateStarters'
 
 // THE CERTIFICATE BUILDER.
@@ -35,27 +38,29 @@ import { STARTERS } from './certificateStarters'
 // white-dominant with orange accents. The four tier colours plus a neutral are
 // enough to tell four kinds of award apart and no more than that.
 
-// THE SEAL PICKER AND THE RAYS GROUND ARE BOTH GONE (20 Sep 2026).
+// THE SEAL PICKER AND THE GROUND PICKER ARE BOTH GONE (20 Sep 2026), AND WHAT
+// REPLACED THEM IS THE POINT.
 //
-// Ethan: "I don't like those random icons" and "no need for the sparkle". The
-// certificate no longer draws an emblem at all - the Tryp.com logo is the mark
-// on it now - and the rays ground was the twenty-stop starburst that made the
-// whole thing look generated. Keeping either control would be offering an admin
-// a setting that changes nothing, which is worse than not having it.
+// Ethan: "I don't like those random icons" and "no need for the sparkle", and
+// then, on the whole object, "I want it completely, completely, utterly
+// redesigned."
 //
-// The stored `emblem` column is untouched so existing designs still load.
-const PATTERNS = [
-  { key: 'wash', label: 'Wash', hint: 'A soft Tryp.com gradient in the corners' },
-  { key: 'plain', label: 'Plain', hint: 'White. Prints best' },
-]
-
+// The emblem disc and the starburst went first. What was left was still one
+// composition with a wash behind it, and a control offering three washes of one
+// page is a control that cannot answer "redesign it". So the axes are now
+// LAYOUT (six real compositions), ACCENT (ten) and PAPER (five) - see
+// lib/certificates. `emblem` and `pattern` are still written on save so
+// existing rows keep their values and nothing that reads them breaks, but
+// nothing draws from them any more.
 const BLANK = {
   name: '', tier: 'achievement',
   title: 'Certificate of Achievement',
   subtitle: 'Tryp.com Creator Community',
   body: 'for winning {challenge}\nin {market}',
-  footnote: '', accent: '#d94407', emblem: 'trophy', pattern: 'wash',
-  signature: '', signature_role: '',
+  footnote: '',
+  accent: DEFAULT_ACCENT, layout: 'rail', paper: 'paper',
+  emblem: 'trophy', pattern: 'plain',
+  signature: 'Tryp.com', signature_role: 'Creator Community',
   award_on: 'manual', ranks: [], community_ids: [], milestone_id: null,
   is_active: true,
 }
@@ -72,6 +77,10 @@ export default function CertificateStudio() {
   const open = (design) => { setOriginal(JSON.stringify(design)); setEditing(design) }
   const [markets, setMarkets] = useState([])
   const [milestones, setMilestones] = useState([])
+  // Whether the "start from" gallery is up. Its own state rather than a route,
+  // because nothing has been created yet - backing out of it must leave no
+  // trace, and a URL that says `?new` after you changed your mind is a trace.
+  const [picking, setPicking] = useState(false)
 
   const load = useCallback(async () => {
     const [{ data: designs }, { data: coms }, { data: miles }] = await Promise.all([
@@ -132,22 +141,9 @@ export default function CertificateStudio() {
     load()
   }
 
-  // THE STARTERS ARE WRITTEN, NOT GENERATED. Ethan asked for "some generic ones
-  // I can choose from as examples", and an example is only useful if it is the
-  // thing you would actually have made - so each one is a real award this
-  // programme gives, with its trigger already set.
-  async function addStarters() {
-    if (!missingStarters.length) return
-    const { error } = await supabase.from('certificate_designs')
-      .insert(missingStarters.map((x) => ({ ...x, created_by: profile?.id })))
-    if (error) return notice(error.message, { title: 'Could not add those' })
-    load()
-  }
-
-  // Which starters are NOT already in the list. Derived rather than discovered
-  // on click, so the button can show its own state.
+  // Which starters are NOT already in the list, so the gallery can say so on
+  // the tile rather than letting somebody make a second "Challenge winner".
   const existingNames = new Set((rows || []).map((r) => r.name))
-  const missingStarters = STARTERS.filter((x) => !existingNames.has(x.name))
 
   if (rows === null) return <Skeleton className="h-96 w-full rounded-card" />
 
@@ -179,43 +175,42 @@ export default function CertificateStudio() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => open({ ...BLANK, __isNew: true })} className="btn-primary">
-          <Icon name="plus" className="h-4 w-4" /> New certificate
-        </button>
-        {/* THE BUTTON KNOWS WHETHER IT HAS ANYTHING TO DO. Ethan: "I clicked
-            add a starter set, but it says they're already here. So I don't
-            really get the functions of this."
+      {/* THE STARTER BUTTON IS GONE, AND THIS IS WHAT IT SHOULD HAVE BEEN.
+          Ethan: "the starter button seeming completely useless. You can get rid
+          of it or just improve it a lot."
 
-            Fair - it let you press it and then told you off. A control that is
-            going to refuse should look refused BEFORE it is pressed, and it
-            should say what it would have done. It is disabled once all four
-            exist, and the line underneath says what a starter is either way. */}
-        <button
-          type="button"
-          onClick={addStarters}
-          disabled={!missingStarters.length}
-          className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
-          title={missingStarters.length
-            ? `Adds ${missingStarters.length} ready-made ${missingStarters.length === 1 ? 'design' : 'designs'}`
-            : 'All four starters are already here'}
-        >
-          <Icon name="sparkles" className="h-4 w-4" />
-          {missingStarters.length ? `Add ${missingStarters.length} starter designs` : 'Starter set added'}
-        </button>
-      </div>
+          He is right twice over. It bulk-inserted four rows in one press, which
+          is not a decision anybody wants to make blind, and once they existed
+          it sat there permanently disabled saying "Starter set added" - a
+          control that has spent its entire useful life in one click and then
+          becomes furniture. The previous pass made it look refused BEFORE it
+          was pressed, which was an honest fix to the wrong thing.
 
-      <p className="-mt-2 text-[12px] leading-relaxed text-smoke">
-        {missingStarters.length
-          ? 'Starters are four ready-made designs - one per tier - with their award triggers already set. Add them and edit the words until they read the way you want.'
-          : 'The four starter designs are in the list below. Edit any of them, or build a new one from scratch.'}
-      </p>
+          What an admin actually wants from a starter is to SEE one and take it.
+          So "New certificate" opens a gallery of starting points - the blank
+          one and the six written starters - each drawn as the real certificate
+          at real fidelity, each labelled with what triggers it. Taking one
+          opens the editor with its words already in place; nothing is written
+          to the database until Save. The button that had one use now has one
+          per starter, and the gallery doubles as the demonstration that the
+          studio can make six different-looking things. */}
+      <button type="button" onClick={() => setPicking(true)} className="btn-primary">
+        <Icon name="plus" className="h-4 w-4" /> New certificate
+      </button>
+
+      {picking && (
+        <StarterGallery
+          existingNames={existingNames}
+          onPick={(design) => { setPicking(false); open({ ...design, __isNew: true }) }}
+          onClose={() => setPicking(false)}
+        />
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
           icon="trophy"
           title="No certificates yet"
-          hint="Add the starter set to get four that cover most of what the programme gives out, then edit them until they read the way you want."
+          hint="Press New certificate to see six ready-made designs - one of each layout, with their award triggers already set - or start from a blank one."
         />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
@@ -259,16 +254,26 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
         <Preview design={row} width={width} />
       </button>
       <div className="flex items-center gap-3 border-t border-gray-100 p-4">
+        {/* THE SWATCH IS THE ACCENT, NOT AN ICON IN THE ACCENT. It used to be
+            `row.emblem` in a coloured tile, and the certificate stopped drawing
+            an emblem three passes ago - so the list was identifying each design
+            by the one property of it that no longer appears anywhere on the
+            object. Two circles say the two things that DO: what colour it is
+            and what it is printed on. */}
         <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white"
-          style={{ background: row.accent }}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          style={{ background: row.accent, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
+          title={`${layoutName(row)} · ${row.accent}`}
         >
-          <Icon name={row.emblem} className="h-4 w-4" />
+          <span
+            className="h-3.5 w-3.5 rounded-full"
+            style={{ background: designStyle(row).bg, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+          />
         </span>
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <p className="truncate text-sm font-bold text-ink">{row.name}</p>
           <p className="truncate text-[11px] text-smoke">
-            {tier.label} · {triggerText(row, markets)}
+            {layoutName(row)} · {tier.label} · {triggerText(row, markets)}
           </p>
         </button>
         {/* A RULE THAT CANNOT FIRE SAYS SO ON THE CARD. It is the one fault this
@@ -293,6 +298,107 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-brand">
           <Icon name="pencil" className="h-4 w-4" />
         </button>
+      </div>
+    </div>
+  )
+}
+
+/** The layout's own name, for a list that has to say what a design IS. */
+function layoutName(row) {
+  return designStyle(row).layout.label
+}
+
+/**
+ * THE STARTING POINTS, SHOWN RATHER THAN DESCRIBED.
+ *
+ * Replaces the "Add 4 starter designs" button - see the note where it used to
+ * be. The argument for a gallery over a button is the same argument the studio
+ * already makes about its preview: the certificate is a PICTURE, and no amount
+ * of naming one ("Podium finish, achievement tier") tells an admin whether they
+ * want it. Six tiles at real fidelity do.
+ *
+ * NOTHING IS WRITTEN HERE. Picking a tile fills the editor and leaves the
+ * database alone until Save, which is the difference between choosing a
+ * starting point and creating six rows you now have to delete.
+ *
+ * A starter whose name is already taken is still SHOWN and still takes - it
+ * arrives as "Podium finish (2)". Hiding it would mean the range you can see
+ * shrinks as you use the studio, and the second copy of a design is a real
+ * thing to want (the same award for a different market).
+ */
+function StarterGallery({ existingNames, onPick, onClose }) {
+  return (
+    <div className="space-y-4 rounded-card border border-gray-100 bg-white p-5 shadow-card">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-ink">Start from</h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-smoke">
+            Six ready-made designs, one of each layout, with their award triggers already set.
+            Nothing is saved until you press Save on the next screen.
+          </p>
+        </div>
+        <button type="button" onClick={onClose} className="btn-ghost !py-1.5 text-xs">Cancel</button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <BlankTile onPick={onPick} />
+        {STARTERS.map((starter) => (
+          <StarterTile
+            key={starter.name}
+            starter={starter}
+            taken={existingNames.has(starter.name)}
+            onPick={onPick}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BlankTile({ onPick }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick({ ...BLANK })}
+      className="flex min-h-[190px] flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-gray-200 p-6 text-center transition-colors hoverable:hover:border-brand hoverable:hover:bg-brand-tint/40"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-cloud text-brand">
+        <Icon name="plus" className="h-5 w-5" />
+      </span>
+      <span className="text-sm font-bold text-ink">Blank</span>
+      <span className="text-[11px] leading-relaxed text-smoke">
+        The Rail layout on white. Write your own words.
+      </span>
+    </button>
+  )
+}
+
+function StarterTile({ starter, taken, onPick }) {
+  const [holder, width] = useFluidWidth(240)
+  // A second copy needs a second name - `certificate_designs.name` is what the
+  // list, the awarded tab and every notification identify a design by, and two
+  // rows called "Podium finish" is a support question waiting to happen.
+  const pick = () => onPick(taken ? { ...starter, name: `${starter.name} (2)`, is_active: false } : { ...starter })
+  return (
+    <div className="overflow-hidden rounded-card border border-gray-100 shadow-card transition-all duration-200 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift">
+      <button ref={holder} type="button" onClick={pick} className="block w-full text-left">
+        <Preview design={starter} width={width} />
+      </button>
+      <div className="flex items-center gap-2 border-t border-gray-100 px-3.5 py-3">
+        <button type="button" onClick={pick} className="min-w-0 flex-1 text-left">
+          <p className="truncate text-[13px] font-bold text-ink">{starter.name}</p>
+          <p className="truncate text-[10.5px] text-smoke">
+            {layoutName(starter)} · {triggerText(starter)}
+          </p>
+        </button>
+        {taken && (
+          <span
+            title="You already have one called this. Taking it makes a second, as a draft."
+            className="shrink-0 rounded-md bg-cloud px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-smoke"
+          >
+            In use
+          </span>
+        )}
       </div>
     </div>
   )
@@ -441,29 +547,123 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
             </div>
           </Section>
 
+          {/* THE THREE AXES, IN THE ORDER THEY MATTER.
+              Layout first because it decides the most and is the thing that was
+              missing; then the accent, which is the loudest single decision;
+              then the paper, which is the quietest. Each control shows its
+              answer rather than naming it - a row of words reading "Rail,
+              Columns, Crest" tells an admin nothing they can act on. */}
           <Section title="How it looks">
-            <Field label="Accent">
-              <div className="flex flex-wrap gap-2">
-                {[...TIERS.map((t) => t.accent), '#1c1c1c'].map((hex) => (
-                  <button key={hex} type="button" onClick={() => set({ accent: hex })}
-                    aria-label={hex}
+            <Field
+              label="Layout"
+              hint={designStyle(design).layout.hint}
+            >
+              <div className="grid grid-cols-3 gap-2">
+                {LAYOUTS.map((l) => (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => set({ layout: l.key })}
+                    aria-pressed={designStyle(design).layout.key === l.key}
+                    title={l.hint}
                     className={cx(
-                      'h-8 w-8 rounded-full border-2 transition-transform hoverable:hover:scale-110',
-                      design.accent === hex ? 'border-ink' : 'border-transparent',
+                      'overflow-hidden rounded-xl border-2 bg-white transition-colors',
+                      designStyle(design).layout.key === l.key
+                        ? 'border-brand' : 'border-gray-200 hoverable:hover:border-brand/40',
                     )}
-                    style={{ background: hex }} />
+                  >
+                    {/* A THUMBNAIL OF THE REAL CARD, at 96px. Not a diagram of
+                        where the bars go: `Preview` is the same component the
+                        big preview uses, so a layout can never be advertised
+                        here as something it does not draw. It is illegible at
+                        this size ON PURPOSE - what you are picking is a shape,
+                        and shape is exactly what survives being shrunk. */}
+                    <span className="pointer-events-none block">
+                      <Preview design={{ ...design, layout: l.key }} width={96} />
+                    </span>
+                    <span className="block border-t border-gray-100 px-1 py-1 text-[10px] font-semibold text-ink">
+                      {l.label}
+                    </span>
+                  </button>
                 ))}
               </div>
             </Field>
-            <Field label="Background">
+
+            {/* TEN, NOT FIVE, AND NOT A FREE PICKER. Ethan: "improve the accent
+                color, because currently we have one, two, three, four orange
+                and one black... I want a lot of different colors."
+
+                Four of the five were the same orange because the tiers had all
+                been set to it - so the row offered one real choice and four
+                copies of it. Ten now, spread around the wheel, and every one
+                picked so white type on it is readable at 14px (see
+                `readableOn`). Still a fixed set rather than a colour input: a
+                free picker lets somebody make a certificate that is not a
+                Tryp.com certificate, and pale accents break the layouts that
+                set the tier in white ON the accent. */}
+            <Field label="Accent" hint={ACCENTS.find((a) => a.hex.toLowerCase() === String(design.accent || '').toLowerCase())?.label}>
+              <div className="flex flex-wrap gap-2.5">
+                {ACCENTS.map((a) => {
+                  const on = String(design.accent || '').toLowerCase() === a.hex.toLowerCase()
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      onClick={() => set({ accent: a.hex })}
+                      aria-pressed={on}
+                      aria-label={a.label}
+                      title={a.label}
+                      className={cx(
+                        'h-9 w-9 rounded-full transition-transform hoverable:hover:scale-110',
+                        on && 'scale-110',
+                      )}
+                      style={{
+                        background: a.hex,
+                        // An outline OUTSIDE the swatch, so the colour is never
+                        // cut into by the thing marking it as chosen.
+                        boxShadow: on
+                          ? '0 0 0 2px #fff, 0 0 0 4px #1A1A1A'
+                          : 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </Field>
+
+            {/* THE GROUND, AND THE GLOW IS GONE. Ethan: "I still don't like the
+                background color, is that like weirdly goldeny, orangey glow. I
+                just don't like that color."
+
+                It was the accent at 14% bled into two corners, which on orange
+                is a goldeny glow and on nothing is paper. These are papers: two
+                neutrals, a warm one, ONE flat 5% accent tint for somebody who
+                does want colour, and near-black. */}
+            <Field label="Paper" hint={PAPERS.find((p) => p.key === (design.paper || 'paper'))?.hint}>
               <div className="flex flex-wrap gap-2">
-                {PATTERNS.map((p) => (
-                  <button key={p.key} type="button" onClick={() => set({ pattern: p.key })}
-                    title={p.hint}
-                    className={pickClass(design.pattern === p.key, 'rounded-xl border px-3 py-1.5 text-xs font-semibold')}>
-                    {p.label}
-                  </button>
-                ))}
+                {PAPERS.map((p) => {
+                  const on = (design.paper || 'paper') === p.key
+                  const swatch = p.bg || design.accent
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => set({ paper: p.key })}
+                      aria-pressed={on}
+                      title={p.hint}
+                      className={pickClass(on, 'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold')}
+                    >
+                      <span
+                        className="h-3.5 w-3.5 shrink-0 rounded-full"
+                        style={{
+                          background: p.key === 'tint' ? `${swatch}1f` : swatch,
+                          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.12)',
+                        }}
+                      />
+                      {p.label}
+                    </button>
+                  )
+                })}
               </div>
             </Field>
           </Section>

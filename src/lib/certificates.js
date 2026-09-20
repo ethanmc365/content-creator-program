@@ -79,6 +79,223 @@ export function formatAwardDate(value) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// ---------------------------------------------------------------------------
+// THE DESIGN SYSTEM A CERTIFICATE IS BUILT FROM
+//
+// Three axes - LAYOUT, ACCENT, PAPER - and they are three because of what was
+// wrong with having one. The first version was a single centred composition
+// with a colour wash behind it, and Ethan's verdict was not about the colour:
+// "it's really like AI style, really bad... I want it completely, completely,
+// utterly redesigned. Like instead of just changing how it currently looks
+// like, I want it completely redesigned."
+//
+// He is right about the diagnosis. What made it look generated was the SHAPE -
+// kicker, centred title, rule, centred name, centred paragraph, three things
+// along the bottom - which is the shape of every certificate any tool has ever
+// produced. No palette fixes that, so the palette was never the thing to fix.
+//
+// So: six layouts that are genuinely different objects, ten accents, five
+// papers. 300 combinations, and more to the point six compositions that do not
+// look like each other from across a feed.
+//
+// THE THREE COMPLAINTS THIS ANSWERS, IN HIS WORDS:
+//
+//   "we have one, two, three, four orange and one black... I want a lot of
+//    different colors"          -> ACCENTS, ten of them, all usable on white
+//                                  and all able to carry white type.
+//   "I still don't like the background color, is that like weirdly goldeny,
+//    orangey glow"              -> PAPERS. The old ground was the accent at 14%
+//                                  in two corners, which on orange is exactly
+//                                  a goldeny glow. Papers are NEUTRAL grounds
+//                                  with one optional flat accent tint, and the
+//                                  default is plain white.
+//   "it's quite weird the way the bars are at the bottom and not on the sides"
+//                              -> Four of the six layouts carry their accent on
+//                                  a VERTICAL edge. Nothing has a full-width
+//                                  bar along the bottom any more.
+// ---------------------------------------------------------------------------
+
+/** '#rrggbb' -> {r,g,b}. Returns null for anything else, so callers can fall back. */
+export function hexRgb(hex) {
+  const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(hex || '').trim())
+  if (!m) return null
+  const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1]
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) }
+}
+
+/**
+ * `rgba()` from a hex and an alpha.
+ *
+ * NOT `${hex}22`, which is what the first version used everywhere. An
+ * eight-digit hex is fine in a browser and is NOT fine here, because these
+ * strings are read back by `lib/domSnapshot` and written into an SVG - and it
+ * only takes one renderer that does not understand `#rrggbbaa` to turn a
+ * hairline into a black line across somebody's certificate. `rgba()` is
+ * universal, and it also makes the alpha readable at the call site.
+ */
+export function alpha(hex, a) {
+  const c = hexRgb(hex) || { r: 217, g: 68, b: 7 }
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`
+}
+
+/** Mix towards white (t>0) or black (t<0). Used for the second tone of an accent. */
+export function shift(hex, t) {
+  const c = hexRgb(hex) || { r: 217, g: 68, b: 7 }
+  const to = t >= 0 ? 255 : 0
+  const k = Math.abs(t)
+  const mix = (v) => Math.round(v + (to - v) * k)
+  return `rgb(${mix(c.r)}, ${mix(c.g)}, ${mix(c.b)})`
+}
+
+/**
+ * Black or white, whichever can be read on this colour.
+ *
+ * Relative luminance rather than a brightness average: the average says white
+ * type is readable on #0E7167, and it is not. Threshold at 0.45 because these
+ * are large display sizes, where a little less contrast is still comfortable.
+ */
+export function readableOn(hex) {
+  const c = hexRgb(hex)
+  if (!c) return '#ffffff'
+  const lin = (v) => { const s = v / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+  const l = 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b)
+  return l > 0.45 ? '#141414' : '#ffffff'
+}
+
+// TEN ACCENTS, AND WHY THEY ARE THESE TEN.
+//
+// Every one is dark enough to carry white type at 14px and saturated enough to
+// read as a decision rather than as a default. They are spread around the wheel
+// on purpose - warm, red, violet, blue, green, neutral - so two certificates
+// picked at random look like two certificates and not two shades of one.
+//
+// Tryp orange is first and is the default, because the common case is a
+// Tryp.com certificate and the common case should be one press.
+//
+// WHAT IS NOT HERE: anything pale, anything neon, and gold. Pale cannot hold
+// white type, neon is not this brand, and gold is the colour that made the old
+// ones look like a template - it is also what Ethan was describing as the
+// "goldeny, orangey glow" he did not like.
+export const ACCENTS = [
+  { key: 'tryp', label: 'Tryp orange', hex: '#D94407' },
+  { key: 'ember', label: 'Ember', hex: '#A8320C' },
+  { key: 'crimson', label: 'Crimson', hex: '#A81F44' },
+  { key: 'plum', label: 'Plum', hex: '#6B3A8C' },
+  { key: 'indigo', label: 'Indigo', hex: '#37409B' },
+  { key: 'ocean', label: 'Ocean', hex: '#0F5E88' },
+  { key: 'teal', label: 'Teal', hex: '#0B6B62' },
+  { key: 'forest', label: 'Forest', hex: '#2A6840' },
+  { key: 'bronze', label: 'Bronze', hex: '#7C5225' },
+  { key: 'graphite', label: 'Graphite', hex: '#2B2E36' },
+]
+
+export const DEFAULT_ACCENT = ACCENTS[0].hex
+
+// FIVE PAPERS. A paper is what the certificate is PRINTED ON, and it is a
+// neutral decision that has nothing to do with the accent - which is the whole
+// correction. The old ground took the accent and bled it into two corners at
+// 14%, so picking orange got you an orange glow and picking teal got you a
+// teal one, and neither looked like paper.
+//
+// `ink` is the one that is not paper at all, and it earns its place by being
+// the single biggest change of character available: the same layout, the same
+// words, on near-black, is a different object. Everything reading `light: false`
+// flips the type and the rules; nothing else in a layout has to know.
+export const PAPERS = [
+  {
+    key: 'paper', label: 'White', hint: 'Plain white. Prints best, posts best.',
+    light: true, bg: '#FFFFFF', ink: '#15161A', muted: '#5E6068', faint: '#9A9CA4', hair: 'rgba(20, 22, 26, 0.10)',
+  },
+  {
+    key: 'ivory', label: 'Ivory', hint: 'A warm off-white, like a printed programme.',
+    light: true, bg: '#FBF9F5', ink: '#1B1814', muted: '#615B52', faint: '#A19A8F', hair: 'rgba(27, 24, 20, 0.11)',
+  },
+  {
+    key: 'mist', label: 'Mist', hint: 'A cool grey. Quiet, and the easiest to read.',
+    light: true, bg: '#F5F6F8', ink: '#15181E', muted: '#5C626D', faint: '#969CA8', hair: 'rgba(21, 24, 30, 0.10)',
+  },
+  {
+    key: 'tint', label: 'Accent tint', hint: 'A flat 5% of the accent. Coloured, not glowing.',
+    light: true, bg: null, ink: '#15161A', muted: '#5E6068', faint: '#9A9CA4', hair: 'rgba(20, 22, 26, 0.10)',
+  },
+  {
+    key: 'ink', label: 'Ink', hint: 'Near-black. The one that does not look like a certificate.',
+    light: false, bg: '#131419', ink: '#FFFFFF', muted: '#A8ABB6', faint: '#6C707C', hair: 'rgba(255, 255, 255, 0.14)',
+  },
+]
+
+export const paperOf = (key) => PAPERS.find((p) => p.key === key) || PAPERS[0]
+
+/** The resolved palette for one design: paper plus the accent mixed into it. */
+export function paletteFor({ paper, accent } = {}) {
+  const p = paperOf(paper)
+  const ac = accent || DEFAULT_ACCENT
+  return {
+    ...p,
+    accent: ac,
+    onAccent: readableOn(ac),
+    // On ink, the accent has to come UP to stay legible against near-black;
+    // on paper it stays as chosen. One rule, so no layout has to think about it.
+    accentText: p.light ? ac : shift(ac, 0.38),
+    bg: p.bg || alpha(ac, 0.05),
+    // A hairline that belongs to the accent rather than to the ground. Used for
+    // rules that are structure rather than decoration.
+    rule: p.light ? alpha(ac, 0.28) : alpha(ac, 0.5),
+  }
+}
+
+// SIX LAYOUTS. Each is a different composition, not a different colourway.
+//
+// `bars` says where the accent lives, and four of the six say `side` - which is
+// the direct answer to "it's quite weird the way the bars are at the bottom and
+// not on the sides". Nothing has a bar along the bottom any more.
+export const LAYOUTS = [
+  {
+    key: 'rail', label: 'Rail', bars: 'side',
+    hint: 'A solid accent column down the left with the tier set into it. Left-aligned, modern.',
+  },
+  {
+    key: 'columns', label: 'Columns', bars: 'side',
+    hint: 'Two slim accent edges holding a centred, classical page.',
+  },
+  {
+    key: 'crest', label: 'Crest', bars: 'side',
+    hint: 'Editorial. A wide left margin, a heavy short rule, and the name set large.',
+  },
+  {
+    key: 'plaque', label: 'Plaque', bars: 'none',
+    hint: 'A framed panel with corner marks. The formal one.',
+  },
+  {
+    key: 'ticket', label: 'Boarding pass', bars: 'side',
+    hint: 'A perforated stub down the right carrying the date and the code. Ours, not a template.',
+  },
+  {
+    key: 'minimal', label: 'Minimal', bars: 'none',
+    hint: 'Almost nothing: one hairline, a lot of air, and the name.',
+  },
+]
+
+export const layoutOf = (key) => LAYOUTS.find((l) => l.key === key) || LAYOUTS[0]
+
+/**
+ * A stored design, with every visual field resolved and legacy values migrated.
+ *
+ * THE OLD `pattern` COLUMN IS STILL READ. It held 'wash' | 'plain' | 'rays',
+ * and rows written before migration 230 have no `layout` and no `paper` at all.
+ * Rather than leave those rendering as a default that looks nothing like what
+ * the admin approved, they land on the layout closest to what they were - the
+ * framed centred one - with the ground they asked for.
+ */
+export function designStyle(design = {}) {
+  const d = design || {}
+  const legacy = !d.layout
+  const layout = layoutOf(legacy ? 'plaque' : d.layout)
+  const paper = d.paper
+    || (d.pattern === 'plain' ? 'paper' : d.pattern === 'wash' || d.pattern === 'rays' ? 'tint' : 'paper')
+  return { layout, ...paletteFor({ paper, accent: d.accent || DEFAULT_ACCENT }) }
+}
+
 // THE TIERS, AND WHY THERE ARE FOUR.
 //
 // If everybody gets the same certificate for turning up, winning one means
