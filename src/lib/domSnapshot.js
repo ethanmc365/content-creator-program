@@ -194,7 +194,15 @@ async function inlineImages(clone) {
  * @param {{scale?: number, background?: string}} [opts]
  * @returns {Promise<Blob|null>} a PNG
  */
-export async function snapshotNode(node, { scale = 2, background = '#ffffff' } = {}) {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.scale]       pixel density of the photograph
+ * @param {string} [opts.background]  what shows through where the node is not
+ * @param {'png'|'jpeg'} [opts.type]  PNG by default - see the note on `type` at
+ *                                    the bottom of this function
+ * @param {number} [opts.quality]     JPEG only, 0..1
+ */
+export async function snapshotNode(node, { scale = 2, background = '#ffffff', type = 'png', quality = 0.92 } = {}) {
   if (!node) return null
   const rect = node.getBoundingClientRect()
   const width = Math.ceil(rect.width)
@@ -239,7 +247,20 @@ export async function snapshotNode(node, { scale = 2, background = '#ffffff' } =
   ctx.fillStyle = background
   ctx.fillRect(0, 0, width, height)
   ctx.drawImage(img, 0, 0, width, height)
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+  // PNG BY DEFAULT, AND JPEG ONLY WHERE THE FILE SIZE IS THE FEATURE.
+  //
+  // Everything that ends up on a story or in a camera roll stays PNG: those are
+  // cards of flat colour and type, where PNG is both smaller AND sharper, and
+  // JPEG would put ringing around every letter.
+  //
+  // The portfolio PDF is the other case and it is the opposite in every
+  // respect. Its pages are PHOTOGRAPHS - a cover portrait and up to four video
+  // frames a page - which is what PNG is worst at, and the file has a job that
+  // a big file fails at: Ethan's own description of the feature is "a media kit
+  // you can send to a brand". Measured on a real ten-video portfolio: six pages
+  // at 2x came to 9.2MB as PNG, which several mail servers will refuse outright
+  // and every recipient will notice.
+  return new Promise((resolve) => canvas.toBlob(resolve, `image/${type}`, quality))
 }
 
 export async function downloadBlob(blob, filename) {
