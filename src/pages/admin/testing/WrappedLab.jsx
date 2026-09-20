@@ -31,6 +31,29 @@ import YearInReview, { YearInReviewLocked } from '../../../components/wrapped/Ye
 
 const YEAR = 2026
 
+/**
+ * Turn `{sender_id, n}` back into the shape `buildYearInReview` expects.
+ *
+ * The builder takes a LIST of messages because that is what a creator's own
+ * session actually has, and it only ever counts them. Rather than give it a
+ * second code path for a lab that has counts instead, the counts are expanded
+ * into n dateless stand-ins per sender - stamped mid-year so `inYear` keeps
+ * them, and carrying nothing else because there is nothing else to carry.
+ *
+ * Falls back to the rows when the RPC says nothing (it returns no rows to a
+ * non-admin, and the lab is admin-only, so that is the "not deployed yet" case).
+ */
+function expandDmCounts(counts, rows) {
+  if (!counts?.length) return rows
+  const out = []
+  for (const c of counts) {
+    for (let i = 0; i < Number(c.n || 0); i++) {
+      out.push({ sender_id: c.sender_id, created_at: `${YEAR}-06-15T12:00:00.000Z` })
+    }
+  }
+  return out
+}
+
 export default function WrappedLab() {
   const [raw, setRaw] = useState(null)
   const [who, setWho] = useState('')
@@ -65,7 +88,7 @@ export default function WrappedLab() {
       const [
         profiles, communities, memberRows,
         flights, submissions, results,
-        rewards, challenges, history, messages, directMessages,
+        rewards, challenges, history, messages, directMessages, dmCounts,
         connections, collabPosts, gameScores,
         reactions, milestones, creatorMilestones,
       ] = await Promise.all([
@@ -80,23 +103,39 @@ export default function WrappedLab() {
         // The off-platform record: the challenges the programme ran before this
         // app existed. `challenge_id is null` is the same filter AdminAnalytics
         // uses, and without it the community card counts 0.2% of the year.
-        allRows(() => supabase.from('challenge_history').select('starts_at, total_views, posts, creators, challenge_id').is('challenge_id', null)),
+        allRows(() => supabase.from('challenge_history').select('starts_at, total_views, posts, creators, prize_total, prize_currency, challenge_id').is('challenge_id', null)),
         allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
         // COUNTS ONLY - no `body`, no `image_url`, no recipient. The recap says
         // how many messages somebody sent, never what was in one.
+        //
+        // AND THE TABLE READ IS NOT ENOUGH IN THIS LAB. `direct_messages` is
+        // behind RLS that shows you the conversations you are IN, so an admin
+        // previewing somebody else's recap reads their own DMs and none of
+        // that creator's - measured as qa-admin, 9 rows against 216 in the
+        // table, which is why the messages card showed room messages only and
+        // looked like the DM counting had never been built. That policy is
+        // correct and stays; `year_dm_counts` (migration 232) answers the
+        // question the recap actually asks - how MANY, per sender - and is
+        // admin-only and returns nothing else. The table read is kept as the
+        // fallback for the creator-facing route, where a creator reading their
+        // own DMs is exactly what RLS allows.
         allRows(() => supabase.from('direct_messages').select('sender_id, created_at')),
+        supabase.rpc('year_dm_counts', { p_year: YEAR }).then(({ data }) => data || []),
         allRows(() => supabase.from('connections').select('creator_id, connected_creator_id, status, created_at')),
-        allRows(() => supabase.from('collab_posts').select('creator_id, city, start_date, created_at')),
+        allRows(() => supabase.from('collab_posts').select('creator_id, city, country, start_date, created_at')),
         allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
         allRows(() => supabase.from('reactions').select('creator_id, created_at')),
-        allRows(() => supabase.from('milestones').select('id, title, icon')),
+        allRows(() => supabase.from('milestones').select('id, title, icon, reward')),
         allRows(() => supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
       ])
       if (!alive) return
       setRaw({
         profiles: profiles || [], communities: communities || [], memberRows: memberRows || [],
         flights: flights || [], submissions: submissions || [], results: results || [],
-        rewards: rewards || [], challenges: challenges || [], history: history || [], messages: messages || [], directMessages: directMessages || [],
+        rewards: rewards || [], challenges: challenges || [], history: history || [], messages: messages || [],
+        // The RPC wins where it has an answer, because it can see every
+        // sender; the table read only ever sees this admin's own.
+        directMessages: expandDmCounts(dmCounts, directMessages || []),
         connections: connections || [], collabPosts: collabPosts || [], gameScores: gameScores || [],
         reactions: reactions || [], milestones: milestones || [], creatorMilestones: creatorMilestones || [],
       })

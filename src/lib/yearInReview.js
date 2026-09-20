@@ -1,5 +1,6 @@
 import { decorate, totals as flightTotals, records as flightRecords, airlineLoyalty, aircraftSeen } from './flightStats'
 import { convert, FALLBACK_RATES } from './programme'
+import { COUNTRIES, countryMatches } from './countries'
 
 // THE YEAR IN REVIEW.
 //
@@ -67,6 +68,30 @@ export function standing(values, mine, { includeMine = false } = {}) {
   // exists to be posted. Roughly the top third is the line where a standing
   // stops being a participation notice and starts being a boast.
   return { rank, of: field.length, percentile: pct, top: pct <= 30 }
+}
+
+/**
+ * A country NAME to its ISO-2, because `flagEmoji` takes a code.
+ *
+ * THIS IS THE BUG IT EXISTS TO STOP, and it was visible the moment the collab
+ * card got flags: `flagEmoji` maps every letter of what it is given to a
+ * regional-indicator symbol, so handing it "Botswana" produces eight boxed
+ * letters rather than a flag. The countries card was fine because the flight
+ * log stores airport country CODES; `collab_posts.country` is free text a
+ * creator typed.
+ *
+ * `countries.js` only - never `markets.js`, which pulls in supabase and React
+ * and would stop this module being a pure function the tests can run.
+ * Unresolvable names return null and the card simply shows the city.
+ */
+function isoOf(name) {
+  const raw = (name || '').trim()
+  if (!raw) return null
+  if (/^[A-Za-z]{2}$/.test(raw)) {
+    const direct = COUNTRIES.find((c) => c.iso2.toLowerCase() === raw.toLowerCase())
+    if (direct) return direct.iso2
+  }
+  return COUNTRIES.find((c) => countryMatches(c, raw))?.iso2 || null
 }
 
 function monthOf(d) {
@@ -151,6 +176,22 @@ export function buildYearInReview({
     londonSydneys: ft.distance / LHR_SYD_KM,
     collabTrips: myCollab.length,
     collabCities: [...new Set(myCollab.map((c) => c.city).filter(Boolean))],
+    // THE COUNTRY RIDES ALONG SO THE CARD CAN SHOW A FLAG. Ethan: "you show
+    // Botswana, Zimbabwe, Istanbul, etc. I would also show the flags here. I
+    // think it adds a nice bit of color." A city on its own cannot be turned
+    // into a flag - `flagEmoji` needs the country - and the card only had
+    // cities, which is why it was a row of grey chips.
+    collabPlaces: (() => {
+      const seen = new Map()
+      for (const c of myCollab) {
+        const city = (c.city || '').trim()
+        const key = city.toLowerCase()
+        if (!city || seen.has(key)) continue
+        const country = (c.country || '').trim() || null
+        seen.set(key, { city, country, iso: isoOf(country) })
+      }
+      return [...seen.values()]
+    })(),
   }
 
   // ----------------------------------------------------------------- content
@@ -172,15 +213,35 @@ export function buildYearInReview({
   // already built from submissions that are in the year, so scoping to it needs
   // no extra data and cannot drift from the submissions it sits beside.
   const myResults = results.filter((r) => r.creator_id === meId && myChallengeIds.has(r.challenge_id))
-  // THE VERIFIED COUNT REPLACES THE CREATOR'S OWN FIGURE, it does not add to it.
-  // Counted per challenge rather than per submission, because one verified
-  // total covers every video somebody entered into that contest.
+  // WHAT A CREATOR'S VIEWS FOR THE YEAR ACTUALLY ARE, AND THE BUG THAT WAS HERE.
   //
-  // ONE DEFINITION, USED TWICE. The community total on the last card is the sum
-  // of this over everybody - it used to be a plain sum of `logged_views`, so the
-  // personal card and the community card were counting different things and a
-  // creator's share of the total was quietly wrong wherever a result had been
-  // published.
+  // Ethan: "it says everything you posted for Tryp.com this year added up,
+  // although this is incorrect, because Jacob I know has got way more than
+  // 3,600 views."
+  //
+  // He is right, and by a factor of six. This used to treat `results.final_views`
+  // as the VERIFIED TOTAL for a challenge and let it REPLACE the sum of that
+  // creator's own submissions in it. `final_views` is not a total. MEASURED
+  // across every result row in production on 20 Sep 2026: `final_views` equals
+  // `max(logged_views)` for that creator in that challenge, in EVERY SINGLE ROW.
+  // It is the figure the leaderboard RANKS on - one video, their best - because
+  // a creator who enters nine videos must not out-rank one who entered one.
+  //
+  // So for anybody who entered more than one video, the recap was throwing away
+  // every video but their biggest and calling the remainder "everything you
+  // posted, added up". Jacob: 14 videos, 23,568 views, shown as 3,646 - his best
+  // one. Lisa: 16,755 shown as 15,200. Denisa: 10,205 shown as 5,439.
+  //
+  // The rule now: SUM the submissions, and treat the judged figure as a FLOOR
+  // rather than a replacement. The floor matters for the case the old code was
+  // reaching for - a result published against a hand-checked number when
+  // `logged_views` had gone stale - and it costs nothing, because a sum is
+  // never smaller than the biggest thing in it.
+  //
+  // ONE DEFINITION, USED TWICE: the community total on the last card is the sum
+  // of this over everybody, so the personal card and the community card cannot
+  // count different things.
+  //
   // INDEXED ONCE, NOT SCANNED PER CREATOR. This is called for the viewer and
   // then for every peer to build the community total and the ranking, so a
   // filter over the whole submissions table inside it is O(creators x
@@ -201,20 +262,21 @@ export function buildYearInReview({
   const viewsInYearFor = (id) => {
     const subs = subsByCreator.get(id) || []
     if (!subs.length) return 0
-    const entered = new Set(subs.map((x) => x.challenge_id).filter(Boolean))
-    const seen = new Map()
-    for (const r of resultsByCreator.get(id) || []) {
-      if (!entered.has(r.challenge_id)) continue
-      const v = Number(r.final_views || 0)
-      if (v > 0) seen.set(r.challenge_id, v)
-    }
-    let n = 0
+    const byChallenge = new Map()
+    let loose = 0                                      // entries with no challenge
     for (const x of subs) {
-      if (!x.challenge_id) { n += Number(x.logged_views || 0); continue }
-      if (seen.has(x.challenge_id)) continue          // counted once, below
-      n += Number(x.logged_views || 0)
+      const v = Number(x.logged_views || 0)
+      if (!x.challenge_id) { loose += v; continue }
+      byChallenge.set(x.challenge_id, (byChallenge.get(x.challenge_id) || 0) + v)
     }
-    for (const [, v] of seen) n += v
+    // A FLOOR, NOT A REPLACEMENT. See the note above.
+    for (const r of resultsByCreator.get(id) || []) {
+      if (!byChallenge.has(r.challenge_id)) continue
+      const judged = Number(r.final_views || 0)
+      if (judged > byChallenge.get(r.challenge_id)) byChallenge.set(r.challenge_id, judged)
+    }
+    let n = loose
+    for (const [, v] of byChallenge) n += v
     return n
   }
   const views = viewsInYearFor(meId)
@@ -289,7 +351,12 @@ export function buildYearInReview({
     dms: myDms.length,
     connections: myConnections.length,
     reactions: myReactions.length,
-    milestones: myMilestones.map((m) => ({ title: m.title, icon: m.icon, reached_at: m.reached_at })),
+    // `reward` rides along so the card can say what the milestone actually WAS
+    // - "€30 Tryp.com voucher", "Tryp.com Senior Creator" - rather than only
+    // its name. It was already in the table and simply never asked for.
+    milestones: myMilestones.map((m) => ({
+      title: m.title, icon: m.icon, reward: m.reward || null, reached_at: m.reached_at,
+    })),
     topRoom: topRoom ? { key: topRoom[0], count: topRoom[1] } : null,
     markets: myMarkets.map((m) => m.name),
   }
@@ -411,6 +478,17 @@ export function buildYearInReview({
   const histInYear = (history || []).filter((h) => !h.challenge_id && inYear(h.starts_at, year))
   const histViews = histInYear.reduce((n, h) => n + Number(h.total_views || 0), 0)
   const histPosts = histInYear.reduce((n, h) => n + Number(h.posts || 0), 0)
+  // AND THE PRIZE MONEY, FOR THE SAME REASON THE VIEWS ARE.
+  //
+  // Ethan: "it shows in prizes 292 euro 50, which is clearly not correct. So
+  // you can take some of the data from the all-time analytics."
+  //
+  // The card was summing `rewards`, which is what this PLATFORM has paid out -
+  // 250 EUR, because the platform is two months old. The programme's 2026 is 47
+  // contests carrying 8,845 EUR of prizes, and `challenge_history.prize_total`
+  // is where that lives. Same `challenge_id is null` filter the views use, so
+  // an on-platform challenge cannot be counted twice.
+  const histPrize = histInYear.reduce((n, h) => n + money(h.prize_total, h.prize_currency), 0)
 
   const everyone = {
     creators: peers.length,
@@ -424,7 +502,7 @@ export function buildYearInReview({
     games: gameScores.filter((g) => inYear(g.created_at, year) && peerIds.has(g.player_id)).length,
     connections: connections.filter((c) => c.status === 'accepted' && inYear(c.created_at, year)).length,
     markets: communities.filter((c) => c.kind === 'chapter' && !c.retired_at).length,
-    prize: rewards.filter((r) => inYear(r.created_at, year)).reduce((n, r) => n + money(r.amount, r.currency), 0),
+    prize: rewards.filter((r) => inYear(r.created_at, year)).reduce((n, r) => n + money(r.amount, r.currency), 0) + histPrize,
     currency,
   }
 

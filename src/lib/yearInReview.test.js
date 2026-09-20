@@ -215,13 +215,38 @@ describe('the year in review', () => {
     }
     const r = buildYearInReview(withResults)
 
-    it('replaces the creator\'s own figure rather than adding to it', () => {
+    it('treats the judged figure as a floor, not a replacement', () => {
+      // ch1 holds ONE 15k submission here, so the 40k judged figure is higher
+      // and wins. The two-entry case is the regression below.
       expect(r.content.views).toBe(40_000)
     })
 
     it('ignores a result for a challenge entered in another year', () => {
       expect(r.content.wins).toBe(1)
       expect(r.content.podiums).toBe(1)
+    })
+
+    // THE BUG THIS EXISTS FOR, AND IT WAS OFF BY SIX TIMES IN PRODUCTION.
+    //
+    // `results.final_views` is what the leaderboard RANKS on - the creator's
+    // BEST video in that challenge, so somebody entering nine videos cannot
+    // out-rank somebody entering one. Measured across every result row in
+    // production on 20 Sep 2026, it equals `max(logged_views)` in every single
+    // one. Letting it REPLACE the sum threw away every video but the biggest:
+    // Jacob Pulley's fourteen videos and 23,568 views were reported as 3,646.
+    it('sums every entry in a challenge rather than keeping only the judged one', () => {
+      const twoEntries = {
+        ...base,
+        submissions: [
+          { id: 'a', creator_id: ME, challenge_id: 'ch1', platform: 'tiktok', logged_views: 3_646, submitted_at: '2026-07-20' },
+          { id: 'b', creator_id: ME, challenge_id: 'ch1', platform: 'tiktok', logged_views: 9_000, submitted_at: '2026-07-21' },
+          { id: 'c', creator_id: ME, challenge_id: 'ch1', platform: 'tiktok', logged_views: 10_922, submitted_at: '2026-07-22' },
+        ],
+        // The judged figure is the BEST of the three, which is how results are
+        // actually written.
+        results: [{ challenge_id: 'ch1', creator_id: ME, final_views: 10_922, rank: 5 }],
+      }
+      expect(buildYearInReview(twoEntries).content.views).toBe(23_568)
     })
 
     it('counts the community the same way it counts the creator', () => {
@@ -348,6 +373,41 @@ describe('the best single video gets its own percentile', () => {
       submissions: subs.map((x) => ({ ...x, creator_id: x.creator_id === ME ? OTHER : ME })),
     })
     expect(mineBig.ranks.bestVideo.percentile).toBeLessThan(theirsBig.ranks.bestVideo.percentile)
+  })
+})
+
+// A COUNTRY NAME IS NOT A FLAG. `flagEmoji` maps every letter it is given to a
+// regional-indicator symbol, so "Botswana" renders as eight boxed letters. The
+// flight log stores airport country CODES, which is why the countries card was
+// always fine; `collab_posts.country` is free text somebody typed.
+describe('a shared trip carries a country code, not a country name', () => {
+  const withTrips = {
+    ...base,
+    collabPosts: [
+      { creator_id: ME, city: 'Gaborone', country: 'Botswana', start_date: '2026-04-02' },
+      { creator_id: ME, city: 'Istanbul', country: 'Turkey', start_date: '2026-05-02' },
+      { creator_id: ME, city: 'Somewhere', country: 'Notacountry', start_date: '2026-06-02' },
+      { creator_id: ME, city: 'Lisbon', country: 'PT', start_date: '2026-07-02' },
+    ],
+  }
+  const r = buildYearInReview(withTrips)
+
+  it('resolves a typed country name', () => {
+    expect(r.travel.collabPlaces.find((p) => p.city === 'Gaborone').iso).toBe('BW')
+    expect(r.travel.collabPlaces.find((p) => p.city === 'Istanbul').iso).toBe('TR')
+  })
+
+  it('takes an ISO-2 as it stands', () => {
+    expect(r.travel.collabPlaces.find((p) => p.city === 'Lisbon').iso).toBe('PT')
+  })
+
+  it('leaves a name it cannot resolve as null rather than guessing', () => {
+    expect(r.travel.collabPlaces.find((p) => p.city === 'Somewhere').iso).toBeNull()
+  })
+
+  it('keeps one entry per city', () => {
+    expect(r.travel.collabPlaces).toHaveLength(4)
+    expect(r.travel.collabTrips).toBe(4)
   })
 })
 

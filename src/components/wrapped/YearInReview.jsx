@@ -344,32 +344,74 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
       <style>{`
         .wr-bar { width: 0%; animation: wr-bar linear forwards; }
         @keyframes wr-bar { from { width: 0%; } to { width: 100%; } }
-        /* THE FILL MODE IS "forwards" AND NOT "both", AND THAT IS NOT A
-           DETAIL. "both" also applies the first keyframe BEFORE the animation
-           starts - so the resting state of a card that has not begun animating
-           is opacity zero. A browser does not tick a newly started CSS
-           animation while the document is hidden, which means a recap opened in
-           a backgrounded tab renders as a run of blank coloured rectangles, and
-           every one of these cards exists to be READ. With "forwards" the
-           element is simply visible until the animation runs, and the animation
-           only ever holds the finished state. */
-        .wr-in { animation: wr-in 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
-        @keyframes wr-in {
-          from { opacity: 0; transform: translateY(14px) scale(0.985); }
-          to { opacity: 1; transform: none; }
+
+        /* THE CARD CHANGE, AND WHY IT WAS JUDDERY.
+           Ethan: "whenever it animates the next card, there's like a little
+           weird animation. It does look good the way it pops up, but it's just
+           something that's not that smooth."
+
+           Three faults, and the third is the one that was actually visible:
+
+           1. THE CARD WAS SCALING. scale(0.985) on a box whose background is a
+              full-bleed gradient makes the browser resample that gradient every
+              frame, and a resampled gradient banding its way back to 1.0 is
+              exactly the shimmer he is describing. A gradient is the one thing
+              you must not scale. Movement only now, and on the compositor.
+
+           2. THE CHILDREN WERE ANIMATING TWICE. ".wr-in p" matched EVERY
+              paragraph at any depth, including ones already covered by
+              "> div > div > *", so those ran two copies of the same keyframes
+              at two different delays.
+
+           3. AND THE STAGGER FLASHED. Each child had a delay and fill-mode
+              "forwards" - which does NOT apply the first keyframe before the
+              animation starts. So a delayed element was drawn at full opacity,
+              sat there for its delay, then JUMPED to invisible and rose. Four
+              of those, 80ms apart, on every card change.
+
+           The obvious repair is fill-mode "both", and it is a trap this file
+           already documents one paragraph below: an element whose resting state
+           is opacity zero is invisible for ever if the animation never starts,
+           and a browser does not reliably tick a newly started CSS animation in
+           a hidden tab. A recap that renders as blank coloured rectangles when
+           somebody opens it in a background tab is a much worse bug than an
+           unstaggered entrance. (Confirmed on the spot: with "both" the cards
+           came back blank in a hidden preview pane.)
+
+           So the stagger goes and the CARD is the only thing that moves. One
+           transform, one opacity, one layer, nothing starting hidden, and
+           nothing that can be left hidden. It reads as one card replacing
+           another - which is what it is - and the thing Ethan liked about it,
+           the pop, is the card's own rise. */
+        .wr-in {
+          animation: wr-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          will-change: transform;
         }
-        /* Every number and every line arrives a beat after the card it is on,
-           which is what makes a screen feel revealed rather than switched. */
-        .wr-in p, .wr-in > div > div > * { animation: wr-rise 0.55s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .wr-in p:nth-child(2), .wr-in > div > div > *:nth-child(2) { animation-delay: 0.08s; }
-        .wr-in p:nth-child(3), .wr-in > div > div > *:nth-child(3) { animation-delay: 0.16s; }
-        .wr-in p:nth-child(4), .wr-in > div > div > *:nth-child(4) { animation-delay: 0.24s; }
-        @keyframes wr-rise {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: none; }
+        /* NOTHING IN HERE TOUCHES OPACITY, AND THAT IS THE WHOLE POINT.
+           This file already carried a warning about fill-mode "both" leaving a
+           card at opacity zero for ever when the animation never starts, and
+           the warning was half right: it blamed the fill mode. The real rule is
+           harder and it was found by MEASURING rather than reasoning - a card
+           in a hidden pane came back with computed opacity 0 under "forwards"
+           as well, because once an animation has started (no delay) its first
+           keyframe IS applied and simply never progresses while the document is
+           not being painted.
+
+           So the rule is not about fill modes. ANY entrance that begins at
+           opacity zero can leave a card blank, and a recap that renders as a
+           run of empty coloured rectangles is the worst failure this component
+           has. A card that slides up 14px and never finishes is a card sitting
+           14px low, which nobody will ever notice.
+
+           Transform only. It is also the smoother animation: a compositor-only
+           property, one layer, no repaint, and no crossfade to go muddy over a
+           gradient. */
+        @keyframes wr-in {
+          from { transform: translate3d(0, 14px, 0); }
+          to { transform: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .wr-in, .wr-in p, .wr-in > div > div > * { animation: none; }
+          .wr-in { animation: none; }
           /* The bar keeps its animation - it is not decoration, it is the only
              thing saying how long is left before the card changes itself. */
         }

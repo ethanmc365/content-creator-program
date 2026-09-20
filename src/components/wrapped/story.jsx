@@ -102,10 +102,18 @@ export function buildCards(data) {
             card nine, wrong as the first thing anybody sees, where it made the
             cover look like a slide with a breadcrumb on it. The year is set big
             and the words sit under it. */}
-        <div className="flex items-baseline gap-2.5">
+        {/* ONE LINE, NOT A STACK. Ethan: "the 2026 looks good at the top, but
+            the 'year in review' looks like it's fallen below it. Maybe put it
+            directly below it or to the right of it and say your year in review
+            in one line."
+
+            It was `Your year<br />in review` set beside the year, so two small
+            lines hung off a big number and the second one looked like it had
+            slipped. The words now run along the baseline as one phrase. */}
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <span className="text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">{year}</span>
-          <span className="pb-0.5 text-[13px] font-bold leading-tight opacity-80 sm:text-sm">
-            Your year<br />in review
+          <span className="text-[13px] font-bold uppercase leading-none tracking-[0.14em] opacity-80 sm:text-sm">
+            Your year in review
           </span>
         </div>
         <div className="flex flex-1 flex-col justify-center gap-5 py-6">
@@ -174,7 +182,18 @@ export function buildCards(data) {
                   their own recap - the worst way to be wrong on a card whose
                   whole point is the number above it. The size steps down
                   instead, and nothing is dropped. */}
-              <div className={cx('flex flex-wrap justify-center gap-1.5 leading-none', flagScale(travel.countries))}>
+              {/* THEY START AT THE LEFT AND RUN RIGHT. Ethan: "the country flags
+                  are always in the middle, but I think they should always start
+                  from the left side and then go towards the right, ensuring
+                  that you have space for a lot of countries."
+
+                  `justify-center` centres the LAST row as well as the first, so
+                  seven flags came out as four over three-in-the-middle - which
+                  reads as a decoration rather than as a list. Left-aligned, the
+                  block has one straight edge and every row starts under the
+                  one above it. The size still steps down with the count, so
+                  forty still fit. */}
+              <div className={cx('flex flex-wrap justify-start gap-1.5 leading-none', flagScale(travel.countries))}>
                 {travel.countryList.map((c) => (
                   <span key={c} title={c}>{flagEmoji(c) || '🏳️'}</span>
                 ))}
@@ -214,17 +233,50 @@ export function buildCards(data) {
   }
 
   if (travel.collabTrips > 0) {
+    // NOT `sand`. Ethan: "I don't really like the color of this one." Sand is
+    // the one near-white palette in the set, so a card about going somewhere
+    // came out paler than every card around it and read as a gap in the run.
+    // `sky` is the travel palette this recap already uses for the distance
+    // card, which also makes the two trip cards belong to each other.
     push({
-      key: 'collab', palette: 'sand', hold: 4000,
+      key: 'collab', palette: 'sky', hold: 4000,
       render: () => (
         <>
-          <Eyebrow palette="sand">You put it on the board</Eyebrow>
+          <Eyebrow palette="sky">You put it on the board</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={travel.collabTrips} unit={travel.collabTrips === 1 ? 'trip shared' : 'trips shared'} palette="sand" />
-            <Line palette="sand">
+            <Hero value={travel.collabTrips} unit={travel.collabTrips === 1 ? 'trip shared' : 'trips shared'} palette="sky" />
+            <Line palette="sky">
               You told the community where you were going, so somebody could come with you.
             </Line>
-            {travel.collabCities.length > 0 && <Chips palette="sand" items={travel.collabCities.slice(0, 8)} />}
+            {/* FLAGS, NOT CHIPS. Ethan: "you show Botswana, Zimbabwe, Istanbul,
+                etc. I would also show the flags here. I think it adds a nice
+                bit of color." A city knows its country in `collab_posts`; the
+                card just never asked for it. A place with no country still
+                shows - as the city on its own - because dropping somebody's
+                trip to tidy a row is the wrong trade. */}
+            {travel.collabPlaces?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {travel.collabPlaces.slice(0, 8).map((place) => (
+                  <span
+                    key={place.city}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/16 px-2.5 py-1 text-xs font-semibold"
+                  >
+                    {/* `place.iso`, NOT `place.country`. `flagEmoji` maps every
+                        letter it is given to a regional-indicator symbol, so
+                        "Botswana" comes out as eight boxed letters rather than
+                        a flag - which is exactly what this card did the first
+                        time it was drawn. See `isoOf` in lib/yearInReview. */}
+                    {place.iso && <span className="text-sm leading-none">{flagEmoji(place.iso)}</span>}
+                    {place.city}
+                  </span>
+                ))}
+                {travel.collabPlaces.length > 8 && (
+                  <span className="self-center text-xs font-semibold opacity-75">
+                    and {travel.collabPlaces.length - 8} more
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </>
       ),
@@ -291,15 +343,39 @@ export function buildCards(data) {
         render: () => (
           <>
             <Eyebrow palette="night">Your biggest video</Eyebrow>
-            <div className="flex flex-1 flex-col justify-center gap-4">
-              {content.best.thumbnail && (
-                <img
-                  src={content.best.thumbnail}
-                  alt=""
-                  className="h-40 w-[112px] self-start rounded-2xl object-cover shadow-2xl ring-1 ring-white/20"
-                />
+            {/* THE FRAME IS THE CARD, NOT A STAMP ON IT. Ethan: "for that
+                preview card that shows the video thing, I would improve the
+                design - it currently looks small and crammed in just above it."
+
+                It was a 112x160 thumbnail floated above the number: the
+                smallest thing on a screen about the biggest thing they made.
+                It is a proper 9:16 poster now with the count sitting ON it,
+                which is the same shape the portfolio work tiles use - one idea,
+                two places.
+
+                `object-cover` inside an aspect box, never a bare `<img>`: this
+                card is a fixed 9:16 and a thumbnail of unknown shape must be
+                cropped INTO its slot rather than allowed to set the height, or
+                a landscape frame pushes the standing off the bottom. */}
+            <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
+              {content.best.thumbnail ? (
+                <div className="relative mx-auto aspect-[9/16] w-full max-w-[168px] shrink overflow-hidden rounded-[20px] shadow-2xl ring-1 ring-white/20">
+                  <img src={content.best.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-2/5"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))' }}
+                  />
+                  <span className="absolute inset-x-3 bottom-3 block">
+                    <span className="block text-[26px] font-extrabold leading-none tracking-tight text-white">
+                      {nf(content.best.views)}
+                    </span>
+                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">views</span>
+                  </span>
+                </div>
+              ) : (
+                <Hero value={nf(content.best.views)} unit="views" palette="night" />
               )}
-              <Hero value={nf(content.best.views)} unit="views" palette="night" />
               {content.best.challenge && (
                 <Line palette="night">Made for {content.best.challenge}.</Line>
               )}
@@ -311,18 +387,23 @@ export function buildCards(data) {
     }
 
     if (content.wins > 0 || content.cash > 0 || content.vouchers > 0) {
+      // `mint` RATHER THAN `sand`. Ethan: "maybe also improve the design of that
+      // card. I don't really like the light color." Sand is the one pale
+      // palette in the set and it had landed on the card about being PAID,
+      // which should be the most confident screen in the run rather than the
+      // faintest.
       push({
-        key: 'prizes', palette: 'sand', hold: 4200,
+        key: 'prizes', palette: 'mint', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="sand">It paid off</Eyebrow>
+            <Eyebrow palette="mint">It paid off</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero
                 value={formatMoney(content.cash + content.vouchers, content.currency)}
                 unit="won"
-                palette="sand"
+                palette="mint"
               />
-              <Line palette="sand">
+              <Line palette="mint">
                 {/* "I wouldn't say 'and the odd bonus', that doesn't really
                     make sense. I would remove that line, maybe add something
                     different there." It was the no-wins fallback, and it
@@ -331,10 +412,15 @@ export function buildCards(data) {
                   ? `${content.wins} ${content.wins === 1 ? 'first place' : 'first places'}${content.podiums > content.wins ? ` and ${content.podiums - content.wins} more on the podium` : ''}.`
                   : content.podiums > 0
                     ? `${content.podiums} ${content.podiums === 1 ? 'finish' : 'finishes'} on the podium.`
-                    : 'Earned from the briefs you entered this year.'}
+                    // "Rather than say 'earned from the briefs you entered this
+                    // year', say 'earned from the challenges you entered this
+                    // year'." The product says CHALLENGE everywhere a creator
+                    // can see it - the nav, the page title, the notifications -
+                    // and "brief" is what the team calls them internally.
+                    : 'Earned from the challenges you entered this year.'}
               </Line>
             </div>
-            <Facts palette="sand" items={[
+            <Facts palette="mint" items={[
               content.cash > 0 ? { label: 'Cash', value: formatMoney(content.cash, content.currency) } : null,
               content.vouchers > 0 ? { label: 'Travel credit', value: formatMoney(content.vouchers, content.currency) } : null,
               content.podiums > 0 ? { label: 'Podiums', value: content.podiums } : null,
@@ -386,25 +472,51 @@ export function buildCards(data) {
             <Eyebrow palette="mint">You levelled up</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? 'milestone' : 'milestones'} palette="mint" />
-              {/* "I would maybe show some more key details there. Really, it
-                  looks quite plain or boring." Each one now carries the month
-                  it was reached, oldest first, so the card reads as a year
-                  going by rather than as a list of badges. */}
-              <div className="flex flex-col gap-2">
-                {community.milestones.slice(0, 5).map((m) => (
-                  <span key={m.title} className="flex items-center gap-2.5 rounded-2xl bg-white/15 px-3 py-2 text-sm font-bold">
-                    <Icon name={m.icon || 'star'} className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{m.title}</span>
-                    {m.reached_at && (
-                      <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider opacity-70">
-                        {monthShort(m.reached_at)}
-                      </span>
+              {/* WHAT THE MILESTONE WAS, NOT JUST THAT THERE WAS ONE. Ethan,
+                  twice: "I would maybe show some more key details there.
+                  Really, it looks quite plain or boring", and then "this UI
+                  should be improved, it should show more about what the
+                  milestone actually is."
+
+                  A row reading "On a roll · Sep" is a badge with a date on it,
+                  and a badge nobody can read the meaning of is decoration. The
+                  ladder's own `reward` line is what a milestone actually IS -
+                  "€30 Tryp.com voucher", "Tryp.com Senior Creator" - and it
+                  was sitting unused in the table.
+
+                  The rows are also drawn as a TIMELINE: a rail down the left
+                  with a dot per milestone, oldest at the top. That is the one
+                  arrangement that says "this happened over a year" rather than
+                  "here are four things", which is the difference the card was
+                  missing. Three at full detail rather than five compressed -
+                  most creators have one or two, and a card that can hold three
+                  properly beats one that lists five badly. */}
+              <div className="relative flex flex-col gap-2.5 pl-6">
+                <span aria-hidden="true" className="absolute bottom-2 left-[7px] top-2 w-px bg-white/25" />
+                {community.milestones.slice(0, 3).map((m) => (
+                  <span key={m.title} className="relative block rounded-2xl bg-white/15 px-3.5 py-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="absolute -left-[21px] top-4 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/90"
+                    >
+                      <Icon name={m.icon || 'star'} className="h-2.5 w-2.5 text-[#0d6b57]" />
+                    </span>
+                    <span className="flex items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-extrabold">{m.title}</span>
+                      {m.reached_at && (
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] opacity-70">
+                          {monthShort(m.reached_at)}
+                        </span>
+                      )}
+                    </span>
+                    {m.reward && (
+                      <span className="mt-0.5 block truncate text-[12px] font-medium opacity-80">{m.reward}</span>
                     )}
                   </span>
                 ))}
-                {community.milestones.length > 5 && (
-                  <span className="pl-1 text-[12px] font-semibold opacity-70">
-                    and {community.milestones.length - 5} more
+                {community.milestones.length > 3 && (
+                  <span className="text-[12px] font-semibold opacity-70">
+                    and {community.milestones.length - 3} more
                   </span>
                 )}
               </div>
@@ -462,13 +574,18 @@ export function buildCards(data) {
   // ------------------------------------------------------------ your month
   if (busiest) {
     push({
-      key: 'month', palette: 'sand', hold: 3800,
+      // `ember`, the brand palette, and the third move away from `sand`. Ethan:
+      // "this color card, I just don't really love it. But I like that you're
+      // showing the best month." The month is a headline WORD rather than a
+      // figure, and a word set at 92px wants the strongest ground in the set
+      // behind it, not the palest.
+      key: 'month', palette: 'ember', hold: 3800,
       render: () => (
         <>
-          <Eyebrow palette="sand">Your month</Eyebrow>
+          <Eyebrow palette="ember">Your month</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={busiest.name} palette="sand" />
-            <Line palette="sand">
+            <Hero value={busiest.name} palette="ember" />
+            <Line palette="ember">
               More flights, more posts and more of you than any other month of {year}.
             </Line>
           </div>
@@ -533,7 +650,7 @@ export function buildCards(data) {
  * times, so what somebody posts is exactly what they were looking at.
  */
 export function ShareCard({ data, className = '', style, flush = false }) {
-  const { me, year, travel, content, community, games, ranks } = data
+  const { me, year, travel, content, community, games } = data
   const stats = [
     content.views > 0 && { label: 'Views', value: formatViews(content.views) },
     travel.distance > 0 && { label: 'Km flown', value: nf(travel.distance) },
@@ -543,41 +660,60 @@ export function ShareCard({ data, className = '', style, flush = false }) {
     community.connections > 0 && { label: 'Connections', value: community.connections },
   ].filter(Boolean).slice(0, 6)
 
-  // THE BADGE IS THEIR BEST STANDING, NOT THE FIRST ONE IN A LIST.
+  // THE STANDING BADGE IS GONE FROM THIS CARD.
   //
-  // It used to take whichever came first in a fixed order, so somebody in the
-  // top 4% for puzzles and the top 45% for views got shown the 45% - the worse
-  // of the two, on the card built to be posted. One card, one line: it should
-  // be the strongest thing that is true.
-  const badge = [
-    ranks.views?.top && { pct: ranks.views.percentile, what: 'for views' },
-    ranks.distance?.top && { pct: ranks.distance.percentile, what: 'for distance' },
-    ranks.videos?.top && { pct: ranks.videos.percentile, what: 'for videos' },
-    ranks.games?.top && { pct: ranks.games.percentile, what: 'for puzzles' },
-    ranks.messages?.top && { pct: ranks.messages.percentile, what: 'for turning up' },
-  ].filter(Boolean).sort((a, b) => a.pct - b.pct)[0]
+  // Ethan: "rather than saying top 3% for puzzles, I don't think you should
+  // show that here."
+  //
+  // He is right and it took two passes to see why. The badge was picked as the
+  // person's STRONGEST standing, which sounds like the right rule and produces
+  // the wrong sentence: the strongest standing for most creators is the puzzle
+  // one, because the puzzles are the easiest thing in the product to be good
+  // at. So the card built to be posted - the one that is supposed to say "I am
+  // a Tryp.com creator and here is my year" - ended on a line about a daily
+  // word game. The percentiles still appear on the cards they belong to, where
+  // they are in context. This card carries the year's own numbers and the
+  // programme's name, and nothing else has to compete with them.
 
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between" style={style}>
-      <div className="flex items-center gap-3.5">
-        {me?.photo
-          ? <img src={me.photo} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-white/50" />
-          : (
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-xl font-extrabold">
-              {(me?.name || '?').slice(0, 1)}
-            </span>
-          )}
-        <span className="min-w-0">
-          <span className="block truncate text-lg font-extrabold leading-tight">{me?.name}</span>
-          {/* TIGHT TRACKING AND A SHORT LABEL, BECAUSE THIS LINE IS
-              PHOTOGRAPHED. The embedded TTF `domSnapshot` draws with is a
-              fraction wider than the woff2 the browser renders, so a line that
-              exactly fits on screen wraps in the picture - which is what "2026
-              IN REVIEW" did, into three ragged lines beside the avatar. There
-              is room for the market and the year and nothing else. */}
-          <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.1em] opacity-80">
-            {me?.market ? `${me.market} · ` : ''}{year}
+      {/* THE PERSON IS THE HEADLINE. Ethan: "for that final card, you can
+          improve it. So perhaps make the profile picture and their name bigger
+          and the country they're in."
+
+          It was a 56px avatar and an 18px name in a header strip - the same
+          weight as a row in a list - on the one card in the whole run that
+          somebody actually posts. The photo is 80px now, the name is set at
+          the size it deserves, and the place goes UNDER it with a pin rather
+          than being folded into a tracking-heavy label beside the year.
+
+          THE LINE IS STILL SHORT, BECAUSE THIS IS PHOTOGRAPHED. The embedded
+          TTF `domSnapshot` draws with is a fraction wider than the woff2 the
+          browser renders, so a line that exactly fits on screen wraps in the
+          picture - which is what "2026 IN REVIEW" did, into three ragged lines
+          beside the avatar. `truncate` on both, and the year has its own
+          corner. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-4">
+          {me?.photo
+            ? <img src={me.photo} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-[3px] ring-white/55" />
+            : (
+              <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white/20 text-3xl font-extrabold ring-[3px] ring-white/55">
+                {(me?.name || '?').slice(0, 1)}
+              </span>
+            )}
+          <span className="min-w-0">
+            <span className="block truncate text-[26px] font-extrabold leading-[1.05] tracking-tight">{me?.name}</span>
+            {(me?.country || me?.city || me?.market) && (
+              <span className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold opacity-85">
+                <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{me.country || me.city || me.market}</span>
+              </span>
+            )}
           </span>
+        </div>
+        <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[12px] font-extrabold tabular-nums">
+          {year}
         </span>
       </div>
 
@@ -590,19 +726,28 @@ export function ShareCard({ data, className = '', style, flush = false }) {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3.5">
-        {badge && (
-          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold">
-            <Icon name="trophy" className="h-3.5 w-3.5" />
-            Top {badge.pct}% {badge.what}
-          </span>
-        )}
-        <span className="flex items-center justify-between border-t border-white/25 pt-3.5">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-90">
-            <Icon name="plane-tryp" className="h-4 w-4" />
-            Tryp.com
-          </span>
-          <span className="text-[11px] font-semibold opacity-75">Creator Community</span>
+      {/* THE REAL LOGO, AND ONE SENTENCE UNDER IT. Ethan: "I think you can say
+          Tryp.com content creator community at the bottom, and have the actual
+          Tryp.com logo on this final page somewhere."
+
+          It was the drawn plane mark and two half-sentences at opposite ends
+          of a rule - "Tryp.com" on the left, "Creator Community" on the right -
+          which is the programme's name torn in half by a layout. One lockup,
+          one line, left aligned.
+
+          THE ASSET HAS A WHITE GROUND BAKED IN, so on this orange card it sits
+          on a white plate rather than being inverted - the same treatment the
+          certificate uses on a dark paper, for the same reason. `crossOrigin`
+          because `domSnapshot` has to read its pixels back out. */}
+      <div className="flex items-center gap-3 border-t border-white/25 pt-4">
+        <img
+          src="/brand/tryp-logo.png"
+          alt="Tryp.com"
+          crossOrigin="anonymous"
+          className="h-8 w-auto shrink-0 rounded-md bg-white p-1"
+        />
+        <span className="min-w-0 text-[12px] font-bold leading-tight">
+          Tryp.com Content<br />Creator Community
         </span>
       </div>
     </Card>
