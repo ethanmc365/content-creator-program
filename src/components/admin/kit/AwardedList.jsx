@@ -24,6 +24,8 @@ export default function AwardedList() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
   const [giving, setGiving] = useState(false)
+  // Stamped when the rows land - see the note on `summary`.
+  const [loadedAt, setLoadedAt] = useState(0)
 
   const load = useCallback(async () => {
     const [{ data: awards }, { data: ds }] = await Promise.all([
@@ -35,6 +37,7 @@ export default function AwardedList() {
     ])
     setRows(awards || [])
     setDesigns(ds || [])
+    setLoadedAt(Date.now())
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -60,10 +63,60 @@ export default function AwardedList() {
     load()
   }
 
+  // WHAT THE LIST IS FOR, ANSWERED BEFORE THE LIST.
+  //
+  // The question an admin opens this tab with is not "who has what" - it is
+  // "did the automatic award actually fire", the first time they publish
+  // winners after building a design. A list of rows answers that only if you
+  // already know what the answer should look like. Four counts answer it
+  // immediately, and the last thirty days is the one that separates "the engine
+  // is running" from "there are three old rows in here".
+  // `loadedAt` RATHER THAN `Date.now()` IN THE MEMO. The purity lint is right
+  // to refuse the second one: a clock read during render makes the value change
+  // on a re-render that changed nothing, and "last 30 days" is a window that
+  // belongs to the moment the rows were fetched anyway.
+  const summary = useMemo(() => {
+    const list = rows || []
+    const since = loadedAt - 30 * 24 * 3600 * 1000
+    return {
+      total: list.length,
+      creators: new Set(list.map((r) => r.profile_id)).size,
+      designs: new Set(list.map((r) => r.design_id).filter(Boolean)).size,
+      recent: list.filter((r) => new Date(r.awarded_at).getTime() >= since).length,
+    }
+  }, [rows, loadedAt])
+
   if (rows === null) return <Skeleton className="h-96 w-full rounded-card" />
 
   return (
     <div className="space-y-5">
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Awarded', value: summary.total, lead: true },
+            { label: summary.creators === 1 ? 'Creator' : 'Creators', value: summary.creators },
+            { label: summary.designs === 1 ? 'Design in use' : 'Designs in use', value: summary.designs },
+            { label: 'Last 30 days', value: summary.recent },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className={cx(
+                'rounded-card border p-4',
+                s.lead ? 'border-transparent bg-brand text-white' : 'border-gray-100 bg-white shadow-card',
+              )}
+            >
+              <p className={cx('text-2xl font-extrabold leading-none tabular-nums', !s.lead && 'text-ink')}>{s.value}</p>
+              <p className={cx(
+                'mt-1.5 text-[10px] font-bold uppercase tracking-wider',
+                s.lead ? 'text-white/80' : 'text-gray-400',
+              )}>
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => setGiving(true)} className="btn-primary">
           <Icon name="plus" className="h-4 w-4" /> Award one by hand
@@ -94,6 +147,11 @@ export default function AwardedList() {
                 key={row.id}
                 type="button"
                 onClick={() => setOpen(row)}
+                // THE ROW CARRIES THE CERTIFICATE'S OWN ACCENT DOWN ITS LEFT
+                // EDGE. With ten accents in the studio, the colour is now the
+                // fastest way to tell two designs apart in a list of four
+                // hundred - and it is the same mark the creator is holding.
+                style={{ borderLeft: `4px solid ${row.design?.accent || tier.accent}` }}
                 className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-cloud/60"
               >
                 <Avatar src={row.creator?.photo_url} name={row.creator?.name || '?'} size="sm" />
