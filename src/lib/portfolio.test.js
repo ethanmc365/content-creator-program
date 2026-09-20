@@ -60,7 +60,23 @@ describe('statsFrom', () => {
       { views: 100, challenge_id: 'x', community_id: 'uk' },
       { views: 200, challenge_id: 'x', community_id: 'es' },
       { views: 300, challenge_id: 'y', community_id: 'uk' },
-    ])).toEqual({ videos: 3, views: 600, challenges: 2, markets: 2 })
+    ])).toEqual({ videos: 3, views: 600, best: 300, average: 200, challenges: 2, markets: 2, platforms: 0 })
+  })
+  it('reports the biggest single video and the average, for the proof page', () => {
+    const s = statsFrom([{ views: 10 }, { views: 1000 }, { views: 100 }])
+    expect(s.best).toBe(1000)
+    expect(s.average).toBe(370)
+  })
+  it('rounds the average rather than flooring it - this number sets a rate', () => {
+    expect(statsFrom([{ views: 999 }, { views: 1000 }]).average).toBe(1000)
+  })
+  it('counts distinct platforms', () => {
+    expect(statsFrom([{ platform: 'TikTok' }, { platform: 'TikTok' }, { platform: 'Instagram' }]).platforms).toBe(2)
+  })
+  it('gives zeroes, not NaN, for a creator with nothing yet', () => {
+    const s = statsFrom([])
+    expect(s.best).toBe(0)
+    expect(s.average).toBe(0)
   })
   it('reads logged_views too, which is what a submission row calls it', () => {
     expect(statsFrom([{ logged_views: 42 }]).views).toBe(42)

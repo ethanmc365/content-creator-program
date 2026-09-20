@@ -288,3 +288,80 @@ describe('the community total counts the whole programme, not just this app', ()
       .toBe(buildYearInReview({ ...base }).everyone.views)
   })
 })
+
+describe('a DM is a message', () => {
+  // MEASURED 20 Sep 2026: 94 room messages against 216 DMs in the year, so the
+  // card was showing under a third of what people actually said.
+  const directMessages = [
+    { sender_id: ME, created_at: '2026-04-01' },
+    { sender_id: ME, created_at: '2026-04-02' },
+    { sender_id: ME, created_at: '2025-04-02' },   // last year
+    { sender_id: OTHER, created_at: '2026-04-02' },
+  ]
+  it('adds the sender’s own DMs to their message count', () => {
+    const before = buildYearInReview({ ...base })
+    const after = buildYearInReview({ ...base, directMessages })
+    expect(after.community.messages).toBe(before.community.messages + 2)
+  })
+  it('keeps the two halves separately so the card can name them', () => {
+    const d = buildYearInReview({ ...base, directMessages })
+    expect(d.community.dms).toBe(2)
+    expect(d.community.roomMessages + d.community.dms).toBe(d.community.messages)
+  })
+  it('counts DMs into the community total as well, or the two cards disagree', () => {
+    const before = buildYearInReview({ ...base })
+    const after = buildYearInReview({ ...base, directMessages })
+    expect(after.everyone.messages).toBeGreaterThan(before.everyone.messages)
+  })
+  it('ignores a year that is not this one', () => {
+    const d = buildYearInReview({ ...base, directMessages })
+    expect(d.community.dms).toBe(2)   // the 2025 row is not counted
+  })
+  it('makes somebody with only DMs count as having been around', () => {
+    const quietPlusDms = buildYearInReview({
+      ...base, messages: [], directMessages: [{ sender_id: ME, created_at: '2026-05-05' }],
+    })
+    expect(quietPlusDms.community.has).toBe(true)
+  })
+})
+
+describe('the best single video gets its own percentile', () => {
+  it('is null when the creator has posted nothing', () => {
+    const d = buildYearInReview({ ...base, submissions: [] })
+    expect(d.ranks.bestVideo).toBeNull()
+  })
+  it('is a standing when they have', () => {
+    const d = buildYearInReview({ ...base })
+    if (d.content.best) {
+      expect(d.ranks.bestVideo).not.toBeNull()
+      expect(typeof d.ranks.bestVideo.percentile).toBe('number')
+    }
+  })
+  it('ranks one big video above one small one', () => {
+    const subs = [
+      { id: 's1', creator_id: ME, challenge_id: null, platform: 'TikTok', logged_views: 9_000_000, submitted_at: '2026-05-01' },
+      { id: 's2', creator_id: OTHER, challenge_id: null, platform: 'TikTok', logged_views: 10, submitted_at: '2026-05-01' },
+    ]
+    const mineBig = buildYearInReview({ ...base, submissions: subs })
+    const theirsBig = buildYearInReview({
+      ...base,
+      submissions: subs.map((x) => ({ ...x, creator_id: x.creator_id === ME ? OTHER : ME })),
+    })
+    expect(mineBig.ranks.bestVideo.percentile).toBeLessThan(theirsBig.ranks.bestVideo.percentile)
+  })
+})
+
+describe('milestones carry when they were reached', () => {
+  it('passes reached_at through and sorts oldest first', () => {
+    const d = buildYearInReview({
+      ...base,
+      milestones: [{ id: 'm1', title: 'First video', icon: 'star' }, { id: 'm2', title: 'Ten videos', icon: 'flag' }],
+      creatorMilestones: [
+        { profile_id: ME, milestone_id: 'm2', reached_at: '2026-08-01' },
+        { profile_id: ME, milestone_id: 'm1', reached_at: '2026-03-01' },
+      ],
+    })
+    expect(d.community.milestones.map((m) => m.title)).toEqual(['First video', 'Ten videos'])
+    expect(d.community.milestones[0].reached_at).toBe('2026-03-01')
+  })
+})

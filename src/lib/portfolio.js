@@ -149,14 +149,29 @@ export function orderedVideos(all = [], picks = [], limit = 10, mode = null) {
     .slice(0, limit)
 }
 
-/** Totals for the proof page, from every entry they have ever made. */
+/**
+ * Totals for the proof page, from every entry they have ever made.
+ *
+ * `best`, `average` and `platforms` were added 20 Sep 2026 - Ethan, on the "by
+ * the numbers" panel: "I think you can add more here." Four cells on a page
+ * whose whole job is to be evidence was thin, and the two a brand actually asks
+ * about were the two missing: how big does one of your videos get, and how
+ * consistently.
+ */
 export function statsFrom(videos = []) {
   const list = videos || []
+  const each = list.map((v) => Number(v.views ?? v.logged_views ?? 0))
+  const views = each.reduce((n, v) => n + v, 0)
   return {
     videos: list.length,
-    views: list.reduce((n, v) => n + Number(v.views ?? v.logged_views ?? 0), 0),
+    views,
+    best: each.length ? Math.max(...each) : 0,
+    // Rounded, not floored: a creator averaging 999.6 views has not averaged
+    // 999, and this number goes in front of somebody deciding a rate.
+    average: each.length ? Math.round(views / each.length) : 0,
     challenges: new Set(list.map((v) => v.challenge_id || v.challenge).filter(Boolean)).size,
     markets: new Set(list.map((v) => v.community_id || v.market).filter(Boolean)).size,
+    platforms: new Set(list.map((v) => v.platform).filter(Boolean)).size,
   }
 }
 

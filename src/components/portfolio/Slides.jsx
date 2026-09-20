@@ -166,11 +166,21 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
   // page look automated, and a new creator's kit is exactly the one where every
   // count is 1.
   const one = (n, singular, plural) => (n === 1 ? singular : plural)
+  // SIX CELLS, AND THE TWO NEW ONES ARE THE TWO A BRAND ASKS ABOUT. Ethan: "I
+  // think you can add more here." A total on its own does not say whether it
+  // came from one lucky video or from turning up every month - `best` and
+  // `average` are what separate those, and they are the numbers a rate gets set
+  // from. `platforms` only appears for somebody posting on more than one,
+  // because "1 Platform" is not a credential.
   const cells = [
-    { label: 'Total views', value: compactViews(stats.views) },
+    { label: 'Total views', value: compactViews(stats.views), lead: true },
+    { label: 'Best video', value: compactViews(stats.best) },
     { label: one(stats.videos, 'Video made', 'Videos made'), value: stats.videos },
+    { label: 'Average views', value: compactViews(stats.average) },
     { label: one(stats.challenges, 'Brief entered', 'Briefs entered'), value: stats.challenges },
-    { label: one(stats.markets || 1, 'Market', 'Markets'), value: stats.markets || 1 },
+    stats.platforms > 1
+      ? { label: 'Platforms', value: stats.platforms }
+      : { label: one(stats.markets || 1, 'Market', 'Markets'), value: stats.markets || 1 },
   ]
   return (
     <div style={page({ padding: '64px 64px 0' })}>
@@ -198,11 +208,36 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
 
         <div style={{ flex: '1 1 48%' }}>
           <Label>{copyFor(copy, 'stats_title')}</Label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+          {/* THE PANEL, NOT SIX OUTLINED BOXES. Ethan: "I'd even improve the
+              design, the colours, make it more visually appealing as well as
+              functional." They were white rectangles with a 1px grey border and
+              black numerals - the least emphatic thing on a page that exists to
+              make a case. The lead figure now carries the brand fill and the
+              rest sit on a tint, so the eye lands on total views and then reads
+              the supporting five. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12 }}>
             {cells.map((c) => (
-              <div key={c.label} style={{ borderRadius: 16, border: `1px solid ${HAIR}`, padding: '18px 20px' }}>
-                <p style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>{c.value}</p>
-                <p style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: FAINT }}>{c.label}</p>
+              <div
+                key={c.label}
+                style={{
+                  borderRadius: 14,
+                  background: c.lead ? BRAND : `${BRAND}0d`,
+                  border: c.lead ? 'none' : `1px solid ${BRAND}1f`,
+                  padding: '14px 15px',
+                }}
+              >
+                <p style={{
+                  fontSize: c.lead ? 31 : 27, fontWeight: 800, letterSpacing: '-0.025em',
+                  lineHeight: 1, color: c.lead ? '#ffffff' : INK,
+                }}>
+                  {c.value}
+                </p>
+                <p style={{
+                  marginTop: 6, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', color: c.lead ? 'rgba(255,255,255,0.86)' : FAINT,
+                }}>
+                  {c.label}
+                </p>
               </div>
             ))}
           </div>

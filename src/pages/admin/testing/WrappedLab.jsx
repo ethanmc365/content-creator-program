@@ -65,7 +65,7 @@ export default function WrappedLab() {
       const [
         profiles, communities, memberRows,
         flights, submissions, results,
-        rewards, challenges, history, messages,
+        rewards, challenges, history, messages, directMessages,
         connections, collabPosts, gameScores,
         reactions, milestones, creatorMilestones,
       ] = await Promise.all([
@@ -82,6 +82,9 @@ export default function WrappedLab() {
         // uses, and without it the community card counts 0.2% of the year.
         allRows(() => supabase.from('challenge_history').select('starts_at, total_views, posts, creators, challenge_id').is('challenge_id', null)),
         allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
+        // COUNTS ONLY - no `body`, no `image_url`, no recipient. The recap says
+        // how many messages somebody sent, never what was in one.
+        allRows(() => supabase.from('direct_messages').select('sender_id, created_at')),
         allRows(() => supabase.from('connections').select('creator_id, connected_creator_id, status, created_at')),
         allRows(() => supabase.from('collab_posts').select('creator_id, city, start_date, created_at')),
         allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
@@ -93,7 +96,7 @@ export default function WrappedLab() {
       setRaw({
         profiles: profiles || [], communities: communities || [], memberRows: memberRows || [],
         flights: flights || [], submissions: submissions || [], results: results || [],
-        rewards: rewards || [], challenges: challenges || [], history: history || [], messages: messages || [],
+        rewards: rewards || [], challenges: challenges || [], history: history || [], messages: messages || [], directMessages: directMessages || [],
         connections: connections || [], collabPosts: collabPosts || [], gameScores: gameScores || [],
         reactions: reactions || [], milestones: milestones || [], creatorMilestones: creatorMilestones || [],
       })

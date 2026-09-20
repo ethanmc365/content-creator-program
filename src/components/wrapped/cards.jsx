@@ -44,11 +44,21 @@ export function TrypMark({ tone = '#ffffff', className = '' }) {
  * overlapping. See the notes in domSnapshot; this is the third time it has been
  * written down because it is the third thing anybody breaks.
  */
-export function Card({ palette = 'ember', children, className = '', bodyClassName = '', style, footer = true, name }) {
+/**
+ * @param {boolean} flush  square the corners. ONLY for the copy that gets
+ *   photographed. Ethan: "the corners are rounded, but it shows gaps on the
+ *   actual screenshot because the screenshot obviously isn't rounded." Exactly
+ *   right - a PNG is a rectangle, so a 28px radius leaves four corners of
+ *   whatever `snapshotNode` was told to paint behind the card, and that colour
+ *   cannot match six different palettes. Squaring the exported copy removes the
+ *   corners rather than trying to colour them, and a story image is full-bleed
+ *   anyway. The on-screen card keeps its radius.
+ */
+export function Card({ palette = 'ember', children, className = '', bodyClassName = '', style, footer = true, name, flush = false }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
     <div
-      className={cx('relative flex flex-col overflow-hidden rounded-[28px] px-7 py-8 sm:px-9 sm:py-10', className)}
+      className={cx('relative flex flex-col overflow-hidden px-7 py-8 sm:px-9 sm:py-10', flush ? 'rounded-none' : 'rounded-[28px]', className)}
       style={{ background: p.bg, color: p.ink, ...style }}
     >
       {/* A soft bloom, so a flat gradient has somewhere for the eye to land. */}

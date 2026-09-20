@@ -1,5 +1,6 @@
 import { Card, Eyebrow, Hero, Line, Facts, Chips, Standing, formatViews, formatMoney, flagEmoji } from './cards'
 import Icon from '../Icon'
+import Flame from '../games/Flame'
 import { cx } from '../../lib/utils'
 
 
@@ -27,6 +28,21 @@ const MODE_NAME = {
  * at 48px; forty need 20px to stay on it. Anything past 60 is rare enough that
  * the smallest step can just hold.
  */
+/**
+ * "2026-03-14" -> "Mar". Undated milestones show nothing.
+ *
+ * THE NULL CHECK IS NOT BELT AND BRACES. `new Date(null)` is the epoch - a
+ * perfectly valid date - so a milestone with no `reached_at` would have been
+ * stamped "Jan" rather than left blank, which is a wrong fact rather than a
+ * missing one. Caught by the test, not by reading it.
+ */
+export function monthShort(value) {
+  if (value == null || value === '') return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]
+}
+
 export function flagScale(n) {
   if (n <= 4) return 'text-5xl'
   if (n <= 10) return 'text-4xl'
@@ -80,12 +96,25 @@ export function buildCards(data) {
     key: 'open', palette: 'ember', hold: 3800,
     render: () => (
       <>
-        <Eyebrow palette="ember">{year} · Your year in review</Eyebrow>
+        {/* THE YEAR IS A TITLE, NOT A KICKER. Ethan: "the 2026 year in review,
+            that font at the top, I don't really like it." It was the same 11px
+            all-caps 0.22em eyebrow every other card uses - fine as a label on
+            card nine, wrong as the first thing anybody sees, where it made the
+            cover look like a slide with a breadcrumb on it. The year is set big
+            and the words sit under it. */}
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">{year}</span>
+          <span className="pb-0.5 text-[13px] font-bold leading-tight opacity-80 sm:text-sm">
+            Your year<br />in review
+          </span>
+        </div>
         <div className="flex flex-1 flex-col justify-center gap-5 py-6">
+          {/* "The profile picture in the beginning that says hello, their name
+              can be improved. So you can make that bigger." */}
           {me?.photo
-            ? <img src={me.photo} alt="" className="h-24 w-24 rounded-full object-cover ring-4 ring-white/40" />
+            ? <img src={me.photo} alt="" className="h-32 w-32 rounded-full object-cover ring-4 ring-white/50 shadow-2xl sm:h-36 sm:w-36" />
             : (
-              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-white/20 text-3xl font-extrabold">
+              <span className="flex h-32 w-32 items-center justify-center rounded-full bg-white/20 text-5xl font-extrabold ring-4 ring-white/50 sm:h-36 sm:w-36">
                 {(me?.name || '?').slice(0, 1)}
               </span>
             )}
@@ -221,6 +250,19 @@ export function buildCards(data) {
       ),
     })
 
+    // TWO CARDS, BECAUSE THEY ANSWER TWO DIFFERENT QUESTIONS.
+    //
+    // Ethan: "I would do one that shows your total views, so cumulative views
+    // and what percent in the community you place there. Also on best video
+    // showing like top 3%, top 50% for most views for one video and for the
+    // cumulative views."
+    //
+    // "Did you post a lot that did well" and "did you make ONE that went off"
+    // are not the same achievement, and a creator with three steady videos and
+    // a creator with one that took off can sit in the same total-views
+    // percentile. The best video used to be a 56px thumbnail strip stapled to
+    // the bottom of the totals card - the smallest thing on a screen about the
+    // biggest thing they made.
     if (content.views > 0) {
       push({
         key: 'views', palette: 'ember', hold: 4600,
@@ -230,26 +272,39 @@ export function buildCards(data) {
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={nf(content.views)} unit="views" palette="ember" />
               <Line palette="ember">
-                {content.views >= 90_000
-                  ? `That is Wembley filled ${Math.max(1, Math.round(content.views / 90_000))} times over.`
-                  : `That is a town the size of ${content.views >= 10_000 ? 'Salisbury' : 'a village'} watching you.`}
+                Everything you posted for Tryp.com this year, added up.
               </Line>
-              <Standing standing={ranks.views} what="of the whole community" palette="ember" />
+              <Standing standing={ranks.views} what="for total views" palette="ember" />
             </div>
-            {content.best && (
-              <div className="flex items-center gap-3 rounded-2xl bg-white/15 p-3">
-                {content.best.thumbnail && (
-                  <img src={content.best.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                )}
-                <span className="min-w-0">
-                  <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">Your biggest</span>
-                  <span className="block truncate text-sm font-bold">
-                    {formatViews(content.best.views)} views
-                    {content.best.challenge ? ` · ${content.best.challenge}` : ''}
-                  </span>
-                </span>
-              </div>
-            )}
+            <Facts palette="ember" items={[
+              content.videos > 0 ? { label: 'Videos', value: content.videos } : null,
+              content.videos > 0 ? { label: 'Average', value: formatViews(Math.round(content.views / content.videos)) } : null,
+            ]} />
+          </>
+        ),
+      })
+    }
+
+    if (content.best && content.best.views > 0) {
+      push({
+        key: 'best-video', palette: 'night', hold: 4600,
+        render: () => (
+          <>
+            <Eyebrow palette="night">Your biggest video</Eyebrow>
+            <div className="flex flex-1 flex-col justify-center gap-4">
+              {content.best.thumbnail && (
+                <img
+                  src={content.best.thumbnail}
+                  alt=""
+                  className="h-40 w-[112px] self-start rounded-2xl object-cover shadow-2xl ring-1 ring-white/20"
+                />
+              )}
+              <Hero value={nf(content.best.views)} unit="views" palette="night" />
+              {content.best.challenge && (
+                <Line palette="night">Made for {content.best.challenge}.</Line>
+              )}
+              <Standing standing={ranks.bestVideo} what="for one video" palette="night" />
+            </div>
           </>
         ),
       })
@@ -268,9 +323,15 @@ export function buildCards(data) {
                 palette="sand"
               />
               <Line palette="sand">
+                {/* "I wouldn't say 'and the odd bonus', that doesn't really
+                    make sense. I would remove that line, maybe add something
+                    different there." It was the no-wins fallback, and it
+                    shrugged at somebody who had just been paid. */}
                 {content.wins > 0
                   ? `${content.wins} ${content.wins === 1 ? 'first place' : 'first places'}${content.podiums > content.wins ? ` and ${content.podiums - content.wins} more on the podium` : ''}.`
-                  : 'Prizes, vouchers and the odd bonus.'}
+                  : content.podiums > 0
+                    ? `${content.podiums} ${content.podiums === 1 ? 'finish' : 'finishes'} on the podium.`
+                    : 'Earned from the briefs you entered this year.'}
               </Line>
             </div>
             <Facts palette="sand" items={[
@@ -294,14 +355,22 @@ export function buildCards(data) {
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={nf(community.messages)} unit={community.messages === 1 ? 'message' : 'messages'} palette="dusk" />
             <Line palette="dusk">
-              {community.connections > 0
-                ? `And ${community.connections} ${community.connections === 1 ? 'creator' : 'creators'} you had never met became connections.`
-                : 'Posted into the rooms, where the community actually happens.'}
+              {/* The old line was "And 9 creators you had never met became
+                  connections", which Ethan wanted rewritten - it read like a
+                  stat sheet and it asserted something the data does not know
+                  (whether they had met). This says what the number is. */}
+              {community.dms > 0 && community.roomMessages > 0
+                ? `${nf(community.roomMessages)} in the rooms and ${nf(community.dms)} in your DMs.`
+                : community.dms > 0
+                  ? 'Nearly all of it one to one, in your DMs.'
+                  : 'Posted into the rooms, where the community happens in public.'}
             </Line>
             <Standing standing={ranks.messages} what="for turning up" palette="dusk" />
           </div>
           <Facts palette="dusk" items={[
-            community.connections > 0 ? { label: 'Connections', value: community.connections } : null,
+            community.connections > 0
+              ? { label: community.connections === 1 ? 'New connection' : 'New connections', value: community.connections }
+              : null,
             community.reactions > 0 ? { label: 'Reactions given', value: community.reactions } : null,
             community.markets.length ? { label: 'Markets', value: community.markets.length } : null,
           ]} />
@@ -317,13 +386,27 @@ export function buildCards(data) {
             <Eyebrow palette="mint">You levelled up</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? 'milestone' : 'milestones'} palette="mint" />
+              {/* "I would maybe show some more key details there. Really, it
+                  looks quite plain or boring." Each one now carries the month
+                  it was reached, oldest first, so the card reads as a year
+                  going by rather than as a list of badges. */}
               <div className="flex flex-col gap-2">
                 {community.milestones.slice(0, 5).map((m) => (
                   <span key={m.title} className="flex items-center gap-2.5 rounded-2xl bg-white/15 px-3 py-2 text-sm font-bold">
                     <Icon name={m.icon || 'star'} className="h-4 w-4 shrink-0" />
-                    {m.title}
+                    <span className="min-w-0 flex-1 truncate">{m.title}</span>
+                    {m.reached_at && (
+                      <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider opacity-70">
+                        {monthShort(m.reached_at)}
+                      </span>
+                    )}
                   </span>
                 ))}
+                {community.milestones.length > 5 && (
+                  <span className="pl-1 text-[12px] font-semibold opacity-70">
+                    and {community.milestones.length - 5} more
+                  </span>
+                )}
               </div>
             </div>
           </>
@@ -340,6 +423,23 @@ export function buildCards(data) {
         <>
           <Eyebrow palette="night">Every morning, a puzzle</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
+            {/* THE STREAK GETS THE FLAME. Ethan: "showing the streak. I would
+                maybe show the streak icon on this card as well, I think it
+                could be nice." It was a number in the small facts row at the
+                bottom; a run of days without missing one is the thing a player
+                is actually proud of, so it goes above the fold with the mark
+                the rest of the platform uses for it. */}
+            {games.bestStreak > 1 && (
+              <span className="inline-flex items-center gap-2 self-start rounded-full bg-white/15 px-3.5 py-2 text-base font-extrabold">
+                {/* The platform's OWN streak mark, not a generic icon. `Flame`
+                    is the four-temperature fire that sits next to "36 days in a
+                    row" on the games hub - using anything else here would make
+                    the recap look like it was built by somebody who had not
+                    seen the rest of the product. */}
+                <Flame className="h-5 w-5" sparks={games.bestStreak >= 7} />
+                {games.bestStreak} day streak
+              </span>
+            )}
             <Hero value={nf(games.played)} unit={games.played === 1 ? 'round played' : 'rounds played'} palette="night" />
             <Line palette="night">
               {games.bestStreak > 1
@@ -432,7 +532,7 @@ export function buildCards(data) {
  * three times the size for `snapshotNode` to photograph. Same component both
  * times, so what somebody posts is exactly what they were looking at.
  */
-export function ShareCard({ data, className = '', style }) {
+export function ShareCard({ data, className = '', style, flush = false }) {
   const { me, year, travel, content, community, games, ranks } = data
   const stats = [
     content.views > 0 && { label: 'Views', value: formatViews(content.views) },
@@ -458,7 +558,7 @@ export function ShareCard({ data, className = '', style }) {
   ].filter(Boolean).sort((a, b) => a.pct - b.pct)[0]
 
   return (
-    <Card palette="ember" footer={false} className={className} bodyClassName="justify-between" style={style}>
+    <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between" style={style}>
       <div className="flex items-center gap-3.5">
         {me?.photo
           ? <img src={me.photo} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-white/50" />

@@ -34,6 +34,8 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
   const [finished, setFinished] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [shotCard, setShotCard] = useState(null)   // which card the hidden node is holding
+  const [savedCount, setSavedCount] = useState(0)
   const shotRef = useRef(null)
 
   const total = cards.length + 1        // the share card closes the run
@@ -95,19 +97,78 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [i, go, onExit])
 
+  const slug = (data?.me?.name || 'creator').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+
+  /**
+   * Photograph ONE card and hand it over.
+   *
+   * `which` is a card object, or null for the closing share card.
+   *
+   * THE HIDDEN NODE HAS TO RE-RENDER BEFORE IT IS PHOTOGRAPHED. Setting
+   * `shotCard` is a state change, so `snapshotNode` called in the same tick
+   * would photograph whatever was in there before - which is how you get four
+   * identical files named after four different cards. Two rAFs is the reliable
+   * wait: one to let React commit, one to let the browser lay it out and settle
+   * the gradients.
+   */
+  async function shoot(which) {
+    setShotCard(which)
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    if (!shotRef.current) return null
+    // FOUR TIMES SIZE, from three. A story is displayed about 1080 wide and
+    // Instagram re-compresses whatever it is given, so handing it 1440 rather
+    // than 1080 is what keeps type crisp after their pass. 360x640 at 4x is
+    // 1440x2560. Ethan: "it doesn't seem to download in that high quality."
+    //
+    // The background no longer has to match anything: the exported copy is
+    // `flush`, so there are no corners to fill.
+    return snapshotNode(shotRef.current, { scale: 4, background: '#000000' })
+  }
+
   async function saveCard() {
-    if (!shotRef.current || saving) return
+    if (saving) return
     setSaving(true)
     try {
-      // THREE TIMES SIZE. A story card posted to Instagram is displayed at
-      // about 1080 wide, and a 2x shot of a 360px card is 720 - visibly soft on
-      // the one surface this picture exists for.
-      const blob = await snapshotNode(shotRef.current, { scale: 3, background: '#d94407' })
-      const name = (data?.me?.name || 'creator').toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      await downloadBlob(blob, `tryp-${data?.year}-in-review-${name}.png`)
+      const blob = await shoot(onShare ? null : cards[i])
+      if (!blob) return
+      const part = onShare ? 'card' : (cards[i]?.key || 'card')
+      await downloadBlob(blob, `tryp-${data?.year}-in-review-${slug}-${part}.png`)
       setSaved(true)
       setTimeout(() => setSaved(false), 2200)
     } finally {
+      setShotCard(null)
+      setSaving(false)
+    }
+  }
+
+  /**
+   * Every card, one file at a time.
+   *
+   * Ethan: "have the ability to save every card at once or save a specific
+   * card." NOT a zip - that needs a library, and a browser handed a zip of PNGs
+   * is a worse outcome on a phone than a run of images landing in the camera
+   * roll, which is where these are going.
+   *
+   * Sequential on purpose. Each shot is a full-page clone with fonts embedded;
+   * firing fifteen at once is how you get a tab killed on a phone.
+   */
+  async function saveAll() {
+    if (saving) return
+    setSaving(true)
+    try {
+      const all = [...cards.map((c) => c), null]
+      for (let n = 0; n < all.length; n++) {
+        setSavedCount(n + 1)
+        const blob = await shoot(all[n])
+        if (!blob) continue
+        const part = all[n]?.key || 'card'
+        await downloadBlob(blob, `tryp-${data?.year}-in-review-${slug}-${String(n + 1).padStart(2, '0')}-${part}.png`)
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2600)
+    } finally {
+      setShotCard(null)
+      setSavedCount(0)
       setSaving(false)
     }
   }
@@ -140,10 +201,14 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
           key={onShare ? 'share' : card?.key}
           className="wr-in aspect-[9/16] w-full"
         >
+          {/* NO `name` PROP ON THE CARD. Ethan: "showing their name, you don't
+              need to show it in the bottom right again" - it is already the
+              largest thing on the opening card, and the recap is only ever
+              looked at by the person it is about. The Tryp mark stays. */}
           {onShare
             ? <ShareCard data={data} className="h-full" />
             : (
-              <Card palette={card?.palette} className="h-full" name={data?.me?.name}>
+              <Card palette={card?.palette} className="h-full">
                 {card?.render()}
               </Card>
             )}
@@ -211,16 +276,33 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
           to their favourite card should not have to skip forward again. */}
       {(onShare || finished) && (
         <div className="mt-4 flex flex-col items-center gap-2">
-          <button
-            type="button"
-            onClick={saveCard}
-            disabled={saving}
-            className="btn-primary inline-flex items-center gap-2 !py-2.5 text-sm disabled:opacity-60"
-          >
-            <Icon name={saved ? 'check' : 'download'} className="h-4 w-4" />
-            {saving ? 'Drawing your card…' : saved ? 'Saved' : 'Save my card'}
-          </button>
-          <p className="text-[11px] text-smoke">A picture, ready for a story.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={saveCard}
+              disabled={saving}
+              className="btn-primary inline-flex items-center gap-2 !py-2.5 text-sm disabled:opacity-60"
+            >
+              <Icon name={saved ? 'check' : 'download'} className="h-4 w-4" />
+              {saving && !savedCount ? 'Drawing…' : saved ? 'Saved' : onShare ? 'Save my card' : 'Save this card'}
+            </button>
+            {/* "Have the ability to save every card at once or save a specific
+                card." The one above saves whichever card is on screen; this one
+                walks the whole run. It counts up rather than spinning, because
+                fifteen shots is long enough that a bare spinner looks stuck. */}
+            <button
+              type="button"
+              onClick={saveAll}
+              disabled={saving}
+              className="btn-secondary inline-flex items-center gap-2 !py-2.5 text-sm disabled:opacity-60"
+            >
+              <Icon name="download" className="h-4 w-4" />
+              {savedCount ? `Saving ${savedCount} of ${cards.length + 1}…` : 'Save all'}
+            </button>
+          </div>
+          <p className="text-[11px] text-smoke">
+            {onShare ? 'A picture, ready for a story.' : 'Pictures, ready for a story.'}
+          </p>
         </div>
       )}
 
@@ -249,7 +331,13 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
         }}
       >
         <div ref={shotRef} style={{ width: 360, height: 640 }}>
-          <ShareCard data={data} className="h-full" />
+          {shotCard === null
+            ? <ShareCard data={data} className="h-full" flush />
+            : (
+              <Card palette={shotCard?.palette} className="h-full" flush>
+                {shotCard?.render()}
+              </Card>
+            )}
         </div>
       </div>
 

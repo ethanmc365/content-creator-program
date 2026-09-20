@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { distanceLine, flagScale } from './story'
+import { distanceLine, flagScale, monthShort } from './story'
 import { heroSize } from './cards'
 
 const EARTH_KM = 40_075
@@ -78,5 +78,17 @@ describe('heroSize', () => {
   it('survives a null or a number', () => {
     expect(() => heroSize(null)).not.toThrow()
     expect(() => heroSize(1234)).not.toThrow()
+  })
+})
+
+describe('monthShort', () => {
+  it('names the month a milestone was reached', () => {
+    expect(monthShort('2026-03-14')).toBe('Mar')
+    expect(monthShort('2026-12-01')).toBe('Dec')
+  })
+  it('returns nothing rather than "Invalid Date" for a missing or junk value', () => {
+    expect(monthShort(null)).toBe('')
+    expect(monthShort(undefined)).toBe('')
+    expect(monthShort('not a date')).toBe('')
   })
 })

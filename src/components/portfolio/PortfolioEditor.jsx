@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Icon from '../Icon'
+import SocialMark from '../SocialMark'
 import { Toggle } from '../ui'
 import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
@@ -322,10 +323,20 @@ function YouBits({ portfolio, onChange, tr }) {
           {tr('The ones you have entered challenges from are already on there. Add anything else.')}
         </p>
         {extra.map((row, i) => (
-          <div key={i} className="mb-1.5 flex gap-1.5">
+          <div key={i} className="mb-1.5 flex items-center gap-1.5">
+            {/* THE MARK APPEARS AS YOU TYPE. Ethan: "have the actual social
+                media icons, for example, TikTok icon. And even showing up
+                whenever you're actually entering the thing."
+                `SocialMark` already draws the real glyphs and falls back to a
+                chain link for anything it does not know, so typing "tik" turns
+                into the TikTok note in front of you - which is also the fastest
+                way to find out you have spelled it wrong. */}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-smoke">
+              <SocialMark brand={String(row.platform || '').trim().toLowerCase()} className="h-4 w-4" />
+            </span>
             <input value={row.platform || ''} placeholder={tr('Platform')}
               onChange={(e) => onChange({ extra_platforms: extra.map((r, j) => (j === i ? { ...r, platform: e.target.value } : r)) })}
-              className="input w-[38%] text-[12px]" />
+              className="input w-[32%] text-[12px]" />
             <input value={row.handle || ''} placeholder={tr('@handle')}
               onChange={(e) => onChange({ extra_platforms: extra.map((r, j) => (j === i ? { ...r, handle: e.target.value } : r)) })}
               className="input flex-1 text-[12px]" />
