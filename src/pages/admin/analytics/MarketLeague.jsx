@@ -117,9 +117,15 @@ export function openingMonth(chosen, months, now = new Date()) {
   return months[0] ?? ''
 }
 
+/** A market's months, newest first, for the expanded panel. */
+function monthRows(r) {
+  return Object.entries(r.byMonth || {}).sort((a, b) => b[0].localeCompare(a[0]))
+}
+
 export default function MarketLeague({ raw, currency }) {
   const [chosenMonth, setMonth] = useState(null)   // null = not chosen yet; '' = all time
   const [metricKey, setMetricKey] = useState('views')
+  const [openRow, setOpenRow] = useState(null)
 
   const months = useMemo(() => monthsInRecord(raw), [raw])
   const month = useMemo(() => openingMonth(chosenMonth, months), [chosenMonth, months])
@@ -310,11 +316,83 @@ export default function MarketLeague({ raw, currency }) {
                 {/* The "views measured on 4 of 6" caveat used to sit here.
                     Ethan: "I wouldn't show up where it says views measured on
                     six of seven and the other places... just show what the
-                    current data is for that we have." The incompleteness is
-                    still carried in the CSV export as `measured_challenges`,
-                    which is where somebody auditing a number will look; it was
-                    only ever noise on a league table. */}
+                    current data is for that we have." It moved INTO the
+                    expanded panel below, which is the right home for it: it is
+                    the answer to "is this number complete", and that is a
+                    question you ask after you have decided to look closely. */}
               </div>
+
+              {/* CLICKING A ROW OPENS IT. Ethan: "maybe clicking on it could
+                  give even more data because currently clicking on it does
+                  nothing."
+
+                  A STRETCHED BUTTON UNDER THE CONTENT, not a wrapper around it
+                  - the same construction the past-challenge cards use. A
+                  <button> around this row would nest the flag, the movement pill
+                  and the sparkline inside a control, which flattens all of them
+                  for a screen reader and makes the whole thing one enormous tab
+                  stop. */}
+              <button
+                type="button"
+                onClick={() => setOpenRow((cur) => (cur === r.id ? null : r.id))}
+                aria-expanded={openRow === r.id}
+                aria-label={`${r.name} - ${openRow === r.id ? 'hide' : 'show'} the detail`}
+                className="absolute inset-0 z-0 cursor-pointer rounded-card"
+              />
+
+              {openRow === r.id && (
+                <div className="relative mt-3 border-t border-gray-100 pt-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                    {[
+                      { k: 'Views', v: formatViews(r.views) },
+                      { k: 'Videos', v: r.posts },
+                      { k: 'Creators', v: r.members },
+                      { k: 'Challenges', v: r.challenges },
+                      { k: 'Prize money', v: formatMoney(r.spend, currency) },
+                      { k: 'Paid out', v: formatMoney(r.paid, currency) },
+                      { k: 'Per 1k views', v: r.cpm == null ? '—' : formatMoney(r.cpm, currency) },
+                      { k: 'Entries', v: r.entries },
+                    ].map((c) => (
+                      <div key={c.k}>
+                        <p className="text-sm font-extrabold tabular-nums text-ink">{c.v}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400">{c.k}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {monthRows(r).length > 1 && (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full min-w-[320px] text-left text-[11px]">
+                        <thead>
+                          <tr className="text-gray-400">
+                            <th className="py-1 font-semibold">Month</th>
+                            <th className="py-1 text-right font-semibold">Views</th>
+                            <th className="py-1 text-right font-semibold">Challenges</th>
+                            <th className="py-1 text-right font-semibold">Prizes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="tabular-nums">
+                          {monthRows(r).map(([key, m]) => (
+                            <tr key={key} className="border-t border-gray-50">
+                              <td className="py-1 font-semibold text-ink">{monthLabel(key)}</td>
+                              <td className="py-1 text-right">{formatViews(m.views)}</td>
+                              <td className="py-1 text-right">{m.challenges}</td>
+                              <td className="py-1 text-right">{formatMoney(m.spend, currency)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {r.measured < r.challenges && (
+                    <p className="mt-3 text-[11px] text-amber-600">
+                      Views are measured on {r.measured} of {r.challenges} challenges. The rest were
+                      never counted, so the total is a floor rather than an estimate.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
