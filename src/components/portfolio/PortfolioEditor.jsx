@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
+import { AvatarUpload } from '../ProfileFields'
 import { Toggle } from '../ui'
 import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
@@ -49,7 +50,7 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
           </button>
           {open === s.key && (
             <div className="space-y-5 border-t border-gray-100 p-4">
-              {s.key === 'words' && <Words portfolio={portfolio} onChange={onChange} certificates={certificates} tr={tr} />}
+              {s.key === 'words' && <Words portfolio={portfolio} creator={creator} onChange={onChange} certificates={certificates} tr={tr} />}
               {s.key === 'work' && <Videos portfolio={portfolio} videos={videos} shown={shown} onChange={onChange} tr={tr} />}
               {s.key === 'you' && <YouBits portfolio={portfolio} onChange={onChange} tr={tr} />}
               {s.key === 'share' && <Share portfolio={portfolio} creator={creator} onChange={onChange} tr={tr} />}
@@ -97,12 +98,47 @@ const WORD_FIELDS = [
   { key: 'contact_body', label: 'Contact: your paragraph', lines: 7, max: 420 },
 ]
 
-function Words({ portfolio, onChange, certificates, tr }) {
+function Words({ portfolio, creator, onChange, certificates, tr }) {
   const copy = portfolio.copy || {}
   const set = (key, value) => onChange({ copy: { ...copy, [key]: value } })
   const fields = WORD_FIELDS.filter((f) => !f.needsCerts || certificates?.length)
+  const chosen = typeof copy.cover_photo === 'string' ? copy.cover_photo.trim() : ''
   return (
     <>
+      {/* THE COVER PHOTO. Ethan: "it currently uses their profile picture,
+          which I think is great, but they should also have the option to change
+          that to a different photo if they'd like."
+          Default stays the profile picture, so nobody has to do anything. The
+          same `AvatarUpload` the profile page uses - it is already the
+          best-tested upload control in the app (instant local preview, a
+          progress ring, HEIC handling) and inventing a second one for a circle
+          of the same shape would be inventing a second set of its bugs. It asks
+          for 900px rather than 512 because this one gets printed. */}
+      <div className="rounded-xl border border-gray-100 bg-cloud/40 p-3">
+        <p className="label !mb-2">{tr('Cover photo')}</p>
+        <div className="flex items-center gap-3">
+          <AvatarUpload
+            photoUrl={chosen || creator?.photo_url || ''}
+            name={creator?.name}
+            maxDim={900}
+            onUploaded={(url) => set('cover_photo', url)}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] leading-relaxed text-smoke">
+              {chosen
+                ? tr('A photo just for your portfolio cover.')
+                : tr('Using your profile picture. Upload a different one if you would rather.')}
+            </p>
+            {chosen && (
+              <button type="button" onClick={() => set('cover_photo', '')}
+                className="mt-1.5 text-[11px] font-semibold text-gray-400 hover:text-brand">
+                {tr('Use my profile picture again')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <p className="text-[11px] leading-relaxed text-smoke">
         {tr('Every line starts as something you could publish as it is. Change what you want, leave the rest.')}
       </p>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import { cx, formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { notice } from '../lib/confirm'
 import { downloadBlob } from '../lib/domSnapshot'
@@ -300,6 +301,10 @@ export default function Portfolio() {
 
         </div>
 
+        {readOnly && (
+          <AdminSummary portfolio={portfolio} shown={shownVideos} videos={videos} tr={tr} />
+        )}
+
         {!readOnly && (
           <PortfolioEditor
             portfolio={portfolio}
@@ -330,6 +335,89 @@ export default function Portfolio() {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * WHAT AN ADMIN NEEDS FROM SOMEBODY ELSE'S PORTFOLIO.
+ *
+ * Ethan: "I need the ability to view all the creators' portfolios... currently
+ * it does, but the design is weird because I can't see the edit function on the
+ * design. So just work on improving that more, how it appears for admins, etc.
+ * so I can properly review it."
+ *
+ * The editor is hidden when `?as=` is set and that is correct - an admin must
+ * not rewrite a creator's own words, and RLS would refuse the write anyway. But
+ * hiding it left the right-hand column EMPTY, so the page looked broken rather
+ * than deliberately read-only, and it answered none of the questions you
+ * actually have about somebody else's portfolio: is this published, where does
+ * it live, did they pick their own videos, when did they last touch it.
+ *
+ * So the column keeps its shape and holds the ANSWERS instead of the controls.
+ * Nothing here is editable and nothing pretends to be.
+ */
+function AdminSummary({ portfolio, shown, videos, tr }) {
+  const mode = workMode(portfolio)
+  const url = portfolio.slug ? `${window.location.origin}/p/${portfolio.slug}` : null
+  const when = portfolio.updated_at ? new Date(portfolio.updated_at) : null
+  const rows = [
+    {
+      label: tr('On the web'),
+      value: portfolio.is_public ? tr('Published') : tr('Not published'),
+      tone: portfolio.is_public ? 'on' : 'off',
+    },
+    {
+      label: tr('On their profile'),
+      value: portfolio.show_on_profile ? tr('Shown') : tr('Hidden'),
+      tone: portfolio.show_on_profile ? 'on' : 'off',
+    },
+    {
+      label: tr('Videos'),
+      value: mode === 'auto'
+        ? `${shown.length} · ${tr('best by views')}`
+        : `${shown.length} · ${tr('hand-picked')}`,
+    },
+    { label: tr('Entries in total'), value: videos.length },
+    portfolio.tools?.length ? { label: tr('Kit listed'), value: portfolio.tools.length } : null,
+    portfolio.extra_platforms?.length ? { label: tr('Extra platforms'), value: portfolio.extra_platforms.length } : null,
+    when ? { label: tr('Last edited'), value: formatDate(when) } : null,
+  ].filter(Boolean)
+
+  return (
+    <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex items-center gap-2.5 border-b border-gray-100 px-4 py-3.5">
+          <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
+          <span className="text-sm font-bold text-ink">{tr('How this portfolio is set up')}</span>
+        </div>
+        <dl className="divide-y divide-gray-50">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+              <dt className="text-[12px] text-smoke">{r.label}</dt>
+              <dd className={cx(
+                'text-[12px] font-bold',
+                r.tone === 'on' ? 'text-brand' : r.tone === 'off' ? 'text-gray-400' : 'text-ink',
+              )}>
+                {r.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {url && (
+          <div className="border-t border-gray-100 px-4 py-3">
+            <p className="label !mb-1">{tr('Public address')}</p>
+            <a href={url} target="_blank" rel="noreferrer"
+              className="block truncate text-[12px] font-semibold text-brand hover:underline">
+              {url}
+            </a>
+          </div>
+        )}
+      </section>
+
+      <p className="px-1 text-[11px] leading-relaxed text-smoke">
+        {tr('You are reading this the way the creator sees it. Only they can change what it says.')}
+      </p>
+    </aside>
   )
 }
 

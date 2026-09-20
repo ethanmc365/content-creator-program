@@ -56,7 +56,13 @@ export const LANGUAGE_OPTIONS = [
  * it is at; and names the failure in place if one comes. The object URL is
  * revoked when the real one lands or the component goes away.
  */
-export function AvatarUpload({ photoUrl, name, onUploaded }) {
+/**
+ * @param {number} maxDim  the longest edge kept, in pixels. 512 is right for an
+ *   avatar, which never renders large. The PORTFOLIO COVER reuses this control
+ *   and needs more: it draws at 316px on a 1280px slide and the PDF photographs
+ *   that at 2x, so 512 would be upscaled in a document somebody sends a brand.
+ */
+export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 512 }) {
   const tr = useT()
   const { user } = useAuth()
   const inputRef = useRef(null)
@@ -101,8 +107,9 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
 
     let compressed
     try {
-      // Avatars only ever render small, so 512px keeps them tiny in storage.
-      compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
+      // Avatars only ever render small, so the 512px default keeps them tiny in
+      // storage. Callers that print the image ask for more - see `maxDim`.
+      compressed = await compressImage(file, { maxDim, quality: 0.85 })
     } catch (err) {
       setError(err.message); setBusy(''); dropPreview(); setPreview('')
       return
