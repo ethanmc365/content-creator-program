@@ -8,6 +8,7 @@ import { pickClass } from '../../lib/pick'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
 import { DEFAULT_COPY, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
+import { ACCENTS } from '../../lib/certificates'
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
 //
@@ -25,6 +26,13 @@ import { DEFAULT_COPY, compactViews, copyFor, slugify, workMode } from '../../li
 
 const SECTIONS = [
   { key: 'words', label: 'Words', icon: 'pencil' },
+  // "More customization features." The one thing a creator would reach for
+  // first on a document that goes out under their name is its colour, and it is
+  // also the safest thing to hand them: every page is white with one accent in
+  // it, so one value changes the whole deck coherently and cannot make anything
+  // unreadable. Same ten-colour palette the certificate studio uses, so a kit
+  // and the certificate on page four look like they came from one place.
+  { key: 'look', label: 'Colour', icon: 'sparkles' },
   { key: 'work', label: 'Your videos', icon: 'video' },
   { key: 'you', label: 'Tools and platforms', icon: 'user' },
   { key: 'share', label: 'Share it', icon: 'share' },
@@ -51,6 +59,7 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
           {open === s.key && (
             <div className="space-y-5 border-t border-gray-100 p-4">
               {s.key === 'words' && <Words portfolio={portfolio} creator={creator} onChange={onChange} certificates={certificates} tr={tr} />}
+              {s.key === 'look' && <Look portfolio={portfolio} onChange={onChange} tr={tr} />}
               {s.key === 'work' && <Videos portfolio={portfolio} videos={videos} shown={shown} onChange={onChange} tr={tr} />}
               {s.key === 'you' && <YouBits portfolio={portfolio} onChange={onChange} tr={tr} />}
               {s.key === 'share' && <Share portfolio={portfolio} creator={creator} onChange={onChange} tr={tr} />}
@@ -89,14 +98,71 @@ const WORD_FIELDS = [
   { key: 'cover_kicker', label: 'Line above your name', lines: 1, max: 52 },
   { key: 'cover_role', label: 'What you do', lines: 1, max: 44 },
   { key: 'about_title', label: 'About: heading', lines: 1, max: 34 },
-  { key: 'about_body', label: 'About: your paragraph', lines: 10, max: 600 },
+  // THE CAP IS THE ROOM ON THE PAGE, MEASURED. Ethan: "in the about your
+  // paragraph, it seems to show full before it's actually full. Obviously
+  // there's more space below, so it should be a bit longer and not just say
+  // full when it's only halfway."
+  //
+  // He is right and 600 was a guess. The About slide's text column is 528px
+  // wide at 17px/1.8, which is ~58 characters a line and 30.6px a line, and the
+  // column runs from y=210 to the kit chips at y=700 of a 720 page - call it
+  // fifteen lines before anything is at risk, which is ~870 characters. 900 is
+  // that with the last line's slack, and the counter now appears where the page
+  // actually starts to fill up rather than at the halfway mark.
+  { key: 'about_body', label: 'About: your paragraph', lines: 10, max: 900 },
   { key: 'work_title', label: 'Work: heading', lines: 1, max: 34 },
   { key: 'work_body', label: 'Work: one line under it', lines: 3, max: 150 },
   { key: 'awards_title', label: 'Awards: heading', lines: 1, max: 34, needsCerts: true },
   { key: 'awards_body', label: 'Awards: one line under it', lines: 3, max: 150, needsCerts: true },
   { key: 'contact_title', label: 'Contact: heading', lines: 1, max: 34 },
-  { key: 'contact_body', label: 'Contact: your paragraph', lines: 7, max: 420 },
+  // Same measurement on the Contact slide: a 660px measure at 16px/1.75, with
+  // the social cards and the sign-off under it, holds about six lines.
+  { key: 'contact_body', label: 'Contact: your paragraph', lines: 7, max: 520 },
 ]
+
+/**
+ * THE KIT'S COLOUR.
+ *
+ * Ten swatches and no colour input, for the same reason the certificate studio
+ * has ten: a free picker lets somebody choose a pale yellow, and the cover sets
+ * the creator's name in white ON the accent. Every colour here has been checked
+ * to carry white type (see `readableOn` in lib/certificates).
+ *
+ * It writes into `copy.accent`, which the slides read through `theme()`.
+ */
+function Look({ portfolio, onChange, tr }) {
+  const copy = portfolio.copy || {}
+  const current = (typeof copy.accent === 'string' && copy.accent) || ACCENTS[0].hex
+  const set = (hex) => onChange({ copy: { ...copy, accent: hex } })
+  return (
+    <div>
+      <p className="label">{tr('Accent colour')}</p>
+      <div className="flex flex-wrap gap-2.5">
+        {ACCENTS.map((a) => {
+          const on = current.toLowerCase() === a.hex.toLowerCase()
+          return (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => set(a.hex)}
+              aria-pressed={on}
+              aria-label={a.label}
+              title={a.label}
+              className={cx('h-9 w-9 rounded-full transition-transform hoverable:hover:scale-110', on && 'scale-110')}
+              style={{
+                background: a.hex,
+                boxShadow: on ? '0 0 0 2px #fff, 0 0 0 4px #1A1A1A' : 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+              }}
+            />
+          )
+        })}
+      </div>
+      <p className="mt-2.5 text-[11px] leading-relaxed text-smoke">
+        {tr('Used on the cover, the headings and the numbers. Every page changes together.')}
+      </p>
+    </div>
+  )
+}
 
 function Words({ portfolio, creator, onChange, certificates, tr }) {
   const copy = portfolio.copy || {}

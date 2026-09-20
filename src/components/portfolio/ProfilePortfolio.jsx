@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
+import { Modal } from '../ui'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import PortfolioDeck, { useFluidWidth } from './PortfolioDeck'
@@ -37,6 +38,18 @@ export default function ProfilePortfolio({ profileId }) {
   const [railReady, setRailReady] = useState(false)
   const setRail = useCallback((el) => { railRef.current = el; setRailReady(!!el) }, [])
   const [page, setPage] = useState(0)
+  // THE SAME DECK, FULL SCREEN. Ethan: "whenever you click on this, it should
+  // actually open up on like the big screen, like a big pop-up that you can go
+  // through and see it bigger rather than just that small screen."
+  //
+  // The embed is deliberately small - it is one section of a profile among nine
+  // and five full pages stacked would bury everything under it - but small is
+  // the wrong size for actually READING somebody's media kit, which is the
+  // thing a profile visitor came to this section to do. So the embed is the
+  // invitation and this is the document. Opens on whatever page you were
+  // already looking at, because being sent back to the cover after paging to
+  // the work is the thing that makes a pop-up feel like a different object.
+  const [big, setBig] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -58,7 +71,9 @@ export default function ProfilePortfolio({ profileId }) {
           .select('serial, facts, awarded_at, design:certificate_designs(title, tier, accent, emblem, body)')
           .eq('profile_id', profileId).order('awarded_at', { ascending: false }),
         supabase.from('profiles')
-          .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url')
+          // `other_links` rides along because the deck's contact page lists
+          // every place they post, and a free-form link is one of them.
+          .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links')
           .eq('id', profileId).maybeSingle(),
       ])
       if (!alive) return
@@ -120,7 +135,7 @@ export default function ProfilePortfolio({ profileId }) {
         <Pager page={page} onGo={go} />
       </div>
 
-      <div ref={holder}>
+      <div ref={holder} className="group/deck relative">
         <div
           ref={setRail}
           className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -133,6 +148,21 @@ export default function ProfilePortfolio({ profileId }) {
             width={width}
           />
         </div>
+
+        {/* AN OVERLAY BUTTON, NOT AN onClick ON THE RAIL. The rail is a
+            horizontal scroller and a click handler on it would fire at the end
+            of every swipe - which on a phone means the pop-up opens whenever
+            somebody tries to turn a page. This sits over the deck, is
+            pointer-events:none except for itself, and leaves the scroll
+            gesture alone. */}
+        <button
+          type="button"
+          onClick={() => setBig(page)}
+          aria-label={tr('Open this portfolio full size')}
+          className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-semibold text-ink shadow-sm backdrop-blur transition-all hoverable:hover:-translate-y-px hoverable:hover:text-brand"
+        >
+          <Icon name="expand" className="h-3.5 w-3.5" /> {tr('Full size')}
+        </button>
       </div>
 
       {videos.length > 0 && (
@@ -160,7 +190,119 @@ export default function ProfilePortfolio({ profileId }) {
           (!portfolio.is_public || !portfolio.slug) && 'hidden')}>
         {tr('Open the full portfolio')} <Icon name="link" className="h-3 w-3" />
       </Link>
+
+      {big !== null && (
+        <BigDeck
+          creator={creator}
+          portfolio={portfolio}
+          videos={videos}
+          certificates={certificates}
+          startAt={big}
+          onClose={() => setBig(null)}
+          tr={tr}
+        />
+      )}
     </section>
+  )
+}
+
+/**
+ * The deck at the size of the screen, as a pager.
+ *
+ * WHY IT IS A SECOND SCROLLER AND NOT THE SAME ONE MOVED. The embed's rail has
+ * to keep its scroll position while this is open - closing the pop-up and
+ * finding the profile back at page one is exactly the jump this is meant to
+ * remove - so this gets its own, seeded from where the embed was.
+ *
+ * Arrow keys work, because a pop-up you page through with a mouse is a pop-up
+ * somebody will immediately try to page through with a keyboard.
+ */
+function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, tr }) {
+  const [holder, width] = useFluidWidth(320)
+  const railRef = useRef(null)
+  const [ready, setReady] = useState(false)
+  const setRail = useCallback((el) => { railRef.current = el; setReady(!!el) }, [])
+  const [page, setPage] = useState(startAt)
+  const [count, setCount] = useState(0)
+
+  // Seeded once the rail exists AND has been laid out at its real width -
+  // `scrollLeft` on a box that is still 320px wide lands on the wrong page.
+  useEffect(() => {
+    const el = railRef.current
+    if (!el || !ready) return
+    el.scrollLeft = startAt * el.clientWidth
+  }, [ready, startAt, width])
+
+  useEffect(() => {
+    const el = railRef.current
+    if (!el) return undefined
+    const onScroll = () => setPage(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [ready])
+
+  const go = useCallback((by) => {
+    const rail = railRef.current
+    if (!rail) return
+    // Assigned, never `scrollTo({behavior})`: this app sets `scroll-behavior:
+    // smooth` platform-wide, so a repositioning here would animate, and inside
+    // a horizontal rail that reads as a lurch. See lib/scrollBehaviour.test.js.
+    rail.scrollLeft = Math.max(0, page + by) * rail.clientWidth
+  }, [page])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(1) }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [go])
+
+  return (
+    <Modal open onClose={onClose} title={creator?.name ? tr('{name}’s portfolio', { name: creator.name }) : tr('Portfolio')} wide>
+      <div ref={holder} className="min-w-0">
+        <div
+          ref={setRail}
+          className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <PortfolioDeck
+            creator={creator}
+            portfolio={portfolio}
+            videos={videos}
+            certificates={certificates}
+            width={width}
+            gap={16}
+            horizontal
+            onPageCount={setCount}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-4">
+        <button type="button" onClick={() => go(-1)} disabled={page === 0}
+          aria-label={tr('Previous page')}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-30">
+          <Icon name="arrow-down" className="h-4 w-4 rotate-90" />
+        </button>
+        {/* Dots, not "3 / 6". At six pages the dots say the same thing and also
+            say which one you are on without being read. */}
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: Math.max(1, count) }).map((_, i) => (
+            <span
+              key={i}
+              className={cx('h-1.5 rounded-full transition-all duration-200',
+                i === page ? 'w-5 bg-brand' : 'w-1.5 bg-gray-200')}
+            />
+          ))}
+        </div>
+        <button type="button" onClick={() => go(1)} disabled={count > 0 && page >= count - 1}
+          aria-label={tr('Next page')}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-30">
+          <Icon name="arrow-down" className="h-4 w-4 -rotate-90" />
+        </button>
+      </div>
+    </Modal>
   )
 }
 

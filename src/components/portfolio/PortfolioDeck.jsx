@@ -17,8 +17,11 @@ import { PAGE_H, PAGE_W, orderedVideos, workMode } from '../../lib/portfolio'
 // photographs: the same DOM the creator is looking at, at 2x, rather than a
 // second drawing of it. See lib/portfolioPdf.
 
-/** How many videos fit on a work page. Two rows of three; see Slides.Work. */
-const PER_WORK_PAGE = 6
+// How many videos fit on a work page. FOUR, not six, since the redesign:
+// the tiles are 264x430 - a quarter of the content width, at the shape a
+// vertical video actually is - rather than six 84x150 thumbnails with their
+// numbers in a column of text beside them. See Slides.Work.
+const PER_WORK_PAGE = 4
 
 /**
  * Build the page list. Pure, and separate from the rendering, because the
