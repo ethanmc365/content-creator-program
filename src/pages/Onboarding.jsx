@@ -314,7 +314,27 @@ export default function Onboarding() {
     // indication of where it came from. The draft is prefilled from
     // `auth.profile` either way, so a failed read here costs a date of birth
     // being re-typed, not the signup.
-    supabase.from('creator_private').select('dob, phone, phone_country').eq('id', user.id).maybeSingle()
+    //
+    // AND `.catch` IS NOT A METHOD ON A SUPABASE QUERY. THIS TOOK SIGNUP DOWN.
+    //
+    // A PostgrestBuilder is a THENABLE, not a Promise: it implements `then` and
+    // NOTHING ELSE - no `catch`, no `finally`. So the guard added above read
+    // `undefined(...)` and threw `catch is not a function` SYNCHRONOUSLY, inside
+    // this effect, on the first render of /onboarding for every real signup. The
+    // thing written to stop an unreadable crash report was itself the crash, and
+    // it was total: nobody who created an account on d626c37 could get past the
+    // first screen. Found in the error panel (6 hits, 2 people) after a German
+    // creator reported "an error has occurred".
+    //
+    // `Promise.resolve` adopts the thenable and hands back a real promise, which
+    // is the only thing that makes `.catch` exist. THE RULE, because this will
+    // be reached for again: never call `.catch`, `.finally` or anything else
+    // off `Promise.prototype` directly on a supabase query. `await` it inside a
+    // try, pass a second argument to `.then`, or wrap it like this.
+    // `src/lib/supabaseThenable.test.js` fails the build if the pattern returns.
+    Promise.resolve(
+      supabase.from('creator_private').select('dob, phone, phone_country').eq('id', user.id).maybeSingle(),
+    )
       .catch(() => ({ data: null }))
       .then(({ data: priv }) => {
         if (!alive) return
