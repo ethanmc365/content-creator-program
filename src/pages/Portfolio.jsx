@@ -26,6 +26,8 @@ import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 // portfolio. Nobody needs to be able to rewrite somebody else's bio.
 // How long a run of edits counts as ONE undo step, and how many steps are kept.
 const UNDO_COALESCE_MS = 700
+// How long the page waits for somebody to stop before it writes.
+const AUTOSAVE_MS = 1500
 const UNDO_DEPTH = 50
 
 export default function Portfolio() {
@@ -44,6 +46,8 @@ export default function Portfolio() {
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
   const [dirty, setDirty] = useState(false)
   const [past, setPast] = useState([])          // portfolio snapshots, oldest first
+  const [saveError, setSaveError] = useState(false)
+  const saveRef = useRef(null)
   const stateRef = useRef(null)
   const lastUndoPush = useRef(0)
   const [saving, setSaving] = useState(false)
@@ -135,9 +139,9 @@ export default function Portfolio() {
     lastUndoPush.current = 0
   }, [past])
 
-  async function save() {
+  async function save({ reload = true } = {}) {
     setSaving(true)
-    const p = state.portfolio
+    const p = stateRef.current?.portfolio ?? state.portfolio
     // A SLUG IS MINTED ON THE WAY TO BEING PUBLIC, not on first load. A creator
     // who never shares their portfolio should not be silently holding a public
     // URL, and minting one at load would race every other creator whose name
@@ -159,10 +163,43 @@ export default function Portfolio() {
     }
     const { error } = await supabase.from('creator_portfolios').upsert(row, { onConflict: 'profile_id' })
     setSaving(false)
-    if (error) return notice(error.message, { title: tr('Could not save that') })
+    if (error) {
+      setSaveError(true)
+      // A FAILED AUTOSAVE MUST NOT POP A DIALOG. It fires on a timer, so a
+      // dropped connection would throw a modal into the middle of a sentence,
+      // and again on the next attempt. The bar says "Not saved - retry" and
+      // stays dirty; an explicit press still explains itself properly.
+      if (reload) notice(error.message, { title: tr('Could not save that') })
+      return
+    }
+    setSaveError(false)
     setDirty(false)
-    load()
+    // Only an EXPLICIT save re-reads. Autosave runs while somebody is typing,
+    // and replacing the draft under the cursor with the server's copy loses
+    // whatever they wrote in the round trip.
+    if (reload) load()
+    else if (slug && !p.slug) setState((st) => (st ? { ...st, portfolio: { ...st.portfolio, slug } } : st))
   }
+
+  // AUTOSAVE, DEBOUNCED.
+  //
+  // Ethan: "obviously the changes should be saved automatically". They were
+  // not - there was a "Save changes" button that appeared when dirty, so a
+  // creator who edited their bio and closed the tab lost it.
+  //
+  // AUTOSAVE_MS is longer than the undo coalesce window on purpose: undo should
+  // step back per edit, but a write should only happen once somebody has
+  // actually stopped. Every keystroke resets the timer, so a paragraph is one
+  // write rather than two hundred.
+  //
+  // `saveRef` keeps the effect from depending on `save`, which is redefined on
+  // every render and would restart the timer forever.
+  useEffect(() => { saveRef.current = save })
+  useEffect(() => {
+    if (readOnly || !dirty || saving) return undefined
+    const t = setTimeout(() => { saveRef.current?.({ reload: false }) }, AUTOSAVE_MS)
+    return () => clearTimeout(t)
+  }, [dirty, saving, readOnly, state?.portfolio])
 
   // THE EXPORT RENDERS ITS OWN DECK AT FULL SIZE.
   //
@@ -221,20 +258,37 @@ export default function Portfolio() {
                 ? <><Spinner /> {exporting.total ? tr('Page {n} of {total}', { n: exporting.done + 1, total: exporting.total }) : tr('Preparing…')}</>
                 : <><Icon name="download" className="h-4 w-4" /> {tr('Download PDF')}</>}
             </button>
-            {!readOnly && dirty && (
-              <button type="button" onClick={save} disabled={saving} className="btn-secondary">
-                {saving ? <Spinner /> : tr('Save changes')}
-              </button>
-            )}
             {!readOnly && past.length > 0 && (
               <button type="button" onClick={undo} className="btn-secondary" title={tr('Undo the last change')}>
                 <Icon name="chevronLeft" className="h-4 w-4" /> {tr('Undo')}
               </button>
             )}
-            {!readOnly && !dirty && (
-              <span className="text-xs font-semibold text-gray-400">{tr('All changes saved')}</span>
+
+            {/* THE SAVE BUTTON IS GONE, BECAUSE SAVING IS NOT A DECISION ANY
+                MORE. What is left is a status: it says what just happened, and
+                only becomes pressable when something needs a person - which is
+                a failed write and nothing else. */}
+            {!readOnly && (
+              saveError ? (
+                <button type="button" onClick={() => save()} disabled={saving} className="btn-secondary !text-brand">
+                  <Icon name="refresh" className="h-4 w-4" /> {tr('Not saved · Retry')}
+                </button>
+              ) : saving ? (
+                <span className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+                  <Spinner className="h-3.5 w-3.5" /> {tr('Saving…')}
+                </span>
+              ) : dirty ? (
+                <span className="text-xs font-semibold text-gray-400">{tr('Saving…')}</span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+                  <Icon name="check" className="h-3.5 w-3.5" /> {tr('All changes saved')}
+                </span>
+              )
             )}
           </div>
+
+          {/* Above the deck on purpose - see the note in KitStrip. */}
+          {!readOnly && <KitStrip className="mb-6" />}
 
           <PortfolioDeck
             creator={creator}
@@ -244,7 +298,6 @@ export default function Portfolio() {
             width={width}
           />
 
-          {!readOnly && <KitStrip className="mt-8" />}
         </div>
 
         {!readOnly && (
@@ -255,9 +308,6 @@ export default function Portfolio() {
             shown={shownVideos}
             certificates={certificates}
             onChange={setPortfolio}
-            onSave={save}
-            saving={saving}
-            dirty={dirty}
           />
         )}
       </div>

@@ -35,10 +35,17 @@ import { STARTERS } from './certificateStarters'
 // white-dominant with orange accents. The four tier colours plus a neutral are
 // enough to tell four kinds of award apart and no more than that.
 
-const EMBLEMS = ['trophy', 'star', 'flag', 'check', 'sparkles', 'heart', 'globe', 'plane', 'shield', 'ticket', 'chart', 'bulb']
+// THE SEAL PICKER AND THE RAYS GROUND ARE BOTH GONE (20 Sep 2026).
+//
+// Ethan: "I don't like those random icons" and "no need for the sparkle". The
+// certificate no longer draws an emblem at all - the Tryp.com logo is the mark
+// on it now - and the rays ground was the twenty-stop starburst that made the
+// whole thing look generated. Keeping either control would be offering an admin
+// a setting that changes nothing, which is worse than not having it.
+//
+// The stored `emblem` column is untouched so existing designs still load.
 const PATTERNS = [
-  { key: 'wash', label: 'Wash', hint: 'A soft diagonal in the accent' },
-  { key: 'rays', label: 'Rays', hint: 'A faint starburst behind the seal' },
+  { key: 'wash', label: 'Wash', hint: 'A soft Tryp.com gradient in the corners' },
   { key: 'plain', label: 'Plain', hint: 'White. Prints best' },
 ]
 
@@ -368,7 +375,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               <div className="flex flex-wrap gap-2">
                 {TIERS.map((t) => (
                   <button key={t.key} type="button"
-                    onClick={() => set({ tier: t.key, accent: t.accent, emblem: t.emblem })}
+                    onClick={() => set({ tier: t.key })}
                     className={pickClass(design.tier === t.key, 'rounded-xl border px-3 py-1.5 text-xs font-semibold')}>
                     {t.label}
                   </button>
@@ -419,20 +426,6 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
                       design.accent === hex ? 'border-ink' : 'border-transparent',
                     )}
                     style={{ background: hex }} />
-                ))}
-              </div>
-            </Field>
-            <Field label="Seal">
-              <div className="flex flex-wrap gap-2">
-                {EMBLEMS.map((name) => (
-                  <button key={name} type="button" onClick={() => set({ emblem: name })}
-                    aria-label={name}
-                    className={cx(
-                      'flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 hoverable:hover:scale-105',
-                      design.emblem === name ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke',
-                    )}>
-                    <Icon name={name} className="h-4 w-4" />
-                  </button>
                 ))}
               </div>
             </Field>

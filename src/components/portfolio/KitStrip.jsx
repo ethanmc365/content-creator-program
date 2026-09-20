@@ -52,34 +52,61 @@ export default function KitStrip({ className }) {
     setBusy(null)
   }
 
-  if (rows === null) return <Skeleton className={cx('h-44 w-full rounded-card', className)} />
+  if (rows === null) return <Skeleton className={cx('h-56 w-full rounded-card', className)} />
   if (rows.length === 0) return null
 
+  // A PANEL, AT THE TOP, NOT A ROW AT THE BOTTOM.
+  //
+  // Ethan: "the kit graphics, I think, should be somewhere else... I think that
+  // should be at the top of the portfolio section, if that's where we're
+  // keeping it, rather than at the bottom."
+  //
+  // It was a bare heading and a scroll row under five A4 pages, which on a
+  // laptop is three screens down - below the fold of a page whose main object
+  // is deliberately enormous. Nobody scrolls past their own media kit to find
+  // something they did not know was there, which is exactly what happened:
+  // "I don't see where these are actually showing up for the creators."
+  //
+  // Now it is a bordered panel with a brand header directly under the page
+  // title, so it is the first thing after "Portfolio" rather than the last
+  // thing on the page.
   return (
-    <section className={className}>
-      <div className="mb-3">
-        <h2 className="text-lg font-semibold text-ink">{tr('Share that you are a Tryp.com creator')}</h2>
-        <p className="mt-1 text-sm text-smoke">
-          {tr('Save one of these and put it on your story or your LinkedIn. If somebody joins through you, your referral reward applies.')}
-        </p>
+    <section className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', className)}>
+      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-brand/10 via-brand/5 to-transparent px-4 py-3.5 sm:px-5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+          <Icon name="share" className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-bold text-ink">{tr('Share that you are a Tryp.com creator')}</h2>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-smoke">
+            {tr('Save one of these for your story or your LinkedIn. If somebody joins through you, your referral reward applies.')}
+          </p>
+        </div>
+        <span className="hidden shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-smoke shadow-sm sm:inline">
+          {rows.length === 1 ? tr('1 graphic') : `${rows.length} ${tr('graphics')}`}
+        </span>
       </div>
 
-      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-px flex snap-x gap-3 overflow-x-auto px-4 pb-4 pt-4 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden">
         {rows.map((row) => (
-          <div key={row.id} className="w-[168px] shrink-0 snap-start overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          <div
+            key={row.id}
+            className="group w-[176px] shrink-0 snap-start overflow-hidden rounded-xl border border-gray-100 bg-white transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift"
+          >
             <div
-              className="bg-cloud"
+              className="relative overflow-hidden bg-cloud"
               style={{ aspectRatio: row.width && row.height ? `${row.width} / ${row.height}` : '9 / 16' }}
             >
               <img
                 src={supabase.storage.from('creator-kit').getPublicUrl(row.path).data.publicUrl}
                 alt={row.title}
                 loading="lazy"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-300 hoverable:group-hover:scale-[1.03]"
               />
             </div>
-            <div className="p-3">
+            <div className="p-2.5">
               <p className="truncate text-[12px] font-bold text-ink">{row.title}</p>
+              {row.blurb && <p className="mt-0.5 truncate text-[11px] text-smoke">{row.blurb}</p>}
               <button
                 type="button"
                 onClick={() => save(row)}

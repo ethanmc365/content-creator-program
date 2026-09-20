@@ -1,4 +1,3 @@
-import Icon from '../Icon'
 import { fillTemplate, formatAwardDate, tierOf } from '../../lib/certificates'
 
 // A CERTIFICATE, AS A PICTURE.
@@ -21,12 +20,30 @@ import { fillTemplate, formatAwardDate, tierOf } from '../../lib/certificates'
 // hard-coded version of this - one certificate, for a challenge win, with its
 // words in the markup. It is still rendered by the rewards page's old modal;
 // everything new comes through here.
+// WHERE /verify ACTUALLY LIVES. Not tryp.com - that is the main website and has
+// no verify page. This app is the canonical host (see lib/canonicalHost), and
+// printing the wrong one is why the line on the certificate did nothing.
+const VERIFY_HOST = 'trypcreators.vercel.app'
+
 export const CERT_W = 1000
 export const CERT_H = 707
 
 export default function CertificateCard({ design, facts = {}, cardRef, className }) {
   const d = design || {}
   const tier = tierOf(d.tier)
+  // THE ACCENT DEFAULTS TO TRYP ORANGE FOR EVERY TIER (20 Sep 2026).
+  //
+  // Each tier used to carry its own colour - orange, gold, teal, slate - on the
+  // theory that the ladder should be readable across a feed without reading the
+  // words. Ethan, looking at the result: "I don't like the different colors...
+  // the tryp.com orange for me, the nice gradient." He is right, and the theory
+  // was wrong for this object: a certificate is the creator showing off TRYP,
+  // and a teal one does not look like it came from the same company as an
+  // orange one. It looks like a template pack. The tier is still named on the
+  // face, which is where a reader actually learns it.
+  //
+  // `d.accent` still overrides, because the accent picker in the studio is
+  // per-design and Ethan likes it. Only the DEFAULT changed.
   const accent = d.accent || tier.accent
   const body = fillTemplate(d.body, facts)
   const title = fillTemplate(d.title, facts) || 'Certificate'
@@ -46,41 +63,62 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
     >
       <Ground pattern={d.pattern} accent={accent} />
 
+      {/* A BAND AT THE TOP AS WELL AS THE BOTTOM, so the page is held between
+          two brand edges instead of sitting on one. */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 10,
+        background: `linear-gradient(90deg, ${accent} 0%, ${accent}99 50%, ${accent} 100%)`,
+      }} />
+
       {/* Two rules rather than a border, so the corners stay square against the
-          wash behind them. Same construction as the original Certificate. */}
-      <div style={{ position: 'absolute', inset: 26, borderRadius: 20, border: `2px solid ${accent}40` }} />
-      <div style={{ position: 'absolute', inset: 38, borderRadius: 14, border: `1px solid ${accent}20` }} />
+          wash behind them. */}
+      <div style={{ position: 'absolute', inset: 30, borderRadius: 18, border: `1.5px solid ${accent}33` }} />
+      <div style={{ position: 'absolute', inset: 41, borderRadius: 12, border: `1px solid ${accent}1a` }} />
 
       <div style={{
         position: 'relative', height: '100%', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', padding: '0 96px', textAlign: 'center',
+        alignItems: 'center', justifyContent: 'center', padding: '74px 92px 0', textAlign: 'center',
       }}>
+        {/* THE REAL LOGO, which the certificate did not carry at all. Ethan:
+            "use the actual tryp.com logo somewhere". Fixed height and natural
+            width - the asset is a 1200x630 card and squaring it crops it, which
+            is the same mistake the portfolio cover was making. */}
+        <img
+          src="/brand/tryp-logo.png"
+          alt="Tryp.com"
+          crossOrigin="anonymous"
+          style={{ height: 46, width: 'auto', borderRadius: 9, objectFit: 'contain' }}
+        />
+
         {subtitle && (
-          <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.42em', textTransform: 'uppercase', color: accent, margin: 0 }}>
+          /* 0.42em of tracking on 13px is five pixels between every letter -
+             "the fonts are a bit weird". 0.2em still reads as a kicker. */
+          <p style={{ marginTop: 20, fontSize: 13, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: accent, margin: '20px 0 0' }}>
             {subtitle}
           </p>
         )}
 
-        <div style={{
-          marginTop: 26, width: 70, height: 70, borderRadius: '50%', background: accent,
-          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {/* A class rather than a style: `Icon` takes className only, and
-              lib/domSnapshot writes computed styles onto its clone, so a
-              Tailwind size resolves correctly in the photograph. */}
-          <Icon name={d.emblem || tier.emblem} className="h-[34px] w-[34px]" strokeWidth={1.6} />
-        </div>
+        {/* THE EMBLEM CIRCLE IS GONE. Ethan: "I don't like those random icons",
+            and separately "no need for the sparkle". A 70px orange disc with a
+            trophy in it directly above the title was the single thing that made
+            this read as a template rather than as something Tryp.com issued.
+            `d.emblem` is still stored and still pickable, it is simply not the
+            centrepiece any more - the logo is. */}
 
-        <p style={{ marginTop: 24, fontSize: 42, fontWeight: 800, lineHeight: 1.05, letterSpacing: '-0.02em', color: '#1c1c1c' }}>
+        <p style={{ marginTop: 22, fontSize: 50, fontWeight: 800, lineHeight: 1.04, letterSpacing: '-0.025em', color: '#1c1c1c' }}>
           {title}
         </p>
 
-        <div style={{ margin: '22px 0', height: 1, width: 96, background: `${accent}55` }} />
+        <div style={{ margin: '20px 0 0', height: 2, width: 72, background: accent, borderRadius: 2 }} />
 
         {facts.name && (
           <>
-            <p style={{ fontSize: 15, fontWeight: 500, color: '#6b6b6b', margin: 0 }}>This certifies that</p>
-            <p style={{ marginTop: 8, fontSize: 40, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em', color: accent }}>
+            <p style={{ marginTop: 22, fontSize: 15, fontWeight: 500, color: '#6b6b6b', margin: '22px 0 0' }}>
+              This certifies that
+            </p>
+            {/* "I like the name, but everything should be more centered, should
+                be bigger." The name is the thing anybody screenshots. */}
+            <p style={{ marginTop: 6, fontSize: 52, fontWeight: 800, lineHeight: 1.08, letterSpacing: '-0.03em', color: accent }}>
               {facts.name}
             </p>
           </>
@@ -88,44 +126,49 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
 
         {/* A BODY THAT RENDERED TO NOTHING IS NOT AN EMPTY BOX. `fillTemplate`
             drops any line whose detail is missing and deliberately does not
-            invent a replacement - that decision belongs here, where somebody
-            can see what it looks like. */}
+            invent a replacement. */}
         <p style={{
-          marginTop: 18, maxWidth: 700, fontSize: 19, fontWeight: 600, lineHeight: 1.55,
-          color: '#1c1c1c', whiteSpace: 'pre-line',
+          marginTop: 16, maxWidth: 720, fontSize: 20, fontWeight: 500, lineHeight: 1.55,
+          color: '#3a3a3a', whiteSpace: 'pre-line',
         }}>
-          {body || 'for taking part in the Tryp.com Creator Community'}
+          {body || 'for taking part in the Tryp.com Content Creator Community'}
         </p>
 
         <div style={{
-          marginTop: 'auto', marginBottom: 58, display: 'flex', alignItems: 'flex-end',
-          justifyContent: 'space-between', width: '100%', gap: 24,
+          marginTop: 'auto', marginBottom: 54, display: 'flex', alignItems: 'flex-end',
+          justifyContent: 'space-between', width: '100%', gap: 28,
         }}>
           <Signed name={d.signature} role={d.signature_role} accent={accent} />
-          <div style={{ textAlign: 'center', flex: 1 }}>
+          <div style={{ textAlign: 'center', flex: 1.2 }}>
             {footnote && (
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#9a9a9a', margin: 0 }}>{footnote}</p>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#9a9a9a', margin: '0 0 8px' }}>{footnote}</p>
             )}
-            {/* THE CREDENTIAL ID, AND WHERE TO CHECK IT. A picture nobody can
-                check is a JPEG; a picture with an id, and an address that
-                resolves it, is a credential. Both are printed small and in the
-                corner because they are for the one person in a hundred who
-                looks - but that one person is the entire reason the certificate
-                is worth anything to the creator. See pages/VerifyCertificate.
+            {/* THE CREDENTIAL ID, LABELLED, AND AT AN ADDRESS THAT EXISTS.
+                Ethan: "I don't get the tryp.com 2026 code, I don't think that's
+                necessary" and "check it out at tryp.com/verify - what does that
+                mean? It doesn't seem to be working."
 
-                PLAIN TEXT, NOT A LINK. This node is photographed; an anchor in
-                a PNG is a rectangle that does nothing, and one in a PDF that
-                the viewer may or may not linkify is worse than a legible
-                address somebody can type. */}
+                Both fair, and the second was a REAL BUG. A serial reads as
+                noise when nothing says what it is, so it now says "Certificate
+                ID". And the address printed was `tryp.com/verify`, which is the
+                main Tryp.com website and has no such page - this app lives at
+                `trypcreators.vercel.app`, and that is where /verify resolves.
+                So anybody who did type it in got nothing, exactly as reported.
+
+                PLAIN TEXT, NOT A LINK: this node is photographed, and an anchor
+                in a PNG is a rectangle that does nothing. */}
             {facts.serial && (
-              <p style={{ marginTop: 4, fontSize: 11, letterSpacing: '0.16em', color: '#b5b5b5', fontVariantNumeric: 'tabular-nums' }}>
-                {facts.serial}
-              </p>
-            )}
-            {facts.serial && (
-              <p style={{ marginTop: 2, fontSize: 9.5, letterSpacing: '0.06em', color: '#c9c9c9' }}>
-                Check it at tryp.com/verify
-              </p>
+              <>
+                <p style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#b5b5b5', margin: 0 }}>
+                  Certificate ID
+                </p>
+                <p style={{ marginTop: 3, fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#6b6b6b', fontVariantNumeric: 'tabular-nums' }}>
+                  {facts.serial}
+                </p>
+                <p style={{ marginTop: 3, fontSize: 10, letterSpacing: '0.02em', color: '#b5b5b5' }}>
+                  Verify at {VERIFY_HOST}/verify
+                </p>
+              </>
             )}
           </div>
           <Dated date={date} accent={accent} />
@@ -133,8 +176,8 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
       </div>
 
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 8,
-        background: `linear-gradient(90deg, ${accent}, ${accent}80)`,
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 14,
+        background: `linear-gradient(90deg, ${accent} 0%, ${accent}99 50%, ${accent} 100%)`,
       }} />
     </div>
   )
@@ -147,21 +190,17 @@ function Ground({ pattern, accent }) {
   if (pattern === 'plain') {
     return <div style={{ position: 'absolute', inset: 0, background: '#fff' }} />
   }
-  if (pattern === 'rays') {
-    return (
-      <div style={{ position: 'absolute', inset: 0, background: '#fff', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', top: '-60%', left: '50%', width: 1400, height: 1400,
-          transform: 'translateX(-50%)',
-          background: `conic-gradient(from 0deg, ${accent}0f 0deg, transparent 18deg, ${accent}0f 36deg, transparent 54deg, ${accent}0f 72deg, transparent 90deg, ${accent}0f 108deg, transparent 126deg, ${accent}0f 144deg, transparent 162deg, ${accent}0f 180deg, transparent 198deg, ${accent}0f 216deg, transparent 234deg, ${accent}0f 252deg, transparent 270deg, ${accent}0f 288deg, transparent 306deg, ${accent}0f 324deg, transparent 342deg, ${accent}0f 360deg)`,
-        }} />
-      </div>
-    )
-  }
+  // THE 'rays' GROUND IS GONE. Ethan: "no need for the sparkle". It was a
+  // twenty-stop conic gradient behind the text - the thing that made the whole
+  // object read as "AI generated and fake", which is the phrase he used. A
+  // design still stored as `rays` falls through to the wash below rather than
+  // breaking, so nothing an admin already built stops rendering.
+  // "The nice gradient", warmed up. The old one was 5% opacity at both corners,
+  // which on a screen is indistinguishable from plain white.
   return (
     <div style={{
       position: 'absolute', inset: 0,
-      background: `linear-gradient(135deg, ${accent}0d 0%, #ffffff 45%, ${accent}12 100%)`,
+      background: `linear-gradient(135deg, ${accent}24 0%, #ffffff 42%, #ffffff 62%, ${accent}1f 100%)`,
     }} />
   )
 }

@@ -28,7 +28,7 @@ const SECTIONS = [
   { key: 'share', label: 'Share it', icon: 'share' },
 ]
 
-export default function PortfolioEditor({ portfolio, creator, videos, shown, certificates, onChange, onSave, saving, dirty }) {
+export default function PortfolioEditor({ portfolio, creator, videos, shown, certificates, onChange }) {
   const tr = useT()
   const [open, setOpen] = useState('words')
 
@@ -57,11 +57,9 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
         </section>
       ))}
 
-      {dirty && (
-        <button type="button" onClick={onSave} disabled={saving} className="btn-primary w-full justify-center">
-          {saving ? tr('Saving…') : tr('Save changes')}
-        </button>
-      )}
+      {/* No save button here either. The page autosaves and says so in the bar
+          above the document; a second control that means the same thing invites
+          the question of whether it means something different. */}
     </aside>
   )
 }

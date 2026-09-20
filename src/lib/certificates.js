@@ -86,6 +86,24 @@ export function formatAwardDate(value) {
 // LinkedIn feed, without reading the words. Each tier gets its own accent and
 // its own default emblem, and `rank` is what sorts a creator's wall so the rare
 // one is at the top of it.
+// EVERY TIER IS TRYP ORANGE NOW (20 Sep 2026).
+//
+// These were orange, gold (#b8860b), teal (#0f766e) and slate (#475569), so the
+// ladder could be read across a feed without reading the words. Ethan, looking
+// at four of them: "I don't like the different colors... the tryp.com orange
+// for me, the nice gradient."
+//
+// He is right and the original reasoning was answering the wrong question. A
+// certificate's job is not to rank its holder against other holders - it is to
+// be posted, by one person, showing that TRYP.COM gave them something. Four
+// colour schemes make four different-looking companies; a gold one next to a
+// teal one on LinkedIn reads as a template pack somebody bought. The tier is
+// still named in the subtitle, which is where a reader actually learns it, and
+// `rank` still sorts the wall so the rare one is on top.
+//
+// `emblem` is kept because it is stored on existing designs and the studio can
+// still set it, but CertificateCard no longer draws it - see the note there.
+// The per-design accent picker still overrides all of this.
 export const TIERS = [
   {
     key: 'achievement', rank: 0, label: 'Achievement',
@@ -95,17 +113,17 @@ export const TIERS = [
   {
     key: 'honour', rank: 1, label: 'Honour',
     hint: 'Given by hand, for something no rule can spot.',
-    accent: '#b8860b', emblem: 'star',
+    accent: '#d94407', emblem: 'star',
   },
   {
     key: 'milestone', rank: 2, label: 'Milestone',
     hint: 'Reaching a number: videos made, views, months in the community.',
-    accent: '#0f766e', emblem: 'flag',
+    accent: '#d94407', emblem: 'flag',
   },
   {
     key: 'participation', rank: 3, label: 'Participation',
     hint: 'Entering a challenge. Common on purpose - it is the first one anybody gets.',
-    accent: '#475569', emblem: 'check',
+    accent: '#d94407', emblem: 'check',
   },
 ]
 
