@@ -137,14 +137,17 @@ export default function CertificateStudio() {
   // thing you would actually have made - so each one is a real award this
   // programme gives, with its trigger already set.
   async function addStarters() {
-    const existing = new Set((rows || []).map((r) => r.name))
-    const fresh = STARTERS.filter((s) => !existing.has(s.name))
-    if (!fresh.length) return notice('They are all here already.', { title: 'Nothing to add' })
+    if (!missingStarters.length) return
     const { error } = await supabase.from('certificate_designs')
-      .insert(fresh.map((s) => ({ ...s, created_by: profile?.id })))
+      .insert(missingStarters.map((x) => ({ ...x, created_by: profile?.id })))
     if (error) return notice(error.message, { title: 'Could not add those' })
     load()
   }
+
+  // Which starters are NOT already in the list. Derived rather than discovered
+  // on click, so the button can show its own state.
+  const existingNames = new Set((rows || []).map((r) => r.name))
+  const missingStarters = STARTERS.filter((x) => !existingNames.has(x.name))
 
   if (rows === null) return <Skeleton className="h-96 w-full rounded-card" />
 
@@ -180,10 +183,33 @@ export default function CertificateStudio() {
         <button type="button" onClick={() => open({ ...BLANK, __isNew: true })} className="btn-primary">
           <Icon name="plus" className="h-4 w-4" /> New certificate
         </button>
-        <button type="button" onClick={addStarters} className="btn-secondary">
-          <Icon name="sparkles" className="h-4 w-4" /> Add the starter set
+        {/* THE BUTTON KNOWS WHETHER IT HAS ANYTHING TO DO. Ethan: "I clicked
+            add a starter set, but it says they're already here. So I don't
+            really get the functions of this."
+
+            Fair - it let you press it and then told you off. A control that is
+            going to refuse should look refused BEFORE it is pressed, and it
+            should say what it would have done. It is disabled once all four
+            exist, and the line underneath says what a starter is either way. */}
+        <button
+          type="button"
+          onClick={addStarters}
+          disabled={!missingStarters.length}
+          className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+          title={missingStarters.length
+            ? `Adds ${missingStarters.length} ready-made ${missingStarters.length === 1 ? 'design' : 'designs'}`
+            : 'All four starters are already here'}
+        >
+          <Icon name="sparkles" className="h-4 w-4" />
+          {missingStarters.length ? `Add ${missingStarters.length} starter designs` : 'Starter set added'}
         </button>
       </div>
+
+      <p className="-mt-2 text-[12px] leading-relaxed text-smoke">
+        {missingStarters.length
+          ? 'Starters are four ready-made designs - one per tier - with their award triggers already set. Add them and edit the words until they read the way you want.'
+          : 'The four starter designs are in the list below. Edit any of them, or build a new one from scratch.'}
+      </p>
 
       {rows.length === 0 ? (
         <EmptyState
