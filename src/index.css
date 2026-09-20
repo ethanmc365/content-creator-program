@@ -351,6 +351,30 @@ html {
   }
   .pick-row::-webkit-scrollbar { display: none; }
 
+  /* ---- THE TICK ON THE CERTIFICATE CHECK PAGE ------------------------------
+     The one animation on /verify that is carrying meaning rather than
+     decorating: the stroke DRAWS, over 380ms, so the verdict reads as a check
+     being performed and lands at the moment the answer does. `pathLength="1"`
+     on the path means the dash numbers are 0..1 and do not have to be measured
+     against the geometry - change the tick's shape and this still works.
+
+     The ring expands once and stops. A repeating pulse on a verdict reads as
+     "still checking", which is the opposite of what this page has just said.
+
+     Both are plain keyframes rather than framer-motion on purpose: this page is
+     public, outside the app shell, and a stranger checking one code should not
+     download an animation library. The global prefers-reduced-motion rule
+     above collapses both to nothing. */
+  .verify-tick {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: verify-draw 380ms cubic-bezier(0.65, 0, 0.35, 1) 120ms forwards;
+  }
+  .verify-ring {
+    opacity: 0;
+    animation: verify-ring 620ms cubic-bezier(0.22, 1, 0.36, 1) 260ms forwards;
+  }
+
   /* ---- WYSIWYG editor (admin Notes + admin chat composer) --------------
      The contentEditable surface renders our small markdown set as itself, so the
      admin never sees # ** * markers - headings look like headings, etc. */
@@ -2624,4 +2648,12 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 
 @media (prefers-reduced-motion: reduce) {
   .cal-month-next, .cal-month-prev, .cal-label-in { animation: none; }
+}
+
+@keyframes verify-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes verify-ring {
+  0%   { opacity: 0.85; transform: scale(1); }
+  100% { opacity: 0;    transform: scale(1.75); }
 }

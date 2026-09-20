@@ -563,7 +563,10 @@ function Crest({ s, c }) {
         </div>
 
         <div style={{ marginTop: 40, display: 'flex', gap: 44, flex: 1, minHeight: 0 }}>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Centred in its column, like the other layouts - see the note on
+              Rail. Crest is the one with the most furniture above it, so a
+              top-aligned block here left the largest hole. */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <Kicker s={s} size={10}>{c.subtitle}</Kicker>
             <div style={{ height: c.subtitle ? 12 : 0 }} />
             <Title s={s} size={46}>{c.title}</Title>
@@ -575,9 +578,8 @@ function Crest({ s, c }) {
             <Name s={s} size={64}>{c.name}</Name>
             <div style={{ height: 16 }} />
             <Body s={s} width={500} size={16.5}>{c.body}</Body>
-            <div style={{ marginTop: 'auto' }}>
-              <Signature s={s} name={c.signature} role={c.signatureRole} />
-            </div>
+            <div style={{ height: 34 }} />
+            <Signature s={s} name={c.signature} role={c.signatureRole} />
           </div>
 
           {/* The right column: everything that is evidence rather than prose. */}
