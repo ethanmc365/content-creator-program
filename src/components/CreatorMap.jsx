@@ -973,9 +973,18 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // that is not being painted (a background tab, an embedded pane) moves
   // without ever emitting one. Two readings of the same fact, and the map only
   // takes the wheel when both of them say the page is still.
-  const scrolledY = useRef(0)
+  //
+  // IT IS KEPT CURRENT BY THE LISTENER TOO (21 Sep 2026). It used to be written
+  // only by the gate, so the FIRST wheel over the map always found it stale
+  // (0 against a page scrolled to the map), read that as "the page moved",
+  // and handed the wheel to the page - which scrolled, stamping `scrolledAt`,
+  // which refused the next wheel, which scrolled the page again. Once started
+  // it never let go. Ethan: "unless I'm hovering over a country, I seem to be
+  // unable to zoom in... if I scroll in anywhere there, then it should zoom
+  // into the map."
+  const scrolledY = useRef(typeof window === 'undefined' ? 0 : (window.scrollY || 0))
   useEffect(() => {
-    const onScroll = () => { scrolledAt.current = Date.now() }
+    const onScroll = () => { scrolledAt.current = Date.now(); scrolledY.current = window.scrollY || 0 }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])

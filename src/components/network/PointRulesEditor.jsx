@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
+import { Select } from '../ui'
 import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS } from '../../lib/scoring'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -78,7 +79,10 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
       inputMode={decimal ? 'decimal' : 'numeric'}
       value={text}
       onChange={(e) => {
-        const clean = e.target.value.replace(decimal ? /[^0-9.]/g : /[^0-9]/g, '')
+        // A LEADING ZERO IS DROPPED AS YOU TYPE. Clearing the points box used
+        // to put a 0 straight back, so typing 2 read "02" (Ethan: "it shows
+        // up as a zero first"). "0." is kept so a decimal is still reachable.
+        const clean = e.target.value.replace(decimal ? /[^0-9.]/g : /[^0-9]/g, '').replace(/^0+(?=\d)/, '')
         setText(clean)
         onChange(clean === '' ? null : Number(clean))
       }}
@@ -155,7 +159,7 @@ function Row({ rule, onChange, onRemove }) {
       <label className="flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 py-1.5 shadow-sm sm:w-full">
         <NumberBox
           value={rule.points}
-          onChange={(v) => onChange({ ...rule, points: v ?? 0 })}
+          onChange={(v) => onChange({ ...rule, points: v })}
           width="w-10"
           decimal
           dark
@@ -221,7 +225,7 @@ function Row({ rule, onChange, onRemove }) {
           <span className={cx(
             'w-fit truncate rounded-lg border border-dashed px-2.5 py-1.5 text-xs sm:w-full sm:text-center',
             rule.prompt?.trim()
-              ? 'border-green-200 bg-green-50 text-green-700'
+              ? 'border-brand/40 bg-white font-medium text-brand'
               : 'border-gray-200 bg-white text-smoke',
           )}>
             {rule.prompt?.trim()
@@ -240,110 +244,64 @@ function Row({ rule, onChange, onRemove }) {
       </button>
     </div>
 
-    {/* THE QUESTION, WHICH IS WHAT MAKES A BONUS AUTOMATIC.
-        Ethan: "when an admin sets up bonus points they should enter what the
-        bonus points are for... the admin should also select or write the
-        message that shows up when a creator submits the video, like 'Is this
-        video featuring a Christmas market?', and ticking the box would then
-        automatically update the points - this would mean the points system is
-        fully automated again, no manual checking."
-        Typing a question here turns this bonus into a tick box on the submit
-        form and awards it from the answer. Leaving it blank keeps the bonus
-        exactly as bonuses have always worked - handed out by an admin from the
-        results page - which is why every bonus already in the database goes on
-        behaving the way its market expects. The chip above says which it is. */}
+    {/* THE BONUS SETTINGS, AS ONE PANEL (21 Sep 2026).
+        Ethan: "could you tidy up the way the bonus points currently look,
+        because it seems a bit scattered and misaligned with the other style."
+        It was three free-standing sentences, each with a box dropped somewhere
+        along it, so no two boxes lined up. Now it is one tinted panel under the
+        row, indented to the name column, with three labelled fields: the
+        question (what makes the bonus automatic), the view gate, and the cap.
+
+        THE QUESTION: typing one turns this bonus into a tick box on the submit
+        form, awarded from the answer. Blank means an admin awards it from the
+        results page. Since migration 233 either way is a CLAIM, so the view
+        gate and the cap hold however the bonus was given.
+        THE GATE: the claim is kept; only the award waits for the views, and it
+        lands by itself on the sync that carries the video past the number.
+        THE CAP: "for each one they can only get a max of 9 extra points from
+        this bonus" - first qualifying entries by submission time. */}
     {rule.kind === 'bonus' && (
-      <label className="mt-2.5 block">
-        <span className="mb-1 block text-[11px] font-medium text-smoke">
-          {tr("Ask the creator when they submit")} <span className="font-normal">(leave blank to award it yourself)</span>
-        </span>
-        <input
-          className="input !py-1.5 !no-ios-zoom sm:text-sm"
-          value={rule.prompt ?? ''}
-          onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
-          placeholder={tr("Is this video featuring a Christmas market?")}
-        />
-      </label>
-    )}
-
-    {/* AND THE BONUS CAN WAIT FOR THE VIEWS (3 Sep 2026).
-
-        Ethan: "let's say they tick off this bonus point, but they only get it if
-        a video reaches over a thousand views. So they still get the other
-        points, like for posting a video, but then they only get the bonus point
-        if they reach a thousand views. This might be for some challenges, not
-        every challenge, so I wanna have the option - and not just for a thousand
-        views, could enter five hundred, two hundred, etcetera."
-
-        So it is a number he types, and blank means no gate at all - which is
-        every bonus that already exists.
-
-        THE CLAIM IS KEPT EITHER WAY; ONLY THE AWARD WAITS. The creator ticks the
-        box once, when they submit, and never has to come back: migration 181
-        derives the award from the claim on every recalculation, so the point
-        lands by itself on the sync that carries the video past the number, and
-        comes off again if a count is corrected downwards. Nobody checks
-        anything.
-
-        ONLY UNDER A QUESTION. A bonus with no question is one an admin hands out
-        by judgement from the results page - gating a human's decision on a view
-        count would just stop them being able to make it. */}
-    {rule.kind === 'bonus' && (
-      /* SINCE MIGRATION 233 THIS IS EVERY BONUS, asked or not: an admin's award
-         is a claim made for the creator, and the gate holds either way.
-         THE BOX WAS INVISIBLE, AND THE WORDS WERE ABOUT MONEY (4 Sep 2026).
-
-         Ethan: "the actual box to enter the views here doesn't seem to show,
-         should be a clean UI box to enter in the views" - and on the sentence,
-         it should read "Only award the point once the video passes [box] views
-         (leave blank and they'll get the point immediately)".
-
-         Both were real. `NumberBox` is deliberately chrome-less - `border-0
-         bg-transparent p-0` - because every other use of it sits INSIDE a
-         bordered pill that provides the box. This one was dropped naked onto a
-         white card with no border, no background and no placeholder, so there
-         was nothing on screen to tell anybody it was a field at all.
-
-         And "pay" is the wrong verb: a bonus awards POINTS, not money, and on a
-         points challenge the prize is decided by the leaderboard at the end. */
-      <label className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="text-[11px] font-medium text-smoke">{tr("Only award the point once the video passes")}</span>
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
-          <NumberBox
-            value={rule.min_views ?? null}
-            onChange={(v) => onChange({ ...rule, min_views: v })}
-            width="w-16"
-            placeholder="1,000"
-            ariaLabel="Views the entry must reach before this bonus is awarded"
+      <div className="mt-2.5 grid gap-3 rounded-xl bg-cloud/70 p-3 sm:ml-[2.875rem] sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]">
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Ask the creator when they submit")}</span>
+          <input
+            className="input !h-[38px] !py-0 !no-ios-zoom sm:text-sm"
+            value={rule.prompt ?? ''}
+            onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
+            placeholder={tr("Is this video featuring a Christmas market?")}
           />
-          <span className="shrink-0 text-xs text-smoke">{tr("views")}</span>
-        </span>
-        <span className="text-[11px] font-normal text-smoke">
-          ({tr("leave blank and they'll get the point immediately")})
-        </span>
-      </label>
-    )}
-
-    {/* THE CAP. Ethan: "I could have 3 different bonus points, and for each
-        one they can only get a max of 9 extra points from this bonus." The
-        first qualifying entries in the order they were submitted earn it. */}
-    {rule.kind === 'bonus' && (
-      <label className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="text-[11px] font-medium text-smoke">{tr("At most")}</span>
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
-          <NumberBox
-            value={rule.max_points ?? null}
-            onChange={(v) => onChange({ ...rule, max_points: v })}
-            width="w-12"
-            decimal
-            placeholder="9"
-            ariaLabel="Most points one creator can earn from this bonus"
-          />
-          <span className="shrink-0 text-xs text-smoke">pts</span>
-        </span>
-        <span className="text-[11px] font-medium text-smoke">{tr("per creator from this bonus")}</span>
-        <span className="text-[11px] font-normal text-smoke">({tr("leave blank for no limit")})</span>
-      </label>
+          <span className="mt-1 block text-[11px] text-smoke">{tr("Leave blank to award it yourself from the results page.")}</span>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Views needed")}</span>
+          <span className="flex h-[38px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3">
+            <NumberBox
+              value={rule.min_views ?? null}
+              onChange={(v) => onChange({ ...rule, min_views: v })}
+              width="w-full min-w-0 !text-left"
+              placeholder="any"
+              ariaLabel="Views the entry must reach before this bonus is awarded"
+            />
+            <span className="shrink-0 text-xs text-smoke">{tr("views")}</span>
+          </span>
+          <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: straight away")}</span>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Most per creator")}</span>
+          <span className="flex h-[38px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3">
+            <NumberBox
+              value={rule.max_points ?? null}
+              onChange={(v) => onChange({ ...rule, max_points: v })}
+              width="w-full min-w-0 !text-left"
+              decimal
+              placeholder="none"
+              ariaLabel="Most points one creator can earn from this bonus"
+            />
+            <span className="shrink-0 text-xs text-smoke">pts</span>
+          </span>
+          <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: no limit")}</span>
+        </label>
+      </div>
     )}
     </div>
   )
@@ -356,31 +314,42 @@ function Row({ rule, onChange, onRemove }) {
 function ConsistencyPeriod({ rule, onChange }) {
   const tr = useT()
   const days = Number(rule.period_days) || 7
-  const named = CONSISTENCY_PERIODS.find((p) => p.days === days)
+  // `custom` sticks once chosen, even when the number typed happens to be 7,
+  // so the box does not vanish from under somebody typing "14".
+  const [custom, setCustom] = useState(() => !CONSISTENCY_PERIODS.some((p) => p.days === days))
+  const named = !custom && CONSISTENCY_PERIODS.find((p) => p.days === days)
+  // THE PLATFORM'S OWN DROPDOWN. It was a native <select>, which opens the
+  // operating system's menu - Ethan: "this UI is the weird Apple [menu]. It's
+  // not our custom UI, so please fix that."
+  const options = [
+    ...CONSISTENCY_PERIODS.map((p) => ({ value: String(p.days), label: tr(p.label.charAt(0).toUpperCase() + p.label.slice(1)) })),
+    { value: 'custom', label: tr('Every few days') },
+  ]
   return (
-    <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
-      <span className="shrink-0 text-xs text-smoke">{tr("post")}</span>
-      <select
-        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs font-medium outline-none focus:ring-0"
+    <div className="flex w-full min-w-0 items-center gap-1.5">
+      <Select
+        variant="chip"
+        className="min-w-0 flex-1"
+        ariaLabel="How often they have to post"
         value={named ? String(days) : 'custom'}
-        onChange={(e) => onChange({ ...rule, period_days: e.target.value === 'custom' ? 3 : Number(e.target.value) })}
-        aria-label="How often they have to post"
-      >
-        {CONSISTENCY_PERIODS.map((p) => <option key={p.days} value={p.days}>{tr(p.label)}</option>)}
-        <option value="custom">{tr("every N days")}</option>
-      </select>
+        onChange={(v) => {
+          if (v === 'custom') { setCustom(true); onChange({ ...rule, period_days: 3 }) }
+          else { setCustom(false); onChange({ ...rule, period_days: Number(v) }) }
+        }}
+        options={options}
+      />
       {!named && (
-        <>
+        <span className="flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5">
           <NumberBox
             value={rule.period_days ?? null}
             onChange={(v) => onChange({ ...rule, period_days: v })}
-            width="w-8"
+            width="w-7"
             ariaLabel="Days in each window"
           />
-          <span className="shrink-0 text-xs text-smoke">{tr("days")}</span>
-        </>
+          <span className="text-xs text-smoke">{tr("days")}</span>
+        </span>
       )}
-    </label>
+    </div>
   )
 }
 

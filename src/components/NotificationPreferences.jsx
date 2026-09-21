@@ -5,7 +5,7 @@ import { useUnread } from '../context/UnreadContext'
 import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
 import FlagTile from './network/FlagTile'
-import { enablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
+import { enablePush, pushSupported, pushPermission, syncPushSubscription } from '../lib/push'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -447,6 +447,17 @@ function BlockTitle({ title, hint }) {
 // a heading over the only column there is.
 export function CreatorNotifications({ state }) {
   const tr = useT()
+  const { user } = useAuth()
+  const [testing, setTesting] = useState('')
+  async function sendTest() {
+    setTesting('sending')
+    const registered = await syncPushSubscription(user?.id, { force: true })
+    const { data, error } = await supabase.rpc('send_test_push')
+    if (error || !data) return setTesting(tr("Could not send the test. Please try again."))
+    if (!data.ok) return setTesting(tr("Give it thirty seconds before sending another."))
+    if (!registered) return setTesting(tr("Sent, but this device could not register for notifications. Try closing and reopening the app."))
+    setTesting(tr("Sent. It should reach your lock screen within a few seconds."))
+  }
   const supported = pushSupported()
   return (
     // `divide-y` under `sm` is the card edge a Panel does not draw on a phone.
@@ -468,9 +479,16 @@ export function CreatorNotifications({ state }) {
             <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
               <span className="h-2 w-2 rounded-full bg-green-500" /> {tr("On for this device")}
             </span>
-            <button onClick={() => showLocalNotification({ title: 'Tryp.com', body: 'Test notification - you are all set!', link: '/notifications' })} className="btn-secondary !py-2 text-xs">
-              {tr("Send a test")}
+            {/* A REAL PUSH, NOT A LOCAL ONE (migration 236). The old button drew
+                the notification on the phone itself, so it passed even when the
+                server had lost this device. This re-registers the device first,
+                then sends through the same path as every other notification. */}
+            <button onClick={sendTest} disabled={testing === 'sending'} className="btn-secondary !py-2 text-xs">
+              {testing === 'sending' ? tr("Sending…") : tr("Send a test")}
             </button>
+            {testing && testing !== 'sending' && (
+              <span className="basis-full text-xs text-smoke">{testing}</span>
+            )}
             {/* No "Turn off". See the note beside `turnOnPush`: it could never
                 do what it looked like it did, and the switch that can is in the
                 phone's own settings. */}

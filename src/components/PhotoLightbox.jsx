@@ -150,9 +150,26 @@ export default function PhotoLightbox({
     }
   }, [clamp])
 
-  const onWheel = useCallback((e) => {
-    setView((cur) => clamp({ ...cur, scale: cur.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12) }))
-  }, [clamp])
+  // THE WHEEL OVER THE PHOTO IS THE PHOTO'S, AND ONLY THE PHOTO'S (21 Sep 2026).
+  // Ethan: "if I'm scrolling on top of the photo, it should only be the photo
+  // that zooms in, and not the back." React attaches `onWheel` as a PASSIVE
+  // listener, so the handler zoomed the photo and could not stop the same
+  // event scrolling the page behind it. A native listener with
+  // `passive: false` can. Scrolling on the backdrop still scrolls the page.
+  // A trackpad pinch arrives as a wheel with `ctrlKey`, with small deltas, so
+  // the step follows the size of the movement rather than a fixed jump.
+  useEffect(() => {
+    const el = frameRef.current
+    if (!el || !src || kind === 'video') return undefined
+    const onWheel = (e) => {
+      e.preventDefault()
+      const step = Math.min(Math.abs(e.deltaY), 60) / (e.ctrlKey ? 60 : 450)
+      const factor = e.deltaY < 0 ? 1 + step : 1 / (1 + step)
+      setView((cur) => clamp({ ...cur, scale: cur.scale * factor }))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [src, kind, clamp])
 
   const toggleZoom = useCallback(() => {
     setView((cur) => (cur.scale > 1.01 ? { scale: 1, x: 0, y: 0 } : clamp({ scale: 2.5, x: 0, y: 0 })))
@@ -216,7 +233,6 @@ export default function PhotoLightbox({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={endPointer}
-        onWheel={kind === 'video' ? undefined : onWheel}
         onDoubleClick={kind === 'video' ? undefined : toggleZoom}
         className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden"
       >

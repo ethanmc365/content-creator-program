@@ -1721,7 +1721,7 @@ export default {
   'final': 'final',
   '{n} more videos to go.': 'Te quedan {n} vídeos.',
   'at {n} views': 'a las {n} visualizaciones',
-  'You get this point once this video passes {n} views.': 'Consigues este punto cuando este vídeo pase de {n} visualizaciones.',
+  'The bonus lands once this video passes {n} views.': 'El bonus llega cuando este vídeo pase de {n} visualizaciones.',
   'Reading your post…': 'Leyendo tu publicación…',
   'Found it. Check the caption below and post your entry.': 'Encontrada. Revisa el texto de abajo y envía tu participación.',
   'We could not read a preview. Your entry still counts.': 'No hemos podido leer la vista previa. Tu participación cuenta igualmente.',

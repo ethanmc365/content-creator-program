@@ -138,7 +138,7 @@ export function normalisePointRule(r) {
   return {
     kind: r.kind,
     label: r.label,
-    points: r.points,
+    points: Number(r.points) || 0,
     threshold: RULE_USES_THRESHOLD.has(r.kind) ? r.threshold : null,
     max_points: RULE_USES_MAX.has(r.kind) && r.max_points != null && r.max_points !== '' ? r.max_points : null,
     // Zero and null mean the same thing here - "no gate" - and the database
