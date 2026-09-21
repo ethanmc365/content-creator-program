@@ -1,4 +1,5 @@
 import { Card, Eyebrow, Hero, Line, Facts, Chips, Standing, formatViews, flagEmoji, roughMoney, wholeMoney } from './cards'
+import { useId } from 'react'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 import { cx } from '../../lib/utils'
@@ -822,6 +823,7 @@ export function routeStops(milestones = [], next = null) {
 }
 
 export function MilestoneRoute({ milestones = [], next = null, me }) {
+  const maskId = `route-mask-${useId().replace(/:/g, '')}`
   const stops = routeStops(milestones, next)
   if (!stops.length) return null
   const H = ROUTE_PAD * 2 + (stops.length - 1) * ROUTE_ROW
@@ -842,10 +844,29 @@ export function MilestoneRoute({ milestones = [], next = null, me }) {
   return (
     <div className="relative w-full" style={{ aspectRatio: `${ROUTE_W} / ${H}` }}>
       <svg viewBox={`0 0 ${ROUTE_W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-        <path d={whole} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2.5" strokeDasharray="2 7" strokeLinecap="round" />
-        {flown && (
-          <path data-anim="draw" d={flown} pathLength="1" fill="none" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
-        )}
+        {/* THE LINE STOPS AT EACH STOP'S EDGE (21 Sep 2026). The next stop is
+            a hollow dashed ring, so the route used to run straight through its
+            middle - Ethan: "the dotted line should stop once it reaches it, not
+            actually go through the centre of it." A mask punches a hole the
+            size of each stop (a touch bigger than the drawn circle, so there is
+            a hair of air) out of both the dashed and the flown line. Units are
+            px-ish because the card is ~300px wide: the dot is 28px, the face
+            48px. The id is per instance so two recaps on a page do not share. */}
+        <defs>
+          <mask id={maskId} maskUnits="userSpaceOnUse" x="-20" y="-20" width={ROUTE_W + 40} height={H + 40}>
+            <rect x="-20" y="-20" width={ROUTE_W + 40} height={H + 40} fill="#fff" />
+            {stops.map((_, i) => {
+              const p = pt(i)
+              return <circle key={i} cx={p.x} cy={p.y} r={(i === here ? 24 : 14) + 3} fill="#000" />
+            })}
+          </mask>
+        </defs>
+        <g mask={`url(#${maskId})`}>
+          <path d={whole} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2.5" strokeDasharray="2 7" strokeLinecap="round" />
+          {flown && (
+            <path data-anim="draw" d={flown} pathLength="1" fill="none" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
+          )}
+        </g>
       </svg>
 
       {stops.map((m, i) => {

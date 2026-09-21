@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
@@ -77,21 +77,80 @@ const LAYOUT = {
   // so the line reads as a flown route rather than as a zigzag between two
   // columns. On the desktop the legs are 150 units tall against 188 across and
   // need no help, which is why that row is still 0.
-  narrow: { W: 320, left: 40, right: 280, gap: 122, wave: 14, labelPct: 76 },
+  //
+  // `pull` is how far down each leg's control points reach (x the gap), and
+  // `cardGap` is the space between a dot and its card. On a phone the first
+  // leg used to bend right at 0.55 and ran under the bottom-left corner of the
+  // "Just joined" card; at 0.8 it hugs the edge until it is below the card
+  // (measured: x=63 at the card's foot, against a card edge at 72).
+  narrow: { W: 320, left: 40, right: 280, gap: 122, wave: 14, labelPct: 74, pull: 0.8, cardGap: 32 },
 }
 
 // How much vertical room every stop card gets on a phone, in CSS pixels. The
 // tallest card the live ladder produces is 170px - "On a roll", which carries a
 // description, a voucher line and three requirements - so this leaves a little
 // air under the worst case rather than being tuned to the average one.
-const NARROW_SLOT_PX = 186
+//
+// 250, NOT 186 (21 Sep 2026). Ethan, on a phone: "the 'Just Joined' card...
+// is actually going through the line, and my profile icon is showing that I'm
+// halfway through to the next one. The next one is covering over that, so
+// everything's just too crowded together. Spread it out." At 186 the midpoint
+// of a leg - where the marker sits for anybody on their first stop - was 93px
+// below a stop whose card is ~100px tall, so the marker landed on the card. At
+// 250 the midpoint is 125px down, clear of every card but the tallest, and the
+// first leg stays hugging its own edge until below the card it starts beside.
+const NARROW_SLOT_PX = 250
+// The least vertical room a phone leg gets to swing from one edge to the other
+// once it is below its card, in px.
+const SWOOP_PX = 150
 
 function nodeX(i, L) {
   return i % 2 === 0 ? L.left : L.right
 }
 
 function nodeY(i, L) {
-  return TOP + i * L.gap
+  return L.ys ? L.ys[i] : TOP + i * L.gap
+}
+
+// A leg on a phone is a straight RUN down beside the stop's card, then a
+// SWOOP across to the next stop. `L.runs[i]` is the run in viewBox units (0 on
+// a desktop, where the cards sit beside a route that never passes them).
+function legOf(i, L) {
+  const p0 = [nodeX(i, L), nodeY(i, L)]
+  const p3 = [nodeX(i + 1, L), nodeY(i + 1, L)]
+  const run = Math.max(0, Math.min(L.runs?.[i] ?? 0, p3[1] - p0[1] - 40))
+  const q = [p0[0], p0[1] + run]
+  // `wave` bends the curve sideways when the nodes themselves are in a
+  // straight column, which is the only thing keeping the phone layout from
+  // being a vertical line with dots on it.
+  const w = L.wave * (i % 2 === 0 ? 1 : -1)
+  const span = p3[1] - q[1]
+  const pull = run > 0 ? 0.5 : (L.pull ?? 0.55)
+  const c1 = [q[0] + w, q[1] + span * pull]
+  const c2 = [p3[0] + w, p3[1] - span * pull]
+  const swoop = [q, c1, c2, p3]
+  const runPart = run > 0 ? [p0, [p0[0], p0[1] + run / 3], [p0[0], p0[1] + (2 * run) / 3], q] : null
+  const swoopLen = cubicLength(swoop)
+  const len = run + swoopLen
+  return { run: runPart, swoop, share: len > 0 ? run / len : 0, len }
+}
+
+function cubicLength(seg) {
+  let total = 0
+  let prev = cubicAt(seg, 0)
+  for (let k = 1; k <= 24; k += 1) {
+    const pt = cubicAt(seg, k / 24)
+    total += Math.hypot(pt.x - prev.x, pt.y - prev.y)
+    prev = pt
+  }
+  return total
+}
+
+// A point `t` of the way along a leg, by distance for the run and by the
+// curve's own parameter for the swoop.
+function legAt(leg, t) {
+  if (leg.run && t < leg.share) return cubicAt(leg.run, leg.share > 0 ? t / leg.share : 0)
+  return cubicAt(leg.swoop, leg.share < 1 ? (t - leg.share) / (1 - leg.share) : 1)
 }
 
 // The whole route as one path string, plus the control points, so the marker and
@@ -101,18 +160,19 @@ function buildRoute(count, L) {
   const segs = []
   let d = `M ${nodeX(0, L)} ${nodeY(0, L)}`
   for (let i = 0; i < count - 1; i += 1) {
-    const p0 = [nodeX(i, L), nodeY(i, L)]
-    const p3 = [nodeX(i + 1, L), nodeY(i + 1, L)]
-    // `wave` bends the curve sideways when the nodes themselves are in a
-    // straight column, which is the only thing keeping the phone layout from
-    // being a vertical line with dots on it.
-    const w = L.wave * (i % 2 === 0 ? 1 : -1)
-    const c1 = [p0[0] + w, p0[1] + L.gap * 0.55]
-    const c2 = [p3[0] + w, p3[1] - L.gap * 0.55]
+    const leg = legOf(i, L)
+    if (leg.run) d += ` L ${leg.run[3][0]} ${leg.run[3][1]}`
+    const [, c1, c2, p3] = leg.swoop
     d += ` C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${p3[0]} ${p3[1]}`
-    segs.push([p0, c1, c2, p3])
+    segs.push(leg)
   }
-  return { d, segs }
+  // Where each stop sits along the route, as a fraction of its whole length.
+  // The legs are not equal on a phone, so "stop i is i/legs of the way" is no
+  // longer true, and the marker and the flown line both move by distance.
+  const total = segs.reduce((a, g) => a + g.len, 0) || 1
+  const at = [0]
+  for (const g of segs) at.push(at[at.length - 1] + g.len / total)
+  return { d, segs, at }
 }
 
 function cubicAt(seg, t) {
@@ -264,9 +324,46 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // Solving `slotPx = (box / W) * gap` for the gap instead pins the slot at a
   // constant NARROW_SLOT_PX on every phone, which is the thing that actually
   // has to stay bigger than a card.
-  const L = narrow
-    ? { ...LAYOUT.narrow, gap: Math.round((NARROW_SLOT_PX * LAYOUT.narrow.W) / Math.max(box || LAYOUT.narrow.W, 240)) }
-    : LAYOUT.wide
+  // THE PHONE'S LEGS ARE AS LONG AS THEIR CARDS NEED (21 Sep 2026).
+  //
+  // Measured after the slot change above: the start card was clear, but the
+  // three stops below it carry 140-160px cards and the line still ran under
+  // every one of them, because a curve that starts swinging across the moment
+  // it leaves a dot is beside its card for the whole swing. So each card's
+  // real height (`cardHs`, measured) decides a straight RUN down the edge
+  // beside it, and the swing across happens below it, over at least
+  // SWOOP_PX. A leg is never shorter than NARROW_SLOT_PX.
+  const [cardHs, setCardHs] = useState([])
+  const unitsPerPx = LAYOUT.narrow.W / Math.max(box || LAYOUT.narrow.W, 240)
+  const L = useMemo(() => {
+    if (!narrow) return LAYOUT.wide
+    const gap = Math.round(NARROW_SLOT_PX * unitsPerPx)
+    const count = milestones.length + 1
+    const ys = [TOP]
+    const runs = []
+    for (let i = 0; i < count - 1; i += 1) {
+      // The card's top is 20 units above its dot; the run ends 10 units below
+      // the card's foot, so the swing starts clear of it.
+      const run = cardHs[i] ? Math.max(0, cardHs[i] * unitsPerPx - 20 + 10) : 0
+      runs.push(run)
+      ys.push(ys[i] + Math.max(gap, run + SWOOP_PX * unitsPerPx))
+    }
+    return { ...LAYOUT.narrow, gap, ys, runs }
+  }, [narrow, unitsPerPx, cardHs, milestones.length])
+
+  // Measure every card, and again whenever one changes height (a reward line
+  // wrapping, a font arriving late). Only the phone layout reads it.
+  useEffect(() => {
+    if (!box0 || !narrow) return undefined
+    const measure = () => {
+      const hs = [...box0.querySelectorAll('[data-stop-card]')].map((el) => Math.round(el.offsetHeight))
+      setCardHs((prev) => (prev.length === hs.length && prev.every((v, i) => v === hs[i]) ? prev : hs))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    box0.querySelectorAll('[data-stop-card]').forEach((el) => ro.observe(el))
+    return () => ro.disconnect()
+  }, [box0, narrow, milestones.length])
 
   useEffect(() => {
     if (!box0) return undefined
@@ -335,8 +432,8 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // with nothing done yet still sees a road with a start on it rather than an
   // empty state.
   const nodes = [{ start: true }, ...milestones]
-  const H = TOP + (nodes.length - 1) * L.gap + TOP
-  const { d, segs } = buildRoute(nodes.length, L)
+  const H = nodeY(nodes.length - 1, L) + TOP
+  const { d, segs, at } = buildRoute(nodes.length, L)
 
   const reached = milestones.filter((m) => m.reached).length
   const next = milestones[reached] || null
@@ -382,18 +479,28 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
     // `legFraction === 0` is "standing exactly on a stop": either the very
     // start, or a milestone just reached with no progress yet toward the next.
     : Math.max(MIN_LEG, legFraction === 0 ? reached + MIN_LEG : reached + legFraction)
-  const progress = Math.min(1, shownLegs / legs)
+  // How far along the ROUTE, by distance: the whole legs flown plus the part
+  // of the current one. This is what the flown line and the marker move by.
+  const progressLegs = Math.min(1, shownLegs / legs)
+  const shownI = Math.min(Math.floor(shownLegs), legs)
+  // PROGRESS ON A LEG IS PROGRESS ACROSS ITS SWING. The straight run beside a
+  // card is scenery: "half way to the next stop" has to put the marker in the
+  // middle of the crossing, between two cards, not at the foot of the run where
+  // it sits on the corner of the card it just left.
+  const along = (i, fr) => (segs[i] ? segs[i].share + fr * (1 - segs[i].share) : 1)
+  const routeLen = Math.max(1, segs.reduce((a, g) => a + g.len, 0))
+  const progress = Math.min(1, (at[shownI] ?? 1) + (shownI < legs ? along(shownI, shownLegs - shownI) * (segs[shownI]?.len ?? 0) / routeLen : 0))
 
   // The static marker position has to be derived from the SAME number, or the
   // pre-flight plane and the flown one sit in different places.
   const shownReached = Math.floor(shownLegs)
   const shownFraction = shownLegs - shownReached
   const planeSeg = segs[Math.min(shownReached, segs.length - 1)]
-  const plane = planeSeg ? cubicAt(planeSeg, shownReached >= segs.length ? 1 : shownFraction) : null
+  const plane = planeSeg ? legAt(planeSeg, shownReached >= segs.length ? 1 : along(shownReached, shownFraction)) : null
 
   // Where the marker waits before the route starts drawing: the first dot.
   // Null once the journey has begun.
-  const start = !started && segs.length ? cubicAt(segs[0], 0) : null
+  const start = !started && segs.length ? legAt(segs[0], 0) : null
 
   // HOW LONG THE FLIGHT TAKES.
   //
@@ -405,7 +512,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // than teleporting. Per-leg pacing keeps every route feeling like the same
   // aeroplane. The floor stops a two-percent journey being over before it
   // registers; the ceiling stops a long route becoming something you wait for.
-  const flightSeconds = Math.max(3.5, Math.min(12, 2 + progress * legs * 1.1))
+  const flightSeconds = Math.max(3.5, Math.min(12, 2 + progressLegs * legs * 1.1))
   // NEARLY CONSTANT SPEED, and that is deliberate.
   //
   // This was `0.42 0 0.16 1`, a proper ease-in-out, and over a long route that
@@ -422,7 +529,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // beyond where the creator has got to arrive just after the plane parks -
   // they are the route ahead, and the route ahead is part of the picture.
   const arrivalDelay = (i) => {
-    const f = i / legs
+    const f = at[i] ?? i / legs
     if (progress <= 0) return Math.min(i * 0.12, 1)
     // Beyond where the creator has got to: the route ahead, arriving just after
     // the marker parks. Still linear, because nothing is flying it.
@@ -474,9 +581,11 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
           fill="none"
           stroke="currentColor"
           className="text-gray-200"
-          strokeWidth="3"
+          // BIGGER DOTS ON A PHONE. 3 units at 1 in 12 read as a hairline
+          // at 375px; Ethan asked for "bigger circles".
+          strokeWidth={narrow ? 5.5 : 3}
           strokeLinecap="round"
-          strokeDasharray="1 12"
+          strokeDasharray={narrow ? '0.5 15' : '1 12'}
         />
         {/* The part already flown. `pathLength` is animated rather than the
             dasharray, so Motion owns the arithmetic and the route draws itself
@@ -674,8 +783,8 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
               // grows downward into the empty space beside the next leg and the
               // line is never underneath it.
               top: `${((y - 20) / H) * 100}%`,
-              left: rightSide ? `${((x + 22) / L.W) * 100}%` : undefined,
-              right: rightSide ? undefined : `${((L.W - x + 22) / L.W) * 100}%`,
+              left: rightSide ? `${((x + (L.cardGap ?? 22)) / L.W) * 100}%` : undefined,
+              right: rightSide ? undefined : `${((L.W - x + (L.cardGap ?? 22)) / L.W) * 100}%`,
               width: `${L.labelPct}%`,
             }}
           >

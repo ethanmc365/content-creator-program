@@ -950,12 +950,14 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //   That is the whole of the original bug: you cannot be trapped by a
   //   control that refuses to engage while you are moving.
   //
-  //   AT EITHER LIMIT THE WHEEL GOES BACK TO THE PAGE. Zoomed all the way out
-  //   and still scrolling down, the map has nothing left to do with the
-  //   gesture, so it hands it back and the page carries on from where it was.
-  //   That is the way OUT, and it needs no cursor move and nothing learned:
-  //   the map you have not zoomed is exactly as transparent to a scroll as it
-  //   was before this change.
+  //   AT EITHER LIMIT THE WHEEL STOPS; IT DOES NOT FALL THROUGH TO THE PAGE
+  //   (21 Sep 2026). It used to be handed back, as "the way out". Ethan: "if
+  //   I'm zooming in a lot and then I zoom out, once it reaches the full zoom
+  //   out, it should just stop. Instead, it starts scrolling the page down...
+  //   If I'm scrolling on the map, it should just be related to the map." A
+  //   wheel the map owns is swallowed by the box's own listener even when
+  //   there is no zoom left to do. The way past the map is the rule above: a
+  //   page already moving never hands its wheel to the map.
   //
   //   ONCE A ZOOM IS RUNNING IT KEEPS THE WHEEL for 400ms of quiet, so a
   //   trackpad's stream of small deltas is one gesture rather than forty
@@ -994,8 +996,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // was fixed for.
   const zoomRef = useRef(1.3)
 
-  // The gate itself. Returns true only when this wheel is the map's.
-  const wheelIsOurs = (event) => {
+  // WHO OWNS THIS WHEEL: the map or the page. Decided ONCE per event and
+  // stashed on it, because two listeners ask (d3-zoom's filter on the svg, then
+  // the box's own listener below) and the decision moves `scrolledY`.
+  const wheelOwnedByMap = (event) => {
+    if (event.__trypMap !== undefined) return event.__trypMap
     const now = Date.now()
     // Mid-gesture: a trackpad sends a stream, and re-deciding on every delta
     // would drop the map out of a zoom the moment it crossed a limit check on
@@ -1005,14 +1010,30 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     const y = typeof window === 'undefined' ? 0 : (window.scrollY || 0)
     const moved = y !== scrolledY.current
     scrolledY.current = y
-    if (!continuing && (moved || now - scrolledAt.current < 250)) return false
-    // Nothing left to zoom in this direction: hand it back so the page keeps
-    // going. `deltaY > 0` is scrolling down, which is zooming out.
-    const z = zoomRef.current || 1
-    if (event.deltaY > 0 ? z <= 1.02 : z >= 39.5) return false
-    wheelAt.current = now
-    return true
+    const owned = continuing || !(moved || now - scrolledAt.current < 250)
+    if (owned) wheelAt.current = now
+    event.__trypMap = owned
+    return owned
   }
+  // The gate d3-zoom asks. True only when this wheel is the map's AND there is
+  // zoom left to do in its direction (`deltaY > 0` is down, which is out).
+  const wheelIsOurs = (event) => {
+    if (!wheelOwnedByMap(event)) return false
+    const z = zoomRef.current || 1
+    return !(event.deltaY > 0 ? z <= 1.02 : z >= 39.5)
+  }
+
+  // THE OTHER HALF OF "IT SHOULD JUST STOP". d3-zoom only calls
+  // `preventDefault` when it actually changes the zoom, so a wheel it refused
+  // at a limit went on to scroll the page. This listener (non-passive, on the
+  // box, so it runs after d3's on the svg) swallows every wheel the map owns.
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el || !navigable || fullscreen) return undefined
+    const onWheel = (e) => { if (wheelOwnedByMap(e)) e.preventDefault() }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [navigable, fullscreen])
 
   // Resolve any legacy profile that has a town but no stored coordinates.
   useEffect(() => {
@@ -2098,6 +2119,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           className={cx(
             'absolute z-20 flex h-9 items-center justify-center gap-1.5 rounded-full bg-white/90 px-0 text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:text-ink active:scale-95 max-sm:w-9 sm:px-3.5',
             flush ? 'right-4 top-4 sm:right-6' : 'right-3 top-3 sm:right-5 sm:top-5',
+            // On a navigable map the desktop door is the last button of the zoom
+            // pill below, so this one is the phone's only.
+            navigable && 'sm:hidden',
           )}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2124,8 +2148,17 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           page, so on a phone these three discs are 120px of chrome over the
           picture that do nothing a finger cannot. They come back at `sm`, where
           the pointer is a mouse and the wheel gate is the only other way in. */}
+      {/* FULL SCREEN IS PART OF THE PILL ON A DESKTOP (21 Sep 2026). Ethan:
+          "I would combine the full screen button here, as in a little separate
+          button attached to the same UI design as the plus, minus, and reset
+          buttons, rather than having a separate button. The icon is all we
+          need." So the pill takes the full-screen button's old corner and the
+          labelled button above is phone-only on a navigable map. */}
       {!fullscreen && navigable && (
-        <div className="absolute right-3 top-14 z-20 hidden flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur sm:right-5 sm:top-16 sm:flex">
+        <div className={cx(
+          'absolute z-20 hidden flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur sm:flex',
+          flush ? 'right-4 top-4 sm:right-6' : 'right-3 top-3 sm:right-5 sm:top-5',
+        )}>
           <button type="button" onClick={() => { userMoved.current = true; zoomBy(1.6) }} aria-label={tr("Zoom in")} className={mapBtn}>
             <span className="text-lg font-semibold leading-none text-ink">+</span>
           </button>
@@ -2135,6 +2168,13 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           <button type="button" onClick={resetView} aria-label={tr("Reset map view")} className={cx(mapBtn, mapBtnDiv)}>
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
           </button>
+          {allowFullscreen && (
+            <button type="button" onClick={enterFullscreen} aria-label={tr('Open the map full screen')} title={tr('Full screen')} className={cx(mapBtn, mapBtnDiv)}>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              </svg>
+            </button>
+          )}
         </div>
       )}
 

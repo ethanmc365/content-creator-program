@@ -21,6 +21,17 @@ describe('prizeBudget', () => {
     expect(b.max.total).toBeNull()
     expect(b.min.total).toBe(620)
   })
+  it('uncapped, the ceiling is every eligible creator in the market', () => {
+    const b = prizeBudget({ ...GLOBAL, participation: { ...GLOBAL.participation, cap: '' }, creators: 110 })
+    // outside the prize places: 110 creators minus the 10 who can win a place
+    expect(b.part).toMatchObject({ cap: null, reach: 100, max: 1500 })
+    expect(b.max.total).toBe(620 + 1500)
+    const all = prizeBudget({ ...GLOBAL, participation: { ...GLOBAL.participation, cap: '', scope: 'everyone' }, creators: 110 })
+    expect(all.part.max).toBe(110 * 15)
+  })
+  it('a cap wins over the roster', () => {
+    expect(prizeBudget({ ...GLOBAL, creators: 110 }).part.max).toBe(495)
+  })
   it('reads the value out of the words when none was typed', () => {
     const b = prizeBudget({ participation: { threshold: '3', prize: '€10 voucher', cap: '5' } })
     expect(b.part.each).toBe(10)

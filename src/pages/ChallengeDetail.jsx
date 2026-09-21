@@ -801,7 +801,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           for. They are pressable pills now - a glyph, the word, and the entry
           count as a chip - so the choice reads as a choice. They still lift on
           hover rather than changing colour, which is the house rule. */}
-      <div className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" role="tablist">
+      <div className="-mx-4 mb-8 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -809,7 +809,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             className={cx(
-              'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:gap-2 sm:px-4 sm:text-sm',
+              'flex shrink-0 grow basis-auto items-center justify-center gap-1 rounded-full px-2 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:grow-0 sm:gap-2 sm:px-4 sm:text-sm',
               tab === t.key
                 ? 'bg-brand text-white shadow-card'
                 : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
@@ -1170,7 +1170,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         return (
                           <span key={ruleId}
                             title={waiting
-                              ? `${r.prompt || r.label} — awarded at ${Number(r.min_views).toLocaleString()} views`
+                              ? `${r.prompt || r.label}. Awarded at ${Number(r.min_views).toLocaleString()} views`
                               : (r.prompt || r.label)}
                             className={cx(
                               'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold',

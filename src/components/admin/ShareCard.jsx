@@ -31,6 +31,15 @@ export default function ShareCard({
     ? { threshold: challenge?.participation_threshold || 1, prize: voucherPrize }
     : null
   const isFinal = challenge?.results_status === 'final'
+  // THE PICTURE HOLDS THE TOP TEN, OR EVERY PAID PLACE IF THERE ARE MORE
+  // (21 Sep 2026). It used to hold the whole ranking - on a worldwide board of a
+  // hundred creators that is a 1000px-wide scroll nobody reads in a chat. The
+  // top three still get the podium styling inside the board; everybody past
+  // the cut is one line underneath, and the full board is one tap away.
+  const paid = (prizes || []).filter((p) => String(p?.place || '').trim()).length
+  const cut = Math.max(10, paid)
+  const shownRows = ranking.slice(0, cut)
+  const moreRows = Math.max(0, ranking.length - shownRows.length)
 
   return (
     <div
@@ -63,7 +72,7 @@ export default function ShareCard({
         ) : (
           <>
             <ChallengeLeaderboard
-              rows={ranking}
+              rows={shownRows}
               prizes={prizes}
               scoreLabel={challenge?.scoring === 'points' ? 'points' : 'views'}
               participation={participation}
@@ -72,6 +81,11 @@ export default function ShareCard({
               linkProfiles={false}
               wide
             />
+            {moreRows > 0 && (
+              <p className="mt-4 text-center text-sm font-semibold text-smoke">
+                + {moreRows} more {moreRows === 1 ? 'creator' : 'creators'} on the full leaderboard in the app
+              </p>
+            )}
             <div className="mt-6 flex items-center justify-center gap-10 border-t border-gray-200/70 pt-4 text-center">
               <div>
                 <p className="text-lg font-bold tabular-nums text-ink">{entries}</p>

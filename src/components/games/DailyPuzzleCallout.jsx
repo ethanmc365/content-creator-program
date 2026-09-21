@@ -83,7 +83,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
         // centred stack above it, which meant the thing being looked at on a
         // laptop was not the thing that had been tuned on a phone. A row works
         // at both: tile, then name and count, then the button hard right.
-        'group flex items-center gap-3 px-4 py-3.5 transition-colors duration-200 hover:bg-cloud/50',
+        'group flex items-center gap-3 px-4 py-3.5 sm:gap-2.5 sm:px-3.5 transition-colors duration-200 hover:bg-cloud/50',
         !first && 'border-t border-gray-50 sm:border-l sm:border-t-0',
       )}
     >
@@ -109,13 +109,12 @@ function PuzzleColumn({ puzzle, done, count, first }) {
             with a tick in it, so finishing one puzzle truncates the other two.
             Spanish is longer again.
 
-            So the name wraps to two lines instead of being cut. The reason the
-            old comment gave for `truncate` - that a taller column breaks the
-            strip - does not hold here: the parent is
-            `grid items-stretch sm:grid-cols-3`, so the three columns are always
-            the same height as each other whatever one of them contains. The
-            strip grows by a line; nothing goes missing and nothing goes ragged. */}
-        <span className="line-clamp-2 text-sm font-semibold leading-tight text-ink">{tr(puzzle.title)}</span>
+            Wrapping to two lines was tried and rejected (Ethan, 21 Sep: "goes
+            onto two lines which I don't like"). So the ROOM is made instead: 13px
+            names, a notch less padding and gap from `sm`, and a slimmer button,
+            which is what gives "Guess the language" its 143px. `truncate` stays
+            as the backstop for Spanish, not as the plan. */}
+        <span className="block truncate text-sm font-semibold leading-tight text-ink sm:text-[13px]">{tr(puzzle.title)}</span>
         <span className="mt-0.5 block truncate text-[11px] leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening.
@@ -135,7 +134,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
 
       <span
         className={cx(
-          'flex shrink-0 items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-200',
+          'flex shrink-0 items-center justify-center gap-1 rounded-full px-3 py-1.5 sm:px-2.5 text-xs font-bold transition-all duration-200',
           done
             ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
             : 'bg-brand text-white shadow-card group-hover:scale-105',

@@ -1259,6 +1259,10 @@ export default function AdminChallengeForm() {
                 type: form.participation_reward_type,
                 scope: form.participation_scope,
               },
+              // With no cap the ceiling is everybody who could earn it: the
+              // market's active creators (Ethan: "the limit is obviously the
+              // number of creators, so put that in").
+              creators: audience.length || null,
             })}
           />
 

@@ -371,13 +371,19 @@ export default function Challenges() {
                   // none of those because it has never run. What an admin wants
                   // from this row is "what is it, when is it meant to run, let
                   // me finish it" - so it links straight to the editor.
-                  <div key={c.id} className="card group relative border-dashed transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                  // EVERY DRAFT THE SAME SIZE (21 Sep 2026). Ethan: "the
+                  // Portugal draft card is a different size to the Global
+                  // Challenge draft." A two-line title or a missing description
+                  // made each card its own height. `h-full` fills the grid cell
+                  // Reveal stretches, the title and blurb hold two lines each
+                  // whether they use them or not, and the link sits at the foot.
+                  <div key={c.id} className="card group relative flex h-full flex-col border-dashed transition-all hover:-translate-y-0.5 hover:shadow-lift">
                     <Link
                       to={`/admin/challenges/${c.id}/edit`}
                       className="absolute inset-0 z-0 rounded-card"
                       aria-label={`${c.title} - finish this draft`}
                     />
-                    <div className="pointer-events-none relative z-10">
+                    <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
                       <div className="flex items-center justify-between gap-3">
                         <Badge tone={STATUS_TONE.draft}>{tr('draft')}</Badge>
                         {(c.start_date || c.end_date) && (
@@ -386,9 +392,9 @@ export default function Challenges() {
                           </span>
                         )}
                       </div>
-                      <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title || tr('Untitled challenge')}</h3>
-                      {c.description && <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>}
-                      <p className="mt-4 text-xs font-medium text-brand">{tr('Finish and publish →')}</p>
+                      <h3 className="mt-4 line-clamp-2 min-h-[3.5rem] text-xl font-semibold leading-7 group-hover:text-brand">{c.title || tr('Untitled challenge')}</h3>
+                      <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-5 text-smoke">{c.description || ''}</p>
+                      <p className="mt-auto pt-4 text-xs font-medium text-brand">{tr('Finish and publish →')}</p>
                     </div>
                   </div>
                 ))}
@@ -414,7 +420,7 @@ export default function Challenges() {
                       className="absolute inset-0 z-0 rounded-card"
                       aria-label={`${c.title} - challenge details`}
                     />
-                    <div className="pointer-events-none relative z-10">
+                    <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
                       <div className="flex items-center justify-between gap-3">
                         {/* Still status 'active' but past its deadline → show "ended", not "active". */}
                         <Badge tone={c.status === 'active' ? STATUS_TONE.ended : STATUS_TONE[c.status]}>{c.status === 'active' ? 'ended' : c.status}</Badge>

@@ -95,6 +95,20 @@ function GradientPanel({ t, style, children }) {
   )
 }
 
+// The cover's route, in the 520 x 722 panel's own px. The portrait is centred
+// at (260, 383) with a 158px radius; the two curls sit clear of it.
+const COVER_ROUTE = [
+  'M -30 700',
+  'C 30 660, 70 630, 112 616',
+  'C 176 596, 178 520, 124 522',
+  'C 78 524, 84 604, 150 598',
+  'C 214 592, 236 500, 250 420',
+  'C 262 330, 320 250, 392 238',
+  'C 452 228, 470 160, 430 146',
+  'C 388 132, 380 196, 438 196',
+  'C 488 196, 520 110, 560 -40',
+].join(' ')
+
 /** A dotted route, drawn over whatever it sits on. `d` is in the box's own px. */
 function Route({ d, width, height, color = '#ffffff', opacity = 0.75, style }) {
   return (
@@ -201,7 +215,12 @@ export function Cover({ creator, copy, videos, extraPlatforms }) {
             have the dotted line going up the other corner, just like going the
             whole way through." In at the bottom left, round under the portrait,
             out through the top right. */}
-        <Route width={520} height={648} d="M -30 640 C 40 590, 60 520, 140 500 S 420 500, 452 360 S 470 150, 560 -40" />
+        {/* AND IT CURLS (21 Sep 2026). Ethan: "It doesn't look good the way it
+            currently is, so maybe more curls, just behind the profile picture."
+            Two loops - one low on the left as it comes in, one high on the
+            right as it leaves - and the middle of the route runs BEHIND the
+            portrait (it is drawn first), so the photo sits on the flight. */}
+        <Route width={520} height={722} d={COVER_ROUTE} />
         <div style={{
           position: 'absolute', left: '50%', top: '53%', transform: 'translate(-50%, -50%)',
           width: 300, height: 300, borderRadius: '50%', border: '8px solid #ffffff',
@@ -605,8 +624,17 @@ export function Contact({ creator, copy, videos, extraPlatforms }) {
           plane faces LEFT, so its tail is on its right: the trail leaves the
           tail, loops round to the right and sweeps down and away to the left. */}
       <GradientPanel t={t} style={{ right: 36, top: 36, bottom: 36, width: 440 }}>
-        <Plane width={196} style={{ left: 54, top: 70, transform: 'rotate(-8deg)' }} />
-        <Route width={440} height={648} d="M 246 120 C 330 112, 402 150, 396 232 S 300 330, 214 350 S 60 400, -20 470" />
+        {/* LEVEL, AND THE TRAIL LEAVES THE TAIL ITSELF (21 Sep 2026). Ethan:
+            "The aeroplane is too tilted down. The aeroplane should be
+            horizontal and level, and the dotted line should be coming right
+            out of the back tail of it. Currently, it's a bit far away." The
+            livery photo's fuselage already climbs ~5 degrees towards the tail,
+            so +5 is what makes it level; at -8 it pointed nose-down. The tail
+            cone ends at (1150, 237) of the 1200 x 471 image, which at 196px
+            wide and 5 degrees about the centre is (242, 117) in the panel -
+            the route starts there and leaves along the fuselage's own line. */}
+        <Plane width={196} style={{ left: 54, top: 70, transform: 'rotate(5deg)' }} />
+        <Route width={440} height={648} d="M 242 117 C 318 117, 402 150, 396 232 S 300 330, 214 350 S 60 400, -20 470" />
         {[[396, 232], [214, 350]].map(([x, y]) => (
           <span key={`${x}-${y}`} style={{
             position: 'absolute', left: x - 8, top: y - 8, width: 16, height: 16, borderRadius: '50%',

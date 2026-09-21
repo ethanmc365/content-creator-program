@@ -1397,7 +1397,11 @@ export default {
   'Clues one at a time, one country.': 'Pistas de una en una, un país.',
   'Clues one at a time, one country. Ask for fewer and score more.': 'Pistas de una en una, un país. Pide menos y puntúa más.',
   'Fly through every stop in order.': 'Vuela por todas las paradas en orden.',
-  'Ten phrases, ten scripts.': 'Diez frases, diez alfabetos.',
+  '10 phrases.': '10 frases.',
+  'Year in Review': 'Tu año en Tryp.com',
+  'days to go': 'días',
+  'day to go': 'día',
+  'Level on points? The creator with more total views across their videos takes the higher place.': '¿Empate a puntos? Queda por delante quien sume más visualizaciones entre todos sus vídeos.',
   '1 played today': '1 partida hoy',
   '{n} played today': '{n} partidas hoy',
 

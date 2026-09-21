@@ -326,11 +326,18 @@ export default function Game() {
         {screen === 'languages' && <LanguageGame onExit={() => leaveDaily()} />}
       </div>
 
-      <div className="mt-12">
+      {/* `grid-cols-1` IS NOT A NO-OP. Without it the column is an implicit
+          `auto` track, and Safari sizes that to the widest row's min-content
+          whatever `min-w-0` says on the item - so on an iPhone the boards
+          came out a few pixels wider than the screen and the right edge of
+          the card was cut off (Ethan, 21 Sep: Flight Path and Guess the
+          language). `minmax(0, 1fr)` is a track that cannot grow past its
+          container on any engine. */}
+      <div className="mt-12 min-w-0">
         {DAILY_KEYS.includes(screen) ? (
           // Daily puzzles get two boards: today's race on the left, the
           // all-time best scores on the right.
-          <div className="grid gap-10 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
             <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id}
               heading={tr("Today's leaderboard")}
               blurb={tr(DAILY_BLURB[screen].today)} />
@@ -1023,7 +1030,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
     //
     // `min-w-0` opts the section out of that minimum, the track becomes the
     // column width, and the name truncates as it was always meant to.
-    <section className="min-w-0">
+    <section className="min-w-0 max-w-full">
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 shrink-0 text-brand" /> {heading}</h2>
       <p className="mb-4 text-sm text-smoke">
         {blurb

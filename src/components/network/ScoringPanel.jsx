@@ -114,6 +114,10 @@ export default function ScoringPanel({ challenge }) {
               {tr("A video that passes several milestones scores every one of them.")}
             </p>
           )}
+          {/* The rule migration 239 enforces, said where the scoring is. */}
+          <p className="mt-2 text-xs text-smoke">
+            {tr("Level on points? The creator with more total views across their videos takes the higher place.")}
+          </p>
         </div>
       )}
 

@@ -11,7 +11,7 @@ import { downloadBlob } from '../lib/domSnapshot'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 import { PAGE_W, WORK_LIMIT, orderedVideos, slugify, workMode } from '../lib/portfolio'
 import PortfolioEditor from '../components/portfolio/PortfolioEditor'
-import KitStrip from '../components/portfolio/KitStrip'
+import KitStrip, { YearTeaser } from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 
 // MY PORTFOLIO.
@@ -75,10 +75,19 @@ export default function Portfolio() {
         .eq('profile_id', viewingId)
         .order('awarded_at', { ascending: false }),
     ])
+    // THE ACCOUNT EMAIL. Your own is on the session. An admin looking at
+    // somebody else's gets theirs from the definer RPC the roster uses, which
+    // refuses anyone who is not an admin - without it the "Work with me" page
+    // an admin reviews had no email card at all, which is what Ethan saw
+    // ("it doesn't show their email on the Work With Me section"). The public
+    // page never gets it from here: it reads the address saved into the copy.
+    let email = viewingId === user?.id ? (user?.email || null) : null
+    if (!email && viewingId !== user?.id) {
+      const { data: rows } = await supabase.rpc('admin_list_emails')
+      email = (rows || []).find((r) => r.id === viewingId)?.email || null
+    }
     setState({
-      // The account email is only known for your own page (never for an admin
-      // viewing somebody else's, and never on the public page).
-      creator: creator ? { ...creator, email: viewingId === user?.id ? (user?.email || null) : null, links: {
+      creator: creator ? { ...creator, email, links: {
         instagram: creator.instagram_url, tiktok: creator.tiktok_url,
         youtube: creator.youtube_url, facebook: creator.facebook_url, linkedin: creator.linkedin_url,
       } } : null,
@@ -263,9 +272,23 @@ export default function Portfolio() {
 
       {/* ACROSS THE TOP, ABOVE BOTH COLUMNS - see the note in KitStrip. The
           editor then starts below it, beside the portfolio it edits. */}
-      {!readOnly && <KitStrip className="mb-8" />}
+      {/* THE TOP ROW IS THE SAME GRID AS THE BOTTOM ONE (21 Sep 2026): the
+          share-you're-a-creator graphics are as wide as the portfolio, and the
+          Year in Review card is as wide as the editor. A phone gets the
+          graphics, then the portfolio, then the editor, and the year card last. */}
+      {!readOnly && (
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+          <KitStrip className="min-w-0" />
+          <YearTeaser className="hidden lg:flex" />
+        </div>
+      )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {/* `grid-cols-1` IS LOAD-BEARING (21 Sep 2026). With no template the
+          phone's single column is an implicit `auto` track, which grows to the
+          editor's widest unbreakable content - and the deck, which sizes itself
+          to its column, then drew every page wider than the screen with the
+          right-hand third cut off. `minmax(0, 1fr)` cannot outgrow the page. */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* THE DOCUMENT COMES FIRST IN THE DOM. On a phone the preview is what
             you land on, which is the thing this page is for; the controls are
             under it. On a desktop the grid puts the editor on the right. */}
@@ -330,6 +353,8 @@ export default function Portfolio() {
           />
         )}
       </div>
+
+      {!readOnly && <YearTeaser compact className="mt-8 lg:hidden" />}
 
       {/* The off-screen, unscaled deck the exporter photographs. Mounted only
           while exporting - five A4 pages of images is not something to keep in

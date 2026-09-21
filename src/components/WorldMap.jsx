@@ -8,6 +8,7 @@ import CountryPanel from './CountryPanel'
 import { lockScroll } from '../lib/scrollLock'
 import { thumbUrl } from '../lib/avatarUrl'
 import { useT } from '../lib/i18n'
+import { cx } from '../lib/utils'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -43,7 +44,7 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // full-screen open, the + / - buttons - is looking at the same two numbers.
 const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
-function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
+function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false }) {
   const tr = useT()
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
@@ -247,20 +248,32 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </div>
         )}
 
-        {/* On-screen zoom controls: work everywhere, no pinch needed.
-            NOT `selectable` any more. These were drawn only on the editable map
-            in Edit profile, so the read-only creator map on a profile - the one
-            most people actually look at - had no way to zoom in on a continent
-            at all. Ethan: "creator maps on profiles need zoom buttons." */}
-        <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
+        {/* ONE PILL, AND ON A PHONE ONE BUTTON (21 Sep 2026).
+            Ethan, of the creator spotlight on a phone: "these buttons are way
+            too big, and they don't look good... remove the plus and minus
+            buttons and the reset button, and only have the full screen button,
+            which should be where the minus button currently is, so you can
+            still see how many countries they have." Two fingers already pinch
+            this map, so on a phone the only thing a button adds is the way in to
+            full screen. From `sm` the pointer is a mouse and the zoom comes back,
+            as one grouped pill like the community map's rather than four loose
+            discs. `controlsBelowBadge` drops the pill one button-height so it
+            clears a badge in the map's top-right corner (the spotlight's
+            country count) instead of sitting on it. */}
+        <div
+          className={cx(
+            'absolute right-2 z-10 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur',
+            controlsBelowBadge && !full ? 'top-12' : 'top-2',
+          )}
+        >
           <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
+            className="hidden h-9 w-9 items-center justify-center text-lg font-semibold text-ink transition-colors hover:bg-cloud sm:flex">+</button>
           <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
+            className="hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-lg font-semibold text-ink transition-colors hover:bg-cloud sm:flex">−</button>
           <button type="button" onClick={resetView} aria-label={tr("Reset map view")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
+            className="hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-smoke transition-colors hover:bg-cloud sm:flex">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
-        </button>
+          </button>
           {/* OPEN IT BIG. The profile map had zoom buttons and no way to fill
               the screen, which on a 180px-tall box means zooming into a
               letterbox. Ethan: "creator maps on profiles need zoom and full
@@ -269,7 +282,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             type="button"
             onClick={() => setFull((v) => !v)}
             aria-label={full ? 'Close full screen map' : 'Open the map full screen'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95"
+            className="flex h-9 w-9 items-center justify-center text-smoke transition-colors hover:bg-cloud hover:text-ink sm:border-t sm:border-gray-100"
           >
             {full ? (
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>

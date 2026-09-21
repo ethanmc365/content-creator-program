@@ -92,7 +92,8 @@ export default function KitStrip({ className }) {
   if (rows === null) return <Skeleton className={cx('h-56 w-full rounded-card', className)} />
   if (rows.length === 0) return null
 
-  // ONE ROW, THREE AT A TIME, AND THE YEAR IN REVIEW BESIDE IT (21 Sep 2026).
+  // ONE ROW, THREE AT A TIME (21 Sep 2026). The Year in Review card that sat
+  // beside it is its own card now - see `YearTeaser` below.
   //
   // Ethan: "rather than having that on multiple lines, it should only be one
   // line. Those four cards there, and rather than having the other four cards
@@ -129,12 +130,12 @@ export default function KitStrip({ className }) {
         )}
       </div>
 
-      <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-stretch md:gap-4">
-        <div ref={railRef} className="pick-row -mx-4 flex min-w-0 flex-1 snap-x snap-mandatory gap-3 scroll-px-4 px-4 sm:-mx-5 sm:scroll-px-5 sm:px-5 md:mx-0 md:scroll-px-1 md:px-1">
+      <div className="mt-1">
+        <div ref={railRef} className="pick-row -mx-4 flex min-w-0 snap-x snap-mandatory gap-3 scroll-px-4 px-4 !pb-3 sm:-mx-5 sm:scroll-px-5 sm:px-5 sm:!pb-9">
           {rows.map((row) => (
             <div
               key={row.id}
-              className="group flex w-[46%] shrink-0 snap-start flex-col rounded-2xl bg-white p-2 ring-1 ring-gray-100 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift hoverable:hover:ring-brand/25 sm:w-[31%] md:w-[calc((100%-1.5rem)/3)]"
+              className="group flex w-[46%] shrink-0 snap-start flex-col rounded-2xl bg-white p-2 ring-1 ring-gray-100 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift hoverable:hover:ring-brand/25 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <button
                 type="button"
@@ -171,8 +172,6 @@ export default function KitStrip({ className }) {
             </div>
           ))}
         </div>
-
-        <YearTeaser tr={tr} />
       </div>
 
       {open && (
@@ -194,28 +193,50 @@ export default function KitStrip({ className }) {
 // miniature - the same orange, the same lock, the same sentence - so on
 // 3 December the real thing is recognisably the card they have been looking
 // at. Not a link: there is nothing to open yet.
-function YearTeaser({ tr }) {
-  const year = new Date().getFullYear()
+//
+// ITS OWN CARD, IN THE EDITOR'S COLUMN (21 Sep 2026). It used to sit inside the
+// graphics card, at the end of the row. Ethan: "rather than having this in the
+// same card, I would like it in a separate card... the editing screen size to
+// match the size of the 'Your Year Is Still Happening' card, and the share card
+// to match the size of the portfolio." So the page lays the two out in the same
+// `1fr / 360px` grid as the deck and the editor below, and this fills its cell.
+// `compact` is the phone's version: one row, at the foot of the page, so the
+// graphics and then the portfolio are what a phone opens on.
+export function YearTeaser({ className, compact = false }) {
+  const tr = useT()
+  const now = new Date()
+  const year = now.getFullYear()
+  const unlock = new Date(year, 11, 3)
+  const days = Math.max(0, Math.ceil((unlock - now) / 86400000))
   return (
-    <div
-      className="relative flex shrink-0 flex-col overflow-hidden rounded-2xl p-4 text-white md:my-4 md:w-[13.5rem] md:justify-between"
+    <section
+      className={cx('relative flex flex-col overflow-hidden rounded-card p-5 text-white shadow-card', className)}
       style={{ background: 'linear-gradient(150deg,#d94407 0%,#f5853f 100%)' }}
     >
-      <span className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl" aria-hidden />
+      <span className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" aria-hidden />
+      <span className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" aria-hidden />
       <div className="relative flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{year}</span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('Year in Review')} · {year}</span>
         <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold">{tr('Unlocks 3 December')}</span>
       </div>
-      <div className="relative mt-3 flex items-center gap-3 md:mt-0 md:block">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 md:mb-3 md:h-12 md:w-12">
-          <Icon name="lock" className="h-5 w-5" />
+      <div className={cx('relative flex gap-3', compact ? 'mt-3 items-center' : 'flex-1 flex-col justify-center py-4')}>
+        <span className={cx('flex shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30', compact ? 'h-11 w-11' : 'h-14 w-14')}>
+          <Icon name="lock" className={compact ? 'h-5 w-5' : 'h-6 w-6'} />
         </span>
         <div className="min-w-0">
-          <p className="text-[17px] font-extrabold leading-[1.1] tracking-tight md:text-xl">{tr('Your year is still happening.')}</p>
-          <p className="mt-1 text-[12px] leading-snug text-white/85">{tr('Your Year in Review unlocks on 3 December.')}</p>
+          <p className={cx('font-extrabold leading-[1.1] tracking-tight', compact ? 'text-[17px]' : 'text-2xl')}>{tr('Your year is still happening.')}</p>
+          <p className="mt-1.5 text-[13px] leading-snug text-white/85">{tr('Your Year in Review unlocks on 3 December.')}</p>
         </div>
       </div>
-      <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" className="relative mt-3 hidden h-5 w-auto self-start opacity-90 md:block" />
-    </div>
+      {!compact && (
+        <div className="relative flex items-end justify-between gap-3">
+          <div>
+            <p className="text-3xl font-extrabold tabular-nums leading-none">{days}</p>
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80">{days === 1 ? tr('day to go') : tr('days to go')}</p>
+          </div>
+          <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" className="h-5 w-auto opacity-90" />
+        </div>
+      )}
+    </section>
   )
 }

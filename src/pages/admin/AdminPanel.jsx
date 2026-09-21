@@ -271,25 +271,28 @@ function GripDots() {
 
 // ------------------------------------------------------------ on your desk
 //
-// Real Tryp orange, not a wash of it: a solid brand rule down the left edge, the
-// count set in brand at a size you read from across the room, and white rows on
-// the tint so each item is its own object. The old one was a tinted box with
-// tinted rows inside it, which made the whole block one grey-orange smudge.
+// THE HUB CARD'S GRADIENT, NOT A TINT OF IT. Two tinted versions came before
+// this (a wash with tinted rows, then a wash with white rows and a brand rule)
+// and Ethan disliked both for the same reason: "I don't like the current light
+// colour." A pale orange box reads as a warning banner; the platform's own
+// accent -> lighter gradient with white type reads as the thing to do first,
+// which is what this card is. Each item is a white row ON the gradient so it is
+// its own object to press, and the count is set big in brand inside it.
 function DeskRow({ to, icon, count, label }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl bg-white/70 px-3.5 py-3 transition-all duration-200 hover:bg-white hover:shadow-card"
+      className="group flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:px-3.5 sm:py-3"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand transition-transform duration-200 group-hover:scale-110 sm:h-10 sm:w-10">
         <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug">
-        <span className="text-brand tabular-nums">{count}</span> {label}
+      <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-snug sm:text-[15px]">
+        <span className="mr-1 text-lg font-bold tabular-nums text-brand">{count}</span>{label}
       </span>
       <Icon
         name="chevronRight"
-        className="h-4 w-4 shrink-0 text-brand/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
+        className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
       />
     </Link>
   )
@@ -605,20 +608,77 @@ export default function AdminPanel() {
           <Skeleton className="h-36" />
         ) : desk.length > 0 ? (
           <Reveal from="down" delay={0}>
-            <section className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 shadow-card">
-              <div className="flex items-center gap-2.5 border-b border-brand/15 px-4 py-3 sm:px-5">
-                <span className="h-4 w-1 rounded-full bg-brand" aria-hidden />
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">On your desk</h2>
-                <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-                  {desk.length}
+            <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-3 text-white shadow-card sm:p-4">
+              {/* The hub card's two soft white glows, so this is visibly the
+                  same family as the challenge card rather than a new colour. */}
+              <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+              <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+              <div className="relative flex items-center gap-2.5 px-1 pb-3 pt-0.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
+                  <Icon name="bell" className="h-4 w-4" />
+                </span>
+                <h2 className="text-base font-semibold tracking-[-0.01em]">On your desk</h2>
+                <span className="ml-auto rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tabular-nums text-brand">
+                  {desk.length} {desk.length === 1 ? 'thing' : 'things'}
                 </span>
               </div>
-              <div className="space-y-1 p-2 sm:p-2.5">
+              <div className="relative grid gap-2 sm:grid-cols-2">
                 {desk.map((r) => <DeskRow key={r.to} {...r} />)}
               </div>
             </section>
           </Reveal>
         ) : null}
+
+        {/* ---------- The tools ----------
+            ONE grid, one heading, every card the same size, phone and desktop
+            alike. Two columns on a phone and four on a wide screen, which keeps
+            a card roughly the same physical size on both. */}
+        <Reveal from="down" delay={0.07}>
+          <section>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold tracking-[-0.01em]">Tools</h2>
+              {editing && (
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-smoke">Drag the dots on a tool or a market. Saved to your account.</span>
+                  <button type="button" onClick={resetOrder} className="font-medium text-brand hover:underline">
+                    Reset
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* THREE ACROSS AT MOST. Four fitted, and "Reported messages"
+                became "Reported messa…" - a card whose whole job is to be
+                recognised at a glance, truncated in the middle of the word that
+                identifies it. Three columns is fourteen tools in five rows and
+                every name readable. */}
+            {/* THE CARDS ARRIVE ONE AFTER ANOTHER.
+                This was a plain grid inside a Reveal, so the whole block faded
+                as one - which next to the markets grid above it (which does
+                stagger) read as the animation being broken below the fold.
+                Tight stagger: fifteen cards at 45ms would still be drawing
+                after two thirds of a second. */}
+            <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.03}>
+              {tools.map((t) => (
+                <ToolCard
+                  key={t.id}
+                  tool={t}
+                  onOpen={openInNetwork}
+                  onAct={t.action === 'creator' ? enterCreatorView : undefined}
+                  busy={t.action === 'creator' && entering}
+                  editing={editing}
+                  dragging={dragId === t.id}
+                  dropTarget={editing && overId === t.id && dragId !== t.id}
+                  onGrab={handleGrab}
+                />
+              ))}
+            </Reveal>
+            {/* "View as creator" mints a sandbox session server-side and can
+                fail (an expired admin session, a rate limit). The message used
+                to sit under the network-preview card at the foot of the page,
+                which was nowhere near the button that caused it. */}
+            {enterError && <p className="mt-3 text-xs font-medium text-red-500">{enterError}</p>}
+          </section>
+        </Reveal>
 
         {/* ---------- Your markets ----------
             One heading, no hint line. What a market card is for is obvious from
@@ -631,7 +691,7 @@ export default function AdminPanel() {
             </div>
           </div>
         ) : markets?.length > 0 ? (
-          <Reveal from="down" delay={0.07}>
+          <Reveal from="down" delay={0.14}>
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-xl font-semibold tracking-[-0.01em]">{isGlobal ? 'Markets' : 'Your markets'}</h2>
@@ -704,57 +764,6 @@ export default function AdminPanel() {
             </section>
           </Reveal>
         ) : null}
-
-        {/* ---------- The tools ----------
-            ONE grid, one heading, every card the same size, phone and desktop
-            alike. Two columns on a phone and four on a wide screen, which keeps
-            a card roughly the same physical size on both. */}
-        <Reveal from="down" delay={0.14}>
-          <section>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-semibold tracking-[-0.01em]">Tools</h2>
-              {editing && (
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-smoke">Drag the dots on a tool or a market. Saved to your account.</span>
-                  <button type="button" onClick={resetOrder} className="font-medium text-brand hover:underline">
-                    Reset
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* THREE ACROSS AT MOST. Four fitted, and "Reported messages"
-                became "Reported messa…" - a card whose whole job is to be
-                recognised at a glance, truncated in the middle of the word that
-                identifies it. Three columns is fourteen tools in five rows and
-                every name readable. */}
-            {/* THE CARDS ARRIVE ONE AFTER ANOTHER.
-                This was a plain grid inside a Reveal, so the whole block faded
-                as one - which next to the markets grid above it (which does
-                stagger) read as the animation being broken below the fold.
-                Tight stagger: fifteen cards at 45ms would still be drawing
-                after two thirds of a second. */}
-            <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.03}>
-              {tools.map((t) => (
-                <ToolCard
-                  key={t.id}
-                  tool={t}
-                  onOpen={openInNetwork}
-                  onAct={t.action === 'creator' ? enterCreatorView : undefined}
-                  busy={t.action === 'creator' && entering}
-                  editing={editing}
-                  dragging={dragId === t.id}
-                  dropTarget={editing && overId === t.id && dragId !== t.id}
-                  onGrab={handleGrab}
-                />
-              ))}
-            </Reveal>
-            {/* "View as creator" mints a sandbox session server-side and can
-                fail (an expired admin session, a rate limit). The message used
-                to sit under the network-preview card at the foot of the page,
-                which was nowhere near the button that caused it. */}
-            {enterError && <p className="mt-3 text-xs font-medium text-red-500">{enterError}</p>}
-          </section>
-        </Reveal>
 
       </div>
     </div>

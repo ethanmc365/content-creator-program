@@ -598,8 +598,12 @@ export default function AdminApplications() {
 
       {apps !== null && (shown.length > 0 || search || onlyUnfollowed) && (
         <div className="mb-6 space-y-3">
+          {/* ON A PHONE, ONE LINE THAT SCROLLS SIDEWAYS (21 Sep 2026). Seven
+              market chips wrapped into three ragged rows above everything
+              else; Ethan: "all those different functions and filters look okay
+              on desktop, but they're all crammed in on mobile." */}
           {bucket === 'applied' && tabs.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
               {[['', 'All', inThisBucket.length], ...tabs.map(([m, n]) => [m, m, n])].map(([key, label, count]) => {
                 const on = market === key
                 return (
@@ -609,7 +613,7 @@ export default function AdminApplications() {
                     onClick={() => { setMarket(key); setPicked(new Set()) }}
                     aria-pressed={on}
                     className={cx(
-                      'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
+                      'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
                       on
                         ? 'border-brand bg-brand text-white'
                         : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
@@ -623,7 +627,7 @@ export default function AdminApplications() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <input
               type="search"
               className="input sm:max-w-xs"
@@ -634,6 +638,7 @@ export default function AdminApplications() {
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search applications"
             />
+            <div className="flex items-center justify-between gap-3 sm:contents">
             {bucket === 'incomplete' && (
               /* AFTER A ROUND OF FOLLOW-UPS, THE ONLY LIST THAT MATTERS IS THE
                  ONES WHO HAVE NOT HAD ONE. The mark was already recorded per
@@ -654,12 +659,14 @@ export default function AdminApplications() {
               </button>
             )}
             <span className="text-xs text-smoke">{shown.length} shown</span>
+            </div>
           </div>
 
           {/* ------------------------------------------------- the bulk bar */}
           {shown.length > 0 && (
             <div className="sticky top-2 z-20 rounded-card border border-gray-100 bg-white/95 p-3 shadow-card backdrop-blur supports-[backdrop-filter]:bg-white/80">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                <div className="flex min-w-0 items-center gap-2 sm:mr-auto">
                 {/* THE TICK-ALL IS THE FIRST THING IN THE BAR, because every
                     other control in it reads "the ticked ones, or everything
                     shown if nothing is ticked" and that sentence has to be
@@ -684,11 +691,12 @@ export default function AdminApplications() {
                   {picked.size ? `${picked.size} selected` : 'Select all'}
                 </button>
 
-                <span className="mr-auto text-[11px] text-gray-400">
+                <span className="min-w-0 text-[11px] leading-tight text-gray-400">
                   {picked.size
                     ? 'Actions apply to the selected.'
                     : `Actions apply to all ${shown.length} shown.`}
                 </span>
+                </div>
 
                 {running && (
                   <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand">
@@ -697,11 +705,14 @@ export default function AdminApplications() {
                   </span>
                 )}
 
+                {/* A phone gets a two-column grid with the main action across
+                    the full width under it; a desktop keeps the one row. */}
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                 <button
                   type="button"
                   onClick={() => copyEmails(targets())}
                   disabled={!!running}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50 sm:py-1.5"
                 >
                   <Icon name="copy" className="h-3.5 w-3.5" />
                   Copy {picked.size ? `${picked.size}` : 'all'} email{(picked.size || shown.length) === 1 ? '' : 's'}
@@ -712,7 +723,7 @@ export default function AdminApplications() {
                     type="button"
                     onClick={() => approveMany(targets())}
                     disabled={!!running || !markets?.length}
-                    className="btn-primary inline-flex items-center gap-1.5 !py-1.5 text-xs disabled:opacity-50"
+                    className="btn-primary inline-flex items-center justify-center gap-1.5 !py-2 text-xs disabled:opacity-50 sm:!py-1.5"
                   >
                     <Icon name="check" className="h-3.5 w-3.5" />
                     Approve {picked.size || shown.length}
@@ -723,7 +734,7 @@ export default function AdminApplications() {
                       type="button"
                       onClick={() => markManyFollowedUp(targets(), false)}
                       disabled={!!running}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-50 sm:py-1.5"
                     >
                       <Icon name="close" className="h-3.5 w-3.5" />
                       Unmark
@@ -732,13 +743,14 @@ export default function AdminApplications() {
                       type="button"
                       onClick={() => markManyFollowedUp(targets(), true)}
                       disabled={!!running}
-                      className="btn-primary inline-flex items-center gap-1.5 !py-1.5 text-xs disabled:opacity-50"
+                      className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs disabled:opacity-50 sm:!py-1.5"
                     >
                       <Icon name="envelope" className="h-3.5 w-3.5" />
                       Mark {picked.size || shown.length} followed up
                     </button>
                   </>
                 )}
+                </div>
               </div>
             </div>
           )}
@@ -901,7 +913,7 @@ function ApplicationCard({
       selected && 'ring-2 ring-brand/40',
     )}>
       {/* ------------------------------------------------------- the summary */}
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:p-6">
+      <div className="flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:gap-4 sm:p-6">
         <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {/* The face is a button when there is a photo to open, and a plain
             avatar when there is not - a control that does nothing when pressed
@@ -1150,7 +1162,7 @@ function ApplicationCard({
             <Icon name={suggested.why === 'language' ? 'chat' : 'pin'} className="mt-px h-3.5 w-3.5 shrink-0" />
             <span>
               {suggested.why === 'language'
-                ? <>{suggestedMarket.name} suggested because they speak {suggested.langs.join(' and ')}{app.country ? ` — no market covers ${app.country}` : ''}.</>
+                ? <>{suggestedMarket.name} suggested because they speak {suggested.langs.join(' and ')}{app.country ? `, and no market covers ${app.country}` : ''}.</>
                 : <>{suggestedMarket.name} suggested because they are in {app.country}.</>}
             </span>
           </p>
@@ -1180,10 +1192,10 @@ function ApplicationCard({
             open the details." An unlabelled icon in a row of labelled buttons
             is the one control nobody can predict. It lives on the two rows it
             is about now - see `Fact`. */}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          <Link to={`/profile/${app.id}`} className="btn-secondary !py-2 text-xs">Full profile</Link>
-          <button onClick={onDecline} disabled={busy} className="btn-danger !py-2 text-xs">Decline</button>
-          <button onClick={onApprove} disabled={busy} className="btn-primary inline-flex items-center gap-1.5 !py-2 text-xs">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
+          <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Decline</button>
+          <button onClick={onApprove} disabled={busy} className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs">
             {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" />}
             Approve
           </button>
@@ -1206,7 +1218,7 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
       'card !p-0 overflow-hidden transition-all duration-200 hoverable:hover:shadow-lift',
       selected && 'ring-2 ring-brand/40',
     )}>
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:p-6">
+      <div className="flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:gap-4 sm:p-6">
         <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {app.photo_url ? (
           <button type="button" onClick={onZoom} aria-label={`See ${app.name}'s photo full size`}
@@ -1247,7 +1259,7 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
           </div>
         </div>
 
-        <div className="shrink-0 text-left sm:text-right">
+        <div className="flex w-full shrink-0 items-baseline gap-2 text-left sm:block sm:w-auto sm:text-right">
           <p className="text-sm font-bold tabular-nums text-brand">{progress.done}/{progress.total}</p>
           <p className="text-xs text-gray-400">Signed up {timeAgo(app.created_at)}</p>
           <p className="text-[11px] text-gray-300">{formatDate(app.created_at)}</p>
@@ -1266,14 +1278,14 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-          <Link to={`/profile/${app.id}`} className="btn-secondary !py-2 text-xs">Full profile</Link>
+        <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
           {/* DELETE, NOT "REMOVE". Ethan: "rather than the Remove, it should be
               a Delete button to actually delete the creator permanently."
               It always did delete permanently - `admin_decline_application`
               records the decision and then removes the account - so "Remove"
               was the softer of two words for the same irreversible thing. */}
-          <button onClick={onDecline} disabled={busy} className="btn-danger !py-2 text-xs">Delete</button>
+          <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Delete</button>
           {/* A MARK, NOT A SEND. There is no email automation - all outbound
               mail is paused - so a "Send" button would either lie or queue
               something nobody receives. A manager writes the mail from their
@@ -1283,7 +1295,7 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
             onClick={onFollowUp}
             disabled={busy}
             className={cx(
-              'inline-flex items-center gap-1.5 !py-2 text-xs',
+              'col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs',
               app.followed_up_at ? 'btn-secondary' : 'btn-primary',
             )}
           >

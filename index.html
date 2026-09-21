@@ -80,6 +80,24 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- THE STATUS BAR FOLLOWS DARK MODE (21 Sep 2026). Ethan, on his phone:
+         "Dark mode works, but at the top, where it shows the time and the
+         battery, it's showing pure white up there, and it doesn't change."
+         An installed iOS app paints that strip from this meta, not from the
+         page, and reads it at LAUNCH - so it has to be right before the app
+         runs, from the theme the last session stored. `black` rather than
+         `black-translucent`: translucent slides the whole app under the clock
+         and every overlay's geometry with it; `black` is an opaque near-black
+         bar with the content exactly where it was. lib/theme keeps both metas
+         in step when the theme changes mid-session. -->
+    <script>
+      try {
+        if (localStorage.getItem('tryp_dark_mode') === '1') {
+          document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black')
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#141416')
+        }
+      } catch (e) { /* private mode: the light bar is the safe default */ }
+    </script>
     <meta name="apple-mobile-web-app-title" content="Tryp.com" />
 
     <!-- THE WORLD MAP, FETCHED BEFORE ANYTHING ASKS FOR IT.

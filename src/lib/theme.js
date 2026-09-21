@@ -55,6 +55,13 @@ export function applyTheme(on) {
   const el = document.documentElement
   if (on) el.setAttribute('data-theme', 'dark')
   else el.removeAttribute('data-theme')
+  // The phone's own chrome (status bar on an installed iPhone app, the address
+  // bar and status bar on Android) is painted from these two metas, not from
+  // the page. index.html sets them at launch; this keeps them in step after.
+  try {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#141416' : '#d94407')
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute('content', on ? 'black' : 'default')
+  } catch { /* no DOM (tests) */ }
 }
 
 // ---- Theme mode: light / dark -------------------------------------------

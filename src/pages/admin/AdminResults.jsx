@@ -28,6 +28,8 @@ export default function AdminResults() {
   const [challenge, setChallenge] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [resultsCount, setResultsCount] = useState(0)
+  // The saved board, one row per creator (and per group on a split challenge).
+  const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [generating, setGenerating] = useState(false)
@@ -68,24 +70,33 @@ export default function AdminResults() {
   }
 
   const load = useCallback(async () => {
-    const [{ data: ch }, { data: subs }, { count }] = await Promise.all([
+    const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
       supabase.from('challenges').select('*').eq('id', id).single(),
       supabase
         .from('submissions')
         .select('*, profiles:creator_id(id, name, photo_url)')
         .eq('challenge_id', id)
         .order('submitted_at'),
-      supabase.from('results').select('id', { count: 'exact', head: true }).eq('challenge_id', id),
+      supabase.from('results').select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id),
     ])
-    // The saved `results` rows are NOT read here any more. The podium preview is
-    // built from the entries themselves, so it reflects the view counts on this
-    // page rather than whatever was saved the last time somebody pressed
-    // "Generate leaderboard". Only the COUNT is still needed, for the "leaderboard
-    // live (N)" link.
+    // THE SAVED RESULTS ARE READ AGAIN (21 Sep 2026), and they are the ranking.
+    // They were dropped because they only changed when somebody pressed
+    // "Generate" - no longer true: every view save, the hourly sync and every
+    // points change rebuild them. Ranking here in the browser by each creator's
+    // best single video was right for one scoring mode of three, and for the
+    // Global Challenge (points) it previewed - and put in the shared picture -
+    // a podium nobody had actually won. `rebuild_challenge_results` is the
+    // one piece of code that decides who is first, ties included.
     setChallenge(ch)
     setSubmissions(subs ?? [])
-    setResultsCount(count ?? 0)
+    setResults(res ?? [])
+    setResultsCount((res ?? []).length)
     setLoading(false)
+  }, [id])
+  const reloadResults = useCallback(async () => {
+    const { data } = await supabase.from('results').select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id)
+    setResults(data ?? [])
+    setResultsCount((data ?? []).length)
   }, [id])
 
   useEffect(() => { load() }, [load])
@@ -157,6 +168,7 @@ export default function AdminResults() {
         submission_id: sub.id, rule_id: rule.id, creator_id: sub.creator_id, challenge_id: id,
       })
     if (error) { flash(error.message); loadBonuses() }
+    else reloadResults()
   }
 
   async function toggleBonus(sub, rule, given) {
@@ -171,7 +183,7 @@ export default function AdminResults() {
     const { error } = await supabase.rpc(given ? 'withdraw_bonus' : 'award_bonus', {
       p_submission: sub.id, p_rule: rule.id,
     })
-    if (error) { flash(error.message) }
+    if (error) { flash(error.message) } else reloadResults()
     loadBonuses()
     setStandingsKey((k) => k + 1)
   }
@@ -193,6 +205,7 @@ export default function AdminResults() {
     // to change the preview on this page and leave the board creators actually
     // see untouched until somebody remembered to press Generate.
     await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
+    await reloadResults()
     setSavingId(null)
   }
 
@@ -212,6 +225,7 @@ export default function AdminResults() {
     setGenerating(true)
     const { data: written, error } = await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
     if (error) { setGenerating(false); return flash(`Couldn't save results: ${error.message}`) }
+    await reloadResults()
     const ranked = { length: written ?? 0 }
 
     // Stamp the challenge so the public page can label the standings correctly.
@@ -270,14 +284,8 @@ export default function AdminResults() {
     if (!cur || (sub.logged_views ?? 0) > (cur.logged_views ?? 0)) acc[sub.creator_id] = sub
     return acc
   }, {})
-  // THE PREVIEW IS BUILT FROM THE ENTRIES, NOT FROM THE SAVED RESULTS.
-  //
-  // It used to read the `results` table, which only changes when somebody
-  // presses "Generate leaderboard" - so a sync could refresh every view count on
-  // the page and the podium above them would still be showing last week's order
-  // and last week's numbers. This is a preview; it should show what the
-  // leaderboard WOULD be right now. Generating still writes the saved results,
-  // which is what creators see.
+  // THE PREVIEW IS THE SAVED BOARD (see `load`), falling back to ranking the
+  // entries by their best video only before any board exists at all.
   // ONE PODIUM PER BOARD.
   //
   // A challenge with groups has more than one leaderboard, so it has more than
@@ -287,7 +295,24 @@ export default function AdminResults() {
   // which is the ranking this page has always drawn.
   const byCreator = groupByCreator(groupMembers)
   const boards = boardsFor(groups, byCreator, submissions)
-  const rankIn = (rows) => rows
+  // From the saved board when there is one: `groupId` undefined is the whole
+  // challenge, otherwise one group's board.
+  const fromResults = (groupId) => results
+    .filter((r) => groupId === undefined || (r.group_id ?? null) === groupId)
+    .sort((a, b) => a.rank - b.rank)
+    .map((r, i) => {
+      const best = bestByCreator[r.creator_id]
+      return {
+        creator_id: r.creator_id,
+        profiles: best?.profiles ?? { id: r.creator_id, name: 'Creator' },
+        final_views: r.final_views ?? 0,
+        total_views: r.total_views ?? 0,
+        videoUrl: best?.video_url ?? null,
+        platform: best?.platform ?? null,
+        rank: i + 1,
+      }
+    })
+  const rankIn = (rows, groupId) => (results.length > 0 ? fromResults(groupId) : rows
     .filter((sub) => sub.logged_views != null)
     .map((sub) => ({
       creator_id: sub.creator_id,
@@ -297,7 +322,7 @@ export default function AdminResults() {
       platform: sub.platform ?? null,
     }))
     .sort((a, b) => b.final_views - a.final_views)
-    .map((r, i) => ({ ...r, rank: i + 1 }))
+    .map((r, i) => ({ ...r, rank: i + 1 })))
 
   const allBest = Object.values(bestByCreator)
   const liveRanking = rankIn(allBest)
@@ -305,7 +330,7 @@ export default function AdminResults() {
   const podiums = boards.length > 0
     ? boards.map((g) => {
       const mine = allBest.filter((sub) => (byCreator.get(sub.creator_id) ?? null) === g.id)
-      const ranking = rankIn(mine)
+      const ranking = rankIn(mine, g.id)
       const prize = prizeForGroup(g, challenge)
       const seats = Math.max(1, prize.winners_count || places)
       // THE FIGURES UNDER A GROUP'S PODIUM ARE THAT GROUP'S.

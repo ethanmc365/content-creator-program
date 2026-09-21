@@ -152,26 +152,6 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
   )
 }
 
-/**
- * The point `dist` svg units back along `pts` from its last point, or null if
- * the trail is not that long yet. Used to space the contrail puffs evenly
- * behind the aircraft however fast the player is dragging.
- */
-function pointBack(pts, dist) {
-  let left = dist
-  for (let i = pts.length - 1; i > 0; i--) {
-    const [x2, y2] = pts[i]
-    const [x1, y1] = pts[i - 1]
-    const len = Math.hypot(x2 - x1, y2 - y1)
-    if (len >= left) {
-      const t = left / (len || 1)
-      return [x2 + (x1 - x2) * t, y2 + (y1 - y2) * t]
-    }
-    left -= len
-  }
-  return null
-}
-
 export default function ZipGame({ onExit }) {
   const tr = useT()
   // Open on the puzzle rather than on the page it lives at the bottom of.
@@ -530,19 +510,6 @@ export default function ZipGame({ onExit }) {
       }
     }
   }
-  // CONTRAIL PUFFS. Four soft white blooms spaced back along the route from the
-  // aircraft, biggest and brightest nearest it. A dashed line alone reads as a
-  // drawn stroke; the puffs are what make it read as something the plane is
-  // LEAVING BEHIND, and because they are placed by distance rather than by cell
-  // they stay evenly spaced whatever shape the route is making.
-  const puffs = []
-  if (trailPts.length > 1) {
-    const spec = [[26, 8.5, 0.5], [54, 6.6, 0.34], [86, 4.8, 0.2], [122, 3.4, 0.1]]
-    for (const [d, r, o] of spec) {
-      const pt = pointBack(trailPts, d)
-      if (pt) puffs.push({ x: pt[0], y: pt[1], r, o })
-    }
-  }
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
   const W = size * CELL
@@ -579,19 +546,10 @@ export default function ZipGame({ onExit }) {
         @keyframes fp-dash { to { stroke-dashoffset: 19; } }
         .fp-trail-dash-far { animation: fp-dash-far 1.55s linear infinite; }
         @keyframes fp-dash-far { to { stroke-dashoffset: 30; } }
-        /* The wake breathes. Very slightly - this sits under everything else on
-           the board and its job is to stop the trail looking like a printed
-           shape, not to be noticed on its own. */
-        .fp-wake { animation: fp-wake 3.4s ease-in-out infinite; }
-        @keyframes fp-wake {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 0.3; }
-        }
-        .fp-puff { animation: fp-puff 2.6s ease-in-out infinite; }
-        @keyframes fp-puff {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.12); }
-        }
+        /* A cell lighting up as the plane arrives: quick, and never from 0
+           (a background tab would hold it there). */
+        .fp-lit { animation: fp-lit 0.18s ease-out; }
+        @keyframes fp-lit { from { opacity: 0.4; } }
         /* A REFUSED MOVE: 2px, 220ms. See the note on blocked() - the old
            ±6px/400ms shake was borrowed from a wrong quiz answer, which happens
            once a round; a wall happens repeatedly while you feel your way past
@@ -683,7 +641,7 @@ export default function ZipGame({ onExit }) {
           to { opacity: 1; transform: translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fp-plane-bob, .fp-trail-dash, .fp-trail-dash-far, .fp-wake, .fp-puff,
+          .fp-plane-bob, .fp-trail-dash, .fp-trail-dash-far, .fp-lit,
           .fp-nudge, .fp-wall-hit, .fp-stop-pop, .fp-cell, .fp-board,
           .fp-target, .fp-target-pulse, .fp-hint-pop, .fp-hint-msg,
           .fp-next-ring, .fp-land-sweep { animation: none; }
@@ -878,16 +836,44 @@ export default function ZipGame({ onExit }) {
             })}
             {/* over the panes, under everything that matters */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-vignette)" style={{ pointerEvents: 'none' }} />
+            {/* A FLOWN CELL IS A LIT CELL, EDGE TO EDGE (21 Sep 2026).
+                Ethan: "whenever it's in a square, that whole square should be
+                highlighted in a light orange that's lighter than the actual
+                solid orange... rather than having the blue square whenever
+                you're actually over one. This is how the zip puzzle works on
+                LinkedIn." So every covered cell is filled, full bleed, in a
+                pale orange, and the route runs over it. Full bleed rather than
+                the pane's inset so a run of flown cells reads as one lit
+                corridor; a hairline keeps the grid legible inside it. This
+                reverses the July "no per-cell fills" rule at his request. */}
+            {path.map((cell) => {
+              const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
+              return (
+                <rect
+                  key={`lit-${cell}`}
+                  className="fp-lit"
+                  x={x} y={y} width={CELL} height={CELL}
+                  fill="#fddcc4"
+                  stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5}
+                  style={{ pointerEvents: 'none' }}
+                />
+              )
+            })}
 
             {/* the flown sky: one continuous rounded SNAKE through every cell
-                on the route - a breathing wake glow under a solid rounded body
-                (round caps = rounded head/tail), then two dashed white
-                contrails at different speeds and a run of soft puffs streaming
-                back from the aircraft */}
+                on the route - ONE solid gradient body (round caps = rounded
+                head/tail) with two dashed white contrails on it.
+
+                21 Sep 2026, Ethan: "we have this one that's nice and rounded,
+                but then there's a secondary, more transparent one, and even a
+                third, more transparent one that's bigger than it. This looks
+                weird." The two wake glows (66 @ .38 and 84 @ .22) and the
+                start badge's halo are gone, and so are the white puffs ("we
+                can get rid of those circles. Just keep those dotted lines").
+                What the glow was doing - saying which cells are flown - is the
+                cell tint underneath now. */}
             {path.length > 1 ? (
               <>
-                <path className="fp-wake" d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.22} strokeWidth={84} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={66} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 {/* solid body: a fine colour ramp (lightest at the tail, full
                     orange right behind the plane) drawn as many short
                     round-capped strokes so the gradient is smooth end to end */}
@@ -900,10 +886,6 @@ export default function ZipGame({ onExit }) {
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}
-                {/* A thin bright crease along the top of the body. A 54-unit
-                    round stroke is a tube, and a tube with no highlight on it
-                    is a flat band; this is the line of light along its spine. */}
-                <path d={trailD} fill="none" stroke="#ffd9bd" strokeOpacity={0.5} strokeWidth={16} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 {/* The contrail dashes stay WHITE: they are drawn ON the orange
                     body, not on the board, so the board's colour is irrelevant
                     to them - and white on orange is the contrast this platform
@@ -925,18 +907,9 @@ export default function ZipGame({ onExit }) {
                     style={{ pointerEvents: 'none' }}
                   />
                 )}
-                {puffs.map((pf, i) => (
-                  <circle
-                    key={i}
-                    className="fp-puff"
-                    style={{ animationDelay: `${i * 220}ms`, pointerEvents: 'none' }}
-                    cx={pf.x} cy={pf.y} r={pf.r} fill="#ffffff" fillOpacity={pf.o}
-                  />
-                ))}
               </>
             ) : (
               <>
-                <rect x={hx - 42} y={hy - 42} width={84} height={84} rx={30} fill={BRAND_LIGHT} fillOpacity={0.3} style={{ pointerEvents: 'none' }} />
                 <rect x={hx - 34} y={hy - 34} width={68} height={68} rx={24} fill={BRAND_LIGHT} style={{ pointerEvents: 'none' }} />
               </>
             )}
@@ -1129,7 +1102,10 @@ export default function ZipGame({ onExit }) {
                   'relative flex h-11 items-center gap-2 overflow-hidden rounded-full border px-4 text-sm font-semibold transition-all duration-200 active:scale-95',
                   cooling
                     ? 'cursor-not-allowed border-gray-200 bg-cloud text-gray-400'
-                    : 'border-brand/45 bg-brand-tint text-brand hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:shadow-card',
+                    // WHITE, LIKE UNDO AND RESTART (21 Sep 2026). Ethan: "it
+                    // looks like it's already clicked in that orange." A tinted
+                    // button reads as pressed; it keeps its place first.
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
                   !cooling && hintAt > 0 && 'fp-hint-pop',
                 )}
               >

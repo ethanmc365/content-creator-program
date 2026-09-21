@@ -153,7 +153,7 @@ export function cleanExtraAwards(list = []) {
  * cap may. With no cap there is no top to the range, which `max: null` says
  * rather than inventing one.
  */
-export function prizeBudget({ prizes = [], participation = null, awards = [] } = {}) {
+export function prizeBudget({ prizes = [], participation = null, awards = [], creators = null } = {}) {
   const rows = (Array.isArray(prizes) ? prizes : []).filter((p) => Number(p.amount) > 0)
   const places = { cash: 0, voucher: 0, count: 0 }
   for (const p of rows) {
@@ -172,13 +172,23 @@ export function prizeBudget({ prizes = [], participation = null, awards = [] } =
   if (participation && toInt(participation.threshold) && String(participation.prize || '').trim()) {
     const each = toAmount(participation.amount) ?? toAmount(numberIn(participation.prize)) ?? 0
     const cap = toInt(participation.cap)
+    const scope = participation.scope === 'outside_prizes' ? 'outside_prizes' : 'everyone'
+    // WITH NO CAP, THE CEILING IS THE ROSTER (21 Sep 2026). "No limit" still
+    // has a limit: nobody who is not a creator in the market can earn it, and
+    // outside-the-places cannot go to a place-winner either. So the most it
+    // can cost is known, and Ethan wants it shown: "I would still show what
+    // the maximum is, even if there's no limit." `null` only when the roster
+    // is not known (the group editor passes no count).
+    const n = toInt(creators)
+    const reach = cap || (n ? Math.max(0, scope === 'outside_prizes' ? n - places.count : n) : null)
     part = {
       each,
       cap,
+      reach,
       threshold: toInt(participation.threshold),
       type: participation.type === 'cash' ? 'cash' : 'voucher',
-      scope: participation.scope === 'outside_prizes' ? 'outside_prizes' : 'everyone',
-      max: cap ? each * cap : null,
+      scope,
+      max: reach != null ? each * reach : null,
     }
   }
 
@@ -383,6 +393,20 @@ export default function PrizeBreakdownFields({
         </div>
       ))}
 
+      {/* ADD A PRIZE SITS UNDER THE LAST PLACE (21 Sep 2026). Ethan: "I would
+          still have it up above Reward for Taking Part and below the last main
+          price. Obviously, that's what you're adding." A new place joins the
+          list it is under; the two optional rewards keep their buttons at the
+          foot, where the things they add appear. */}
+      <div>
+        <button
+          type="button" className={ADD_BTN} id={`${idPrefix}-add`}
+          onClick={() => onPrizes([...prizes, { place: '', prize: '', amount: '', type: 'cash' }])}
+        >
+          <Icon name="plus" className="h-4 w-4" /> Add a prize
+        </button>
+      </div>
+
       {/* THE REWARD FOR TAKING PART, AS A PRIZE. Same row as a place: the
           threshold where a place would be, then what they get, its value and
           how it is paid. The cap and who can earn it are the two settings
@@ -539,15 +563,10 @@ export default function PrizeBreakdownFields({
         )
       })}
 
-      {/* WHAT YOU CAN ADD, TOGETHER, where the list ends. The two optional
-          rewards only appear once asked for. */}
+      {/* THE TWO OPTIONAL REWARDS, where the list ends. Each only appears once
+          asked for, and its button goes once it has. */}
+      {((onParticipation && !partShown) || (onExtraAwards && mc.length === 0)) && (
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button" className={ADD_BTN} id={`${idPrefix}-add`}
-          onClick={() => onPrizes([...prizes, { place: '', prize: '', amount: '', type: 'cash' }])}
-        >
-          <Icon name="plus" className="h-4 w-4" /> Add a prize
-        </button>
         {onParticipation && !partShown && (
           <button type="button" className={ADD_BTN} onClick={() => setPartOpen(true)}>
             <Icon name="plus" className="h-4 w-4" /> Reward for taking part
@@ -559,6 +578,7 @@ export default function PrizeBreakdownFields({
           </button>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -588,38 +608,46 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
       icon: 'video',
       label: 'Taking part',
       value: range(0, part.max),
-      note: `${money(symbol, part.each)} ${part.type === 'cash' ? 'cash' : 'voucher'} each, ${part.cap ? `first ${part.cap}` : 'no limit'}${part.scope === 'outside_prizes' ? ' outside the prize places' : ', winners included'}`,
+      note: `${money(symbol, part.each)} ${part.type === 'cash' ? 'cash' : 'voucher'} each, ${part.cap ? `first ${part.cap}` : part.reach != null ? `no cap, so at most ${part.reach} (every eligible creator)` : 'no limit'}${part.scope === 'outside_prizes' ? ' outside the prize places' : ', winners included'}`,
       highlight: true,
     })
   }
   const winnersNote = [
     `${places.count} place${places.count === 1 ? '' : 's'}`,
     awards.length ? `${awards.length} award${awards.length === 1 ? '' : 's'}` : null,
-    part ? (part.cap ? `up to ${part.cap} taking part` : 'everyone who takes part') : null,
+    part ? (part.cap ? `up to ${part.cap} taking part` : part.reach != null ? `up to ${part.reach} taking part` : 'everyone who takes part') : null,
   ].filter(Boolean).join(' + ')
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-5">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Total prize pot</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-brand sm:text-3xl">
+    <div className="overflow-hidden rounded-2xl border border-brand/20 bg-white shadow-card">
+      {/* THE HEADLINE IS THE HUB CARD'S GRADIENT (21 Sep 2026). Ethan: "a bit
+          more colour on it because it should stand out more at the end, just
+          like a summary of that information." It is the last thing above Save,
+          so it reads as the answer to the whole form. */}
+      <div className="relative grid gap-4 overflow-hidden bg-gradient-to-br from-brand to-brand-light p-4 text-white sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-5">
+        <span aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl" />
+        <div className="relative">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">Total prize pot</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
             {legacyPot != null ? money(symbol, legacyPot) : ranged ? range(min.total, max.total) : money(symbol, min.total)}
           </p>
           {ranged && legacyPot == null && (
-            <p className="mt-0.5 text-xs text-smoke">
-              {money(symbol, min.total)} is certain; the rest depends on how many creators reach the taking-part reward.
+            <p className="mt-1 text-xs text-white/85">
+              {money(symbol, min.total)} is certain
+              {max.total != null
+                ? <>; at most {money(symbol, max.total)} if every eligible creator reaches the taking-part reward{part.cap ? '' : ' (no cap set, so the ceiling is the number of creators)'}.</>
+                : '; the rest depends on how many creators reach the taking-part reward.'}
             </p>
           )}
         </div>
-        <div className="flex gap-2">
-          <div className="min-w-[7rem] rounded-xl bg-cloud px-3.5 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Cash</p>
-            <p className="text-base font-bold tabular-nums text-ink">{range(min.cash, max.cash)}</p>
+        <div className="relative flex gap-2">
+          <div className="min-w-[7rem] rounded-xl bg-white/20 px-3.5 py-2.5 ring-1 ring-white/25 backdrop-blur-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Cash</p>
+            <p className="text-base font-bold tabular-nums">{range(min.cash, max.cash)}</p>
           </div>
-          <div className="min-w-[7rem] rounded-xl bg-cloud px-3.5 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Vouchers</p>
-            <p className="text-base font-bold tabular-nums text-ink">{range(min.voucher, max.voucher)}</p>
+          <div className="min-w-[7rem] rounded-xl bg-white/20 px-3.5 py-2.5 ring-1 ring-white/25 backdrop-blur-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Vouchers</p>
+            <p className="text-base font-bold tabular-nums">{range(min.voucher, max.voucher)}</p>
           </div>
         </div>
       </div>
@@ -628,7 +656,9 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
         <ul className="divide-y divide-gray-100 border-t border-gray-100">
           {lines.map((l) => (
             <li key={l.label} className="flex items-center gap-3 px-4 py-2.5 text-sm sm:px-5">
-              <Icon name={l.icon} className={cx('h-4 w-4 shrink-0', l.highlight ? 'text-brand' : 'text-smoke')} />
+              <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', l.highlight ? 'bg-brand text-white' : 'bg-brand/10 text-brand')}>
+                <Icon name={l.icon} className="h-4 w-4" />
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-ink">{l.label}</p>
                 <p className="text-xs text-smoke">{l.note}</p>

@@ -37,7 +37,7 @@ export const DAILY_PUZZLES = [
     icon: 'chat',
     title: 'Guess the language',
     text: 'Ten phrases in their own scripts. Name the language behind each.',
-    short: 'Ten phrases, ten scripts.',
+    short: '10 phrases.',
     store: 'tryp_languages',
   },
 ]

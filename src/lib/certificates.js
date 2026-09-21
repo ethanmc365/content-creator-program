@@ -1,3 +1,20 @@
+// ============================================================================
+// PENDING: ETHAN IS DESIGNING THE CERTIFICATES HIMSELF (21 Sep 2026).
+//
+// "I'm also going to be working on designing the certificates. Ensure there's
+// a note just in the file that I will give them at some point, and you know
+// what to do then."
+//
+// When his designs arrive (likely made in Canva): rebuild each one as a layout
+// in `components/certificate/CertificateCard.jsx` so it renders from the
+// creator's own data (name, date, the certificate number and the /verify
+// link) rather than as a flat image, keep Poppins 400/700 (the only weights
+// `domSnapshot` embeds, so the download matches the screen), check the export
+// at full size, and only then flip `app_settings.certificates_live` - they are
+// hidden from creators until he approves them (migration 237). Every award made
+// meanwhile appears the moment that flag goes on.
+// ============================================================================
+
 // WHAT A CERTIFICATE SAYS, AND WHO GETS ONE.
 //
 // Pure, and therefore tested. What this module gets wrong is not visible in a
