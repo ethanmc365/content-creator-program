@@ -57,6 +57,11 @@ describe('inCurrency', () => {
 
   it('survives a form with no prizes at all', () => {
     expect(inCurrency({ prize_currency: 'GBP' }, 'EUR'))
-      .toEqual({ prize_currency: 'EUR', prize_structure: [], participation_prize: '' })
+      .toEqual({ prize_currency: 'EUR', prize_structure: [], participation_prize: '', extra_awards: [] })
+  })
+
+  it('rewrites an extra award in the new currency too', () => {
+    const out = inCurrency({ prize_currency: 'GBP', extra_awards: [{ id: 'a', prize: '£20 Tryp.com voucher' }] }, 'EUR')
+    expect(out.extra_awards[0].prize).toBe('€20 Tryp.com voucher')
   })
 })

@@ -12,11 +12,11 @@ import SocialMark from '../../components/SocialMark'
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
-import PrizeBreakdownFields, { prizeKind, prizeTotals, cleanPrizes } from '../../components/admin/PrizeBreakdownFields'
+import PrizeBreakdownFields, { prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
-import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule } from '../../lib/scoring'
+import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule, isSavedRuleId } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 import { testFlags } from '../../lib/testData'
 import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/ChallengeTemplates'
@@ -118,6 +118,7 @@ export function inCurrency(form, next) {
     prize_currency: next,
     prize_structure: (form.prize_structure || []).map((p) => ({ ...p, prize: swapCurrency(p.prize, form.prize_currency, next) })),
     participation_prize: swapCurrency(form.participation_prize, form.prize_currency, next),
+    extra_awards: (form.extra_awards || []).map((a) => ({ ...a, prize: swapCurrency(a.prize, form.prize_currency, next) })),
   }
 }
 
@@ -130,6 +131,8 @@ export default function AdminChallengeForm() {
 
   const [loading, setLoading] = useState(editing)
   const [busy, setBusy] = useState(false)
+  // The row a failed first save already created - see `save`.
+  const createdIdRef = useRef(null)
   const briefRef = useRef(null)
   const rulesRef = useRef(null)
   // WHICH BOX THE ONE SHARED TOOLBAR IS POINTING AT.
@@ -190,6 +193,13 @@ export default function AdminChallengeForm() {
     prize_structure: DEFAULT_PRIZES,
     participation_threshold: '', // videos needed to earn the participation reward
     participation_prize: '',
+    // Migration 233. Blank cap = everyone who qualifies; type is chosen, not
+    // guessed from the words; scope decides whether winners earn it too.
+    participation_cap: '',
+    participation_reward_type: 'voucher',
+    participation_amount: '',
+    participation_scope: 'everyone',
+    extra_awards: [],
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
     status: 'draft',
@@ -390,6 +400,12 @@ export default function AdminChallengeForm() {
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
           participation_threshold: data.participation_threshold ?? '',
           participation_prize: data.participation_prize ?? '',
+          participation_cap: data.participation_cap ?? '',
+          participation_reward_type: data.participation_reward_type
+            ?? (/voucher|credit|gift/i.test(data.participation_prize || '') ? 'voucher' : data.participation_prize ? 'cash' : 'voucher'),
+          participation_amount: data.participation_amount ?? '',
+          participation_scope: data.participation_scope ?? 'everyone',
+          extra_awards: Array.isArray(data.extra_awards) ? data.extra_awards : [],
           market: data.market ?? '',
           format: data.format ?? 'monthly',
           audience: data.audience ?? 'general',
@@ -440,11 +456,17 @@ export default function AdminChallengeForm() {
       ? (community.country_codes?.[0] || community.name || null)
       : null
 
-    // Cash, vouchers, or both - readable off the prizes as written.
-    const prizeText = (form.prize_structure ?? []).map((p) => p.prize || '').join(' ').toLowerCase()
-    const participation = (form.participation_prize || '').toLowerCase()
-    const hasVoucher = /voucher|credit/.test(`${prizeText} ${participation}`)
-    const hasCash = (form.prize_structure ?? []).some((p) => Number(p.amount) > 0)
+    // Cash, vouchers, or both - off each prize's chosen kind (the words, for
+    // a row saved before the kind could be chosen).
+    const rows = (form.prize_structure ?? []).filter((p) => p.prize)
+    const hasPart = !!(form.participation_threshold && String(form.participation_prize || '').trim())
+    const extras = (form.extra_awards ?? []).filter((a) => String(a.prize || '').trim())
+    const hasVoucher = rows.some((p) => rowType(p) === 'voucher')
+      || (hasPart && form.participation_reward_type !== 'cash')
+      || extras.some((a) => a.type !== 'cash')
+    const hasCash = rows.some((p) => rowType(p) === 'cash' && Number(p.amount) > 0)
+      || (hasPart && form.participation_reward_type === 'cash')
+      || extras.some((a) => a.type === 'cash')
     const prize_type = hasCash && hasVoucher ? 'cash_voucher' : hasVoucher ? 'voucher' : 'cash'
 
     return {
@@ -458,6 +480,7 @@ export default function AdminChallengeForm() {
     }
   }, [form.startDateStr, form.startTimeStr, form.endDateStr, form.endTimeStr,
       form.community_id, form.prize_structure, form.participation_prize,
+      form.participation_threshold, form.participation_reward_type, form.extra_awards,
       form.format, form.scoring, markets])
 
   // Writing the groups and who is in them.
@@ -596,6 +619,8 @@ export default function AdminChallengeForm() {
       participation_prize: form.participation_threshold && form.participation_prize.trim()
         ? form.participation_prize.trim()
         : null,
+      ...participationExtras(form),
+      extra_awards: cleanExtraAwards(form.extra_awards),
       start_date: startIso,
       end_date: endIso,
       // Optional auto-publish time: a cron flips the draft live at this moment.
@@ -606,7 +631,17 @@ export default function AdminChallengeForm() {
       // is right, and the two fields could disagree: a challenge could be set
       // to publish on the 5th and start on the 1st, and nothing said which won.
       // A draft with a future start date now publishes itself at that date.
-      publish_at: parseDateTime(form.startDateStr, form.startTimeStr) || null,
+      //
+      // ONLY A START DATE STILL TO COME SCHEDULES ANYTHING (21 Sep 2026). With
+      // the start already passed, "the start date publishes it" meant the next
+      // cron tick (every five minutes) published a draft somebody had only
+      // pressed "Save changes" on - so a challenge starting today could not be
+      // saved and kept as a draft. Publishing a draft whose start has passed is
+      // "Save & publish", a deliberate press.
+      publish_at: (() => {
+        const iso = parseDateTime(form.startDateStr, form.startTimeStr)
+        return iso && Date.parse(iso) > Date.now() ? iso : null
+      })(),
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
       status: publishNow ? 'active' : form.status,
       // DERIVED, not typed. See the note where the Reporting section used to
@@ -627,11 +662,18 @@ export default function AdminChallengeForm() {
       cpm_target: form.cpm_target === '' ? null : Number(form.cpm_target),
     }
 
-    const { data: saved, error: dbError } = editing
-      ? await supabase.from('challenges').update(payload).eq('id', id).select('id').single()
+    // A SAVE THAT FAILS HALFWAY MUST NOT BE A SECOND CHALLENGE ON RETRY.
+    // The challenge row is written first and its rules after, so when a later
+    // step failed the form was still a "new" form and pressing Save again
+    // inserted the challenge again - which is how one Global Challenge became
+    // three identical drafts. Once a row exists, every later press updates it.
+    const rowId = id || createdIdRef.current
+    const { data: saved, error: dbError } = rowId
+      ? await supabase.from('challenges').update(payload).eq('id', rowId).select('id').single()
       : await supabase.from('challenges').insert({ ...payload, created_by: user.id }).select('id').single()
 
     if (dbError) { setBusy(false); return setError(dbError.message) }
+    if (!rowId && saved?.id) createdIdRef.current = saved.id
 
     // Scoring rules, written after the challenge exists because they point at
     // it. A non-points challenge has none, so switching a challenge away from
@@ -651,11 +693,15 @@ export default function AdminChallengeForm() {
     //
     // So: delete only what the editor actually removed, update what it kept,
     // insert what it added.
-    const challengeId = saved?.id ?? id
+    const challengeId = saved?.id ?? rowId
     if (challengeId) {
       const wanted = form.scoring === 'points' ? rules : []
-      // `seed-N` ids come from STARTER_POINT_RULES and are not database rows.
-      const kept = wanted.filter((r) => r.id && !String(r.id).startsWith('seed-'))
+      // ONLY A UUID IS A ROW. The editor keys a rule it has just made with a
+      // temporary id (`new-5`, `seed-0`), and this used to treat anything not
+      // called `seed-` as saved: `new-5` went into `not in (...)` against a
+      // uuid column and the save died with "invalid input syntax for type
+      // uuid: new-5" - after the challenge row had already been written.
+      const kept = wanted.filter((r) => isSavedRuleId(r.id))
       let del = supabase.from('point_rules').delete().eq('challenge_id', challengeId)
       if (kept.length) del = del.not('id', 'in', `(${kept.map((r) => r.id).join(',')})`)
       const { error: delErr } = await del
@@ -675,16 +721,20 @@ export default function AdminChallengeForm() {
         position: i,
         is_active: true,
       }))
-      const existing = rows.filter((_, i) => wanted[i].id && !String(wanted[i].id).startsWith('seed-'))
+      const existing = rows.filter((_, i) => isSavedRuleId(wanted[i].id))
         .map((row, k) => ({ ...row, id: kept[k].id }))
-      const fresh = rows.filter((_, i) => !wanted[i].id || String(wanted[i].id).startsWith('seed-'))
+      const fresh = rows.filter((_, i) => !isSavedRuleId(wanted[i].id))
       if (existing.length) {
         const { error: upErr } = await supabase.from('point_rules').upsert(existing)
         if (upErr) { setBusy(false); return setError(upErr.message) }
       }
       if (fresh.length) {
-        const { error: insErr2 } = await supabase.from('point_rules').insert(fresh)
+        const { data: made, error: insErr2 } = await supabase.from('point_rules').insert(fresh).select('id, position')
         if (insErr2) { setBusy(false); return setError(insErr2.message) }
+        // Hand the editor the real ids, so a retry after a later failure
+        // updates these rows instead of inserting them a second time.
+        const idAt = new Map((made ?? []).map((m) => [m.position, m.id]))
+        setRules((cur) => cur.map((r, i) => (isSavedRuleId(r.id) || !idAt.has(i) ? r : { ...r, id: idAt.get(i) })))
       }
 
       // ---- GROUPS ---------------------------------------------------------
@@ -1195,6 +1245,20 @@ export default function AdminChallengeForm() {
             participationPrize={form.participation_prize}
             onParticipation={({ threshold, prize }) =>
               set({ participation_threshold: threshold, participation_prize: prize })}
+            participationExtra={{
+              cap: form.participation_cap,
+              reward_type: form.participation_reward_type,
+              amount: form.participation_amount,
+              scope: form.participation_scope,
+            }}
+            onParticipationExtra={(patch) => set({
+              ...('cap' in patch ? { participation_cap: patch.cap } : {}),
+              ...('reward_type' in patch ? { participation_reward_type: patch.reward_type } : {}),
+              ...('amount' in patch ? { participation_amount: patch.amount } : {}),
+              ...('scope' in patch ? { participation_scope: patch.scope } : {}),
+            })}
+            extraAwards={form.extra_awards || []}
+            onExtraAwards={(next) => set({ extra_awards: next })}
             idPrefix="challenge-prize"
           />
 

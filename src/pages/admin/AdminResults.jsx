@@ -10,6 +10,7 @@ import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
 import PrizesPanel from '../../components/admin/PrizesPanel'
+import PrizeStandingsPanel, { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGroups'
 
@@ -105,10 +106,13 @@ export default function AdminResults() {
   const [claimRules, setClaimRules] = useState([])
   const [groups, setGroups] = useState([])
   const [groupMembers, setGroupMembers] = useState([])
+  // Bumped whenever something that moves the participation standings changes.
+  const [standingsKey, setStandingsKey] = useState(0)
+  const standings = usePrizeStandings(id, `${standingsKey}:${submissions.length}:${resultsCount}`)
 
   const loadBonuses = useCallback(async () => {
     const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
-      supabase.from('point_rules').select('id, label, points, prompt, min_views')
+      supabase.from('point_rules').select('id, label, points, prompt, min_views, max_points')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
       supabase.from('point_awards').select('submission_id, rule_id')
         .eq('challenge_id', id).eq('is_auto', false),
@@ -121,7 +125,14 @@ export default function AdminResults() {
     // each without asking which kind it is twice.
     setBonusRules((rules ?? []).filter((r) => !r.prompt))
     setClaimRules((rules ?? []).filter((r) => r.prompt))
-    setAwarded(new Set((given ?? []).filter((a) => a.submission_id).map((a) => `${a.submission_id}:${a.rule_id}`)))
+    // AN ADMIN'S BONUS IS A CLAIM NOW (migration 233), made for the creator,
+    // so the view gate and the cap hold whoever gave it. Legacy hand-given
+    // rows still count as given.
+    const unasked = new Set((rules ?? []).filter((r) => !r.prompt).map((r) => r.id))
+    setAwarded(new Set([
+      ...(given ?? []).filter((a) => a.submission_id).map((a) => `${a.submission_id}:${a.rule_id}`),
+      ...(claimed ?? []).filter((c) => unasked.has(c.rule_id)).map((c) => `${c.submission_id}:${c.rule_id}`),
+    ]))
     setClaims(claimed ?? [])
     setGroups(gs ?? [])
     setGroupMembers(gms ?? [])
@@ -160,7 +171,9 @@ export default function AdminResults() {
     const { error } = await supabase.rpc(given ? 'withdraw_bonus' : 'award_bonus', {
       p_submission: sub.id, p_rule: rule.id,
     })
-    if (error) { flash(error.message); loadBonuses() }
+    if (error) { flash(error.message) }
+    loadBonuses()
+    setStandingsKey((k) => k + 1)
   }
 
   // Save one submission's logged views (on blur or Enter).
@@ -351,7 +364,10 @@ export default function AdminResults() {
   // creators used to be filtered out, which made a row headed "for everyone
   // here" leave out the three people most obviously here. Placing first does not
   // un-earn the voucher for turning up.
-  const voucherWinners = challenge?.participation_threshold
+  const voucherWinners = standings && standings.some((r) => r.slot === 'participation')
+    ? standings.filter((r) => r.slot === 'participation' && r.status === 'earned')
+      .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url }))
+    : challenge?.participation_threshold
     ? submissions
         .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold)
         .map((sub) => sub.profiles)
@@ -475,6 +491,8 @@ export default function AdminResults() {
           ))}
         </div>
       )}
+
+      <PrizeStandingsPanel challenge={challenge} refreshKey={`${standingsKey}:${submissions.length}:${resultsCount}`} />
 
       {resultsCount > 0 ? <PrizesPanel challengeId={id} onFlash={flash} /> : null}
 
@@ -605,22 +623,28 @@ export default function AdminResults() {
                 <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
                   {bonusRules.map((r) => {
                     const given = awarded.has(`${s.id}:${r.id}`)
+                    const waiting = given && r.min_views > 0 && (s.logged_views ?? 0) < r.min_views
                     return (
                       <button
                         key={r.id}
                         type="button"
                         onClick={() => toggleBonus(s, r, given)}
                         aria-pressed={given}
-                        title={given ? `Take back ${r.label}` : `Award ${r.label}`}
+                        title={waiting
+                          ? `Awarded, but it counts once this entry passes ${Number(r.min_views).toLocaleString()} views. Press to take it back.`
+                          : given ? `Take back ${r.label}` : `Award ${r.label}${r.min_views > 0 ? ` (counts once the entry passes ${Number(r.min_views).toLocaleString()} views)` : ''}`}
                         className={cx(
                           'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all duration-200',
-                          given
-                            ? 'border-brand bg-brand text-white'
-                            : 'border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                          waiting
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : given
+                              ? 'border-brand bg-brand text-white'
+                              : 'border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
                         )}
                       >
-                        <Icon name={given ? 'check' : 'plus'} className="h-3 w-3" />
+                        <Icon name={waiting ? 'clock' : given ? 'check' : 'plus'} className="h-3 w-3" />
                         {r.points} pt{r.points === 1 ? '' : 's'} · {r.label}
+                        {waiting && ` · at ${Number(r.min_views).toLocaleString()}`}
                       </button>
                     )
                   })}

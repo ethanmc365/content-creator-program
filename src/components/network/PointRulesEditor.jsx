@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
-import { STARTER_POINT_RULES, RULE_USES_THRESHOLD } from '../../lib/scoring'
+import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS } from '../../lib/scoring'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
@@ -31,6 +31,8 @@ const KINDS = {
   total_views_threshold: { icon: 'trophy', label: 'Total views milestone' },
   platform_spread: { icon: 'share', label: 'Per platform posted on' },
   bonus: { icon: 'star', label: 'Bonus' },
+  // Migration 233. "+5 at the end for posting a video in all 4 weeks."
+  consistency: { icon: 'calendar', label: 'Consistency bonus' },
 }
 
 let tempId = 0
@@ -40,6 +42,7 @@ const DEFAULTS = {
   total_views_threshold: { label: 'Passed 25,000 views in total', points: 8, threshold: 25000, max_points: null },
   platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
   bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '', min_views: null },
+  consistency: { label: 'Posted every week', points: 5, threshold: null, max_points: null, period_days: 7 },
 }
 
 const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || DEFAULTS.bonus) })
@@ -206,6 +209,10 @@ function Row({ rule, onChange, onRemove }) {
           </label>
         )}
 
+        {rule.kind === 'consistency' && (
+          <ConsistencyPeriod rule={rule} onChange={onChange} />
+        )}
+
         {rule.kind === 'bonus' && (
           /* SHORT, because this cell has to fit the same column as "at 10,000
              views". It used to read "given by an admin, on an entry", which was
@@ -219,7 +226,7 @@ function Row({ rule, onChange, onRemove }) {
           )}>
             {rule.prompt?.trim()
               ? (rule.min_views > 0 ? tr('Claimed, awarded at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('Creator claims it'))
-              : tr('You award it')}
+              : (rule.min_views > 0 ? tr('You award it, counts at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('You award it'))}
           </span>
         )}
       </div>
@@ -281,8 +288,10 @@ function Row({ rule, onChange, onRemove }) {
         ONLY UNDER A QUESTION. A bonus with no question is one an admin hands out
         by judgement from the results page - gating a human's decision on a view
         count would just stop them being able to make it. */}
-    {rule.kind === 'bonus' && rule.prompt?.trim() && (
-      /* THE BOX WAS INVISIBLE, AND THE WORDS WERE ABOUT MONEY (4 Sep 2026).
+    {rule.kind === 'bonus' && (
+      /* SINCE MIGRATION 233 THIS IS EVERY BONUS, asked or not: an admin's award
+         is a claim made for the creator, and the gate holds either way.
+         THE BOX WAS INVISIBLE, AND THE WORDS WERE ABOUT MONEY (4 Sep 2026).
 
          Ethan: "the actual box to enter the views here doesn't seem to show,
          should be a clean UI box to enter in the views" - and on the sentence,
@@ -314,7 +323,64 @@ function Row({ rule, onChange, onRemove }) {
         </span>
       </label>
     )}
+
+    {/* THE CAP. Ethan: "I could have 3 different bonus points, and for each
+        one they can only get a max of 9 extra points from this bonus." The
+        first qualifying entries in the order they were submitted earn it. */}
+    {rule.kind === 'bonus' && (
+      <label className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="text-[11px] font-medium text-smoke">{tr("At most")}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
+          <NumberBox
+            value={rule.max_points ?? null}
+            onChange={(v) => onChange({ ...rule, max_points: v })}
+            width="w-12"
+            decimal
+            placeholder="9"
+            ariaLabel="Most points one creator can earn from this bonus"
+          />
+          <span className="shrink-0 text-xs text-smoke">pts</span>
+        </span>
+        <span className="text-[11px] font-medium text-smoke">{tr("per creator from this bonus")}</span>
+        <span className="text-[11px] font-normal text-smoke">({tr("leave blank for no limit")})</span>
+      </label>
+    )}
     </div>
+  )
+}
+
+// HOW OFTEN A CREATOR HAS TO POST, for the consistency bonus. Every day, every
+// week, or any number of days. Windows are counted from the challenge's start
+// to its deadline, and the points land by themselves on the entry that fills
+// the last empty window.
+function ConsistencyPeriod({ rule, onChange }) {
+  const tr = useT()
+  const days = Number(rule.period_days) || 7
+  const named = CONSISTENCY_PERIODS.find((p) => p.days === days)
+  return (
+    <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
+      <span className="shrink-0 text-xs text-smoke">{tr("post")}</span>
+      <select
+        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs font-medium outline-none focus:ring-0"
+        value={named ? String(days) : 'custom'}
+        onChange={(e) => onChange({ ...rule, period_days: e.target.value === 'custom' ? 3 : Number(e.target.value) })}
+        aria-label="How often they have to post"
+      >
+        {CONSISTENCY_PERIODS.map((p) => <option key={p.days} value={p.days}>{tr(p.label)}</option>)}
+        <option value="custom">{tr("every N days")}</option>
+      </select>
+      {!named && (
+        <>
+          <NumberBox
+            value={rule.period_days ?? null}
+            onChange={(v) => onChange({ ...rule, period_days: v })}
+            width="w-8"
+            ariaLabel="Days in each window"
+          />
+          <span className="shrink-0 text-xs text-smoke">{tr("days")}</span>
+        </>
+      )}
+    </label>
   )
 }
 
@@ -361,7 +427,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           what is already there. */}
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">{tr("Add a rule")}</p>
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {Object.entries(KINDS).map(([kind, meta]) => (
             <button
               key={kind}

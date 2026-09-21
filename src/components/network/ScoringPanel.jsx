@@ -35,7 +35,7 @@ export default function ScoringPanel({ challenge }) {
   useEffect(() => {
     if (challenge.scoring !== 'points') { setRules([]); return }
     let alive = true
-    supabase.from('point_rules').select('id, kind, label, points, threshold, max_points')
+    supabase.from('point_rules').select('id, kind, label, points, threshold, max_points, min_views, period_days')
       .eq('challenge_id', challenge.id).order('position')
       .then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
@@ -77,13 +77,27 @@ export default function ScoringPanel({ challenge }) {
           <ul className="space-y-1.5">
             {rules.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-xl bg-cloud/60 px-3.5 py-2.5">
-                <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : 'video'}
+                <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : r.kind === 'consistency' ? 'calendar' : 'video'}
                   className="h-4 w-4 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{r.label}</span>
                   {r.max_points != null && (
                     <span className="block text-[11px] text-smoke">
                       {tr('Up to {n} points from this', { n: Number(r.max_points) })}
+                    </span>
+                  )}
+                  {r.kind === 'bonus' && Number(r.min_views) > 0 && (
+                    <span className="block text-[11px] text-smoke">
+                      {tr('Counts once the video passes {n} views', { n: Number(r.min_views).toLocaleString() })}
+                    </span>
+                  )}
+                  {r.kind === 'consistency' && (
+                    <span className="block text-[11px] text-smoke">
+                      {Number(r.period_days) === 1
+                        ? tr('Post at least one video every day of the challenge')
+                        : Number(r.period_days) === 7
+                          ? tr('Post at least one video in every week of the challenge')
+                          : tr('Post at least one video every {n} days of the challenge', { n: Number(r.period_days) || 7 })}
                     </span>
                   )}
                 </span>

@@ -8,6 +8,8 @@ import { cx } from '../lib/utils'
 import { onPhotosChanged, photosChanged } from '../lib/photoEvents'
 import { confirm, notice } from '../lib/confirm'
 import { useT } from '../lib/i18n'
+import { createPortal } from 'react-dom'
+import PhotoLightbox from './PhotoLightbox'
 
 // THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
 //
@@ -1066,7 +1068,28 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         <CropDialog photo={cropping} onCancel={() => setCropping(null)}
           onSave={(focal, zoom) => saveCrop(cropping, focal, zoom)} />
       )}
-      {lightbox && <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />}
+      {/* THE SHARED VIEWER, NOT A PRIVATE ONE. This board drew its own
+          `fixed z-[80]` layer inline in the page, and on a profile - where
+          `Reveal` transforms wrap the sections - that layer was painted UNDER
+          the cards around it: "the preview is hidden behind other cards".
+          PhotoLightbox portals to the body (see the note at its top), and
+          brings pinch-zoom, Save and stepping through the set with it. */}
+      {lightbox && (() => {
+        const i = tiles.findIndex((t) => t.id === lightbox.id)
+        const step = (d) => { if (tiles.length > 1) setLightbox(tiles[(i + d + tiles.length) % tiles.length]) }
+        return (
+          <PhotoLightbox
+            src={lightbox.photo_url}
+            alt={lightbox.caption || ''}
+            caption={lightbox.caption || ''}
+            counter={tiles.length > 1 && i >= 0 ? `${i + 1} / ${tiles.length}` : ''}
+            onPrev={tiles.length > 1 ? () => step(-1) : null}
+            onNext={tiles.length > 1 ? () => step(1) : null}
+            canSave
+            onClose={() => setLightbox(null)}
+          />
+        )
+      })()}
     </>
   )
 }
@@ -1267,29 +1290,6 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
   )
 }
 
-// ---------------------------------------------------------------- lightbox
-function Lightbox({ photo, onClose }) {
-  const tr = useT()
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <button
-      type="button"
-      onClick={onClose}
-      className="animate-fade-up fixed inset-0 z-[80] flex items-center justify-center bg-ink/85 p-6 backdrop-blur-sm"
-      aria-label={tr("Close photo")}
-    >
-      <figure className="max-h-full max-w-4xl">
-        <img src={photo.photo_url} alt={photo.caption || ''} className="max-h-[80vh] w-auto rounded-card object-contain" />
-        {photo.caption && <figcaption className="mt-3 text-center text-sm text-white/90">{photo.caption}</figcaption>}
-      </figure>
-    </button>
-  )
-}
-
 // ------------------------------------------------------------------- crop
 //
 // THE CROP IS A FOCAL POINT AND A ZOOM, NOT A RECTANGLE (migration 108).
@@ -1325,8 +1325,10 @@ function CropDialog({ photo, onCancel, onSave }) {
     }
   }, [place])
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
+  // TO THE BODY, like every overlay: inline, a transformed ancestor on the
+  // profile traps this `fixed` layer under the cards around it.
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-card bg-white shadow-lift">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
           <h3 className="text-sm font-semibold">{tr("Reframe this photo")}</h3>
@@ -1360,6 +1362,7 @@ function CropDialog({ photo, onCancel, onSave }) {
           <button onClick={() => onSave(focal, zoom)} className="btn-primary !py-2 text-sm">{tr("Save")}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

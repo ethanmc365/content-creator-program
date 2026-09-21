@@ -80,21 +80,43 @@ Deno.serve(async (req) => {
       title: n.title, body: n.body ?? '', link: n.link || '/notifications', tag: n.id,
     })
 
+    // EVERY OUTCOME IS COUNTED AND EVERY FAILURE IS LOGGED (21 Sep 2026).
+    // A failure that was not a 404/410 used to vanish into an empty catch, so
+    // Apple refusing a push and a push being delivered looked identical from
+    // here: the function answered 200 and nobody's phone buzzed. Ethan: "I
+    // haven't been getting notifications recently." The log line carries the
+    // push service's own status and reason, and the host rather than the
+    // endpoint, which is a capability URL.
+    const tally = { sent: 0, failed: 0, removed: 0 }
     await Promise.all((subs ?? []).map(async (s) => {
+      const host = (() => { try { return new URL(s.endpoint).host } catch { return '?' } })()
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body,
+          // High urgency so a phone in low-power mode still wakes for it; a
+          // push nobody could deliver within three days is noise by then.
+          { urgency: 'high', TTL: 60 * 60 * 24 * 3 },
         )
+        tally.sent += 1
       } catch (e) {
         // 404/410 mean the browser threw the subscription away (uninstalled the
-        // PWA, cleared site data). Drop it so we stop retrying forever.
+        // PWA, cleared site data). Drop it so we stop retrying forever. The app
+        // re-registers the device the next time it is opened (lib/push).
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+          tally.removed += 1
+        } else {
+          tally.failed += 1
         }
+        console.error('push failed', JSON.stringify({
+          host, status: e?.statusCode ?? null, reason: String(e?.body ?? e?.message ?? e).slice(0, 300),
+          type: n.type, recipient: n.recipient_id,
+        }))
       }
     }))
 
-    return new Response('ok', { status: 200 })
+    if (!subs?.length) console.log('push skipped: no devices', JSON.stringify({ type: n.type, recipient: n.recipient_id }))
+    return new Response(JSON.stringify(tally), { status: 200, headers: { 'content-type': 'application/json' } })
   } catch (e) {
     // A webhook that 500s gets retried; log the reason and answer 200 so a bad
     // payload cannot wedge the queue.

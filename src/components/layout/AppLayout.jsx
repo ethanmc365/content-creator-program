@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { syncPushSubscription } from '../../lib/push'
 import { useUnread } from '../../context/UnreadContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
@@ -312,6 +313,18 @@ export default function AppLayout() {
   // that nobody is holding a lock and, if so, that the body is not still
   // wearing one. It is a no-op in every normal case, including with a dialog
   // genuinely open across a route change.
+  // Re-register this device for push on every open and whenever the app comes
+  // back to the foreground - see syncPushSubscription for why a one-off
+  // registration silently stops working. Never while viewing as a creator:
+  // that session is the sandbox account, not the admin holding the phone.
+  useEffect(() => {
+    if (!user?.id || impersonating) return undefined
+    syncPushSubscription(user.id)
+    const onVisible = () => { if (document.visibilityState === 'visible') syncPushSubscription(user.id) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user?.id, impersonating])
+
   useEffect(() => { repairScrollLock() }, [pathname])
 
   // A ROUTE CHANGE IS A NEW PAGE OF CONTENT ARRIVING, AND IT ARRIVES THE SAME
