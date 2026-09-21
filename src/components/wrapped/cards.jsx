@@ -24,13 +24,21 @@ export const PALETTES = {
   mint: { bg: 'linear-gradient(160deg,#04322b 0%,#0d6b57 55%,#7fd4b8 100%)', ink: '#ffffff', soft: 'rgba(255,255,255,0.8)', chip: 'rgba(255,255,255,0.16)' },
 }
 
-/** The Tryp mark, drawn rather than fetched so a share picture never waits. */
+/**
+ * The real Tryp.com wordmark, cut out of its white square
+ * (`/brand/tryp-wordmark*.svg`), so it sits straight on the card rather than
+ * on a plate. White on the dark and orange grounds, brand orange on the one
+ * pale palette. `crossOrigin` because domSnapshot reads its pixels back.
+ */
 export function TrypMark({ tone = '#ffffff', className = '' }) {
+  const dark = /^#(3b1c07|000|111)/i.test(tone) || tone.startsWith('rgba(59')
   return (
-    <span className={cx('inline-flex items-center gap-1.5', className)} style={{ color: tone }}>
-      <Icon name="plane-tryp" className="h-4 w-4" />
-      <span className="text-[11px] font-extrabold uppercase tracking-[0.18em]">Tryp.com</span>
-    </span>
+    <img
+      src={dark ? '/brand/tryp-wordmark.svg' : '/brand/tryp-wordmark-white.svg'}
+      alt="Tryp.com"
+      crossOrigin="anonymous"
+      className={cx('h-[18px] w-auto opacity-90', className)}
+    />
   )
 }
 
@@ -92,7 +100,7 @@ export function Card({ palette = 'ember', children, className = '', bodyClassNam
 export function Eyebrow({ children, palette = 'ember' }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
-    <p className="text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: p.soft }}>
+    <p data-anim="rise" className="text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: p.soft }}>
       {children}
     </p>
   )
@@ -136,8 +144,11 @@ export function Hero({ value, unit, palette = 'ember' }) {
   return (
     // `min-w-0` + `break-words` is the backstop: the ladder handles every value
     // we can predict, and this stops anything we cannot from leaving the card.
-    <p className="flex w-full max-w-full flex-wrap items-baseline gap-x-2.5">
-      <span className={cx('min-w-0 max-w-full break-words font-extrabold leading-[0.92] tracking-tight', heroSize(value))}>
+    <p data-anim="pop" className="flex w-full max-w-full flex-wrap items-baseline gap-x-2.5">
+      <span
+        data-count={/^[\d,]+$/.test(String(value ?? '')) ? String(value) : undefined}
+        className={cx('min-w-0 max-w-full break-words font-extrabold leading-[0.92] tracking-tight', heroSize(value))}
+      >
         {value}
       </span>
       {unit && <span className="text-lg font-bold" style={{ color: p.soft }}>{unit}</span>}
@@ -148,7 +159,7 @@ export function Hero({ value, unit, palette = 'ember' }) {
 export function Line({ children, palette = 'ember', className = '' }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
-    <p className={cx('text-[15px] font-medium leading-relaxed sm:text-base', className)} style={{ color: p.soft }}>
+    <p data-anim="rise" className={cx('text-[15px] font-medium leading-relaxed sm:text-base', className)} style={{ color: p.soft }}>
       {children}
     </p>
   )
@@ -157,7 +168,7 @@ export function Line({ children, palette = 'ember', className = '' }) {
 export function Chips({ items, palette = 'ember' }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div data-anim="rise" className="flex flex-wrap gap-1.5">
       {items.map((t, i) => (
         <span
           key={`${t}-${i}`}
@@ -175,7 +186,7 @@ export function Chips({ items, palette = 'ember' }) {
 export function Facts({ items, palette = 'ember' }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
-    <div className="flex flex-wrap gap-x-7 gap-y-3">
+    <div data-anim="rise" className="flex flex-wrap gap-x-7 gap-y-3">
       {items.filter(Boolean).map((f) => (
         <span key={f.label} className="min-w-0">
           <span className="block text-2xl font-extrabold tabular-nums leading-none">{f.value}</span>
@@ -194,6 +205,7 @@ export function Standing({ standing: s, what, palette = 'ember' }) {
   const p = PALETTES[palette] || PALETTES.ember
   return (
     <span
+      data-anim="pop"
       className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-bold"
       style={{ background: p.chip, color: p.ink }}
     >
@@ -201,6 +213,24 @@ export function Standing({ standing: s, what, palette = 'ember' }) {
       Top {s.percentile}% {what}
     </span>
   )
+}
+
+/**
+ * A pot of money said the way a person would say it: "€8,000+", not
+ * "€8,845.50". Ethan: "don't give it to the cents. Just give it roughly to the
+ * 1,000." Under a thousand there is nothing to round to, so it is exact, and
+ * never with cents.
+ */
+export function roughMoney(amount, currency = 'EUR') {
+  const n = Number(amount) || 0
+  const fmt = (v) => new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v)
+  if (n >= 1000) return `${fmt(Math.floor(n / 1000) * 1000)}+`
+  return fmt(Math.round(n))
+}
+
+/** Money without cents. A recap is not an invoice. */
+export function wholeMoney(amount, currency = 'EUR') {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Math.round(Number(amount) || 0))
 }
 
 export { formatViews, formatMoney, flagEmoji }

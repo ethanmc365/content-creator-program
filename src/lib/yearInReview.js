@@ -357,6 +357,16 @@ export function buildYearInReview({
     milestones: myMilestones.map((m) => ({
       title: m.title, icon: m.icon, reward: m.reward || null, reached_at: m.reached_at,
     })),
+    // THE NEXT STOP ON THE LADDER, so the milestone card can draw a route that
+    // goes somewhere rather than one that ends at the last thing they did.
+    // Reached "ever", not "this year" - a stop passed last year is not next.
+    nextMilestone: (() => {
+      const reached = new Set(creatorMilestones.filter((m) => m.profile_id === meId).map((m) => m.milestone_id))
+      const next = milestones
+        .filter((m) => m.is_active !== false && !reached.has(m.id))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0]
+      return next ? { title: next.title, icon: next.icon, reward: next.reward || null } : null
+    })(),
     topRoom: topRoom ? { key: topRoom[0], count: topRoom[1] } : null,
     markets: myMarkets.map((m) => m.name),
   }

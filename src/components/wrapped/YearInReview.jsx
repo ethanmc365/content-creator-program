@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildCards, ShareCard } from './story'
-import { Card, Eyebrow, Line, TrypMark } from './cards'
+import { Card, Eyebrow, Line } from './cards'
 import { snapshotNode, downloadBlob } from '../../lib/domSnapshot'
 import { cx } from '../../lib/utils'
 
@@ -173,6 +173,87 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
     }
   }
 
+  // THE PIECES OF A CARD ARRIVE ONE AFTER ANOTHER (21 Sep 2026).
+  //
+  // Ethan: "add in even more animations on the pages. Currently we have the
+  // nice animation where it's going slide to slide. But you can also add in
+  // animations like the text appearing in, or the image of the best video that
+  // shows up, or the milestone... clean animations for all of that."
+  //
+  // The card primitives tag themselves (`data-anim` = rise / pop / zoom /
+  // draw) and this plays them in document order, 85ms apart, with the Web
+  // Animations API. It is written AGAINST the rule documented in the style
+  // block below - an entrance that starts at opacity zero can leave a card
+  // blank when the document is not being painted - and meets it three ways:
+  //
+  //   1. It never starts unless the page is VISIBLE, so a recap opened in a
+  //      background tab simply appears whole.
+  //   2. `fill: 'backwards'` holds the first frame only for the element's own
+  //      delay, and a FINISH timer that runs whatever the tab is doing ends
+  //      every animation at its last frame after 2.6s. A timer is throttled in
+  //      a hidden tab; it is never skipped. Nothing can be left invisible.
+  //   3. It only ever touches the on-screen card. The hidden copy that gets
+  //      photographed is never animated, so a saved picture is always whole.
+  //
+  // Big whole numbers also count up. The DOM text is restored to the real
+  // figure on finish and on cleanup, so React's own text is what stays.
+  const stageRef = useRef(null)
+  useEffect(() => {
+    const root = stageRef.current
+    if (!root || typeof root.animate !== 'function') return undefined
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return undefined
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
+
+    const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
+    const FRAMES = {
+      rise: [{ opacity: 0, transform: 'translate3d(0, 16px, 0)' }, { opacity: 1, transform: 'none' }],
+      pop: [{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'none' }],
+      zoom: [{ opacity: 0, transform: 'translate3d(0, 24px, 0) scale(0.9)' }, { opacity: 1, transform: 'none' }],
+      draw: [{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }],
+    }
+    const anims = []
+    root.querySelectorAll('[data-anim]').forEach((el, n) => {
+      const kind = el.getAttribute('data-anim')
+      const frames = FRAMES[kind]
+      if (!frames) return
+      try {
+        anims.push(el.animate(frames, {
+          duration: kind === 'draw' ? 1100 : kind === 'zoom' ? 720 : 520,
+          delay: 140 + n * 85,
+          easing: kind === 'draw' ? 'cubic-bezier(0.45, 0, 0.2, 1)' : ease,
+          fill: 'backwards',
+        }))
+      } catch { /* an engine without WAAPI keyframes for this property: skip */ }
+    })
+
+    const counters = [...root.querySelectorAll('[data-count]')]
+      .map((el) => ({ el, final: el.getAttribute('data-count'), target: Number(String(el.getAttribute('data-count')).replace(/,/g, '')) }))
+      .filter((c) => Number.isFinite(c.target) && c.target >= 10)
+    const t0 = Date.now()
+    const tick = setInterval(() => {
+      const k = Math.min(1, (Date.now() - t0 - 200) / 900)
+      for (const c of counters) {
+        if (k <= 0) { c.el.textContent = '0'; continue }
+        const eased = 1 - (1 - k) ** 3
+        c.el.textContent = k >= 1 ? c.final : Math.round(c.target * eased).toLocaleString('en-GB')
+      }
+      if (k >= 1) clearInterval(tick)
+    }, 33)
+    const restore = () => { for (const c of counters) c.el.textContent = c.final }
+
+    const finish = setTimeout(() => {
+      anims.forEach((a) => { try { a.finish() } catch { /* already done */ } })
+      clearInterval(tick)
+      restore()
+    }, 2600)
+    return () => {
+      clearTimeout(finish)
+      clearInterval(tick)
+      anims.forEach((a) => { try { a.cancel() } catch { /* gone */ } })
+      restore()
+    }
+  }, [i])
+
   const card = cards[i]
 
   return (
@@ -198,6 +279,7 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
         {/* The card itself. `aspect-[9/16]` is the shape of the thing it will
             become the moment somebody screenshots it. */}
         <div
+          ref={stageRef}
           key={onShare ? 'share' : card?.key}
           className="wr-in aspect-[9/16] w-full"
         >
@@ -426,19 +508,25 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
 export function YearInReviewLocked({ year, opensOn }) {
   return (
     <div className="mx-auto w-full max-w-[400px]">
-      <Card palette="dusk" className="aspect-[9/16]" footer={false}>
-        <Eyebrow palette="dusk">{year}</Eyebrow>
+      {/* TRYP ORANGE, NOT THE PURPLE (21 Sep 2026). Ethan: "improve how it
+          looks before it opens... I would make this like the Tryp.com orangey
+          thing rather than the purpley color." It is the first thing anybody
+          sees of the recap, and it should look like the brand. */}
+      <Card palette="ember" className="aspect-[9/16]" footer={false}>
+        <Eyebrow palette="ember">{year}</Eyebrow>
         <div className="flex flex-1 flex-col justify-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
             <Icon name="lock" className="h-7 w-7" />
           </span>
           <p className="text-[34px] font-extrabold leading-[1.05] tracking-tight">Your year<br />is still happening.</p>
-          <Line palette="dusk">
+          <Line palette="ember">
             Your recap unlocks on {opensOn}. Every flight you log, every video you post and every
             puzzle you play between now and then is in it.
           </Line>
         </div>
-        <div className="mt-6"><TrypMark tone="rgba(255,255,255,0.78)" /></div>
+        <div className="mt-6">
+          <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" className="h-6 w-auto opacity-90" />
+        </div>
       </Card>
     </div>
   )

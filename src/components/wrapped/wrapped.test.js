@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { distanceLine, flagScale, monthShort } from './story'
-import { heroSize } from './cards'
+import { distanceLine, flagScale, monthShort, routeStops } from './story'
+import { heroSize, roughMoney, wholeMoney } from './cards'
 
 const EARTH_KM = 40_075
 const at = (km) => ({ timesRoundEarth: km / EARTH_KM, distance: km })
@@ -38,11 +38,12 @@ describe('distanceLine', () => {
 
 describe('flagScale', () => {
   it('gives one country the biggest size and forty a small one', () => {
-    expect(flagScale(1)).toBe('text-5xl')
-    expect(flagScale(40)).toBe('text-xl')
+    // One step bigger than before: "it looks a little bit small".
+    expect(flagScale(1)).toBe('text-6xl')
+    expect(flagScale(40)).toBe('text-2xl')
   })
   it('never grows as the count grows', () => {
-    const px = { 'text-base': 16, 'text-xl': 20, 'text-2xl': 24, 'text-3xl': 30, 'text-4xl': 36, 'text-5xl': 48 }
+    const px = { 'text-base': 16, 'text-xl': 20, 'text-2xl': 24, 'text-3xl': 30, 'text-4xl': 36, 'text-5xl': 48, 'text-6xl': 60 }
     let last = Infinity
     for (let n = 1; n <= 80; n++) {
       const size = px[flagScale(n)]
@@ -90,5 +91,37 @@ describe('monthShort', () => {
     expect(monthShort(null)).toBe('')
     expect(monthShort(undefined)).toBe('')
     expect(monthShort('not a date')).toBe('')
+  })
+})
+
+describe('money on a recap', () => {
+  // "Don't give it to the cents. Just give it roughly to the 1,000."
+  it('says a community pot to the thousand, with a plus', () => {
+    expect(roughMoney(8845, 'EUR')).toBe('€8,000+')
+    expect(roughMoney(9235, 'EUR')).toBe('€9,000+')
+    expect(roughMoney(1000, 'GBP')).toBe('£1,000+')
+  })
+  it('is exact, and never in cents, under a thousand', () => {
+    expect(roughMoney(292.5, 'EUR')).toBe('€293')
+    expect(roughMoney(0, 'EUR')).toBe('€0')
+  })
+  it('never prints cents on a personal total', () => {
+    expect(wholeMoney(292.5, 'EUR')).toBe('€293')
+    expect(wholeMoney(150, 'GBP')).toBe('£150')
+  })
+})
+
+describe('routeStops', () => {
+  const m = (t) => ({ title: t, reached_at: '2026-05-01' })
+  it('shows the last three reached and the next stop', () => {
+    const stops = routeStops([m('a'), m('b'), m('c'), m('d')], { title: 'e' })
+    expect(stops.map((s) => s.title)).toEqual(['b', 'c', 'd', 'e'])
+    expect(stops.map((s) => s.done)).toEqual([true, true, true, false])
+  })
+  it('works with one milestone and nothing next', () => {
+    expect(routeStops([m('Getting started')], null)).toHaveLength(1)
+  })
+  it('is empty with nothing reached and nothing next', () => {
+    expect(routeStops([], null)).toEqual([])
   })
 })

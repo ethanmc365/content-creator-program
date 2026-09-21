@@ -1,4 +1,4 @@
-import { Card, Eyebrow, Hero, Line, Facts, Chips, Standing, formatViews, formatMoney, flagEmoji } from './cards'
+import { Card, Eyebrow, Hero, Line, Facts, Chips, Standing, formatViews, flagEmoji, roughMoney, wholeMoney } from './cards'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 import { cx } from '../../lib/utils'
@@ -43,11 +43,15 @@ export function monthShort(value) {
   return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]
 }
 
+// ONE STEP BIGGER THAN IT WAS (21 Sep 2026). Ethan: "it looks a little bit
+// small, so I would make it a bit bigger." A handful of flags now fill the
+// card at 60px and forty still fit at 24px.
 export function flagScale(n) {
-  if (n <= 4) return 'text-5xl'
-  if (n <= 10) return 'text-4xl'
-  if (n <= 20) return 'text-3xl'
-  if (n <= 34) return 'text-2xl'
+  if (n <= 3) return 'text-6xl'
+  if (n <= 6) return 'text-5xl'
+  if (n <= 12) return 'text-4xl'
+  if (n <= 22) return 'text-3xl'
+  if (n <= 40) return 'text-2xl'
   if (n <= 60) return 'text-xl'
   return 'text-base'
 }
@@ -110,24 +114,32 @@ export function buildCards(data) {
             It was `Your year<br />in review` set beside the year, so two small
             lines hung off a big number and the second one looked like it had
             slipped. The words now run along the baseline as one phrase. */}
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        {/* CENTRED ON THE YEAR, NOT SAT ON ITS BASELINE (21 Sep 2026). Ethan:
+            "the your year in review should be aligned with the center of the
+            2026 rather than at the bottom of it." A 13px line on a 40px
+            number's baseline hangs off the bottom of it; `items-center` puts
+            the phrase on the number's middle, where it reads as one title. */}
+        <div data-anim="rise" className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">{year}</span>
           <span className="text-[13px] font-bold uppercase leading-none tracking-[0.14em] opacity-80 sm:text-sm">
             Your year in review
           </span>
         </div>
-        <div className="flex flex-1 flex-col justify-center gap-5 py-6">
+        <div className="flex min-h-0 flex-1 flex-col justify-center gap-4 py-4">
           {/* "The profile picture in the beginning that says hello, their name
               can be improved. So you can make that bigger." */}
           {me?.photo
-            ? <img src={me.photo} alt="" className="h-32 w-32 rounded-full object-cover ring-4 ring-white/50 shadow-2xl sm:h-36 sm:w-36" />
+            // Sized off the SCREEN, not a step: a 320px phone gives a 288px
+            // card, and a 128px photo plus the quiet-year sentence ran into
+            // the footer there.
+            ? <img data-anim="pop" src={me.photo} alt="" className="h-[clamp(88px,30vw,144px)] w-[clamp(88px,30vw,144px)] rounded-full object-cover ring-4 ring-white/50 shadow-2xl" />
             : (
-              <span className="flex h-32 w-32 items-center justify-center rounded-full bg-white/20 text-5xl font-extrabold ring-4 ring-white/50 sm:h-36 sm:w-36">
+              <span data-anim="pop" className="flex h-[clamp(88px,30vw,144px)] w-[clamp(88px,30vw,144px)] items-center justify-center rounded-full bg-white/20 text-5xl font-extrabold ring-4 ring-white/50">
                 {(me?.name || '?').slice(0, 1)}
               </span>
             )}
           <div>
-            <p className="text-[40px] font-extrabold leading-[1.02] tracking-tight sm:text-5xl">
+            <p data-anim="rise" className="text-[clamp(32px,11vw,48px)] font-extrabold leading-[1.02] tracking-tight">
               Hello,<br />{firstName}.
             </p>
             <Line palette="ember" className="mt-3">
@@ -193,7 +205,7 @@ export function buildCards(data) {
                   block has one straight edge and every row starts under the
                   one above it. The size still steps down with the count, so
                   forty still fit. */}
-              <div className={cx('flex flex-wrap justify-start gap-1.5 leading-none', flagScale(travel.countries))}>
+              <div data-anim="rise" className={cx('flex flex-wrap justify-start gap-2 leading-none', flagScale(travel.countries))}>
                 {travel.countryList.map((c) => (
                   <span key={c} title={c}>{flagEmoji(c) || '🏳️'}</span>
                 ))}
@@ -255,24 +267,36 @@ export function buildCards(data) {
                 shows - as the city on its own - because dropping somebody's
                 trip to tidy a row is the wrong trade. */}
             {travel.collabPlaces?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {travel.collabPlaces.slice(0, 8).map((place) => (
+              /* BIGGER (21 Sep 2026). Ethan: "it shows the flag and the country
+                 or the city they've been to, but it looks a little bit small."
+                 A 12px chip with a 14px flag was a caption; these are the
+                 places themselves. */
+              /* AND IT STEPS DOWN WITH THE COUNT, like the flags do: four big
+                 chips, or up to six smaller ones, then "and N more" - eleven
+                 at full size ran off the bottom of the card. */
+              <div data-anim="rise" className={cx('flex flex-wrap', travel.collabPlaces.length > 4 ? 'gap-1.5' : 'gap-2')}>
+                {travel.collabPlaces.slice(0, travel.collabPlaces.length > 4 ? 6 : 4).map((place) => (
                   <span
                     key={place.city}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/16 px-2.5 py-1 text-xs font-semibold"
+                    className={cx(
+                      'inline-flex items-center rounded-full bg-white/20 font-bold ring-1 ring-white/25',
+                      travel.collabPlaces.length > 4
+                        ? 'gap-1.5 py-1.5 pl-2 pr-3 text-[13px] [&>span:first-child]:text-[20px]'
+                        : 'gap-2.5 py-2 pl-2.5 pr-4 text-[15px]',
+                    )}
                   >
                     {/* `place.iso`, NOT `place.country`. `flagEmoji` maps every
                         letter it is given to a regional-indicator symbol, so
                         "Botswana" comes out as eight boxed letters rather than
                         a flag - which is exactly what this card did the first
                         time it was drawn. See `isoOf` in lib/yearInReview. */}
-                    {place.iso && <span className="text-sm leading-none">{flagEmoji(place.iso)}</span>}
+                    {place.iso && <span className="text-[28px] leading-none">{flagEmoji(place.iso)}</span>}
                     {place.city}
                   </span>
                 ))}
-                {travel.collabPlaces.length > 8 && (
-                  <span className="self-center text-xs font-semibold opacity-75">
-                    and {travel.collabPlaces.length - 8} more
+                {travel.collabPlaces.length > (travel.collabPlaces.length > 4 ? 6 : 4) && (
+                  <span className="self-center text-sm font-semibold opacity-80">
+                    and {travel.collabPlaces.length - (travel.collabPlaces.length > 4 ? 6 : 4)} more
                   </span>
                 )}
               </div>
@@ -357,29 +381,48 @@ export function buildCards(data) {
                 card is a fixed 9:16 and a thumbnail of unknown shape must be
                 cropped INTO its slot rather than allowed to set the height, or
                 a landscape frame pushes the standing off the bottom. */}
-            <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
+            {/* BIGGER, AND IT SAYS WHAT IT WAS FOR ON THE FRAME (21 Sep 2026).
+                Ethan: "improve this preview of the video even more, make it
+                even bigger, take up more space. Show the views. You can even
+                put made for Tryp.com Creative Challenge on top of it."
+                The poster is sized off the card's HEIGHT now (h-[64%] with a
+                9:16 aspect), so it is as big as the card allows on every phone
+                rather than a fixed 168px, and the challenge rides on the frame
+                as a label instead of a sentence underneath it. */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
               {content.best.thumbnail ? (
-                <div className="relative mx-auto aspect-[9/16] w-full max-w-[168px] shrink overflow-hidden rounded-[20px] shadow-2xl ring-1 ring-white/20">
+                <div data-anim="zoom" className="relative aspect-[9/16] h-[88%] max-h-[500px] max-w-full shrink-0 overflow-hidden rounded-[22px] shadow-2xl ring-2 ring-white/25">
                   <img src={content.best.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" />
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-2/5"
-                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))' }}
+                    className="absolute inset-x-0 top-0 h-1/3"
+                    style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0))' }}
                   />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-2/5"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0))' }}
+                  />
+                  {content.best.challenge && (
+                    <span className="absolute inset-x-3 top-3 block">
+                      <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-white/75">Made for</span>
+                      <span className="mt-0.5 block text-[13px] font-extrabold leading-tight text-white">{content.best.challenge}</span>
+                    </span>
+                  )}
                   <span className="absolute inset-x-3 bottom-3 block">
-                    <span className="block text-[26px] font-extrabold leading-none tracking-tight text-white">
+                    <span className="block text-[34px] font-extrabold leading-none tracking-tight text-white">
                       {nf(content.best.views)}
                     </span>
-                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">views</span>
+                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">views</span>
                   </span>
                 </div>
               ) : (
-                <Hero value={nf(content.best.views)} unit="views" palette="night" />
+                <div className="w-full">
+                  <Hero value={nf(content.best.views)} unit="views" palette="night" />
+                  {content.best.challenge && <Line palette="night" className="mt-3">Made for {content.best.challenge}.</Line>}
+                </div>
               )}
-              {content.best.challenge && (
-                <Line palette="night">Made for {content.best.challenge}.</Line>
-              )}
-              <Standing standing={ranks.bestVideo} what="for one video" palette="night" />
+              <span className="self-center"><Standing standing={ranks.bestVideo} what="for one video" palette="night" /></span>
             </div>
           </>
         ),
@@ -399,7 +442,7 @@ export function buildCards(data) {
             <Eyebrow palette="mint">It paid off</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero
-                value={formatMoney(content.cash + content.vouchers, content.currency)}
+                value={wholeMoney(content.cash + content.vouchers, content.currency)}
                 unit="won"
                 palette="mint"
               />
@@ -421,8 +464,8 @@ export function buildCards(data) {
               </Line>
             </div>
             <Facts palette="mint" items={[
-              content.cash > 0 ? { label: 'Cash', value: formatMoney(content.cash, content.currency) } : null,
-              content.vouchers > 0 ? { label: 'Travel credit', value: formatMoney(content.vouchers, content.currency) } : null,
+              content.cash > 0 ? { label: 'Cash', value: wholeMoney(content.cash, content.currency) } : null,
+              content.vouchers > 0 ? { label: 'Travel credit', value: wholeMoney(content.vouchers, content.currency) } : null,
               content.podiums > 0 ? { label: 'Podiums', value: content.podiums } : null,
             ]} />
           </>
@@ -470,56 +513,13 @@ export function buildCards(data) {
         render: () => (
           <>
             <Eyebrow palette="mint">You levelled up</Eyebrow>
-            <div className="flex flex-1 flex-col justify-center gap-4">
+            <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
               <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? 'milestone' : 'milestones'} palette="mint" />
-              {/* WHAT THE MILESTONE WAS, NOT JUST THAT THERE WAS ONE. Ethan,
-                  twice: "I would maybe show some more key details there.
-                  Really, it looks quite plain or boring", and then "this UI
-                  should be improved, it should show more about what the
-                  milestone actually is."
-
-                  A row reading "On a roll · Sep" is a badge with a date on it,
-                  and a badge nobody can read the meaning of is decoration. The
-                  ladder's own `reward` line is what a milestone actually IS -
-                  "€30 Tryp.com voucher", "Tryp.com Senior Creator" - and it
-                  was sitting unused in the table.
-
-                  The rows are also drawn as a TIMELINE: a rail down the left
-                  with a dot per milestone, oldest at the top. That is the one
-                  arrangement that says "this happened over a year" rather than
-                  "here are four things", which is the difference the card was
-                  missing. Three at full detail rather than five compressed -
-                  most creators have one or two, and a card that can hold three
-                  properly beats one that lists five badly. */}
-              <div className="relative flex flex-col gap-2.5 pl-6">
-                <span aria-hidden="true" className="absolute bottom-2 left-[7px] top-2 w-px bg-white/25" />
-                {community.milestones.slice(0, 3).map((m) => (
-                  <span key={m.title} className="relative block rounded-2xl bg-white/15 px-3.5 py-2.5">
-                    <span
-                      aria-hidden="true"
-                      className="absolute -left-[21px] top-4 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/90"
-                    >
-                      <Icon name={m.icon || 'star'} className="h-2.5 w-2.5 text-[#0d6b57]" />
-                    </span>
-                    <span className="flex items-baseline gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-extrabold">{m.title}</span>
-                      {m.reached_at && (
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] opacity-70">
-                          {monthShort(m.reached_at)}
-                        </span>
-                      )}
-                    </span>
-                    {m.reward && (
-                      <span className="mt-0.5 block truncate text-[12px] font-medium opacity-80">{m.reward}</span>
-                    )}
-                  </span>
-                ))}
-                {community.milestones.length > 3 && (
-                  <span className="text-[12px] font-semibold opacity-70">
-                    and {community.milestones.length - 3} more
-                  </span>
-                )}
-              </div>
+              <MilestoneRoute
+                milestones={community.milestones}
+                next={community.nextMilestone}
+                me={me}
+              />
             </div>
           </>
         ),
@@ -579,13 +579,13 @@ export function buildCards(data) {
       // showing the best month." The month is a headline WORD rather than a
       // figure, and a word set at 92px wants the strongest ground in the set
       // behind it, not the palest.
-      key: 'month', palette: 'ember', hold: 3800,
+      key: 'month', palette: 'mint', hold: 3800,
       render: () => (
         <>
-          <Eyebrow palette="ember">Your month</Eyebrow>
+          <Eyebrow palette="mint">Your month</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={busiest.name} palette="ember" />
-            <Line palette="ember">
+            <Hero value={busiest.name} palette="mint" />
+            <Line palette="mint">
               More flights, more posts and more of you than any other month of {year}.
             </Line>
           </div>
@@ -618,20 +618,24 @@ export function buildCards(data) {
 
   // ------------------------------------------------------------- everybody
   push({
-    key: 'everyone', palette: 'mint', hold: 5000,
+    // TRYP ORANGE (21 Sep 2026). Ethan: "for this views together one, I would
+    // put it on a Tryp.com orange one and maybe put the best month one as the
+    // green card." The whole community's number is the brand's number.
+    key: 'everyone', palette: 'ember', hold: 5000,
     render: () => (
       <>
-        <Eyebrow palette="mint">And you were not alone</Eyebrow>
+        <Eyebrow palette="ember">And you were not alone</Eyebrow>
         <div className="flex flex-1 flex-col justify-center gap-5">
-          <Hero value={formatViews(everyone.views)} unit="views, together" palette="mint" />
-          <Line palette="mint">
+          <Hero value={formatViews(everyone.views)} unit="views, together" palette="ember" />
+          <Line palette="ember">
             {everyone.creators} creators across {everyone.markets} markets, all posting in the same year.
           </Line>
-          <Facts palette="mint" items={[
+          <Facts palette="ember" items={[
             { label: 'Videos', value: nf(everyone.videos) },
             everyone.flights ? { label: 'Flights logged', value: nf(everyone.flights) } : null,
             everyone.countries ? { label: 'Countries', value: everyone.countries } : null,
-            everyone.prize ? { label: 'In prizes', value: formatMoney(everyone.prize, everyone.currency) } : null,
+            // "Just give it roughly to the 1,000": €8,845 is "€8,000+".
+            everyone.prize ? { label: 'In prizes', value: roughMoney(everyone.prize, everyone.currency) } : null,
           ]} />
         </div>
       </>
@@ -693,8 +697,14 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           picture - which is what "2026 IN REVIEW" did, into three ragged lines
           beside the avatar. `truncate` on both, and the year has its own
           corner. */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-4">
+      {/* THE NAME GETS THE WHOLE WIDTH (21 Sep 2026). Beside an 80px photo
+          and the year chip it had about 150px, so "Maximiliana
+          Fernández-Oliveira" broke into single letters down the card - and
+          the export font, a hair wider than the screen's, made even a short
+          name lose its end ("Jacob P..."). Photo and year on one row, the
+          person on the next, wrapping by word. */}
+      <div>
+        <div className="flex items-start justify-between gap-3">
           {me?.photo
             ? <img src={me.photo} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-[3px] ring-white/55" />
             : (
@@ -702,22 +712,20 @@ export function ShareCard({ data, className = '', style, flush = false }) {
                 {(me?.name || '?').slice(0, 1)}
               </span>
             )}
-          <span className="min-w-0">
-            <span className="block truncate text-[26px] font-extrabold leading-[1.05] tracking-tight">{me?.name}</span>
-            {(me?.country || me?.city || me?.market) && (
-              <span className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold opacity-85">
-                <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{me.country || me.city || me.market}</span>
-              </span>
-            )}
+          <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[12px] font-extrabold tabular-nums">
+            {year}
           </span>
         </div>
-        <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[12px] font-extrabold tabular-nums">
-          {year}
-        </span>
+        <p className="mt-4 line-clamp-2 break-words text-[26px] font-extrabold leading-[1.05] tracking-tight">{me?.name}</p>
+        {(me?.country || me?.city || me?.market) && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[13px] font-semibold leading-snug opacity-85">
+            <Icon name="pin" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words">{me.country || me.city || me.market}</span>
+          </p>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-5 gap-y-6 py-4">
+      <div className="grid grid-cols-2 gap-x-5 gap-y-5 py-3">
         {stats.map((s) => (
           <span key={s.label} className="min-w-0">
             <span className="block text-[30px] font-extrabold leading-none tracking-tight">{s.value}</span>
@@ -740,16 +748,136 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           certificate uses on a dark paper, for the same reason. `crossOrigin`
           because `domSnapshot` has to read its pixels back out. */}
       <div className="flex items-center gap-3 border-t border-white/25 pt-4">
+        {/* NO WHITE PLATE (21 Sep 2026). Ethan: "you have the logo at the
+            bottom, but there's like a white background around it. I wouldn't
+            have that." The plate was there because the only logo file had a
+            white square baked in; `tryp-wordmark-white.svg` is the same
+            lettering cut out of that square and set in white, so it sits
+            straight on the orange. */}
         <img
-          src="/brand/tryp-logo.png"
+          src="/brand/tryp-wordmark-white.svg"
           alt="Tryp.com"
           crossOrigin="anonymous"
-          className="h-8 w-auto shrink-0 rounded-md bg-white p-1"
+          className="h-7 w-auto shrink-0"
         />
         <span className="min-w-0 text-[12px] font-bold leading-tight">
           Tryp.com Content<br />Creator Community
         </span>
       </div>
     </Card>
+  )
+}
+
+/**
+ * THE MILESTONE CARD AS A ROUTE, THE SAME DRAWING AS THE MILESTONES PAGE.
+ *
+ * Ethan: "it shows a line with a little circle and heart on it, maybe show an
+ * airplane there instead or their profile picture, because currently it's
+ * misaligned... maybe show how it actually looks like the way we have that
+ * design, it's like a curve, so they can see where they actually are on the
+ * milestone track."
+ *
+ * The old card was a rail with an icon dot per row, and the dot was placed by
+ * a negative left margin that only lined up at one font size. This is the
+ * MilestonePath idea in miniature: stops alternate left and right, a curve that
+ * leaves and enters every stop vertically joins them, the part they have flown
+ * is solid and the rest is dashed, and the creator's OWN PHOTO sits on the last
+ * stop they reached - the page already taught them that the face is "you".
+ *
+ * Everything is positioned in one coordinate space (W x H units) and placed in
+ * percentages, so the SVG line and the HTML stops cannot drift apart at any
+ * card width - which is exactly how the old one came to be misaligned.
+ */
+const ROUTE_W = 300
+const ROUTE_ROW = 112
+const ROUTE_PAD = 34
+const ROUTE_LEFT = 34
+const ROUTE_RIGHT = 266
+// Clearance between a stop and its label, in route units. The stop you are AT
+// is a 48px photo, not a 28px dot, so it needs more.
+const GAP_DOT = 30
+const GAP_HERE = 42
+
+export function routeStops(milestones = [], next = null) {
+  const done = milestones.slice(-3).map((m) => ({ ...m, done: true }))
+  return next ? [...done, { ...next, done: false }] : done
+}
+
+export function MilestoneRoute({ milestones = [], next = null, me }) {
+  const stops = routeStops(milestones, next)
+  if (!stops.length) return null
+  const H = ROUTE_PAD * 2 + (stops.length - 1) * ROUTE_ROW
+  const pt = (i) => ({ x: i % 2 === 0 ? ROUTE_LEFT : ROUTE_RIGHT, y: ROUTE_PAD + i * ROUTE_ROW })
+  const legs = []
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const a = pt(i)
+    const b = pt(i + 1)
+    legs.push(`C ${a.x} ${a.y + ROUTE_ROW * 0.6}, ${b.x} ${b.y - ROUTE_ROW * 0.6}, ${b.x} ${b.y}`)
+  }
+  const doneCount = stops.filter((s) => s.done).length
+  const start = `M ${pt(0).x} ${pt(0).y}`
+  const whole = `${start} ${legs.join(' ')}`
+  const flown = doneCount > 1 ? `${start} ${legs.slice(0, doneCount - 1).join(' ')}` : null
+  const here = doneCount - 1
+  const pct = (v, of) => `${(v / of) * 100}%`
+
+  return (
+    <div className="relative w-full" style={{ aspectRatio: `${ROUTE_W} / ${H}` }}>
+      <svg viewBox={`0 0 ${ROUTE_W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+        <path d={whole} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2.5" strokeDasharray="2 7" strokeLinecap="round" />
+        {flown && (
+          <path data-anim="draw" d={flown} pathLength="1" fill="none" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
+        )}
+      </svg>
+
+      {stops.map((m, i) => {
+        const p = pt(i)
+        const onLeft = i % 2 === 0
+        const isHere = i === here
+        return (
+          <div key={`${m.title}-${i}`}>
+            {/* The stop. The one they are at carries their face instead. */}
+            {!isHere && (
+              <span
+                data-anim="pop"
+                className={cx(
+                  'absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
+                  m.done ? 'bg-white text-[#0d6b57] shadow-lg' : 'border-2 border-dashed border-white/70 text-white',
+                )}
+                style={{ left: pct(p.x, ROUTE_W), top: pct(p.y, H) }}
+              >
+                <Icon name={m.icon || 'star'} className="h-3.5 w-3.5" />
+              </span>
+            )}
+            {isHere && (
+              <span
+                data-anim="pop"
+                className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-white/25 shadow-xl ring-[3px] ring-white"
+                style={{ left: pct(p.x, ROUTE_W), top: pct(p.y, H) }}
+              >
+                {me?.photo
+                  ? <img src={me.photo} alt="" className="h-full w-full object-cover" />
+                  : <span className="flex h-full w-full items-center justify-center text-lg font-extrabold">{(me?.name || '?').slice(0, 1)}</span>}
+              </span>
+            )}
+
+            {/* The label, on the open side of the stop. */}
+            <span
+              data-anim="rise"
+              className={cx('absolute block -translate-y-1/2', onLeft ? 'text-left' : 'text-right')}
+              style={onLeft
+                ? { left: pct(ROUTE_LEFT + (isHere ? GAP_HERE : GAP_DOT), ROUTE_W), right: 0, top: pct(p.y, H) }
+                : { left: 0, right: pct(ROUTE_W - ROUTE_RIGHT + (isHere ? GAP_HERE : GAP_DOT), ROUTE_W), top: pct(p.y, H) }}
+            >
+              <span className="block text-[10px] font-bold uppercase tracking-[0.14em] opacity-75">
+                {m.done ? (isHere ? `You are here${m.reached_at ? ` · ${monthShort(m.reached_at)}` : ''}` : monthShort(m.reached_at) || 'Reached') : 'Next stop'}
+              </span>
+              <span className="block truncate text-[15px] font-extrabold leading-tight">{m.title}</span>
+              {m.reward && <span className="line-clamp-2 block text-[12px] font-medium leading-snug opacity-80">{m.reward}</span>}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }

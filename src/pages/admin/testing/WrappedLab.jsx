@@ -125,7 +125,7 @@ export default function WrappedLab() {
         allRows(() => supabase.from('collab_posts').select('creator_id, city, country, start_date, created_at')),
         allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
         allRows(() => supabase.from('reactions').select('creator_id, created_at')),
-        allRows(() => supabase.from('milestones').select('id, title, icon, reward')),
+        allRows(() => supabase.from('milestones').select('id, title, icon, reward, sort_order, is_active')),
         allRows(() => supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
       ])
       if (!alive) return

@@ -18,6 +18,7 @@ import LiveChallengeCard from '../../components/LiveChallengeCard'
 import LiveNowRow from '../../components/network/LiveNowRow'
 import ChatBench from './ChatBench'
 import CertificateBench from './CertificateBench'
+import RecapBench from './RecapBench'
 import Icon from '../../components/Icon'
 import RouteSkeleton from '../../components/RouteSkeleton'
 
@@ -266,6 +267,7 @@ export default function Preview() {
   // looked at and the sheet above it is four hundred pixels of skeletons.
   return (
     <div style={{ padding: 24, background: '#fff' }}>
+      <RecapBench />
       <CertificateBench />
 
       {/* THE ROUTE SKELETONS, ALL OF THEM, SIDE BY SIDE.
