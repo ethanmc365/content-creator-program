@@ -25,6 +25,10 @@ import { downloadBlob } from '../../lib/domSnapshot'
 // replaces the app with a picture the person then has to long-press. Fetching
 // the bytes and handing over a blob is the only version that reliably lands in
 // a camera roll, and it is the same `downloadBlob` the certificates use.
+const KIND_LABEL = {
+  story: 'Instagram story', post: 'Instagram post', linkedin: 'LinkedIn post', banner: 'Banner', other: 'Graphic',
+}
+
 export default function KitStrip({ className }) {
   const tr = useT()
   const [rows, setRows] = useState(null)
@@ -61,89 +65,76 @@ export default function KitStrip({ className }) {
   if (rows === null) return <Skeleton className={cx('h-56 w-full rounded-card', className)} />
   if (rows.length === 0) return null
 
-  // AT THE TOP, AND NOT LOOKING LIKE A PAGE OF THE PORTFOLIO.
+  // A FULL-WIDTH SECTION ACROSS THE TOP, AND A GRID, NOT A SCROLLER
+  // (21 Sep 2026). Ethan, on the portfolio page:
   //
-  // It was a bare heading and a scroll row UNDER five full-size pages, which on
-  // a laptop is three screens down - "I don't see where these are actually
-  // showing up for the creators". So it moved to the top.
-  //
-  // And then, at the top, it created the opposite problem. Ethan: "I think it's
-  // weird the way 'share your Tryp.com creator' seems to be almost like a slide
-  // in the portfolio. So that needs to be more clear that it's a separate
-  // thing." Fair, and it was our own doing: it sits directly above a stack of
-  // white sheets with soft shadows, so a white card with a soft shadow full of
-  // pictures reads as the first one of them, and nothing in it said otherwise.
-  //
-  // So it stops being a white sheet. A tinted ground, a dashed brand edge, and
-  // a line that says out loud what it is NOT - community graphics, not pages of
-  // the document underneath.
-  //
-  // Ethan: "I think it's weird the way 'share your Tryp.com creator' seems to
-  // be almost like a slide in the portfolio. So that needs to be more clear
-  // that it's a separate thing."
-  //
-  // Fair, and it was our own doing. It moved to the top of the page so it could
-  // be found at all, and at the top it sits directly above a stack of white
-  // sheets with soft shadows - so a white card with a soft shadow full of
-  // pictures reads as the first one of them. Nothing in it said otherwise.
-  //
-  // So it stops being a white sheet. A tinted ground, a dashed brand edge, and
-  // a line that says out loud what it is NOT: these are community graphics, not
-  // pages of the document underneath. A separator under it makes the boundary a
-  // thing you can see rather than a thing you have to work out.
+  //   "the icon there that shows the three dots and the lines isn't necessary"
+  //     -> the share glyph is gone; the heading says what this is.
+  //   "rather than a little call-out box on the left side, make this a full
+  //    box going across the top"
+  //     -> it sits above the page's two columns now (Portfolio.jsx), so the
+  //        editor starts below it, level with the portfolio it edits.
+  //   "I don't want the dotted line around the card"
+  //     -> a plain white card. It no longer sits directly on the deck, so it
+  //        no longer needs a dashed edge to say it is not a page of it.
+  //   "the buttons should be in the same place... the Instagram post ones the
+  //    save button is at the top and for the story ones it's at the bottom"
+  //     -> every tile has the SAME FRAME (3:4), with the graphic contained
+  //        inside it, so a square post and a 9:16 story end at the same line
+  //        and every Save button sits on one row.
+  //   "the way they magnify when you're hovering is cool, but there's weird
+  //    shadow lines coming out"
+  //     -> that was the horizontal scroller: `overflow-x: auto` makes
+  //        `overflow-y` clip as well, so the lift's shadow was cut off in a
+  //        hard line under every tile. A grid does not clip, and only the
+  //        picture scales, inside its own frame.
   return (
-    <section className={cx('rounded-card border-2 border-dashed border-brand/30 bg-brand-tint/40 p-4 sm:p-5', className)}>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
-          <Icon name="share" className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-bold text-ink">{tr('Share that you are a Tryp.com creator')}</h2>
-          <p className="mt-0.5 text-[12px] leading-relaxed text-smoke">
-            {tr('Community graphics for your story or your LinkedIn - not pages of your portfolio. If somebody joins through you, your referral reward applies.')}
+    <section className={cx('rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-6', className)}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-ink">{tr('Share that you are a Tryp.com creator')}</h2>
+          <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-smoke">
+            {tr('Graphics for your story, your feed or your LinkedIn. Tap one to see it, save it straight to your phone. If somebody joins through you, your referral reward applies.')}
           </p>
         </div>
-        <span className="hidden shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-smoke shadow-sm sm:inline">
+        <span className="shrink-0 rounded-full bg-cloud px-3 py-1 text-[12px] font-semibold text-smoke">
           {rows.length === 1 ? tr('1 graphic') : `${rows.length} ${tr('graphics')}`}
         </span>
       </div>
 
-      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 pt-4 [scrollbar-width:none] sm:-mx-5 sm:px-5 [&::-webkit-scrollbar]:hidden">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {rows.map((row) => (
           <div
             key={row.id}
-            className="group w-[176px] shrink-0 snap-start overflow-hidden rounded-xl border border-gray-100 bg-white transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift"
+            className="group flex flex-col rounded-2xl bg-white p-2 ring-1 ring-gray-100 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift hoverable:hover:ring-brand/25"
           >
-            {/* THE PICTURE IS A BUTTON. Looking at a graphic full size is the
-                question somebody has BEFORE the one the Save button answers,
-                and it was only answerable by downloading the file. */}
             <button
               type="button"
               onClick={() => setOpen(row)}
               aria-label={tr('See {title} full size', { title: row.title })}
-              className="relative block w-full overflow-hidden bg-cloud"
-              style={{ aspectRatio: row.width && row.height ? `${row.width} / ${row.height}` : '9 / 16' }}
+              className="relative block aspect-[3/4] w-full overflow-hidden rounded-xl"
+              style={{ background: 'linear-gradient(160deg,#fff4ea 0%,#ffe6d2 100%)' }}
             >
               <img
                 src={supabase.storage.from('creator-kit').getPublicUrl(row.path).data.publicUrl}
                 alt={row.title}
                 loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 hoverable:group-hover:scale-[1.03]"
+                className="absolute inset-0 m-auto max-h-[88%] max-w-[86%] rounded-lg object-contain shadow-[0_6px_18px_rgba(59,28,7,0.16)] transition-transform duration-500 ease-out hoverable:group-hover:scale-[1.05]"
               />
-              <span className="pointer-events-none absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity duration-200 hoverable:group-hover:opacity-100">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-ink shadow-sm">
-                  <Icon name="expand" className="h-3.5 w-3.5" />
-                </span>
+              <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink opacity-0 shadow-sm transition-opacity duration-200 hoverable:group-hover:opacity-100">
+                <Icon name="expand" className="h-3.5 w-3.5" />
               </span>
             </button>
-            <div className="p-2.5">
-              <p className="truncate text-[12px] font-bold text-ink">{row.title}</p>
-              {row.blurb && <p className="mt-0.5 truncate text-[11px] text-smoke">{row.blurb}</p>}
+            <div className="flex flex-1 flex-col px-1 pb-0.5 pt-2.5">
+              <p className="truncate text-[13px] font-bold text-ink">{row.title}</p>
+              <p className="truncate text-[11px] text-smoke">
+                {row.blurb || (row.width && row.height ? `${KIND_LABEL[row.kind] || tr('Graphic')} · ${row.width}×${row.height}` : KIND_LABEL[row.kind] || tr('Graphic'))}
+              </p>
               <button
                 type="button"
                 onClick={() => save(row)}
                 disabled={busy === row.id}
-                className="btn-secondary mt-2 w-full justify-center !py-1.5 text-[11px]"
+                className="btn-primary mt-2.5 w-full justify-center !py-2 text-[12px]"
               >
                 {busy === row.id
                   ? <Spinner className="h-3.5 w-3.5" />

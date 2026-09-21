@@ -67,7 +67,9 @@ export const DEFAULT_COPY = {
   about_body: 'I make short travel videos about the places I go and the things worth stopping for. I am part of the Tryp.com Content Creator Community, where creators from across Europe make work for monthly briefs.',
   stats_title: 'By the numbers',
   work_title: 'Selected work',
-  work_body: 'Made for Tryp.com creator briefs. View counts are from the platforms themselves.',
+  // "Improving the copy" (21 Sep 2026): "briefs" is the team's word; every
+  // creator-facing screen says challenge.
+  work_body: 'My most-watched videos from Tryp.com challenges. View counts are read live from each platform.',
   awards_title: 'Recognition',
   awards_body: 'Awarded through the Tryp.com Content Creator Community.',
   contact_title: 'Work with me',
@@ -133,7 +135,13 @@ export function workMode(portfolio) {
   return portfolio?.picks?.length ? 'manual' : 'auto'
 }
 
-export function orderedVideos(all = [], picks = [], limit = 10, mode = null) {
+// TWELVE, NOT TEN (21 Sep 2026). Ethan: "rather than having the 10 best videos
+// by views, it should be the 12 best videos by views because that fits on the
+// slides nicely." Four to a page, so twelve is three full pages - ten left the
+// last one half empty.
+export const WORK_LIMIT = 12
+
+export function orderedVideos(all = [], picks = [], limit = WORK_LIMIT, mode = null) {
   const list = (all || []).filter(Boolean)
   // `mode === null` keeps the historic behaviour for callers that do not pass
   // one, which is what every existing test asserts.

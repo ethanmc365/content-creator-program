@@ -7,7 +7,7 @@ import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
-import { DEFAULT_COPY, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
+import { DEFAULT_COPY, WORK_LIMIT, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
 import { ACCENTS } from '../../lib/certificates'
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
@@ -310,7 +310,7 @@ function Videos({ portfolio, videos, shown, onChange, tr }) {
       </div>
       <p className="text-[11px] leading-relaxed text-smoke">
         {auto
-          ? tr('Your ten most-viewed entries, updated by themselves as view counts change.')
+          ? tr('Your twelve most-viewed entries, updated by themselves as view counts change.')
           : tr('Drag order with the arrows. Untick one to take it off. Up to ten.')}
       </p>
 
@@ -335,7 +335,7 @@ function Videos({ portfolio, videos, shown, onChange, tr }) {
             <p className="pt-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">{tr('Not shown')}</p>
             {videos.filter((v) => !picks.includes(v.id)).map((v) => (
               <VideoRow key={v.id} video={v} off onToggle={() => {
-                if (picks.length >= 10) return notice(tr('Ten is the most a portfolio shows. Take one off first.'), { title: tr('That is ten') })
+                if (picks.length >= WORK_LIMIT) return notice(tr('Twelve is the most a portfolio shows. Take one off first.'), { title: tr('That is twelve') })
                 toggle(v.id)
               }} />
             ))}

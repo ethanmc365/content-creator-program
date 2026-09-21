@@ -24,7 +24,7 @@ import { kitUrl, uploadKitImage } from '../../../pages/admin/AdminCreatorKit'
 
 const KINDS = [
   { key: 'story', label: 'Story', hint: '9:16, for Instagram and TikTok stories', ratio: '9 / 16' },
-  { key: 'post', label: 'Post', hint: 'Square, for a feed', ratio: '1 / 1' },
+  { key: 'post', label: 'Post', hint: 'Square or 4:5, for a feed', ratio: '4 / 5' },
   { key: 'linkedin', label: 'LinkedIn', hint: 'Landscape, for a LinkedIn post', ratio: '1200 / 627' },
   { key: 'banner', label: 'Banner', hint: 'Wide, for a header', ratio: '4 / 1' },
   { key: 'other', label: 'Other', hint: 'Anything else', ratio: '4 / 3' },
@@ -36,6 +36,8 @@ export default function KitLibrary() {
   const { profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
   const fileRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -96,11 +98,25 @@ export default function KitLibrary() {
   }
 
   function move(row, by) {
+    const from = rows.findIndex((r) => r.id === row.id)
+    moveTo(row, from + by)
+  }
+
+  // EVERY REORDER - an arrow, a drag, "stories first" - lands here.
+  function moveTo(row, to) {
     const list = [...rows]
     const from = list.findIndex((r) => r.id === row.id)
-    const to = from + by
-    if (to < 0 || to >= list.length) return
+    if (from < 0 || to < 0 || to >= list.length || to === from) return
     list.splice(to, 0, list.splice(from, 1)[0])
+    commitOrder(list)
+  }
+
+  function storiesFirst() {
+    const rank = { story: 0, post: 1, linkedin: 2, banner: 3, other: 4 }
+    commitOrder([...rows].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9)))
+  }
+
+  function commitOrder(list) {
     setRows(list)
     // Renumber the lot. Writing one row's new index is not enough when the
     // existing numbers are 0,0,0 - which they are for anything inserted before
@@ -113,18 +129,29 @@ export default function KitLibrary() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-card border border-dashed border-gray-300 bg-white p-6 text-center">
-        <Icon name="image" className="mx-auto h-8 w-8 text-gray-300" />
-        <p className="mt-3 text-sm font-semibold text-ink">Add the graphics creators can share</p>
-        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-smoke">
-          PNG, JPG or WebP, up to 15MB each. They are stored exactly as you upload them, so what a
-          creator downloads is the file you made. Several at once is fine.
-        </p>
+      {/* A BUTTON, NOT A BANNER (21 Sep 2026). Ethan: "rather than having a
+          big card above it that says add the graphics the creators can share
+          in a big box to give them space, there should be just a simple
+          upload your graphics button at the top somewhere." The explanation
+          moved into the line beside it, and the grid gets the room. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-ink">
+            {rows.length === 1 ? '1 graphic' : `${rows.length} graphics`}
+            <span className="font-normal text-smoke"> · creators see them in this order. Drag to rearrange.</span>
+          </p>
+          <p className="mt-0.5 text-[11px] text-smoke">PNG, JPG or WebP up to 15MB, kept exactly as uploaded.</p>
+        </div>
+        {rows.length > 1 && (
+          <button type="button" onClick={storiesFirst} className="btn-secondary !py-2 text-sm">
+            <Icon name="reorder" className="h-4 w-4" /> Stories first
+          </button>
+        )}
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
-          className="btn-primary mt-4"
+          className="btn-primary !py-2 text-sm"
         >
           {busy ? <Spinner /> : <><Icon name="plus" className="h-4 w-4" /> Upload graphics</>}
         </button>
@@ -143,6 +170,22 @@ export default function KitLibrary() {
             <KitCard
               key={row.id}
               row={row}
+              position={i + 1}
+              dragging={dragId === row.id}
+              over={overId === row.id && dragId !== row.id}
+              dragProps={{
+                draggable: true,
+                onDragStart: (e) => { setDragId(row.id); e.dataTransfer.effectAllowed = 'move' },
+                onDragOver: (e) => { e.preventDefault(); if (overId !== row.id) setOverId(row.id) },
+                onDragLeave: () => setOverId((o) => (o === row.id ? null : o)),
+                onDrop: (e) => {
+                  e.preventDefault()
+                  const src = rows.find((r) => r.id === dragId)
+                  if (src) moveTo(src, i)
+                  setDragId(null); setOverId(null)
+                },
+                onDragEnd: () => { setDragId(null); setOverId(null) },
+              }}
               first={i === 0}
               last={i === rows.length - 1}
               onPatch={(f) => patch(row, f)}
@@ -164,19 +207,32 @@ function guessKind(w, h) {
   if (r < 0.7) return 'story'
   if (r > 3) return 'banner'
   if (r > 1.5) return 'linkedin'
-  if (r > 0.9 && r < 1.1) return 'post'
+  // 4:5 (1080x1350) is Instagram's own portrait post, and it was falling
+  // through to "other" - the four Instagram posts in the kit had been saved as
+  // LinkedIn graphics by hand to get anything better.
+  if (r >= 0.75 && r < 1.1) return 'post'
   return 'other'
 }
 
-function KitCard({ row, first, last, onPatch, onDelete, onMove }) {
+function KitCard({ row, first, last, onPatch, onDelete, onMove, position, dragging, over, dragProps }) {
   const [title, setTitle] = useState(row.title)
   const kind = kindOf(row.kind)
 
   return (
-    <div className={cx(
-      'overflow-hidden rounded-card border bg-white shadow-card transition-opacity',
-      row.is_active ? 'border-gray-100' : 'border-gray-200 opacity-60',
-    )}>
+    <div
+      {...dragProps}
+      className={cx(
+        'relative cursor-grab overflow-hidden rounded-card border bg-white shadow-card transition-all duration-200 active:cursor-grabbing',
+        row.is_active ? 'border-gray-100' : 'border-gray-200 opacity-60',
+        dragging && 'scale-[0.97] opacity-40',
+        over && 'ring-2 ring-brand ring-offset-2',
+      )}
+    >
+      {/* Its place in the order creators see, so "third" is a thing you can
+          read rather than count. */}
+      <span className="absolute left-2.5 top-2.5 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white shadow-sm">
+        {position}
+      </span>
       {/* THE TILE RESERVES ITS SHAPE BEFORE THE BYTES ARRIVE. `width`/`height`
           are stored on the row for exactly this: a grid that discovers each
           tile's aspect on load reflows every time one lands. */}
@@ -184,7 +240,7 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove }) {
         className="flex items-center justify-center bg-cloud"
         style={{ aspectRatio: row.width && row.height ? `${row.width} / ${row.height}` : kind.ratio }}
       >
-        <img src={kitUrl(row.path)} alt={row.title} className="h-full w-full object-contain" loading="lazy" />
+        <img src={kitUrl(row.path)} alt={row.title} draggable={false} className="h-full w-full object-contain" loading="lazy" />
       </div>
 
       <div className="space-y-3 p-4">
@@ -231,12 +287,12 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove }) {
           />
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => onMove(-1)} disabled={first}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-cloud hover:text-smoke disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke hover:bg-cloud hover:text-brand disabled:opacity-25"
               aria-label="Move earlier">
               <Icon name="arrow-down" className="h-4 w-4 rotate-180" />
             </button>
             <button type="button" onClick={() => onMove(1)} disabled={last}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-cloud hover:text-smoke disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke hover:bg-cloud hover:text-brand disabled:opacity-25"
               aria-label="Move later">
               <Icon name="arrow-down" className="h-4 w-4" />
             </button>

@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n'
 import { notice } from '../lib/confirm'
 import { downloadBlob } from '../lib/domSnapshot'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
-import { PAGE_W, orderedVideos, slugify, workMode } from '../lib/portfolio'
+import { PAGE_W, WORK_LIMIT, orderedVideos, slugify, workMode } from '../lib/portfolio'
 import PortfolioEditor from '../components/portfolio/PortfolioEditor'
 import KitStrip from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
@@ -235,7 +235,7 @@ export default function Portfolio() {
   }
 
   const { creator, portfolio, videos, certificates } = state
-  const shownVideos = orderedVideos(videos, portfolio.picks, 10, workMode(portfolio))
+  const shownVideos = orderedVideos(videos, portfolio.picks, WORK_LIMIT, workMode(portfolio))
 
   return (
     <div className="page max-w-6xl">
@@ -247,6 +247,10 @@ export default function Portfolio() {
       />
 
       <ViewingAsBanner viewing={viewing} person={person} />
+
+      {/* ACROSS THE TOP, ABOVE BOTH COLUMNS - see the note in KitStrip. The
+          editor then starts below it, beside the portfolio it edits. */}
+      {!readOnly && <KitStrip className="mb-8" />}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* THE DOCUMENT COMES FIRST IN THE DOM. On a phone the preview is what
@@ -287,9 +291,6 @@ export default function Portfolio() {
               )
             )}
           </div>
-
-          {/* Above the deck on purpose - see the note in KitStrip. */}
-          {!readOnly && <KitStrip className="mb-6" />}
 
           <PortfolioDeck
             creator={creator}

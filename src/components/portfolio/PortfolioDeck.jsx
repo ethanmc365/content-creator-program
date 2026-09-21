@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useState } from 'react'
 import { About, Awards, Contact, Cover, Work } from './Slides'
-import { PAGE_H, PAGE_W, orderedVideos, workMode } from '../../lib/portfolio'
+import { PAGE_H, PAGE_W, WORK_LIMIT, orderedVideos, workMode } from '../../lib/portfolio'
 
 // THE WHOLE DOCUMENT, SCALED TO THE COLUMN IT IS IN.
 //
@@ -37,7 +37,7 @@ export function buildPages({ videos = [], certificates = [] } = {}) {
   // one says "no videos here yet" and a missing one silently renumbers the
   // document - and the creator wonders where their work went.
   if (chunks.length === 0) chunks.push([])
-  chunks.forEach((videos, i) => pages.push({ key: `work-${i}`, videos, first: i === 0 }))
+  chunks.forEach((videos, i) => pages.push({ key: `work-${i}`, videos, first: i === 0, offset: i * PER_WORK_PAGE }))
   if (certificates.length) pages.push({ key: 'awards' })
   pages.push({ key: 'contact' })
   return pages
@@ -48,7 +48,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
   ref,
 ) {
   const all = videos || []
-  const picked = orderedVideos(all, portfolio?.picks || [], 10, workMode(portfolio))
+  const picked = orderedVideos(all, portfolio?.picks || [], WORK_LIMIT, workMode(portfolio))
   const pages = buildPages({ videos: picked, certificates: certificates || [] })
   const scale = width / PAGE_W
 
@@ -79,7 +79,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
         <Sheet key={p.key} scale={scale} width={width} snap={horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
           {p.key === 'cover' && <Cover {...common} />}
           {p.key === 'about' && <About {...common} n={i + 1} />}
-          {p.key.startsWith('work') && <Work {...common} videos={p.videos} n={i + 1} />}
+          {p.key.startsWith('work') && <Work {...common} videos={p.videos} offset={p.offset} totalVideos={picked.length} n={i + 1} />}
           {p.key === 'awards' && <Awards {...common} certificates={certificates || []} n={i + 1} />}
           {p.key === 'contact' && <Contact {...common} n={i + 1} />}
         </Sheet>
