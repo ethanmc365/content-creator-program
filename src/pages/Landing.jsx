@@ -150,7 +150,7 @@ export default function Landing() {
           filled Join us - because a first-time visitor should not be asked to
           choose between two equal-looking doors when only one of them is
           theirs. */}
-      <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5 sm:pt-4">
+      <header className="sticky top-0 z-30 px-3 pt-[max(env(safe-area-inset-top),0.75rem)] sm:px-5 sm:pt-4">
         <div
           className={cx(
             'mx-auto flex h-14 max-w-5xl items-center justify-between rounded-full pl-4 pr-2 transition-all duration-500 sm:h-16 sm:pl-6 sm:pr-3',

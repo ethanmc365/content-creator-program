@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
-import { PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { cx, formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -13,6 +13,7 @@ import { PAGE_W, WORK_LIMIT, orderedVideos, slugify, workMode } from '../lib/por
 import PortfolioEditor from '../components/portfolio/PortfolioEditor'
 import KitStrip, { YearTeaser } from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
+import { useMediaQuery } from '../lib/useKeyboardInset'
 
 // MY PORTFOLIO.
 //
@@ -48,6 +49,14 @@ export default function Portfolio() {
 
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
   const [dirty, setDirty] = useState(false)
+  // THE EDITOR IS A SHEET ON A PHONE (21 Sep 2026). Ethan: "rather than having
+  // the edit things at the bottom, it should just be a separate button beside
+  // where it says 'Download PDF'... clicking that will then show the screen for
+  // them to make the changes. They can save it, and it will show up. Have that
+  // rather than having them scroll down and scroll up to see the changes." A
+  // desktop keeps the editor in its column beside the document.
+  const desktop = useMediaQuery('(min-width: 1024px)')
+  const [editing, setEditing] = useState(false)
   const [past, setPast] = useState([])          // portfolio snapshots, oldest first
   const [saveError, setSaveError] = useState(false)
   const saveRef = useRef(null)
@@ -276,6 +285,12 @@ export default function Portfolio() {
           share-you're-a-creator graphics are as wide as the portfolio, and the
           Year in Review card is as wide as the editor. A phone gets the
           graphics, then the portfolio, then the editor, and the year card last. */}
+      {/* ON A PHONE THE YEAR CARD IS A SLIM BAR AT THE VERY TOP (21 Sep 2026).
+          Ethan: "The year in review should be showing up at the top. Make the
+          card even a little bit smaller for mobile and show it at the top, at
+          the very top above Share your Tryp.com Creator." */}
+      {!readOnly && <YearTeaser tiny className="mb-5 lg:hidden" />}
+
       {!readOnly && (
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
           <KitStrip className="min-w-0" />
@@ -294,11 +309,19 @@ export default function Portfolio() {
             under it. On a desktop the grid puts the editor on the right. */}
         <div ref={holder} className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={exportPdf} disabled={!!exporting} className="btn-primary">
-              {exporting
-                ? <><Spinner /> {exporting.total ? tr('Page {n} of {total}', { n: exporting.done + 1, total: exporting.total }) : tr('Preparing…')}</>
-                : <><Icon name="download" className="h-4 w-4" /> {tr('Download PDF')}</>}
-            </button>
+            {/* Side by side on a phone, half the row each. */}
+            <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
+              <button type="button" onClick={exportPdf} disabled={!!exporting} className="btn-primary flex-1 justify-center whitespace-nowrap max-sm:px-3 sm:flex-none">
+                {exporting
+                  ? <><Spinner /> {exporting.total ? tr('Page {n} of {total}', { n: exporting.done + 1, total: exporting.total }) : tr('Preparing…')}</>
+                  : <><Icon name="download" className="h-4 w-4" /> {tr('Download PDF')}</>}
+              </button>
+              {!readOnly && !desktop && (
+                <button type="button" onClick={() => setEditing(true)} className="btn-secondary flex-1 justify-center whitespace-nowrap max-sm:px-3 sm:flex-none">
+                  <Icon name="pencil" className="h-4 w-4" /> {tr('Edit portfolio')}
+                </button>
+              )}
+            </div>
             {!readOnly && past.length > 0 && (
               <button type="button" onClick={undo} className="btn-secondary" title={tr('Undo the last change')}>
                 <Icon name="chevronLeft" className="h-4 w-4" /> {tr('Undo')}
@@ -342,7 +365,7 @@ export default function Portfolio() {
           <AdminSummary portfolio={portfolio} shown={shownVideos} videos={videos} tr={tr} />
         )}
 
-        {!readOnly && (
+        {!readOnly && desktop && (
           <PortfolioEditor
             portfolio={portfolio}
             creator={creator}
@@ -354,7 +377,45 @@ export default function Portfolio() {
         )}
       </div>
 
-      {!readOnly && <YearTeaser compact className="mt-8 lg:hidden" />}
+      {!readOnly && !desktop && (
+        <Modal open={editing} onClose={() => setEditing(false)} title={tr('Edit portfolio')} wide>
+          <PortfolioEditor
+            portfolio={portfolio}
+            creator={creator}
+            videos={videos}
+            shown={shownVideos}
+            certificates={certificates}
+            onChange={setPortfolio}
+          />
+          {/* Saving is automatic; this writes anything still waiting on the
+              autosave timer and closes, so what they see next is the result. */}
+          {/* PINNED TO THE SHEET'S REAL BOTTOM EDGE. The sheet carries a
+              tab-bar allowance of padding under its content, so `bottom-0`
+              stuck the bar that far up with the form scrolling past beneath
+              it. The negative margin reclaims that padding and the negative
+              offset lets the bar stick inside it. */}
+          <div
+            className="sticky -mx-6 mt-5 border-t border-gray-100 bg-white px-6 pt-3"
+            style={{
+              bottom: 'calc(-6rem - env(safe-area-inset-bottom))',
+              marginBottom: 'calc(-6rem - env(safe-area-inset-bottom))',
+              paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+            }}
+          >
+            <button
+              type="button"
+              disabled={saving}
+              onClick={async () => {
+                if (dirty) await save()
+                setEditing(false)
+              }}
+              className="btn-primary w-full justify-center"
+            >
+              {saving ? <><Spinner /> {tr('Saving…')}</> : <><Icon name="check" className="h-4 w-4" /> {tr('Save changes')}</>}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* The off-screen, unscaled deck the exporter photographs. Mounted only
           while exporting - five A4 pages of images is not something to keep in

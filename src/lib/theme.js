@@ -51,6 +51,22 @@ export function storeDark(on) {
   }
 }
 
+// The colour the phone's own bar is painted in dark mode: the header's surface
+// (`--d-surface`), so the strip behind the clock and the header under it are
+// one colour. See the note in index.html.
+export const DARK_BAR = '#161618'
+export const statusBarStyle = (dark) => (dark ? 'black-translucent' : 'default')
+
+// An iPhone app launched from the home screen - the only place the status-bar
+// meta matters, and the only place it is frozen at load.
+function isIosStandalone() {
+  try {
+    return window.navigator.standalone === true
+  } catch {
+    return false
+  }
+}
+
 export function applyTheme(on) {
   const el = document.documentElement
   if (on) el.setAttribute('data-theme', 'dark')
@@ -59,8 +75,9 @@ export function applyTheme(on) {
   // bar and status bar on Android) is painted from these two metas, not from
   // the page. index.html sets them at launch; this keeps them in step after.
   try {
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#141416' : '#d94407')
-    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute('content', on ? 'black' : 'default')
+    const style = statusBarStyle(on)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? DARK_BAR : '#ffffff')
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute('content', style)
   } catch { /* no DOM (tests) */ }
 }
 
@@ -124,6 +141,25 @@ export function syncTheme(profileDark) {
   const dark = resolveDark(effectiveMode(lastProfileDark))
   applyTheme(dark)
   storeDark(dark)
+  matchLaunchStatusBar(dark)
+}
+
+// AN INSTALLED IPHONE APP ONLY READS THE BAR STYLE AS A PAGE LOADS
+// (21 Sep 2026). Ethan switched back to light and kept a black bar until he
+// closed and reopened the app: "Can't it automatically work?" A reload is the
+// page loading, so when this launch's style is not the one the creator's theme
+// now needs, the page reloads itself - once, because index.html picks the
+// reloaded page's style from the preference `syncTheme` has just stored, and
+// then they match. Only from here: `applyTheme(false)` also runs when a page
+// outside the community shell mounts, and that is not a change of preference.
+function matchLaunchStatusBar(dark) {
+  try {
+    const style = statusBarStyle(dark)
+    const launched = window.__trypStatusBar
+    if (!launched || launched === style || !isIosStandalone()) return
+    window.__trypStatusBar = style
+    setTimeout(() => window.location.reload(), 80)
+  } catch { /* no DOM (tests) */ }
 }
 
 /** AppLayout mounts/unmounts the community shell. */

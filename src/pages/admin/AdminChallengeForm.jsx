@@ -196,6 +196,7 @@ export default function AdminChallengeForm() {
     // Migration 233. Blank cap = everyone who qualifies; type is chosen, not
     // guessed from the words; scope decides whether winners earn it too.
     participation_cap: '',
+    participation_basis: 'entries', // migration 241: 'points' on a points challenge
     participation_reward_type: 'voucher',
     participation_amount: '',
     participation_scope: 'everyone',
@@ -401,6 +402,7 @@ export default function AdminChallengeForm() {
           participation_threshold: data.participation_threshold ?? '',
           participation_prize: data.participation_prize ?? '',
           participation_cap: data.participation_cap ?? '',
+          participation_basis: data.participation_basis === 'points' ? 'points' : 'entries',
           participation_reward_type: data.participation_reward_type
             ?? (/voucher|credit|gift/i.test(data.participation_prize || '') ? 'voucher' : data.participation_prize ? 'cash' : 'voucher'),
           participation_amount: data.participation_amount ?? '',
@@ -1230,8 +1232,11 @@ export default function AdminChallengeForm() {
               reward_type: form.participation_reward_type,
               amount: form.participation_amount,
               scope: form.participation_scope,
+              basis: form.participation_basis,
             }}
+            pointsBasisAllowed={form.scoring === 'points'}
             onParticipationExtra={(patch) => set({
+              ...('basis' in patch ? { participation_basis: patch.basis } : {}),
               ...('cap' in patch ? { participation_cap: patch.cap } : {}),
               ...('reward_type' in patch ? { participation_reward_type: patch.reward_type } : {}),
               ...('amount' in patch ? { participation_amount: patch.amount } : {}),
@@ -1258,6 +1263,7 @@ export default function AdminChallengeForm() {
                 amount: form.participation_amount,
                 type: form.participation_reward_type,
                 scope: form.participation_scope,
+                basis: form.scoring === 'points' ? form.participation_basis : 'entries',
               },
               // With no cap the ceiling is everybody who could earn it: the
               // market's active creators (Ethan: "the limit is obviously the

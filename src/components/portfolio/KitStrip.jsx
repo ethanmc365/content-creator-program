@@ -202,12 +202,35 @@ export default function KitStrip({ className }) {
 // `1fr / 360px` grid as the deck and the editor below, and this fills its cell.
 // `compact` is the phone's version: one row, at the foot of the page, so the
 // graphics and then the portfolio are what a phone opens on.
-export function YearTeaser({ className, compact = false }) {
+export function YearTeaser({ className, compact = false, tiny = false }) {
   const tr = useT()
   const now = new Date()
   const year = now.getFullYear()
   const unlock = new Date(year, 11, 3)
   const days = Math.max(0, Math.ceil((unlock - now) / 86400000))
+  // THE PHONE'S VERSION: ONE ROW AT THE TOP OF THE PAGE. Same gradient and the
+  // same three facts (what, when, how long), about a third of the height.
+  if (tiny) {
+    return (
+      <section
+        className={cx('relative flex items-center gap-3 overflow-hidden rounded-card px-3.5 py-3 text-white shadow-card', className)}
+        style={{ background: 'linear-gradient(150deg,#d94407 0%,#f5853f 100%)' }}
+      >
+        <span className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-2xl" aria-hidden />
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
+          <Icon name="lock" className="h-4 w-4" />
+        </span>
+        <div className="relative min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('Year in Review')} · {year}</p>
+          <p className="truncate text-[14px] font-extrabold leading-tight">{tr('Unlocks 3 December')}</p>
+        </div>
+        <div className="relative shrink-0 text-right">
+          <p className="text-xl font-extrabold tabular-nums leading-none">{days}</p>
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/80">{days === 1 ? tr('day to go') : tr('days to go')}</p>
+        </div>
+      </section>
+    )
+  }
   return (
     <section
       className={cx('relative flex flex-col overflow-hidden rounded-card p-5 text-white shadow-card', className)}

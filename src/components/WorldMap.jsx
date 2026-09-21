@@ -60,6 +60,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   const [allNames, setAllNames] = useState([])
   // Filling the screen with the map. See the note on the map box below.
   const [full, setFull] = useState(false)
+  // A badge in the corner (the spotlight's country count) leaves room for one
+  // button, so until the map is full screen that button is the way in.
+  const onlyFullButton = controlsBelowBadge && !full
   // The map's geometry, from the ONE shared parse (see lib/mapCountries). Handing
   // `<Geographies>` an object rather than a URL is what stops every instance on
   // the page fetching and decoding the atlas for itself.
@@ -259,19 +262,25 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             as one grouped pill like the community map's rather than four loose
             discs. `controlsBelowBadge` drops the pill one button-height so it
             clears a badge in the map's top-right corner (the spotlight's
-            country count) instead of sitting on it. */}
+            country count) instead of sitting on it.
+            AND ON A DESKTOP TOO, WHERE THE BADGE IS (21 Sep 2026, evening).
+            Ethan, having seen the phone version: "do the same and only have the
+            full screen icon just below where it says the number of countries.
+            I think this will look better for desktop too." So a map with a
+            badge over it carries the one button at every width; the zoom pill
+            comes back once it is full screen, where there is room for it. */}
         <div
           className={cx(
             'absolute right-2 z-10 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur',
-            controlsBelowBadge && !full ? 'top-12' : 'top-2',
+            onlyFullButton ? 'top-12' : 'top-2',
           )}
         >
           <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")}
-            className="hidden h-9 w-9 items-center justify-center text-lg font-semibold text-ink transition-colors hover:bg-cloud sm:flex">+</button>
+            className={cx('hidden h-9 w-9 items-center justify-center text-lg font-semibold text-ink transition-colors hover:bg-cloud', !onlyFullButton && 'sm:flex')}>+</button>
           <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")}
-            className="hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-lg font-semibold text-ink transition-colors hover:bg-cloud sm:flex">−</button>
+            className={cx('hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-lg font-semibold text-ink transition-colors hover:bg-cloud', !onlyFullButton && 'sm:flex')}>−</button>
           <button type="button" onClick={resetView} aria-label={tr("Reset map view")}
-            className="hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-smoke transition-colors hover:bg-cloud sm:flex">
+            className={cx('hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-smoke transition-colors hover:bg-cloud', !onlyFullButton && 'sm:flex')}>
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
           </button>
           {/* OPEN IT BIG. The profile map had zoom buttons and no way to fill
@@ -282,7 +291,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             type="button"
             onClick={() => setFull((v) => !v)}
             aria-label={full ? 'Close full screen map' : 'Open the map full screen'}
-            className="flex h-9 w-9 items-center justify-center text-smoke transition-colors hover:bg-cloud hover:text-ink sm:border-t sm:border-gray-100"
+            className={cx('flex h-9 w-9 items-center justify-center text-smoke transition-colors hover:bg-cloud hover:text-ink', !onlyFullButton && 'sm:border-t sm:border-gray-100')}
           >
             {full ? (
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -547,7 +556,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 
       {full ? (
         createPortal(
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white p-2">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white p-2" style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}>
             {mapBox}
           </div>,
           document.body,

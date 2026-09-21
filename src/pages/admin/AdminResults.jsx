@@ -279,6 +279,14 @@ export default function AdminResults() {
     acc[sub.creator_id] = (acc[sub.creator_id] || 0) + 1
     return acc
   }, {})
+  // WHO CLEARED THE TAKING-PART BAR, in the challenge's own basis (migration
+  // 241): a video count, or on a points challenge that says so, the points
+  // total on the saved board.
+  const pointsByCreator = Object.fromEntries(results.map((r) => [r.creator_id, Number(r.final_views) || 0]))
+  const partByPoints = challenge?.participation_basis === 'points' && challenge?.scoring === 'points'
+  const cleared = (creatorId, threshold) => (partByPoints
+    ? (pointsByCreator[creatorId] || 0) >= threshold
+    : (subCountByCreator[creatorId] || 0) >= threshold)
   const bestByCreator = submissions.reduce((acc, sub) => {
     const cur = acc[sub.creator_id]
     if (!cur || (sub.logged_views ?? 0) > (cur.logged_views ?? 0)) acc[sub.creator_id] = sub
@@ -354,7 +362,7 @@ export default function AdminResults() {
         voucherPrize: prize.participation_prize || '',
         voucherWinners: prize.participation_threshold
           ? groupSubs
-            .filter((sub) => subCountByCreator[sub.creator_id] >= prize.participation_threshold)
+            .filter((sub) => cleared(sub.creator_id, prize.participation_threshold))
             .map((sub) => sub.profiles)
             .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
           : [],
@@ -370,7 +378,7 @@ export default function AdminResults() {
       voucherPrize: challenge?.participation_prize || '',
       voucherWinners: challenge?.participation_threshold
         ? submissions
-          .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold)
+          .filter((sub) => cleared(sub.creator_id, challenge.participation_threshold))
           .map((sub) => sub.profiles)
           .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
         : [],
@@ -394,7 +402,7 @@ export default function AdminResults() {
       .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url }))
     : challenge?.participation_threshold
     ? submissions
-        .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold)
+        .filter((sub) => cleared(sub.creator_id, challenge.participation_threshold))
         .map((sub) => sub.profiles)
         .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
     : []

@@ -1016,6 +1016,34 @@ html {
   }
 }
 
+/* A card that is about to be photographed (lib/domSnapshot) is one still
+   frame: every entrance animation inside it is already over. See ShareCard. */
+.snapshot-still *,
+.snapshot-still *::before,
+.snapshot-still *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* THE STRIP BEHIND THE CLOCK (21 Sep 2026). In dark mode an installed iPhone
+   app runs under a translucent status bar with WHITE glyphs (see index.html),
+   and anything drawn at the very top - a full-screen map, a photo, a light
+   page reached before the reload - would otherwise put those glyphs on
+   whatever it is. This is a solid midnight strip exactly as tall as the
+   status bar, over everything. `env(safe-area-inset-top)` is zero wherever
+   the bar is opaque (light mode, every browser tab, Android), so everywhere
+   else it is a zero-height box. #161618 is `--d-surface`, the header's own
+   colour, so in dark mode it and the header read as one surface. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: env(safe-area-inset-top, 0px);
+  background: #161618;
+  z-index: 2147483000;
+  pointer-events: none;
+}
+
 /* =====================================================================
    COMMUNITY DARK MODE
    Opt-in per creator (Settings → Appearance). Toggled by `data-theme="dark"`

@@ -28,7 +28,11 @@ export default function ShareCard({
   subCountByCreator = {}, platformsFor = () => [],
 }) {
   const participation = voucherPrize
-    ? { threshold: challenge?.participation_threshold || 1, prize: voucherPrize }
+    ? {
+        threshold: challenge?.participation_threshold || 1,
+        prize: voucherPrize,
+        basis: challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries',
+      }
     : null
   const isFinal = challenge?.results_status === 'final'
   // THE PICTURE HOLDS THE TOP TEN, OR EVERY PAID PLACE IF THERE ARE MORE
@@ -44,6 +48,11 @@ export default function ShareCard({
   return (
     <div
       ref={cardRef}
+      // A PHOTOGRAPH IS ONE FRAME (21 Sep 2026). The podium it borrows fades
+      // its columns in on a delay, and the picture was taken the moment the
+      // card mounted - so the preview, and a quick download, showed "Winners"
+      // over an empty box. `.snapshot-still` finishes every animation inside.
+      className="snapshot-still"
       style={{ width: (SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).width, background: '#ffffff', fontFamily: 'Poppins, system-ui, sans-serif' }}
     >
       <div className="bg-gradient-to-br from-brand to-brand-light px-10 py-7 text-center text-white">

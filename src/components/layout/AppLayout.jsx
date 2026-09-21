@@ -562,6 +562,10 @@ export default function AppLayout() {
           'transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
           chromeHidden && '-translate-y-full',
         )}
+        // UNDER THE CLOCK IN DARK MODE. The status bar is translucent there
+        // (see index.html), so the app runs up behind it and the header fills
+        // that strip with its own colour. Zero everywhere else.
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         {/* White shield directly ABOVE the header. Normally off-screen; if iOS
             rubber-bands the page down at the top it fills that gap with clean

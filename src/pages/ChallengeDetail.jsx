@@ -517,10 +517,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
   // Prefer the structured participation reward (set on the challenge form); fall
   // back to parsing a "Post +N videos" prize row for older challenges.
+  // BY VIDEOS OR BY POINTS (migration 241). The number is read in the
+  // challenge's basis, a group's own threshold included.
+  const partBasis = challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries'
   const participation =
     myPrize?.participation_threshold && myPrize?.participation_prize
-      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize }
+      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize, basis: partBasis }
       : parseParticipationPrize(prizes)
+  // Where I stand against that number: my entries, or my points on the board.
+  const myPoints = Number(results.find((r) => r.creator_id === user.id)?.final_views) || 0
+  const partHave = participation?.basis === 'points' ? myPoints : myEntries.length
   // COUNTED ON MY OWN BOARD, not across the challenge. The sentence this feeds
   // is "post 3+ videos to earn X - 4 earned so far", and X is my board's
   // reward: totalling the other board's creators into it would be counting
@@ -536,7 +542,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     : prizes
   const boardParticipation = shownPrize
     ? (shownPrize.participation_threshold && shownPrize.participation_prize
-      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize }
+      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize, basis: partBasis }
       : parseParticipationPrize(shownPrize.prize_structure ?? []))
     : participation
   // THE TOP THREE, AS A PODIUM. Built from `boardRows` and `boardPrizes` - the
@@ -981,10 +987,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">
                       {challenge?.participation_cap
                         ? tr("The first {n} creators to get there", { n: challenge.participation_cap })
-                        : tr("Everyone can win this")}
+                        // "Everyone can win this" sat directly above "For
+                        // creators who finish outside the prize places" - a
+                        // headline and its own small print disagreeing. With no
+                        // cap, what is true either way is that there is no limit.
+                        : tr("Every creator who gets there")}
                     </p>
                     <p className="text-sm font-semibold text-ink">
-                      {tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
+                      {participation.basis === 'points'
+                        ? tr("Reach {n} points and earn {prize}", { n: participation.threshold, prize: participation.prize })
+                        : tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
                     </p>
                     {challenge?.participation_scope === 'outside_prizes' && (
                       <p className="mt-0.5 text-xs text-smoke">{tr("For creators who finish outside the prize places.")}</p>
@@ -1001,7 +1013,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         <div className="h-1.5 overflow-hidden rounded-full bg-cloud">
                           <div
                             className="h-full rounded-full bg-brand transition-[width] duration-500"
-                            style={{ width: `${Math.min(100, Math.round((myEntries.length / participation.threshold) * 100))}%` }}
+                            style={{ width: `${Math.min(100, Math.round((partHave / participation.threshold) * 100))}%` }}
                           />
                         </div>
                         <p className="mt-1.5 text-xs text-smoke">
@@ -1010,12 +1022,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                             const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned').length ?? 0
                             const cap = challenge?.participation_cap
                             const left = cap ? Math.max(0, cap - earned) : null
-                            if (myEntries.length >= participation.threshold) {
+                            if (partHave >= participation.threshold) {
                               if (mine?.status === 'waitlisted') return tr("You got there after the first {n} places were taken.", { n: cap })
                               if (mine?.status === 'excluded') return tr("You are in the prize places, so this one goes to someone else.")
                               return tr("You have earned it.")
                             }
-                            const togo = tr("{n} more videos to go.", { n: participation.threshold - myEntries.length })
+                            const short = participation.threshold - partHave
+                            const togo = participation.basis === 'points'
+                              ? (short === 1 ? tr("1 more point to go.") : tr("{n} more points to go.", { n: short }))
+                              : tr("{n} more videos to go.", { n: short })
                             if (left === 0) return tr("All {n} places have been taken.", { n: cap })
                             return left != null ? `${togo} ${tr("{n} places left.", { n: left })}` : togo
                           })()}
@@ -1498,7 +1513,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               aria-invalid={errorField === 'url'}
               aria-describedby={submitError ? 'submit-error' : undefined}
               className={cx('input', errorField === 'url' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder={tr("Paste your Instagram, TikTok, YouTube or Facebook link…")}
+              placeholder={tr("Paste your video link…")}
               value={videoUrl}
               onChange={(e) => {
                 setVideoUrl(e.target.value)

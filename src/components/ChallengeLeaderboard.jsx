@@ -98,11 +98,20 @@ export default function ChallengeLeaderboard({
         const mine = meId && row?.creator_id === meId
         const tier = podiumTier(rank)
         const podium = rank <= 3
+        // ON A PHONE THE PRIZE RIDES UNDER THE NAME (21 Sep 2026). The prize
+        // column is a desktop column, so a phone showed ten rows of "This spot
+        // is up fo..." with nothing saying what any of them was worth.
+        const phonePrize = prize && (
+          <span className={cx('block truncate text-xs font-semibold text-brand', wide ? 'hidden' : 'sm:hidden')}>{prize}</span>
+        )
         const who = row && (
           <>
             <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="sm" />
-            <span className="truncate text-sm font-semibold hover:text-brand">
-              {row.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">{tr('(you)')}</span>}
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold hover:text-brand">
+                {row.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">{tr('(you)')}</span>}
+              </span>
+              {phonePrize}
             </span>
           </>
         )
@@ -146,7 +155,11 @@ export default function ChallengeLeaderboard({
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/30">
                   <Icon name="plus" className="h-4 w-4 text-brand/50" />
                 </span>
-                <span className="truncate text-sm font-semibold text-smoke">{tr('This spot is up for grabs')}</span>
+                <span className="min-w-0">
+                  <span className={cx('block truncate text-sm font-semibold text-smoke', !wide && 'sm:hidden')}>{tr('Up for grabs')}</span>
+                  <span className={cx('truncate text-sm font-semibold text-smoke', wide ? 'block' : 'hidden sm:block')}>{tr('This spot is up for grabs')}</span>
+                  {phonePrize}
+                </span>
               </span>
             )}
 
@@ -172,9 +185,13 @@ export default function ChallengeLeaderboard({
               )}
               {/* Voucher badge: this creator posted enough videos to earn the
                   participation prize. */}
-              {row && participation && (subCountByCreator[row.creator_id] || 0) >= participation.threshold && (
+              {row && participation && (participation.basis === 'points'
+                ? (Number(row.final_views) || 0) >= participation.threshold
+                : (subCountByCreator[row.creator_id] || 0) >= participation.threshold) && (
                 <span
-                  title={tr('Posted {n}+ videos', { n: participation.threshold })}
+                  title={participation.basis === 'points'
+                    ? tr('Reached {n} points', { n: participation.threshold })
+                    : tr('Posted {n}+ videos', { n: participation.threshold })}
                   className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700"
                 >
                   <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> {participation.prize}

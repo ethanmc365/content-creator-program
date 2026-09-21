@@ -80,7 +80,9 @@ export default function ScoringPanel({ challenge }) {
                 <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : r.kind === 'consistency' ? 'calendar' : 'video'}
                   className="h-4 w-4 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{r.label}</span>
+                  {/* WRAPS, NEVER CUT. "Post at least 1 video in all 4 weeks"
+                      was cut to "in all..." on a phone. */}
+                  <span className="block text-sm leading-snug [overflow-wrap:anywhere]">{r.label}</span>
                   {r.max_points != null && (
                     <span className="block text-[11px] text-smoke">
                       {tr('Up to {n} points from this', { n: Number(r.max_points) })}

@@ -124,12 +124,16 @@ export async function loadWinnerGalleries(challenges) {
     // here" and then quietly left out the three people most obviously here,
     // so it read as broken. Placing does not un-earn the voucher.
     const threshold = c.participation_threshold
-    const voucherWinners = threshold
-      ? [...subCount.entries()]
+    // On a points basis (migration 241) the bar is the points on the board.
+    const voucherWinners = !threshold ? []
+      : c.participation_basis === 'points' && c.scoring === 'points'
+        ? rows.filter((r) => (Number(r.final_views) || 0) >= threshold)
+          .map((r) => person.get(r.creator_id))
+          .filter(Boolean)
+        : [...subCount.entries()]
           .filter(([k, n]) => k.startsWith(`${c.id}:`) && n >= threshold)
           .map(([k]) => person.get(k.split(':')[1]))
           .filter(Boolean)
-      : []
     // ONE PODIUM PER BOARD. `boards` is what the pages draw; `winners` is kept
     // for the single-board case and is the same list they would get from it.
     const myGroups = groupsFor[c.id] ?? []

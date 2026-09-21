@@ -112,27 +112,52 @@ function nodeY(i, L) {
   return L.ys ? L.ys[i] : TOP + i * L.gap
 }
 
-// A leg on a phone is a straight RUN down beside the stop's card, then a
-// SWOOP across to the next stop. `L.runs[i]` is the run in viewBox units (0 on
-// a desktop, where the cards sit beside a route that never passes them).
+// A leg on a phone is a RUN down beside the stop's card, then a SWOOP across
+// to the next stop. `L.runs[i]` is the run in viewBox units (absent on a
+// desktop, where the cards sit beside a route that never passes them).
+//
+// NO STRAIGHT LINES (21 Sep 2026, evening). The run was a straight vertical
+// line and Ethan: "it's more like straight lines... not like the nice curve we
+// had going, so maybe make the lines more curved, but still keep the same
+// structure... everything's a nice wavy curve." So the run is a curve too: it
+// arrives at the dot still travelling OUTWARD (away from the card), bows out
+// towards the screen edge beside the card, and leaves its foot travelling
+// INWARD - which is the direction the swoop needs to set off in. Every join
+// shares one tangent (`BANK` sideways per unit down, mirrored per side), so
+// the whole route is one unbroken S after S with no corner anywhere. Bowing
+// AWAY from the card is what keeps the structure: the line only ever gets
+// further from the card it is passing, never nearer.
+const BANK = 0.36
 function legOf(i, L) {
   const p0 = [nodeX(i, L), nodeY(i, L)]
   const p3 = [nodeX(i + 1, L), nodeY(i + 1, L)]
-  const run = Math.max(0, Math.min(L.runs?.[i] ?? 0, p3[1] - p0[1] - 40))
+  if (!L.runs) {
+    // The desktop: the original S between two dots, unchanged.
+    const w = L.wave * (i % 2 === 0 ? 1 : -1)
+    const pull = L.pull ?? 0.55
+    const span = p3[1] - p0[1]
+    const swoop = [p0, [p0[0] + w, p0[1] + span * pull], [p3[0] + w, p3[1] - span * pull], p3]
+    const len = cubicLength(swoop)
+    return { run: null, swoop, share: 0, len }
+  }
+  const run = Math.max(0, Math.min(L.runs[i] ?? 0, p3[1] - p0[1] - 40))
+  // Outward is towards the nearer screen edge: left for a left-hand dot.
+  const out = p0[0] < L.W / 2 ? -1 : 1
   const q = [p0[0], p0[1] + run]
-  // `wave` bends the curve sideways when the nodes themselves are in a
-  // straight column, which is the only thing keeping the phone layout from
-  // being a vertical line with dots on it.
-  const w = L.wave * (i % 2 === 0 ? 1 : -1)
+  let runPart = null
+  if (run > 0) {
+    const h = run / 3
+    runPart = [p0, [p0[0] + out * BANK * h, p0[1] + h], [q[0] + out * BANK * h, q[1] - h], q]
+  }
+  // The swoop leaves the foot of the run heading inward and arrives at the
+  // next dot heading the same way, which is outward for THAT dot - so the run
+  // after it carries straight on.
   const span = p3[1] - q[1]
-  const pull = run > 0 ? 0.5 : (L.pull ?? 0.55)
-  const c1 = [q[0] + w, q[1] + span * pull]
-  const c2 = [p3[0] + w, p3[1] - span * pull]
-  const swoop = [q, c1, c2, p3]
-  const runPart = run > 0 ? [p0, [p0[0], p0[1] + run / 3], [p0[0], p0[1] + (2 * run) / 3], q] : null
-  const swoopLen = cubicLength(swoop)
-  const len = run + swoopLen
-  return { run: runPart, swoop, share: len > 0 ? run / len : 0, len }
+  const h2 = span * 0.5
+  const swoop = [q, [q[0] - out * BANK * h2, q[1] + h2], [p3[0] + out * BANK * h2, p3[1] - h2], p3]
+  const runLen = runPart ? cubicLength(runPart) : 0
+  const len = runLen + cubicLength(swoop)
+  return { run: runPart, swoop, share: len > 0 ? runLen / len : 0, len }
 }
 
 function cubicLength(seg) {
@@ -161,7 +186,7 @@ function buildRoute(count, L) {
   let d = `M ${nodeX(0, L)} ${nodeY(0, L)}`
   for (let i = 0; i < count - 1; i += 1) {
     const leg = legOf(i, L)
-    if (leg.run) d += ` L ${leg.run[3][0]} ${leg.run[3][1]}`
+    if (leg.run) d += ` C ${leg.run[1][0]} ${leg.run[1][1]}, ${leg.run[2][0]} ${leg.run[2][1]}, ${leg.run[3][0]} ${leg.run[3][1]}`
     const [, c1, c2, p3] = leg.swoop
     d += ` C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${p3[0]} ${p3[1]}`
     segs.push(leg)
@@ -330,7 +355,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // three stops below it carry 140-160px cards and the line still ran under
   // every one of them, because a curve that starts swinging across the moment
   // it leaves a dot is beside its card for the whole swing. So each card's
-  // real height (`cardHs`, measured) decides a straight RUN down the edge
+  // real height (`cardHs`, measured) decides a RUN down the edge
   // beside it, and the swing across happens below it, over at least
   // SWOOP_PX. A leg is never shorter than NARROW_SLOT_PX.
   const [cardHs, setCardHs] = useState([])
@@ -483,7 +508,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // of the current one. This is what the flown line and the marker move by.
   const progressLegs = Math.min(1, shownLegs / legs)
   const shownI = Math.min(Math.floor(shownLegs), legs)
-  // PROGRESS ON A LEG IS PROGRESS ACROSS ITS SWING. The straight run beside a
+  // PROGRESS ON A LEG IS PROGRESS ACROSS ITS SWING. The run beside a
   // card is scenery: "half way to the next stop" has to put the marker in the
   // middle of the crossing, between two cards, not at the foot of the run where
   // it sits on the corner of the card it just left.

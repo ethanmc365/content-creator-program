@@ -475,11 +475,7 @@ export default function AdminPanel() {
   // exported. This query now asks only about work.
   useEffect(() => {
     async function load() {
-      const [
-        { count: pendingApps }, { count: toApprove }, { count: openReports },
-        { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
-        { data: blockedRows }, { count: openErrors },
-      ] = await Promise.all([
+      const answers = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
@@ -504,9 +500,20 @@ export default function AdminPanel() {
         // failed both land in this table - see migrations 204 and 205.
         supabase.from('client_errors').select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null),
       ])
+      const [
+        { count: pendingApps }, { count: toApprove }, { count: openReports },
+        { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
+        { data: blockedRows }, { count: openErrors },
+      ] = answers
+      // A COUNT THAT FAILED IS NOT A ZERO. The desk is always drawn now, and an
+      // empty desk says "all clear" - which a query that errored would say too
+      // if its null count were read as nothing waiting. So a failure is its own
+      // row, and the card can only claim all clear when every question landed.
+      const unchecked = answers.filter((a) => a?.error).length
       const blocked = (blockedRows ?? []).filter(
         (i) => !(i.payment?.name && (i.payment?.iban || i.payment?.accountNumber))).length
       setStats({
+        unchecked,
         blocked,
         openErrors: openErrors ?? 0,
         pendingApps: pendingApps ?? 0,
@@ -572,6 +579,7 @@ export default function AdminPanel() {
     // this one should almost always be empty. When it is not, it is the row
     // with the word "broken" in it, which is enough to find.
     stats.openErrors > 0 && { to: '/admin/analytics?tab=errors', icon: 'bug', count: stats.openErrors, label: `thing${stats.openErrors === 1 ? '' : 's'} broken` },
+    stats.unchecked > 0 && { to: '/admin/analytics?tab=errors', icon: 'alert', count: stats.unchecked, label: `desk check${stats.unchecked === 1 ? '' : 's'} could not load` },
   ].filter(Boolean) : []
 
   // THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN. Both queries in before
@@ -604,9 +612,16 @@ export default function AdminPanel() {
 
       <div className="space-y-8">
         {/* ---------- On your desk ---------- */}
+        {/* ALWAYS DRAWN, EMPTY OR NOT (21 Sep 2026). It used to vanish when
+            nothing was waiting, which made an empty desk and a desk that had
+            failed to load look identical. Ethan: "I want 'On your desk' to be
+            permanently shown there at the top. Even if there's nothing on your
+            desk, you can just say that... so I can easily see if something's
+            broken." A clear desk is one white row saying so; a count that
+            could not be read is a row of its own (see `unchecked`). */}
         {!ready ? (
           <Skeleton className="h-36" />
-        ) : desk.length > 0 ? (
+        ) : (
           <Reveal from="down" delay={0}>
             <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-3 text-white shadow-card sm:p-4">
               {/* The hub card's two soft white glows, so this is visibly the
@@ -618,16 +633,37 @@ export default function AdminPanel() {
                   <Icon name="bell" className="h-4 w-4" />
                 </span>
                 <h2 className="text-base font-semibold tracking-[-0.01em]">On your desk</h2>
-                <span className="ml-auto rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tabular-nums text-brand">
-                  {desk.length} {desk.length === 1 ? 'thing' : 'things'}
+                <span key={desk.length} className="ml-auto animate-pop-in rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tabular-nums text-brand">
+                  {desk.length === 0 ? 'All clear' : `${desk.length} ${desk.length === 1 ? 'thing' : 'things'}`}
                 </span>
               </div>
-              <div className="relative grid gap-2 sm:grid-cols-2">
-                {desk.map((r) => <DeskRow key={r.to} {...r} />)}
-              </div>
+              {desk.length > 0 ? (
+                <div className="relative grid gap-2 sm:grid-cols-2">
+                  {desk.map((r, i) => (
+                    <div key={r.to + r.label} className="animate-fade-up" style={{ animationDelay: `${60 + i * 45}ms` }}>
+                      <DeskRow {...r} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="relative flex animate-fade-up items-center gap-3 rounded-xl bg-white px-3 py-3 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:px-3.5"
+                  style={{ animationDelay: '60ms' }}
+                >
+                  <span className="flex h-9 w-9 shrink-0 animate-pop-in items-center justify-center rounded-xl bg-brand/10 text-brand sm:h-10 sm:w-10" style={{ animationDelay: '180ms' }}>
+                    <Icon name="check" className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold leading-snug sm:text-[15px]">Nothing on your desk</span>
+                    <span className="block text-xs leading-snug text-smoke sm:text-[13px]">
+                      Applications, invoices, reports and anything broken land here the moment they need you.
+                    </span>
+                  </span>
+                </div>
+              )}
             </section>
           </Reveal>
-        ) : null}
+        )}
 
         {/* ---------- The tools ----------
             ONE grid, one heading, every card the same size, phone and desktop

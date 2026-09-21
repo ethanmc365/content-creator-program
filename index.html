@@ -75,27 +75,44 @@
 
     <!-- Add to Home Screen (PWA) -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#d94407" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-v4.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <!-- THE STATUS BAR FOLLOWS DARK MODE (21 Sep 2026). Ethan, on his phone:
-         "Dark mode works, but at the top, where it shows the time and the
-         battery, it's showing pure white up there, and it doesn't change."
-         An installed iOS app paints that strip from this meta, not from the
-         page, and reads it at LAUNCH - so it has to be right before the app
-         runs, from the theme the last session stored. `black` rather than
-         `black-translucent`: translucent slides the whole app under the clock
-         and every overlay's geometry with it; `black` is an opaque near-black
-         bar with the content exactly where it was. lib/theme keeps both metas
-         in step when the theme changes mid-session. -->
+    <!-- THE STATUS BAR IS THE PAGE'S OWN COLOUR, IN BOTH THEMES.
+
+         21 Sep 2026, first pass: dark mode set `black` here at launch. Two
+         reports came back the same evening. "Rather than black, this should be
+         the sort of midnight colour that the whole platform is" - `black` is an
+         opaque #000 bar, not our surface. And, worse: "because I'm back in light
+         mode, it's showing black still up there... Whenever I close my app and
+         open it again, it's fixed." An installed iPhone app reads this meta when
+         it LOADS, so a theme change mid-session never reached the bar.
+
+         So:
+           - Dark: `black-translucent`. The bar goes transparent with white
+             glyphs, the app draws under it, and the header pads itself by
+             env(safe-area-inset-top) - so the strip behind the clock IS the
+             header, in the header's own midnight.
+           - Light: `default`, a white bar with dark glyphs, as it always was.
+           - A change of theme on an installed iPhone app RELOADS the page
+             (lib/theme `applyTheme`), which is the thing that re-reads this
+             meta. Everywhere else the metas are just updated in place.
+         `theme-color` is what Android and desktop Chrome paint their bars with,
+         and it updates live: white in light (it was the brand orange, which
+         never matched the page), the header's midnight in dark.
+         `window.__trypStatusBar` records what this launch actually got, so the
+         runtime knows whether a reload would change anything. -->
     <script>
       try {
+        var sb = 'default'
         if (localStorage.getItem('tryp_dark_mode') === '1') {
-          document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black')
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#141416')
+          sb = 'black-translucent'
+          document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', sb)
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#161618')
         }
+        window.__trypStatusBar = sb
       } catch (e) { /* private mode: the light bar is the safe default */ }
     </script>
     <meta name="apple-mobile-web-app-title" content="Tryp.com" />

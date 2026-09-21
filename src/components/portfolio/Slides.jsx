@@ -433,19 +433,19 @@ export function Work({ creator, copy, videos, n, total, offset = 0, totalVideos 
 
       <div style={{ display: 'flex', gap: 32, marginTop: 22 }}>
         {videos.map((v, i) => <VideoTile key={v.id} video={v} rank={offset + i + 1} t={t} />)}
+        {/* NOTHING BUT THE WORDS WHEN THERE IS NO WORK YET (21 Sep 2026).
+            This was a peach card with a dotted route and a plane on it. Ethan:
+            "it shows a weird orange card. I would remove that... remove the
+            plane icon, the dotted line, and the other card. It's not
+            necessary." The two lines are the whole message. */}
         {videos.length === 0 && (
           <div style={{
-            position: 'relative', flex: 1, height: 460, borderRadius: 24, background: t.peach,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
-            overflow: 'hidden',
+            flex: 1, height: 460,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+            textAlign: 'center',
           }}>
-            <Route width={1152} height={460} color={t.accent} opacity={0.35}
-              d="M 40 400 C 260 380, 360 120, 620 180 S 980 320, 1110 60" />
-            <span style={{ color: t.accent, display: 'inline-flex', transform: 'rotate(45deg)' }}>
-              <Icon name="plane-flight" className="h-8 w-8" />
-            </span>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: INK }}>The first video lands here.</p>
-            <p style={{ margin: 0, fontSize: 13, color: SMOKE }}>Enter a Tryp.com challenge and your work fills this page.</p>
+            <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>Your first video lands here.</p>
+            <p style={{ margin: 0, fontSize: 13.5, color: SMOKE }}>Enter a Tryp.com challenge and your work fills this page.</p>
           </div>
         )}
       </div>

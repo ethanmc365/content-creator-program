@@ -98,24 +98,48 @@ function roundedPath(pts, r = 32) {
   return d
 }
 
+// THE FLOWN AREA AS ONE PATH. Every flown cell is a square subpath whose
+// corners are rounded only where the corner is on the outside of the flown
+// area: neither of the two cells that share that corner edge is flown. Inner
+// edges therefore meet square and edge to edge, and because it is one <path>
+// the rasteriser treats the whole area as one shape - two abutting <rect>s are
+// antialiased separately and let a hairline of the sky through between them.
+const LIT_R = 16
+function litAreaPath(cells, size) {
+  if (!cells.length) return ''
+  const lit = new Set(cells)
+  const on = (r, c) => r >= 0 && c >= 0 && r < size && c < size && lit.has(r * size + c)
+  let d = ''
+  for (const cell of lit) {
+    const r = Math.floor(cell / size), c = cell % size
+    const x = c * CELL, y = r * CELL, X = x + CELL, Y = y + CELL
+    const up = on(r - 1, c), down = on(r + 1, c), left = on(r, c - 1), right = on(r, c + 1)
+    const tl = !up && !left ? LIT_R : 0
+    const tr = !up && !right ? LIT_R : 0
+    const br = !down && !right ? LIT_R : 0
+    const bl = !down && !left ? LIT_R : 0
+    d += `M ${x + tl} ${y} L ${X - tr} ${y}`
+    if (tr) d += ` A ${tr} ${tr} 0 0 1 ${X} ${y + tr}`
+    d += ` L ${X} ${Y - br}`
+    if (br) d += ` A ${br} ${br} 0 0 1 ${X - br} ${Y}`
+    d += ` L ${x + bl} ${Y}`
+    if (bl) d += ` A ${bl} ${bl} 0 0 1 ${x} ${Y - bl}`
+    d += ` L ${x} ${y + tl}`
+    if (tl) d += ` A ${tl} ${tl} 0 0 1 ${x + tl} ${y}`
+    d += ' Z '
+  }
+  return d
+}
+
 // The Tryp plane, nose-up at origin (same silhouette as the creator map).
 // Position + heading are CSS transforms with a VERY short transition: just
 // enough to smooth cell-to-cell motion without the plane visibly lagging behind
 // the finger.
 //
-// IT IS LIT NOW, NOT FLAT (16 Sep 2026). It was one flat brand-orange fill with
-// a white outline, sitting on a trail of the same orange - so at the one moment
-// it matters, mid-drag, the aircraft and its own contrail were the same colour
-// and the eye had only a 1px line to separate them. Three things fix that and
-// none of them changes the silhouette Ethan settled on:
-//
-//   - a soft warm HALO behind it, so there is always a gap of light between the
-//     plane and whatever it is flying over;
-//   - a fuselage GRADIENT running across the aircraft's own axis (it rotates
-//     with the plane, so the light stays on one side of the hull rather than
-//     one side of the screen);
-//   - a cockpit glint and a wing highlight, which is what makes a shape read as
-//     metal rather than as a sticker.
+// SOLID BRAND ORANGE AGAIN (21 Sep 2026). A lit version (halo, fuselage
+// gradient, cockpit glint) was tried on 16 Sep and Ethan asked for it back to
+// one solid Tryp.com orange. The white outline and drop shadow carry the
+// separation from the trail on their own.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
 function PlaneIcon({ x, y, angle, scale = 3.4 }) {
@@ -132,23 +156,118 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
           same element (this silently rendered the plane at scale 1). */}
       <g className="fp-plane-bob">
         <g transform={`scale(${scale})`}>
-          <circle cx={0} cy={0} r={13.5} fill="url(#fp-halo)" />
+          {/* SOLID TRYP.COM ORANGE (21 Sep 2026). Ethan: "currently it's
+              like a gradient or something. There's a bit of white in it. It
+              should be just a solid Trip.com orange." The fuselage gradient,
+              the white halo, the cockpit glint and the wing highlight are gone;
+              the thin white outline and the shadow stay, because they are what
+              separate the aircraft from the orange trail it sits on. */}
           <path
             d={PLANE_D}
-            fill="url(#fp-fuse)" stroke="#ffffff" strokeWidth={1.1} strokeLinejoin="round"
+            fill={BRAND} stroke="#ffffff" strokeWidth={1.1} strokeLinejoin="round"
             style={{ filter: 'drop-shadow(0 2px 3.5px rgba(16,32,48,0.32))' }}
           />
-          {/* the cockpit: a glint on the nose, the thing that makes it read
-              as glass rather than as more paint */}
-          <path
-            d="M0 -9.7 C0.8 -9.7 1.25 -8.3 1.25 -6.4 L1.25 -4.9 C0.5 -5.2 -0.5 -5.2 -1.25 -4.9 L-1.25 -6.4 C-1.25 -8.3 -0.8 -9.7 0 -9.7 Z"
-            fill="#ffffff" fillOpacity={0.62}
-          />
-          {/* a highlight along the leading edge of one wing */}
-          <path d="M-9.6 1.2 L-1.8 -3.9 L-1.8 -2.7 L-9.6 1.95 Z" fill="#ffffff" fillOpacity={0.34} />
         </g>
       </g>
     </g>
+  )
+}
+
+// THE HINT BUTTON OWNS ITS OWN CLOCK (21 Sep 2026). Ethan: "When pressing the
+// hint button, there seems to be a bit of lag on the actual button animation."
+// Two causes, both fixed here:
+//
+//   1. The button was KEYED on the cooldown so its "it's back" animation would
+//      replay - which meant the press itself unmounted the button you were
+//      pressing and mounted a new one. The press-in scale was cut off halfway
+//      and the greyed button appeared with no transition. It is one node for
+//      life now, and the pop is played with the Web Animations API on the
+//      frame the cooldown ends.
+//   2. The countdown ticked the WHOLE GAME every 80ms (see the parent). The
+//      tick lives here now, so only this button re-renders while it runs.
+const HINT_RING = 2 * Math.PI * 9.5
+function HintButton({ hintAt, cooling, onPress }) {
+  const tr = useT()
+  const ref = useRef(null)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!cooling) return undefined
+    setNow(Date.now())
+    const t = setInterval(() => setNow(Date.now()), 50)
+    return () => clearInterval(t)
+  }, [cooling])
+  const wasCooling = useRef(cooling)
+  useEffect(() => {
+    const el = ref.current
+    const quiet = typeof window !== 'undefined' && (
+      document.documentElement.hasAttribute('data-reduce-motion') ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+    if (wasCooling.current && !cooling && el?.animate && !quiet) {
+      el.animate([
+        { transform: 'scale(0.94)', boxShadow: '0 0 0 0 rgba(217,68,7,0.5)' },
+        { transform: 'scale(1.05)', offset: 0.45 },
+        { transform: 'scale(1)', boxShadow: '0 0 0 12px rgba(217,68,7,0)' },
+      ], { duration: 500, easing: 'cubic-bezier(0.22,1,0.36,1)' })
+    }
+    wasCooling.current = cooling
+  }, [cooling])
+  // `now` can be older than the hint on the first frame of a cooldown (it was
+  // last set whenever the previous one ended, or at mount), which read as
+  // "49s". Never earlier than the hint itself, so that frame is a full ring.
+  const left = cooling && hintAt ? Math.max(0, HINT_COOLDOWN_MS - (Math.max(now, hintAt) - hintAt)) : 0
+  const frac = cooling ? left / HINT_COOLDOWN_MS : 0
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onPress}
+      disabled={cooling}
+      aria-label={cooling ? `${tr('Hint')} (${Math.ceil(left / 1000)}s)` : tr('Hint')}
+      title={cooling ? tr('Cooling down') : tr('Rewind to your last correct move')}
+      className={cx(
+        // Only the properties that should ease. `transition-all` also eased the
+        // background and text colour on the press, so the button spent 200ms
+        // visibly on its way to grey after it had already been pressed.
+        'relative flex h-11 items-center gap-2 overflow-hidden rounded-full border px-4 text-sm font-semibold transition-[transform,box-shadow,border-color] duration-150 ease-out active:scale-95',
+        cooling
+          ? 'cursor-not-allowed border-gray-200 bg-cloud text-gray-400'
+          // WHITE, LIKE UNDO AND RESTART (21 Sep 2026). Ethan: "it
+          // looks like it's already clicked in that orange." A tinted
+          // button reads as pressed; it keeps its place first.
+          : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
+      )}
+    >
+      {/* The wait, said twice over: a bar filling across the button and a
+          ring emptying inside it. One of them is readable at a glance and the
+          other tells you how many seconds are left; a disabled button with
+          neither is indistinguishable from a broken one. */}
+      {cooling && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 bg-brand/10"
+          style={{ width: `${(1 - frac) * 100}%`, transition: 'width 60ms linear' }}
+        />
+      )}
+      <span className="relative flex h-5 w-5 items-center justify-center">
+        {cooling ? (
+          <svg viewBox="0 0 24 24" className="h-5 w-5 -rotate-90" aria-hidden="true">
+            <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+            <circle
+              cx="12" cy="12" r="9.5" fill="none"
+              stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+              strokeDasharray={HINT_RING}
+              strokeDashoffset={HINT_RING * (1 - frac)}
+              style={{ transition: 'stroke-dashoffset 60ms linear' }}
+            />
+          </svg>
+        ) : (
+          <Icon name="bulb" className="h-[18px] w-[18px]" />
+        )}
+      </span>
+      <span className="relative tabular-nums">
+        {cooling ? `${Math.ceil(left / 1000)}s` : tr('Hint')}
+      </span>
+    </button>
   )
 }
 
@@ -200,10 +319,14 @@ export default function ZipGame({ onExit }) {
   const storedHint = useState(() => loadHintState(day))[0]
   const [hintsUsed, setHintsUsed] = useState(storedHint.used)
   const [hintAt, setHintAt] = useState(storedHint.at)   // when the last hint was taken
-  const [now, setNow] = useState(0)         // ticks only while a cooldown runs
   const rewindRef = useRef(null)            // the reel-in timer, if one is running
-  const cooldownLeft = hintAt ? Math.max(0, HINT_COOLDOWN_MS - (now - hintAt)) : 0
-  const cooling = cooldownLeft > 0
+  // WHETHER A COOLDOWN IS RUNNING, AND NOTHING FINER. The seconds and the ring
+  // belong to <HintButton>, which ticks on its own: this component draws the
+  // whole board, and it used to re-render every 80ms for ten seconds after each
+  // hint just so a 20px ring could move - which is the lag Ethan felt on the
+  // button. The board now hears about the cooldown twice: when it starts and
+  // when it ends.
+  const [cooling, setCooling] = useState(() => !!storedHint.at && Date.now() - storedHint.at < HINT_COOLDOWN_MS)
 
   // Server check: already flown today on another device?
   useEffect(() => {
@@ -234,19 +357,13 @@ export default function ZipGame({ onExit }) {
     return () => clearInterval(t)
   }, [solved, checking])
 
-  // THE COOLDOWN TICKS ONLY WHILE THERE IS A COOLDOWN. A ring that empties over
-  // ten seconds needs to redraw often enough to look continuous, and an
-  // interval running at that rate for the whole game - which on a legend board
-  // is half an hour - would be a lot of renders in exchange for nothing.
   useEffect(() => {
     if (!hintAt) return undefined
-    setNow(Date.now())
-    const t = setInterval(() => {
-      const n = Date.now()
-      setNow(n)
-      if (n - hintAt >= HINT_COOLDOWN_MS) clearInterval(t)
-    }, 80)
-    return () => clearInterval(t)
+    const left = HINT_COOLDOWN_MS - (Date.now() - hintAt)
+    if (left <= 0) { setCooling(false); return undefined }
+    setCooling(true)
+    const t = setTimeout(() => setCooling(false), left)
+    return () => clearTimeout(t)
   }, [hintAt])
 
   // The reel-in is a chain of timeouts, and it must not outlive the board.
@@ -490,11 +607,20 @@ export default function ZipGame({ onExit }) {
   // each cell segment to hit a fixed number of colour steps keeps the ramp
   // buttery whether the trail is 3 cells or 120 - the old one-colour-per-cell
   // approach banded visibly on short trails ("choppy at the start").
-  const TRAIL_STEPS = 72
+  //
+  // SMOOTHER AS IT CHANGES, NOT JUST AS IT STANDS (21 Sep 2026). Every move
+  // re-spreads the ramp over a longer route, so every piece of it changes
+  // colour at once; drawn instantly, that is a flicker along the whole trail
+  // on each step. Each piece now EASES to its new colour (a CSS transition on
+  // `stroke`), which only works if a piece keeps its place between renders -
+  // so the subdivision per cell is a step function of the route's length
+  // rather than a division that moves on every move, and the key carries it.
+  // Short routes get more pieces (a 3-cell ramp needs them to look like a
+  // gradient); long ones one per cell, where neighbours are near-identical.
   const bodySegs = []
   if (trailPts.length > 1) {
     const segCount = trailPts.length - 1
-    const subs = Math.max(1, Math.ceil(TRAIL_STEPS / segCount))
+    const subs = segCount < 6 ? 12 : segCount < 16 ? 6 : segCount < 40 ? 3 : 1
     const totalSub = segCount * subs
     let k = 0
     for (let i = 0; i < segCount; i++) {
@@ -505,16 +631,15 @@ export default function ZipGame({ onExit }) {
         const ax = x1 + (x2 - x1) * ta, ay = y1 + (y2 - y1) * ta
         const bx = x1 + (x2 - x1) * tb, by = y1 + (y2 - y1) * tb
         const frac = totalSub > 1 ? (k + 0.5) / (totalSub - 1) : 1
-        bodySegs.push({ d: `M ${ax} ${ay} L ${bx} ${by}`, c: lerpHex(TRAIL_TAIL, BRAND_LIGHT, Math.min(frac, 1)) })
+        bodySegs.push({ key: `${subs}-${i}-${s}`, d: `M ${ax} ${ay} L ${bx} ${by}`, c: lerpHex(TRAIL_TAIL, BRAND_LIGHT, Math.min(frac, 1)) })
         k++
       }
     }
   }
+  const litD = litAreaPath(path, size)
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
   const W = size * CELL
-  const RING = 2 * Math.PI * 9.5 // the hint button's cooldown ring
-  const coolFrac = cooling ? cooldownLeft / HINT_COOLDOWN_MS : 0
 
   // THE BAR A WALL IS DRAWN AS, on the shared edge and inset from the corners
   // so two walls meeting at a corner do not fuse into an L.
@@ -544,12 +669,6 @@ export default function ZipGame({ onExit }) {
            slower, finer one is the older air. */
         .fp-trail-dash { animation: fp-dash 0.8s linear infinite; }
         @keyframes fp-dash { to { stroke-dashoffset: 19; } }
-        .fp-trail-dash-far { animation: fp-dash-far 1.55s linear infinite; }
-        @keyframes fp-dash-far { to { stroke-dashoffset: 30; } }
-        /* A cell lighting up as the plane arrives: quick, and never from 0
-           (a background tab would hold it there). */
-        .fp-lit { animation: fp-lit 0.18s ease-out; }
-        @keyframes fp-lit { from { opacity: 0.4; } }
         /* A REFUSED MOVE: 2px, 220ms. See the note on blocked() - the old
            ±6px/400ms shake was borrowed from a wrong quiz answer, which happens
            once a round; a wall happens repeatedly while you feel your way past
@@ -626,24 +745,15 @@ export default function ZipGame({ onExit }) {
           0%, 100% { opacity: 0.5; transform: scale(1); }
           50% { opacity: 0.85; transform: scale(1.08); }
         }
-        /* THE HINT COMING BACK. The moment the button becomes pressable again
-           is the only moment in the cooldown worth animating, and a button that
-           simply stops being grey does not announce it. */
-        .fp-hint-pop { animation: fp-hint-pop 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-        @keyframes fp-hint-pop {
-          0% { transform: scale(0.94); box-shadow: 0 0 0 0 rgba(217,68,7,0.5); }
-          45% { transform: scale(1.05); }
-          100% { transform: scale(1); box-shadow: 0 0 0 12px rgba(217,68,7,0); }
-        }
         .fp-hint-msg { animation: fp-hint-msg 0.3s ease-out both; }
         @keyframes fp-hint-msg {
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fp-plane-bob, .fp-trail-dash, .fp-trail-dash-far, .fp-lit,
+          .fp-plane-bob, .fp-trail-dash,
           .fp-nudge, .fp-wall-hit, .fp-stop-pop, .fp-cell, .fp-board,
-          .fp-target, .fp-target-pulse, .fp-hint-pop, .fp-hint-msg,
+          .fp-target, .fp-target-pulse, .fp-hint-msg,
           .fp-next-ring, .fp-land-sweep { animation: none; }
           /* The winning panel still needs to arrive, or a finished board says
              nothing at all. */
@@ -758,25 +868,6 @@ export default function ZipGame({ onExit }) {
                 <stop offset="74%" stopColor="#d8ecfb" />
                 <stop offset="100%" stopColor="#eef7fe" />
               </linearGradient>
-              {/* The aircraft's halo and its fuselage shading. Both live here
-                  rather than inside PlaneIcon because a gradient has to be in
-                  the same SVG document as the thing that references it, and
-                  there is exactly one board on the page. */}
-              {/* A WHISPER, NOT A DISC. The plane used to sit on a white
-                  circle and Ethan had that removed; this is deliberately far
-                  short of one - it is a soft warm lift under the aircraft so it
-                  never merges into the orange trail, and at these opacities you
-                  cannot see where it ends. */}
-              <radialGradient id="fp-halo" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.42" />
-                <stop offset="45%" stopColor="#fff1e4" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#ffd9be" stopOpacity="0" />
-              </radialGradient>
-              <linearGradient id="fp-fuse" x1="0" y1="0" x2="1" y2="0.25">
-                <stop offset="0%" stopColor="#ff9f62" />
-                <stop offset="52%" stopColor="#e8550f" />
-                <stop offset="100%" stopColor="#c23a03" />
-              </linearGradient>
               {/* A WINDOW, NOT A RECTANGLE OF COLOUR. A large flat gradient has
                   no edges, so the board read as a panel the card happened to be
                   painted with. A soft darkening in the corners is the whole
@@ -846,19 +937,19 @@ export default function ZipGame({ onExit }) {
                 the pane's inset so a run of flown cells reads as one lit
                 corridor; a hairline keeps the grid legible inside it. This
                 reverses the July "no per-cell fills" rule at his request. */}
-            {path.map((cell) => {
-              const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
-              return (
-                <rect
-                  key={`lit-${cell}`}
-                  className="fp-lit"
-                  x={x} y={y} width={CELL} height={CELL}
-                  fill="#fddcc4"
-                  stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5}
-                  style={{ pointerEvents: 'none' }}
-                />
-              )
-            })}
+            {/* ONE SHAPE, ROUNDED WHERE IT MEETS THE SKY (21 Sep 2026, later).
+                The cells were separate square rects: sharp corners against the
+                rounded blue panes, and a hairline of blue between neighbours
+                where two antialiased edges met. Ethan: "the corners of this are
+                really sharp. They should be rounded like the blue ones... any
+                squares that are completely filled in should obviously be
+                completely orange... We don't want blue gaps between them." So
+                the lit area is ONE path (one rasterisation, so no seams), and a
+                cell corner is rounded only where it is an outside corner of the
+                lit area - neither neighbour on that corner is flown. */}
+            {path.length > 0 && (
+              <path d={litD} fill="#fddcc4" style={{ pointerEvents: 'none' }} />
+            )}
 
             {/* the flown sky: one continuous rounded SNAKE through every cell
                 on the route - ONE solid gradient body (round caps = rounded
@@ -877,21 +968,21 @@ export default function ZipGame({ onExit }) {
                 {/* solid body: a fine colour ramp (lightest at the tail, full
                     orange right behind the plane) drawn as many short
                     round-capped strokes so the gradient is smooth end to end */}
-                {bodySegs.map((seg, i) => (
+                {bodySegs.map((seg) => (
                   <path
-                    key={i}
+                    key={seg.key}
                     d={seg.d}
-                    fill="none" stroke={seg.c}
+                    fill="none"
                     strokeWidth={54} strokeLinecap="round"
-                    style={{ pointerEvents: 'none' }}
+                    style={{ pointerEvents: 'none', stroke: seg.c, transition: 'stroke 320ms cubic-bezier(0.22, 1, 0.36, 1)' }}
                   />
                 ))}
                 {/* The contrail dashes stay WHITE: they are drawn ON the orange
                     body, not on the board, so the board's colour is irrelevant
                     to them - and white on orange is the contrast this platform
-                    uses everywhere. The second, finer layer runs at half the
-                    speed, which is what turns a dashed line into moving air. */}
-                <path className="fp-trail-dash-far" d={trailD} fill="none" stroke="#ffffff" strokeOpacity={0.45} strokeWidth={2.5} strokeDasharray="2 28" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                    uses everywhere. ONE LINE (21 Sep 2026): a second, fainter
+                    layer ran under it at half the speed, and Ethan wanted "the
+                    one nice, bright, solid one" and not the lighter echo. */}
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 {/* THE LANDING RUNS THE LENGTH OF THE ROUTE. Finishing used to
                     be a white wash dropped over the board, which hides the one
@@ -1088,59 +1179,7 @@ export default function ZipGame({ onExit }) {
         {!solved && !checking && (
           <div className="mt-4 flex flex-col items-center gap-2">
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
-              <button
-                // Keyed on the cooldown so the "it's back" animation actually
-                // runs: re-applying a class to a node that already has it does
-                // not restart a CSS animation, and this one has to fire on the
-                // exact frame the button becomes pressable.
-                key={cooling ? 'hint-cooling' : 'hint-ready'}
-                onClick={takeHint}
-                disabled={cooling}
-                aria-label={cooling ? `${tr('Hint')} — ${Math.ceil(cooldownLeft / 1000)}s` : tr('Hint')}
-                title={cooling ? tr('Cooling down') : tr('Rewind to your last correct move')}
-                className={cx(
-                  'relative flex h-11 items-center gap-2 overflow-hidden rounded-full border px-4 text-sm font-semibold transition-all duration-200 active:scale-95',
-                  cooling
-                    ? 'cursor-not-allowed border-gray-200 bg-cloud text-gray-400'
-                    // WHITE, LIKE UNDO AND RESTART (21 Sep 2026). Ethan: "it
-                    // looks like it's already clicked in that orange." A tinted
-                    // button reads as pressed; it keeps its place first.
-                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
-                  !cooling && hintAt > 0 && 'fp-hint-pop',
-                )}
-              >
-                {/* The wait, said twice over: a bar filling across the button
-                    and a ring emptying inside it. One of them is readable at a
-                    glance from across the room and the other tells you how many
-                    seconds are left; a disabled button with neither is
-                    indistinguishable from a broken one. */}
-                {cooling && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-y-0 left-0 bg-brand/10"
-                    style={{ width: `${(1 - coolFrac) * 100}%`, transition: 'width 90ms linear' }}
-                  />
-                )}
-                <span className="relative flex h-5 w-5 items-center justify-center">
-                  {cooling ? (
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 -rotate-90" aria-hidden="true">
-                      <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
-                      <circle
-                        cx="12" cy="12" r="9.5" fill="none"
-                        stroke="currentColor" strokeWidth="3" strokeLinecap="round"
-                        strokeDasharray={RING}
-                        strokeDashoffset={RING * (1 - coolFrac)}
-                        style={{ transition: 'stroke-dashoffset 90ms linear' }}
-                      />
-                    </svg>
-                  ) : (
-                    <Icon name="bulb" className="h-[18px] w-[18px]" />
-                  )}
-                </span>
-                <span className="relative tabular-nums">
-                  {cooling ? `${Math.ceil(cooldownLeft / 1000)}s` : tr('Hint')}
-                </span>
-              </button>
+              <HintButton hintAt={hintAt} cooling={cooling} onPress={takeHint} />
               <button
                 onClick={undo}
                 className="flex h-11 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand active:scale-95"

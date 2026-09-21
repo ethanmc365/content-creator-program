@@ -255,14 +255,16 @@ export default function ShareLeaderboard({
                   type="button"
                   onClick={() => setWhat(o.key)}
                   className={cx(
-                    'flex items-start gap-3 rounded-card p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
-                    what === o.key ? 'border-2 border-brand bg-brand-tint/40' : 'border border-gray-200 hover:border-brand',
+                    'flex items-start gap-3 rounded-card border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
+                    // PICKED IS SOLID BRAND WITH WHITE ON IT, never a tint (the
+                    // platform-wide rule; this one was a tinted card).
+                    what === o.key ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 hover:border-brand',
                   )}
                 >
-                  <Icon name={o.icon} className={cx('mt-0.5 h-5 w-5 shrink-0', what === o.key ? 'text-brand' : 'text-smoke')} />
+                  <Icon name={o.icon} className={cx('mt-0.5 h-5 w-5 shrink-0', what === o.key ? 'text-white' : 'text-smoke')} />
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{o.title}</span>
-                    <span className="mt-1 block text-xs leading-relaxed text-smoke">{o.hint}</span>
+                    <span className={cx('mt-1 block text-xs leading-relaxed', what === o.key ? 'text-white/85' : 'text-smoke')}>{o.hint}</span>
                   </span>
                 </button>
               ))}

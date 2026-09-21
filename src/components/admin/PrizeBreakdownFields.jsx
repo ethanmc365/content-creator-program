@@ -97,9 +97,12 @@ export function followAmount(oldText, newText, amount) {
 export function participationExtras(form) {
   const on = !!(form?.participation_threshold && String(form?.participation_prize || '').trim())
   if (!on) {
-    return { participation_cap: null, participation_reward_type: null, participation_amount: null, participation_scope: 'everyone' }
+    return { participation_cap: null, participation_reward_type: null, participation_amount: null, participation_scope: 'everyone', participation_basis: 'entries' }
   }
   return {
+    // Migration 241: the threshold counts videos, or - on a points challenge
+    // only - points. Anything else falls back to videos.
+    participation_basis: form.participation_basis === 'points' && form.scoring === 'points' ? 'points' : 'entries',
     participation_cap: toInt(form.participation_cap),
     participation_reward_type: form.participation_reward_type === 'cash' ? 'cash' : 'voucher',
     participation_amount: toAmount(form.participation_amount) ?? toAmount(numberIn(form.participation_prize)),
@@ -186,6 +189,7 @@ export function prizeBudget({ prizes = [], participation = null, awards = [], cr
       cap,
       reach,
       threshold: toInt(participation.threshold),
+      basis: participation.basis === 'points' ? 'points' : 'entries',
       type: participation.type === 'cash' ? 'cash' : 'voucher',
       scope,
       max: reach != null ? each * reach : null,
@@ -336,6 +340,9 @@ export default function PrizeBreakdownFields({
   // cash/voucher choice, the value and who can earn it, plus Most committed.
   participationExtra = null,
   onParticipationExtra = null,
+  // A points challenge can pay the taking-part reward on a points total
+  // instead of a video count (migration 241). Off everywhere else.
+  pointsBasisAllowed = false,
   extraAwards = null,
   onExtraAwards = null,
   idPrefix = 'prize',
@@ -352,6 +359,7 @@ export default function PrizeBreakdownFields({
   const mc = extraAwards || []
   const setAward = (i, patch) => onExtraAwards(mc.map((x, j) => (j === i ? { ...x, ...patch } : x)))
 
+  const byPoints = pointsBasisAllowed && participationExtra?.basis === 'points'
   const partAmount = participationExtra
     ? (String(participationExtra.amount ?? '').trim() || numberIn(participationPrize))
     : numberIn(participationPrize)
@@ -415,10 +423,12 @@ export default function PrizeBreakdownFields({
         <RewardCard
           icon="video"
           title="Reward for taking part"
-          hint="Earned by posting enough videos, paid automatically when the challenge ends."
+          hint={byPoints
+            ? 'Earned by reaching enough points, paid automatically when the winners are published.'
+            : 'Earned by posting enough videos, paid automatically when the winners are published.'}
           onRemove={() => {
             onParticipation({ threshold: '', prize: '' })
-            if (onParticipationExtra) onParticipationExtra({ cap: '', amount: '', scope: 'everyone', reward_type: 'voucher' })
+            if (onParticipationExtra) onParticipationExtra({ cap: '', amount: '', scope: 'everyone', reward_type: 'voucher', basis: 'entries' })
             setPartOpen(false)
           }}
         >
@@ -427,7 +437,9 @@ export default function PrizeBreakdownFields({
               id={`${idPrefix}-threshold`}
               value={participationThreshold}
               onChange={(v) => onParticipation({ threshold: v, prize: participationPrize })}
-              className="order-1 sm:order-none" prefix="Post" placeholder="6" label="Videos needed for the participation reward"
+              className="order-1 sm:order-none"
+              prefix={byPoints ? 'Reach' : 'Post'} placeholder={byPoints ? '20' : '6'}
+              label={byPoints ? 'Points needed for the participation reward' : 'Videos needed for the participation reward'}
             />
             <input
               type="text" className="input order-3 col-span-2 !h-[42px] !py-0 sm:order-none sm:col-span-1"
@@ -459,12 +471,31 @@ export default function PrizeBreakdownFields({
                 </div>
               </>
             ) : (
-              <span className="hidden text-xs text-smoke sm:col-span-2 sm:block">videos</span>
+              <span className="hidden text-xs text-smoke sm:col-span-2 sm:block">{byPoints ? 'points' : 'videos'}</span>
             )}
           </div>
 
           {participationExtra && onParticipationExtra && (
             <div className="mt-3 space-y-2.5 border-t border-gray-100 pt-3">
+              {/* VIDEOS OR POINTS (21 Sep 2026). Ethan: "for the point system,
+                  that if they reach, for example, 20 points, they'll get the
+                  participation voucher." Only a points challenge has points. */}
+              {pointsBasisAllowed && (
+                <SettingRow
+                  label="Earned by"
+                  note={byPoints ? 'Their points total, from every rule on this challenge' : null}
+                >
+                  <Choice
+                    label="What earns the participation reward"
+                    value={byPoints ? 'points' : 'entries'}
+                    onChange={(v) => onParticipationExtra({ basis: v })}
+                    options={[
+                      { v: 'entries', l: 'Videos posted' },
+                      { v: 'points', l: 'Points scored' },
+                    ]}
+                  />
+                </SettingRow>
+              )}
               {/* THE CAP. Ethan: "only the first 30 creators can actually earn
                   that, so we're not giving out theoretically unlimited
                   vouchers." First = whoever's Nth entry went in first. */}

@@ -405,10 +405,10 @@ export default function NetworkChat() {
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
-        top: topGone ? 0 : '4rem',
+        top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
         height: kbOpen
           ? `${vpHeight}px`
-          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem'} - 4.5rem - env(safe-area-inset-bottom))`,
+          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
         // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (1 Sep 2026.)
         //

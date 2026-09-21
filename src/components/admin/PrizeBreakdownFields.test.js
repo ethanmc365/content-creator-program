@@ -62,3 +62,20 @@ describe('participationExtras', () => {
       .toMatchObject({ participation_cap: 33, participation_amount: 15, participation_reward_type: 'voucher' })
   })
 })
+
+// Migration 241: the taking-part reward can be earned on points.
+describe('participation basis', () => {
+  const base = { participation_threshold: 20, participation_prize: '€10 Tryp.com voucher' }
+  it('saves points only on a points challenge', () => {
+    expect(participationExtras({ ...base, scoring: 'points', participation_basis: 'points' }).participation_basis).toBe('points')
+    expect(participationExtras({ ...base, scoring: 'total_views', participation_basis: 'points' }).participation_basis).toBe('entries')
+  })
+  it('defaults to videos, and resets with the prize', () => {
+    expect(participationExtras({ ...base, scoring: 'points' }).participation_basis).toBe('entries')
+    expect(participationExtras({ scoring: 'points', participation_basis: 'points' }).participation_basis).toBe('entries')
+  })
+  it('keeps the basis in the budget', () => {
+    const b = prizeBudget({ participation: { threshold: 20, prize: '€10 Tryp.com voucher', basis: 'points', cap: 5 } })
+    expect(b.part).toMatchObject({ basis: 'points', threshold: 20, each: 10, max: 50 })
+  })
+})
