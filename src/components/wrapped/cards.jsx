@@ -134,7 +134,10 @@ export function heroSize(value) {
   const len = String(value ?? '').length
   if (len > 14) return 'text-[32px] sm:text-[40px]'
   if (len > 11) return 'text-[38px] sm:text-[48px]'
-  if (len > 7) return 'text-[46px] sm:text-[58px]'
+  if (len > 7) return 'text-[44px] sm:text-[54px]'
+  // Seven characters is "184,320" - it broke as "184,32 / 0" on a 300px card
+  // at 72px. Six still gets the big size.
+  if (len > 6) return 'text-[50px] sm:text-[60px]'
   if (len > 5) return 'text-[58px] sm:text-[72px]'
   return 'text-[72px] sm:text-[92px]'
 }

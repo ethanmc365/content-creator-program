@@ -38,7 +38,7 @@ const BASE = {
   signature: 'Ethan Mc Candless',
   signature_role: 'Creator Community',
   accent: '#D94407',
-  layout: 'rail',
+  layout: 'horizon',
   paper: 'paper',
 }
 
@@ -78,24 +78,24 @@ export default function CertificateBench() {
         ))}
       </Row>
 
-      <Row title="Accents" note="Ten, on the Rail layout. Judged as a set: no two should read as the same decision.">
+      <Row title="Accents" note="Ten, on the Horizon layout. Judged as a set: no two should read as the same decision.">
         {ACCENTS.map((a) => (
           <Card key={a.key} label={a.label} scale={0.3} design={{ ...BASE, accent: a.hex }} />
         ))}
       </Row>
 
-      <Row title="Papers" note="The ground, with the accent held constant. `ink` is the one that flips the type.">
+      <Row title="Papers" note="The ground, with the accent held constant. The Tryp gradient is the one that flips the type.">
         {PAPERS.map((p) => (
-          <Card key={p.key} label={p.label} scale={0.36} design={{ ...BASE, layout: 'columns', paper: p.key }} />
+          <Card key={p.key} label={p.label} scale={0.36} design={{ ...BASE, layout: 'route', paper: p.key }} />
         ))}
       </Row>
 
       <Row
-        title="Ink, on every layout"
-        note="The dark paper is the case most likely to have a hairline or a notch in the wrong colour."
+        title="The Tryp gradient, on every layout"
+        note="White type on the brand gradient: the case most likely to leave something orange-on-orange."
       >
         {LAYOUTS.map((l) => (
-          <Card key={l.key} label={l.label} scale={0.3} design={{ ...BASE, layout: l.key, paper: 'ink', accent: '#0B6B62' }} />
+          <Card key={l.key} label={l.label} scale={0.3} design={{ ...BASE, layout: l.key, paper: 'sunset' }} />
         ))}
       </Row>
 
@@ -105,7 +105,7 @@ export default function CertificateBench() {
       >
         <Card
           label="long name"
-          design={{ ...BASE, layout: 'rail' }}
+          design={{ ...BASE, layout: 'horizon' }}
           facts={{ ...FACTS, name: 'Leonardo Alfonso Guerrero Urrutia' }}
         />
         <Card
@@ -117,19 +117,19 @@ export default function CertificateBench() {
           label="long title + 4-line body"
           design={{
             ...BASE,
-            layout: 'crest',
+            layout: 'banner',
             title: 'Certificate of Outstanding Creative Achievement',
             body: 'for finishing {place} in {challenge}\nin {market}\nwith {views} views\nacross every platform',
           }}
         />
         <Card
           label="nothing optional"
-          design={{ ...BASE, layout: 'ticket', subtitle: '', footnote: '', signature: '', signature_role: '' }}
+          design={{ ...BASE, layout: 'boarding', subtitle: '', footnote: '', signature: '', signature_role: '' }}
           facts={{ name: 'Mirsu' }}
         />
         <Card
           label="body all dropped"
-          design={{ ...BASE, layout: 'plaque', body: 'for winning {challenge}' }}
+          design={{ ...BASE, layout: 'postcard', body: 'for winning {challenge}' }}
           facts={{ name: 'Mirsu', date: FACTS.date, serial: FACTS.serial }}
         />
       </Row>

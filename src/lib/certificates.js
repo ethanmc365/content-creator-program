@@ -191,92 +191,94 @@ export const ACCENTS = [
 
 export const DEFAULT_ACCENT = ACCENTS[0].hex
 
-// FIVE PAPERS. A paper is what the certificate is PRINTED ON, and it is a
-// neutral decision that has nothing to do with the accent - which is the whole
-// correction. The old ground took the accent and bled it into two corners at
-// 14%, so picking orange got you an orange glow and picking teal got you a
-// teal one, and neither looked like paper.
+// FIVE PAPERS, AND NOW SOME OF THEM ARE GRADIENTS (21 Sep 2026).
 //
-// `ink` is the one that is not paper at all, and it earns its place by being
-// the single biggest change of character available: the same layout, the same
-// words, on near-black, is a different object. Everything reading `light: false`
-// flips the type and the rules; nothing else in a layout has to know.
+// Ethan: "the paper colour etc, kind of like different gradients there or just
+// plain white... the gradients that we have on the platform for behind the
+// cards." So the choice is the platform's own grounds: plain white, a warm
+// white, a soft glow of the accent, a stronger wash of it, and the full Tryp
+// gradient - the hub card - with the type turned white on it.
+//
+// Every gradient runs from the accent to a LIGHTER tone of it (for Tryp orange
+// that is exactly brand -> brand-light), never towards black: "a really dark
+// gradient" is the thing that was disliked on the portfolio.
+//
+// Saved designs keep working: `mist` reads as White, `ink` as the Tryp
+// gradient (the other "different character" option), and `tint` is still a
+// key - it is now the wash.
 export const PAPERS = [
-  {
-    key: 'paper', label: 'White', hint: 'Plain white. Prints best, posts best.',
-    light: true, bg: '#FFFFFF', ink: '#15161A', muted: '#5E6068', faint: '#9A9CA4', hair: 'rgba(20, 22, 26, 0.10)',
-  },
-  {
-    key: 'ivory', label: 'Ivory', hint: 'A warm off-white, like a printed programme.',
-    light: true, bg: '#FBF9F5', ink: '#1B1814', muted: '#615B52', faint: '#A19A8F', hair: 'rgba(27, 24, 20, 0.11)',
-  },
-  {
-    key: 'mist', label: 'Mist', hint: 'A cool grey. Quiet, and the easiest to read.',
-    light: true, bg: '#F5F6F8', ink: '#15181E', muted: '#5C626D', faint: '#969CA8', hair: 'rgba(21, 24, 30, 0.10)',
-  },
-  {
-    key: 'tint', label: 'Accent tint', hint: 'A flat 5% of the accent. Coloured, not glowing.',
-    light: true, bg: null, ink: '#15161A', muted: '#5E6068', faint: '#9A9CA4', hair: 'rgba(20, 22, 26, 0.10)',
-  },
-  {
-    key: 'ink', label: 'Ink', hint: 'Near-black. The one that does not look like a certificate.',
-    light: false, bg: '#131419', ink: '#FFFFFF', muted: '#A8ABB6', faint: '#6C707C', hair: 'rgba(255, 255, 255, 0.14)',
-  },
+  { key: 'paper', label: 'White', hint: 'Plain white. Prints best, posts best.', light: true, kind: 'white' },
+  { key: 'ivory', label: 'Warm white', hint: 'A warm off-white, like a printed programme.', light: true, kind: 'ivory' },
+  { key: 'glow', label: 'Soft glow', hint: 'White, warming into the accent in one corner.', light: true, kind: 'glow' },
+  { key: 'tint', label: 'Wash', hint: 'A light gradient of the accent across the page.', light: true, kind: 'wash' },
+  { key: 'sunset', label: 'Tryp gradient', hint: 'The full brand gradient, like the card on the hub. White type.', light: false, kind: 'gradient' },
 ]
 
-export const paperOf = (key) => PAPERS.find((p) => p.key === key) || PAPERS[0]
+const LEGACY_PAPER = { mist: 'paper', ink: 'sunset' }
+
+export const paperOf = (key) => PAPERS.find((p) => p.key === (LEGACY_PAPER[key] || key)) || PAPERS[0]
+
+/** The lighter partner of an accent: brand-light for Tryp orange, else a tint. */
+export function lightOf(accent) {
+  return String(accent || '').toLowerCase() === '#d94407' ? '#f5853f' : shift(accent, 0.3)
+}
 
 /** The resolved palette for one design: paper plus the accent mixed into it. */
 export function paletteFor({ paper, accent } = {}) {
   const p = paperOf(paper)
   const ac = accent || DEFAULT_ACCENT
+  const light = lightOf(ac)
+  const grad = `linear-gradient(135deg, ${ac} 0%, ${light} 100%)`
+  const bg = {
+    white: '#FFFFFF',
+    ivory: '#FBF8F4',
+    glow: `radial-gradient(120% 90% at 100% 100%, ${alpha(ac, 0.16)} 0%, rgba(255,255,255,0) 60%), #FFFFFF`,
+    wash: `linear-gradient(135deg, ${alpha(ac, 0.05)} 0%, ${alpha(ac, 0.17)} 100%), #FFFFFF`,
+    gradient: grad,
+  }[p.kind]
+  const dark = !p.light
   return {
     ...p,
     accent: ac,
+    // NOT `light` - that is the paper's own "is this a light ground" flag,
+    // spread in from `p` above, and every layout branches on it.
+    lightTone: light,
+    grad,
+    bg,
     onAccent: readableOn(ac),
-    // On ink, the accent has to come UP to stay legible against near-black;
-    // on paper it stays as chosen. One rule, so no layout has to think about it.
-    accentText: p.light ? ac : shift(ac, 0.38),
-    bg: p.bg || alpha(ac, 0.05),
-    // A hairline that belongs to the accent rather than to the ground. Used for
-    // rules that are structure rather than decoration.
-    rule: p.light ? alpha(ac, 0.28) : alpha(ac, 0.5),
+    ink: dark ? '#FFFFFF' : '#1A1A1A',
+    muted: dark ? 'rgba(255,255,255,0.88)' : '#5E6068',
+    faint: dark ? 'rgba(255,255,255,0.72)' : '#9A9CA4',
+    hair: dark ? 'rgba(255,255,255,0.28)' : 'rgba(26,26,26,0.10)',
+    accentText: dark ? '#FFFFFF' : ac,
+    rule: dark ? 'rgba(255,255,255,0.5)' : alpha(ac, 0.28),
+    // A block of the accent on this paper: the gradient on a light page, a
+    // frosted white panel on the gradient page (gradient on gradient is mud).
+    block: dark ? 'rgba(255,255,255,0.16)' : grad,
   }
 }
 
-// SIX LAYOUTS. Each is a different composition, not a different colourway.
+// SIX LAYOUTS, SIX DIFFERENT OBJECTS (21 Sep 2026).
 //
-// `bars` says where the accent lives, and four of the six say `side` - which is
-// the direct answer to "it's quite weird the way the bars are at the bottom and
-// not on the sides". Nothing has a bar along the bottom any more.
+// Ethan, on the last set: "they're all quite similar and none of them I like
+// at all." They were six arrangements of the same parts - kicker, title, rule,
+// name, paragraph, footer - which is why they read as one design six times.
+// These are six THINGS a travel brand would hand you, each built from the
+// platform's parts (the hub gradient, the dotted route, the Tryp plane, the
+// wordmark, Poppins):
 export const LAYOUTS = [
-  {
-    key: 'rail', label: 'Rail', bars: 'side',
-    hint: 'A solid accent column down the left with the tier set into it. Left-aligned, modern.',
-  },
-  {
-    key: 'columns', label: 'Columns', bars: 'side',
-    hint: 'Two slim accent edges holding a centred, classical page.',
-  },
-  {
-    key: 'crest', label: 'Crest', bars: 'side',
-    hint: 'Editorial. A wide left margin, a heavy short rule, and the name set large.',
-  },
-  {
-    key: 'plaque', label: 'Plaque', bars: 'none',
-    hint: 'A framed panel with corner marks. The formal one.',
-  },
-  {
-    key: 'ticket', label: 'Boarding pass', bars: 'side',
-    hint: 'A perforated stub down the right carrying the date and the code. Ours, not a template.',
-  },
-  {
-    key: 'minimal', label: 'Minimal', bars: 'none',
-    hint: 'Almost nothing: one hairline, a lot of air, and the name.',
-  },
+  { key: 'horizon', label: 'Horizon', hint: 'The hub card down the left with the Tryp plane on its route; your words beside it.' },
+  { key: 'boarding', label: 'Boarding pass', hint: 'A real pass: passenger, route, gate and seat, with a perforated stub.' },
+  { key: 'postcard', label: 'Postcard', hint: 'A message on the left, a stamp and a postmark on the right, addressed to the creator.' },
+  { key: 'banner', label: 'Sky banner', hint: 'A gradient band across the top with the plane flying through it. Centred and bold.' },
+  { key: 'route', label: 'Flight path', hint: 'A dotted route arcing across the whole page behind a centred certificate.' },
+  { key: 'minimal', label: 'Minimal', hint: 'The name as the headline, a lot of white, and a small Tryp seal.' },
 ]
 
-export const layoutOf = (key) => LAYOUTS.find((l) => l.key === key) || LAYOUTS[0]
+// Designs saved before 21 Sep carry the old layout names.
+const LEGACY_LAYOUT = { rail: 'horizon', columns: 'route', crest: 'banner', plaque: 'route', ticket: 'boarding' }
+
+export const layoutOf = (key) => LAYOUTS.find((l) => l.key === (LEGACY_LAYOUT[key] || key)) || LAYOUTS[0]
 
 /**
  * A stored design, with every visual field resolved and legacy values migrated.
@@ -290,7 +292,7 @@ export const layoutOf = (key) => LAYOUTS.find((l) => l.key === key) || LAYOUTS[0
 export function designStyle(design = {}) {
   const d = design || {}
   const legacy = !d.layout
-  const layout = layoutOf(legacy ? 'plaque' : d.layout)
+  const layout = layoutOf(legacy ? 'route' : d.layout)
   const paper = d.paper
     || (d.pattern === 'plain' ? 'paper' : d.pattern === 'wash' || d.pattern === 'rays' ? 'tint' : 'paper')
   return { layout, ...paletteFor({ paper, accent: d.accent || DEFAULT_ACCENT }) }

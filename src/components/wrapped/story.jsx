@@ -139,7 +139,15 @@ export function buildCards(data) {
               </span>
             )}
           <div>
-            <p data-anim="rise" className="text-[clamp(32px,11vw,48px)] font-extrabold leading-[1.02] tracking-tight">
+            {/* A long first name steps down rather than running off the card:
+                "Maximiliana" at 48px is wider than a 300px card. */}
+            <p
+              data-anim="rise"
+              className={cx(
+                'break-words font-extrabold leading-[1.02] tracking-tight',
+                firstName.length > 9 ? 'text-[clamp(26px,8vw,36px)]' : firstName.length > 6 ? 'text-[clamp(30px,9.5vw,42px)]' : 'text-[clamp(32px,11vw,48px)]',
+              )}
+            >
               Hello,<br />{firstName}.
             </p>
             <Line palette="ember" className="mt-3">

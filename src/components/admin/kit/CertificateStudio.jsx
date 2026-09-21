@@ -12,6 +12,7 @@ import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
   ACCENTS, DEFAULT_ACCENT, LAYOUTS, PAPERS, PLACEHOLDERS, TIERS,
   bodyProblem, designStyle, ruleProblem, sampleFacts, tierOf,
+  paletteFor,
 } from '../../../lib/certificates'
 import { STARTERS } from './certificateStarters'
 
@@ -58,7 +59,7 @@ const BLANK = {
   subtitle: 'Tryp.com Creator Community',
   body: 'for winning {challenge}\nin {market}',
   footnote: '',
-  accent: DEFAULT_ACCENT, layout: 'rail', paper: 'paper',
+  accent: DEFAULT_ACCENT, layout: 'horizon', paper: 'paper',
   emblem: 'trophy', pattern: 'plain',
   signature: 'Tryp.com', signature_role: 'Creator Community',
   award_on: 'manual', ranks: [], community_ids: [], milestone_id: null,
@@ -367,7 +368,7 @@ function BlankTile({ onPick }) {
       </span>
       <span className="text-sm font-bold text-ink">Blank</span>
       <span className="text-[11px] leading-relaxed text-smoke">
-        The Rail layout on white. Write your own words.
+        The Horizon layout on white. Write your own words.
       </span>
     </button>
   )
@@ -643,7 +644,9 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               <div className="flex flex-wrap gap-2">
                 {PAPERS.map((p) => {
                   const on = (design.paper || 'paper') === p.key
-                  const swatch = p.bg || design.accent
+                  // The paper's REAL ground (gradients included), from the same
+                  // resolver the certificate uses - so the dot is the paper.
+                  const swatch = paletteFor({ paper: p.key, accent: design.accent }).bg
                   return (
                     <button
                       key={p.key}
@@ -656,7 +659,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
                       <span
                         className="h-3.5 w-3.5 shrink-0 rounded-full"
                         style={{
-                          background: p.key === 'tint' ? `${swatch}1f` : swatch,
+                          background: swatch,
                           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.12)',
                         }}
                       />

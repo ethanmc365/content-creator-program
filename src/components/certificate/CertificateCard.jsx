@@ -1,93 +1,59 @@
-import { alpha, designStyle, fillTemplate, formatAwardDate, shift, tierOf } from '../../lib/certificates'
+import Icon from '../Icon'
+import { designStyle, fillTemplate, formatAwardDate, tierOf } from '../../lib/certificates'
 
 // A CERTIFICATE, AS A PICTURE.
 //
-// Fixed 1000x707 and never responsive, for the reason `lib/domSnapshot` exists:
-// this component is PHOTOGRAPHED. A picture has no viewport to be responsive
-// to, and a layout that reflowed would produce a different certificate on a
-// phone than on a laptop - two people with the same award holding different
-// objects. Every page scales it with a CSS transform instead, so what is on
-// screen and what is downloaded are the same pixels.
-//
-// 1000x707 IS ROOT-2, which is A4 landscape, and it does not change. Ethan:
-// "make sure you keep the correct aspect ratio." It is also what lets the same
-// component be a page of the portfolio PDF with no second layout.
+// Fixed 1000x707 (root-2, A4 landscape) and never responsive: this component is
+// PHOTOGRAPHED by `lib/domSnapshot`, and a layout that reflowed would give two
+// people the same award as two different objects. Pages scale it with a CSS
+// transform, so the screen and the download are the same pixels. Inline styles
+// throughout, for the same reason the portfolio uses them: a printed page has
+// no dark mode.
 //
 // ---------------------------------------------------------------------------
-// THE REDESIGN (20 Sep 2026), AND WHAT IT IS ACTUALLY FIXING
+// THE 21 SEP REDESIGN
 //
-// Ethan, on the previous version: "I still do not like how they look at all. I
-// think it's really like AI style, really bad. I want it completely,
-// completely, utterly redesigned. Like instead of just changing how it
-// currently looks like, I want it completely redesigned."
+// Ethan: "I hate even more how it looks now. The font is really weird. It
+// doesn't match the style of the platform... you added the other layouts, and
+// I like that there's multiple layout options, but they're all quite similar
+// and none of them I like at all. It needs to be well-designed, matching the
+// platform, using the fonts like the Poppins Bold, ensuring the logo's correct
+// and other graphics like the Tryp.com orange, and the gradients we have on
+// the platform."
 //
-// The previous version was ONE composition - kicker, centred title, rule,
-// centred name, centred paragraph, three things along the bottom, a full-width
-// orange bar top and bottom - with a colour wash behind it. That shape is the
-// shape every certificate generator produces, which is exactly why it read as
-// generated, and no amount of re-colouring it was going to help. Three earlier
-// passes had tried: per-tier colours, then all-orange, then removing the emblem
-// and the starburst. Each was an improvement and none of them touched the
-// reason.
+// Three decisions follow from that, and every layout below obeys them:
 //
-// So the composition is now a CHOICE, and there are six of them - see LAYOUTS
-// in lib/certificates. A layout here is a real, separate piece of page design
-// with its own margins, its own hierarchy and its own idea of where the accent
-// lives. They do not share a skeleton with the accent moved around; they share
-// ATOMS (Kicker, Title, Name, Body, Credential) and nothing else.
+//   1. POPPINS, 400 AND 700, AND NOTHING ELSE. Instrument Serif was the "weird
+//      font". 400 and 700 are also the two weights `domSnapshot` embeds, so
+//      the downloaded PNG is set in exactly what is on screen.
 //
-// THE FOUR SPECIFIC THINGS HE ASKED FOR:
+//   2. THE PLATFORM'S OWN PARTS. The hub card's gradient (accent to a LIGHTER
+//      tone, with soft white glows), the dotted flight route from the
+//      milestone page, the real Tryp livery plane from the hub, and the real
+//      wordmark cut out of its white square (`/brand/tryp-wordmark*.svg`) -
+//      so there is no white plate anywhere, which was the logo complaint.
 //
-//  "improve the accent color, because currently we have one, two, three, four
-//   orange and one black... I want a lot of different colors"
-//     -> ten accents, every one able to carry white type (lib/certificates).
-//
-//  "I still don't like the background color, is that like weirdly goldeny,
-//   orangey glow. I just don't like that color."
-//     -> gone entirely. The ground used to be the accent at 14% bled into two
-//        corners, which on orange is precisely a goldeny glow. Grounds are
-//        PAPERS now - white, ivory, mist, a flat 5% accent tint, near-black -
-//        and not one of them is a gradient.
-//
-//  "it's quite weird the way the bars are at the bottom and not on the sides"
-//     -> nothing has a bar along the bottom. Four of the six layouts carry the
-//        accent on a VERTICAL edge, and the other two have no bar at all.
-//
-//  "improve the fonts, the style, the spacing, the UI, everything"
-//     -> Instrument Serif for the display line and the name, Poppins for
-//        everything a reader scans rather than reads. A certificate set wholly
-//        in a geometric sans is a slide; the serif is what makes it a document.
-//        Self-hosted so the photograph and the screen are the same face - see
-//        the note in index.css.
-//
-// EVERY DESIGN IS STILL THIS ONE COMPONENT. An admin picks words, a layout, an
-// accent and a paper; if a tier needed its own JSX the builder would be lying
-// about what it can make.
+//   3. SIX OBJECTS, NOT SIX ARRANGEMENTS. Horizon, a boarding pass, a
+//      postcard, a sky banner, a flight path and a minimal page are things a
+//      travel company would actually hand you. They share parts, never a
+//      composition - the previous six were one composition with the bars moved.
 // ---------------------------------------------------------------------------
 
-// WHERE /verify ACTUALLY LIVES. Not tryp.com - that is the main website and has
-// no verify page. This app is the canonical host (see lib/canonicalHost), and
-// printing the wrong one is why the line on the certificate did nothing.
+// WHERE /verify ACTUALLY LIVES: this app's canonical host, not tryp.com.
 const VERIFY_HOST = 'trypcreators.vercel.app'
 
 export const CERT_W = 1000
 export const CERT_H = 707
 
 const SANS = 'Poppins, system-ui, sans-serif'
-const SERIF = '"Instrument Serif", Georgia, "Times New Roman", serif'
 
-/**
- * A display size that survives a long name.
- *
- * "Leonardo Alfonso Guerrero Urrutia" is a real creator in this programme and
- * it is thirty-three characters. Set at the size "Mirsu" wants, it wraps to
- * three lines and pushes the body off the card - and because this component is
- * photographed at a fixed height, "off the card" means silently cropped rather
- * than scrolled. So the one thing that has to flex is the type size, and it
- * flexes in STEPS rather than continuously: a smooth function gives every
- * certificate its own slightly different size, and certificates in one set
- * should look like each other.
- */
+/** "30 September 2026" -> "30 SEP 2026", for a postmark ring. */
+function shortDate(text) {
+  const m = /^(\d{1,2}) ([A-Za-z]+) (\d{4})$/.exec(String(text || '').trim())
+  return m ? `${m[1]} ${m[2].slice(0, 3).toUpperCase()} ${m[3]}` : String(text || '')
+}
+
+/** A display size that survives a long name, in steps so a set stays a set. */
 function fit(text, max) {
   const n = String(text || '').length
   if (n <= 14) return max
@@ -105,9 +71,6 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
   const c = {
     subtitle: fillTemplate(d.subtitle, facts),
     title: fillTemplate(d.title, facts) || 'Certificate',
-    // A BODY THAT RENDERED TO NOTHING IS NOT AN EMPTY BOX. `fillTemplate` drops
-    // any line whose detail is missing and deliberately does not invent a
-    // replacement - that decision belongs here, where somebody can see it.
     body: fillTemplate(d.body, facts) || 'for taking part in the Tryp.com Content Creator Community',
     footnote: fillTemplate(d.footnote, facts),
     name: facts.name || '',
@@ -118,23 +81,15 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
     tier: tier.label,
   }
 
-  const Layout = LAYOUTS[s.layout.key] || LAYOUTS.rail
+  const Layout = LAYOUTS[s.layout.key] || LAYOUTS.horizon
 
   return (
     <div
       ref={cardRef}
       className={className}
       style={{
-        width: CERT_W,
-        height: CERT_H,
-        position: 'relative',
-        overflow: 'hidden',
-        background: s.bg,
-        color: s.ink,
-        fontFamily: SANS,
-        // A photograph has no hinting context to inherit, and the serif at 60px
-        // is noticeably softer in the PNG without this.
-        WebkitFontSmoothing: 'antialiased',
+        width: CERT_W, height: CERT_H, position: 'relative', overflow: 'hidden',
+        background: s.bg, color: s.ink, fontFamily: SANS, WebkitFontSmoothing: 'antialiased',
       }}
     >
       <Layout s={s} c={c} />
@@ -143,107 +98,66 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
 }
 
 // ---------------------------------------------------------------------------
-// THE ATOMS
-//
-// Deliberately small, and deliberately with no opinion about position: a layout
-// owns its own margins and its own stacking. An atom that decided its own
-// `marginTop` would make all six layouts agree about rhythm, and six
-// compositions with one rhythm is one composition.
+// THE PARTS
 // ---------------------------------------------------------------------------
 
-/** The line above the title. Small, wide-tracked, never the loudest thing. */
-function Kicker({ s, children, align = 'left', size = 11 }) {
+function Kicker({ s, children, align = 'left', color, size = 11 }) {
+  if (!children) return null
+  const col = color || s.accentText
+  return (
+    <p style={{
+      margin: 0, display: 'flex', alignItems: 'center', gap: 8,
+      justifyContent: align === 'center' ? 'center' : 'flex-start',
+      fontSize: size, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: col,
+    }}>
+      <span style={{ display: 'inline-flex', transform: 'rotate(45deg)', color: col }}>
+        <Icon name="plane-flight" className="h-3.5 w-3.5" />
+      </span>
+      {children}
+    </p>
+  )
+}
+
+function Title({ s, children, size = 44, align = 'left', color }) {
+  return (
+    <p style={{
+      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.08,
+      letterSpacing: '-0.02em', color: color || s.ink, textAlign: align,
+    }}>
+      {children}
+    </p>
+  )
+}
+
+function Preamble({ s, children = 'This certifies that', align = 'left', color }) {
+  return (
+    <p style={{
+      margin: 0, fontSize: 13, fontWeight: 400, letterSpacing: '0.02em',
+      color: color || s.faint, textAlign: align,
+    }}>
+      {children}
+    </p>
+  )
+}
+
+function Name({ s, children, size = 58, align = 'left', color }) {
   if (!children) return null
   return (
     <p style={{
-      margin: 0,
-      fontFamily: SANS,
-      fontSize: size,
-      fontWeight: 700,
-      // 0.42em at 13px was five pixels between every letter - "the fonts are a
-      // bit weird". 0.18em still reads as a kicker and is still a word.
-      letterSpacing: '0.18em',
-      textTransform: 'uppercase',
-      color: s.accentText,
-      textAlign: align,
+      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.06,
+      letterSpacing: '-0.025em', color: color || s.accentText, textAlign: align,
     }}>
       {children}
     </p>
   )
 }
 
-function Title({ s, children, size = 54, align = 'left' }) {
-  return (
-    <p style={{
-      margin: 0,
-      fontFamily: SERIF,
-      fontWeight: 400,
-      fontSize: fit(children, size),
-      lineHeight: 1.05,
-      letterSpacing: '-0.005em',
-      color: s.ink,
-      textAlign: align,
-    }}>
-      {children}
-    </p>
-  )
-}
-
-/** "This certifies that". Quiet on purpose - the name under it is the statement. */
-function Preamble({ s, children = 'This certifies that', align = 'left' }) {
-  return (
-    <p style={{
-      margin: 0,
-      fontFamily: SANS,
-      fontSize: 12,
-      fontWeight: 500,
-      letterSpacing: '0.04em',
-      color: s.faint,
-      textAlign: align,
-    }}>
-      {children}
-    </p>
-  )
-}
-
-function Name({ s, children, size = 62, align = 'left', color }) {
+function Body({ s, children, align = 'left', width = 540, size = 16, color }) {
   if (!children) return null
   return (
     <p style={{
-      margin: 0,
-      fontFamily: SERIF,
-      fontWeight: 400,
-      fontSize: fit(children, size),
-      lineHeight: 1.08,
-      letterSpacing: '-0.01em',
-      color: color || s.accentText,
-      textAlign: align,
-    }}>
-      {children}
-    </p>
-  )
-}
-
-/**
- * The sentence the admin wrote.
- *
- * `whiteSpace: 'pre-line'` because `fillTemplate` works a LINE at a time and
- * drops any line whose detail is missing - so the line breaks an admin typed
- * are load-bearing, not decoration.
- */
-function Body({ s, children, align = 'left', width = 560, size = 18 }) {
-  if (!children) return null
-  return (
-    <p style={{
-      margin: 0,
-      maxWidth: width,
-      fontFamily: SANS,
-      fontSize: size,
-      fontWeight: 400,
-      lineHeight: 1.62,
-      color: s.muted,
-      whiteSpace: 'pre-line',
-      textAlign: align,
+      margin: 0, maxWidth: width, fontSize: size, fontWeight: 400, lineHeight: 1.65,
+      color: color || s.muted, whiteSpace: 'pre-line', textAlign: align,
       ...(align === 'center' ? { marginLeft: 'auto', marginRight: 'auto' } : null),
     }}>
       {children}
@@ -251,20 +165,19 @@ function Body({ s, children, align = 'left', width = 560, size = 18 }) {
   )
 }
 
-/** A label over a value. The bottom of most layouts is two or three of these. */
-function Fact({ s, label, value, align = 'left', mono = false }) {
+function Fact({ s, label, value, align = 'left', mono = false, color, labelColor }) {
   if (!value) return null
   return (
     <div style={{ textAlign: align }}>
       <p style={{
-        margin: 0, fontFamily: SANS, fontSize: 8.5, fontWeight: 700,
-        letterSpacing: '0.16em', textTransform: 'uppercase', color: s.faint,
+        margin: 0, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em',
+        textTransform: 'uppercase', color: labelColor || s.faint,
       }}>
         {label}
       </p>
       <p style={{
-        margin: '4px 0 0', fontFamily: SANS, fontSize: 13, fontWeight: 600,
-        letterSpacing: mono ? '0.08em' : 'normal', color: s.ink,
+        margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: color || s.ink,
+        letterSpacing: mono ? '0.06em' : 'normal',
         ...(mono ? { fontVariantNumeric: 'tabular-nums' } : null),
       }}>
         {value}
@@ -273,99 +186,30 @@ function Fact({ s, label, value, align = 'left', mono = false }) {
   )
 }
 
-/**
- * THE CREDENTIAL ID, LABELLED, AND AT AN ADDRESS THAT EXISTS.
- *
- * Ethan, on the first version: "I don't get the tryp.com 2026 code, I don't
- * think that's necessary" and "check it out at tryp.com/verify - what does that
- * mean? It doesn't seem to be working."
- *
- * Both fair, and the second was a real bug: `tryp.com` is the main website and
- * has no such page. A serial reads as noise when nothing says what it is, and
- * an address that resolves nowhere is worse than no address - so it is labelled
- * and it points at the host that actually answers.
- *
- * PLAIN TEXT, NOT A LINK: this node is photographed, and an anchor inside a PNG
- * is a rectangle that does nothing.
- */
-function Credential({ s, serial, align = 'left' }) {
+function Credential({ s, serial, align = 'left', color, labelColor }) {
   if (!serial) return null
   return (
     <div style={{ textAlign: align }}>
-      <Fact s={s} label="Certificate ID" value={serial} align={align} mono />
-      <p style={{
-        margin: '3px 0 0', fontFamily: SANS, fontSize: 9.5, fontWeight: 400,
-        letterSpacing: '0.02em', color: s.faint,
-      }}>
+      <Fact s={s} label="Certificate ID" value={serial} align={align} mono color={color} labelColor={labelColor} />
+      <p style={{ margin: '3px 0 0', fontSize: 9.5, fontWeight: 400, color: labelColor || s.faint }}>
         Verify at {VERIFY_HOST}/verify
       </p>
     </div>
   )
 }
 
-/**
- * The real logo.
- *
- * Ethan: "use the actual tryp.com logo somewhere." Natural aspect and a fixed
- * HEIGHT - the asset is a 1200x630 card and squaring it crops it, which is the
- * same mistake the portfolio cover and the verify page's header were making.
- *
- * ON A DARK PAPER IT SITS ON A WHITE PLATE, because the asset has a white
- * ground baked into it. Inverting it would give black on black; a plate is what
- * a brand actually does with a light-only mark, and it reads as deliberate.
- *
- * `crossOrigin` because `domSnapshot` has to read the pixels back out of it.
- */
-function Logo({ s, height = 40 }) {
-  const img = (
-    <img
-      src="/brand/tryp-logo.png"
-      alt="Tryp.com"
-      crossOrigin="anonymous"
-      style={{ height, width: 'auto', display: 'block', objectFit: 'contain', borderRadius: 6 }}
-    />
-  )
-  if (s.light) return img
-  return (
-    <span style={{ display: 'inline-flex', padding: 7, borderRadius: 10, background: '#ffffff' }}>
-      {img}
-    </span>
-  )
-}
-
-/** A short, heavy accent rule. Structure, not decoration - it separates. */
-function Rule({ s, width = 72, height = 3, align = 'left' }) {
-  return (
-    <div style={{
-      width,
-      height,
-      background: s.accent,
-      borderRadius: height,
-      ...(align === 'center' ? { marginLeft: 'auto', marginRight: 'auto' } : null),
-    }} />
-  )
-}
-
-/** A hairline across the page. Belongs to the paper, not to the accent. */
-function Hair({ s, style }) {
-  return <div style={{ height: 1, width: '100%', background: s.hair, ...style }} />
-}
-
-/** The signed-by block. Empty when nobody signed it, and takes no space then. */
-function Signature({ s, name, role, align = 'left' }) {
+function Signature({ s, name, role, align = 'left', color }) {
   if (!name) return null
   return (
     <div style={{ textAlign: align }}>
-      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 22, lineHeight: 1.2, color: s.ink }}>
-        {name}
-      </p>
+      <p style={{ margin: 0, fontSize: 17, fontWeight: 700, lineHeight: 1.2, color: color || s.ink }}>{name}</p>
       <div style={{
         height: 1, width: 150, background: s.hair,
-        margin: align === 'right' ? '7px 0 6px auto' : '7px 0 6px',
+        margin: align === 'right' ? '7px 0 6px auto' : align === 'center' ? '7px auto 6px' : '7px 0 6px',
       }} />
       <p style={{
-        margin: 0, fontFamily: SANS, fontSize: 9.5, fontWeight: 600,
-        letterSpacing: '0.14em', textTransform: 'uppercase', color: s.faint,
+        margin: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em',
+        textTransform: 'uppercase', color: s.faint,
       }}>
         {role || 'Tryp.com'}
       </p>
@@ -373,16 +217,76 @@ function Signature({ s, name, role, align = 'left' }) {
   )
 }
 
-/** Set sideways down an edge. The tier, on the rail and on the ticket stub. */
-function Upright({ children, color, size = 11, gap = '0.3em' }) {
+/** The real wordmark, orange on a light ground and white on a dark one. */
+function Wordmark({ white, height = 30, style }) {
   return (
-    <span style={{
-      fontFamily: SANS, fontSize: size, fontWeight: 700, letterSpacing: gap,
-      textTransform: 'uppercase', color, whiteSpace: 'nowrap',
-      writingMode: 'vertical-rl', transform: 'rotate(180deg)',
-    }}>
+    <img
+      src={white ? '/brand/tryp-wordmark-white.svg' : '/brand/tryp-wordmark.svg'}
+      alt="Tryp.com"
+      crossOrigin="anonymous"
+      // `alignSelf` so a flex column cannot stretch the image to its width -
+      // an SVG stretched that way centres its drawing, which is how the
+      // postcard's wordmark ended up in the middle of the column.
+      style={{ height, width: 'auto', display: 'block', alignSelf: 'flex-start', flexShrink: 0, ...style }}
+    />
+  )
+}
+
+/** The hub card: gradient, rounded, two soft glows. */
+function GradientBlock({ s, style, children, radius = 28 }) {
+  return (
+    <div style={{ position: 'absolute', overflow: 'hidden', borderRadius: radius, background: s.block, ...style }}>
+      <div style={{
+        position: 'absolute', right: -110, top: -120, width: 360, height: 360, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0) 68%)',
+      }} />
+      <div style={{
+        position: 'absolute', left: -120, bottom: -140, width: 380, height: 380, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 68%)',
+      }} />
       {children}
-    </span>
+    </div>
+  )
+}
+
+/** A dotted flight route, in the coordinate space of the box it sits in. */
+function Route({ d, color = '#ffffff', opacity = 0.8, width = 3, gap = 10, style }) {
+  return (
+    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', ...style }} aria-hidden="true">
+      <path d={d} fill="none" stroke={color} strokeOpacity={opacity} strokeWidth={width}
+        strokeDasharray={`1 ${gap}`} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** The Tryp livery, from the hub. Faces left; never mirrored (its side would read backwards). */
+function Plane({ width = 240, style }) {
+  return (
+    <img
+      src="/brand/tryp-plane-cutout.png"
+      alt=""
+      crossOrigin="anonymous"
+      style={{ position: 'absolute', width, height: 'auto', filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.20))', ...style }}
+    />
+  )
+}
+
+/** A round gradient seal with the plane and the tier. */
+function Seal({ s, tier, size = 108, style }) {
+  return (
+    <div style={{
+      position: 'absolute', width: size, height: size, borderRadius: '50%', background: s.light ? s.grad : '#ffffff',
+      color: s.light ? '#ffffff' : s.accent, display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', gap: 4, boxShadow: `0 12px 28px rgba(0,0,0,0.16), inset 0 0 0 5px ${s.light ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.05)'}`,
+      ...style,
+    }}>
+      <span style={{ display: 'inline-flex', transform: 'rotate(45deg)' }}>
+        <Icon name="plane-flight" className="h-7 w-7" />
+      </span>
+      <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2, maxWidth: size - 22 }}>
+        {tier}
+      </span>
+    </div>
   )
 }
 
@@ -391,70 +295,49 @@ function Upright({ children, color, size = 11, gap = '0.3em' }) {
 // ---------------------------------------------------------------------------
 
 /**
- * RAIL - a solid accent column down the left, everything else left-aligned.
- *
- * The one that looks least like a certificate and most like something a design
- * team made, which is why it is the default. The rail does three jobs at once:
- * it is the brand block, it carries the logo somewhere that is not floating
- * above the title, and it names the tier without spending a line of the page on
- * it. What is left beside it is a single left margin with nothing centred,
- * which is the most direct possible break from the old composition.
+ * HORIZON - the hub card down the left, the Tryp plane on a dotted route
+ * through it, and the certificate's words beside it. The default: it is the
+ * most "this is the platform" of the six.
  */
-function Rail({ s, c }) {
-  const RAIL = 104
+function Horizon({ s, c }) {
+  const PANEL = 340
   return (
     <>
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, left: 0, width: RAIL,
-        background: `linear-gradient(180deg, ${s.accent} 0%, ${shift(s.accent, -0.18)} 100%)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'space-between', padding: '40px 0 44px',
-      }}>
-        <img
-          src="/brand/tryp-logo.png"
-          alt="Tryp.com"
-          crossOrigin="anonymous"
-          style={{ height: 40, width: 'auto', display: 'block', objectFit: 'contain', borderRadius: 6 }}
-        />
-        <Upright color={s.onAccent} gap="0.34em">{c.tier}</Upright>
-      </div>
-
-      {/* The quiet second edge. Without it the page leans left; with a second
-          solid rail it would be a frame, which is the layout below. */}
-      <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 7, background: alpha(s.accent, 0.35) }} />
+      <GradientBlock s={s} style={{ left: 28, top: 28, bottom: 28, width: PANEL }}>
+        <Wordmark white height={30} style={{ position: 'absolute', left: 36, top: 36 }} />
+        <Route d="M -20 520 C 60 520, 90 440, 160 420 S 300 300, 250 210 S 180 90, 330 60" />
+        <Plane width={270} style={{ left: 40, top: 360, transform: 'rotate(-8deg)' }} />
+        <div style={{ position: 'absolute', left: 36, right: 36, bottom: 36 }}>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>
+            {c.tier}
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: 15, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
+            Tryp.com Content Creator Community
+          </p>
+        </div>
+      </GradientBlock>
 
       <div style={{
-        position: 'absolute', top: 0, bottom: 0, left: RAIL, right: 7,
-        padding: '58px 74px 50px', display: 'flex', flexDirection: 'column',
+        position: 'absolute', left: 28 + PANEL + 64, right: 64, top: 0, bottom: 0,
+        display: 'flex', flexDirection: 'column', padding: '64px 0 52px',
       }}>
-        {/* THE BLOCK IS CENTRED IN THE SPACE IT HAS, NOT PINNED TO THE TOP.
-            A certificate's words sit in the middle of the sheet; top-aligning
-            them and pushing the footer down left a hand's width of nothing
-            across the middle of the page, which reads as unfinished rather than
-            as air. `flex: 1` + centre gives the same result at any body
-            length. */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <Kicker s={s}>{c.subtitle}</Kicker>
-          <div style={{ height: c.subtitle ? 16 : 0 }} />
-          <Title s={s} size={56}>{c.title}</Title>
-          <div style={{ height: 22 }} />
-          <Rule s={s} width={80} height={4} />
-          <div style={{ height: 30 }} />
+          <div style={{ height: c.subtitle ? 14 : 0 }} />
+          <Title s={s} size={44}>{c.title}</Title>
+          <div style={{ height: 34 }} />
           <Preamble s={s} />
           <div style={{ height: 6 }} />
-          <Name s={s} size={64}>{c.name}</Name>
-          <div style={{ height: 18 }} />
-          <Body s={s} width={600}>{c.body}</Body>
+          <Name s={s} size={54}>{c.name}</Name>
+          <div style={{ height: 16 }} />
+          <Body s={s} width={500}>{c.body}</Body>
         </div>
-
         <div>
-          {c.footnote && (
-            <p style={{ margin: '0 0 14px', fontFamily: SANS, fontSize: 11, color: s.faint }}>{c.footnote}</p>
-          )}
-          <Hair s={s} style={{ marginBottom: 18 }} />
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 28 }}>
+          {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
+          <div style={{ height: 1, background: s.hair, marginBottom: 18 }} />
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
             <Signature s={s} name={c.signature} role={c.signatureRole} />
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 40 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 36, marginLeft: 'auto' }}>
               <Fact s={s} label="Awarded" value={c.date} />
               <Credential s={s} serial={c.serial} />
             </div>
@@ -466,359 +349,306 @@ function Rail({ s, c }) {
 }
 
 /**
- * COLUMNS - two slim accent edges holding a centred, classical page.
- *
- * The formal one, and the only centred layout with bars on it. It exists
- * because a certificate for a first place SHOULD be allowed to look like a
- * certificate; what was wrong before was that EVERY certificate looked like
- * this one, and that its bars ran along the bottom, where they read as the
- * footer of a slide rather than as the edge of a printed page.
+ * BOARDING PASS - a real one: passenger, a route from "you" to Tryp.com, gate
+ * and seat, and a perforated stub carrying the date and the code. The pass is
+ * always a white card; the paper is what it lies on.
  */
-function Columns({ s, c }) {
-  const BAR = 18
-  const bar = `linear-gradient(180deg, ${s.accent} 0%, ${shift(s.accent, -0.22)} 100%)`
+function Boarding({ s, c }) {
+  const L = 48
+  const T = 64
+  const W = CERT_W - L * 2
+  const H = CERT_H - T * 2
+  const STUB = 250
+  const initials = (c.name || 'You').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || 'YOU'
+  const ink = '#1A1A1A'
+  const faint = '#9A9CA4'
+  const muted = '#5E6068'
   return (
     <>
-      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: BAR, background: bar }} />
-      <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: BAR, background: bar }} />
+      {s.light && (
+        <Route d={`M -20 ${CERT_H - 40} C 200 ${CERT_H - 10}, 360 ${CERT_H - 70}, 520 ${CERT_H - 30} S 860 ${CERT_H - 60}, 1020 ${CERT_H - 20}`}
+          color={s.accent} opacity={0.35} />
+      )}
+      <div style={{
+        position: 'absolute', left: L, top: T, width: W, height: H, borderRadius: 26, background: '#ffffff',
+        boxShadow: '0 24px 60px rgba(26,26,26,0.14), 0 0 0 1px rgba(26,26,26,0.05)', overflow: 'hidden',
+      }}>
+        {/* The top band: the airline strip of a real pass. */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: 0, height: 74, background: s.grad,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 34px',
+        }}>
+          <Wordmark white height={28} />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#ffffff' }}>
+            Boarding pass · {c.tier}
+          </span>
+        </div>
 
-      {/* Two rules rather than a border, so the corners stay square against the
-          paper. Square is the point: a rounded frame is a card, and this is
-          meant to read as a printed sheet. */}
-      <div style={{ position: 'absolute', top: 36, bottom: 36, left: BAR + 30, right: BAR + 30, border: `1.5px solid ${s.rule}` }} />
-      <div style={{ position: 'absolute', top: 44, bottom: 44, left: BAR + 38, right: BAR + 38, border: `1px solid ${s.hair}` }} />
+        {/* Main part */}
+        <div style={{ position: 'absolute', left: 34, top: 74 + 30, right: STUB + 34, bottom: 30, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>FROM</p>
+              <p style={{ margin: '2px 0 0', fontSize: 40, fontWeight: 700, letterSpacing: '0.02em', color: ink, lineHeight: 1 }}>{initials}</p>
+            </div>
+            <div style={{ flex: 1, position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1, borderTop: `3px dotted ${s.accent}`, opacity: 0.6 }} />
+              <span style={{ display: 'inline-flex', color: s.accent, transform: 'rotate(90deg)', margin: '0 10px' }}>
+                <Icon name="plane-flight" className="h-7 w-7" />
+              </span>
+              <div style={{ flex: 1, borderTop: `3px dotted ${s.accent}`, opacity: 0.6 }} />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>TO</p>
+              <p style={{ margin: '2px 0 0', fontSize: 40, fontWeight: 700, letterSpacing: '0.02em', color: s.accent, lineHeight: 1 }}>TRYP</p>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>PASSENGER</p>
+            <Name s={{ ...s, accentText: ink }} size={46}>{c.name}</Name>
+            <div style={{ height: 12 }} />
+            <Title s={{ ...s, ink: s.accent }} size={24}>{c.title}</Title>
+            <div style={{ height: 8 }} />
+            <Body s={{ ...s, muted }} width={520} size={14}>{c.body}</Body>
+          </div>
+
+          <div style={{ display: 'flex', gap: 34 }}>
+            <Fact s={{ ...s, ink, faint }} label="Gate" value="Creator Community" />
+            <Fact s={{ ...s, ink, faint }} label="Class" value={c.tier} />
+            <Fact s={{ ...s, ink, faint }} label="Seat" value="1A" />
+            {c.signature && <Fact s={{ ...s, ink, faint }} label={c.signatureRole || 'Signed'} value={c.signature} />}
+          </div>
+        </div>
+
+        {/* The perforation, with the two notches a real pass has. */}
+        <div style={{ position: 'absolute', top: 74, bottom: 0, right: STUB, borderLeft: '2px dashed #E4E4E8' }} />
+        <div style={{ position: 'absolute', right: STUB - 16, top: 58, width: 32, height: 32, borderRadius: '50%', background: '#EFEFF2' }} />
+        <div style={{ position: 'absolute', right: STUB - 16, bottom: -16, width: 32, height: 32, borderRadius: '50%', background: '#EFEFF2' }} />
+
+        {/* The stub */}
+        <div style={{ position: 'absolute', right: 0, top: 74, bottom: 0, width: STUB, padding: '30px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <Fact s={{ ...s, ink, faint }} label="Awarded" value={c.date} />
+          <Credential s={{ ...s, ink, faint }} serial={c.serial} />
+          <div style={{ marginTop: 'auto', display: 'flex', gap: 3, height: 46, alignItems: 'stretch' }}>
+            {/* A barcode, drawn - no library, no network, photographs cleanly. */}
+            {Array.from({ length: 34 }).map((_, i) => (
+              <span key={i} style={{ flex: [2, 1, 3, 1, 1, 2, 1, 3][i % 8], background: ink, opacity: i % 5 === 0 ? 0.35 : 0.9 }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/**
+ * POSTCARD - the message on the left, a stamp and a postmark top right, and
+ * the creator on the address lines. The dotted divider down the middle is the
+ * same dotted line as the routes.
+ */
+function Postcard({ s, c }) {
+  const MID = 560
+  const line = s.light ? 'rgba(26,26,26,0.14)' : 'rgba(255,255,255,0.35)'
+  return (
+    <>
+      <div style={{ position: 'absolute', left: 60, top: 60, width: MID - 110, bottom: 56, display: 'flex', flexDirection: 'column' }}>
+        <Wordmark white={!s.light} height={28} />
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Kicker s={s}>{c.subtitle || `Greetings from Tryp.com`}</Kicker>
+          <div style={{ height: 14 }} />
+          <Title s={s} size={42}>{c.title}</Title>
+          <div style={{ height: 18 }} />
+          <Body s={s} width={430} size={16}>{c.body}</Body>
+        </div>
+        <Signature s={s} name={c.signature} role={c.signatureRole} />
+        {!c.signature && (
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: s.ink }}>
+            The Tryp.com team
+          </p>
+        )}
+      </div>
+
+      <div style={{ position: 'absolute', left: MID, top: 64, bottom: 64, borderLeft: `3px dotted ${line}` }} />
+
+      {/* The stamp: perforated edge, the gradient, the plane. */}
+      <div style={{
+        position: 'absolute', right: 62, top: 58, width: 150, height: 184, padding: 7, background: '#ffffff',
+        borderRadius: 6, boxShadow: '0 10px 26px rgba(26,26,26,0.14)',
+        outline: '3px dotted rgba(26,26,26,0.12)', outlineOffset: -2,
+      }}>
+        <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: 3, overflow: 'hidden', background: s.grad }}>
+          <div style={{
+            position: 'absolute', right: -60, top: -60, width: 180, height: 180, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%)',
+          }} />
+          <Plane width={170} style={{ left: -16, top: 70, transform: 'rotate(-10deg)' }} />
+          <span style={{ position: 'absolute', left: 10, top: 10, fontSize: 18, fontWeight: 700, color: '#ffffff' }}>€0</span>
+          <span style={{ position: 'absolute', left: 10, bottom: 8, fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: '#ffffff' }}>TRYP.COM</span>
+        </div>
+      </div>
+
+      {/* The postmark: a ring with the date, and the wavy cancel lines. */}
+      <div style={{
+        position: 'absolute', right: 186, top: 150, width: 124, height: 124, borderRadius: '50%',
+        border: `2.5px solid ${s.light ? s.accent : '#ffffff'}`, opacity: 0.7, transform: 'rotate(-14deg)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        color: s.light ? s.accent : '#ffffff',
+      }}>
+        <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em' }}>CREATOR POST</span>
+        <span style={{ fontSize: 15, fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
+        <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em', marginTop: 4 }}>{c.tier.toUpperCase()}</span>
+      </div>
+      <svg style={{ position: 'absolute', right: 214, top: 118, width: 150, height: 60, opacity: 0.45 }} aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <path key={i} d={`M 0 ${12 + i * 16} q 18 -10 36 0 t 36 0 t 36 0 t 36 0`} fill="none" stroke={s.light ? s.accent : '#ffffff'} strokeWidth="2.5" />
+        ))}
+      </svg>
+
+      {/* To: the address lines. */}
+      <div style={{ position: 'absolute', left: MID + 50, right: 62, bottom: 60 }}>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: s.faint }}>AWARDED TO</p>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '8px 0 10px' }}>
+          <Name s={s} size={40}>{c.name}</Name>
+        </div>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '12px 0 8px', fontSize: 13, fontWeight: 700, color: s.ink }}>
+          Tryp.com Content Creator Community
+        </div>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '12px 0 8px' }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: s.ink, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+            {c.serial ? `ID ${c.serial}` : (c.date || ' ')}
+          </span>
+          {c.serial && <span style={{ display: 'block', marginTop: 2, fontSize: 10.5, color: s.faint }}>Verify at {VERIFY_HOST}/verify</span>}
+        </div>
+        {c.footnote && <p style={{ margin: '10px 0 0', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
+      </div>
+    </>
+  )
+}
+
+/**
+ * SKY BANNER - a gradient band across the top with the plane flying through
+ * it on its route, the title in white on the band, and the name centred and
+ * large beneath. The boldest of the six.
+ */
+function Banner({ s, c }) {
+  const BAND = 262
+  return (
+    <>
+      <GradientBlock s={s} radius={0} style={{ left: 0, right: 0, top: 0, height: BAND }}>
+        <Route d={`M -20 210 C 180 250, 300 120, 470 150 S 760 230, 1020 60`} />
+        <Plane width={250} style={{ right: 70, top: 26, transform: 'rotate(6deg)' }} />
+        <div style={{ position: 'absolute', left: 64, top: 44 }}>
+          <Wordmark white height={30} />
+        </div>
+        <div style={{ position: 'absolute', left: 64, right: 360, bottom: 40 }}>
+          <Kicker s={s} color="#ffffff">{c.subtitle}</Kicker>
+          <div style={{ height: c.subtitle ? 10 : 0 }} />
+          <Title s={s} size={44} color="#ffffff">{c.title}</Title>
+        </div>
+      </GradientBlock>
 
       <div style={{
-        position: 'absolute', top: 0, bottom: 0, left: BAR, right: BAR,
-        padding: '58px 96px 52px', display: 'flex', flexDirection: 'column',
+        position: 'absolute', left: 80, right: 80, top: BAND, bottom: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 46px',
+      }}>
+        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <Preamble s={s} align="center" />
+          <div style={{ height: 6 }} />
+          <Name s={s} size={60} align="center">{c.name}</Name>
+          <div style={{ height: 14 }} />
+          <Body s={s} align="center" width={640} size={16}>{c.body}</Body>
+        </div>
+        {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint, textAlign: 'center' }}>{c.footnote}</p>}
+        <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
+          {c.signature ? <Signature s={s} name={c.signature} role={c.signatureRole} /> : <Fact s={s} label="Tier" value={c.tier} />}
+          <Fact s={s} label="Awarded" value={c.date} align="center" />
+          <Credential s={s} serial={c.serial} align="right" />
+        </div>
+      </div>
+    </>
+  )
+}
+
+/**
+ * FLIGHT PATH - a dotted route arcing across the whole page from the bottom
+ * left to the top right, where the seal sits; the certificate centred in
+ * front of it. The formal one.
+ */
+function FlightPath({ s, c }) {
+  const routeColor = s.light ? s.accent : '#ffffff'
+  return (
+    <>
+      <Route d="M -30 640 C 180 700, 240 470, 420 520 S 700 560, 760 330 S 820 120, 900 118"
+        color={routeColor} opacity={s.light ? 0.28 : 0.5} width={3.5} gap={12} />
+      <Seal s={s} tier={c.tier} size={112} style={{ right: 56, top: 60 }} />
+
+      <div style={{
+        position: 'absolute', inset: 0, padding: '58px 170px 112px', display: 'flex', flexDirection: 'column',
         alignItems: 'center', textAlign: 'center',
       }}>
-        {/* Centred in the space it has - see the note on Rail. */}
-        <div style={{
-          flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Logo s={s} height={44} />
-          <div style={{ height: 22 }} />
+        <Wordmark white={!s.light} height={34} style={{ alignSelf: 'center' }} />
+        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <Kicker s={s} align="center">{c.subtitle}</Kicker>
-          <div style={{ height: c.subtitle ? 14 : 0 }} />
-          <Title s={s} size={50} align="center">{c.title}</Title>
-
-          {/* A rule with a mark in the middle of it. One piece of ornament, and
-              it is a geometric mark rather than a flourish - a flourish is the
-              other half of what made the old one look bought. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 22px' }}>
-            <div style={{ width: 84, height: 1, background: s.rule }} />
-            <div style={{ width: 7, height: 7, background: s.accent, transform: 'rotate(45deg)' }} />
-            <div style={{ width: 84, height: 1, background: s.rule }} />
-          </div>
-
+          <div style={{ height: c.subtitle ? 12 : 0 }} />
+          <Title s={s} size={44} align="center">{c.title}</Title>
+          <div style={{ height: 28 }} />
           <Preamble s={s} align="center" />
           <div style={{ height: 6 }} />
-          <Name s={s} size={56} align="center">{c.name}</Name>
-          <div style={{ height: 16 }} />
-          <Body s={s} align="center" width={600} size={17}>{c.body}</Body>
-        </div>
-
-        <div style={{ width: '100%' }}>
-          {c.footnote && (
-            <p style={{ margin: '0 0 12px', fontFamily: SANS, fontSize: 11, color: s.faint, textAlign: 'center' }}>{c.footnote}</p>
-          )}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-            <Signature s={s} name={c.signature} role={c.signatureRole} />
-            <Credential s={s} serial={c.serial} align="center" />
-            <Fact s={s} label="Awarded" value={c.date} align="right" />
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-/**
- * CREST - editorial. A wide left margin, a heavy rule, the name set large.
- *
- * Borrowed from a magazine opener rather than from a certificate, which is the
- * whole idea: the thing a creator posts is a PICTURE, and a picture composed
- * asymmetrically reads as designed. The credential moves into its own column on
- * the right so the foot of the page is not a row of three centred items, which
- * is the single most template-looking arrangement there is.
- */
-function Crest({ s, c }) {
-  return (
-    <>
-      {/* A part-height bar rather than a full one. It starts and stops with the
-          text block, so it reads as a margin mark and not as a border. */}
-      <div style={{ position: 'absolute', top: 76, bottom: 76, left: 0, width: 11, background: s.accent }} />
-
-      <div style={{ position: 'absolute', inset: 0, padding: '56px 62px 50px 80px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
-          <Logo s={s} height={44} />
-          <div style={{ textAlign: 'right' }}>
-            <Kicker s={s} align="right" size={10}>{c.tier}</Kicker>
-            {c.date && (
-              <p style={{ margin: '6px 0 0', fontFamily: SANS, fontSize: 11, color: s.faint }}>{c.date}</p>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 40, display: 'flex', gap: 44, flex: 1, minHeight: 0 }}>
-          {/* Centred in its column, like the other layouts - see the note on
-              Rail. Crest is the one with the most furniture above it, so a
-              top-aligned block here left the largest hole. */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <Kicker s={s} size={10}>{c.subtitle}</Kicker>
-            <div style={{ height: c.subtitle ? 12 : 0 }} />
-            <Title s={s} size={46}>{c.title}</Title>
-            <div style={{ height: 18 }} />
-            <Rule s={s} width={96} height={5} />
-            <div style={{ height: 24 }} />
-            <Preamble s={s} />
-            <div style={{ height: 4 }} />
-            <Name s={s} size={64}>{c.name}</Name>
-            <div style={{ height: 16 }} />
-            <Body s={s} width={500} size={16.5}>{c.body}</Body>
-            <div style={{ height: 34 }} />
-            <Signature s={s} name={c.signature} role={c.signatureRole} />
-          </div>
-
-          {/* The right column: everything that is evidence rather than prose. */}
-          <div style={{
-            width: 206, flexShrink: 0, borderLeft: `1px solid ${s.hair}`, paddingLeft: 26,
-            display: 'flex', flexDirection: 'column', gap: 20,
-          }}>
-            <Credential s={s} serial={c.serial} />
-            <Fact s={s} label="Issued by" value="Tryp.com Creator Community" />
-            {c.footnote && (
-              <p style={{ margin: 0, fontFamily: SANS, fontSize: 10.5, lineHeight: 1.6, color: s.faint }}>{c.footnote}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-/**
- * PLAQUE - a framed panel with corner marks. The formal one, done properly.
- *
- * This is the closest thing here to what the old certificate was trying to be,
- * and it is kept for one reason: designs written before the layouts existed
- * land on it (see `designStyle`), so what an admin approved last week still
- * looks like what they approved. It is a better version of that page - corner
- * marks instead of two rounded rectangles, a real serif, and a paper instead of
- * a glow - not a copy of it.
- */
-function Plaque({ s, c }) {
-  const M = 34
-  const ARM = 30
-  return (
-    <>
-      <div style={{ position: 'absolute', inset: M, border: `1px solid ${s.hair}` }} />
-      <div style={{ position: 'absolute', inset: M + 9, border: `1px solid ${s.hair}` }} />
-
-      {/* Four corner marks. Two bars each rather than a border, so the arms can
-          be heavier than the frame they sit on without thickening it. */}
-      {[
-        { top: M - 1, left: M - 1 }, { top: M - 1, right: M - 1 },
-        { bottom: M - 1, left: M - 1 }, { bottom: M - 1, right: M - 1 },
-      ].map((pos, i) => {
-        const vertical = pos.top != null ? { top: 0 } : { bottom: 0 }
-        const horizontal = pos.left != null ? { left: 0 } : { right: 0 }
-        return (
-          <div key={i} style={{ position: 'absolute', width: ARM, height: ARM, ...pos }}>
-            <div style={{ position: 'absolute', background: s.accent, height: 3, width: ARM, ...vertical, ...horizontal }} />
-            <div style={{ position: 'absolute', background: s.accent, width: 3, height: ARM, ...vertical, ...horizontal }} />
-          </div>
-        )
-      })}
-
-      <div style={{
-        position: 'absolute', inset: M + 9, padding: '42px 92px 38px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-      }}>
-        <div style={{
-          flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Logo s={s} height={42} />
-          <div style={{ height: 20 }} />
-          <Kicker s={s} align="center">{c.subtitle || c.tier}</Kicker>
+          <Name s={s} size={58} align="center">{c.name}</Name>
           <div style={{ height: 14 }} />
-          <Title s={s} size={48} align="center">{c.title}</Title>
-          <div style={{ height: 22 }} />
-          <Rule s={s} width={64} height={3} align="center" />
-          <div style={{ height: 24 }} />
-          <Preamble s={s} align="center" />
-          <div style={{ height: 6 }} />
-          <Name s={s} size={54} align="center">{c.name}</Name>
-          <div style={{ height: 16 }} />
-          <Body s={s} align="center" width={560} size={16.5}>{c.body}</Body>
+          <Body s={s} align="center" width={600} size={16}>{c.body}</Body>
         </div>
-
-        <div style={{ width: '100%' }}>
-          {c.footnote && (
-            <p style={{ margin: '0 0 12px', fontFamily: SANS, fontSize: 10.5, color: s.faint }}>{c.footnote}</p>
-          )}
-          <Hair s={s} style={{ marginBottom: 14 }} />
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-            <Signature s={s} name={c.signature} role={c.signatureRole} />
-            <Credential s={s} serial={c.serial} align="center" />
-            <Fact s={s} label="Awarded" value={c.date} align="right" />
-          </div>
-        </div>
+        {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
+      </div>
+      <div style={{ position: 'absolute', left: 64, right: 64, bottom: 44, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
+        {c.signature ? <Signature s={s} name={c.signature} role={c.signatureRole} /> : <Fact s={s} label="Awarded" value={c.date} />}
+        {c.signature && <Fact s={s} label="Awarded" value={c.date} align="center" />}
+        <Credential s={s} serial={c.serial} align="right" />
       </div>
     </>
   )
 }
 
 /**
- * TICKET - a boarding pass, with a perforated stub down the right.
- *
- * The one that could only belong to this programme. Tryp.com is a travel
- * company and the community's own daily puzzle is called Flight Path; a
- * certificate shaped like a boarding pass makes the same joke the rest of the
- * product already makes, and it is the layout least mistakable for something a
- * generator produced.
- *
- * The stub is functionally right as well as thematic: the date and the
- * credential id are the two things somebody CHECKS rather than reads, and a
- * stub is where a ticket puts the part you tear off and keep.
- */
-function Ticket({ s, c }) {
-  const STUB = 268
-  const EDGE = 14
-  const notch = (pos) => ({
-    position: 'absolute', width: 26, height: 26, borderRadius: '50%',
-    background: s.bg, right: STUB - 13, ...pos,
-  })
-  return (
-    <>
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, right: 0, width: EDGE,
-        background: `linear-gradient(180deg, ${s.accent} 0%, ${shift(s.accent, -0.22)} 100%)`,
-      }} />
-
-      {/* The perforation. A dashed rule between two notches, which is what makes
-          the eye read "tear here" rather than "divider". */}
-      <div style={{ position: 'absolute', top: 18, bottom: 18, right: STUB, borderLeft: `2px dashed ${s.hair}` }} />
-      <div style={notch({ top: -13 })} />
-      <div style={notch({ bottom: -13 })} />
-
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, left: 0, right: STUB + 2,
-        padding: '56px 52px 48px 62px', display: 'flex', flexDirection: 'column',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-          <Logo s={s} height={40} />
-          <Kicker s={s} align="right" size={10}>{c.subtitle}</Kicker>
-        </div>
-
-        <div style={{ height: 38 }} />
-        <Title s={s} size={44}>{c.title}</Title>
-        <div style={{ height: 18 }} />
-        <Rule s={s} width={72} height={4} />
-        <div style={{ height: 24 }} />
-        <Preamble s={s} />
-        <div style={{ height: 4 }} />
-        <Name s={s} size={56}>{c.name}</Name>
-        <div style={{ height: 16 }} />
-        <Body s={s} width={460} size={16}>{c.body}</Body>
-
-        <div style={{ marginTop: 'auto' }}>
-          <Signature s={s} name={c.signature} role={c.signatureRole} />
-        </div>
-      </div>
-
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, right: EDGE, width: STUB - EDGE,
-        padding: '52px 30px 46px 38px', display: 'flex', flexDirection: 'column',
-        alignItems: 'flex-start',
-      }}>
-        <Upright color={s.accentText} gap="0.34em">{c.tier}</Upright>
-        <div style={{ height: 24 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }}>
-          <Fact s={s} label="Awarded" value={c.date} />
-          <Credential s={s} serial={c.serial} />
-          {c.footnote && (
-            <p style={{ margin: 0, fontFamily: SANS, fontSize: 10, lineHeight: 1.6, color: s.faint }}>{c.footnote}</p>
-          )}
-        </div>
-        <div style={{ marginTop: 'auto', width: '100%' }}>
-          <Hair s={s} style={{ marginBottom: 12 }} />
-          <p style={{
-            margin: 0, fontFamily: SANS, fontSize: 9, fontWeight: 700,
-            letterSpacing: '0.16em', textTransform: 'uppercase', color: s.faint,
-          }}>
-            Tryp.com
-          </p>
-        </div>
-      </div>
-    </>
-  )
-}
-
-/**
- * MINIMAL - almost nothing, and the name is the headline.
- *
- * The hierarchy is deliberately upside down: on every other layout the TITLE is
- * the biggest thing and the name sits under "This certifies that". Here the
- * name IS the page and the title is a small line beneath it, which is honest
- * about what the object is for - nobody screenshots "Certificate of
- * Achievement", they screenshot their own name.
- *
- * It is also the layout that survives the most words. There is no frame to run
- * into and no stub to avoid, so a long title and a four-line body still sit
- * comfortably.
+ * MINIMAL - the name is the headline, the title a line under it, and one small
+ * Tryp seal. For when the certificate should look like it was not trying.
  */
 function Minimal({ s, c }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, padding: '54px 84px 48px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-        <Logo s={s} height={38} />
-        <Kicker s={s} align="right" size={10}>{c.tier}</Kicker>
+    <>
+      <div style={{ position: 'absolute', left: 80, top: 70 }}>
+        <Wordmark white={!s.light} height={28} />
       </div>
+      <Seal s={s} tier={c.tier} size={92} style={{ right: 80, top: 56 }} />
 
-      <div style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center', textAlign: 'center',
-      }}>
-        <Kicker s={s} align="center" size={10}>{c.subtitle}</Kicker>
-        <div style={{ height: c.subtitle ? 24 : 0 }} />
-        <Name s={s} size={76} align="center" color={s.ink}>{c.name}</Name>
-        <div style={{ height: 24 }} />
-        <div style={{ width: 120, height: 2, background: s.accent, borderRadius: 2 }} />
-        <div style={{ height: 22 }} />
-        <p style={{
-          margin: 0, fontFamily: SANS, fontSize: 13, fontWeight: 700,
-          letterSpacing: '0.2em', textTransform: 'uppercase', color: s.accentText,
-        }}>
-          {c.title}
-        </p>
+      <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <Preamble s={s}>{c.subtitle || 'Awarded to'}</Preamble>
+        <div style={{ height: 8 }} />
+        <Name s={s} size={84} color={s.ink}>{c.name}</Name>
         <div style={{ height: 18 }} />
-        <Body s={s} align="center" width={540} size={16.5}>{c.body}</Body>
+        <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ width: 34, height: 4, borderRadius: 4, background: s.light ? s.grad : '#ffffff' }} />
+          <span style={{ fontSize: 24, fontWeight: 700, color: s.accentText, letterSpacing: '-0.01em' }}>{c.title}</span>
+        </p>
+        <div style={{ height: 14 }} />
+        <Body s={s} width={620} size={15}>{c.body}</Body>
       </div>
 
-      <div>
-        {c.footnote && (
-          <p style={{ margin: '0 0 12px', fontFamily: SANS, fontSize: 10.5, color: s.faint, textAlign: 'center' }}>{c.footnote}</p>
-        )}
-        <Hair s={s} style={{ marginBottom: 14 }} />
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-          <Signature s={s} name={c.signature} role={c.signatureRole} />
-          <Credential s={s} serial={c.serial} align="center" />
-          <Fact s={s} label="Awarded" value={c.date} align="right" />
-        </div>
+      <div style={{ position: 'absolute', left: 80, right: 80, bottom: 56, display: 'flex', alignItems: 'flex-end', gap: 40 }}>
+        <Signature s={s} name={c.signature} role={c.signatureRole} />
+        <Fact s={s} label="Awarded" value={c.date} />
+        <div style={{ marginLeft: 'auto' }}><Credential s={s} serial={c.serial} align="right" /></div>
       </div>
-    </div>
+    </>
   )
 }
 
 const LAYOUTS = {
-  rail: Rail,
-  columns: Columns,
-  crest: Crest,
-  plaque: Plaque,
-  ticket: Ticket,
+  horizon: Horizon,
+  boarding: Boarding,
+  postcard: Postcard,
+  banner: Banner,
+  route: FlightPath,
   minimal: Minimal,
 }
