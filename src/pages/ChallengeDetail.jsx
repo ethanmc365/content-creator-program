@@ -1211,7 +1211,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                               {r.prompt}
                               {r.min_views > 0 && (
                                 <span className="mt-0.5 block text-[10px] font-medium text-smoke">
-                                  {tr("You get this point once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                                  {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
                                 </span>
                               )}
                             </span>
@@ -1595,7 +1595,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                           once knowing the point arrives later by itself. */}
                       {r.min_views > 0 && (
                         <span className="mt-0.5 block text-[11px] font-medium text-smoke">
-                          {tr("You get this point once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                          {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
                         </span>
                       )}
                     </span>

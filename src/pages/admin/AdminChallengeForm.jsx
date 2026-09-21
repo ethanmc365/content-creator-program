@@ -12,7 +12,7 @@ import SocialMark from '../../components/SocialMark'
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
-import PrizeBreakdownFields, { prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
+import PrizeBreakdownFields, { PrizeSummary, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
@@ -1139,30 +1139,10 @@ export default function AdminChallengeForm() {
                 database and saves as `general`, so nothing that reads it breaks
                 and the option can come back if those tiers ever exist.
 
-                WHAT KIND OF VIDEO STAYS, and it can now say something the list
-                does not cover. */}
-            <div className="mb-6">
-              <label htmlFor="content_type" className="label">What kind of video</label>
-              <Select id="content_type" variant="field" ariaLabel="What kind of video" value={form.content_type} onChange={(v) => set({ content_type: v })}
-                options={[
-                  { value: 'free', label: 'Their own idea' },
-                  { value: 'suggested', label: 'One of the suggested videos' },
-                  { value: 'talking', label: 'Talking to camera' },
-                  { value: 'hooks', label: 'Built on a hook' },
-                  { value: 'other', label: 'Something else - I will say what' },
-                ]} />
-              {form.content_type === 'other' && (
-                <input
-                  type="text"
-                  className="input mt-2"
-                  value={form.content_note}
-                  onChange={(e) => set({ content_note: e.target.value })}
-                  placeholder="e.g. a walkthrough of one booking, start to finish"
-                  aria-label="What kind of video, in your own words"
-                />
-              )}
-            </div>
-
+                "WHAT KIND OF VIDEO" WENT THE SAME WAY (21 Sep 2026). Ethan: "I
+                don't think it's necessary at all... just have the platforms you
+                can post on." The column keeps its default so analytics still
+                reads it. */}
             {/* THE REAL MARKS, IN THEIR REAL COLOURS.
                 Ethan: "the grey icons - I'd like the actual colourful social
                 media icons here." `PlatformBadges` draws every mark grey in a
@@ -1262,29 +1242,25 @@ export default function AdminChallengeForm() {
             idPrefix="challenge-prize"
           />
 
-          {/* The totals, derived. Nothing to type and nothing to keep in sync. */}
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
-            <span>
-              <span className="text-smoke">Total prize pot </span>
-              <span className="font-bold text-brand">
-                {CURRENCY_SYMBOL[form.prize_currency] || ''}{derivedPot.toLocaleString()}
-              </span>
-            </span>
-            <span>
-              <span className="text-smoke">Winners </span>
-              <span className="font-bold">{derivedWinners}</span>
-            </span>
-            <span>
-              <span className="text-smoke">CPM target </span>
-              <span className="font-bold">{form.cpm_target || '—'}</span>
-            </span>
-            {potIsLegacy && (
-              <span className="basis-full text-xs text-smoke">
-                Carried over from before values were itemised. Add a value to each prize row and this
-                starts adding itself up.
-              </span>
-            )}
-          </div>
+          {/* The totals, derived: cash and vouchers, with the taking-part
+              reward as the range it really is. */}
+          <PrizeSummary
+            symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
+            cpmTarget={form.cpm_target}
+            legacyPot={potIsLegacy ? derivedPot : null}
+            budget={prizeBudget({
+              prizes: form.prize_structure,
+              awards: form.extra_awards,
+              participation: {
+                threshold: form.participation_threshold,
+                prize: form.participation_prize,
+                cap: form.participation_cap,
+                amount: form.participation_amount,
+                type: form.participation_reward_type,
+                scope: form.participation_scope,
+              },
+            })}
+          />
 
           {/* Participation reward: a separate, structured prize earned by posting
               a set number of videos. The number here drives when the voucher

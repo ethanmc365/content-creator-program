@@ -67,11 +67,11 @@ export async function enablePush(userId) {
 // ASKS for permission - that stays a deliberate press - and it is silent on
 // every failure, because it runs at start-up.
 let lastSync = { user: null, at: 0 }
-export async function syncPushSubscription(userId) {
+export async function syncPushSubscription(userId, { force = false } = {}) {
   if (!userId || !pushSupported() || Notification.permission !== 'granted') return false
   // At most once every ten minutes per person: foregrounding the app is
-  // frequent and the subscription rarely changes.
-  if (lastSync.user === userId && Date.now() - lastSync.at < 10 * 60 * 1000) return true
+  // frequent and the subscription rarely changes. `force` is the test button.
+  if (!force && lastSync.user === userId && Date.now() - lastSync.at < 10 * 60 * 1000) return true
   lastSync = { user: userId, at: Date.now() }
   try {
     const reg = (await navigator.serviceWorker.getRegistration()) || (await registerServiceWorker())
