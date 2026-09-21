@@ -228,6 +228,7 @@ export default function PhotoLightbox({
           controls
           autoPlay
           playsInline
+          style={{ maxHeight: 'calc(100dvh - 8rem)', maxWidth: 'calc(100vw - 2rem)' }}
           className="relative max-h-full max-w-full rounded-card object-contain"
         />
       ) : (
@@ -237,6 +238,13 @@ export default function PhotoLightbox({
           alt={alt}
           draggable={false}
           style={{
+            // THE LIMITS ARE THE SCREEN'S (21 Sep 2026). `max-h-full` below is a
+            // percentage of a frame whose height is `auto`, which is ignored - so
+            // a large image rendered at natural size inside an overflow-hidden
+            // frame and showed as a cropped close-up. Now the whole picture
+            // fits, with room for the controls, and never grows past its size.
+            maxHeight: shape === 'circle' ? undefined : 'calc(100dvh - 8rem)',
+            maxWidth: shape === 'circle' ? undefined : 'calc(100vw - 2rem)',
             transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
             transition: moving ? 'none' : 'transform 180ms ease-out',
             touchAction: 'none',
