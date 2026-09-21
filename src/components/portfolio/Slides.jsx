@@ -1,7 +1,7 @@
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
-import { PAGE_W, PAGE_H, compactViews, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
-import { alpha, fillTemplate, formatAwardDate, shift, tierOf } from '../../lib/certificates'
+import { PAGE_W, PAGE_H, compactViews, contactEmail, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
+import { alpha, fillTemplate, formatAwardDate, readableOn, shift, tierOf } from '../../lib/certificates'
 
 // THE PAGES OF A MEDIA KIT, AT 16:9.
 //
@@ -57,8 +57,12 @@ export function theme(copy) {
   const raw = typeof copy?.accent === 'string' ? copy.accent.trim() : ''
   const accent = /^#[0-9a-f]{6}$/i.test(raw) ? raw : BRAND
   const light = accent.toLowerCase() === BRAND ? BRAND_LIGHT : shift(accent, 0.3)
+  // A BRIGHT ACCENT (yellow, lime, sky) is fine as a gradient and unreadable
+  // as 11px text on white, so text gets a darker tone of the same colour.
+  const ink = readableOn(accent) === '#141414' ? shift(accent, -0.32) : accent
   return {
     accent,
+    ink,
     light,
     grad: `linear-gradient(135deg, ${accent} 0%, ${light} 100%)`,
     tint: alpha(accent, 0.07),
@@ -124,10 +128,10 @@ function Plane({ width = 200, style, flip = false }) {
 }
 
 /** Kicker: a small plane and a tracked label, in the accent. */
-function Kicker({ children, color }) {
+function Kicker({ children, color, size = 11.5 }) {
   return (
     <p style={{
-      margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 700,
+      margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: size, fontWeight: size > 12 ? 800 : 700,
       letterSpacing: '0.14em', textTransform: 'uppercase', color,
     }}>
       <span style={{ display: 'inline-flex', color, transform: 'rotate(45deg)' }}>
@@ -160,7 +164,8 @@ function Label({ children, color = FAINT }) {
   )
 }
 
-/** Wordmark bottom-left, page number bottom-right, on every page. */
+/** Wordmark bottom-left on every page. No page numbers (Ethan: "not necessary"). */
+// eslint-disable-next-line no-unused-vars
 function Footer({ name, n, total, t }) {
   return (
     <div style={{
@@ -172,18 +177,12 @@ function Footer({ name, n, total, t }) {
         <span style={{ width: 1, height: 14, background: HAIR }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: FAINT }}>{name}</span>
       </span>
-      <span style={{
-        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: t.accent,
-        background: t.tint, borderRadius: 999, padding: '4px 11px',
-      }}>
-        {n} / {total}
-      </span>
     </div>
   )
 }
 
 // ------------------------------------------------------------------ cover ---
-export function Cover({ creator, copy, videos, extraPlatforms, total }) {
+export function Cover({ creator, copy, videos, extraPlatforms }) {
   const chosen = typeof copy?.cover_photo === 'string' ? copy.cover_photo.trim() : ''
   const photo = chosen || creator?.photo_url
   const links = socialRows(creator, videos, extraPlatforms).slice(0, 5)
@@ -197,10 +196,12 @@ export function Cover({ creator, copy, videos, extraPlatforms, total }) {
       <GradientPanel t={t} style={{ left: 36, top: 36, bottom: 36, width: 520 }}>
         <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" crossOrigin="anonymous"
           style={{ position: 'absolute', top: 40, left: 44, height: 26, width: 'auto' }} />
-        {/* A route that comes in from the bottom left, loops the portrait and
-            leaves top right, where the plane is. */}
-        <Route width={520} height={648} d="M -20 600 C 80 560, 60 470, 150 450 S 440 470, 460 320 S 470 150, 478 96" />
-        <Plane width={176} style={{ right: 26, top: 40, transform: 'rotate(10deg)' }} />
+        {/* A ROUTE THE WHOLE WAY THROUGH, CORNER TO CORNER (21 Sep 2026).
+            Ethan: "remove that Trip.com plane [on the first slide] and instead
+            have the dotted line going up the other corner, just like going the
+            whole way through." In at the bottom left, round under the portrait,
+            out through the top right. */}
+        <Route width={520} height={648} d="M -30 640 C 40 590, 60 520, 140 500 S 420 500, 452 360 S 470 150, 560 -40" />
         <div style={{
           position: 'absolute', left: '50%', top: '53%', transform: 'translate(-50%, -50%)',
           width: 300, height: 300, borderRadius: '50%', border: '8px solid #ffffff',
@@ -217,7 +218,9 @@ export function Cover({ creator, copy, videos, extraPlatforms, total }) {
         position: 'absolute', left: 620, right: 72, top: 0, bottom: 0,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
       }}>
-        <Kicker color={t.accent}>{copyFor(copy, 'cover_kicker')}</Kicker>
+        {/* "Slightly more bold or slightly bigger" - it is the line that says
+            whose community this is. */}
+        <Kicker color={t.ink} size={14.5}>{copyFor(copy, 'cover_kicker')}</Kicker>
         <p style={{
           margin: '22px 0 0', fontWeight: 700, fontSize: nameSize(creator?.name),
           lineHeight: 1.04, letterSpacing: '-0.025em',
@@ -229,7 +232,7 @@ export function Cover({ creator, copy, videos, extraPlatforms, total }) {
         </p>
         {(creator?.city || creator?.country) && (
           <p style={{ margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: 7, fontSize: 15, fontWeight: 500, color: FAINT }}>
-            <span style={{ color: t.accent, display: 'inline-flex' }}><Icon name="pin" className="h-4 w-4" /></span>
+            <span style={{ color: t.ink, display: 'inline-flex' }}><Icon name="pin" className="h-4 w-4" /></span>
             {[creator.city, creator.country].filter(Boolean).join(', ')}
           </p>
         )}
@@ -242,17 +245,6 @@ export function Cover({ creator, copy, videos, extraPlatforms, total }) {
         )}
       </div>
 
-      <div style={{
-        position: 'absolute', left: 620, bottom: 34, display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: FAINT, whiteSpace: 'nowrap' }}>Media kit · {new Date().getFullYear()}</span>
-      </div>
-      <span style={{
-        position: 'absolute', right: 64, bottom: 30, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em',
-        color: t.accent, background: t.tint, borderRadius: 999, padding: '4px 11px',
-      }}>
-        1 / {total}
-      </span>
     </div>
   )
 }
@@ -285,7 +277,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
   ]
   return (
     <div style={page({ padding: '56px 64px 0' })}>
-      <Kicker color={t.accent}>Who I am</Kicker>
+      <Kicker color={t.ink}>Who I am</Kicker>
       <SlideTitle>{copyFor(copy, 'about_title')}</SlideTitle>
 
       <div style={{ display: 'flex', gap: 56, marginTop: 30 }}>
@@ -403,7 +395,7 @@ export function Work({ creator, copy, videos, n, total, offset = 0, totalVideos 
     <div style={page({ padding: '48px 64px 0' })}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
         <div style={{ minWidth: 0 }}>
-          <Kicker color={t.accent}>{offset === 0 ? 'Most viewed first' : 'Continued'}</Kicker>
+          <Kicker color={t.ink}>{offset === 0 ? 'Most viewed first' : 'Continued'}</Kicker>
           <SlideTitle size={38}>{copyFor(copy, 'work_title')}</SlideTitle>
           <p style={{ margin: '8px 0 0', maxWidth: 720, fontSize: 13.5, lineHeight: 1.6, color: SMOKE }}>
             {copyFor(copy, 'work_body')}
@@ -483,8 +475,13 @@ function VideoTile({ video, rank, t }) {
         #{rank}
       </span>
 
+      {/* EVERY CARD THE SAME SIZE (21 Sep 2026). Ethan: "the cards for the
+          selected work... are different sizes. Some of them show UK Ireland on
+          it, and some of them don't. I would remove UK Ireland from it
+          altogether and just show [the challenge] and the views." A fixed
+          height, the views, and the challenge on two clamped lines. */}
       <div style={{
-        position: 'absolute', left: 12, right: 12, bottom: 12,
+        position: 'absolute', left: 12, right: 12, bottom: 12, height: 84, boxSizing: 'border-box',
         borderRadius: 16, background: '#ffffff', padding: '12px 14px',
         boxShadow: '0 8px 22px rgba(26,26,26,0.18)',
       }}>
@@ -492,23 +489,16 @@ function VideoTile({ video, rank, t }) {
           <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em' }}>
             {compactViews(video.views ?? video.logged_views)}
           </span>
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.accent }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.ink }}>
             views
           </span>
         </div>
-        {video.challenge && (
-          <p style={{
-            margin: '8px 0 0', fontSize: 11, lineHeight: '15px', height: 30, overflow: 'hidden',
-            color: SMOKE, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>
-            {video.challenge}
-          </p>
-        )}
-        {video.market && (
-          <p style={{ margin: '5px 0 0', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: FAINT }}>
-            {video.market}
-          </p>
-        )}
+        <p style={{
+          margin: '8px 0 0', fontSize: 11, lineHeight: '15px', height: 30, overflow: 'hidden',
+          color: SMOKE, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>
+          {video.challenge || 'Tryp.com challenge'}
+        </p>
       </div>
     </div>
   )
@@ -519,7 +509,7 @@ export function Awards({ creator, copy, certificates, n, total }) {
   const t = theme(copy)
   return (
     <div style={page({ padding: '56px 64px 0' })}>
-      <Kicker color={t.accent}>Recognised by Tryp.com</Kicker>
+      <Kicker color={t.ink}>Recognised by Tryp.com</Kicker>
       <SlideTitle>{copyFor(copy, 'awards_title')}</SlideTitle>
       <p style={{ margin: '12px 0 0', maxWidth: 700, fontSize: 14.5, lineHeight: 1.65, color: SMOKE }}>
         {copyFor(copy, 'awards_body')}
@@ -575,67 +565,61 @@ export function Awards({ creator, copy, certificates, n, total }) {
 // with a dotted route sweeping up through it to the Tryp plane, a few stops
 // along the way, and the programme's name at its foot - the page closes on
 // the brand rather than on a 10px line.
-export function Contact({ creator, copy, videos, extraPlatforms, n, total }) {
+export function Contact({ creator, copy, videos, extraPlatforms }) {
   const rows = socialRows(creator, videos, extraPlatforms)
+  const email = contactEmail(copy, creator)
   const t = theme(copy)
+  // The email card leads, then the platforms: an email is how a brand makes an
+  // offer, a profile link is how it checks you out.
+  const cards = [
+    ...(email ? [{ brand: 'email', label: 'Email', handle: email, url: `mailto:${email}` }] : []),
+    ...rows,
+  ].slice(0, 6)
   return (
     <div style={page()}>
       <div style={{ position: 'absolute', left: 64, top: 60, width: 640 }}>
-        <Kicker color={t.accent}>{"Let's create together"}</Kicker>
+        <Kicker color={t.ink}>{"Let's create together"}</Kicker>
         <SlideTitle size={46}>{copyFor(copy, 'contact_title')}</SlideTitle>
         <p style={{ margin: '16px 0 0', fontSize: 16.5, lineHeight: 1.75, color: SMOKE }}>
           {copyFor(copy, 'contact_body')}
         </p>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: rows.length > 2 ? 'repeat(2, 1fr)' : '1fr',
+          display: 'grid', gridTemplateColumns: cards.length > 2 ? 'repeat(2, 1fr)' : '1fr',
           gap: 12, marginTop: 28,
         }}>
-          {rows.slice(0, 6).map((r) => <ContactCard key={r.brand + r.label} row={r} t={t} />)}
-          {rows.length === 0 && (
+          {cards.map((r) => (
+            <ContactCard key={r.brand + r.label} row={r} t={t} wide={r.brand === 'email' && cards.length > 2} />
+          ))}
+          {cards.length === 0 && (
             <p style={{ margin: 0, fontSize: 14, color: FAINT }}>
               Add your links on your profile and they appear here.
             </p>
           )}
         </div>
-
-        {/* Who and where, so the last page stands on its own if it is the
-            only one somebody forwards. */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14, marginTop: 22, borderRadius: 18,
-          background: t.peach, padding: '14px 18px',
-        }}>
-          <span style={{
-            flexShrink: 0, width: 38, height: 38, borderRadius: 12, background: t.grad, color: '#ffffff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Icon name="pin" className="h-5 w-5" />
-          </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: INK }}>{copyFor(copy, 'cover_role')}</span>
-            <span style={{ display: 'block', fontSize: 12.5, color: SMOKE }}>
-              {[creator?.city, creator?.country].filter(Boolean).join(', ') || 'Tryp.com Content Creator Community'}
-            </span>
-          </span>
-        </div>
       </div>
 
+      {/* THE CLOSING PANEL (21 Sep 2026). Ethan: "round it more to the left on
+          the top and have the plane look like the dotted line is coming out of
+          the plane... it should be coming out the back, more realistic." The
+          plane faces LEFT, so its tail is on its right: the trail leaves the
+          tail, loops round to the right and sweeps down and away to the left. */}
       <GradientPanel t={t} style={{ right: 36, top: 36, bottom: 36, width: 440 }}>
-        <Route width={440} height={648} d="M -10 440 C 80 450, 130 432, 210 420 S 360 360, 300 250 S 330 130, 392 118" />
-        {[[210, 420], [300, 250]].map(([x, y]) => (
+        <Plane width={196} style={{ left: 54, top: 70, transform: 'rotate(-8deg)' }} />
+        <Route width={440} height={648} d="M 246 120 C 330 112, 402 150, 396 232 S 300 330, 214 350 S 60 400, -20 470" />
+        {[[396, 232], [214, 350]].map(([x, y]) => (
           <span key={`${x}-${y}`} style={{
             position: 'absolute', left: x - 8, top: y - 8, width: 16, height: 16, borderRadius: '50%',
             background: '#ffffff', boxShadow: '0 0 0 6px rgba(255,255,255,0.22)',
           }} />
         ))}
-        <Plane width={214} style={{ right: 26, top: 58, transform: 'rotate(10deg)' }} />
         <div style={{ position: 'absolute', left: 40, right: 40, bottom: 40 }}>
           <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" crossOrigin="anonymous" style={{ height: 30, width: 'auto' }} />
           <p style={{ margin: '14px 0 0', fontSize: 17, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
             Tryp.com Content Creator Community
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)' }}>
-            Creators making travel content across Europe
+            Creators making travel content across the world
           </p>
         </div>
       </GradientPanel>
@@ -645,20 +629,23 @@ export function Contact({ creator, copy, videos, extraPlatforms, n, total }) {
         <span style={{ width: 1, height: 14, background: HAIR }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: FAINT, whiteSpace: 'nowrap' }}>{creator?.name || ''}</span>
       </div>
-      <span style={{
-        position: 'absolute', left: 740, bottom: 30, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em',
-        color: t.accent, background: t.tint, borderRadius: 999, padding: '4px 11px',
-      }}>
-        {n} / {total}
-      </span>
     </div>
   )
 }
 
-function ContactCard({ row, t }) {
+function ContactCard({ row, t, wide = false }) {
   const inner = (
     <>
-      <SocialMark brand={row.brand} className="h-9 w-9" tile />
+      {row.brand === 'email' ? (
+        <span style={{
+          flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: t.grad, color: '#ffffff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon name="envelope" className="h-5 w-5" />
+        </span>
+      ) : (
+        <SocialMark brand={row.brand} className="h-9 w-9" tile />
+      )}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: INK }}>{row.label}</span>
         <span style={{
@@ -669,17 +656,17 @@ function ContactCard({ row, t }) {
         </span>
       </span>
       <span style={{
-        flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: t.tint, color: t.accent,
+        flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: t.tint, color: t.ink,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Icon name="link" className="h-3.5 w-3.5" />
+        <Icon name={row.brand === 'email' ? 'envelope' : 'link'} className="h-3.5 w-3.5" />
       </span>
     </>
   )
   const style = {
     display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none',
     borderRadius: 18, border: `1px solid ${HAIR}`, padding: '14px 16px', background: '#ffffff',
-    boxShadow: '0 4px 14px rgba(26,26,26,0.04)',
+    boxShadow: '0 4px 14px rgba(26,26,26,0.04)', gridColumn: wide ? '1 / -1' : undefined,
   }
   if (!row.url) return <div style={style}>{inner}</div>
   return <a href={row.url} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>

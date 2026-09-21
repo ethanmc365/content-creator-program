@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
@@ -42,6 +43,7 @@ export default function Portfolio() {
   // who guesses it, and the RLS policy decides what actually comes back either
   // way. See components/ViewingAs.
   const { id: viewingId, viewing, person } = useViewAs()
+  const { user } = useAuth()
   const readOnly = viewing
 
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
@@ -74,7 +76,9 @@ export default function Portfolio() {
         .order('awarded_at', { ascending: false }),
     ])
     setState({
-      creator: creator ? { ...creator, links: {
+      // The account email is only known for your own page (never for an admin
+      // viewing somebody else's, and never on the public page).
+      creator: creator ? { ...creator, email: viewingId === user?.id ? (user?.email || null) : null, links: {
         instagram: creator.instagram_url, tiktok: creator.tiktok_url,
         youtube: creator.youtube_url, facebook: creator.facebook_url, linkedin: creator.linkedin_url,
       } } : null,
@@ -94,7 +98,7 @@ export default function Portfolio() {
     setDirty(false)
     setPast([])
     lastUndoPush.current = 0
-  }, [viewingId])
+  }, [viewingId, user?.id, user?.email])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { stateRef.current = state }, [state])
@@ -158,7 +162,16 @@ export default function Portfolio() {
       show_on_profile: p.show_on_profile,
       headline: p.headline || null, intro: p.intro || null, about: p.about || null,
       tools: p.tools || [], extra_platforms: p.extra_platforms || [],
-      picks: p.picks || [], copy: p.copy || {},
+      picks: p.picks || [],
+      // The account email goes INTO the copy on save, so the public page (whose
+      // RPC never returns an email) can show it too. Only when they have not
+      // typed one and have not switched it off.
+      copy: (() => {
+        const c = { ...(p.copy || {}) }
+        const acct = stateRef.current?.creator?.email
+        if (!c.hide_email && !(typeof c.contact_email === 'string' && c.contact_email.trim()) && acct) c.contact_email = acct
+        return c
+      })(),
       updated_at: new Date().toISOString(),
       published_at: p.is_public ? (p.published_at || new Date().toISOString()) : null,
     }

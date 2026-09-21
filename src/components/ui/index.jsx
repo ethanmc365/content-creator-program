@@ -234,7 +234,12 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-gray-200 bg-white px-8 py-16 text-center">
       {icon
-        ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>{icon}</div>
+        // A STRING IS AN ICON NAME. The creator kit passed `icon="image"` and
+        // got the word "image" printed in an orange tile (Ethan: "weird image
+        // text in an orange box").
+        ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+            {typeof icon === 'string' ? <Icon name={icon} className="h-7 w-7" /> : icon}
+          </div>
         : <div className="text-4xl" aria-hidden>{emoji}</div>}
       <h3 className="text-lg font-semibold">{title}</h3>
       {hint && <p className="max-w-sm text-sm text-smoke">{hint}</p>}

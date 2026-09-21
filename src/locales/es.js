@@ -1817,7 +1817,7 @@ export default {
   'That did not save. Try again in a moment.': 'No se ha guardado. Inténtalo de nuevo en un momento.',
   'Could not save it': 'No se ha podido guardar',
 
-  'Share that you are a Tryp.com creator': 'Cuenta que eres creador de Tryp.com',
+  "Share you're a Tryp.com creator": 'Cuenta que eres creador de Tryp.com',
   'Save one of these and put it on your story or your LinkedIn. If somebody joins through you, your referral reward applies.': 'Guarda una de estas y súbela a tu historia o a LinkedIn. Si alguien entra gracias a ti, se te aplica tu recompensa por recomendación.',
   'That did not save. Check your connection and try again.': 'No se ha guardado. Comprueba tu conexión e inténtalo de nuevo.',
 

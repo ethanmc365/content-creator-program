@@ -205,10 +205,21 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
 
     const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
+    // THE INDIVIDUAL `translate` / `scale` PROPERTIES, NEVER `transform`
+    // (21 Sep 2026). Ethan, on the milestone card: "the animation there is a
+    // bit weird and glitchy. It appears one way then moves another way." Every
+    // stop and label on that card is centred with `-translate-x-1/2
+    // -translate-y-1/2`, which IS a `transform` - so an animation of
+    // `transform` replaced the centring for its whole run: each stop popped in
+    // half its own size down and to the right, then jumped into place when the
+    // animation ended. The separate properties compose WITH `transform`
+    // instead of overriding it, so anything positioned by a transform animates
+    // where it actually sits.
     const FRAMES = {
-      rise: [{ opacity: 0, transform: 'translate3d(0, 16px, 0)' }, { opacity: 1, transform: 'none' }],
-      pop: [{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'none' }],
-      zoom: [{ opacity: 0, transform: 'translate3d(0, 24px, 0) scale(0.9)' }, { opacity: 1, transform: 'none' }],
+      rise: [{ opacity: 0, translate: '0 16px' }, { opacity: 1, translate: '0 0' }],
+      pop: [{ opacity: 0, scale: '0.8' }, { opacity: 1, scale: '1' }],
+      zoom: [{ opacity: 0, translate: '0 24px', scale: '0.9' }, { opacity: 1, translate: '0 0', scale: '1' }],
+      fade: [{ opacity: 0 }, { opacity: 1 }],
       draw: [{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }],
     }
     const anims = []
@@ -216,6 +227,13 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
       const kind = el.getAttribute('data-anim')
       const frames = FRAMES[kind]
       if (!frames) return
+      // A stop centred with translate(-50%, -50%) scales about its box's
+      // top-left corner, which that translate has moved onto its true centre -
+      // so it grows from the middle and does not drift. (Measured: about its
+      // default centre origin it wandered 4px while popping in.)
+      if (kind === 'pop' || kind === 'zoom') {
+        try { if (getComputedStyle(el).transform !== 'none') el.style.transformOrigin = '0 0' } catch { /* ignore */ }
+      }
       try {
         anims.push(el.animate(frames, {
           duration: kind === 'draw' ? 1100 : kind === 'zoom' ? 720 : 520,

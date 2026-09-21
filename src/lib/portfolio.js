@@ -64,7 +64,7 @@ export const DEFAULT_COPY = {
   cover_kicker: 'Tryp.com Content Creator Community',
   cover_role: 'Travel Content Creator',
   about_title: 'About me',
-  about_body: 'I make short travel videos about the places I go and the things worth stopping for. I am part of the Tryp.com Content Creator Community, where creators from across Europe make work for monthly briefs.',
+  about_body: 'I make short travel videos about the places I go and the things worth stopping for. I am part of the Tryp.com Content Creator Community, where creators from around the world make work for monthly challenges.',
   stats_title: 'By the numbers',
   work_title: 'Selected work',
   // "Improving the copy" (21 Sep 2026): "briefs" is the team's word; every
@@ -76,11 +76,52 @@ export const DEFAULT_COPY = {
   contact_body: 'Available for brand trips, destination features and short-form campaigns. The fastest way to reach me is a direct message on any of these.',
 }
 
+/**
+ * THE KIT'S ACCENTS: FOURTEEN, AND BRIGHT (21 Sep 2026).
+ *
+ * Ethan: "I would add in another few colours here, like yellow. If you add 4
+ * more colours, it will fit nicely in the UI... making them bright." The
+ * certificate palette is dark on purpose (white type sits on it); a media kit
+ * only ever puts white on the accent inside the gradient panel, so it can be
+ * brighter. Tryp orange stays first and is the default. Where an accent is too
+ * light to read as text on white, `theme()` uses a darker tone of it for text.
+ */
+export const PORTFOLIO_ACCENTS = [
+  { key: 'tryp', label: 'Tryp orange', hex: '#D94407' },
+  { key: 'sunshine', label: 'Sunshine', hex: '#F2A20C' },
+  { key: 'coral', label: 'Coral', hex: '#EF5A4C' },
+  { key: 'raspberry', label: 'Raspberry', hex: '#D81B60' },
+  { key: 'pink', label: 'Pink', hex: '#E84393' },
+  { key: 'violet', label: 'Violet', hex: '#7C4DFF' },
+  { key: 'indigo', label: 'Indigo', hex: '#4450D8' },
+  { key: 'royal', label: 'Royal blue', hex: '#1E6FE8' },
+  { key: 'sky', label: 'Sky', hex: '#0A9BD9' },
+  { key: 'teal', label: 'Teal', hex: '#0EA5A0' },
+  { key: 'emerald', label: 'Emerald', hex: '#16A05D' },
+  { key: 'lime', label: 'Lime', hex: '#7CB518' },
+  { key: 'bronze', label: 'Bronze', hex: '#A8641E' },
+  { key: 'graphite', label: 'Graphite', hex: '#2B2E36' },
+]
+
 /** The copy for one slot: what they wrote, else the default, never blank. */
 export function copyFor(copy, key) {
   const written = copy?.[key]
   if (typeof written === 'string' && written.trim()) return written
   return DEFAULT_COPY[key] || ''
+}
+
+/**
+ * THE EMAIL ON "WORK WITH ME". Ethan: "creators should be able to add their
+ * email here if they want. I think we also already have their email, so we can
+ * automatically show that in a nice card." What they typed, else the address
+ * on their account; `hide_email` turns it off. The account address is only
+ * known on their own page, so it is written into `copy` when they save - which
+ * is what lets the public page (whose RPC never returns an email) show it too.
+ */
+export function contactEmail(copy, creator) {
+  if (copy?.hide_email) return null
+  const typed = typeof copy?.contact_email === 'string' ? copy.contact_email.trim() : ''
+  return typed || creator?.email || null
 }
 
 /**

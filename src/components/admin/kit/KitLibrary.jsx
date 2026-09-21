@@ -32,6 +32,9 @@ const KINDS = [
 
 export const kindOf = (key) => KINDS.find((k) => k.key === key) || KINDS[4]
 
+/** Everything a graphic is for. `kinds` (migration 238), or the one `kind`. */
+export const kindsOf = (row) => (Array.isArray(row?.kinds) && row.kinds.length ? row.kinds : [row?.kind || 'other'])
+
 export default function KitLibrary() {
   const { profile } = useAuth()
   const [rows, setRows] = useState(null)
@@ -64,6 +67,7 @@ export default function KitLibrary() {
           // six graphics should not have to type six names before seeing them.
           title: file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80) || 'Untitled',
           kind: guessKind(width, height),
+          kinds: [guessKind(width, height)],
           path, width, height,
           sort_order: (rows?.length || 0) + i,
           created_by: profile?.id,
@@ -102,18 +106,14 @@ export default function KitLibrary() {
     moveTo(row, from + by)
   }
 
-  // EVERY REORDER - an arrow, a drag, "stories first" - lands here.
+  // EVERY REORDER - an arrow or a drag - lands here. ("Stories first" was
+  // removed 21 Sep 2026: Ethan drags them into the order he wants.)
   function moveTo(row, to) {
     const list = [...rows]
     const from = list.findIndex((r) => r.id === row.id)
     if (from < 0 || to < 0 || to >= list.length || to === from) return
     list.splice(to, 0, list.splice(from, 1)[0])
     commitOrder(list)
-  }
-
-  function storiesFirst() {
-    const rank = { story: 0, post: 1, linkedin: 2, banner: 3, other: 4 }
-    commitOrder([...rows].sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9)))
   }
 
   function commitOrder(list) {
@@ -142,11 +142,6 @@ export default function KitLibrary() {
           </p>
           <p className="mt-0.5 text-[11px] text-smoke">PNG, JPG or WebP up to 15MB, kept exactly as uploaded.</p>
         </div>
-        {rows.length > 1 && (
-          <button type="button" onClick={storiesFirst} className="btn-secondary !py-2 text-sm">
-            <Icon name="reorder" className="h-4 w-4" /> Stories first
-          </button>
-        )}
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
@@ -216,7 +211,7 @@ function guessKind(w, h) {
 
 function KitCard({ row, first, last, onPatch, onDelete, onMove, position, dragging, over, dragProps }) {
   const [title, setTitle] = useState(row.title)
-  const kind = kindOf(row.kind)
+  const kind = kindOf(kindsOf(row)[0])
 
   return (
     <div
@@ -252,28 +247,34 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove, position, draggi
           aria-label="Title"
         />
 
-        {/* A NATIVE <select> IS A DIFFERENT APP'S UI. Ethan: "these pop-ups
-            are not matching the UI of the website. They're like the weird
-            Apple one." He is describing macOS's own dropdown, which is what a
-            bare <select> opens - system font, system chrome, system animation,
-            none of which this page controls. Five short, mutually exclusive
-            options do not need a menu that has to be opened at all: they fit on
-            one row as chips, they show the current choice without a click, and
-            they are drawn by the same `pickClass` every other selected/unselected
-            control on the platform uses. */}
+        {/* MORE THAN ONE, IF IT IS MORE THAN ONE THING (21 Sep 2026). Ethan:
+            "I can only click Story or Post or LinkedIn, but I want to be able
+            to click Post and LinkedIn." A graphic can be posted on Instagram
+            AND on LinkedIn, so these are toggles, not a choice of one. The last
+            one cannot be switched off - a graphic is always for something.
+            `kind` keeps the first, for everything that still reads one. */}
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="What it is for">
-          {KINDS.map((k) => (
-            <button
-              key={k.key}
-              type="button"
-              onClick={() => onPatch({ kind: k.key })}
-              aria-pressed={row.kind === k.key}
-              title={k.hint}
-              className={pickClass(row.kind === k.key, 'rounded-lg border px-2.5 py-1 text-[11px] font-semibold')}
-            >
-              {k.label}
-            </button>
-          ))}
+          {KINDS.map((k) => {
+            const current = kindsOf(row)
+            const on = current.includes(k.key)
+            return (
+              <button
+                key={k.key}
+                type="button"
+                onClick={() => {
+                  const next = on ? current.filter((x) => x !== k.key) : [...current, k.key]
+                  if (!next.length) return
+                  const ordered = KINDS.map((x) => x.key).filter((x) => next.includes(x))
+                  onPatch({ kinds: ordered, kind: ordered[0] })
+                }}
+                aria-pressed={on}
+                title={k.hint}
+                className={pickClass(on, 'rounded-lg border px-2.5 py-1 text-[11px] font-semibold')}
+              >
+                {k.label}
+              </button>
+            )
+          })}
           {row.width && row.height && (
             <span className="ml-auto text-[11px] tabular-nums text-gray-400">{row.width}x{row.height}</span>
           )}
@@ -289,12 +290,12 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove, position, draggi
             <button type="button" onClick={() => onMove(-1)} disabled={first}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke hover:bg-cloud hover:text-brand disabled:opacity-25"
               aria-label="Move earlier">
-              <Icon name="arrow-down" className="h-4 w-4 rotate-180" />
+              <Icon name="chevronUp" className="h-4 w-4" />
             </button>
             <button type="button" onClick={() => onMove(1)} disabled={last}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke hover:bg-cloud hover:text-brand disabled:opacity-25"
               aria-label="Move later">
-              <Icon name="arrow-down" className="h-4 w-4" />
+              <Icon name="chevronDown" className="h-4 w-4" />
             </button>
             <button type="button" onClick={onDelete}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500"

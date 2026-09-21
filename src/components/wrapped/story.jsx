@@ -687,6 +687,11 @@ export function ShareCard({ data, className = '', style, flush = false }) {
   // they are in context. This card carries the year's own numbers and the
   // programme's name, and nothing else has to compete with them.
 
+  // THE LAST PAGE ARRIVES LIKE THE OTHERS (21 Sep 2026). Ethan: "add in
+  // animations for the last page. There seem to be no animations there." The
+  // photo pops, the name and place rise, the numbers land one by one and the
+  // whole numbers count up. The off-screen copy that gets photographed is never
+  // animated (see YearInReview), so a saved card is always whole.
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between" style={style}>
       {/* THE PERSON IS THE HEADLINE. Ethan: "for that final card, you can
@@ -714,19 +719,19 @@ export function ShareCard({ data, className = '', style, flush = false }) {
       <div>
         <div className="flex items-start justify-between gap-3">
           {me?.photo
-            ? <img src={me.photo} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-[3px] ring-white/55" />
+            ? <img data-anim="pop" src={me.photo} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-[3px] ring-white/55" />
             : (
-              <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white/20 text-3xl font-extrabold ring-[3px] ring-white/55">
+              <span data-anim="pop" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white/20 text-3xl font-extrabold ring-[3px] ring-white/55">
                 {(me?.name || '?').slice(0, 1)}
               </span>
             )}
-          <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[12px] font-extrabold tabular-nums">
+          <span data-anim="fade" className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[12px] font-extrabold tabular-nums">
             {year}
           </span>
         </div>
-        <p className="mt-4 line-clamp-2 break-words text-[26px] font-extrabold leading-[1.05] tracking-tight">{me?.name}</p>
+        <p data-anim="rise" className="mt-4 line-clamp-2 break-words text-[26px] font-extrabold leading-[1.05] tracking-tight">{me?.name}</p>
         {(me?.country || me?.city || me?.market) && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-[13px] font-semibold leading-snug opacity-85">
+          <p data-anim="rise" className="mt-1.5 flex items-start gap-1.5 text-[13px] font-semibold leading-snug opacity-85">
             <Icon name="pin" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 break-words">{me.country || me.city || me.market}</span>
           </p>
@@ -735,8 +740,13 @@ export function ShareCard({ data, className = '', style, flush = false }) {
 
       <div className="grid grid-cols-2 gap-x-5 gap-y-5 py-3">
         {stats.map((s) => (
-          <span key={s.label} className="min-w-0">
-            <span className="block text-[30px] font-extrabold leading-none tracking-tight">{s.value}</span>
+          <span key={s.label} data-anim="zoom" className="min-w-0">
+            <span
+              className="block text-[30px] font-extrabold leading-none tracking-tight"
+              {...(typeof s.value === 'number' ? { 'data-count': String(s.value) } : {})}
+            >
+              {s.value}
+            </span>
             <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] opacity-80">{s.label}</span>
           </span>
         ))}
@@ -755,7 +765,7 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           on a white plate rather than being inverted - the same treatment the
           certificate uses on a dark paper, for the same reason. `crossOrigin`
           because `domSnapshot` has to read its pixels back out. */}
-      <div className="flex items-center gap-3 border-t border-white/25 pt-4">
+      <div data-anim="rise" className="flex items-center gap-3 border-t border-white/25 pt-4">
         {/* NO WHITE PLATE (21 Sep 2026). Ethan: "you have the logo at the
             bottom, but there's like a white background around it. I wouldn't
             have that." The plate was there because the only logo file had a

@@ -7,8 +7,7 @@ import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
-import { DEFAULT_COPY, WORK_LIMIT, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
-import { ACCENTS } from '../../lib/certificates'
+import { DEFAULT_COPY, PORTFOLIO_ACCENTS as ACCENTS, WORK_LIMIT, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
 //
@@ -137,7 +136,8 @@ function Look({ portfolio, onChange, tr }) {
   return (
     <div>
       <p className="label">{tr('Accent colour')}</p>
-      <div className="flex flex-wrap gap-2.5">
+      {/* Fourteen: two even rows of seven in the editor's column. */}
+      <div className="grid grid-cols-7 gap-2.5 sm:max-w-[22rem]">
         {ACCENTS.map((a) => {
           const on = current.toLowerCase() === a.hex.toLowerCase()
           return (
@@ -255,6 +255,34 @@ function Words({ portfolio, creator, onChange, certificates, tr }) {
           </div>
         )
       })}
+
+      {/* THE EMAIL ON "WORK WITH ME". Filled with the address on their account
+          so it works with nothing done, editable, and can be switched off. */}
+      <div className="rounded-xl border border-gray-100 bg-cloud/40 p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="label !mb-0">{tr('Email on "Work with me"')}</p>
+          <Toggle
+            on={!copy.hide_email}
+            onChange={(on) => set('hide_email', !on)}
+            label={copy.hide_email ? tr('Hidden') : tr('Shown')}
+          />
+        </div>
+        {!copy.hide_email && (
+          <input
+            type="email"
+            value={typeof copy.contact_email === 'string' ? copy.contact_email : (creator?.email || '')}
+            onChange={(e) => set('contact_email', e.target.value.slice(0, 120))}
+            placeholder={creator?.email || 'you@example.com'}
+            className="input text-[13px]"
+            aria-label={tr('Email for brands')}
+          />
+        )}
+        <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
+          {copy.hide_email
+            ? tr('Brands will only see your social links.')
+            : tr('Shown as the first card on the last page, so a brand can email you directly.')}
+        </p>
+      </div>
     </>
   )
 }
