@@ -92,14 +92,46 @@ export const STARTER_POINT_RULES = [
 // threshold on the way to the database - a rule that looked right on screen
 // and scored nothing.
 export const RULE_USES_THRESHOLD = new Set(['views_threshold', 'total_views_threshold'])
-export const RULE_USES_MAX = new Set(['per_post', 'platform_spread'])
+// `bonus` has a cap too (migration 233): "+3 a video, at most 9 from this
+// bonus". A consistency bonus is paid once, so it has no cap.
+export const RULE_USES_MAX = new Set(['per_post', 'platform_spread', 'bonus'])
+export const RULE_USES_PERIOD = new Set(['consistency'])
+
+// A rule id that is a real database row. The editor gives a rule it has just
+// made a temporary id (`new-3`, `seed-0`) so React can key it, and the save
+// used to treat every id that was not `seed-` as a row: `new-5` went into a
+// `not in (...)` against a uuid column and Postgres refused the whole save
+// with "invalid input syntax for type uuid". Anything that is not a uuid is
+// new, whatever it happens to be called.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const isSavedRuleId = (id) => UUID.test(String(id ?? ''))
+
+// Consistency windows offered by name; anything else is a custom number of days.
+export const CONSISTENCY_PERIODS = [
+  { days: 1, label: 'every day' },
+  { days: 7, label: 'every week' },
+]
+
+/** How many windows a challenge's dates cut into, for `period_days`. */
+export function consistencyWindows(startIso, endIso, periodDays) {
+  const start = Date.parse(startIso)
+  const end = Date.parse(endIso)
+  const days = Number(periodDays)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !(days > 0)) return null
+  return Math.max(1, Math.ceil((end - start) / (days * 86400000)))
+}
 
 // `min_views` HOLDS A CLAIMED BONUS BACK UNTIL THE ENTRY EARNS IT (migration
 // 181). It is the only field whose owner is not decided by `kind` alone: a
 // bonus with no question is one an ADMIN awards by judgement from the results
 // page, and gating a human's decision on a view count would only stop them
 // being able to make it. So the gate belongs to a bonus that has a question.
-export const ruleUsesMinViews = (r) => r?.kind === 'bonus' && !!String(r?.prompt ?? '').trim()
+//
+// SINCE MIGRATION 233 IT IS EVERY BONUS. An admin awarding a bonus now writes
+// the same claim a creator's tick box does, so "only once the video passes
+// 2,000 views" holds whoever gave it. Ethan: "even if they select it, it's not
+// awarded until the platform reads that the video got over 2,000 views."
+export const ruleUsesMinViews = (r) => r?.kind === 'bonus'
 
 /** A rule trimmed to the columns its kind actually means. */
 export function normalisePointRule(r) {
@@ -108,10 +140,11 @@ export function normalisePointRule(r) {
     label: r.label,
     points: r.points,
     threshold: RULE_USES_THRESHOLD.has(r.kind) ? r.threshold : null,
-    max_points: RULE_USES_MAX.has(r.kind) ? r.max_points : null,
+    max_points: RULE_USES_MAX.has(r.kind) && r.max_points != null && r.max_points !== '' ? r.max_points : null,
     // Zero and null mean the same thing here - "no gate" - and the database
     // compares `>= coalesce(min_views, 0)`, so both behave identically. Null is
     // the one that reads as "not set" when somebody looks at the row.
     min_views: ruleUsesMinViews(r) && Number(r.min_views) > 0 ? Number(r.min_views) : null,
+    period_days: RULE_USES_PERIOD.has(r.kind) && Number(r.period_days) > 0 ? Math.round(Number(r.period_days)) : null,
   }
 }

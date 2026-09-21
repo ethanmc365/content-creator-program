@@ -46,6 +46,9 @@ import { useT } from '../lib/i18n'
 // on a phone, which is the only route that reaches Photos on iOS.
 export default function PhotoLightbox({
   src, alt = '', kind = 'image', shape = 'rect', canSave = false, fileName = '', onClose,
+  // Optional: a line under the photo, and stepping through a set (the
+  // travel-photo board passes both; a chat photo passes neither).
+  caption = '', onPrev = null, onNext = null, counter = '',
 }) {
   const tr = useT()
   const [saving, setSaving] = useState(false)
@@ -176,10 +179,14 @@ export default function PhotoLightbox({
 
   useEffect(() => {
     if (!src) return undefined
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.()
+      else if (e.key === 'ArrowLeft') onPrev?.()
+      else if (e.key === 'ArrowRight') onNext?.()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [src, onClose])
+  }, [src, onClose, onPrev, onNext])
 
   if (!src) return null
 
@@ -263,6 +270,34 @@ export default function PhotoLightbox({
         >
           {tr("Fit to screen")}
         </button>
+      )}
+
+      {/* STEPPING THROUGH A SET. Only when the caller has one, and hidden while
+          zoomed so a pan near the edge never lands on an arrow. */}
+      {!zoomed && onPrev && (
+        <button
+          type="button" onClick={onPrev} aria-label={tr("Previous photo")}
+          className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-transform duration-200 hover:scale-110 active:scale-95 sm:left-6"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
+      )}
+      {!zoomed && onNext && (
+        <button
+          type="button" onClick={onNext} aria-label={tr("Next photo")}
+          className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-transform duration-200 hover:scale-110 active:scale-95 sm:right-6"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+        </button>
+      )}
+      {!zoomed && (caption || counter) && (
+        <div
+          className="pointer-events-none absolute inset-x-0 flex flex-col items-center gap-1 px-6 text-center"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}
+        >
+          {caption && <p className="max-w-xl text-sm font-medium text-white/95 drop-shadow">{caption}</p>}
+          {counter && <p className="text-xs font-semibold tabular-nums text-white/60">{counter}</p>}
+        </div>
       )}
 
       <div

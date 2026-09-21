@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalisePointRule, RULE_USES_THRESHOLD, RULE_USES_MAX } from './scoring'
+import { normalisePointRule, RULE_USES_THRESHOLD, RULE_USES_MAX, isSavedRuleId, consistencyWindows } from './scoring'
 
 // The bug this pins: the challenge form used to null `threshold` for anything
 // that was not `views_threshold`, so a `total_views_threshold` rule reached the
@@ -24,10 +24,15 @@ describe('saving a point rule keeps only the fields its kind means', () => {
     expect(normalisePointRule({ ...full, kind: 'per_post' }).threshold).toBeNull()
   })
 
-  it('gives a bonus neither', () => {
+  it('gives a bonus a cap but no threshold (migration 233)', () => {
     const r = normalisePointRule({ ...full, kind: 'bonus' })
     expect(r.threshold).toBeNull()
-    expect(r.max_points).toBeNull()
+    expect(r.max_points).toBe(8)
+  })
+
+  it('treats a blank cap as no cap', () => {
+    expect(normalisePointRule({ ...full, kind: 'bonus', max_points: '' }).max_points).toBeNull()
+    expect(normalisePointRule({ ...full, kind: 'bonus', max_points: null }).max_points).toBeNull()
   })
 
   it('never lets one kind claim both fields', () => {
@@ -58,15 +63,15 @@ describe('normalisePointRule: the bonus view gate', () => {
     expect(normalisePointRule(claimable).min_views).toBe(1000)
   })
 
-  it('drops it from a bonus an admin awards by hand', () => {
-    // No question means a human decides, and a human's judgement cannot be
-    // gated on a view count without simply stopping them deciding.
-    expect(normalisePointRule({ ...claimable, prompt: '   ' }).min_views).toBeNull()
-    expect(normalisePointRule({ ...claimable, prompt: undefined }).min_views).toBeNull()
+  it('keeps it on a bonus an admin awards too (migration 233)', () => {
+    // An admin's award is a claim made for the creator now, so the gate holds
+    // whoever gave the bonus.
+    expect(normalisePointRule({ ...claimable, prompt: '   ' }).min_views).toBe(1000)
+    expect(normalisePointRule({ ...claimable, prompt: undefined }).min_views).toBe(1000)
   })
 
   it('drops it from every other kind of rule', () => {
-    for (const kind of ['per_post', 'views_threshold', 'total_views_threshold', 'platform_spread']) {
+    for (const kind of ['per_post', 'views_threshold', 'total_views_threshold', 'platform_spread', 'consistency']) {
       expect(normalisePointRule({ ...claimable, kind }).min_views).toBeNull()
     }
   })
@@ -79,5 +84,43 @@ describe('normalisePointRule: the bonus view gate', () => {
 
   it('takes the number even when the editor hands it over as text', () => {
     expect(normalisePointRule({ ...claimable, min_views: '500' }).min_views).toBe(500)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// "invalid input syntax for type uuid: new-5" - the Global Challenge draft.
+// The save sent the editor's temporary ids to Postgres as though they were
+// rows. Only a uuid is a row.
+describe('isSavedRuleId', () => {
+  it('accepts a database id', () => {
+    expect(isSavedRuleId('93c6a3c9-7c42-4f92-ad1f-cfcb60dae5a5')).toBe(true)
+  })
+  it('rejects every temporary id the editor makes', () => {
+    for (const id of ['new-5', 'new-12-3', 'seed-0', '', null, undefined, 7]) {
+      expect(isSavedRuleId(id)).toBe(false)
+    }
+  })
+})
+
+describe('the consistency bonus', () => {
+  it('keeps its window and nothing else', () => {
+    const r = normalisePointRule({ kind: 'consistency', label: 'Posted every week', points: 5, period_days: 7, threshold: 9, max_points: 3, min_views: 100 })
+    expect(r).toMatchObject({ kind: 'consistency', points: 5, period_days: 7, threshold: null, max_points: null, min_views: null })
+  })
+  it('drops the window from every other kind', () => {
+    expect(normalisePointRule({ kind: 'bonus', label: 'x', points: 1, period_days: 7 }).period_days).toBeNull()
+  })
+  it('cuts the Global Challenge into four weeks', () => {
+    // Monday 21 Sep 00:00 to Sunday 18 Oct 23:59, London.
+    expect(consistencyWindows('2026-09-20T23:00:00Z', '2026-10-18T22:59:00Z', 7)).toBe(4)
+    expect(consistencyWindows('2026-09-20T23:00:00Z', '2026-10-18T22:59:00Z', 1)).toBe(28)
+  })
+  it('counts a short last window as a window', () => {
+    expect(consistencyWindows('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 7)).toBe(2)
+  })
+  it('has no answer without real dates', () => {
+    expect(consistencyWindows(null, '2026-09-10T00:00:00Z', 7)).toBeNull()
+    expect(consistencyWindows('2026-09-10T00:00:00Z', '2026-09-01T00:00:00Z', 7)).toBeNull()
+    expect(consistencyWindows('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 0)).toBeNull()
   })
 })

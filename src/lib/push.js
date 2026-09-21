@@ -52,6 +52,48 @@ export async function enablePush(userId) {
   }
 }
 
+// KEEP THIS DEVICE'S REGISTRATION CURRENT, ON EVERY OPEN (21 Sep 2026).
+//
+// A subscription used to be written only when somebody pressed "turn on
+// notifications". Browsers rotate push subscriptions (iOS after an update or a
+// long sleep, Chrome when its FCM token is refreshed), and notify-dispatch
+// deletes one the push service reports gone - and in all three cases nothing
+// ever wrote the new one, so a creator who had said yes once stopped getting
+// pushes for good while every setting still read "on". Ethan: "I haven't been
+// getting notifications recently."
+//
+// So when permission is already granted, the app re-reads the live
+// subscription (making one if the browser has none) and upserts it. It never
+// ASKS for permission - that stays a deliberate press - and it is silent on
+// every failure, because it runs at start-up.
+let lastSync = { user: null, at: 0 }
+export async function syncPushSubscription(userId) {
+  if (!userId || !pushSupported() || Notification.permission !== 'granted') return false
+  // At most once every ten minutes per person: foregrounding the app is
+  // frequent and the subscription rarely changes.
+  if (lastSync.user === userId && Date.now() - lastSync.at < 10 * 60 * 1000) return true
+  lastSync = { user: userId, at: Date.now() }
+  try {
+    const reg = (await navigator.serviceWorker.getRegistration()) || (await registerServiceWorker())
+    if (!reg) return false
+    let sub = await reg.pushManager.getSubscription()
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      })
+    }
+    const json = sub.toJSON()
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      { user_id: userId, endpoint: sub.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
+      { onConflict: 'endpoint' },
+    )
+    return !error
+  } catch {
+    return false
+  }
+}
+
 export async function disablePush() {
   try {
     const reg = await navigator.serviceWorker.ready

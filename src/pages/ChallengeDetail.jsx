@@ -15,6 +15,7 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import ScoringPanel from '../components/network/ScoringPanel'
 import ParticipationBar from '../components/network/ParticipationBar'
+import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
@@ -99,6 +100,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [lifecycleBusy, setLifecycleBusy] = useState(false)
 
   const [challenge, setChallenge] = useState(null)
+  // Who is earning the capped participation prize (migration 233). Same
+  // function the payout reads, so "you have earned it" is never a promise the
+  // payout then breaks.
+  const prizeStandings = usePrizeStandings(challenge?.participation_cap || challenge?.participation_scope === 'outside_prizes' ? challenge?.id : null)
   const [submissions, setSubmissions] = useState([])
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -973,10 +978,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 <div className="flex items-start gap-3">
                   <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr("Everyone can win this")}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">
+                      {challenge?.participation_cap
+                        ? tr("The first {n} creators to get there", { n: challenge.participation_cap })
+                        : tr("Everyone can win this")}
+                    </p>
                     <p className="text-sm font-semibold text-ink">
                       {tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
                     </p>
+                    {challenge?.participation_scope === 'outside_prizes' && (
+                      <p className="mt-0.5 text-xs text-smoke">{tr("For creators who finish outside the prize places.")}</p>
+                    )}
                     {/* HOW CLOSE *YOU* ARE, AND NOTHING ELSE (3 Sep 2026).
                         Ethan: "I would remove the '5 earned so far'. I don't
                         think you need to show what was earned so far, just how
@@ -993,9 +1005,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                           />
                         </div>
                         <p className="mt-1.5 text-xs text-smoke">
-                          {myEntries.length >= participation.threshold
-                            ? tr("You have earned it.")
-                            : tr("{n} more videos to go.", { n: participation.threshold - myEntries.length })}
+                          {(() => {
+                            const mine = prizeStandings?.find((r) => r.slot === 'participation' && r.creator_id === user?.id)
+                            const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned').length ?? 0
+                            const cap = challenge?.participation_cap
+                            const left = cap ? Math.max(0, cap - earned) : null
+                            if (myEntries.length >= participation.threshold) {
+                              if (mine?.status === 'waitlisted') return tr("You got there after the first {n} places were taken.", { n: cap })
+                              if (mine?.status === 'excluded') return tr("You are in the prize places, so this one goes to someone else.")
+                              return tr("You have earned it.")
+                            }
+                            const togo = tr("{n} more videos to go.", { n: participation.threshold - myEntries.length })
+                            if (left === 0) return tr("All {n} places have been taken.", { n: cap })
+                            return left != null ? `${togo} ${tr("{n} places left.", { n: left })}` : togo
+                          })()}
                         </p>
                       </div>
                     )}
@@ -1003,6 +1026,22 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </div>
               </div>
             )}
+            {Array.isArray(challenge?.extra_awards) && challenge.extra_awards.filter((a) => a?.prize).map((a) => (
+              <div key={a.id} className="border-t border-gray-100 px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr(a.label || 'Most committed')}</p>
+                    <p className="text-sm font-semibold text-ink">{a.prize}</p>
+                    <p className="mt-0.5 text-xs text-smoke">
+                      {a.scope === 'anyone' ? tr("For whoever enters the most videos.") : tr("For whoever enters the most videos and finishes outside the top {n}.", {
+                        n: a.exclude_top || (Array.isArray(challenge.prize_structure) ? challenge.prize_structure.length : 0) || 10,
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </section>
           </>
         )
