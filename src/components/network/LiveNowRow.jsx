@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import FlagStack from './FlagStack'
-import { challengeDeadline } from '../../lib/utils'
+import { challengeDeadline, cx } from '../../lib/utils'
 
 // THE LIVE CHALLENGE, AS ONE ROW, ON EVERY SCREEN.
 //
@@ -37,7 +37,13 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now })
   return (
     <Link
       to={`/challenges/${challenge.id}`}
-      className="relative flex items-center gap-3 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]"
+      // THE GLOBAL ONE WEARS THE GLOBAL CARD'S GROUND (21 Sep 2026): the darker
+      // ember-to-orange gradient /challenges paints it in, so the worldwide brief
+      // is told apart from a market's at a glance, here as there.
+      className={cx(
+        'relative flex items-center gap-3 overflow-hidden rounded-card px-4 py-3.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]',
+        isGlobal ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light' : 'bg-gradient-to-br from-brand to-brand-light',
+      )}
     >
       <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
       {/* THE SAME ONE PASS OF LIGHT THE BIG CARD GETS.

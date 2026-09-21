@@ -27,8 +27,11 @@ import { cx } from '../lib/utils'
 
 // The tallest block is in the MIDDLE, which is what makes it read as a podium
 // rather than as a descending bar chart.
-const ORDER = [2, 1, 3]
-const HEIGHT = { 1: 'h-28', 2: 'h-20', 3: 'h-16' }
+// FIVE STEPS WHEN FIVE ARE GIVEN (21 Sep 2026). Ethan: "You can show a visual
+// of the top 5 spots here rather than just 3." Fourth and fifth stand on the
+// outside, lower and smaller, so the middle three still read as the podium.
+const ORDER = [4, 2, 1, 3, 5]
+const HEIGHT = { 1: 'h-28', 2: 'h-20', 3: 'h-16', 4: 'h-12', 5: 'h-9' }
 
 /**
  * @param places [{ rank, id, name, photo_url, score, unit, sub, extra, prize, empty }]
@@ -46,20 +49,22 @@ export default function Podium({ places = [], meId = null, animate = true, class
   const at = (n) => places.find((p) => Number(p.rank) === n)
   const order = ORDER.map(at).filter(Boolean)
   if (order.length === 0) return null
+  const five = order.length > 3
 
   return (
-    <div className={cx('flex items-end justify-center gap-2 sm:gap-4', className)}>
+    <div className={cx('flex items-end justify-center', five ? 'gap-1.5 sm:gap-3' : 'gap-2 sm:gap-4', className)}>
       {order.map((p) => {
         const place = Number(p.rank)
         const tier = podiumTier(place)
         const first = place === 1
+        const outer = place > 3
         return (
           <div
             key={p.id ?? place}
-            className={cx('flex w-full max-w-[10rem] flex-col items-center', animate && 'animate-fade-up')}
+            className={cx('flex w-full min-w-0 flex-col items-center', five ? 'max-w-[8.5rem]' : 'max-w-[10rem]', animate && 'animate-fade-up')}
             // The middle step lands first and the outer two follow, so the
             // podium assembles from the winner outwards.
-            style={animate ? { animationDelay: `${0.08 * (4 - place)}s` } : undefined}
+            style={animate ? { animationDelay: `${0.07 * (6 - place)}s` } : undefined}
           >
             <PodiumFace to={p.empty || !p.id ? null : `/profile/${p.id}`}>
               {p.empty ? (
@@ -71,10 +76,10 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   aria-hidden
                   className={cx(
                     'flex items-center justify-center rounded-full border-2 border-dashed border-brand/30 text-brand/40',
-                    first ? 'h-[5.5rem] w-[5.5rem]' : 'h-14 w-14',
+                    first ? 'h-[5.5rem] w-[5.5rem]' : outer ? 'h-11 w-11' : 'h-14 w-14',
                   )}
                 >
-                  <Icon name="user" className={first ? 'h-7 w-7' : 'h-5 w-5'} />
+                  <Icon name="user" className={first ? 'h-7 w-7' : outer ? 'h-4 w-4' : 'h-5 w-5'} />
                 </span>
               ) : (
                 /* The collar IS the ring - a padded disc in the place's own
@@ -83,11 +88,12 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   className="block rounded-full p-1 transition-transform duration-200 group-hover:scale-105"
                   style={{ background: tier.disc }}
                 >
-                  <Avatar src={p.photo_url} name={p.name} size={first ? 'lg' : 'md'} />
+                  <Avatar src={p.photo_url} name={p.name} size={first ? 'lg' : outer ? 'sm' : 'md'} />
                 </span>
               )}
               <p className={cx(
-                'mt-2 max-w-full truncate text-center text-sm font-semibold transition-colors group-hover:text-brand',
+                'mt-2 max-w-full truncate text-center font-semibold transition-colors group-hover:text-brand',
+                outer ? 'text-xs' : 'text-sm',
                 p.empty && 'text-gray-400',
                 !p.empty && meId && p.id === meId && 'text-brand',
               )}>
@@ -120,7 +126,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
             {p.extra && <div className="mt-1.5">{p.extra}</div>}
 
             <div
-              className={cx('mt-2 flex w-full items-start justify-center rounded-t-xl pt-2 text-lg font-bold', HEIGHT[place])}
+              className={cx('mt-2 flex w-full items-start justify-center rounded-t-xl font-bold', outer ? 'pt-1.5 text-sm' : 'pt-2 text-lg', HEIGHT[place])}
               style={{ background: tier.disc, color: tier.ink }}
             >
               {place}

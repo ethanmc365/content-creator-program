@@ -418,6 +418,11 @@ html {
   .rt-editor li { @apply my-1 pl-1; }
   .rt-editor blockquote { @apply my-2 border-l-2 border-brand pl-3 italic text-smoke; }
   .rt-editor hr { @apply my-5 border-gray-200; }
+  /* A brief shown under its own card title: the headings INSIDE it step down a
+     size so the card's "The brief" stays the biggest thing in the card. */
+  .rt-editor.rt-brief h1 { @apply mt-4 text-xl; }
+  .rt-editor.rt-brief h2 { @apply text-lg; }
+  .rt-editor.rt-brief h3 { @apply text-base; }
   /* WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND, and both got bigger.
      The sizes above belong to a note, which is a page; a chat composer is four
      lines tall, so it uses the sizes `renderMessageBody` actually draws rather

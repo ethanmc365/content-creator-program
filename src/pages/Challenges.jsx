@@ -111,7 +111,7 @@ export default function Challenges() {
     supabase.from('results')
       .select('challenge_id, creator_id, rank, final_views, total_views, profiles:creator_id(name, photo_url, is_test)')
       .in('challenge_id', liveIds)
-      .lte('rank', 3)
+      .lte('rank', 5)
       .order('rank')
       .then(({ data }) => {
         if (cancelled) return

@@ -13,6 +13,8 @@ import VideoThumb from '../components/VideoThumb'
 import { previewLink, storeThumbnail } from '../lib/videoThumbs'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
+import CollapsibleRich from '../components/CollapsibleRich'
+import { useMyScopes } from '../lib/scope'
 import ScoringPanel from '../components/network/ScoringPanel'
 import ParticipationBar from '../components/network/ParticipationBar'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
@@ -21,7 +23,6 @@ import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from 
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
 import { podiumTier, placeNumber } from '../lib/podiumTiers'
-import { mdToHtml } from '../lib/richEditor'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
@@ -97,6 +98,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const id = challengeId || routeId
   const [searchParams] = useSearchParams()
   const { user, isAdmin } = useAuth()
+  const { networkId } = useMyScopes()
   const [lifecycleBusy, setLifecycleBusy] = useState(false)
 
   const [challenge, setChallenge] = useState(null)
@@ -108,6 +110,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries
+  const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
   const [playing, setPlaying] = useState(null) // submission being watched inline
@@ -445,6 +448,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
   // Live only while active AND before the deadline (midnight after the end date).
   const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
+  const isGlobalChallenge = !!networkId && challenge.community_id === networkId
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
 
   // Given, or worked out. `audience` is null until the count lands, which is
@@ -555,7 +559,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       .filter(([n]) => n != null),
   )
   const rowAtRank = new Map(boardRows.map((r) => [Number(r.rank), r]))
-  const podiumPlaces = [1, 2, 3].map((rank) => {
+  // Five steps when the board pays five or more places (Ethan, 21 Sep).
+  const podiumDepth = boardPrizeAt.size >= 5 || boardRows.length >= 5 ? 5 : 3
+  const podiumPlaces = Array.from({ length: podiumDepth }, (_, i) => i + 1).map((rank) => {
     const row = rowAtRank.get(rank)
     const prize = boardPrizeAt.get(rank) || null
     if (!row) return { rank, empty: true, name: tr('Up for grabs'), prize }
@@ -710,7 +716,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           behind the button. Both are decoration on a static layout, so
           `prefers-reduced-motion` can drop them and nothing moves position. */}
       {isLive && (
-        <div className="challenge-card relative mb-10 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-8">
+        <div className={cx(
+          'challenge-card relative mb-10 overflow-hidden rounded-card p-6 text-white shadow-lift sm:p-8',
+          // The worldwide brief wears the global card's darker ground here too,
+          // as it does on /challenges and in the Live now row (21 Sep 2026).
+          isGlobalChallenge ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light' : 'bg-gradient-to-br from-brand to-brand-light',
+        )}>
           <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
           {/* The same two blooms the live card carries, so the orange is never
               flat orange. The dark one is desktop-only: 288px of black-10%
@@ -807,7 +818,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           for. They are pressable pills now - a glyph, the word, and the entry
           count as a chip - so the choice reads as a choice. They still lift on
           hover rather than changing colour, which is the house rule. */}
-      <div className="-mx-4 mb-8 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
+      {/* `pt-1.5 -mt-1.5`: the row scrolls sideways, and a box that scrolls on
+          one axis clips on both - so a pill lifting 2px on hover had its top
+          sliced off (Ethan, 21 Sep). The padding is the room to lift into. */}
+      <div className="-mx-4 -mt-1.5 mb-8 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -870,12 +884,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               lib/richEditor; the attacker there is a creator and the victim
               is the team). `rt-editor` is the stylesheet those tags are
               already written for. */}
+          {/* BIGGER THAN ANY HEADING INSIDE IT, IN INK, AND FOLDED (21 Sep 2026).
+              Ethan: "the brief title is smaller than the actual title that
+              says 'Welcome to the First Ever Tryp.com Challenge'... the title
+              is black, but then the other text is greyed out. I would keep it
+              all black." And it opens on its first paragraph with Read all,
+              so the points table below is not a long scroll away. */}
           <section className="card">
-            <h2 className="mb-3 text-lg font-semibold">{tr("The brief")}</h2>
-            <div
-              className="rt-editor leading-relaxed text-smoke"
-              dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.description || '') }}
-            />
+            <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("The brief")}</h2>
+            <CollapsibleRich md={challenge.description || ''} />
           </section>
           </>
         )
@@ -883,11 +900,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <>
           {challenge.rules && (
             <section className="card">
-              <h2 className="mb-3 text-lg font-semibold">{tr("Rules")}</h2>
-              <div
-                className="rt-editor leading-relaxed text-smoke"
-                dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.rules) }}
-              />
+              <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("Rules")}</h2>
+              <CollapsibleRich md={challenge.rules} />
             </section>
           )}
           </>
@@ -953,7 +967,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               <p className="px-5 py-6 text-sm text-smoke">{tr("Prize details coming soon.")}</p>
             ) : (
               <ul className="divide-y divide-gray-50">
-                {prizes.map((p, i) => {
+                {(isMobile && !allPrizes ? prizes.slice(0, 5) : prizes).map((p, i) => {
                   // The ordinal on the row is the admin's own text ("1st",
                   // and sometimes "3+ videos"), but the CHIP has to be a
                   // number, so it reads the digits off it and falls back to
@@ -978,69 +992,77 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 })}
               </ul>
             )}
-
-            {participation && (
-              <div className="border-t border-gray-100 px-5 py-4">
-                <div className="flex items-start gap-3">
-                  <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">
-                      {challenge?.participation_cap
-                        ? tr("The first {n} creators to get there", { n: challenge.participation_cap })
-                        // "Everyone can win this" sat directly above "For
-                        // creators who finish outside the prize places" - a
-                        // headline and its own small print disagreeing. With no
-                        // cap, what is true either way is that there is no limit.
-                        : tr("Every creator who gets there")}
-                    </p>
-                    <p className="text-sm font-semibold text-ink">
-                      {participation.basis === 'points'
-                        ? tr("Reach {n} points and earn {prize}", { n: participation.threshold, prize: participation.prize })
-                        : tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
-                    </p>
-                    {challenge?.participation_scope === 'outside_prizes' && (
-                      <p className="mt-0.5 text-xs text-smoke">{tr("For creators who finish outside the prize places.")}</p>
-                    )}
-                    {/* HOW CLOSE *YOU* ARE, AND NOTHING ELSE (3 Sep 2026).
-                        Ethan: "I would remove the '5 earned so far'. I don't
-                        think you need to show what was earned so far, just how
-                        many to go - three more videos to go."
-                        The tally of other people's vouchers was the least
-                        motivating true fact available, and it sat in the one
-                        line whose whole job is to say what to do next. */}
-                    {isLive && (
-                      <div className="mt-2.5">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-cloud">
-                          <div
-                            className="h-full rounded-full bg-brand transition-[width] duration-500"
-                            style={{ width: `${Math.min(100, Math.round((partHave / participation.threshold) * 100))}%` }}
-                          />
-                        </div>
-                        <p className="mt-1.5 text-xs text-smoke">
-                          {(() => {
-                            const mine = prizeStandings?.find((r) => r.slot === 'participation' && r.creator_id === user?.id)
-                            const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned').length ?? 0
-                            const cap = challenge?.participation_cap
-                            const left = cap ? Math.max(0, cap - earned) : null
-                            if (partHave >= participation.threshold) {
-                              if (mine?.status === 'waitlisted') return tr("You got there after the first {n} places were taken.", { n: cap })
-                              if (mine?.status === 'excluded') return tr("You are in the prize places, so this one goes to someone else.")
-                              return tr("You have earned it.")
-                            }
-                            const short = participation.threshold - partHave
-                            const togo = participation.basis === 'points'
-                              ? (short === 1 ? tr("1 more point to go.") : tr("{n} more points to go.", { n: short }))
-                              : tr("{n} more videos to go.", { n: short })
-                            if (left === 0) return tr("All {n} places have been taken.", { n: cap })
-                            return left != null ? `${togo} ${tr("{n} places left.", { n: left })}` : togo
-                          })()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+            {/* Five places on a phone, the rest one tap away. */}
+            {isMobile && prizes.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setAllPrizes((v) => !v)}
+                className="flex w-full items-center justify-center gap-1.5 border-t border-gray-50 px-5 py-3 text-sm font-semibold text-brand"
+              >
+                {allPrizes ? tr('Show less') : (prizes.length - 5 === 1 ? tr('+1 more prize') : tr('+{n} more prizes', { n: prizes.length - 5 }))}
+                <Icon name="chevron-down" className={cx('h-4 w-4 transition-transform duration-300', allPrizes && 'rotate-180')} />
+              </button>
             )}
+
+            {/* THE TAKING-PART REWARD, TIDIED (21 Sep 2026). Ethan: "tidy up
+                where it says 'Every creator who gets there reaches 18 points
+                in our Tryp.com voucher'... show '18 more points to go', which
+                is nice." The prize is the headline, the condition is the line
+                under it, and the bar says how far along YOU are in numbers. */}
+            {participation && (() => {
+              const byPoints = participation.basis === 'points'
+              const pct = Math.min(100, Math.round((partHave / participation.threshold) * 100))
+              const mine = prizeStandings?.find((r) => r.slot === 'participation' && r.creator_id === user?.id)
+              const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned').length ?? 0
+              const cap = challenge?.participation_cap
+              const left = cap ? Math.max(0, cap - earned) : null
+              const short = participation.threshold - partHave
+              let status
+              if (partHave >= participation.threshold) {
+                status = mine?.status === 'waitlisted' ? tr("You got there after the first {n} places were taken.", { n: cap })
+                  : mine?.status === 'excluded' ? tr("You are in the prize places, so this one goes to someone else.")
+                    : tr("You have earned it.")
+              } else {
+                const togo = byPoints
+                  ? (short === 1 ? tr("1 more point to go.") : tr("{n} more points to go.", { n: short }))
+                  : tr("{n} more videos to go.", { n: short })
+                status = left === 0 ? tr("All {n} places have been taken.", { n: cap })
+                  : left != null ? `${togo} ${tr("{n} places left.", { n: left })}` : togo
+              }
+              return (
+                <div className="border-t border-gray-100 px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                      <Icon name="ticket" className="h-[18px] w-[18px]" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr("Reward for taking part")}</p>
+                      <p className="mt-0.5 text-[15px] font-bold leading-snug text-ink">{participation.prize}</p>
+                      <p className="mt-0.5 text-xs leading-snug text-ink/70">
+                        {byPoints
+                          ? tr("Reach {n} points", { n: participation.threshold })
+                          : tr("Post {n} videos", { n: participation.threshold })}
+                        {challenge?.participation_scope === 'outside_prizes' ? ` · ${tr("outside the prize places")}` : ''}
+                        {cap ? ` · ${tr("first {n} creators", { n: cap })}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {isLive && (
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
+                        <span className="font-semibold text-ink">{status}</span>
+                        <span className="shrink-0 font-bold tabular-nums text-brand">
+                          {Math.min(partHave, participation.threshold)}/{participation.threshold}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-cloud">
+                        <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             {Array.isArray(challenge?.extra_awards) && challenge.extra_awards.filter((a) => a?.prize).map((a) => (
               <div key={a.id} className="border-t border-gray-100 px-5 py-4">
                 <div className="flex items-start gap-3">
@@ -1094,27 +1116,34 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </>
         )
 
+        // THE PHONE'S ORDER, SHORTER (21 Sep 2026). Prizes, then the brief
+        // (folded), then straight into how points are scored - the part a
+        // creator comes back to check - with the platforms and the (folded)
+        // rules last. Ethan: "there is a lot of scrolling involved."
         if (isMobile) {
           return (
             <div className="space-y-6">
               {prizesCard}
               {briefCard}
-              {rulesCard}
               {scoringCard}
               {platformsCard}
+              {rulesCard}
             </div>
           )
         }
         return (
+          // RULES MOVED TO THE RIGHT, UNDER THE PLATFORMS (21 Sep 2026, Ethan).
+          // The left column is now the brief and then straight into how points
+          // are scored, which is what a creator comes back to check.
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
               {briefCard}
-              {rulesCard}
               {scoringCard}
             </div>
             <div className="space-y-6">
               {prizesCard}
               {platformsCard}
+              {rulesCard}
             </div>
           </div>
         )

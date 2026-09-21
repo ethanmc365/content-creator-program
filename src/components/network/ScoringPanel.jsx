@@ -44,13 +44,14 @@ export default function ScoringPanel({ challenge }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-6">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+        {/* SOLID TRYP.COM ORANGE, NOT A PALE TILE (21 Sep 2026, Ethan). */}
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
           <Icon name={mode.icon} className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("How this is won")}</p>
-          <p className="mt-0.5 text-lg font-semibold">{mode.label}</p>
-          <p className="mt-1 text-sm text-smoke">{mode.winner}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand">{tr("How this is won")}</p>
+          <p className="mt-0.5 text-xl font-bold tracking-tight">{mode.label}</p>
+          <p className="mt-1 text-sm text-ink/80">{mode.winner}</p>
         </div>
       </div>
 

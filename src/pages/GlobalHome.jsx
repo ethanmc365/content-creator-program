@@ -9,7 +9,7 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
-import LiveChallengeCard from '../components/network/LiveChallengeCard'
+import GlobalChallengeStrip from '../components/network/GlobalChallengeStrip'
 import { CountUp } from '../components/network/Motion'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
@@ -826,7 +826,15 @@ export default function GlobalHome() {
                 `bottom-0` and the stats row runs under it, so the trail was
                 landing on the caption. Nudged here rather than in TrypPlane:
                 every other card that draws it has different content beneath. */}
-            <TrypPlane variant="hero" id="welcome" className="translate-y-4" />
+            {/* The plane and the figures share a box of their own now, so the
+                plane stays parked beside the figures when the global challenge
+                band is added under them rather than dropping onto the band. */}
+            <div className="relative">
+            {/* With the challenge band under it the figures' box is the plane's
+                anchor, and that box is shorter than the plane - so it drops
+                further to fly between the figures and the band, not over the
+                kilometres. */}
+            <TrypPlane variant="hero" id="welcome" className={globalLive ? 'translate-y-[4.25rem]' : 'translate-y-4'} />
             <div className="relative">
               {/* NO "WORLDWIDE" PILL. Ethan: "I think it says worldwide on the
                   top of that card - we can remove that, it doesn't necessarily
@@ -851,7 +859,7 @@ export default function GlobalHome() {
                   size a heading is allowed to be, and forcing it there would
                   push the text out of the card rather than wrap it. From `sm`
                   up there is room, so that is where the promise is made. */}
-              <h2 className="text-lg font-bold leading-tight sm:whitespace-nowrap sm:text-2xl lg:text-3xl">
+              <h2 className="text-lg font-bold leading-tight sm:text-2xl lg:text-[26px] xl:whitespace-nowrap xl:text-3xl">
                 {tr("Tryp.com Content Creator Community")}
               </h2>
 
@@ -1005,6 +1013,8 @@ export default function GlobalHome() {
                 </div>
               </div>
             </div>
+            </div>
+            {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" />}
           </section>
           </Reveal>
           )}
@@ -1013,21 +1023,13 @@ export default function GlobalHome() {
           {/* Above the markets on purpose. A global challenge is the one thing
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
-          {globalLive && (
-            <Reveal from="down" delay={stepDelay()}>
-              <section>
-                <SectionHead icon="globe" title={tr("Open to everyone")}
-                  hint={tr("A global brief. Enter from any market, anywhere in the world.")} />
-                <LiveChallengeCard
-                  challenge={globalLive}
-                  market={network?.name}
-                  entries={d?.globalEntries ?? null}
-                  participation={d?.globalParticipation ?? null}
-                  global
-                />
-              </section>
-            </Reveal>
-          )}
+          {/* THE "OPEN TO EVERYONE" SECTION IS GONE (21 Sep 2026). It drew the
+              whole live global challenge card - brief, board, clock and the
+              participation bar - as a second copy under the community card.
+              Ethan: "It should just be that little card on the top for mobile
+              and on the top right for desktop." On a desktop the community card
+              carries it as a band (GlobalChallengeStrip); on a phone the
+              Live now row at the top of the page is the door. */}
 
           {/* ---------- Markets: NOT HERE ANY MORE ----------
               It was a two-column grid of market cards, desktop only, saying

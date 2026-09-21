@@ -6,6 +6,8 @@ import ParticipationBar from './network/ParticipationBar'
 import { cx, formatDate, formatViews } from '../lib/utils'
 import { ordinalFor, rankInk } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
+import { briefExcerpt } from '../lib/briefExcerpt'
+import SpinningEarth from './SpinningEarth'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -13,7 +15,8 @@ import { useT } from '../lib/i18n'
 // object with the same controls, and giving them two hand-written cards is how
 // the countdown ends up in a different place on each of them within a month.
 // What differs is the WEIGHT, and it differs in three deliberate ways only:
-// the ground it is painted on, one line of framing copy, and the meridians.
+// the ground it is painted on, one line of framing copy, and the turning Earth
+// (SpinningEarth).
 //
 // WHY THE GLOBAL ONE LOOKS DIFFERENT AT ALL. Everybody is a member of
 // Worldwide, so a global brief is the one thing on this page that every creator
@@ -28,37 +31,6 @@ import { useT } from '../lib/i18n'
 // `orbit`/`sheen` keyframes in index.css) and every bit of it is behind
 // prefers-reduced-motion.
 
-// A faint globe: three meridians and two parallels, drawn once and turned very
-// slowly. Purely decorative, so it is aria-hidden and it never animates for
-// anyone who has asked the OS for less motion.
-function Meridians() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 200 200"
-      className="challenge-orbit pointer-events-none absolute -right-12 -top-16 h-[22rem] w-[22rem] text-white/[0.13] sm:-right-4 sm:h-[26rem] sm:w-[26rem]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1"
-    >
-      <circle cx="100" cy="100" r="78" />
-      <ellipse cx="100" cy="100" rx="30" ry="78" />
-      <ellipse cx="100" cy="100" rx="56" ry="78" />
-      <line x1="22" y1="100" x2="178" y2="100" />
-      <ellipse cx="100" cy="100" rx="78" ry="30" />
-      <ellipse cx="100" cy="100" rx="78" ry="56" />
-    </svg>
-  )
-}
-
-// A PLACE IS A NUMBER, EVEN WHEN IT IS STORED AS A WORD.
-//
-// `prize_structure` is a jsonb array of `{ place, prize }` written by the admin
-// form, and `place` comes out as the STRING "1st" on every row in production.
-// The chips this replaces did `ordinal(p.place ?? i + 1)` against an ordinal
-// helper that compares with `===` against 1, 2 and 3 - so a real prize row
-// rendered as "1stth". It never showed because the only challenge with a prize
-// structure is archived, which is exactly how a bug like this waits.
 const placeNumber = (v, fallback) => {
   const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10)
   return Number.isFinite(n) && n > 0 ? n : fallback
@@ -114,9 +86,17 @@ function prizeForPlace(prizes, place) {
 // reads as a thing lying ON the card rather than a hole cut in it, the faces
 // sit on their own ground, and a prize in grey under a name in black is finally
 // legible at the size it is printed.
+// THE TOP FIVE PAID PLACES, AND A COUNT OF THE REST (21 Sep 2026). Ethan: "If
+// we have space, it should show the top 5 prizes at least there, rather than
+// just the top 3. It should show '+5 more prizes' if there are +5 more prizes,
+// or not if there isn't."
+const BOARD_ROWS = 5
 function Leaderboard({ leaders, prizes, className, scoring }) {
   const tr = useT()
-  const rows = [1, 2, 3].map((place, i) => ({
+  const paid = (Array.isArray(prizes) ? prizes : []).filter((p) => p?.prize && placeNumber(p?.place, null) != null).length
+  const depth = Math.max(3, Math.min(BOARD_ROWS, Math.max(paid, leaders?.length || 0)))
+  const moreGiven = Math.max(0, paid - depth)
+  const rows = Array.from({ length: depth }, (_, i) => i + 1).map((place, i) => ({
     place,
     leader: leaders?.[i] || null,
     prize: prizeForPlace(prizes, place),
@@ -195,12 +175,18 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
           </div>
         ))}
       </div>
+      {moreGiven > 0 && (
+        <p className="mt-2 border-t border-gray-100 pt-2 text-center text-xs font-semibold text-brand">
+          {moreGiven === 1 ? tr('+1 more prize') : tr('+{n} more prizes', { n: moreGiven })}
+        </p>
+      )}
     </div>
   )
 }
 
 export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders }) {
   const tr = useT()
+  const excerpt = briefExcerpt(c.description || '')
   return (
     <div>
       <div
@@ -232,7 +218,14 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             small weight in the corner of a much larger card, which is what it
             was drawn to be. */}
         <div className="pointer-events-none absolute -bottom-24 -left-10 hidden h-72 w-72 rounded-full bg-black/10 blur-2xl sm:block" />
-        {isGlobal && <Meridians />}
+        {/* THE REAL EARTH, TURNING (21 Sep 2026). It replaces a wireframe of
+            six ellipses that sat in the top-right corner - exactly where the
+            leaderboard goes on a desktop, so most of it was hidden. On a
+            desktop it is bigger and stands left of the board, behind the title;
+            on a phone it keeps the top-right corner, which Ethan liked there. */}
+        {isGlobal && (
+          <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:-top-28 lg:right-[15rem] lg:h-[36rem] lg:w-[36rem]" />
+        )}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the
             only kind of decoration a page you open weekly can carry. */}
@@ -303,7 +296,16 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             </p>
             {/* The blurb is desktop-only. On a phone the whole card is a link
                 to the brief, which is the same words with room to read them. */}
-            <p className="mt-2 hidden max-w-2xl leading-relaxed text-white/85 line-clamp-2 sm:block">{c.description}</p>
+            {/* THE FIRST PARAGRAPH, AS WORDS (21 Sep 2026). This printed the
+                raw brief - "#" for every heading and "**" round every bold run -
+                and the whole of it, clamped. Now it is the opening paragraph
+                with the marks gone, and the brief itself is one tap away. */}
+            {excerpt.text && (
+              <p className="mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block">
+                {excerpt.text}
+                {excerpt.more && <span className="ml-1.5 font-semibold text-white underline-offset-2 group-hover:underline">{tr('Read all')}</span>}
+              </p>
+            )}
           </Link>
 
           <Leaderboard
@@ -342,10 +344,13 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
                 the brief" is what the rest of the card already does. */}
             <div className="flex flex-wrap gap-3 lg:justify-end">
-              <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/40 text-white hover:bg-white/10 sm:inline-flex">
-                {tr('Read the brief')} →
+              {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
+                  border the solid one did not, so it stood 2px taller, and an
+                  arrow its twin lacked. Both carry a 1px border now. */}
+              <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/50 text-white hover:bg-white/10 sm:inline-flex">
+                {tr('Read the brief')}
               </Link>
-              <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center bg-white !text-brand hover:bg-white/90 sm:w-auto">
+              <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center border border-white bg-white !text-brand hover:bg-white/90 sm:w-auto">
                 {tr('Submit your video')}
               </Link>
             </div>

@@ -50,7 +50,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   const [backlog, setBacklog] = useState(null)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
-  const pollRef = useRef(null)
+  // What the last press actually did, in words (see `finish`).
+  const [outcome, setOutcome] = useState(null)
+  const [before, setBefore] = useState(null)
   const wasRunning = useRef(false)
 
   const refresh = useCallback(async () => {
@@ -67,32 +69,50 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
 
   useEffect(() => { refresh() }, [refresh])
 
-  // Poll only while a run is going, and reload the entries the moment it stops.
-  useEffect(() => {
-    const running = status?.run?.running === true
-    if (running) wasRunning.current = true
+  // A PRESS ALWAYS FINISHES VISIBLY (21 Sep 2026).
+  //
+  // Ethan, the night the Global Challenge opened: "I tried to sync the view
+  // counts of the 1 video that has been submitted so far but it didn't seem to
+  // work at all." It HAD worked - TikTok read 200, which is what the entry
+  // already said - but the page never showed it. The rebuild and the reload
+  // only ran when a poll had SEEN `running: true`, and one video is read in
+  // under a second, inside the first 1.5s poll, so a small sync finished
+  // unseen: no rebuilt board, no refreshed numbers, nothing on screen. Now
+  // `runNow` finishes it itself when the run is already over, and the finish
+  // says in words what was read and what moved.
+  const finish = useCallback((st) => {
+    const lr = st?.last_run || {}
+    return supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
+      .then(() => onSynced?.())
+      .finally(() => setOutcome({ ran: lr.ran ?? null, failed: lr.failed ?? 0 }))
+  }, [challengeId, onSynced])
 
-    if (running && !pollRef.current) pollRef.current = setInterval(refresh, POLL_MS)
-    if (!running && pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-      if (wasRunning.current) {
-        wasRunning.current = false
-        // REBUILD THE SAVED BOARD THE INSTANT THE RUN ENDS.
-        //
-        // A minute-by-minute reconciler in the database catches every path
-        // eventually, which is what stops this drifting again. But a person who
-        // just pressed "Sync now" is looking at the podium right now, and "it
-        // said it synced and nothing changed" is exactly the bug this fixes -
-        // so the one path with a human waiting on it does not wait.
-        supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
-          .then(() => onSynced?.())
-      }
+
+  // Poll only while a run is going, and finish the moment it stops.
+  //
+  // THIS NEVER FINISHED BEFORE (found 21 Sep 2026). It cleared the interval
+  // in its cleanup and then, in the body, only finished if the interval was
+  // still set - but React runs the cleanup first on the very render where
+  // `running` flips to false, so that check was always false and the rebuild
+  // and reload below never ran after ANY sync. `wasRunning` is the only
+  // signal the body needs.
+  const runningNow = status?.run?.running === true
+  const lastRunNow = status?.last_run ?? null
+  useEffect(() => {
+    if (runningNow) {
+      wasRunning.current = true
+      const t = setInterval(refresh, POLL_MS)
+      return () => clearInterval(t)
     }
-    return () => {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    if (wasRunning.current) {
+      wasRunning.current = false
+      // REBUILD THE SAVED BOARD THE INSTANT THE RUN ENDS. A minute-by-minute
+      // reconciler in the database catches every path eventually; a person
+      // who just pressed "Sync now" is looking at the podium right now.
+      finish({ last_run: lastRunNow })
     }
-  }, [status?.run?.running, refresh, onSynced, challengeId])
+    return undefined
+  }, [runningNow, lastRunNow, refresh, finish])
 
   const settings = status?.settings ?? { interval_hours: 24 }
   const run = status?.run ?? {}
@@ -145,13 +165,20 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   async function runNow() {
     setStarting(true)
     setError('')
+    setOutcome(null)
+    setBefore(new Map(submissions.map((x) => [x.id, x.logged_views])))
     try {
       // force: pressing this means "read these now". Without it the sweep's
       // staleness rule applies, and a button that does nothing because
       // everything was read four hours ago is a button that looks broken.
       const r = await startViewSync({ challengeId, force: true })
       if (r.busy) setError('A sync is already running.')
-      await refresh()
+      const st = await refresh()
+      // Already over (a handful of videos): finish here, because no poll will.
+      if (!r.busy && st && st.run?.running !== true) {
+        wasRunning.current = false
+        await finish(st)
+      }
     } catch (e) {
       setError(e.message ?? 'The sync could not be started.')
     }
@@ -226,6 +253,27 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
       </dl>
 
       {error ? <p className="px-5 pb-5 text-sm text-brand sm:px-7">{error}</p> : null}
+
+      {outcome ? (() => {
+        const was = before
+        const moved = was ? submissions.filter((x) => was.has(x.id) && was.get(x.id) !== x.logged_views) : []
+        const n = outcome.ran ?? submissions.length
+        return (
+          <div className="mx-5 mb-5 flex items-start gap-3 rounded-card bg-brand-tint/50 px-4 py-3 sm:mx-7">
+            <Icon name={outcome.failed ? 'alert' : 'check'} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold text-ink">
+                Read {n} {n === 1 ? 'video' : 'videos'} just now{outcome.failed ? `, ${outcome.failed} could not be read` : ''}. Leaderboard rebuilt.
+              </p>
+              <p className="mt-0.5 text-xs text-ink/70">
+                {moved.length === 0
+                  ? 'No count had moved since the last read, so the numbers stay as they were.'
+                  : moved.slice(0, 6).map((x) => `${x.profiles?.name?.split(' ')[0] || 'Entry'}: ${(was.get(x.id) ?? 0).toLocaleString()} to ${(x.logged_views ?? 0).toLocaleString()}`).join(' · ')}
+              </p>
+            </div>
+          </div>
+        )
+      })() : null}
 
       {/* ---- What needs a person, said loudly enough to notice ---- */}
       {problemList.length > 0 ? (
