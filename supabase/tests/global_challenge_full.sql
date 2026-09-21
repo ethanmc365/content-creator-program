@@ -31,10 +31,19 @@ declare
   n   integer; m integer;
   v   numeric;
   t   text;
+  -- THE DRAFT'S OWN TAKING-PART TERMS (21 Sep 2026). Read, not assumed: the
+  -- draft moved from "6 videos, EUR 15, first 33" to "20 points, EUR 10, no
+  -- cap" in one day, and a rehearsal that hard-codes the old terms fails on
+  -- the new ones for reasons that have nothing to do with the code.
+  d_basis  text; d_thr integer; d_amt numeric; d_cap integer; d_scope text; d_award numeric;
   views_ladder integer[] := array[0,500,999,1000,1999,2000,2499,2500,4999,5000,9999,10000,19999,
                                   20000,35000,59999,60000,100000,200000,500000,1000000,1500000];
 begin
-  select community_id, start_date, end_date into cm, s0, e0 from public.challenges where id = draft;
+  select community_id, start_date, end_date,
+         coalesce(participation_basis, 'entries'), participation_threshold, participation_amount, participation_cap, participation_scope,
+         (select sum((a ->> 'amount')::numeric) from jsonb_array_elements(coalesce(extra_awards, '[]'::jsonb)) a where a ->> 'kind' = 'most_committed')
+    into cm, s0, e0, d_basis, d_thr, d_amt, d_cap, d_scope, d_award
+    from public.challenges where id = draft;
   if cm is null then raise exception 'FAILED the Global Challenge draft is gone'; end if;
 
   select array_agg(id order by created_at) into p
@@ -48,14 +57,14 @@ begin
     title, description, status, scoring, threshold_mode, start_date, end_date, community_id,
     platforms, prize_currency, prize_structure,
     participation_threshold, participation_prize, participation_cap,
-    participation_reward_type, participation_amount, participation_scope, extra_awards)
+    participation_reward_type, participation_amount, participation_scope, extra_awards, participation_basis)
   -- Loaded as best_video and switched to points once the entries are in:
   -- the points trigger recalculates the whole challenge on EVERY row, which is
   -- right for entries arriving one at a time and 300x the work for a bulk load.
   select 'ZZ full global test (rolled back)', '', 'active', 'best_video', threshold_mode, start_date, end_date, community_id,
          platforms, prize_currency, prize_structure,
          participation_threshold, participation_prize, participation_cap,
-         participation_reward_type, participation_amount, participation_scope, extra_awards
+         participation_reward_type, participation_amount, participation_scope, extra_awards, participation_basis
     from public.challenges where id = draft
   returning id into ch;
 
@@ -229,44 +238,63 @@ begin
   select count(*) into n from public.view_snapshots v join zz_synced z on z.id = v.submission_id;
   checks := checks || jsonb_build_object('check', 'view history recorded', 'got', n, 'want', 3, 'pass', n = 3);
 
-  -- 7. WHO EARNS THE TAKING-PART VOUCHER, independently: outside the top 10,
-  --    6+ entries, first 33 by the time of their sixth entry.
+  -- 7. WHO EARNS THE TAKING-PART VOUCHER, independently, on the draft's terms:
+  --    `d_thr` videos (seated by the time of that entry) or `d_thr` points
+  --    (seated by when each creator first reached it - in a bulk load that is
+  --    one moment, so on points only the SET and the count are checked), from
+  --    everyone or only outside the paid places, capped at `d_cap` if set.
   create temp table zz_part on commit drop as
-    select creator_id, sixth, row_number() over (order by sixth, creator_id) seat from (
-      select s.creator_id, (array_agg(s.submitted_at order by s.submitted_at))[6] sixth
-        from public.submissions s where s.challenge_id = ch group by s.creator_id having count(*) >= 6) x
-     where creator_id not in (select creator_id from public.results where challenge_id = ch and rank <= 10);
+    select creator_id, reached, row_number() over (order by reached, creator_id) seat from (
+      select e.creator_id,
+             case when d_basis = 'points' then null
+                  else (select (array_agg(s.submitted_at order by s.submitted_at))[d_thr]
+                          from public.submissions s where s.challenge_id = ch and s.creator_id = e.creator_id) end reached
+        from zz_expected e
+       where case when d_basis = 'points' then e.pts >= d_thr else e.entries >= d_thr end) x
+     where d_scope <> 'outside_prizes'
+        or creator_id not in (select creator_id from public.results where challenge_id = ch
+                               and rank <= jsonb_array_length((select prize_structure from public.challenges where id = ch)));
   select count(*) into n from zz_part;
   select count(*) into m from public.challenge_prize_standings_internal(ch) where slot = 'participation' and status = 'earned';
-  checks := checks || jsonb_build_object('check', 'taking-part vouchers earned = min(qualifiers outside top 10, 33)', 'got', m, 'want', least(n, 33),
-    'qualifiers', n, 'pass', m = least(n, 33));
+  checks := checks || jsonb_build_object('check', format('taking-part vouchers earned (%s %s, cap %s, %s)', d_thr, d_basis, coalesce(d_cap::text, 'none'), d_scope),
+    'got', m, 'want', least(n, coalesce(d_cap, n)), 'qualifiers', n, 'pass', m = least(n, coalesce(d_cap, n)) and n > 0);
   select count(*) into n from public.challenge_prize_standings_internal(ch) st
-    join zz_part z using (creator_id) where st.slot = 'participation' and st.status = 'earned' and z.seat > 33;
-  checks := checks || jsonb_build_object('check', 'nobody past seat 33 earns it', 'got', n, 'want', 0, 'pass', n = 0);
+   where st.slot = 'participation' and st.status = 'earned'
+     and st.creator_id not in (select creator_id from zz_part);
+  checks := checks || jsonb_build_object('check', 'nobody earns it who did not qualify', 'got', n, 'want', 0, 'pass', n = 0);
   select count(*) into n from public.challenge_prize_standings_internal(ch) st
     join public.results r on r.creator_id = st.creator_id and r.challenge_id = ch
-   where st.slot = 'participation' and st.status = 'earned' and r.rank <= 10;
-  checks := checks || jsonb_build_object('check', 'no top-10 winner also gets the taking-part voucher', 'got', n, 'want', 0, 'pass', n = 0);
+   where st.slot = 'participation' and st.status = 'earned' and d_scope = 'outside_prizes'
+     and r.rank <= jsonb_array_length((select prize_structure from public.challenges where id = ch));
+  checks := checks || jsonb_build_object('check', 'no paid-place winner also gets it (when outside the prizes)', 'got', n, 'want', 0, 'pass', n = 0);
 
-  -- The cap itself: 20-odd qualify here, fewer than 33, so lower it to 5 and
-  -- check it is exactly the first five by the time of their sixth entry.
+  -- The cap itself: lower it to 5 and check exactly five earn and the rest wait
+  -- (and on videos, that they are the first five to reach the bar).
   update public.challenges set participation_cap = 5 where id = ch;
+  select count(*) into n from public.challenge_prize_standings_internal(ch) where slot = 'participation' and status = 'earned';
   select string_agg(z.seat::text, ',' order by z.seat) into t
     from public.challenge_prize_standings_internal(ch) st join zz_part z using (creator_id)
    where st.slot = 'participation' and st.status = 'earned';
-  checks := checks || jsonb_build_object('check', 'cap 5: exactly the first five to a sixth entry', 'got', t, 'want', '1,2,3,4,5', 'pass', t = '1,2,3,4,5');
+  checks := checks || jsonb_build_object('check', 'cap 5: exactly five earn', 'got', coalesce(t, n::text), 'want', '1,2,3,4,5',
+    'pass', n = least(5, (select count(*) from zz_part)) and (d_basis = 'points' or t = '1,2,3,4,5'));
   select count(*) into n from public.challenge_prize_standings_internal(ch) where slot = 'participation' and status = 'waitlisted';
-  checks := checks || jsonb_build_object('check', 'cap 5: the rest are waitlisted', 'got', n, 'pass', n = (select count(*) from zz_part) - 5);
+  checks := checks || jsonb_build_object('check', 'cap 5: the rest are waitlisted', 'got', n, 'pass', n = greatest(0, (select count(*) from zz_part) - 5));
   update public.challenges set participation_cap = (select participation_cap from public.challenges where id = draft) where id = ch;
 
-  -- 8. MOST COMMITTED, independently: most entries outside the top 10, a tie
-  --    to the better rank.
-  select e.creator_id::text into t from zz_expected e join public.results r on r.creator_id = e.creator_id and r.challenge_id = ch
-   where r.rank > 10 order by e.entries desc, r.rank limit 1;
-  select string_agg(creator_id::text, ',') into t from (select t as creator_id) x
-    where exists (select 1 from public.challenge_prize_standings_internal(ch) st
-                  where st.slot like 'award:%' and st.status = 'earned' and st.creator_id::text = t);
-  checks := checks || jsonb_build_object('check', 'Most committed goes to the most entries outside the top 10', 'got', coalesce(t, 'someone else'), 'pass', t is not null);
+  -- 8. MOST COMMITTED, independently, when the draft carries one: most entries
+  --    outside the top 10, a tie to the better rank. None on the draft means
+  --    none is earned.
+  if d_award is not null then
+    select e.creator_id::text into t from zz_expected e join public.results r on r.creator_id = e.creator_id and r.challenge_id = ch
+     where r.rank > 10 order by e.entries desc, r.rank limit 1;
+    select string_agg(creator_id::text, ',') into t from (select t as creator_id) x
+      where exists (select 1 from public.challenge_prize_standings_internal(ch) st
+                    where st.slot like 'award:%' and st.status = 'earned' and st.creator_id::text = t);
+    checks := checks || jsonb_build_object('check', 'Most committed goes to the most entries outside the top 10', 'got', coalesce(t, 'someone else'), 'pass', t is not null);
+  else
+    select count(*) into n from public.challenge_prize_standings_internal(ch) where slot like 'award:%' and status = 'earned';
+    checks := checks || jsonb_build_object('check', 'no Most committed award on the draft, none earned', 'got', n, 'want', 0, 'pass', n = 0);
+  end if;
 
   -- 9. THE PAYOUT, then again: ten places (EUR 600 cash), the vouchers.
   perform * from public.award_challenge_prizes_internal(ch, false);
@@ -277,13 +305,15 @@ begin
    where w.challenge_id = ch and w.prize_slot = 'place'
      and w.amount = ((select prize_structure from public.challenges where id = ch) -> (r.rank - 1) ->> 'amount')::numeric;
   checks := checks || jsonb_build_object('check', 'each place paid its own amount to the right rank', 'got', n, 'want', 10, 'pass', n = 10);
-  select count(*) into n from public.rewards where challenge_id = ch and prize_slot = 'participation' and reward_type = 'voucher' and amount = 15;
+  select count(*) into n from public.rewards where challenge_id = ch and prize_slot = 'participation' and reward_type = 'voucher' and amount = d_amt;
   select count(*) into m from public.challenge_prize_standings_internal(ch) where slot = 'participation' and status = 'earned';
-  checks := checks || jsonb_build_object('check', 'a EUR 15 voucher for each taking-part earner', 'got', n, 'want', m, 'pass', n = m and n <= 33);
-  select count(*) into n from public.rewards where challenge_id = ch and prize_slot like 'award:%' and reward_type = 'voucher' and amount = 20;
-  checks := checks || jsonb_build_object('check', 'one EUR 20 Most committed voucher', 'got', n, 'want', 1, 'pass', n = 1);
+  checks := checks || jsonb_build_object('check', format('a EUR %s voucher for each taking-part earner', d_amt), 'got', n, 'want', m, 'pass', n = m and n > 0);
+  select count(*) into n from public.rewards where challenge_id = ch and prize_slot like 'award:%' and reward_type = 'voucher';
+  checks := checks || jsonb_build_object('check', 'Most committed vouchers', 'got', n, 'want', case when d_award is null then 0 else 1 end,
+    'pass', n = case when d_award is null then 0 else 1 end);
   select coalesce(sum(amount), 0) into v from public.rewards where challenge_id = ch;
-  checks := checks || jsonb_build_object('check', 'total paid within EUR 620 to 1,115', 'got', v, 'pass', v between 620 and 1115);
+  checks := checks || jsonb_build_object('check', 'total paid = places + vouchers + awards', 'got', v, 'want', 600 + m * d_amt + coalesce(d_award, 0),
+    'pass', v = 600 + m * d_amt + coalesce(d_award, 0));
   select count(*) into n from public.rewards where challenge_id = ch;
   perform * from public.award_challenge_prizes_internal(ch, false);
   select count(*) into m from public.rewards where challenge_id = ch;
