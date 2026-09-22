@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { geoArea, geoOrthographic, geoPath, geoGraticule10, geoInterpolate } from 'd3-geo'
+import { geoArea, geoDistance, geoOrthographic, geoPath, geoGraticule10, geoInterpolate } from 'd3-geo'
 import { loadMapFeatures } from '../lib/mapCountries'
 import { cx } from '../lib/utils'
 
@@ -30,6 +30,13 @@ const CITIES = [
 ]
 // Routes out of the markets the programme runs in.
 const ROUTES = [[0, 10], [1, 13], [2, 15], [3, 19], [4, 23], [5, 18], [6, 21], [0, 25], [1, 12], [3, 22]]
+
+// AN AEROPLANE, NOT A DOT (22 Sep 2026). Ethan: "rather than the white dots
+// moving, I would have a small airplane icon moving so it looks like it's
+// flying." A top-down airliner, nose UP, centred on (12, 12) in a 24-unit box.
+const PLANE = typeof Path2D === 'function'
+  ? new Path2D('M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z')
+  : null
 
 let thinned = null
 function thin(fc) {
@@ -121,11 +128,38 @@ export default function SpinningEarth({ className = '', tilt = -18, speed = 7 })
       ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1
       for (const r of routes) { ctx.beginPath(); path(r); ctx.stroke() }
       ctx.setLineDash([])
-      path.pointRadius(Math.max(1.6, size / 260))
+      // Each route flies one aeroplane, pointed along its own great circle.
+      // A plane on the far side of the planet is not drawn; one near the edge
+      // fades out as it goes over the horizon rather than blinking off.
+      const centre = [-lambda, -tilt]
+      const planeSize = Math.max(9, size / 34)
       interps.forEach((f, i) => {
-        const k = ((t / 6000) + i / interps.length) % 1
-        ctx.beginPath(); path({ type: 'Point', coordinates: f(k) })
-        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill()
+        const k = ((t / 7000) + i / interps.length) % 1
+        const here = f(k)
+        const away = geoDistance(here, centre)
+        if (away > Math.PI / 2 - 0.02) return
+        const a = projection(here)
+        const b = projection(f(Math.min(1, k + 0.004)))
+        const c2 = projection(f(Math.max(0, k - 0.004)))
+        if (!a || !b || !c2) return
+        const angle = Math.atan2(b[1] - c2[1], b[0] - c2[0]) + Math.PI / 2
+        const edge = Math.min(1, (Math.PI / 2 - away) / 0.35)
+        if (PLANE) {
+          ctx.save()
+          ctx.translate(a[0], a[1])
+          ctx.rotate(angle)
+          ctx.scale(planeSize / 24, planeSize / 24)
+          ctx.translate(-11.5, -12)
+          ctx.shadowColor = 'rgba(0,0,0,0.25)'
+          ctx.shadowBlur = 3
+          ctx.fillStyle = `rgba(255,255,255,${0.98 * edge})`
+          ctx.fill(PLANE)
+          ctx.restore()
+        } else {
+          path.pointRadius(Math.max(1.6, size / 260))
+          ctx.beginPath(); path({ type: 'Point', coordinates: here })
+          ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill()
+        }
       })
 
       // Cities: a soft halo and a bright core, breathing out of step.

@@ -37,6 +37,8 @@ export const CATEGORIES = [
   // a nudge rather than a stream of buzzes. See migrations 067 and 217.
   { key: 'chat', label: 'Room messages', hint: 'New messages in the rooms you are in. At most one nudge per room every 15 minutes.', pushOnly: true },
   { key: 'mention', label: 'Mentions and replies', hint: 'When somebody @-names you in a room. Arrives even from a room you have switched off.' },
+  // Migration 243. Several reactions to one message fold into one row.
+  { key: 'reaction', label: 'Reactions', hint: 'When somebody reacts to one of your messages. Several on one message arrive as one.' },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },

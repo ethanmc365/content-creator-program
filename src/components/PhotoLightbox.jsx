@@ -1,7 +1,13 @@
 import { createPortal } from 'react-dom'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+
+// Hide or show the thumbnail the photo grew out of. A module function because
+// the element belongs to the caller, not to this component's render.
+function hideOrigin(el, hidden) {
+  if (el) el.style.visibility = hidden ? 'hidden' : ''
+}
 
 // Far enough to read a sign in the background, not so far it is a pixel grid.
 const MAX_SCALE = 5
@@ -49,8 +55,16 @@ export default function PhotoLightbox({
   // Optional: a line under the photo, and stepping through a set (the
   // travel-photo board passes both; a chat photo passes neither).
   caption = '', onPrev = null, onNext = null, counter = '',
+  // THE ELEMENT IT OPENS FROM (22 Sep 2026). A ref to the thumbnail that was
+  // pressed. When it is there the photograph GROWS OUT OF IT and shrinks back
+  // into it on close, instead of fading up in the middle of the screen.
+  origin = null,
 }) {
   const tr = useT()
+  // `closing` is the shrink back into the origin. Every way out goes through
+  // `close()` so the backdrop, Escape and the X all animate the same way.
+  const [closing, setClosing] = useState(false)
+  const flip = !!origin?.current && kind !== 'video'
   const [saving, setSaving] = useState(false)
   const [saveNote, setSaveNote] = useState('')
 
@@ -81,7 +95,64 @@ export default function PhotoLightbox({
   const zoomed = view.scale > 1.01
 
   // Reset whenever a different photo opens, or the same one is reopened.
-  useEffect(() => { setView({ scale: 1, x: 0, y: 0 }) }, [src])
+  useEffect(() => { setView({ scale: 1, x: 0, y: 0 }); setClosing(false) }, [src])
+
+  // WHERE THE ORIGIN IS, RELATIVE TO WHERE THE PHOTO NOW SITS, as the one
+  // transform that puts the big photo exactly over the small one.
+  const originTransform = useCallback(() => {
+    const o = origin?.current?.getBoundingClientRect?.()
+    const t = frameRef.current?.getBoundingClientRect?.()
+    if (!o || !t || !t.width || !o.width) return null
+    const dx = (o.left + o.width / 2) - (t.left + t.width / 2)
+    const dy = (o.top + o.height / 2) - (t.top + t.height / 2)
+    return `translate(${dx}px, ${dy}px) scale(${o.width / t.width})`
+  }, [origin])
+
+  // GROW OUT OF THE AVATAR. A layout effect, so the first painted frame is
+  // already the small photo sitting on top of the avatar - never a frame of
+  // the big one first. The avatar itself is hidden while the copy is out, so
+  // it reads as the same photograph lifting off the page rather than a second
+  // one appearing over it.
+  useLayoutEffect(() => {
+    if (!src || !flip) return undefined
+    const el = frameRef.current
+    const from = originTransform()
+    const source = origin.current
+    hideOrigin(source, true)
+    if (el && from && el.animate) {
+      el.animate(
+        [{ transform: from, borderRadius: shape === 'circle' ? '9999px' : '1rem' }, { transform: 'none' }],
+        { duration: 420, easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)' },
+      )
+    }
+    return () => hideOrigin(source, false)
+  }, [src, flip, origin, originTransform, shape])
+
+  const close = useCallback(() => {
+    if (!flip || closing) { onClose?.(); return }
+    setClosing(true)
+    setView({ scale: 1, x: 0, y: 0 })
+    const el = frameRef.current
+    const to = originTransform()
+    const dur = 320
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      hideOrigin(origin.current, false)
+      onClose?.()
+    }
+    if (el && to && el.animate) {
+      const a = el.animate(
+        [{ transform: 'none' }, { transform: to }],
+        { duration: dur, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' },
+      )
+      a.onfinish = finish
+    }
+    // A timer behind the animation: a hidden tab never advances the timeline,
+    // and a close that waits on a frame that never comes is a stuck overlay.
+    setTimeout(finish, dur + 60)
+  }, [flip, closing, onClose, originTransform, origin])
 
   // HOW FAR THE IMAGE MAY BE DRAGGED. Half its overflow in each direction, so
   // an edge can reach the middle of the frame and never further. Measured from
@@ -197,26 +268,41 @@ export default function PhotoLightbox({
   useEffect(() => {
     if (!src) return undefined
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape') close()
       else if (e.key === 'ArrowLeft') onPrev?.()
       else if (e.key === 'ArrowRight') onNext?.()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [src, onClose, onPrev, onNext])
+  }, [src, close, onPrev, onNext])
 
   if (!src) return null
 
   return createPortal(
     <div
-      className="animate-fade-up fixed inset-0 z-[120] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-sm"
+      className={cx(
+        'fixed inset-0 z-[120] flex items-center justify-center p-4',
+        !flip && 'animate-fade-up bg-ink/90 backdrop-blur-sm',
+      )}
       role="dialog"
       aria-modal="true"
       aria-label={kind === 'video' ? 'Video' : 'Photo'}
     >
+      {/* When it grows out of an origin the BACKDROP fades on its own, so the
+          photo can travel while the page darkens behind it, and fades back out
+          as it shrinks home. */}
+      {flip && (
+        <div
+          aria-hidden="true"
+          className={cx(
+            'absolute inset-0 bg-ink/90 backdrop-blur-sm transition-opacity duration-300',
+            closing ? 'opacity-0' : 'animate-[scrim-in_320ms_ease-out_both]',
+          )}
+        />
+      )}
       {/* The backdrop is the close target and the image is not, so a press on
           the photograph itself does not dismiss the thing you are looking at. */}
-      <button type="button" aria-label={tr("Close")} onClick={onClose} className="absolute inset-0" />
+      <button type="button" aria-label={tr("Close")} onClick={close} className="absolute inset-0" />
       {/* THE GESTURE SURFACE. `data-zoomable` opts this out of the
           platform-wide pinch guard (lib/pinchGuard) so the raw two-finger
           gesture reaches the handlers above instead of being swallowed - which
@@ -234,7 +320,11 @@ export default function PhotoLightbox({
         onTouchMove={onTouchMove}
         onTouchEnd={endPointer}
         onDoubleClick={kind === 'video' ? undefined : toggleZoom}
-        className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden"
+        className={cx(
+          'relative flex max-h-full max-w-full items-center justify-center overflow-hidden',
+          shape === 'circle' && 'rounded-full',
+        )}
+        style={flip ? { willChange: 'transform' } : undefined}
       >
       {kind === 'video' ? (
         // NOT `pointer-events-none` on this one: the controls have to be
@@ -264,6 +354,12 @@ export default function PhotoLightbox({
             // with room for the controls, and never grows past its own size.
             maxHeight: shape === 'circle' ? undefined : 'calc(100dvh - 8rem)',
             maxWidth: shape === 'circle' ? undefined : 'calc(100vw - 2rem)',
+            // A CIRCLE IS GIVEN ITS SIZE, NOT ASKED FOR IT (22 Sep 2026).
+            // Ethan: "it just shows the same size image in the centre of the
+            // screen." It was `w-full` of a frame whose own width is `auto`,
+            // so the frame shrank to the file's natural width and the "big"
+            // view of a 256px avatar was 256px. A number the screen decides.
+            width: shape === 'circle' ? 'min(88vw, 78dvh, 36rem)' : undefined,
             transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
             transition: moving ? 'none' : 'transform 180ms ease-out',
             touchAction: 'none',
@@ -277,7 +373,7 @@ export default function PhotoLightbox({
               // the letterbox, which crops MORE than the avatar does rather
               // than the same amount. Cover reproduces exactly the crop the
               // small avatar was already showing, bigger.
-              ? 'aspect-square h-auto w-full max-w-[min(78vw,78vh)] rounded-full object-cover shadow-lift ring-4 ring-white/15'
+              ? 'aspect-square h-auto rounded-full object-cover shadow-lift ring-4 ring-white/15'
               : 'max-h-full max-w-full rounded-card object-contain',
           )}
         />
@@ -288,7 +384,7 @@ export default function PhotoLightbox({
           Only drawn while it is actually zoomed - it is the way OUT, and a
           control that is always there for a state you are usually not in is
           furniture. */}
-      {zoomed && kind !== 'video' && (
+      {zoomed && !closing && kind !== 'video' && (
         <button
           type="button"
           onClick={toggleZoom}
@@ -328,7 +424,11 @@ export default function PhotoLightbox({
       )}
 
       <div
-        className="absolute right-4 flex items-center gap-2"
+        className={cx(
+          'absolute right-4 flex items-center gap-2 transition-opacity duration-200',
+          closing && 'pointer-events-none opacity-0',
+          flip && !closing && 'animate-[scrim-in_360ms_ease-out_120ms_both]',
+        )}
         style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
       >
         {canSave && (
@@ -346,7 +446,7 @@ export default function PhotoLightbox({
         )}
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           aria-label={tr("Close photo")}
           className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur transition-transform duration-200 hover:scale-110 active:scale-95"
         >

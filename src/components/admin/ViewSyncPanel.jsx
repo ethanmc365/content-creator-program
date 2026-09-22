@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Select, Spinner } from '../ui'
+import { Spinner } from '../ui'
+import { pickClass } from '../../lib/pick'
+import { cx } from '../../lib/utils'
 import Icon from '../Icon'
 import { timeAgo } from '../../lib/utils'
 import { supabase } from '../../lib/supabase'
@@ -199,38 +201,52 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   return (
     <section className="mb-8 overflow-hidden rounded-card border border-gray-100 shadow-card">
       {/* ---- The action, given the room an action deserves ---- */}
-      <div className="flex flex-col gap-5 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Icon name="eye" className="h-5 w-5 shrink-0 text-brand" />
-            View counts
-          </h2>
-          <p className="mt-1 max-w-sm text-sm leading-relaxed text-smoke">
-            Read off each entry&apos;s link automatically.
-            <br />
-            Type in number at the end to override the automation.
-          </p>
+      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card">
+            <Icon name="eye" className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">View counts</h2>
+            <p className="mt-0.5 max-w-md text-sm leading-relaxed text-smoke">
+              Read off each entry&apos;s link automatically. Type in any entry&apos;s box below to override it.
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          className="btn-primary inline-flex shrink-0 items-center justify-center gap-2 !px-6 !py-2.5 text-sm"
+          onClick={runNow}
+          disabled={starting || running}
+        >
+          {starting || running ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" />}
+          {running ? `Reading ${run.done ?? 0} of ${run.total ?? 0}` : starting ? 'Starting…' : 'Sync now'}
+        </button>
+      </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-smoke">Every</span>
-            <Select
-              ariaLabel="How often view counts are read"
-              value={settings.interval_hours ?? 24}
-              onChange={updateCadence}
-              options={CADENCES.map((c) => ({ value: c.hours, label: c.short }))}
-            />
-          </label>
-          <button
-            type="button"
-            className="btn-primary !px-6 !py-2.5 text-sm"
-            onClick={runNow}
-            disabled={starting || running}
-          >
-            {starting || running ? <Spinner className="h-4 w-4" /> : null}
-            {running ? `Reading ${run.done ?? 0} of ${run.total ?? 0}` : starting ? 'Starting…' : 'Sync now'}
-          </button>
+      {/* HOW OFTEN, AS CHIPS AND NOT A DROPDOWN (22 Sep 2026). Ethan: "when you
+          click this and it shows the selection drop down... the bottom of it is
+          cut off." The menu opened inside this card's `overflow-hidden`, which
+          the progress bar needs. Six options fit on one row, so there is no menu
+          to clip: every choice is visible and one press picks it. */}
+      <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-7">
+        <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-smoke">Sync automatically every</p>
+        <div role="radiogroup" aria-label="How often view counts are read" className="flex flex-wrap gap-1.5">
+          {CADENCES.map((c) => {
+            const on = Number(settings.interval_hours ?? 24) === c.hours
+            return (
+              <button
+                key={c.hours}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => !on && updateCadence(c.hours)}
+                className={cx('rounded-full border px-3 py-1.5 text-xs font-semibold', pickClass(on))}
+              >
+                {c.short}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -241,7 +257,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
       ) : null}
 
       {/* ---- Facts, evenly spaced instead of crowded to one side ---- */}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 px-5 py-5 sm:grid-cols-4 sm:px-7">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-gray-100 bg-cloud/40 px-5 py-5 sm:grid-cols-4 sm:px-7">
         <Stat label="Last read">{lastRun?.at ? timeAgo(lastRun.at) : 'never'}</Stat>
         <Stat label="Next">{nextDue(lastRun?.at, settings.interval_hours ?? 24)}</Stat>
         <Stat label="This challenge">

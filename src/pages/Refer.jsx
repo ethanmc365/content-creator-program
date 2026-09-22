@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
-import { formatDate } from '../lib/utils'
-import { referralStage } from '../lib/referrals'
+import { formatDate, formatMoney } from '../lib/utils'
+import { referralProgress, referralStage, referralTerms } from '../lib/referrals'
 import { useT } from '../lib/i18n'
 
 // Creators refer other creators ONE way: they share their personal invite link
@@ -34,18 +34,26 @@ export default function Refer() {
 
   const [participatedCount, setParticipatedCount] = useState(0)
   const [linkClicks, setLinkClicks] = useState(0)
+  // THE TERMS COME FROM THE DATABASE (migration 242), the same row the voucher
+  // is minted from, so the promise on this page and the payout cannot drift.
+  const [terms, setTerms] = useState(() => referralTerms(null))
+  const [vouchers, setVouchers] = useState([])
 
   async function load() {
-    const [{ data: refs }, { data: joinedProfiles }, { data: me }] = await Promise.all([
+    const [{ data: refs }, { data: joinedProfiles }, { data: me }, { data: cfg }, { data: mine }] = await Promise.all([
       supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
       supabase.from('profiles').select('referral_clicks').eq('id', user.id).single(),
+      supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),
+      supabase.from('rewards').select('id, amount, currency, status, created_at').eq('creator_id', user.id).eq('source', 'referral').order('created_at'),
     ])
     setReferrals(refs ?? [])
     setLinkClicks(me?.referral_clicks ?? 0)
+    setTerms(referralTerms(cfg?.value))
+    setVouchers(mine ?? [])
 
     // Which referred creators have actually submitted a challenge video? That is
-    // what counts towards the €20 voucher reward. Tag each person with their
+    // what counts towards the voucher. Tag each person with their
     // stage so the history list can show exactly where they've got to.
     const list = joinedProfiles ?? []
     const joinedIds = list.map((p) => p.id)
@@ -63,6 +71,9 @@ export default function Refer() {
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const progress = referralProgress(participatedCount, terms.per)
+  const prize = formatMoney(terms.amount, terms.currency)
+
   function copyLink() {
     navigator.clipboard?.writeText(inviteLink)
     setCopied(true)
@@ -77,24 +88,46 @@ export default function Refer() {
 
       {/* The page assembles top to bottom rather than appearing whole. */}
       <Reveal stagger={0.06}>
-      {/* Reward incentive + progress */}
+      {/* Reward incentive + progress.
+          EVERY THREE, NOT THE FIRST THREE (22 Sep 2026). The bar is progress
+          towards the NEXT voucher and fills again after each one; the vouchers
+          already earned sit beside it as their own count. */}
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
-        <p className="text-xl font-bold sm:text-2xl">{tr("Refer 3 creators, earn a €20 Tryp.com voucher")}</p>
-        <p className="mt-2 max-w-2xl text-sm text-white/85">
-          {tr("When 3 creators you refer join and take part in a challenge, you earn a €20 Tryp.com voucher. All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.")}
+        <p className="text-xl font-bold sm:text-2xl">
+          {tr('Refer {n} creators, earn a {amount} {label}', { n: terms.per, amount: prize, label: terms.label })}
         </p>
-        <div className="mt-5 max-w-sm">
-          <div className="mb-1.5 flex justify-between text-xs font-medium text-white/90">
-            <span>{tr("Your progress")}</span>
-            <span>{Math.min(participatedCount, 3)} / 3 participating</span>
+        <p className="mt-2 max-w-2xl text-sm text-white/85">
+          {tr('Every {n} creators you refer who sign up, get accepted and post in a challenge earn you a {amount} {label}. Each one counts as 1 of the {n}.', { n: terms.per, amount: prize, label: terms.label })}
+        </p>
+        <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-4">
+          <div className="w-full max-w-sm">
+            <div className="mb-1.5 flex justify-between text-xs font-medium text-white/90">
+              <span>{tr('Towards your next voucher')}</span>
+              <span className="tabular-nums">{progress.towardsNext} / {progress.per}</span>
+            </div>
+            <div className="flex gap-1.5">
+              {Array.from({ length: progress.per }, (_, i) => (
+                <div key={i} className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/25">
+                  <div
+                    className="h-full rounded-full bg-white transition-all duration-500"
+                    style={{ width: i < progress.towardsNext ? '100%' : '0%', transitionDelay: `${i * 120}ms` }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-white/25">
-            <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${Math.min((participatedCount / 3) * 100, 100)}%` }} />
+          <div className="shrink-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-white/80">{tr('Vouchers earned')}</p>
+            <p className="text-2xl font-bold tabular-nums">{vouchers.length || progress.earned}</p>
           </div>
-          {participatedCount >= 3 && (
-            <p className="mt-2 text-sm font-semibold">{tr("You've hit 3! The team will verify and send your voucher.")}</p>
-          )}
         </div>
+        {vouchers.length > 0 && (
+          <p className="mt-3 text-sm font-semibold">
+            {vouchers.some((v) => v.status === 'pending')
+              ? tr('Your voucher is being prepared by the team.')
+              : tr('All your referral vouchers have been sent.')}
+          </p>
+        )}
       </section>
 
       {/* Invite link */}
@@ -149,7 +182,7 @@ export default function Refer() {
       {/* History */}
       <section>
         <h2 className="mb-1 text-lg font-semibold">{tr("Your referrals")}</h2>
-        <p className="mb-4 text-xs text-smoke">{tr("Follow each person's progress. A referral counts once they submit a video to a challenge.")}</p>
+        <p className="mb-4 text-xs text-smoke">{tr("Follow each person's progress. A referral counts once they are accepted and post a video in a challenge.")}</p>
         {loading ? (
           <div className="space-y-3"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
         ) : referrals.length === 0 && joined.length === 0 ? (

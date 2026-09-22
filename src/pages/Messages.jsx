@@ -2430,7 +2430,8 @@ export default function Messages() {
                         side={mine ? 'right' : 'left'}
                         open={showActions}
                         onClose={() => setActionsFor(null)}
-                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info)])}
+                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info), info.ids || []])}
+                        myId={user?.id}
                         onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
                         // SAME SLOT AS THE ROOMS. These used to sit inside
                         // `children`, which put the timestamp and "Seen by"

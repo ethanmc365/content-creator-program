@@ -1275,8 +1275,9 @@ export default function NetworkChat() {
               for (const r of reactions) {
                 // [emoji, count, isMine, names] - the names are what the chip's
                 // hover tooltip says, so a count always has people behind it.
-                const row = byEmoji.get(r.emoji) || [r.emoji, 0, false, []]
+                const row = byEmoji.get(r.emoji) || [r.emoji, 0, false, [], []]
                 row[1] += 1
+                row[4].push(r.creator_id)
                 if (r.creator_id === user?.id) { row[2] = true; row[3].push('You') }
                 else row[3].push(nameFor(r.creator_id))
                 byEmoji.set(r.emoji, row)
@@ -1396,6 +1397,7 @@ export default function NetworkChat() {
                     className="w-full"
                     side={mine ? 'right' : 'left'}
                     reactions={chips}
+                    myId={user?.id}
                     onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
                     open={actionsFor === m.id}
                     onClose={() => setActionsFor(null)}

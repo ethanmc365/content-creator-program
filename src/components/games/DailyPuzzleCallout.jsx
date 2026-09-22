@@ -7,6 +7,7 @@ import { useGameStreak } from '../../lib/gameStreak'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 import { StreakChip } from '../ui'
+import SectionTitle from '../network/SectionTitle'
 import { useT } from '../../lib/i18n'
 
 // TODAY'S PUZZLES, ON THE PAGE PEOPLE ACTUALLY OPEN.
@@ -183,13 +184,11 @@ export default function DailyPuzzleCallout({ className }) {
           which has no text baseline and contributes its bottom edge instead.
           The link aligned to that and sat below the words. Ethan asked for
           these centred on the title line; measured at 0.0px now. */}
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
-          <Icon name="joystick" className="h-5 w-5 shrink-0 text-brand" />
-          {tr("Today’s puzzles")}
-          {streak > 0 && <StreakChip n={streak} title={`${streak}-day streak`} />}
-        </h2>
-        <Link to="/game" className="shrink-0 whitespace-nowrap text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>
+      {/* The title is the way to every game (components/network/SectionTitle);
+          the "All games →" link beside it is gone. */}
+      <div className="mb-3 flex items-center gap-2">
+        <SectionTitle icon="joystick" to="/game" label={tr('All games')}>{tr("Today’s puzzles")}</SectionTitle>
+        {streak > 0 && <StreakChip n={streak} title={`${streak}-day streak`} />}
       </div>
 
       {/* `counts` is null until the query lands and an OBJECT afterwards. A

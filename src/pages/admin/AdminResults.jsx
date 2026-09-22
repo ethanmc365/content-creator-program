@@ -35,39 +35,12 @@ export default function AdminResults() {
   const [generating, setGenerating] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [lifecycleBusy, setLifecycleBusy] = useState(false)
   const [toast, setToast] = useState('')
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
   const isLive = challenge?.status === 'active'
   const phase = isLive ? 'interim' : 'final'
-
-  // CLOSING ENTRIES BELONGS HERE (4 Sep 2026).
-  //
-  // Ethan: "move the close entries button inside the results page."
-  //
-  // It was behind the "..." on the challenge itself, which is one press away
-  // from a slip but is also nowhere near the moment the decision is actually
-  // made. A manager decides a challenge is over while looking at the entries
-  // and the standings - on THIS page - and then had to navigate back to the
-  // challenge to say so. Closing is now a labelled control in the state card
-  // below, next to a plain statement of what the challenge currently is.
-  //
-  // Both places still exist and both call the same update, because a lifecycle
-  // that can only be reached from one screen is a lifecycle somebody cannot
-  // find. What changed is that the one on the results page is a BUTTON WITH A
-  // SENTENCE rather than an item in a menu of three.
-  async function setChallengeStatus(status) {
-    const verb = { active: 'publish', ended: 'close entries on', archived: 'archive' }[status]
-    if (!await confirm(`Really ${verb} "${challenge.title}"?`)) return
-    setLifecycleBusy(true)
-    const { error } = await supabase.from('challenges').update({ status }).eq('id', id)
-    setLifecycleBusy(false)
-    if (error) { flash(`Could not update: ${error.message}`); return }
-    setChallenge((c) => ({ ...c, status }))
-    flash(status === 'ended' ? 'Entries are closed. The board stays visible.' : `Challenge ${status}.`)
-  }
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -442,25 +415,16 @@ export default function AdminResults() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
-      {/* WHAT THIS CHALLENGE CURRENTLY IS, AND THE ONE PRESS THAT CHANGES IT.
-          The state was only ever legible on the challenge page - a Badge in the
-          header - so a manager working through the entries here had no way of
-          telling whether creators could still add to them. It says so plainly
-          now, and the action that follows from it sits next to the sentence
-          rather than inside a menu on another screen. */}
-      <LifecycleCard
-        status={challenge?.status}
-        busy={lifecycleBusy}
-        onSet={setChallengeStatus}
-      />
-
+      {/* THE CLOSE-ENTRIES CARD IS GONE (22 Sep 2026). Ethan: "I would remove
+          the close entries button and card from here, it's not needed." Closing
+          a challenge stays behind the "..." on the challenge itself. */}
       {/* THE PODIUM, BEFORE ANYBODY ELSE SEES IT.
           Publishing winners was previously invisible until it was already
           public: you logged views, a cron archived the challenge, and a podium
           you had never laid eyes on appeared on 43 people's challenge board.
           Now it is drawn here first, in the same component the board uses, and
           it goes out only when you say so. */}
-      {podiumWinners.length > 0 && (
+      {(podiumWinners.length > 0 || isLive) && (
         <div className="mb-8 rounded-card border border-gray-100 p-5 shadow-card sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -498,8 +462,8 @@ export default function AdminResults() {
           {/* ONE PODIUM PER BOARD, EACH LABELLED. On a challenge with no
               groups this is exactly the single podium that has always been
               here - `podiums` holds one entry with a null group. */}
-          {podiums.map(({ group, winners, entries, views }) => (
-            winners.length > 0 && (
+          {podiums.map(({ group, winners, entries, views, prizes }) => (
+            (winners.length > 0 || isLive) && (
               <div key={group?.id ?? 'all'} className={group ? 'mt-5 first:mt-0' : undefined}>
                 {group && (
                   <p className="mb-2 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-brand">
@@ -518,6 +482,8 @@ export default function AdminResults() {
                   scoring={challenge?.scoring}
                   voucherWinners={group ? [] : voucherWinners}
                   voucherPrize={challenge?.participation_prize}
+                  places={group ? Math.max(1, prizeForGroup(group, challenge).winners_count || places) : places}
+                  prizes={prizes}
                 />
               </div>
             )
@@ -553,9 +519,6 @@ export default function AdminResults() {
                     </span>
                   )}
                   {s.platform} · {formatDateTimeTz(s.submitted_at)}
-                  {s.views_source !== 'manual' && s.views_synced_at ? (
-                    <span className="text-green-700"> · read {timeAgo(s.views_synced_at)}</span>
-                  ) : null}
                   {s.views_sync_error ? (
                     <span className="text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
                       {' '}· {describeSyncError(s.views_sync_error)?.label}
@@ -566,32 +529,11 @@ export default function AdminResults() {
               <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
                 Watch ↗
               </a>
-              <div className="flex items-center gap-2">
-                <label className="sr-only" htmlFor={`views-${s.id}`}>Logged views for {s.profiles?.name}</label>
-                {/* Plain text + inputMode numeric rather than type="number": the
-                    view count is always typed in full, so the stepper arrows were
-                    only clutter (and one stray scroll could change a saved figure).
-                    Non-digits are stripped as you type; mobile still gets a number pad. */}
-                <input
-                  id={`views-${s.id}`}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  className="input !w-32 text-right tabular-nums"
-                  placeholder="views"
-                  defaultValue={s.logged_views ?? ''}
-                  onInput={(e) => { e.target.value = e.target.value.replace(/\D+/g, '') }}
-                  onBlur={(e) => saveViews(s, e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-                />
-                <span className="w-14 text-xs text-smoke">
-                  {savingId === s.id
-                    ? 'Saving…'
-                    : s.logged_views != null
-                      ? `${s.views_approx ? '~' : ''}${formatViews(s.logged_views)}`
-                      : '-'}
-                </span>
-              </div>
+              <ViewCountField
+                submission={s}
+                saving={savingId === s.id}
+                onSave={(raw) => saveViews(s, raw)}
+              />
 
               {/* BONUS POINTS ARE GIVEN HERE, to this entry, by a person.
                   A bonus rule says what it is called and what it is worth; it
@@ -693,69 +635,82 @@ export default function AdminResults() {
 }
 
 
-// THE CHALLENGE'S STATE, AS A SENTENCE AND A BUTTON.
+// ONE BOX, AND IT IS ALWAYS THE CURRENT NUMBER (22 Sep 2026).
 //
-// Three states, three next steps, and only ever ONE of them offered - a
-// lifecycle is a line, not a set of choices, and drawing all three at once is
-// what made the old toolbar look like three equally likely things to do.
+// Ethan: "it correctly updated the view number on the right side but in the
+// text box still showed 787 even though the synced count was 2.3k." The box was
+// an UNCONTROLLED input (`defaultValue`), which React reads exactly once, on
+// mount - so a sync that moved `logged_views` repainted the label beside it and
+// left the box on whatever it first drew. Two readouts of one number, one of
+// them stale, is worse than one.
 //
-// The destructive one carries its consequence in the copy rather than in a
-// colour: "no new entries" is what a manager needs to have read, and a red
-// button is a warning that does not say what about.
-const LIFECYCLE = {
-  draft: {
-    now: 'Draft. Nobody in the market can see this challenge yet.',
-    to: 'active',
-    label: 'Publish challenge',
-    hint: 'Creators in this market are notified.',
-    icon: 'megaphone',
-    primary: true,
-  },
-  active: {
-    now: 'Live. Creators can still add entries.',
-    to: 'ended',
-    label: 'Close entries',
-    hint: 'No new entries after this. The board stays visible to everyone.',
-    icon: 'ban',
-    primary: false,
-  },
-  ended: {
-    now: 'Closed. No new entries; the board is still on the challenge.',
-    to: 'archived',
-    label: 'Archive',
-    hint: 'Moves it into the archive.',
-    icon: 'bucket',
-    primary: false,
-  },
-  archived: {
-    now: 'Archived.',
-    to: null,
-  },
-}
+// Now there is ONE readout and it is the field: it follows `logged_views`
+// whenever you are not typing in it, and a number typed in still wins (it is
+// saved as a manual override, exactly as before). Under it, where the number
+// came from, in words.
+function ViewCountField({ submission: s, saving, onSave }) {
+  const [draft, setDraft] = useState(null)
+  const [justSaved, setJustSaved] = useState(false)
+  const editing = draft !== null
+  const shown = editing ? draft : (s.logged_views == null ? '' : Number(s.logged_views).toLocaleString('en-GB'))
+  const manual = s.views_source === 'manual'
 
-function LifecycleCard({ status, busy, onSet }) {
-  const step = LIFECYCLE[status]
-  if (!step) return null
+  async function commit() {
+    if (draft === null) return
+    const raw = draft.replace(/\D+/g, '')
+    setDraft(null)
+    if (raw === String(s.logged_views ?? '')) return
+    await onSave(raw)
+    setJustSaved(true)
+    setTimeout(() => setJustSaved(false), 1600)
+  }
+
   return (
-    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">{step.now}</p>
-        {step.hint && <p className="mt-0.5 text-xs text-smoke">{step.hint}</p>}
+    <div className="flex w-full flex-col items-stretch gap-1 pl-[52px] sm:w-44 sm:pl-0">
+      <label className="sr-only" htmlFor={`views-${s.id}`}>Views for {s.profiles?.name}</label>
+      <div
+        className={cx(
+          'group relative flex items-center rounded-xl border bg-white transition-all duration-200',
+          editing
+            ? 'border-brand ring-4 ring-brand/15'
+            : manual
+              ? 'border-amber-200 hover:border-amber-300'
+              : 'border-gray-200 hover:border-gray-300',
+        )}
+      >
+        <Icon name="eye" className={cx('ml-3 h-4 w-4 shrink-0', editing ? 'text-brand' : 'text-smoke')} />
+        <input
+          id={`views-${s.id}`}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="Not read yet"
+          value={shown}
+          onFocus={() => setDraft(s.logged_views == null ? '' : String(s.logged_views))}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() }
+          }}
+          className="no-ios-zoom min-w-0 flex-1 bg-transparent py-2.5 pl-2 pr-3 text-right text-base font-semibold tabular-nums text-ink outline-none placeholder:text-sm placeholder:font-normal placeholder:text-smoke"
+        />
+        {(saving || justSaved) && (
+          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white shadow-card">
+            {saving ? <Spinner className="h-3 w-3" /> : <Icon name="check" className="h-3 w-3" />}
+          </span>
+        )}
       </div>
-      {step.to && (
-        <button
-          type="button"
-          onClick={() => onSet(step.to)}
-          disabled={busy}
-          className={cx(
-            'inline-flex shrink-0 items-center gap-1.5 !py-2 text-xs',
-            step.primary ? 'btn-primary' : 'btn-secondary',
-          )}
-        >
-          {busy ? <Spinner /> : <Icon name={step.icon} className="h-3.5 w-3.5" />}
-          {step.label}
-        </button>
-      )}
+      <p className={cx('flex items-center justify-end gap-1.5 text-[11px] leading-tight', manual ? 'text-amber-700' : 'text-smoke')}>
+        <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', manual ? 'bg-amber-400' : s.views_synced_at ? 'bg-green-500' : 'bg-gray-300')} />
+        {editing
+          ? 'Enter to save, Esc to cancel'
+          : manual
+            ? 'Typed in by hand'
+            : s.views_synced_at
+              ? `${s.views_approx ? 'About, ' : ''}synced ${timeAgo(s.views_synced_at)}`
+              : 'Waiting for the first sync'}
+      </p>
     </div>
   )
 }

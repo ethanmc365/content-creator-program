@@ -90,10 +90,43 @@ export default function ChallengeLeaderboard({
 
   if (slots.length === 0) return null
 
+  // WHO HAS REACHED THE TAKING-PART VOUCHER (22 Sep 2026). Ethan: "ensure it
+  // shows on the leaderboard who has reached the 10 euro participation voucher
+  // for reaching 18 points." The badge existed but was desktop-only and silent
+  // until somebody crossed the line. Now the board opens with the terms and a
+  // count, a reached row carries the badge at every width, and a row on its way
+  // says how far it has to go. On an `outside_prizes` challenge a paid place
+  // wins its place prize instead, so it gets no voucher badge.
+  const partScore = (row) => (participation?.basis === 'points'
+    ? Number(row.final_views) || 0
+    : subCountByCreator[row.creator_id] || 0)
+  const reached = (row) => !!participation?.threshold && partScore(row) >= participation.threshold
+  const voucherFor = (row, rank) => reached(row) && !(participation?.scope === 'outside_prizes' && prizeAt.has(rank))
+  const reachedCount = participation?.threshold ? rows.filter((r) => voucherFor(r, Number(r.rank))).length : 0
+  const unitWord = participation?.basis === 'points' ? tr('points') : tr('videos')
+
   const fmtScore = (v) => (scoreLabel === 'points' ? `${Number(v || 0).toLocaleString()}` : formatViews(v))
 
   return (
     <div className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', className)}>
+      {participation?.threshold && participation?.prize ? (
+        <div className={cx('flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-green-100 bg-green-50/70 py-3', wide ? 'px-8' : 'px-4 sm:px-8')}>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+            <Icon name="ticket" className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-[12rem] flex-1 text-sm text-green-900">
+            <span className="font-semibold">
+              {tr('Reach {n} {unit} for a {prize}', { n: participation.threshold, unit: unitWord, prize: participation.prize })}
+            </span>
+            {participation.scope === 'outside_prizes' && (
+              <span className="text-green-800/80"> {tr('(outside the prize places)')}</span>
+            )}
+          </p>
+          <span className="ml-10 shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-green-700 shadow-[0_1px_0_rgba(0,0,0,0.04)] sm:ml-0">
+            {reachedCount === 1 ? tr('1 creator reached it') : tr('{n} creators reached it', { n: reachedCount })}
+          </span>
+        </div>
+      ) : null}
       {slots.map(({ rank, row, prize }) => {
         const mine = meId && row?.creator_id === meId
         const tier = podiumTier(rank)
@@ -104,6 +137,10 @@ export default function ChallengeLeaderboard({
         const phonePrize = prize && (
           <span className={cx('block truncate text-xs font-semibold text-brand', wide ? 'hidden' : 'sm:hidden')}>{prize}</span>
         )
+        const hasVoucher = row && voucherFor(row, rank)
+        const togo = row && participation?.threshold && !reached(row) && partScore(row) > 0
+          && !(participation.scope === 'outside_prizes' && prizeAt.has(rank))
+          ? participation.threshold - partScore(row) : null
         const who = row && (
           <>
             <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="sm" />
@@ -112,6 +149,16 @@ export default function ChallengeLeaderboard({
                 {row.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">{tr('(you)')}</span>}
               </span>
               {phonePrize}
+              {hasVoucher && (
+                <span className={cx('mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700', wide ? 'hidden' : 'sm:hidden')}>
+                  <Icon name="ticket" className="h-3 w-3 shrink-0" /> {participation.prize}
+                </span>
+              )}
+              {togo != null && (
+                <span className="block truncate text-[11px] font-medium text-smoke">
+                  {tr('{n} {unit} to the voucher', { n: togo, unit: togo === 1 && participation.basis === 'points' ? tr('point') : unitWord })}
+                </span>
+              )}
             </span>
           </>
         )
@@ -185,9 +232,7 @@ export default function ChallengeLeaderboard({
               )}
               {/* Voucher badge: this creator posted enough videos to earn the
                   participation prize. */}
-              {row && participation && (participation.basis === 'points'
-                ? (Number(row.final_views) || 0) >= participation.threshold
-                : (subCountByCreator[row.creator_id] || 0) >= participation.threshold) && (
+              {hasVoucher && (
                 <span
                   title={participation.basis === 'points'
                     ? tr('Reached {n} points', { n: participation.threshold })

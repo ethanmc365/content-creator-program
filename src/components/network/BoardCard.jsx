@@ -4,6 +4,7 @@ import Icon from '../Icon'
 import { Skeleton } from '../ui'
 import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
+import SectionTitle from './SectionTitle'
 import { useT } from '../../lib/i18n'
 import { useCachedPage, writePageCache } from '../../lib/pageCache'
 import Reveal from './Reveal'
@@ -78,10 +79,8 @@ export default function BoardCard({ className }) {
   if (!rows.length) {
     return (
       <section className={className}>
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> {tr("Community board")}
-          </h2>
+        <div className="mb-4">
+          <SectionTitle icon="chat" to="/board" label={tr('Open the board')}>{tr("Community board")}</SectionTitle>
         </div>
         <Link
           to="/board"
@@ -104,18 +103,13 @@ export default function BoardCard({ className }) {
 
   return (
     <section className={className}>
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="mb-4">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> {tr("Community board")}
-          </h2>
+          <SectionTitle icon="chat" to="/board" label={tr('Open the board')}>{tr("Community board")}</SectionTitle>
           {/* NO COUNT OF WHAT IS UNANSWERED. "3 are still waiting for somebody
               who knows" reads as a chore list on a hub whose job is to invite
               you in, and the notes themselves already say "No answers yet". */}
         </div>
-        <Link to="/board" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-          {tr("Open the board →")}
-        </Link>
       </div>
 
       {/* THE THREE NOTES ARRIVE ONE AFTER ANOTHER, and the stagger is on a

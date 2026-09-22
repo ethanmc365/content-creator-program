@@ -9,6 +9,7 @@ import LocalTime from './LocalTime'
 import { pickWhoToMeet } from '../lib/whoToMeet'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import SectionTitle from './network/SectionTitle'
 import { testFlags } from '../lib/testData'
 
 // WHO TO MEET THIS WEEK.
@@ -130,18 +131,10 @@ export default function WhoToMeet({ className }) {
 
   return (
     <section className={className}>
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> {tr("Who to meet")}
-          </h2>
-          {/* Not "three creators picked for you" - you can see how many there
-              are, and counting them out is the kind of line a page says when it
-              has nothing else to say. */}
-        </div>
-        <Link to="/creators" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-          {tr("Everyone →")}
-        </Link>
+      {/* The title is the way to everybody (network/SectionTitle); the
+          "Everyone →" link beside it is gone, like the hub's other sections. */}
+      <div className="mb-4">
+        <SectionTitle icon="users" to="/creators" label={tr('Everyone')}>{tr("Who to meet")}</SectionTitle>
       </div>
 
       {/* THE CARD IS NO LONGER ONE BIG LINK.

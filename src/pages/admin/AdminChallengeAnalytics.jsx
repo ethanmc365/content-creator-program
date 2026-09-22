@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -6,13 +6,15 @@ import {
 import { supabase } from '../../lib/supabase'
 import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PlatformBadges from '../../components/PlatformBadges'
-import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv } from '../../lib/utils'
+import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv, timeAgo, cx } from '../../lib/utils'
 import { compareBoards, prizeForGroup } from '../../lib/challengeGroups'
 import Icon from '../../components/Icon'
 import HistoryForm from '../../components/admin/HistoryForm'
 import { historyMetrics } from '../../lib/challengeHistory'
 import { useAuth } from '../../context/AuthContext'
 import { loadMarkets } from '../../lib/markets'
+import { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
+import { challengeSpend } from '../../lib/challengeSpend'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -92,6 +94,28 @@ export default function AdminChallengeAnalytics() {
     }
     load()
   }, [id, refresh])
+
+  // IT FOLLOWS THE SYNC (22 Sep 2026). Ethan: "it should show the current CPM
+  // and it should be updating with the prize pot and participation vouchers
+  // and views every time something is synced, that way I can track it well."
+  // A view sync writes `submissions` and rebuilds `results`; either one
+  // arriving re-reads the page (debounced, a sweep writes dozens of rows). A
+  // two-minute poll sits behind it for a socket that has gone quiet.
+  const bump = useRef(null)
+  useEffect(() => {
+    const later = () => {
+      clearTimeout(bump.current)
+      bump.current = setTimeout(() => setRefresh((n) => n + 1), 1200)
+    }
+    const ch = supabase
+      .channel(`analytics-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `challenge_id=eq.${id}` }, later)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'results', filter: `challenge_id=eq.${id}` }, later)
+      .subscribe()
+    const poll = setInterval(() => { if (!document.hidden) setRefresh((n) => n + 1) }, 120_000)
+    return () => { clearTimeout(bump.current); clearInterval(poll); supabase.removeChannel(ch) }
+  }, [id])
+  const standings = usePrizeStandings(raw?.challenge ? id : null, refresh)
 
   const d = useMemo(() => {
     if (!raw) return null
@@ -184,8 +208,6 @@ export default function AdminChallengeAnalytics() {
 
   return (
     <div className="page">
-      <Link to="/admin/analytics" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Back to analytics</Link>
-
       <PageHeader
         back={{ to: '/admin/analytics', label: 'Analytics' }}
         title={challenge.title}
@@ -197,6 +219,8 @@ export default function AdminChallengeAnalytics() {
           </div>
         }
       />
+
+      <LiveEconomics challenge={challenge} subs={subs} standings={standings} totalViews={d.totalViews} />
 
       {/* ---------- Headline stats ---------- */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -329,7 +353,7 @@ export default function AdminChallengeAnalytics() {
       {results.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 text-lg font-semibold">
-            {resultBoards.length > 1 ? 'Final leaderboards' : 'Final leaderboard'}
+            {challenge.status === 'active' ? 'Leaderboard right now' : resultBoards.length > 1 ? 'Final leaderboards' : 'Final leaderboard'}
           </h2>
           {/* ONE LIST PER BOARD.
               Ranks are stored per group (migration 154), so a flat list of a
@@ -346,10 +370,17 @@ export default function AdminChallengeAnalytics() {
                 <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
                   {rows.map((r) => (
                     <Link key={r.id} to={`/profile/${r.profiles?.id}`} className="flex items-center gap-4 border-b border-gray-50 px-5 py-3 transition-colors last:border-0 hover:bg-cloud/60 sm:px-7">
-                      <span className="w-8 text-center text-lg font-bold">{{ 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank] || r.rank}</span>
+                      <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums', r.rank <= 3 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{r.rank}</span>
                       <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name}</span>
-                      <span className="text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
+                      {challenge.scoring === 'points' ? (
+                        <span className="text-right">
+                          <span className="block text-sm font-bold tabular-nums">{Number(r.final_views || 0).toLocaleString()} pts</span>
+                          <span className="block text-[11px] tabular-nums text-smoke">{formatViews(r.total_views || 0)} views</span>
+                        </span>
+                      ) : (
+                        <span className="text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
+                      )}
                     </Link>
                   ))}
                 </div>
@@ -618,6 +649,68 @@ function Detail({ label, value }) {
     <div>
       <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</dt>
       <dd className="mt-1 text-sm font-medium">{value || '—'}</dd>
+    </div>
+  )
+}
+
+
+// THE MONEY AND THE REACH, SIDE BY SIDE, WHILE IT IS STILL RUNNING.
+//
+// The numbers Ethan tracks a challenge by, in one band: what it is costing so
+// far (the cash prize pot plus every taking-part voucher and award EARNED to
+// date - `challenge_prize_standings`, the one definition), how many views that
+// has bought, and the CPM those two make. `challengeSpend` is pure and tested.
+function LiveEconomics({ challenge, subs, standings, totalViews }) {
+  const spend = challengeSpend(challenge, standings || [], totalViews)
+  const ccy = challenge.prize_currency || 'EUR'
+  const lastRead = subs.reduce((m, s) => (s.views_synced_at && s.views_synced_at > m ? s.views_synced_at : m), '')
+  const live = challenge.status === 'active'
+  return (
+    <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-[#2a1208] via-[#6b2106] to-brand text-white shadow-lift">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-7 sm:pt-6">
+        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/80">
+          {live && (
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+            </span>
+          )}
+          {live ? 'Live economics' : 'Economics'}
+        </p>
+        <p className="text-xs text-white/70">
+          {lastRead ? `Views last synced ${timeAgo(lastRead)}` : 'No views synced yet'} · updates on every sync
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-px bg-white/10 lg:grid-cols-4">
+        <Tile label="Current CPM" value={spend.cpm == null ? '—' : formatMoney(spend.cpm, ccy)} hint="per 1,000 views, spend so far" big />
+        <Tile label="Total views" value={formatViews(totalViews)} hint={`${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`} big />
+        <Tile
+          label="Prize pot"
+          value={formatMoney(spend.pot, ccy)}
+          hint={`${formatMoney(spend.cash, ccy)} places${spend.awards ? ` + ${formatMoney(spend.awards, ccy)} awards` : ''}`}
+        />
+        <Tile
+          label="Taking-part vouchers"
+          value={formatMoney(spend.vouchers, ccy)}
+          hint={spend.voucherCount
+            ? `${spend.voucherCount} earned${challenge.participation_threshold ? ` at ${challenge.participation_threshold} ${challenge.participation_basis === 'points' ? 'pts' : 'videos'}` : ''}`
+            : 'none earned yet'}
+        />
+      </div>
+      <p className={cx('px-5 py-3 text-[11px] leading-relaxed text-white/70 sm:px-7')}>
+        Spend so far = the cash for every paid place ({formatMoney(spend.cash, ccy)}) plus the vouchers and
+        awards earned to date. It grows as creators cross the voucher line; the CPM falls as views come in.
+      </p>
+    </section>
+  )
+}
+
+function Tile({ label, value, hint, big = false }) {
+  return (
+    <div className="bg-[#3a1508]/40 px-5 py-4 sm:px-7">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">{label}</p>
+      <p className={cx('mt-1 font-bold tabular-nums tracking-tight', big ? 'text-3xl' : 'text-2xl')}>{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-white/70">{hint}</p>}
     </div>
   )
 }

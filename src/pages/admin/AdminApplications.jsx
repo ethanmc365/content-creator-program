@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { Link } from 'react-router-dom'
@@ -170,6 +170,8 @@ export default function AdminApplications() {
   //   here, so it is a separate list rather than a filter on the same one.
   const [bucket, setBucket] = useState('applied')
   const [zoom, setZoom] = useState(null)
+  // The thumbnail that was pressed, so the photo grows out of it (PhotoLightbox).
+  const zoomFrom = useRef(null)
   // THE SELECTION, AND THE BULK RUN.
   // `picked` is a Set of creator ids. `running` is what a batch is doing right
   // now, so the bar can say "Approving 3 of 12" rather than freezing.
@@ -790,7 +792,7 @@ export default function AdminApplications() {
                 busy={busyId === a.id}
                 onApprove={() => approve(a)}
                 onDecline={() => decline(a)}
-                onZoom={() => a.photo_url && setZoom({ src: a.photo_url, alt: a.name })}
+                onZoom={(e) => { if (!a.photo_url) return; zoomFrom.current = e?.currentTarget ?? null; setZoom({ src: a.photo_url, alt: a.name }) }}
                 selected={picked.has(a.id)}
                 onSelect={() => togglePick(a.id)}
               />
@@ -803,7 +805,7 @@ export default function AdminApplications() {
                 onFollowUp={() => toggleFollowUp(a)}
                 onDecline={() => decline(a)}
                 busy={busyId === a.id}
-                onZoom={() => a.photo_url && setZoom({ src: a.photo_url, alt: a.name })}
+                onZoom={(e) => { if (!a.photo_url) return; zoomFrom.current = e?.currentTarget ?? null; setZoom({ src: a.photo_url, alt: a.name }) }}
                 selected={picked.has(a.id)}
                 onSelect={() => togglePick(a.id)}
               />
@@ -819,7 +821,7 @@ export default function AdminApplications() {
           viewer - pinch, wheel, double-tap, drag - and it is already what a
           photograph opens into everywhere else. */}
       {zoom && (
-        <PhotoLightbox src={zoom.src} alt={zoom.alt} shape="circle" onClose={() => setZoom(null)} />
+        <PhotoLightbox src={zoom.src} alt={zoom.alt} shape="circle" origin={zoomFrom} onClose={() => setZoom(null)} />
       )}
     </div>
   )
@@ -913,34 +915,69 @@ function ApplicationCard({
       selected && 'ring-2 ring-brand/40',
     )}>
       {/* ------------------------------------------------------- the summary */}
-      <div className="flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:gap-4 sm:p-6">
+      {/* A GRID, SO THE WORDS GET THE WIDTH (22 Sep 2026).
+          Ethan, on a phone: "each card is taking up so much space, this is
+          mostly due to their bio display and each word being on a new line...
+          all the UI seems squished and some almost overlapping." The summary
+          was ONE flex row - tick, 80px face, the text, and the dates column -
+          and the text was `flex-1` with a zero basis, so on a 375px screen it
+          got what was left: about 100px. Every sentence of a bio became a
+          column of single words.
+          Now the face, the name and when they applied are a header row, and
+          everything you READ (email, bio, links, languages) runs the full
+          width of the card underneath it. From `sm` up the same grid puts
+          them back under the name, with the dates on the right. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-3 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-0 sm:p-6">
         <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {/* The face is a button when there is a photo to open, and a plain
             avatar when there is not - a control that does nothing when pressed
             is worse than no control. */}
-        {app.photo_url ? (
-          <button
-            type="button"
-            onClick={onZoom}
-            aria-label={`See ${app.name}'s photo full size`}
-            className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105"
-          >
-            <Avatar src={app.photo_url} name={app.name} size="lg" />
-          </button>
-        ) : (
-          <Avatar src={app.photo_url} name={app.name} size="lg" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h2 className="text-lg font-bold">{app.name}</h2>
+        <div className="sm:row-span-2">
+          {app.photo_url ? (
+            <button
+              type="button"
+              onClick={onZoom}
+              aria-label={`See ${app.name}'s photo full size`}
+              className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105"
+            >
+              <Avatar src={app.photo_url} name={app.name} size="lg" className="!h-14 !w-14 sm:!h-20 sm:!w-20" />
+            </button>
+          ) : (
+            <Avatar src={app.photo_url} name={app.name} size="lg" className="!h-14 !w-14 sm:!h-20 sm:!w-20" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <h2 className="min-w-0 break-words text-base font-bold leading-snug sm:text-lg">{app.name}</h2>
             {age != null && <span className="text-sm text-smoke">{age}</span>}
             {app.referred_by && <Badge tone="brand">Referred</Badge>}
           </div>
-          <p className="text-sm text-smoke">
+          <p className="truncate text-sm text-smoke">
             {[app.city, app.country].filter(Boolean).join(', ') || 'No location given'}
           </p>
+          <p className="mt-0.5 text-[11px] text-gray-400 sm:hidden">Applied {timeAgo(appliedAt(app))}</p>
+        </div>
+
+        <div className="hidden shrink-0 text-right sm:row-span-2 sm:block">
+          {/* WHEN THEY SUBMITTED, NOT WHEN THEY SIGNED UP. See `appliedAt` -
+              those are two different days for anybody who started the form and
+              came back to it, and this queue is about the day they finished. */}
+          <p className="text-xs text-gray-400">Applied {timeAgo(appliedAt(app))}</p>
+          <p className="text-[11px] text-gray-300">{formatDate(appliedAt(app))}</p>
+          {gapDays(app) >= 1 && (
+            <p className="mt-0.5 text-[11px] text-gray-300">
+              Signed up {timeAgo(app.created_at)}
+            </p>
+          )}
+        </div>
+
+        <div className="col-span-3 min-w-0 sm:col-span-1 sm:col-start-3">
           <EmailRow email={email} />
-          {app.bio && <p className="mt-1.5 text-sm font-medium leading-relaxed">{app.bio}</p>}
+          {app.bio && (
+            <p className="mt-2 whitespace-normal break-words text-sm leading-relaxed text-ink line-clamp-4 sm:line-clamp-none">
+              {String(app.bio).replace(/\s+/g, ' ').trim()}
+            </p>
+          )}
 
           {/* The platforms, as links in their own colours. What an approval
               turns on is the work, and the work is behind these. */}
@@ -948,21 +985,15 @@ function ApplicationCard({
             {links.length > 0 ? links.map((l) => {
               const brand = brandForUrl(l.url)
               return (
-                /* THE REAL LOGO, AS A SOLID TILE. An 12px outline glyph in the
-                   platform's colour is a grey blob with a tint - see the note
-                   on SocialMark's `tile`. At 18px, filled, it is unmistakable. */
                 <a
                   key={l.label + l.url}
                   href={/^https?:\/\//i.test(l.url) ? l.url : `https://${l.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1.5 pr-3 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:shadow-card"
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1.5 pr-3 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:shadow-card"
                 >
-                  <SocialMark brand={brand} tile className="h-[18px] w-[18px]" />
-                  {/* No "opens in a new tab" glyph. Ethan: "there's no need to
-                      have that full screen icon, I already know clicking the
-                      link is gonna open it." */}
-                  {l.label || brand}
+                  <SocialMark brand={brand} tile className="h-[18px] w-[18px] shrink-0" />
+                  <span className="truncate">{l.label || brand}</span>
                 </a>
               )
             }) : (
@@ -972,20 +1003,11 @@ function ApplicationCard({
             )}
           </div>
 
-          {/* LANGUAGES, PROMOTED. They are what the market decision below can
-              turn on, so they sit next to it rather than in a run of grey
-              footnotes. A chip is highlighted when it matches a market's own
-              working language. */}
+          {/* LANGUAGES, PROMOTED. Orange = lived in one of our markets. */}
           {app.languages?.length > 0 && (
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Speaks</span>
               {app.languages.map((l) => {
-                /* ORANGE MEANS "THIS LANGUAGE IS LIVED IN ONE OF OUR MARKETS",
-                   full stop. It used to mean "…in a market OTHER than the one
-                   we are suggesting", which lit up Portuguese and left Spanish
-                   grey for a Spanish-and-Portuguese speaker living in Spain -
-                   see the note on `marketLanguageSet`. The title says which
-                   markets, so the colour is never a mystery. */
                 const where = marketsSpeaking?.(l) ?? []
                 const hit = marketLanguageSet?.has(String(l).toLowerCase()) ?? false
                 return (
@@ -1004,40 +1026,23 @@ function ApplicationCard({
             </div>
           )}
         </div>
-
-        <div className="shrink-0 text-left sm:text-right">
-          {/* WHEN THEY SUBMITTED, NOT WHEN THEY SIGNED UP. See `appliedAt` -
-              those are two different days for anybody who started the form and
-              came back to it, and this queue is about the day they finished. */}
-          <p className="text-xs text-gray-400">Applied {timeAgo(appliedAt(app))}</p>
-          <p className="text-[11px] text-gray-300">{formatDate(appliedAt(app))}</p>
-          {/* Said plainly when the two differ by more than a day, because
-              "applied today, signed up last week" is a fact about this person
-              worth having in front of you while you decide - it is the shape of
-              somebody who thought about it. */}
-          {gapDays(app) >= 1 && (
-            <p className="mt-0.5 text-[11px] text-gray-300">
-              Signed up {timeAgo(app.created_at)}
-            </p>
-          )}
-        </div>
       </div>
 
       {/* Their photographs. The single best evidence of whether somebody can
           shoot, and the one thing this page never showed. */}
       {photos.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto px-5 pb-4 sm:px-6">
+        <div className="-mt-1 flex gap-2 overflow-x-auto px-4 pb-4 sm:px-6">
           {photos.slice(0, 8).map((url) => (
             <img
               key={url}
               src={url}
               alt=""
               loading="lazy"
-              className="h-20 w-20 shrink-0 rounded-xl object-cover"
+              className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20"
             />
           ))}
           {photos.length > 8 && (
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-cloud text-xs font-semibold text-smoke">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-cloud text-xs font-semibold text-smoke sm:h-20 sm:w-20">
               +{photos.length - 8}
             </span>
           )}
@@ -1048,7 +1053,7 @@ function ApplicationCard({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-2 border-t border-gray-50 px-5 py-2.5 text-xs font-semibold text-smoke transition-colors hover:bg-cloud/50 hover:text-ink sm:px-6"
+        className="flex w-full items-center justify-between gap-2 border-t border-gray-50 px-4 py-2.5 text-xs font-semibold text-smoke transition-colors hover:bg-cloud/50 hover:text-ink sm:px-6"
         aria-expanded={open}
       >
         {open ? 'Hide the details' : 'Read the whole application'}
@@ -1056,7 +1061,7 @@ function ApplicationCard({
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-gray-50 bg-cloud/30 px-5 py-5 text-sm sm:px-6">
+        <div className="space-y-4 border-t border-gray-50 bg-cloud/30 px-4 py-4 text-sm sm:px-6 sm:py-5">
           {app.about && (
             <div>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">In their words</p>
@@ -1091,7 +1096,7 @@ function ApplicationCard({
       )}
 
       {/* ------------------------------------------------------- the decision */}
-      <div className="border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
+      <div className="border-t border-gray-100 bg-white px-4 py-4 sm:px-6">
         {/* THE MARKET IS CHOSEN WITH CHIPS, AND YOU CAN PICK SEVERAL.
             (4 Sep 2026.)
 
@@ -1218,25 +1223,40 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
       'card !p-0 overflow-hidden transition-all duration-200 hoverable:hover:shadow-lift',
       selected && 'ring-2 ring-brand/40',
     )}>
-      <div className="flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:gap-4 sm:p-6">
+      {/* The same grid as ApplicationCard, for the same reason. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-3 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-0 sm:p-6">
         <PickTick selected={selected} onSelect={onSelect} name={app.name} />
-        {app.photo_url ? (
-          <button type="button" onClick={onZoom} aria-label={`See ${app.name}'s photo full size`}
-            className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105">
-            <Avatar src={app.photo_url} name={app.name} size="lg" />
-          </button>
-        ) : <Avatar src={app.photo_url} name={app.name} size="lg" />}
+        <div className="sm:row-span-2">
+          {app.photo_url ? (
+            <button type="button" onClick={onZoom} aria-label={`See ${app.name}'s photo full size`}
+              className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105">
+              <Avatar src={app.photo_url} name={app.name} size="lg" className="!h-14 !w-14 sm:!h-20 sm:!w-20" />
+            </button>
+          ) : <Avatar src={app.photo_url} name={app.name} size="lg" className="!h-14 !w-14 sm:!h-20 sm:!w-20" />}
+        </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h2 className="text-lg font-bold">{app.name?.trim() || 'No name yet'}</h2>
+            <h2 className="min-w-0 break-words text-base font-bold leading-snug sm:text-lg">{app.name?.trim() || 'No name yet'}</h2>
             {app.followed_up_at
               ? <Badge tone="green">Followed up {timeAgo(app.followed_up_at)}</Badge>
               : <Badge tone="grey">Never finished</Badge>}
           </div>
-          <p className="text-sm text-smoke">
+          <p className="truncate text-sm text-smoke">
             {[app.city, app.country].filter(Boolean).join(', ') || 'No location given'}
           </p>
+          <p className="mt-0.5 text-[11px] text-gray-400 sm:hidden">
+            <span className="font-bold text-brand">{progress.done}/{progress.total}</span> · Signed up {timeAgo(app.created_at)}
+          </p>
+        </div>
+
+        <div className="hidden shrink-0 text-right sm:row-span-2 sm:block">
+          <p className="text-sm font-bold tabular-nums text-brand">{progress.done}/{progress.total}</p>
+          <p className="text-xs text-gray-400">Signed up {timeAgo(app.created_at)}</p>
+          <p className="text-[11px] text-gray-300">{formatDate(app.created_at)}</p>
+        </div>
+
+        <div className="col-span-3 min-w-0 sm:col-span-1 sm:col-start-3">
           <EmailRow email={email} />
           <p className="mt-1.5 text-sm font-medium text-ink">{progress.summary}</p>
 
@@ -1258,15 +1278,9 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
             ))}
           </div>
         </div>
-
-        <div className="flex w-full shrink-0 items-baseline gap-2 text-left sm:block sm:w-auto sm:text-right">
-          <p className="text-sm font-bold tabular-nums text-brand">{progress.done}/{progress.total}</p>
-          <p className="text-xs text-gray-400">Signed up {timeAgo(app.created_at)}</p>
-          <p className="text-[11px] text-gray-300">{formatDate(app.created_at)}</p>
-        </div>
       </div>
 
-      <div className="space-y-3 border-t border-gray-100 px-5 py-4 sm:px-6">
+      <div className="space-y-3 border-t border-gray-100 px-4 py-4 sm:px-6">
         {/* THE EMAIL MOVED UP to the summary, where it is reachable without
             reading the footer - see `EmailRow`. The phone stays here: it is far
             less often what somebody wants, and duplicating both would make the

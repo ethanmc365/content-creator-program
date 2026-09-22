@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
+import ReactionChip, { reactorTitle } from './ReactionChip'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
@@ -64,8 +65,11 @@ export default function MessageActions({
   side = 'left',
   // [{ icon, label, title, onClick, danger }]
   actions = [],
-  // [[emoji, count, mine, names]] - `names` is who reacted, for the tooltip.
+  // [[emoji, count, mine, names, ids]] - `names` and `ids` are who reacted,
+  // for the "who reacted" card (ids let it draw their faces).
   reactions = [],
+  // The viewer, so their own row in that card reads "You".
+  myId = null,
   onToggleReaction,
   // Is this message's bar open. The parent owns it, because only one message's
   // bar may be open at a time and only the parent knows about the others.
@@ -197,14 +201,16 @@ export default function MessageActions({
       )}
 
       {reactions.length > 0 && (
-        <div data-msg-chips className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-          {reactions.map(([emoji, count, isMine, names]) => (
+        <div data-msg-chips className={cx('mt-1 flex select-none flex-wrap items-center gap-0.5', mine && 'justify-end')}>
+          {reactions.map(([emoji, count, isMine, names, ids]) => (
             <ReactionChip
               key={emoji}
               emoji={emoji}
               count={count}
               mine={isMine}
               names={names}
+              ids={ids || []}
+              myId={myId}
               side={side}
               onClick={() => onToggleReaction?.(emoji)}
             />
@@ -217,63 +223,9 @@ export default function MessageActions({
   )
 }
 
-// A reaction, and who is behind it.
-//
-// The names were being handed to the browser as a `title` attribute, which is a
-// native tooltip: it takes about a second to appear, it cannot be styled, and
-// on a chip that also has `hover:scale-105` it frequently never showed up at
-// all. Ethan: "hovering over a reaction icon is still not showing who reacted
-// as it should." So it is drawn, like everything else in this UI.
-//
-// `title` stays as well, because a tooltip that only exists on hover is no
-// tooltip at all for a keyboard or a screen reader.
-function ReactionChip({ emoji, count, mine, names, side, onClick }) {
-  const label = reactorTitle(names, count)
-  return (
-    <span className="group/chip relative inline-flex">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-pressed={mine}
-        aria-label={`${emoji} ${label}`}
-        title={label}
-        className={cx(
-          'reaction-chip flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors duration-150',
-          mine
-            ? 'border-brand bg-brand-tint text-brand'
-            : 'border-gray-200 bg-white text-smoke hover:border-brand/40',
-        )}
-      >
-        <span aria-hidden>{emoji}</span>
-        <span className="font-semibold tabular-nums">{count}</span>
-      </button>
-      {/* Above the chip, so it never covers the message. Clipped to the thread
-          rather than the screen, hence max-w and wrapping: forty people can
-          react to one message and a single-line tooltip would run off. */}
-      <span
-        role="tooltip"
-        className={cx(
-          'pointer-events-none absolute bottom-full z-50 mb-1 hidden max-w-[14rem] rounded-lg bg-ink px-2 py-1 text-[11px] leading-snug text-white shadow-lift',
-          'group-hover/chip:block group-focus-within/chip:block',
-          side === 'right' ? 'right-0' : 'left-0',
-        )}
-      >
-        {label}
-      </span>
-    </span>
-  )
-}
-
-// "Ana, Ben and Chi reacted" - and a plain count when the names did not come
-// through, which is better than an empty tooltip.
-export function reactorTitle(names, count) {
-  const list = (names || []).filter(Boolean)
-  if (!list.length) return `${count} ${count === 1 ? 'reaction' : 'reactions'}`
-  if (list.length === 1) return `${list[0]} reacted`
-  if (list.length === 2) return `${list[0]} and ${list[1]} reacted`
-  if (list.length === 3) return `${list[0]}, ${list[1]} and ${list[2]} reacted`
-  return `${list.slice(0, 3).join(', ')} and ${list.length - 3} more reacted`
-}
+// The chip and its "who reacted" card live in ./ReactionChip. `reactorTitle`
+// is re-exported for anything that imported it from here.
+export { reactorTitle }
 
 function ActionButton({ icon, label, title, onClick, danger, active }) {
   return (

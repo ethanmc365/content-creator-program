@@ -44,6 +44,7 @@ export const TYPE_META = {
   dm: { icon: 'envelope', group: 'people', label: 'Message' },
   chat: { icon: 'chat', group: 'people', label: 'Message' },
   mention: { icon: 'chat', group: 'people', label: 'Mention' },
+  reaction: { icon: 'heart', group: 'people', label: 'Reaction' },
   connection: { icon: 'users', group: 'people', label: 'Connection' },
   collab: { icon: 'pin', group: 'people', label: 'Meet-up' },
   feedback: { icon: 'chat', group: 'people', label: 'Feedback' },

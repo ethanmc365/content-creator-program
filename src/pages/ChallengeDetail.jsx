@@ -526,7 +526,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const partBasis = challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries'
   const participation =
     myPrize?.participation_threshold && myPrize?.participation_prize
-      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize, basis: partBasis }
+      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
       : parseParticipationPrize(prizes)
   // Where I stand against that number: my entries, or my points on the board.
   const myPoints = Number(results.find((r) => r.creator_id === user.id)?.final_views) || 0
@@ -546,7 +546,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     : prizes
   const boardParticipation = shownPrize
     ? (shownPrize.participation_threshold && shownPrize.participation_prize
-      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize, basis: partBasis }
+      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
       : parseParticipationPrize(shownPrize.prize_structure ?? []))
     : participation
   // THE TOP THREE, AS A PODIUM. Built from `boardRows` and `boardPrizes` - the
@@ -1120,30 +1120,32 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // (folded), then straight into how points are scored - the part a
         // creator comes back to check - with the platforms and the (folded)
         // rules last. Ethan: "there is a lot of scrolling involved."
+        // THE RULES ARE BACK UNDER THE BRIEF (22 Sep 2026), on both widths,
+        // above how points are scored. Ethan: "I would move the rules back
+        // below the brief section and above the points section but have that
+        // same read all and show less button for it." They fold exactly like
+        // the brief (CollapsibleRich), so the points are still close by.
         if (isMobile) {
           return (
             <div className="space-y-6">
               {prizesCard}
               {briefCard}
+              {rulesCard}
               {scoringCard}
               {platformsCard}
-              {rulesCard}
             </div>
           )
         }
         return (
-          // RULES MOVED TO THE RIGHT, UNDER THE PLATFORMS (21 Sep 2026, Ethan).
-          // The left column is now the brief and then straight into how points
-          // are scored, which is what a creator comes back to check.
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
               {briefCard}
+              {rulesCard}
               {scoringCard}
             </div>
             <div className="space-y-6">
               {prizesCard}
               {platformsCard}
-              {rulesCard}
             </div>
           </div>
         )

@@ -224,7 +224,13 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             desktop it is bigger and stands left of the board, behind the title;
             on a phone it keeps the top-right corner, which Ethan liked there. */}
         {isGlobal && (
-          <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:-top-28 lg:right-[15rem] lg:h-[36rem] lg:w-[36rem]" />
+          // THE WHOLE EARTH ON A DESKTOP (22 Sep 2026). Ethan: "I wouldn't cut
+          // so much of it off on desktop as we have the space to show all of it
+          // in the middle." It was 36rem pushed 7rem above a card about 27rem
+          // tall, so a third of it was always off the card. From `lg` it is
+          // sized to the card's own height and centred in it, between the
+          // words and the leaderboard. The phone keeps its corner.
+          <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:left-[54%] lg:right-auto lg:top-1/2 lg:h-[94%] lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2" />
         )}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the
@@ -343,18 +349,22 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
             {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
                 the brief" is what the rest of the card already does. */}
-            <div className="flex flex-wrap gap-3 lg:justify-end">
+            {/* THE TWO BUTTONS ARE ONE WIDTH (22 Sep 2026). Ethan: "I want them
+                to be the same length, currently read your brief is shorter." A
+                two-column grid gives both the width of the wider one, and the
+                entry count sits centred under the pair. */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:w-full lg:grid-cols-1">
               {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
                   border the solid one did not, so it stood 2px taller, and an
                   arrow its twin lacked. Both carry a 1px border now. */}
-              <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/50 text-white hover:bg-white/10 sm:inline-flex">
+              <Link to={`/challenges/${c.id}`} className="btn hidden justify-center whitespace-nowrap border border-white/50 text-white hover:bg-white/10 sm:inline-flex">
                 {tr('Read the brief')}
               </Link>
-              <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center border border-white bg-white !text-brand hover:bg-white/90 sm:w-auto">
+              <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center whitespace-nowrap border border-white bg-white !text-brand hover:bg-white/90">
                 {tr('Submit your video')}
               </Link>
             </div>
-            <p className="hidden text-[13px] text-white/80 sm:block sm:text-sm">
+            <p className="hidden text-center text-[13px] text-white/80 sm:block sm:text-sm lg:w-full">
               {entries === 1 ? tr('1 entry so far') : tr('{n} entries so far', { n: entries })}
             </p>
           </div>

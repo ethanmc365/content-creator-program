@@ -76,7 +76,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   aria-hidden
                   className={cx(
                     'flex items-center justify-center rounded-full border-2 border-dashed border-brand/30 text-brand/40',
-                    first ? 'h-[5.5rem] w-[5.5rem]' : outer ? 'h-11 w-11' : 'h-14 w-14',
+                    first ? (five ? 'h-[4.5rem] w-[4.5rem] sm:h-[5.5rem] sm:w-[5.5rem]' : 'h-[5.5rem] w-[5.5rem]') : outer ? 'h-11 w-11' : 'h-14 w-14',
                   )}
                 >
                   <Icon name="user" className={first ? 'h-7 w-7' : outer ? 'h-4 w-4' : 'h-5 w-5'} />
@@ -88,7 +88,18 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   className="block rounded-full p-1 transition-transform duration-200 group-hover:scale-105"
                   style={{ background: tier.disc }}
                 >
-                  <Avatar src={p.photo_url} name={p.name} size={first ? 'lg' : outer ? 'sm' : 'md'} />
+                  {/* `max-w-none` KEEPS IT A CIRCLE (22 Sep 2026). Ethan, on a
+                      phone: the number one's "profile photo is distorted, it's
+                      not a circle." Five steps across 375px leave the middle
+                      column ~70px, and preflight's `img { max-width: 100% }`
+                      squeezed the 80px photo's WIDTH and not its height - an
+                      oval. The photo is sized to fit the column instead. */}
+                  <Avatar
+                    src={p.photo_url}
+                    name={p.name}
+                    size={first ? 'lg' : outer ? 'sm' : 'md'}
+                    className={cx('max-w-none', first && five && '!h-14 !w-14 min-[400px]:!h-16 min-[400px]:!w-16 sm:!h-20 sm:!w-20')}
+                  />
                 </span>
               )}
               <p className={cx(

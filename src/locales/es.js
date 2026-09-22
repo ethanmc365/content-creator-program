@@ -1845,4 +1845,23 @@ export default {
 
   'Could not save that': 'No se ha podido guardar',
   'portfolio': 'portafolio',
+
+  // 22 Sep 2026: referrals in threes, the voucher strip, section titles.
+  'Refer {n} creators, earn a {amount} {label}': 'Recomienda a {n} creadores y gana un {label} de {amount}',
+  'Every {n} creators you refer who sign up, get accepted and post in a challenge earn you a {amount} {label}. Each one counts as 1 of the {n}.': 'Cada {n} creadores que recomiendes que se registren, sean aceptados y publiquen en un reto te dan un {label} de {amount}. Cada uno cuenta como 1 de los {n}.',
+  'Towards your next voucher': 'Hacia tu próximo vale',
+  'Vouchers earned': 'Vales conseguidos',
+  'Your voucher is being prepared by the team.': 'El equipo está preparando tu vale.',
+  'All your referral vouchers have been sent.': 'Ya se han enviado todos tus vales por recomendación.',
+  'Follow each person\'s progress. A referral counts once they are accepted and post a video in a challenge.': 'Sigue el progreso de cada persona. Una recomendación cuenta cuando la aceptan y publica un vídeo en un reto.',
+  'Reach {n} {unit} for a {prize}': 'Llega a {n} {unit} y consigue un {prize}',
+  '(outside the prize places)': '(fuera de los puestos con premio)',
+  '1 creator reached it': '1 creador lo ha conseguido',
+  '{n} creators reached it': '{n} creadores lo han conseguido',
+  '{n} {unit} to the voucher': 'faltan {n} {unit} para el vale',
+  'videos': 'vídeos',
+  'Total views': 'Visualizaciones totales',
+  'Places taken': 'Puestos ocupados',
+  'All games': 'Todos los juegos',
+  'Open the board': 'Abrir el tablón',
 }

@@ -10,6 +10,7 @@ import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import GlobalChallengeStrip from '../components/network/GlobalChallengeStrip'
+import SectionTitle from '../components/network/SectionTitle'
 import { CountUp } from '../components/network/Motion'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
@@ -82,23 +83,12 @@ const MotionLink = motion.create(Link)
 // asked for and it is also the honest instruction here: optical centring
 // against a heading does not depend on either side's font size, which is what
 // makes it hold when a market name is long enough to wrap.
+// THE "ALL X →" LINK IS GONE (22 Sep 2026): the title itself is the link now,
+// see components/network/SectionTitle.
 function SectionHead({ icon, title, hint, to, toLabel }) {
   return (
     <div className="mb-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
-          <Icon name={icon} className="h-5 w-5 shrink-0 text-brand" />
-          <span className="min-w-0">{title}</span>
-        </h2>
-        {to && (
-          <Link
-            to={to}
-            className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-brand transition-transform duration-200 hover:scale-105"
-          >
-            {toLabel} <span aria-hidden>→</span>
-          </Link>
-        )}
-      </div>
+      <SectionTitle icon={icon} to={to} label={toLabel}>{title}</SectionTitle>
       {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
     </div>
   )

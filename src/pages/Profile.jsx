@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { roleBadgeTitle } from '../lib/roles'
@@ -207,6 +207,8 @@ export default function Profile() {
 
   // The header avatar opens full size, round. See the note beside it.
   const [avatarOpen, setAvatarOpen] = useState(false)
+  // The photograph grows out of THIS and shrinks back into it.
+  const avatarRef = useRef(null)
 
   // THE TWO FACTS THE HEADER USED TO CARRY, now read by the clock card.
   // Derived once so the header and the card cannot disagree about whether
@@ -751,6 +753,7 @@ export default function Profile() {
         <div className="shrink-0">
           {creator.photo_url ? (
             <button
+              ref={avatarRef}
               type="button"
               onClick={() => setAvatarOpen(true)}
               className="rounded-full transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/30"
@@ -1085,6 +1088,7 @@ export default function Profile() {
         alt={creator.name}
         shape="circle"
         canSave
+        origin={avatarRef}
         onClose={() => setAvatarOpen(false)}
       />
     </div>
