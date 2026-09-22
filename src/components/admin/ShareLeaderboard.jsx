@@ -72,12 +72,16 @@ export default function ShareLeaderboard({
         communityId = net?.id ?? null
       }
       if (!communityId) { if (!dead) setRooms([]); return }
-      const { data } = await supabase
+      // `label`, NOT `name`: channels has no `name` column, and asking for one
+      // failed the whole query, so every challenge said "no rooms to post
+      // into yet" (22 Sep 2026, the Global Challenge's first share).
+      const { data, error } = await supabase
         .from('channels')
-        .select('id, key, name, icon, community_id, communities:community_id(name, slug, kind)')
+        .select('id, key, label, icon, community_id, communities:community_id(name, slug, kind)')
         .eq('community_id', communityId)
         .order('position')
       if (dead) return
+      if (error) console.error('share rooms', error)
       // Only rooms a leaderboard belongs in. A market can open rooms for
       // anything (a trip thread, a language room), and dropping a podium into
       // every one of them is not a feature.
@@ -168,7 +172,7 @@ export default function ShareLeaderboard({
       })
       if (postError) throw postError
 
-      onDone?.(posted ? `Shared to ${room.name || ROOM_LABELS[room.key]}.` : 'No matching room was found for this challenge.')
+      onDone?.(posted ? `Shared to ${room.label || ROOM_LABELS[room.key]?.label}.` : 'No matching room was found for this challenge.')
       onClose?.()
     } catch (e) {
       setError(e.message ?? 'Could not share that.')
@@ -313,7 +317,7 @@ export default function ShareLeaderboard({
                   >
                     <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', roomId === r.id ? 'text-brand' : 'text-smoke')} />
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold">{r.name || ROOM_LABELS[r.key]?.label}</span>
+                      <span className="block text-sm font-semibold">{r.label || ROOM_LABELS[r.key]?.label}</span>
                       <span className="block text-xs text-smoke">{ROOM_LABELS[r.key]?.hint}</span>
                     </span>
                     {roomId === r.id && <Icon name="check" className="ml-auto h-4 w-4 shrink-0 text-brand" />}

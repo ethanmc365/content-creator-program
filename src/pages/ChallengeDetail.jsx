@@ -241,6 +241,47 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
   useEffect(() => { load() }, [load])
 
+  // THE BOARD FOLLOWS THE SYNC WITHOUT A RELOAD (22 Sep 2026). Ethan: the
+  // leaderboard should update for creators every time views are synced, with
+  // no "publish" step. A sync writes `submissions` (which is on the realtime
+  // publication) and rebuilds `results` in the same transaction, so any entry
+  // changing on this challenge means the board has moved. Reads are batched
+  // with a short debounce because a sync writes twenty rows in a second.
+  // Coming back to the tab refreshes it as well.
+  const refreshBoard = useCallback(async () => {
+    const [{ data: ch }, { data: res }, { data: subs }] = await Promise.all([
+      supabase.from('challenges').select('*').eq('id', id).single(),
+      supabase
+        .from('results')
+        .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)')
+        .eq('challenge_id', id)
+        .order('rank'),
+      supabase
+        .from('submissions')
+        .select('*, profiles:creator_id(id, name, photo_url)')
+        .eq('challenge_id', id)
+        .order('submitted_at', { ascending: false }),
+    ])
+    if (ch) setChallenge(ch)
+    if (res) setResults(res)
+    if (subs) setSubmissions(subs)
+  }, [id])
+  useEffect(() => {
+    let timer = null
+    const soon = () => { clearTimeout(timer); timer = setTimeout(refreshBoard, 1200) }
+    const ch = supabase
+      .channel(`challenge-board-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `challenge_id=eq.${id}` }, soon)
+      .subscribe()
+    const onVisible = () => { if (document.visibilityState === 'visible') soon() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      supabase.removeChannel(ch)
+    }
+  }, [id, refreshBoard])
+
   // Jump straight to the leaderboard for finished challenges with results -
   // UNLESS THE URL ASKED FOR A TAB.
   //
@@ -1351,11 +1392,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               Spain's is the first points challenge the platform has run; see
               migration 173 for the other half of what that turned up. */}
           {challenge.results_status === 'interim' ? (
-            <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
-              <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+            // SOLID BRAND, WHITE TEXT (22 Sep 2026). Ethan did not like the pale
+            // tint; this is the Tryp.com orange the rest of the challenge uses.
+            <div className="flex items-start gap-3 rounded-card bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white shadow-card animate-fade-up">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <Icon name="clock" className="h-5 w-5 text-white" />
+              </span>
               <div>
-                <p className="text-sm font-semibold text-brand">{tr("Current leaderboard")}</p>
-                <p className="text-xs text-smoke">
+                <p className="text-sm font-semibold text-white">{tr("Current leaderboard")}</p>
+                <p className="text-xs leading-relaxed text-white/85">
                   {challenge.scoring === 'points' ? tr("Points earned so far") : tr("Views logged so far")}{challenge.results_updated_at ? ` · ${tr("updated")} ${timeAgo(challenge.results_updated_at)}` : ''}. {tr("These can still change. Final results are counted after the challenge closes.")}
                 </p>
               </div>

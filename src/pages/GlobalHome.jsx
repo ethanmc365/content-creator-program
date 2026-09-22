@@ -759,8 +759,10 @@ export default function GlobalHome() {
                     always was - and the space that buys goes to the fact the old
                     card was missing entirely: WHEN IT CLOSES. */}
                 <div className="space-y-2">
-                  {myLive.map(({ market, challenge, global: isGlobal }) => (
-                    <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                  {myLive.map(({ market, challenge, global: isGlobal }, i) => (
+                    <div key={challenge.id} className="animate-card-wipe" style={{ animationDelay: `${i * 0.12}s` }}>
+                      <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -805,8 +807,10 @@ export default function GlobalHome() {
           {!isMobile && (
           <Reveal from="down" delay={stepDelay()}>
           <section
-            className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
+            className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift animate-card-wipe sm:p-10"
           >
+            {/* THE WIPE (22 Sep 2026): see `.animate-card-wipe` in index.css. */}
+            <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
             {/* A FEW PIXELS LOWER (2 Sep 2026). Ethan: "the Tryp.com animation
@@ -849,7 +853,7 @@ export default function GlobalHome() {
                   size a heading is allowed to be, and forcing it there would
                   push the text out of the card rather than wrap it. From `sm`
                   up there is room, so that is where the promise is made. */}
-              <h2 className="text-lg font-bold leading-tight sm:text-2xl lg:text-[26px] xl:whitespace-nowrap xl:text-3xl">
+              <h2 className="wipe-item text-lg font-bold leading-tight sm:text-2xl lg:text-[26px] xl:whitespace-nowrap xl:text-3xl" style={{ animationDelay: '0.18s' }}>
                 {tr("Tryp.com Content Creator Community")}
               </h2>
 
@@ -916,11 +920,11 @@ export default function GlobalHome() {
                   // for why an aggregate over private rows is safe and how anon
                   // is kept off it.
                   { key: 'km', n: flights?.km ?? null, label: pl(flights?.km, 'Kilometre flown', 'Kilometres flown'), hint: tr('logged by all of us') },
-                ].map((s, _i, all) => (
+                ].map((s, i, all) => (
                   // KEYED ON THE STAT, NOT ON ITS LABEL. The label now changes
                   // when a count crosses one, and a changing key would unmount
                   // the CountUp and replay the whole animation underneath it.
-                  <div key={s.key}>
+                  <div key={s.key} className="wipe-item" style={{ animationDelay: `${0.28 + i * 0.07}s` }}>
                     <p className="text-2xl font-bold sm:text-3xl">
                       {all.some((x) => x.n == null)
                         ? '—'
@@ -993,7 +997,7 @@ export default function GlobalHome() {
                   wing. They are a size down from the figures above too, which
                   is what they are: doors, not statistics. */}
               <div className="mt-6 sm:mt-7">
-                <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]">
+                <div className="wipe-item flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]" style={{ animationDelay: '0.6s' }}>
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
                     label={me?.connections === 1 ? tr('connection') : tr('connections')} />
@@ -1004,7 +1008,7 @@ export default function GlobalHome() {
               </div>
             </div>
             </div>
-            {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" />}
+            {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" arriveDelay={0.45} />}
           </section>
           </Reveal>
           )}

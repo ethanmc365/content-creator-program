@@ -2690,3 +2690,35 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   0%   { opacity: 0.85; transform: scale(1); }
   100% { opacity: 0;    transform: scale(1.75); }
 }
+
+/* ---------------------------------------------------------------------------
+   THE CARD WIPE (22 Sep 2026).
+
+   Ethan, on the Worldwide page: the community card and the Global Challenge
+   band inside it "don't really animate in", while the Challenges page "has that
+   nice wipe effect". A card that leads a page is revealed left to right, rising
+   a little as it goes, and its `challenge-sheen` then passes over it once. It
+   runs on mount, so it plays whenever the card is drawn, and the stagger on the
+   pieces inside it (`.wipe-item`) follows the reveal across the card.
+   ------------------------------------------------------------------------- */
+@keyframes card-wipe {
+  0%   { clip-path: inset(0 100% 0 0 round 1rem); transform: translateY(14px); opacity: 0.2; }
+  30%  { opacity: 1; }
+  100% { clip-path: inset(0 0 0 0 round 1rem); transform: none; opacity: 1; }
+}
+.animate-card-wipe {
+  /* `backwards`, not `both`: once it lands the element's own transform (a
+     hover lift) must apply again, and a filled `transform: none` would win. */
+  animation: card-wipe 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.animate-card-wipe .challenge-sheen { animation-delay: 0.75s; }
+@keyframes wipe-item-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.wipe-item {
+  animation: wipe-item-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-wipe, .wipe-item { animation: none; clip-path: none; }
+}

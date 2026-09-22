@@ -940,6 +940,7 @@ type Row = {
   logged_views: number | null
   platform_video_id: string | null
   creator_id: string | null
+  posted_at?: string | null
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -993,9 +994,14 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
   const handles = await igHandles(rows)
 
   const one = async (row: Row) => {
+    // YOUTUBE HAS NO DATE IN ITS ID (TikTok and Instagram do, and SQL decodes
+    // those). The publish date comes back in `snippet`, so a YouTube entry with
+    // no `posted_at` yet asks for it once - same quota unit either way.
+    const wantDate = row.platform === 'YouTube' && !row.posted_at
     const r = await resolveOne(row.video_url, row.platform_video_id, {
       igCache,
       igHandle: row.creator_id ? handles.get(row.creator_id) ?? null : null,
+      meta: wantDate,
     })
     const now = new Date().toISOString()
 
@@ -1017,14 +1023,27 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
       // preserved that error forever while flagging the truth as the problem.
       // A number typed by hand is for what the platform cannot answer, not for
       // outranking what it can.
-      const { error } = await supabase.from('submissions').update({
+      const patch = {
         logged_views: r.views,
         views_approx: r.approx,
         views_source: source,
         views_synced_at: now,
         views_sync_error: null,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
-      }).eq('id', row.id)
+        ...(wantDate && r.postedAt ? { posted_at: r.postedAt } : {}),
+      }
+      // A WRITE THAT FAILS IS RETRIED, NOT REPORTED AS AN UNREADABLE VIDEO.
+      // The view WAS read; what failed was saving it, and on a points challenge
+      // that save recalculates the whole board, so two at once used to deadlock
+      // (fixed in migration 247 with a per-challenge lock). A retry covers
+      // whatever transient failure is left, so "could not be read" only ever
+      // means the platform would not answer.
+      let error: unknown = null
+      for (let attempt = 0; attempt < 4; attempt++) {
+        ;({ error } = await supabase.from('submissions').update(patch).eq('id', row.id))
+        if (!error) break
+        await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 300))
+      }
 
       if (error) p.failed += 1
       else p.updated += 1
@@ -1077,7 +1096,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at'
 
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first

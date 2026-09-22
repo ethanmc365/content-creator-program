@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { confirm } from '../../lib/confirm'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../lib/utils'
 import { describeSyncError } from '../../lib/viewSync'
@@ -33,7 +33,6 @@ export default function AdminResults() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
-  const [generating, setGenerating] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [toast, setToast] = useState('')
@@ -50,7 +49,6 @@ export default function AdminResults() {
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
   const isLive = challenge?.status === 'active'
-  const phase = isLive ? 'interim' : 'final'
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -227,38 +225,6 @@ export default function AdminResults() {
     setStandingsKey((k) => k + 1)
   }
 
-  // Build the final leaderboard from the logged views.
-  //
-  // THE RANKING IS DONE IN THE DATABASE, by `rebuild_challenge_results`, so that
-  // exactly one piece of code decides who is first. This function used to rank
-  // on a creator's best single entry no matter what the challenge said, which is
-  // right for "Best single video" and wrong for "Total views", where every entry
-  // is supposed to add up. It is also what the hourly view sync now calls, so
-  // the board cannot drift away from the numbers under it.
-  async function generateLeaderboard() {
-    const withViews = submissions.filter((s) => s.logged_views != null)
-    if (withViews.length === 0) return flash('Log views on at least one submission first.')
-    if (!await confirm(`Generate the leaderboard from ${withViews.length} reviewed submissions? This replaces any existing results for this challenge.`)) return
-
-    setGenerating(true)
-    const { data: written, error } = await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
-    if (error) { setGenerating(false); return flash(`Couldn't save results: ${error.message}`) }
-    await reloadResults()
-    const ranked = { length: written ?? 0 }
-
-    // Stamp the challenge so the public page can label the standings correctly.
-    const updatedAt = new Date().toISOString()
-    await supabase.from('challenges').update({ results_status: phase, results_updated_at: updatedAt }).eq('id', id)
-    setChallenge((c) => (c ? { ...c, results_status: phase, results_updated_at: updatedAt } : c))
-    setGenerating(false)
-    setResultsCount(ranked.length)
-    flash(
-      phase === 'interim'
-        ? `Current leaderboard published. ${ranked.length} creators ranked and live on the challenge page. Re-log views and publish again any time; publish once more after the challenge closes for the final result.`
-        : `Final results saved. ${ranked.length} creators ranked and now live on the challenge page.`
-    )
-  }
-
   // Drop a leaderboard-update card into the announcements room this challenge
   // belongs to. This used to write `channel: 'announcements'` flat, which is the
   // LEGACY UK room - so a Spanish challenge's standings were posted to 43 UK
@@ -352,6 +318,27 @@ export default function AdminResults() {
 
   const allBest = Object.values(bestByCreator)
   const liveRanking = rankIn(allBest)
+  const outsidePrizes = challenge?.participation_scope === 'outside_prizes'
+  const placed = new Set(liveRanking.slice(0, places).map((r) => r.creator_id))
+  // WHO HAS EARNED THE TAKING-PART VOUCHER comes from the SERVER'S standings
+  // (`challenge_prize_standings`), which know the scope. This used to be
+  // counted here from entries, so on a challenge whose voucher is "outside the
+  // prize places" the leader (7 entries, 23 points, 1st) was drawn as having
+  // won the EUR 10 voucher on this page while the payout and the public board
+  // correctly said nobody had (22 Sep 2026). Only with no standings at all
+  // (an old challenge) does it fall back to counting, and then it still
+  // honours the scope.
+  const voucherWinners = standings && standings.some((r) => r.slot === 'participation')
+    ? standings.filter((r) => r.slot === 'participation' && r.status === 'earned')
+      .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url }))
+    : challenge?.participation_threshold
+    ? submissions
+        .filter((sub) => cleared(sub.creator_id, challenge.participation_threshold))
+        .filter((sub) => !outsidePrizes || !placed.has(sub.creator_id))
+        .map((sub) => sub.profiles)
+        .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
+    : []
+
   // [{ group, ranking, winners }] - one entry, or one per group.
   const podiums = boards.length > 0
     ? boards.map((g) => {
@@ -381,6 +368,7 @@ export default function AdminResults() {
         voucherWinners: prize.participation_threshold
           ? groupSubs
             .filter((sub) => cleared(sub.creator_id, prize.participation_threshold))
+            .filter((sub) => !outsidePrizes || !ranking.slice(0, seats).some((w) => w.creator_id === sub.creator_id))
             .map((sub) => sub.profiles)
             .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
           : [],
@@ -394,12 +382,7 @@ export default function AdminResults() {
       views: submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0),
       prizes: Array.isArray(challenge?.prize_structure) ? challenge.prize_structure : [],
       voucherPrize: challenge?.participation_prize || '',
-      voucherWinners: challenge?.participation_threshold
-        ? submissions
-          .filter((sub) => cleared(sub.creator_id, challenge.participation_threshold))
-          .map((sub) => sub.profiles)
-          .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
-        : [],
+      voucherWinners,
     }]
 
   const podiumWinners = liveRanking.slice(0, places)
@@ -411,20 +394,6 @@ export default function AdminResults() {
   }, {})
   const platformsFor = (creatorId) =>
     PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
-  // EVERYONE who cleared the participation threshold, podium included. Podium
-  // creators used to be filtered out, which made a row headed "for everyone
-  // here" leave out the three people most obviously here. Placing first does not
-  // un-earn the voucher for turning up.
-  const voucherWinners = standings && standings.some((r) => r.slot === 'participation')
-    ? standings.filter((r) => r.slot === 'participation' && r.status === 'earned')
-      .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url }))
-    : challenge?.participation_threshold
-    ? submissions
-        .filter((sub) => cleared(sub.creator_id, challenge.participation_threshold))
-        .map((sub) => sub.profiles)
-        .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
-    : []
-
   if (loading) {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
   }
@@ -440,21 +409,18 @@ export default function AdminResults() {
             : 'View counts are read off each entry automatically. Check anything flagged below and correct it.'
         }
         action={
-          <div className="flex flex-col items-end gap-2">
-            <button onClick={generateLeaderboard} disabled={generating} className="btn-primary">
-              {generating ? <Spinner /> : isLive ? 'Publish current leaderboard' : 'Publish final results'}
+          /* NO "PUBLISH THE LEADERBOARD" BUTTON (22 Sep 2026). Ethan: the board
+             should update for creators every time views are synced, so there
+             is nothing to publish. `rebuild_challenge_results` runs on every
+             sync and every edit here and stamps `results_updated_at`; the
+             creator page reads `results` directly. The "leaderboard live (8)
+             view" link went with it - the board is on this page. */
+          resultsCount > 0 ? (
+            <button onClick={() => setSharing(true)} className="btn-secondary inline-flex items-center gap-2 !py-2 text-sm">
+              <Icon name="share" className="h-4 w-4" />
+              Share the result
             </button>
-            {resultsCount > 0 && (
-              <>
-                <button onClick={() => setSharing(true)} className="btn-secondary !py-2 text-xs">
-                  Share the result
-                </button>
-                <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
-                  {challenge?.results_status === 'interim' ? 'Current' : 'Final'} leaderboard live ({resultsCount}) → view
-                </Link>
-              </>
-            )}
-          </div>
+          ) : null
         }
       />
 
@@ -785,10 +751,14 @@ export default function AdminResults() {
                 placeholder="Why it does not count"
               />
             </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={dq.notify} onChange={(e) => setDq((d) => ({ ...d, notify: e.target.checked }))} />
-              Tell the creator, with this reason
-            </label>
+            {/* A SWITCH IN THE BRAND, NOT THE BROWSER'S BLUE TICK BOX (22 Sep 2026). */}
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
+              <span className="min-w-0 text-sm">
+                <span className="block font-semibold text-ink">Tell the creator</span>
+                <span className="block text-xs text-smoke">They get a notification with this reason.</span>
+              </span>
+              <Toggle on={dq.notify} onChange={(v) => setDq((d) => ({ ...d, notify: v }))} label="Tell the creator" />
+            </div>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary !py-2 text-sm" onClick={() => setDq(null)} disabled={dq.busy}>Cancel</button>
               <button type="button" className="btn-danger !py-2 text-sm" onClick={confirmDisqualify} disabled={dq.busy || !dq.reason.trim()}>

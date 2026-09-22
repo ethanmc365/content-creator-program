@@ -54,7 +54,6 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   const [error, setError] = useState('')
   // What the last press actually did, in words (see `finish`).
   const [outcome, setOutcome] = useState(null)
-  const [before, setBefore] = useState(null)
   const wasRunning = useRef(false)
 
   const refresh = useCallback(async () => {
@@ -168,7 +167,6 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
     setStarting(true)
     setError('')
     setOutcome(null)
-    setBefore(new Map(submissions.map((x) => [x.id, x.logged_views])))
     try {
       // force: pressing this means "read these now". Without it the sweep's
       // staleness rule applies, and a button that does nothing because
@@ -270,23 +268,23 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
 
       {error ? <p className="px-5 pb-5 text-sm text-brand sm:px-7">{error}</p> : null}
 
+      {/* ONE LINE, AND IT SAYS WHETHER IT WORKED (22 Sep 2026). Ethan: it
+          should just say it read all the videos; the "Jessica: 3,000 to 3,014"
+          list under it was noise. A failure still says how many, and the
+          reasons are grouped just below. */}
       {outcome ? (() => {
-        const was = before
-        const moved = was ? submissions.filter((x) => was.has(x.id) && was.get(x.id) !== x.logged_views) : []
         const n = outcome.ran ?? submissions.length
+        const ok = !outcome.failed
         return (
-          <div className="mx-5 mb-5 flex items-start gap-3 rounded-card bg-brand-tint/50 px-4 py-3 sm:mx-7">
-            <Icon name={outcome.failed ? 'alert' : 'check'} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-            <div className="min-w-0 text-sm">
-              <p className="font-semibold text-ink">
-                Read {n} {n === 1 ? 'video' : 'videos'} just now{outcome.failed ? `, ${outcome.failed} could not be read` : ''}. Leaderboard rebuilt.
-              </p>
-              <p className="mt-0.5 text-xs text-ink/70">
-                {moved.length === 0
-                  ? 'No count had moved since the last read, so the numbers stay as they were.'
-                  : moved.slice(0, 6).map((x) => `${x.profiles?.name?.split(' ')[0] || 'Entry'}: ${(was.get(x.id) ?? 0).toLocaleString()} to ${(x.logged_views ?? 0).toLocaleString()}`).join(' · ')}
-              </p>
-            </div>
+          <div className="mx-5 mb-5 flex items-center gap-3 rounded-card bg-brand-tint/50 px-4 py-3 animate-fade-up sm:mx-7">
+            <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white', ok ? 'bg-brand' : 'bg-amber-500')}>
+              <Icon name={ok ? 'check' : 'alert'} className="h-3.5 w-3.5" />
+            </span>
+            <p className="min-w-0 text-sm font-semibold text-ink">
+              {ok
+                ? `All ${n} ${n === 1 ? 'video' : 'videos'} read successfully. Leaderboard updated.`
+                : `Read ${n - outcome.failed} of ${n} videos. ${outcome.failed} could not be read, see below.`}
+            </p>
           </div>
         )
       })() : null}

@@ -233,7 +233,21 @@ export default function AdminChallengeAnalytics() {
         <StatCard label="Avg views / entry" value={formatViews(d.avgViews)} />
         <StatCard label="Median views" value={formatViews(d.medianViews)} />
         <StatCard label="Top entry" value={formatViews(d.topViews)} />
-        <StatCard label="Reviewed" value={`${subs.filter((s) => s.logged_views != null).length}/${d.submissions}`} hint="views logged" />
+        {/* CPM IN THE ECONOMICS TOO, NOT ONLY IN THE BAND (22 Sep 2026). Ethan
+            could not find it under the band. Same `challengeSpend` as the band,
+            so the two cannot disagree, and it stays once the challenge ends. */}
+        {(() => {
+          const sp = challengeSpend(challenge, standings || [], d.totalViews)
+          const ccy = challenge.prize_currency || 'EUR'
+          return (
+            <StatCard
+              label="CPM"
+              value={sp.cpm == null ? '—' : formatMoney(Math.round(sp.cpm * 100) / 100, ccy)}
+              hint={`per 1,000 views · ${formatMoney(sp.spend, ccy)} spend`}
+              accent
+            />
+          )
+        })()}
       </div>
 
       {/* ---------- The groups, compared ---------- */}

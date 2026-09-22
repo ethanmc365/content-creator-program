@@ -13,6 +13,7 @@ import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
 import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
+import Referrals from './analytics/Referrals'
 import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
@@ -45,6 +46,9 @@ const TABS = [
   // by market" - so it sits next to it rather than at the far end of the strip.
   { key: 'markets', label: 'Market league' },
   { key: 'growth', label: 'Growth' },
+  // REFERRALS, ITS OWN TAB (22 Sep 2026): it was a card at the foot of the
+  // Overview, which Ethan had to scroll to find.
+  { key: 'referrals', label: 'Referrals' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
   // Community network folded in from its own admin page. "How connected is the
@@ -736,6 +740,16 @@ export default function AdminAnalytics() {
       </div>
     )
   }
+  if (tab === 'referrals') {
+    return (
+      <div className="page">
+        <PageHeader back="/admin" title="Analytics" subtitle={`Who is bringing new creators into ${scopeLabel}, and what those creators do once they arrive.`} />
+        {tabBar}
+        {filterBar}
+        <Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
+      </div>
+    )
+  }
   if (tab === 'creators') {
     return (
       <div className="page">
@@ -913,7 +927,7 @@ export default function AdminAnalytics() {
           <div className="mt-4 rounded-card border border-gray-100 p-5 shadow-card">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold">Top referrers</p>
-              <button onClick={() => navigate('/admin/referrals')} className="btn-ghost !py-1 !px-2 text-xs">All referrals</button>
+              <button onClick={() => setTab('referrals')} className="btn-ghost !py-1 !px-2 text-xs">Referral analytics</button>
             </div>
             <div className="space-y-2">
               {derived.community.topReferrers.map((r, i) => (

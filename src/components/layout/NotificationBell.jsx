@@ -67,7 +67,7 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
           <span className={cx('block text-sm leading-snug', n.read ? 'font-medium text-ink' : 'font-semibold text-ink')}>
             {n.title}
           </span>
-          {n.body && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-smoke">{n.body}</span>}
+          {n.body && <span className={`mt-0.5 block text-xs leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : 'line-clamp-2'}`}>{n.body}</span>}
           <span className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-400">
             {/* The kind of thing it is, then when. The label is the one piece
                 of context a title cannot always carry: "Sam Rivera" tells you

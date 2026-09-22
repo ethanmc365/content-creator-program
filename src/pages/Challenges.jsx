@@ -9,6 +9,7 @@ import { LiveChallengeSkeleton } from '../components/network/Skeletons'
 import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
 import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
+import { CountUp } from '../components/network/Motion'
 import LiveChallengeCard from '../components/LiveChallengeCard'
 import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
@@ -43,6 +44,20 @@ export default function Challenges() {
   // "is this challenge past its deadline" check stays pure per the lint rules.
   const [nowMs] = useState(() => Date.now())
 
+  // What creators have won, per currency. Re-read whenever the page comes back
+  // into view, so the headline follows new prizes without a reload.
+  function loadPrizesWon() {
+    supabase.rpc('prizes_won_total').then(({ data, error }) => {
+      if (error || !data) return
+      setPrizesAwarded(Object.fromEntries(data.map((r) => [r.currency || 'EUR', Number(r.amount) || 0])))
+    })
+  }
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') loadPrizesWon() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   useEffect(() => {
     async function load() {
       const { data } = await supabase
@@ -65,17 +80,13 @@ export default function Challenges() {
       // Now: everything a creator has actually won, pending included, kept per
       // currency and shown per currency. No baseline, no conversion, nothing
       // invented. Test accounts excluded, because they win things constantly.
-      supabase.from('rewards')
-        .select('amount, currency, profiles:creator_id(is_test)')
-        .then(({ data: won }) => {
-          const byCurrency = {}
-          for (const r of won ?? []) {
-            if (isHiddenTestRow(r.profiles)) continue
-            const c = r.currency || 'GBP'
-            byCurrency[c] = (byCurrency[c] || 0) + Number(r.amount || 0)
-          }
-          setPrizesAwarded(byCurrency)
-        })
+      //
+      // AND IT INCLUDES THE 47 CHALLENGES BEFORE THE PLATFORM (22 Sep 2026).
+      // Ethan: "EUR 290 won by creators so far ... is incorrect, it's way
+      // higher because we added in the other analytics." `prizes_won_total`
+      // (migration 248) adds `challenge_history` - which creators cannot read
+      // directly - to the rewards, per currency.
+      loadPrizesWon()
 
       setGalleries(await loadWinnerGalleries(all))
     }
@@ -202,6 +213,9 @@ export default function Challenges() {
     const total = Object.entries(prizesAwarded ?? {})
       .reduce((sum, [currency, amount]) => sum + (convert(amount, currency, 'EUR') || 0), 0)
     if (total <= 0) return 0
+    // Past a thousand it is a headline, not a ledger: rounded DOWN to the
+    // hundred and shown with a "+" ("EUR 9,000+"), so it never overstates.
+    if (total >= 1000) return Math.floor(total / 100) * 100
     return total < 10 ? Math.round(total) : Math.round(total / 10) * 10
   }, [prizesAwarded])
 
@@ -267,7 +281,7 @@ export default function Challenges() {
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px]">
             <Icon name="trophy" className="h-[18px] w-[18px] shrink-0 translate-y-0.5 text-brand" />
             <span className="font-bold tabular-nums text-brand">
-              {formatMoney(prizeTotalEur, 'EUR')}
+              <CountUp value={prizeTotalEur} format={(n) => formatMoney(n, 'EUR')} />{prizeTotalEur >= 1000 ? '+' : ''}
             </span>
             <span className="text-smoke">{tr("won by creators so far")}</span>
           </p>

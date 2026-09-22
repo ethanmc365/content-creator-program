@@ -56,7 +56,7 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className={cx('block text-sm', n.read ? 'font-medium' : 'font-semibold')}>{n.title}</span>
-          {n.body && <span className="mt-0.5 block text-sm leading-snug text-smoke">{n.body}</span>}
+          {n.body && <span className={`mt-0.5 block text-sm leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : ''}`}>{n.body}</span>}
           <span className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
             <span className="font-medium uppercase tracking-wide">{meta.label}</span>
             <span aria-hidden>·</span>

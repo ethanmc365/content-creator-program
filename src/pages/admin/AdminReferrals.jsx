@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard, Select } from '../../components/ui'
@@ -185,7 +186,14 @@ export default function AdminReferrals() {
         back="/admin"
         title="Referrals"
         subtitle="Who your creators brought in, and exactly how far each referred creator has got. A referral only counts once they submit a video to a challenge."
-        action={<button onClick={exportCsv} className="btn-secondary">Export CSV ↓</button>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/admin/analytics?tab=referrals" className="btn-primary inline-flex items-center gap-2">
+              <Icon name="chart" className="h-4 w-4" /> Referral analytics
+            </Link>
+            <button onClick={exportCsv} className="btn-secondary">Export CSV ↓</button>
+          </div>
+        }
       />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

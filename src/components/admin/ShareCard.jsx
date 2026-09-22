@@ -19,7 +19,7 @@ import ChallengeLeaderboard from '../ChallengeLeaderboard'
 // pill, which is the picture telling you less than the page it came from.
 export const SHARE_LAYOUT = {
   podium: { width: 760, scale: 3 },
-  table: { width: 1000, scale: 2 },
+  table: { width: 1000, scale: 3 },
 }
 
 export default function ShareCard({

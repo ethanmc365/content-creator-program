@@ -868,10 +868,15 @@ export default function Settings() {
           </button>
         )}
       </Reveal>
-      <p className="mt-6 text-xs text-smoke">
-        {tr('Have an idea for another setting? Let us know via')}{' '}
-        <Link to="/feedback" className="font-medium text-brand hover:underline">{tr('Help us improve')}</Link>.
-      </p>
+      {/* THE FOOTNOTE ARRIVES LAST (22 Sep 2026). It sat outside the reveal,
+          so it was on screen before the cards above it had animated in. It now
+          waits for the stagger to finish: one step per card, plus a beat. */}
+      <Reveal from="down" delay={0.06 + (SECTIONS.length + (isAdmin ? 1 : 0)) * 0.05 + 0.12}>
+        <p className="mt-6 text-xs text-smoke">
+          {tr('Have an idea for another setting? Let us know via')}{' '}
+          <Link to="/feedback" className="font-medium text-brand hover:underline">{tr('Help us improve')}</Link>.
+        </p>
+      </Reveal>
     </div>
   )
 }

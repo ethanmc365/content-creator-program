@@ -33,6 +33,10 @@ export default {
           '0%, 100%': { opacity: '0.35' },
           '50%': { opacity: '0.7' },
         },
+        'bar-rise': {
+          '0%': { transform: 'scaleY(0)' },
+          '100%': { transform: 'scaleY(1)' },
+        },
         'fade-up': {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -255,6 +259,7 @@ export default {
         // centre and makes the label look unsteady.
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
+        'bar-rise': 'bar-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
         'board-swap': 'board-swap 180ms ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         'page-in': 'page-in 0.35s ease-out both',

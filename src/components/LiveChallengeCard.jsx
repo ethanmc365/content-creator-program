@@ -111,8 +111,10 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
         {rows.map(({ place, leader, prize }) => (
           <div
             key={place}
+            // EVERY ROW ARRIVES, NOT JUST THE PODIUM (22 Sep 2026).
+            style={{ animationDelay: `${0.3 + place * 0.07}s` }}
             className={cx(
-              'flex items-center gap-2.5 rounded-xl px-2 py-1.5',
+              'wipe-item flex items-center gap-2.5 rounded-xl px-2 py-1.5',
               // FIRST PLACE IS THE ONE PEOPLE ARE PLAYING FOR, so it carries a
               // tint. Two and three are plain, or the panel is three highlights
               // and no hierarchy.
