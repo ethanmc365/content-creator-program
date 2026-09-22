@@ -45,15 +45,17 @@ import { useT } from '../../lib/i18n'
 // knows that. Editing it sets `hook_source = 'manual'` and a resync then leaves
 // it alone.
 //
-// WHERE THE ROWS COME FROM: `sync_tracked_videos()` pulls the top N of every
-// challenge and anything over the view threshold out of `submissions`, both
-// settings rather than constants. Everything else is added by hand - which is
-// how a video from a market that is not on this platform yet gets in, and there
-// are five such markets.
+// WHERE THE ROWS COME FROM (migration 252): anything over the view threshold,
+// always - no podium, no per-challenge top N. It runs itself the moment a
+// submission's views actually change (the hourly sweep, "Sync now", or a
+// manual view-count edit), a challenge ending/publishing winners, or a
+// disqualification - never on a timer. Everything else is added by hand -
+// which is how a video from a market that is not on this platform yet gets in,
+// and there are five such markets.
 //
-// NOTHING HERE IS EVER DELETED BY THE MACHINE. A video that drops out of a
-// challenge's top three stops qualifying and keeps its notes; `Show retired`
-// is the way back to it. See migration 211.
+// NOTHING HERE IS EVER DELETED BY THE MACHINE. A video that drops under the
+// threshold stops qualifying and keeps its notes; `Show retired` is the way
+// back to it. See migration 211.
 export default function AdminVideoTracker() {
   const tr = useT()
   const { profile } = useAuth()
@@ -65,14 +67,11 @@ export default function AdminVideoTracker() {
   const [syncNote, setSyncNote] = useState('')
   const [editing, setEditing] = useState(null)   // a row, or {} for a new one
   const [playing, setPlaying] = useState(null)
-  // THE TWO NUMBERS THAT DECIDE WHAT GETS TRACKED, and they live in the
-  // database rather than in this file. See migration 212: ten thousand views is
-  // a strong video in the UK and an ordinary one in a market with ten times the
-  // reach, and "top three" is right for a challenge with forty entries and thin
-  // for one with four hundred. Both belong to the person running the programme,
-  // not to a deploy.
-  const [rules, setRules] = useState(null)
-  const [tuning, setTuning] = useState(false)
+  // THE ONE NUMBER THAT DECIDES WHAT GETS TRACKED (migration 252): any video
+  // over this many views, always - no podium, no per-challenge top N. It lives
+  // in `app_settings.video_tracker.view_threshold`, read fresh from whatever
+  // the sync RPC last reported.
+  const [threshold, setThreshold] = useState(10000)
 
   // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer
   // of it takes the whole thing (`visibleVideos`) and because that makes
@@ -96,11 +95,8 @@ export default function AdminVideoTracker() {
     setErr('')
     setRows(videos.data || [])
     // A MISSING ROW IS NOT AN ERROR, it is a database that has not been told
-    // yet, and the defaults here are the same two the function falls back to.
-    setRules({
-      view_threshold: Number(settings.data?.value?.view_threshold ?? 10000),
-      top_per_challenge: Number(settings.data?.value?.top_per_challenge ?? 3),
-    })
+    // yet, and the default here is the same one the function falls back to.
+    setThreshold(Number(settings.data?.value?.view_threshold ?? 10000))
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -118,7 +114,7 @@ export default function AdminVideoTracker() {
     setSyncNote(
       n.added || n.updated || n.dropped
         ? `${n.added || 0} new, ${n.updated || 0} refreshed, ${n.dropped || 0} retired`
-        : `Nothing changed. Anything over ${formatViews(n.threshold ?? 10000)} views, plus every paid place once a challenge ends.`,
+        : `Nothing changed. Anything over ${formatViews(n.threshold ?? 10000)} views appears here automatically.`,
     )
     load()
   }
@@ -228,8 +224,8 @@ export default function AdminVideoTracker() {
           count going from "3 videos" to "13 videos" moves nothing but its own
           left edge. Below `lg` it wraps by itself, which is the right answer on
           a phone and needs no second rule to say so. */}
-      <div className="mb-6 rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-6 rounded-card border border-gray-100 bg-white p-2 shadow-card sm:p-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Select
             value={filter.challenge}
             onChange={(v) => set({ challenge: v })}
@@ -276,7 +272,7 @@ export default function AdminVideoTracker() {
               onClick={() => set({ showRetired: !filter.showRetired })}
               aria-pressed={filter.showRetired}
               className={cx(
-                'rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-200',
+                'rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                 filter.showRetired
                   ? 'bg-brand text-white shadow-card'
                   : 'border border-gray-200 bg-white text-smoke hoverable:hover:border-brand hoverable:hover:text-ink',
@@ -305,7 +301,7 @@ export default function AdminVideoTracker() {
             aria-hidden={!(filtered || filter.showRetired)}
             tabIndex={filtered || filter.showRetired ? 0 : -1}
             className={cx(
-              'rounded-xl px-3 py-3 text-sm font-medium text-smoke transition-colors hover:text-ink',
+              'rounded-xl px-3 py-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink',
               !(filtered || filter.showRetired) && 'invisible',
             )}
           >
@@ -330,26 +326,8 @@ export default function AdminVideoTracker() {
               <span className="text-smoke">{monthLabel(filter.month)}</span>
             </>
           )}
-          {/* THE RULES, AS A DOOR THAT SAYS WHAT IS BEHIND IT (10 Sep 2026).
-              Ethan: "what gets tracked - maybe name it as What gets tracked
-              rather than Top 3 / 10k."
-
-              Right, and it is the second time this control has been rewritten
-              towards the same thing. It began as a standing paragraph, became
-              `Top 3 / 10k` - which is the ANSWER, in six characters, to a
-              question the reader has not been asked yet - and is now the
-              question. The two numbers are one press away and are the whole
-              content of the panel it opens. */}
-          {rules && (
-            <button
-              type="button"
-              onClick={() => setTuning(true)}
-              title={`${tr('Top')} ${rules.top_per_challenge} / ${formatViews(rules.view_threshold)}`}
-              className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand"
-            >
-              {tr('What gets tracked')}
-            </button>
-          )}
+          <span className="text-gray-300" aria-hidden>·</span>
+          <span className="text-xs text-gray-400">{tr('over')} {formatViews(threshold)}</span>
           <button
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
@@ -399,7 +377,7 @@ export default function AdminVideoTracker() {
               </p>
               <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
                 {rows.length === 0
-                  ? tr('Press "Sync from entries" to pull the top videos out of every challenge on the platform, or add one by hand from any market.')
+                  ? tr('Press "Sync from entries" to pull in every video over the line from across the platform, or add one by hand from any market.')
                   : tr('Try a wider filter, or clear them all.')}
               </p>
             </div>
@@ -496,76 +474,7 @@ export default function AdminVideoTracker() {
       )}
 
       {playing && <PlayerModal v={playing} onClose={() => setPlaying(null)} />}
-
-      {tuning && rules && (
-        <RulesModal
-          rules={rules}
-          onClose={() => setTuning(false)}
-          onSaved={(next) => { setRules(next); setTuning(false); setSyncNote(tr('Saved. Press "Sync from entries" to apply it.')) }}
-        />
-      )}
     </div>
-  )
-}
-
-// THE TWO NUMBERS, EDITABLE.
-//
-// Deliberately not a settings page: they are two integers that only make sense
-// beside the list they decide, and a trip to /settings to change them is a trip
-// away from the thing you are trying to fix.
-function RulesModal({ rules, onClose, onSaved }) {
-  const tr = useT()
-  const [top, setTop] = useState(String(rules.top_per_challenge))
-  const [threshold, setThreshold] = useState(String(rules.view_threshold))
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  async function save() {
-    const next = {
-      // CLAMPED, because both of these are a `limit` on a query that runs over
-      // every entry the programme has. Zero is meaningful for the top (track
-      // nothing but the big ones); a hundred is more than any challenge has had.
-      top_per_challenge: Math.max(0, Math.min(100, Number(top) || 0)),
-      view_threshold: Math.max(0, Number(threshold) || 0),
-    }
-    setSaving(true)
-    const { error } = await supabase.from('app_settings')
-      .upsert({ key: 'video_tracker', value: next, updated_at: new Date().toISOString() })
-    setSaving(false)
-    if (error) { setErr(error.message); return }
-    onSaved(next)
-  }
-
-  return (
-    <Modal open onClose={onClose} title={tr('What gets tracked')}>
-      <div className="space-y-4">
-        {err && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke">{tr('Podium places, for a challenge with no prize list')}</span>
-          <input value={top} onChange={(e) => setTop(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric"
-            className="no-ios-zoom w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm tabular-nums outline-none focus:border-brand" />
-          <span className="mt-1.5 block text-xs text-smoke">{tr('A finished challenge brings in one video for every paid place it has (ten on the Global Challenge). This number is only used when a challenge lists no prizes.')}</span>
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke">{tr('View count that earns a place on its own')}</span>
-          <input value={threshold} onChange={(e) => setThreshold(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric"
-            className="no-ios-zoom w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm tabular-nums outline-none focus:border-brand" />
-          <span className="mt-1.5 block text-xs text-smoke">
-            {tr('Any video over this is tracked whatever it placed. Currently')} {formatViews(Number(threshold) || 0)}.
-          </span>
-        </label>
-        <p className="rounded-xl bg-cloud/70 px-4 py-3 text-xs leading-relaxed text-smoke">
-          {tr('This runs by itself every ten minutes: a video that crosses the view line during a challenge appears straight away, and the podium lands the moment a challenge ends.')}{' '}
-          {tr('Changing these never removes anything. A video that stops qualifying is marked retired and keeps its hook and notes.')}
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <button type="button" onClick={save} disabled={saving} className="btn-primary flex-1 justify-center disabled:opacity-50">
-            {saving ? <Spinner /> : tr('Save')}
-          </button>
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">{tr('Cancel')}</button>
-        </div>
-      </div>
-    </Modal>
   )
 }
 

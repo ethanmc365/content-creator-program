@@ -2766,9 +2766,10 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
    their first frame until the Reveal says the section is on screen. (The
    counters already follow the card through lib/revealContext.)
    ------------------------------------------------------------------------- */
-.reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .global-glow),
+.reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .global-glow, .global-glow-mobile),
 .reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::before,
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::after {
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::after,
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::before {
   animation-play-state: paused;
 }
 
@@ -2850,24 +2851,57 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   z-index: -1;
   animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out 1.4s infinite;
 }
-/* On a WHITE page (the phone's Live now card) a white light is invisible, so
-   the same ring runs in the brand oranges and the halo is a warm bloom. */
-.global-glow--on-light::before {
-  background:
-    conic-gradient(
-      from var(--glow-angle),
-      rgba(245, 133, 63, 0) 0deg,
-      rgba(245, 133, 63, 1) 45deg,
-      rgba(217, 68, 7, 1) 75deg,
-      rgba(245, 133, 63, 0) 120deg,
-      rgba(245, 133, 63, 0) 180deg,
-      rgba(245, 133, 63, 0.95) 225deg,
-      rgba(217, 68, 7, 0.9) 255deg,
-      rgba(245, 133, 63, 0) 300deg
-    ),
-    linear-gradient(rgba(245, 133, 63, 0.25), rgba(245, 133, 63, 0.25));
+@keyframes glow-spin { to { --glow-angle: 360deg; } }
+@keyframes glow-in { to { opacity: 1; } }
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.95; }
 }
-.global-glow--on-light::after {
+
+/* THE MOBILE GLOW, DRAWN A DIFFERENT WAY - NO MASK-COMPOSITE AT ALL
+   (23 Sep 2026). Ethan: "it shows a weird orange square rather than the
+   smooth gradient background... the animated glow going around it... you
+   can't really tell because of the light background."
+   `.global-glow`'s ring works by painting a conic gradient across the WHOLE
+   box and using `mask-composite: exclude` to punch the middle out, leaving
+   only a ring - a technique some mobile WebKit/Chromium builds fail to
+   composite correctly, falling back to the unmasked layer, which is exactly
+   a solid square the colour of the gradient. Desktop's version is confirmed
+   working and liked, so it stays untouched; this class is only for the phone
+   card that was breaking, and it cannot fail the same way because it never
+   asks the browser to composite a mask at all. The gradient is the WRAPPER's
+   own background; its one real child (the card) sits on top via z-index,
+   covering everything except a `padding`-width border - the ring is just
+   what shows through the gap. Warm brand oranges, not white, because a white
+   light on a white page is invisible - the same reasoning the old on-light
+   variant had, kept here. */
+.global-glow-mobile {
+  position: relative;
+  isolation: isolate;
+  border-radius: calc(1rem + 3px);
+  padding: 3px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(245, 133, 63, 0) 0deg,
+    rgba(245, 133, 63, 1) 45deg,
+    rgba(217, 68, 7, 1) 75deg,
+    rgba(245, 133, 63, 0) 120deg,
+    rgba(245, 133, 63, 0) 180deg,
+    rgba(245, 133, 63, 0.95) 225deg,
+    rgba(217, 68, 7, 0.9) 255deg,
+    rgba(245, 133, 63, 0) 300deg
+  );
+  opacity: 0;
+  animation: glow-spin 5s linear infinite, glow-in 0.9s ease-out 1.4s forwards;
+}
+/* The halo: no masking here either, just a blurred, blurred copy behind -
+   the same free-standing technique desktop's `::after` already uses. */
+.global-glow-mobile::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: calc(1rem + 13px);
   background: conic-gradient(
     from var(--glow-angle),
     rgba(245, 133, 63, 0) 0deg,
@@ -2877,12 +2911,16 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
     rgba(217, 68, 7, 0.55) 240deg,
     rgba(245, 133, 63, 0) 310deg
   );
+  filter: blur(16px);
+  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out infinite;
 }
-@keyframes glow-spin { to { --glow-angle: 360deg; } }
-@keyframes glow-in { to { opacity: 1; } }
-@keyframes glow-breathe {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 0.95; }
+.global-glow-mobile > * {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .global-glow-mobile { animation: none; opacity: 1; }
+  .global-glow-mobile::before { animation: none; opacity: 0.6; }
 }
 @media (prefers-reduced-motion: reduce) {
   .strip-board { animation: none; clip-path: none; }

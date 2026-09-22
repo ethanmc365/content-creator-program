@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, EmptyState, Skeleton, Spinner, StatCard } from '../../components/ui'
+import { Avatar, Badge, EmptyState, Select, Skeleton, Spinner, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { formatDate, formatMoney } from '../../lib/utils'
+import { cx, formatDate, formatMoney } from '../../lib/utils'
 import { invoiceRef } from '../../lib/invoice'
+import { notice } from '../../lib/confirm'
 import { StageChip, payable, useInvoiceViewer } from '../../components/admin/InvoiceModal'
 
 // THE APPROVAL QUEUE. What an invoice IS, and everything you can do to one,
@@ -30,7 +31,7 @@ import { StageChip, payable, useInvoiceViewer } from '../../components/admin/Inv
 //   Out                - sent, waiting to be paid.
 // A single table with a status column makes all five look like the same job.
 
-function Row({ inv, people, busy, onDecide, onView }) {
+function Row({ inv, people, busy, onDecide, onView, selectable, selected, onToggleSelect }) {
   const who = people.get(inv.creator_id)
   const mineToApprove = inv.stage === 'awaiting_approval'
   return (
@@ -39,6 +40,24 @@ function Row({ inv, people, busy, onDecide, onView }) {
       onClick={() => onView(inv)}
       className="flex w-full flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-card"
     >
+      {/* BULK SELECTION, ONLY WHERE A BULK ACTION EXISTS. A checkbox on every
+          row would ask "select this?" about rows that only ever get decided
+          one at a time (sent, paid, blocked). */}
+      {selectable && (
+        <span
+          role="checkbox"
+          aria-checked={selected}
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(inv.id) }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onToggleSelect(inv.id) } }}
+          className={cx(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors',
+            selected ? 'border-brand bg-brand text-white' : 'border-gray-200 text-transparent hover:border-brand/50',
+          )}
+        >
+          <Icon name="check" className="h-3.5 w-3.5" strokeWidth={3} />
+        </span>
+      )}
       <Avatar src={who?.photo_url} name={inv.creator_name} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
@@ -88,15 +107,35 @@ function Row({ inv, people, busy, onDecide, onView }) {
   )
 }
 
-function Group({ title, rows, ...rest }) {
+function Group({ title, rows, selection, ...rest }) {
   if (!rows.length) return null
+  const eligible = selection ? rows.filter((i) => payable(i)) : []
+  const allSelected = selection && eligible.length > 0 && eligible.every((i) => selection.selected.has(i.id))
   return (
     <section>
-      <h3 className="text-[15px] font-semibold">
-        {title} <span className="ml-1 font-normal tabular-nums text-smoke">{rows.length}</span>
+      <h3 className="flex items-center gap-3 text-[15px] font-semibold">
+        {title} <span className="font-normal tabular-nums text-smoke">{rows.length}</span>
+        {selection && eligible.length > 1 && (
+          <button
+            type="button"
+            onClick={() => selection.toggleAll(eligible.map((i) => i.id), !allSelected)}
+            className="ml-auto text-xs font-semibold text-brand hover:underline"
+          >
+            {allSelected ? 'Clear' : `Select all ${eligible.length}`}
+          </button>
+        )}
       </h3>
       <div className="mt-2.5 space-y-2">
-        {rows.map((inv) => <Row key={inv.id} inv={inv} {...rest} />)}
+        {rows.map((inv) => (
+          <Row
+            key={inv.id}
+            inv={inv}
+            {...rest}
+            selectable={selection && payable(inv)}
+            selected={selection?.selected.has(inv.id)}
+            onToggleSelect={selection?.toggle}
+          />
+        ))}
       </div>
     </section>
   )
@@ -105,10 +144,21 @@ function Group({ title, rows, ...rest }) {
 export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
   const [rows, setRows] = useState(null)
   const [people, setPeople] = useState(new Map())
+  // WHICH CHALLENGE'S MONEY. Several challenges can be raising invoices at
+  // once, and the six stage-buckets below interleave them with nothing to say
+  // which is which beyond the description text. This narrows the whole queue
+  // to one challenge's invoices, the same way MarketScope narrows it to one
+  // market - `''` means every challenge, same as `market === ''` means every
+  // market.
+  const [challengeFilter, setChallengeFilter] = useState('')
+  const [selected, setSelected] = useState(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   const load = useCallback(async () => {
     const [{ data: inv }, { data: profs }] = await Promise.all([
-      supabase.from('invoices').select('*').order('number', { ascending: false }),
+      supabase.from('invoices')
+        .select('*, rewards:reward_id(challenge_id, challenges(title))')
+        .order('number', { ascending: false }),
       supabase.from('profiles').select('id, name, photo_url'),
     ])
     setRows(inv || [])
@@ -117,10 +167,23 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
 
   useEffect(() => { load() }, [load])
 
+  const challengeOf = (i) => i.rewards?.challenge_id || null
+  const challengeOptions = useMemo(() => {
+    const seen = new Map()
+    for (const i of rows || []) {
+      const id = challengeOf(i)
+      const title = i.rewards?.challenges?.title
+      if (id && title && !seen.has(id)) seen.set(id, title)
+    }
+    return [...seen.entries()].map(([value, label]) => ({ value, label }))
+  }, [rows])
+
   const groups = useMemo(() => {
     // Scoped with the rest of the page. An invoice belongs to the market its
     // creator does.
-    const all = (rows || []).filter((i) => !inMarket || inMarket.has(i.creator_id))
+    const all = (rows || [])
+      .filter((i) => !inMarket || inMarket.has(i.creator_id))
+      .filter((i) => !challengeFilter || challengeOf(i) === challengeFilter)
     // EVERY INVOICE APPEARS IN EXACTLY ONE GROUP.
     //
     // It did not: "blocked" was derived from the payment block and the other
@@ -138,17 +201,18 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
       out: rest.filter((i) => i.stage === 'sent'),
       paid: rest.filter((i) => i.stage === 'paid'),
     }
-  }, [rows, inMarket])
+  }, [rows, inMarket, challengeFilter])
 
   // What is committed but not yet gone. The one number this page exists for.
   const outstanding = useMemo(() => {
     const live = (rows || [])
       .filter((i) => !inMarket || inMarket.has(i.creator_id))
+      .filter((i) => !challengeFilter || challengeOf(i) === challengeFilter)
       .filter((i) => i.stage !== 'paid' && i.stage !== 'rejected')
     const byCcy = {}
     for (const i of live) byCcy[i.currency] = (byCcy[i.currency] || 0) + Number(i.amount || 0)
     return byCcy
-  }, [rows, inMarket])
+  }, [rows, inMarket, challengeFilter])
 
   // Everything you can DO to an invoice lives in the viewer, so the queue only
   // has to say which one you clicked. `onChanged` refreshes this list; the
@@ -158,13 +222,62 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
     onChanged: () => { load(); onChanged?.() },
   })
 
+  // BULK APPROVAL, ONE RPC CALL AT A TIME (23 Sep 2026) - the same shape as
+  // the Applications queue's bulk approve: `decide_invoice` is called once per
+  // invoice rather than in one statement, so a self-submitted invoice (which
+  // the function refuses unless you are the owner) fails legibly instead of
+  // taking the whole batch down with it, and the toast says how many actually
+  // landed.
+  async function bulkApprove() {
+    const ids = [...selected]
+    if (!ids.length) return
+    setBulkBusy(true)
+    let ok = 0
+    const failed = []
+    for (const id of ids) {
+      const inv = (rows || []).find((i) => i.id === id)
+      const { error } = await supabase.rpc('decide_invoice', { p_id: id, p_approve: true, p_note: null })
+      if (error) failed.push(inv?.creator_name || 'One invoice')
+      else ok += 1
+    }
+    setBulkBusy(false)
+    setSelected(new Set())
+    await load()
+    onChanged?.()
+    notice(
+      failed.length
+        ? `${ok} approved. ${failed.length} could not be approved (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ', …' : ''}).`
+        : `${ok} invoice${ok === 1 ? '' : 's'} approved.`,
+    )
+  }
+
+  const selection = {
+    selected,
+    toggle: (id) => setSelected((s) => { const next = new Set(s); next.has(id) ? next.delete(id) : next.add(id); return next }),
+    toggleAll: (ids, on) => setSelected((s) => {
+      const next = new Set(s)
+      ids.forEach((id) => (on ? next.add(id) : next.delete(id)))
+      return next
+    }),
+  }
+
   if (!rows) return <div className="space-y-3"><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
 
   const shared = { people, busy: viewer.busy, onDecide: viewer.approve, onView: viewer.open }
   const nothing = rows.length === 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-16">
+      {challengeOptions.length > 1 && (
+        <Select
+          value={challengeFilter}
+          onChange={setChallengeFilter}
+          variant="field"
+          className="w-[16rem]"
+          ariaLabel="Filter by challenge"
+          options={[{ value: '', label: 'Every challenge' }, ...challengeOptions]}
+        />
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Waiting for approval" value={groups.waiting.length} accent={groups.waiting.length > 0} />
         <StatCard label="Waiting on bank details" value={groups.blocked.length} />
@@ -182,7 +295,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
         />
       ) : (
         <>
-          <Group title="Waiting for approval" rows={groups.waiting} {...shared} />
+          <Group title="Waiting for approval" rows={groups.waiting} selection={selection} {...shared} />
           <Group title="Approved, ready to send" rows={groups.approved} {...shared} />
           <Group title="Ready to submit" rows={groups.ready} {...shared} />
           <Group title="Waiting on bank details" rows={groups.blocked} {...shared} />
@@ -191,6 +304,22 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
         </>
       )}
 
+      {/* A STICKY BAR, NOT A BUTTON IN THE GROUP HEADER - the same shape as
+          the Applications queue's bulk bar, so pressing one invoice after
+          another still has the action in reach without scrolling back up. */}
+      {selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-4 sm:pb-6">
+          <div className="flex items-center gap-3 rounded-full border border-gray-100 bg-white px-4 py-2.5 shadow-lift animate-fade-up">
+            <span className="text-sm font-semibold text-ink">{selected.size} selected</span>
+            <button type="button" onClick={() => setSelected(new Set())} className="text-xs font-medium text-smoke hover:text-ink">
+              Clear
+            </button>
+            <button type="button" onClick={bulkApprove} disabled={bulkBusy} className="btn-primary !py-1.5 !px-4 text-xs">
+              {bulkBusy ? <Spinner className="h-4 w-4" /> : `Approve ${selected.size}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {viewer.modal}
     </div>

@@ -764,8 +764,8 @@ export default function GlobalHome() {
                       {/* The worldwide brief carries the running light round
                           its border on a phone too (22 Sep 2026). */}
                       {isGlobal ? (
-                        <div className="global-glow global-glow--on-light">
-                          <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                        <div className="global-glow-mobile">
+                          <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} expanded />
                         </div>
                       ) : (
                         <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />

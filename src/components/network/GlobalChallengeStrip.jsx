@@ -116,40 +116,61 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
           </div>
         </div>
 
-        {/* Who is winning. */}
-        <Link
-          to={`/challenges/${challenge.id}?tab=leaderboard`}
-          style={at(0.32)}
-          className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
-        >
-          <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
-            <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
-          </p>
-          {top == null ? (
-            <div className="space-y-1.5 px-1 py-1">
-              {[0, 1, 2].map((i) => <div key={i} className="h-6 animate-pulse rounded-lg bg-cloud" />)}
-            </div>
-          ) : top.length === 0 ? (
-            <p className="px-1 py-2 text-sm text-smoke">{tr('No points yet. The first video takes the lead.')}</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {top.map((r) => (
-                <li
-                  key={r.creator_id}
-                  className={cx('flex animate-fade-up items-center gap-2 rounded-lg px-1.5 py-1', Number(r.rank) === 1 && 'bg-brand-tint/60')}
-                  style={at(0.5 + Number(r.rank) * 0.09)}
-                >
-                  <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-brand">{ordinalFor(r.rank)}</span>
-                  <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name?.split(' ')[0]}</span>
-                  <span className="shrink-0 text-sm font-bold tabular-nums">
-                    {points ? tr('{n} pts', { n: Number(r.final_views || 0).toLocaleString() }) : formatViews(r.final_views)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Link>
+        {/* Who is winning.
+
+            THE BOX GROWS ONCE THE ROWS ARE READY TO GROW WITH IT (23 Sep
+            2026). Ethan: "the leaderboard box appears before the creators on
+            the leaderboard does, it should be smooth - that box just being
+            over the title leaderboard and then expanding down at the same
+            time the creators on it load in."
+
+            It used to always be mounted, growing on a fixed clock
+            (`arriveDelay`) with no idea whether `top` had arrived - so on a
+            slow read the box finished expanding, empty, well before the rows
+            existed to fill it. Now the pre-data state is just the label, the
+            same size a title takes - "over the title" is literally what it
+            is - and the grown box with its rows is a DIFFERENT element,
+            mounted only once `top` is not null, so its `.strip-board`
+            entrance (which already opens top-down like a blind, see
+            `strip-board-grow` in index.css) starts at the moment the rows
+            are ready to fade in with it rather than on a clock that does not
+            know that. */}
+        {top == null ? (
+          <div style={at(0.32)} className="wipe-item min-w-0 px-1">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/80">
+              <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
+            </p>
+          </div>
+        ) : (
+          <Link
+            to={`/challenges/${challenge.id}?tab=leaderboard`}
+            className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
+          >
+            <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
+              <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
+            </p>
+            {top.length === 0 ? (
+              <p className="px-1 py-2 text-sm text-smoke">{tr('No points yet. The first video takes the lead.')}</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {top.map((r, i) => (
+                  <li
+                    key={r.creator_id}
+                    className={cx('flex animate-fade-up items-center gap-2 rounded-lg px-1.5 py-1', Number(r.rank) === 1 && 'bg-brand-tint/60')}
+                    style={{ animationDelay: `${0.2 + i * 0.09}s` }}
+                  >
+                    <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-brand">{ordinalFor(r.rank)}</span>
+                    <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name?.split(' ')[0]}</span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums">
+                      {points ? tr('{n} pts', { n: Number(r.final_views || 0).toLocaleString() }) : formatViews(r.final_views)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Link>
+        )}
 
         {/* The two doors, the same size and the same shape. */}
         <div className="wipe-item grid grid-cols-2 gap-2.5 lg:col-span-2 xl:col-span-1 xl:grid-cols-1" style={at(0.45)}>

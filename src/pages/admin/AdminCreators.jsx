@@ -406,17 +406,27 @@ export default function AdminCreators() {
   // every 30s after, so it is never stale by more than half a minute.
   const weekAgo = nowTick ? nowTick - 7 * 86400000 : Infinity
 
+  // The market a creator belongs to, applied the same way `filtered` applies
+  // it - so picking "Spain" up top scopes the segment counts to Spain too,
+  // not just the table rows underneath them.
+  const inMarket = (c) => {
+    if (marketFilter === '__none') return !(marketOf[c.id] ?? []).length
+    if (marketFilter) return (marketOf[c.id] ?? []).includes(marketFilter)
+    return true
+  }
+
   const segments = useMemo(() => {
     const week = weekAgo
+    const scoped = creators.filter(inMarket)
     return [
-      { key: '', label: 'Everyone', count: creators.length },
-      { key: 'online', label: 'Online now', count: creators.filter((c) => isOnline(c)).length, tone: 'green' },
-      { key: 'week', label: 'Here this week', count: creators.filter((c) => activeMs(c) > week).length },
-      { key: 'quiet', label: 'Gone quiet', count: creators.filter((c) => isInactive(c)).length, tone: 'amber' },
-      { key: 'admin', label: 'Team', count: creators.filter((c) => c.is_admin).length },
+      { key: '', label: 'Everyone', count: scoped.length },
+      { key: 'online', label: 'Online now', count: scoped.filter((c) => isOnline(c)).length, tone: 'green' },
+      { key: 'week', label: 'Here this week', count: scoped.filter((c) => activeMs(c) > week).length },
+      { key: 'quiet', label: 'Gone quiet', count: scoped.filter((c) => isInactive(c)).length, tone: 'amber' },
+      { key: 'admin', label: 'Team', count: scoped.filter((c) => c.is_admin).length },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, lastSeen, nowTick, inactiveBefore])
+  }, [creators, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf])
 
   // Every market that has somebody in it, with its count, newest question first:
   // "how many of mine are there".
@@ -454,8 +464,7 @@ export default function AdminCreators() {
       .filter((c) => {
         const email = emails[c.id] ?? ''
         if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
-        if (marketFilter === '__none') { if ((marketOf[c.id] ?? []).length) return false }
-        else if (marketFilter && !(marketOf[c.id] ?? []).includes(marketFilter)) return false
+        if (!inMarket(c)) return false
         return matchesSegment(c)
       })
       .sort(sorters[sort] || sorters.active)

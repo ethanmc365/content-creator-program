@@ -1,19 +1,19 @@
 import { useEffect, useState, useCallback } from 'react'
 import { confirm } from '../../lib/confirm'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from '../../components/ui'
+import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../lib/utils'
 import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
-import PrizesPanel from '../../components/admin/PrizesPanel'
 import PrizeStandingsPanel, { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGroups'
 import { pickClass } from '../../lib/pick'
+import Reveal from '../../components/network/Reveal'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -35,7 +35,13 @@ export default function AdminResults() {
   const [savingId, setSavingId] = useState(null)
   const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [awarding, setAwarding] = useState(false)
   const [toast, setToast] = useState('')
+  // SUBMISSION ORDER, OR HIGHEST VIEWS FIRST. The fetch itself stays ordered by
+  // `submitted_at` (that is the order disqualify/reinstate/save all reason
+  // about); this only re-sorts what is already loaded, so nothing about
+  // syncing or saving a view count changes underneath it.
+  const [viewSort, setViewSort] = useState('submitted')
   // POSTED BEFORE THE CHALLENGE OPENED (22 Sep 2026, migration 245). Ethan:
   // creators were entering old viral videos. `submissions.posted_at` is decoded
   // from the video's own id (TikTok, Instagram) or read from the platform
@@ -264,6 +270,20 @@ export default function AdminResults() {
     flash(already ? 'Winners hidden again.' : 'Winners published. They are on the challenge board now - share them next.')
   }
 
+  // AWARDING IS AUTOMATIC ON PUBLISH (the trigger on `winners_published_at`),
+  // so this button is the manual re-run for the rare case something needs
+  // redoing - it is idempotent, never pays anyone twice. What actually got
+  // paid, and any invoice stuck on missing bank details, lives on Rewards &
+  // Payouts now rather than a second copy of it here.
+  async function awardPrizesNow() {
+    setAwarding(true)
+    const { data, error } = await supabase.rpc('award_challenge_prizes', { p_challenge_id: id, p_dry_run: false })
+    setAwarding(false)
+    if (error) return flash(`Could not award the prizes: ${error.message}`)
+    const made = (data ?? []).filter((r) => r.outcome === 'created').length
+    flash(made ? `${made} ${made === 1 ? 'prize' : 'prizes'} awarded. Check Rewards & Payouts.` : 'Everything was already awarded.')
+  }
+
   // The podium exactly as creators will see it, drawn from the rows already
   // saved. Same component as the public board, so the preview cannot drift.
   const places = Math.max(1, challenge?.winners_count || (Array.isArray(challenge?.prize_structure) ? challenge.prize_structure.length : 0) || 3)
@@ -461,13 +481,20 @@ export default function AdminResults() {
               </p>
             </div>
             {(ended || challenge?.winners_published_at) && (
-              <button
-                onClick={togglePublished}
-                disabled={publishing}
-                className={challenge?.winners_published_at ? 'btn-secondary !py-2 text-xs' : 'btn-primary !py-2 text-xs'}
-              >
-                {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish final leaderboard'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {resultsCount > 0 && (
+                  <button onClick={awardPrizesNow} disabled={awarding} className="btn-secondary !py-2 text-xs">
+                    {awarding ? <Spinner /> : 'Award prizes now'}
+                  </button>
+                )}
+                <button
+                  onClick={togglePublished}
+                  disabled={publishing}
+                  className={challenge?.winners_published_at ? 'btn-secondary !py-2 text-xs' : 'btn-primary !py-2 text-xs'}
+                >
+                  {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish final leaderboard'}
+                </button>
+              </div>
             )}
           </div>
           {/* THE SHARE DIALOG TAKES THE BOARDS, NOT ONE FLAT RANKING. A split
@@ -513,12 +540,22 @@ export default function AdminResults() {
               </div>
             )
           ))}
+          {/* THE PARTICIPATION AWARD, BOLTED ON RATHER THAN ITS OWN CARD
+              (23 Sep 2026). Ethan: "the participation award should be more
+              compact and bolted on to the leaderboard card above rather than
+              take up so much space." One summary line + a face cluster,
+              expandable for the full per-person detail. Who actually got PAID
+              lives on Rewards & Payouts, not here - see the link below. */}
+          <PrizeStandingsPanel challenge={challenge} refreshKey={`${standingsKey}:${submissions.length}:${resultsCount}`} compact />
+          {resultsCount > 0 && (
+            <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-smoke">
+              <Link to="/admin/rewards" className="font-medium text-brand hover:underline">
+                See who&apos;s been paid on Rewards &amp; Payouts →
+              </Link>
+            </p>
+          )}
         </div>
       )}
-
-      <PrizeStandingsPanel challenge={challenge} refreshKey={`${standingsKey}:${submissions.length}:${resultsCount}`} />
-
-      {resultsCount > 0 ? <PrizesPanel challengeId={id} onFlash={flash} ended={ended} /> : null}
 
       {submissions.length > 0 ? (
         <ViewSyncPanel challengeId={id} submissions={submissions} onSynced={load} />
@@ -554,19 +591,47 @@ export default function AdminResults() {
             )}
           </div>
         )}
-        <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-          {submissions.filter((x) => !onlyEarly || isEarly(x)).map((s) => (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Entries ({submissions.length})</h2>
+          <Select
+            value={viewSort}
+            onChange={setViewSort}
+            variant="field"
+            className="w-[11.5rem] shrink-0"
+            ariaLabel="Order entries by"
+            options={[
+              { value: 'submitted', label: 'Submission order' },
+              { value: 'views', label: 'Highest views' },
+            ]}
+          />
+        </div>
+        {/* `divide-y` ON THE CONTAINER, NOT `border-b ... last:border-0` ON THE
+            ROW. Reveal wraps every child in its own `.reveal-item` div, which
+            makes each row the last (and only) child of ITS OWN wrapper - a
+            `last:` selector on the row itself would then match every row.
+            `divide-y` targets direct children instead, so it still divides
+            correctly around the wrappers Reveal adds. */}
+        <Reveal as="div" className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 shadow-card" stagger={0.03} maxStagger={10}>
+          {submissions
+            .filter((x) => !onlyEarly || isEarly(x))
+            .slice()
+            .sort((a, b) => (viewSort === 'views' ? (b.logged_views ?? -1) - (a.logged_views ?? -1) : 0))
+            .map((s) => (
             <div
               key={s.id}
               className={cx(
-                'flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7',
+                'flex flex-wrap items-center gap-4 px-5 py-4 sm:px-7',
                 isEarly(s) && 'border-l-4 border-l-red-400 bg-red-50/50',
               )}
             >
-              <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
+              {/* CLICKING THE FACE OR THE NAME OPENS THEIR PROFILE (23 Sep
+                  2026), matching the pattern the rest of the app uses. */}
+              <Link to={`/profile/${s.creator_id}`} className="shrink-0">
+                <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
+              </Link>
               <div className="min-w-0 flex-1">
                 <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                  <span className="truncate">{s.profiles?.name}</span>
+                  <Link to={`/profile/${s.creator_id}`} className="truncate hover:text-brand">{s.profiles?.name}</Link>
                   {isEarly(s) && (
                     <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                       Posted before start
@@ -710,7 +775,7 @@ export default function AdminResults() {
               )}
             </div>
           ))}
-        </div>
+        </Reveal>
         </>
       )}
 

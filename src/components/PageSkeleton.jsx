@@ -230,9 +230,27 @@ function HubArticle() {
         <Skeleton className="h-9 w-52 rounded-lg lg:h-11 lg:w-64" />
         <Skeleton className="h-4 w-64 max-w-full rounded" />
       </div>
-      {/* The live challenge banner. It is taller on a desktop, where it
-          carries the leaderboard down its right-hand side. */}
-      <Skeleton className="h-32 w-full rounded-card sm:h-44" />
+      {/* THE HERO CARD, SHAPED LIKE ITS REAL CONTENT, NOT A FLAT BAR
+          (23 Sep 2026). Ethan: "as the card is loading, once it loads it
+          seems to judder a bit." Measured: the real card (title, four
+          counters, and the live-challenge band underneath when one is
+          running) is ~710px tall on desktop; this used to reserve 176px, so
+          the page grew by more than half a screen the instant the skeleton
+          swapped for real content. Echoing the title/counters/band shape
+          (even roughly) closes most of that gap without needing to know in
+          advance whether a challenge is actually live. */}
+      <div className="space-y-7 rounded-card bg-cloud/60 p-6 sm:p-10">
+        <Skeleton className="h-8 w-64 rounded-lg sm:h-10 sm:w-80" />
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:flex sm:flex-wrap sm:gap-x-10">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-7 w-14 sm:h-8 sm:w-16" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full rounded-2xl sm:h-80" />
+      </div>
       <div className="space-y-3">
         <Skeleton className="h-6 w-56 rounded" />
         <Skeleton className="h-36 w-full rounded-card" />

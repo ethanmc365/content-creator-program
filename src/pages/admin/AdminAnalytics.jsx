@@ -512,23 +512,6 @@ export default function AdminAnalytics() {
     // ---- Engagement ----
     const openFeedback = feedback.filter((f) => f.status === 'new').length
 
-    // Top referrers: for each referrer, how many people signed up via their
-    // link vs how many ACTUALLY JOINED (became active members). The old version
-    // labelled everyone who clicked a link as "joined" even when they were still
-    // pending, which read as "2 joined" for people who never actually joined.
-    const refStats = {}
-    for (const p of realCreators) {
-      if (!p.referred_by) continue
-      const r = (refStats[p.referred_by] ||= { signedUp: 0, joined: 0, posted: 0 })
-      r.signedUp += 1
-      if (p.status === 'active') r.joined += 1
-      if (submittedIds.has(p.id)) r.posted += 1
-    }
-    const topReferrers = Object.entries(refStats)
-      .map(([id, s]) => ({ name: nameById[id] || 'Unknown', ...s }))
-      .sort((a, b) => b.joined - a.joined || b.signedUp - a.signedUp)
-      .slice(0, 5)
-
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
       totalPaid, cashPaid: programmeCash, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
@@ -539,7 +522,7 @@ export default function AdminAnalytics() {
         reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
         vouchersGiven: (voucherCounts ?? []).reduce((sum, v) => sum + (v.vouchers || 0), 0),
       },
-      community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
+      community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate },
       totals: {
         creators: active.length,
         submissions: submissions.length + histPosts,
@@ -923,29 +906,6 @@ export default function AdminAnalytics() {
           />
           <StatCard label="Vouchers given" value={derived.engagement.vouchersGiven} hint="participation vouchers" onClick={() => navigate('/admin/challenges')} />
         </div>
-        {derived.community.topReferrers.length > 0 && (
-          <div className="mt-4 rounded-card border border-gray-100 p-5 shadow-card">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">Top referrers</p>
-              <button onClick={() => setTab('referrals')} className="btn-ghost !py-1 !px-2 text-xs">Referral analytics</button>
-            </div>
-            <div className="space-y-2">
-              {derived.community.topReferrers.map((r, i) => (
-                <div key={r.name + i} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-smoke">{i + 1}. {r.name}</span>
-                  <span className="shrink-0 text-right tabular-nums">
-                    <span className="font-semibold text-brand">{r.joined} joined</span>
-                    <span className="ml-2 text-xs text-smoke">of {r.signedUp} signed up</span>
-                    {r.posted > 0 && <span className="ml-2 text-xs text-green-600">{r.posted} posted</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 border-t border-gray-50 pt-3 text-[11px] text-smoke">
-              "Joined" = approved active member. "Posted" = has submitted a challenge video (a referral only counts once they post).
-            </p>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
