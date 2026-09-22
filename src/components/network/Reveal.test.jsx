@@ -309,6 +309,41 @@ describe('Reveal', () => {
     expect(io.has(grid)).toBe(true)
   })
 
+  // Ethan: "it shows a white screen for a second first." A section already on
+  // the first screen must not wait for the rest of the page to stop growing.
+  it('starts a section that is on the first screen without waiting for the page to settle', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const orig = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function rect() {
+      return this.classList.contains('reveal') ? { top: 120, bottom: 420 } : { top: 0, bottom: 0 }
+    }
+    try {
+      const view = render(<Cards />)
+      const grid = view.container.querySelector('.reveal')
+      // Painted (80ms), nowhere near the 400ms of quiet the settle gate needs.
+      act(() => { vi.advanceTimersByTime(100) })
+      expect(grid.classList.contains('is-in')).toBe(true)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = orig
+    }
+  })
+
+  it('still waits for the page to settle for a section below the first screen', () => {
+    setHeights({ container: 300, viewport: 800 })
+    const orig = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function rect() {
+      return this.classList.contains('reveal') ? { top: 1500, bottom: 1800 } : { top: 0, bottom: 0 }
+    }
+    try {
+      const view = render(<Cards />)
+      const grid = view.container.querySelector('.reveal')
+      act(() => { vi.advanceTimersByTime(100) })
+      expect(grid.classList.contains('is-in')).toBe(false)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = orig
+    }
+  })
+
   it('shows the content anyway if the page never stops moving', () => {
     setHeights({ container: 300, viewport: 800 })
     const view = render(<Cards />)

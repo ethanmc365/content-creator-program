@@ -761,7 +761,15 @@ export default function GlobalHome() {
                 <div className="space-y-2">
                   {myLive.map(({ market, challenge, global: isGlobal }, i) => (
                     <div key={challenge.id} className="animate-card-wipe" style={{ animationDelay: `${i * 0.12}s` }}>
-                      <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                      {/* The worldwide brief carries the running light round
+                          its border on a phone too (22 Sep 2026). */}
+                      {isGlobal ? (
+                        <div className="global-glow global-glow--on-light">
+                          <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                        </div>
+                      ) : (
+                        <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                      )}
                     </div>
                   ))}
                 </div>

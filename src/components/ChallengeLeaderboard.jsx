@@ -165,8 +165,12 @@ export default function ChallengeLeaderboard({
         return (
           <div
             key={rank}
+            // ROW BY ROW (22 Sep 2026): the board arrives down the page rather
+            // than all at once, capped so a long board is not a slow one.
+            // `.snapshot-still` finishes it for the shared picture.
+            style={{ animationDelay: `${Math.min(rank - startAt, 11) * 40}ms` }}
             className={cx(
-              'flex items-center gap-3 border-b border-gray-50 py-3.5 last:border-0 sm:gap-4 sm:py-4',
+              'animate-fade-up flex items-center gap-3 border-b border-gray-50 py-3.5 last:border-0 sm:gap-4 sm:py-4',
               wide ? 'px-8' : 'px-4 sm:px-8',
               mine && 'bg-brand-tint/60',
               !row && 'bg-cloud/25',

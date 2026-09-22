@@ -60,13 +60,23 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
   // pieces follow it across (22 Sep 2026).
   const at = (s) => ({ animationDelay: `${arriveDelay + s}s` })
 
+  // THE GLOW IS ON A WRAPPER (22 Sep 2026): the card itself clips its
+  // contents (`overflow-hidden`, for the blooms and the sheen), so a light
+  // running round its border has to live one box further out. The HOVER is on
+  // the wrapper too, so the ring and the card grow together - and it is a real
+  // magnification now; Ethan: "currently it's barely noticeable."
   return (
     <div
       className={cx(
-        'group/strip relative mt-7 animate-card-wipe overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 ring-1 ring-white/25',
-        'shadow-[0_18px_40px_-14px_rgba(90,25,0,0.45)] transition-[transform,box-shadow] duration-300 ease-out',
-        'hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-[0_24px_48px_-14px_rgba(90,25,0,0.5)] sm:p-6',
+        'global-glow group/glow mt-7 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.025]',
         className,
+      )}
+    >
+    <div
+      className={cx(
+        'group/strip relative animate-card-wipe overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 ring-1 ring-white/25',
+        'shadow-[0_18px_40px_-14px_rgba(90,25,0,0.45)] transition-shadow duration-300 ease-out',
+        'hoverable:group-hover/glow:shadow-[0_28px_56px_-14px_rgba(90,25,0,0.55)] sm:p-6',
       )}
       style={at(0)}
     >
@@ -110,7 +120,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         <Link
           to={`/challenges/${challenge.id}?tab=leaderboard`}
           style={at(0.32)}
-          className="wipe-item block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5"
+          className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
         >
           <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
             <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
@@ -127,7 +137,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
                 <li
                   key={r.creator_id}
                   className={cx('flex animate-fade-up items-center gap-2 rounded-lg px-1.5 py-1', Number(r.rank) === 1 && 'bg-brand-tint/60')}
-                  style={at(0.4 + Number(r.rank) * 0.08)}
+                  style={at(0.5 + Number(r.rank) * 0.09)}
                 >
                   <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-brand">{ordinalFor(r.rank)}</span>
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
@@ -143,14 +153,15 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
 
         {/* The two doors, the same size and the same shape. */}
         <div className="wipe-item grid grid-cols-2 gap-2.5 lg:col-span-2 xl:col-span-1 xl:grid-cols-1" style={at(0.45)}>
-          <Link to={`/challenges/${challenge.id}`} className="btn flex-1 justify-center whitespace-nowrap border border-white/50 text-white hover:bg-white/10">
+          <Link to={`/challenges/${challenge.id}`} className="btn flex-1 justify-center whitespace-nowrap border border-white/50 text-white hover:scale-105 hover:bg-white/10">
             {tr('Read the brief')}
           </Link>
-          <Link to={`/challenges/${challenge.id}?submit=1`} className="btn flex-1 justify-center whitespace-nowrap border border-white bg-white !text-brand shadow-[0_8px_20px_rgba(40,10,0,0.25)] hover:bg-white/90">
+          <Link to={`/challenges/${challenge.id}?submit=1`} className="btn flex-1 justify-center whitespace-nowrap border border-white bg-white !text-brand shadow-[0_8px_20px_rgba(40,10,0,0.25)] hover:scale-105 hover:bg-white/90">
             {tr('Submit your video')}
           </Link>
         </div>
       </div>
+    </div>
     </div>
   )
 }

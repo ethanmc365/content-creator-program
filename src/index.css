@@ -2722,3 +2722,170 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 @media (prefers-reduced-motion: reduce) {
   .animate-card-wipe, .wipe-item { animation: none; clip-path: none; }
 }
+
+/* THE LIVE LEADERBOARD CARD IN A ROOM (22 Sep 2026). A slow band of light
+   crosses its orange head every few seconds, so a live board reads as live
+   from across a thread. Transform only; paused for reduced motion. */
+.live-board-sheen {
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: live-board-sheen 5.5s cubic-bezier(0.45, 0, 0.2, 1) 0.8s infinite;
+  will-change: transform;
+}
+@keyframes live-board-sheen {
+  0% { transform: translateX(-120%); }
+  45%, 100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-board-sheen { animation: none; opacity: 0; }
+}
+
+/* The leaderboard's status badge beside the challenge tabs slides in from the
+   right when the Leaderboard tab opens (22 Sep 2026). */
+.board-status {
+  animation: board-status-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes board-status-in {
+  from { opacity: 0; transform: translateX(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-status { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   ENTRANCES INSIDE A REVEAL WAIT FOR THE REVEAL (22 Sep 2026).
+
+   Ethan, on the Worldwide page: "the numbers animate up nicely, but the rest of
+   the cards and stuff should also float in smoothly." They were written to:
+   the community card wipes in and its pieces (`.wipe-item`) follow it across -
+   but those are CSS animations that start when the element MOUNTS, and the
+   section around them is a `Reveal` still at opacity 0 at that moment. So the
+   wipe, the stagger and the leaderboard rows all played out behind an
+   invisible wrapper and the reader was handed a finished card. Held here at
+   their first frame until the Reveal says the section is on screen. (The
+   counters already follow the card through lib/revealContext.)
+   ------------------------------------------------------------------------- */
+.reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .global-glow),
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::before,
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::after {
+  animation-play-state: paused;
+}
+
+/* THE LEADERBOARD PANEL GROWS WITH ITS ROWS (22 Sep 2026). Ethan: "it starts
+   by showing the white background card, maybe that background card could grow
+   with it as it appears." It opens from the top edge down, and the rows fade
+   up inside it as it opens, rather than an empty white box arriving first. */
+@keyframes strip-board-grow {
+  from { clip-path: inset(0 0 100% 0 round 0.75rem); transform: translateY(8px) scale(0.97); opacity: 0.4; }
+  to   { clip-path: inset(0 0 0 0 round 0.75rem); transform: none; opacity: 1; }
+}
+.strip-board {
+  animation: strip-board-grow 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transform-origin: top center;
+}
+
+/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER
+   (22 Sep 2026). Ethan: "really add good animations for the global challenge
+   card to stand out, maybe a nice glow effect around the border too." A thin
+   conic ring turns slowly round the card (`::before`, masked to the border),
+   and a soft blurred copy of it breathes behind (`::after`). It fades in once
+   the card has landed, so it never competes with the entrance. */
+@property --glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.global-glow {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--glow-r, 1rem);
+}
+.global-glow::before,
+.global-glow::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+/* The ring: two bright arcs chasing each other round a faint constant edge. */
+.global-glow::before {
+  inset: -3px;
+  border-radius: calc(var(--glow-r, 1rem) + 3px);
+  padding: 3px;
+  background:
+    conic-gradient(
+      from var(--glow-angle),
+      rgba(255, 255, 255, 0) 0deg,
+      rgba(255, 255, 255, 1) 45deg,
+      rgba(255, 196, 150, 1) 75deg,
+      rgba(255, 255, 255, 0) 120deg,
+      rgba(255, 255, 255, 0) 180deg,
+      rgba(255, 255, 255, 0.95) 225deg,
+      rgba(255, 196, 150, 0.9) 255deg,
+      rgba(255, 255, 255, 0) 300deg
+    ),
+    linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  z-index: 3;
+  animation: glow-spin 5s linear infinite, glow-in 0.9s ease-out 1.4s forwards;
+}
+/* The halo: the same arcs, blurred, breathing behind the card. */
+.global-glow::after {
+  inset: -10px;
+  border-radius: calc(var(--glow-r, 1rem) + 10px);
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(255, 240, 228, 0.95) 60deg,
+    rgba(255, 255, 255, 0) 130deg,
+    rgba(255, 255, 255, 0) 180deg,
+    rgba(255, 240, 228, 0.85) 240deg,
+    rgba(255, 255, 255, 0) 310deg
+  );
+  filter: blur(18px);
+  z-index: -1;
+  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out 1.4s infinite;
+}
+/* On a WHITE page (the phone's Live now card) a white light is invisible, so
+   the same ring runs in the brand oranges and the halo is a warm bloom. */
+.global-glow--on-light::before {
+  background:
+    conic-gradient(
+      from var(--glow-angle),
+      rgba(245, 133, 63, 0) 0deg,
+      rgba(245, 133, 63, 1) 45deg,
+      rgba(217, 68, 7, 1) 75deg,
+      rgba(245, 133, 63, 0) 120deg,
+      rgba(245, 133, 63, 0) 180deg,
+      rgba(245, 133, 63, 0.95) 225deg,
+      rgba(217, 68, 7, 0.9) 255deg,
+      rgba(245, 133, 63, 0) 300deg
+    ),
+    linear-gradient(rgba(245, 133, 63, 0.25), rgba(245, 133, 63, 0.25));
+}
+.global-glow--on-light::after {
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(245, 133, 63, 0) 0deg,
+    rgba(245, 133, 63, 0.7) 60deg,
+    rgba(245, 133, 63, 0) 130deg,
+    rgba(245, 133, 63, 0) 180deg,
+    rgba(217, 68, 7, 0.55) 240deg,
+    rgba(245, 133, 63, 0) 310deg
+  );
+}
+@keyframes glow-spin { to { --glow-angle: 360deg; } }
+@keyframes glow-in { to { opacity: 1; } }
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.95; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip-board { animation: none; clip-path: none; }
+  .global-glow::before { animation: none; opacity: 0.7; }
+  .global-glow::after { animation: none; opacity: 0.5; }
+}

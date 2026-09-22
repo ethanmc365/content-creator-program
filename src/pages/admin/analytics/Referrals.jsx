@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, subWeeks } from 'date-fns'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../../lib/supabase'
 import { allRows } from '../../../lib/fetchAll'
 import { Avatar, Badge, Skeleton, StatCard } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { cx, downloadCsv, formatMoney, formatViews } from '../../../lib/utils'
-import { referralStage, referralTerms } from '../../../lib/referrals'
+import { REFERRAL_STAGES, referralStage, referralTerms } from '../../../lib/referrals'
+import Segmented from '../../../components/network/Segmented'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -51,9 +53,40 @@ function GrowBar({ value, delay = 0, className = '' }) {
   )
 }
 
+// THE SECOND PASS (22 Sep 2026). Ethan: "there seem to be some issues with the
+// charts there, please work on improving the UI for everything. Improve the
+// referrals UI and functionality." What was wrong, measured on the page:
+//   - "Referrals by week" was hand-drawn divs with no axis and no tooltip; the
+//     "counted" bar was absolutely positioned and drew BESIDE its week's
+//     sign-up bar rather than inside it; every other week had no label; and a
+//     quiet quarter was twelve columns of mostly nothing. It is a real chart
+//     now (recharts, one axis, both series side by side per week, a tooltip
+//     on every week) over 8, 12 or 26 weeks.
+//   - the funnel said how many reached each step and never how many were LOST
+//     between two, which is the number a funnel exists to show.
+//   - nothing could be narrowed: a range, one referrer's people, one stage.
+//     All three are filters now, and they drive every figure on the page.
+
+const RANGES = [
+  { value: 'all', label: 'All time' },
+  { value: '90', label: '90 days' },
+  { value: '30', label: '30 days' },
+]
+const WEEK_SPANS = { 90: 13, 30: 8 }
+const STAGE_ORDER = ['counted', 'joined', 'in_review', 'signing_up', 'declined']
+const tooltipStyle = {
+  borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
+  fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
+}
+
 export default function Referrals({ market = '', memberRows = [], scopeLabel = 'Worldwide' }) {
   const [raw, setRaw] = useState(null)
   const [sort, setSort] = useState('stage')
+  const [range, setRange] = useState('all')
+  const [byReferrer, setByReferrer] = useState(null)
+  const [stageFilter, setStageFilter] = useState('all')
+  // Read once, at mount: the range is "the last N days from when you opened it".
+  const [openedAt] = useState(() => Date.now())
 
   useEffect(() => {
     let alive = true
@@ -104,6 +137,8 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
   const data = useMemo(() => {
     if (!raw) return null
     const keep = (id) => !inMarket || inMarket.has(id)
+    const since = range === 'all' ? null : openedAt - Number(range) * 86_400_000
+    const inRange = (d) => !since || (d && new Date(d).getTime() >= since)
     const referrerById = new Map(raw.referrers.map((r) => [r.id, r]))
     const subsBy = new Map()
     for (const s of raw.subs) (subsBy.get(s.creator_id) ?? subsBy.set(s.creator_id, []).get(s.creator_id)).push(s)
@@ -114,7 +149,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
     }
 
     const people = raw.people
-      .filter((p) => keep(p.referred_by))
+      .filter((p) => keep(p.referred_by) && inRange(p.created_at))
       .map((p) => {
         const mine = subsBy.get(p.id) ?? []
         const stage = referralStage(p, mine.length > 0)
@@ -141,7 +176,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       posted: people.filter((p) => p.stage.key === 'counted').length,
     }
 
-    const rewards = raw.rewards.filter((r) => keep(r.creator_id))
+    const rewards = raw.rewards.filter((r) => keep(r.creator_id) && inRange(r.created_at))
     const rewardValue = rewards.reduce((acc, r) => {
       acc[r.currency || 'EUR'] = (acc[r.currency || 'EUR'] || 0) + Number(r.amount || 0)
       return acc
@@ -165,10 +200,16 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       .filter((r) => r.signed > 0 || r.clicks > 0)
       .sort((a, b) => b.posted - a.posted || b.accepted - a.accepted || b.signed - a.signed || b.clicks - a.clicks)
 
-    // Twelve weeks: sign-ups through a link, and referrals that came to count.
-    const now = new Date()
-    const weeks = Array.from({ length: 12 }, (_, i) => {
-      const start = startOfWeek(subWeeks(now, 11 - i), { weekStartsOn: 1 })
+    // Sign-ups through a link, and referrals that came to count, per week.
+    const now = new Date(openedAt)
+    // "All time" starts at the week of the first referral, not a fixed half
+    // year: a fixed 26 weeks drew four months of nothing before the programme
+    // began and squeezed the real weeks into slivers. Never fewer than 8.
+    const first = people.reduce((m, p) => (p.created_at && (!m || p.created_at < m) ? p.created_at : m), null)
+    const weeksSinceFirst = first ? Math.ceil((openedAt - new Date(first).getTime()) / (7 * 86_400_000)) + 1 : 8
+    const span = range === 'all' ? Math.min(52, Math.max(8, weeksSinceFirst)) : (WEEK_SPANS[range] ?? 12)
+    const weeks = Array.from({ length: span }, (_, i) => {
+      const start = startOfWeek(subWeeks(now, span - 1 - i), { weekStartsOn: 1 })
       return { start, label: format(start, 'd MMM'), signed: 0, counted: 0 }
     })
     const weekOf = (d) => {
@@ -186,17 +227,22 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       views: people.reduce((s, p) => s + p.views, 0),
     }
 
-    return { people, counts, rewards, rewardValue, leaderboard, weeks, contribution }
-  }, [raw, inMarket])
+    const stageCounts = {}
+    for (const p of people) stageCounts[p.stage.key] = (stageCounts[p.stage.key] || 0) + 1
+
+    return { people, counts, rewards, rewardValue, leaderboard, weeks, contribution, stageCounts }
+  }, [raw, inMarket, range, openedAt])
 
   const sorted = useMemo(() => {
     if (!data) return []
-    const list = [...data.people]
+    const list = data.people
+      .filter((p) => !byReferrer || p.referred_by === byReferrer)
+      .filter((p) => stageFilter === 'all' || p.stage.key === stageFilter)
     if (sort === 'views') list.sort((a, b) => b.views - a.views)
     else if (sort === 'recent') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     else list.sort((a, b) => b.stage.step - a.stage.step || b.views - a.views)
     return list
-  }, [data, sort])
+  }, [data, sort, byReferrer, stageFilter])
 
   if (!data) {
     return (
@@ -211,7 +257,6 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
   }
 
   const { counts, terms } = { ...data, terms: raw.terms }
-  const maxWeek = Math.max(1, ...data.weeks.map((w) => w.signed))
   const moneyLine = Object.entries(data.rewardValue).map(([c, a]) => formatMoney(a, c)).join(' + ') || formatMoney(0, terms.currency)
 
   function exportCsv() {
@@ -229,27 +274,40 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
     })))
   }
 
+  const focus = byReferrer ? data.leaderboard.find((r) => r.referrer.id === byReferrer)?.referrer : null
+  const hasWeeks = data.weeks.some((w) => w.signed || w.counted)
+
   return (
     <div className="space-y-8">
+      {/* ---- The range, which every figure below follows ---- */}
+      <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+        <p className="text-sm text-smoke">
+          {range === 'all' ? 'Every referral so far' : `Referrals signed up in the last ${range} days`}
+          {' '}in <span className="font-semibold text-ink">{scopeLabel}</span>.
+          {range !== 'all' && <span className="ml-1 text-xs">(Invite link opens are a running total and do not filter by date.)</span>}
+        </p>
+        <Segmented value={range} onChange={setRange} options={RANGES} size="sm" label="Time range" />
+      </div>
+
       {/* ---- The headline numbers ---- */}
       <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: 'Invite link opens', value: counts.clicks },
-          { label: 'Signed up', value: counts.signed, hint: `${pct(counts.signed, counts.clicks)}% of opens` },
+          { label: 'Signed up', value: counts.signed, hint: counts.clicks ? `${pct(counts.signed, counts.clicks)}% of opens` : '' },
           { label: 'Accepted', value: counts.accepted, hint: `${pct(counts.accepted, counts.signed)}% of sign-ups` },
-          { label: 'Counted', value: counts.posted, hint: 'accepted and posted' },
+          { label: 'Counted', value: counts.posted, hint: 'accepted and posted', accent: true },
           { label: 'Vouchers earned', value: data.rewards.length, hint: moneyLine },
           { label: 'Views from referrals', value: formatViews(data.contribution.views), hint: `${data.contribution.entries} ${data.contribution.entries === 1 ? 'entry' : 'entries'}` },
         ].map((s, i) => (
           <div key={s.label} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-            <StatCard label={s.label} value={s.value} hint={s.hint} />
+            <StatCard label={s.label} value={s.value} hint={s.hint} accent={s.accent} />
           </div>
         ))}
       </div>
 
-      {/* ---- The funnel ---- */}
-      <section className="rounded-card border border-gray-100 p-5 shadow-card animate-fade-up sm:p-6" style={{ animationDelay: '120ms' }}>
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      {/* ---- The funnel, and what it loses at each step ---- */}
+      <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:p-6" style={{ animationDelay: '120ms' }}>
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">From invite to first video</h2>
             <p className="mt-0.5 text-sm text-smoke">
@@ -258,89 +316,116 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
           </div>
           <Link to="/admin/referrals" className="btn-secondary !py-2 text-xs">Follow up referrals</Link>
         </div>
-        <ol className="space-y-4">
+        <ol>
           {STEPS.map((step, i) => {
             const n = counts[step.key]
             const prev = i > 0 ? counts[STEPS[i - 1].key] : null
             const top = Math.max(1, counts.clicks, counts.signed)
+            const lost = prev != null ? Math.max(0, prev - n) : 0
             return (
-              <li key={step.key} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[14rem_1fr_7rem]">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">{step.label}</p>
-                  <p className="text-[11px] text-smoke">{step.hint}</p>
+              <li key={step.key}>
+                {/* THE DROP BETWEEN TWO STEPS, said as a number of people. */}
+                {prev != null && (
+                  <div className="flex items-center gap-2 py-1.5 pl-1 text-[11px] text-smoke sm:pl-[14.75rem]">
+                    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 text-gray-300" aria-hidden><path d="M5 9 1 3h8z" fill="currentColor" /></svg>
+                    {lost > 0
+                      ? <span><span className="font-semibold text-ink">{lost}</span> did not go on · {pct(n, prev)}% carried through</span>
+                      : <span>everyone carried through</span>}
+                  </div>
+                )}
+                <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[14rem_1fr_4.5rem]">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">{step.label}</p>
+                    <p className="text-[11px] text-smoke">{step.hint}</p>
+                  </div>
+                  <div className="order-3 col-span-2 h-3.5 sm:order-none sm:col-span-1">
+                    <GrowBar value={n / top} delay={i * 110} />
+                  </div>
+                  <p className="text-right text-lg font-bold tabular-nums text-ink">{n}</p>
                 </div>
-                <div className="order-3 col-span-2 h-3 sm:order-none sm:col-span-1">
-                  <GrowBar value={n / top} delay={i * 90} />
-                </div>
-                <p className="text-right tabular-nums">
-                  <span className="text-lg font-bold text-ink">{n}</span>
-                  {prev != null && (
-                    <span className="ml-1.5 text-xs text-smoke">{pct(n, prev)}%</span>
-                  )}
-                </p>
               </li>
             )
           })}
         </ol>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-5">
         {/* ---- Over time ---- */}
-        <section className="rounded-card border border-gray-100 p-5 shadow-card animate-fade-up sm:p-6" style={{ animationDelay: '180ms' }}>
-          <h2 className="text-base font-semibold">Referrals by week</h2>
-          <p className="mt-0.5 text-sm text-smoke">Sign-ups through a link, and how many of those came to count.</p>
-          <div className="mt-5 flex h-40 items-end gap-1.5">
-            {data.weeks.map((w, i) => (
-              <div key={w.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${w.label}: ${w.signed} signed up, ${w.counted} counted`}>
-                <div className="relative flex w-full flex-1 items-end">
-                  <div
-                    className="w-full origin-bottom rounded-t-md bg-brand/25 animate-bar-rise"
-                    style={{ height: `${(w.signed / maxWeek) * 100}%`, animationDelay: `${i * 35}ms` }}
-                  />
-                  <div
-                    className="absolute bottom-0 left-0 w-full origin-bottom rounded-t-md bg-brand animate-bar-rise"
-                    style={{ height: `${(w.counted / maxWeek) * 100}%`, animationDelay: `${i * 35 + 120}ms` }}
-                  />
-                </div>
-                <span className="hidden text-[10px] text-smoke sm:block">{i % 2 === 0 ? w.label : ''}</span>
-              </div>
-            ))}
+        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:p-6 lg:col-span-3" style={{ animationDelay: '180ms' }}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold">Referrals by week</h2>
+              <p className="mt-0.5 text-sm text-smoke">Sign-ups through a link, and the week each one first counted.</p>
+            </div>
+            <div className="flex gap-4 text-xs text-smoke">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#f5b48a]" /> Signed up</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Counted</span>
+            </div>
           </div>
-          <div className="mt-3 flex gap-4 text-xs text-smoke">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand/25" /> Signed up</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Counted</span>
+          <div className="mt-5 h-60">
+            {!hasWeeks ? (
+              <p className="flex h-full items-center justify-center rounded-xl bg-cloud/50 text-sm text-smoke">No sign-ups through a link in this period.</p>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart data={data.weeks} margin={{ top: 8, right: 4, left: -24, bottom: 0 }} barGap={2} barCategoryGap="22%">
+                  <CartesianGrid vertical={false} stroke="#F1F1F2" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={{ stroke: '#E5E7EB' }} interval="preserveStartEnd" minTickGap={18} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} width={40} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: 'rgba(217,68,7,0.06)' }}
+                    labelFormatter={(l) => `Week of ${l}`}
+                    formatter={(v, k) => [v, k === 'signed' ? 'Signed up' : 'Counted']}
+                  />
+                  <Bar dataKey="signed" fill="#f5b48a" radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} />
+                  <Bar dataKey="counted" fill="#d94407" radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} animationBegin={150} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </section>
 
         {/* ---- Who brings people in ---- */}
-        <section className="rounded-card border border-gray-100 p-5 shadow-card animate-fade-up sm:p-6" style={{ animationDelay: '220ms' }}>
+        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:p-6 lg:col-span-2" style={{ animationDelay: '220ms' }}>
           <h2 className="text-base font-semibold">Top referrers</h2>
-          <p className="mt-0.5 text-sm text-smoke">Ranked by referrals that counted, then accepted, then signed up.</p>
+          <p className="mt-0.5 text-sm text-smoke">Press one to see only the people they brought in.</p>
           {data.leaderboard.length === 0 ? (
             <p className="mt-6 text-sm text-smoke">Nobody in {scopeLabel} has shared an invite link yet.</p>
           ) : (
-            <ul className="mt-4 divide-y divide-gray-50">
-              {data.leaderboard.slice(0, 10).map((r, i) => {
+            <ul className="mt-3 space-y-1">
+              {data.leaderboard.slice(0, 8).map((r, i) => {
                 const toNext = r.posted % terms.per
+                const picked = byReferrer === r.referrer.id
                 return (
-                  <li key={r.referrer.id} className="flex items-center gap-3 py-2.5 animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45 + 260}ms` }}>
-                    <span className="w-5 shrink-0 text-center text-xs font-semibold text-smoke">{i + 1}</span>
-                    <Avatar src={r.referrer.photo_url} name={r.referrer.name} size="sm" />
-                    <Link to={`/profile/${r.referrer.id}`} className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold hover:text-brand">{r.referrer.name}</span>
-                      <span className="block text-[11px] text-smoke">
-                        {r.clicks} opens · {r.signed} signed up · {r.accepted} accepted
+                  <li key={r.referrer.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45 + 260}ms` }}>
+                    <button
+                      type="button"
+                      onClick={() => setByReferrer(picked ? null : r.referrer.id)}
+                      aria-pressed={picked}
+                      className={cx(
+                        'flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200',
+                        // PICKED IS SOLID BRAND WITH WHITE ON IT.
+                        picked ? 'bg-brand text-white shadow-card' : 'hover:-translate-y-0.5 hover:bg-cloud/70',
+                      )}
+                    >
+                      <span className={cx('w-4 shrink-0 text-center text-xs font-semibold', picked ? 'text-white/80' : 'text-smoke')}>{i + 1}</span>
+                      <Avatar src={r.referrer.photo_url} name={r.referrer.name} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{r.referrer.name}</span>
+                        <span className={cx('block text-[11px]', picked ? 'text-white/80' : 'text-smoke')}>
+                          {r.clicks} opens · {r.signed} signed · {r.accepted} accepted
+                        </span>
+                        <span className="mt-1 flex items-center gap-2">
+                          <span className="h-1.5 w-20 shrink-0"><GrowBar value={toNext / terms.per} delay={i * 45 + 300} className={picked ? '!from-white !to-white' : ''} /></span>
+                          <span className={cx('text-[10px]', picked ? 'text-white/80' : 'text-smoke')}>{toNext}/{terms.per} to next voucher</span>
+                        </span>
                       </span>
-                      <span className="mt-1 flex items-center gap-2">
-                        <span className="h-1.5 w-24 shrink-0"><GrowBar value={toNext / terms.per} delay={i * 45 + 300} /></span>
-                        <span className="text-[11px] text-smoke">{toNext} of {terms.per} to next voucher</span>
+                      <span className="shrink-0 text-right">
+                        <span className={cx('block text-base font-bold tabular-nums', picked ? 'text-white' : 'text-brand')}>{r.posted}</span>
+                        <span className={cx('block text-[9px] font-semibold uppercase tracking-wide', picked ? 'text-white/80' : 'text-smoke')}>counted</span>
+                        {r.vouchers > 0 && <Badge tone="green">{r.vouchers} voucher{r.vouchers === 1 ? '' : 's'}</Badge>}
                       </span>
-                    </Link>
-                    <span className="shrink-0 text-right">
-                      <span className="block text-sm font-bold tabular-nums text-brand">{r.posted}</span>
-                      <span className="block text-[10px] uppercase tracking-wide text-smoke">counted</span>
-                      {r.vouchers > 0 && <Badge tone="green">{r.vouchers} voucher{r.vouchers === 1 ? '' : 's'}</Badge>}
-                    </span>
+                    </button>
                   </li>
                 )
               })}
@@ -350,43 +435,63 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       </div>
 
       {/* ---- Every referred creator, and how they took part ---- */}
-      <section className="overflow-hidden rounded-card border border-gray-100 shadow-card animate-fade-up" style={{ animationDelay: '260ms' }}>
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up" style={{ animationDelay: '260ms' }}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 sm:px-6">
-          <div>
-            <h2 className="text-base font-semibold">Referred creators ({data.people.length})</h2>
-            <p className="mt-0.5 text-sm text-smoke">Where each one is, and what they have done since joining.</p>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">
+              Referred creators ({sorted.length}{sorted.length !== data.people.length ? ` of ${data.people.length}` : ''})
+            </h2>
+            <p className="mt-0.5 text-sm text-smoke">
+              {focus ? <>Brought in by <span className="font-semibold text-ink">{focus.name}</span>.</> : 'Where each one is, and what they have done since joining.'}
+              {focus && <button type="button" onClick={() => setByReferrer(null)} className="ml-2 text-xs font-semibold text-brand hover:underline">Show everyone</button>}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div role="radiogroup" aria-label="Sort" className="flex gap-1 rounded-full bg-cloud p-1">
-              {[['stage', 'Stage'], ['views', 'Views'], ['recent', 'Newest']].map(([k, l]) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="radio"
-                  aria-checked={sort === k}
-                  onClick={() => setSort(k)}
-                  className={cx('rounded-full px-3 py-1 text-xs font-semibold transition-all', sort === k ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink')}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented value={sort} onChange={setSort} size="sm" label="Sort" options={[
+              { value: 'stage', label: 'Stage' }, { value: 'views', label: 'Views' }, { value: 'recent', label: 'Newest' },
+            ]} />
             <button type="button" onClick={exportCsv} className="btn-secondary inline-flex items-center gap-1.5 !py-1.5 text-xs">
               <Icon name="download" className="h-3.5 w-3.5" /> CSV
             </button>
           </div>
         </div>
+        {/* WHERE THEY ARE, AS FILTERS WITH THEIR COUNTS. */}
+        <div className="flex flex-wrap gap-1.5 border-b border-gray-50 px-5 py-3 sm:px-6">
+          {[{ key: 'all', label: 'Everyone', n: data.people.length }, ...STAGE_ORDER
+            .filter((k) => data.stageCounts[k])
+            .map((k) => ({ key: k, label: REFERRAL_STAGES[k].label, n: data.stageCounts[k] }))].map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStageFilter(f.key)}
+              aria-pressed={stageFilter === f.key}
+              className={cx(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-200',
+                stageFilter === f.key ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+              )}
+            >
+              {f.label}
+              <span className={cx('rounded-full px-1.5 text-[10px] tabular-nums', stageFilter === f.key ? 'bg-white/25' : 'bg-white')}>{f.n}</span>
+            </button>
+          ))}
+        </div>
         {sorted.length === 0 ? (
-          <p className="p-6 text-sm text-smoke">No one has joined through an invite link in {scopeLabel} yet.</p>
+          <p className="p-6 text-sm text-smoke">
+            {data.people.length === 0 ? `No one has joined through an invite link in ${scopeLabel} in this period.` : 'Nobody matches these filters.'}
+          </p>
         ) : (
           <ul className="divide-y divide-gray-50">
             {sorted.map((p, i) => (
-              <li key={p.id} className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 px-5 py-3.5 animate-fade-up sm:grid-cols-[auto_1fr_auto_auto] sm:px-6" style={{ animationDelay: `${Math.min(i, 8) * 45 + 300}ms` }}>
+              <li key={p.id} className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 px-5 py-3.5 transition-colors animate-fade-up hover:bg-cloud/40 sm:grid-cols-[auto_1fr_auto_auto] sm:px-6" style={{ animationDelay: `${Math.min(i, 8) * 45 + 120}ms` }}>
                 <Avatar src={p.photo_url} name={p.name} size="sm" />
                 <div className="min-w-0">
                   <Link to={`/profile/${p.id}`} className="block truncate text-sm font-semibold hover:text-brand">{p.name}</Link>
                   <p className="truncate text-[11px] text-smoke">
-                    Invited by {p.referrer?.name ?? 'someone'} · signed up {p.created_at ? format(new Date(p.created_at), 'd MMM') : '-'}
+                    Invited by{' '}
+                    {p.referrer
+                      ? <button type="button" onClick={() => setByReferrer(p.referrer.id)} className="font-medium text-ink hover:text-brand">{p.referrer.name}</button>
+                      : 'someone'}
+                    {' '}· signed up {p.created_at ? format(new Date(p.created_at), 'd MMM') : '-'}
                   </p>
                 </div>
                 <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-11 text-xs text-smoke sm:col-span-1 sm:pl-0">

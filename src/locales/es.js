@@ -1864,4 +1864,17 @@ export default {
   'Places taken': 'Puestos ocupados',
   'All games': 'Todos los juegos',
   'Open the board': 'Abrir el tablón',
+  // The live leaderboard card in the rooms (22 Sep 2026).
+  'This leaderboard is no longer available.': 'Esta clasificación ya no está disponible.',
+  'Final leaderboard': 'Clasificación final',
+  'Live leaderboard': 'Clasificación en directo',
+  'updated just now': 'actualizada ahora mismo',
+  'updated {t} ago': 'actualizada hace {t}',
+  'Ends today': 'Termina hoy',
+  '{n}d left': 'quedan {n} d',
+  'No entries on the board yet. Be the first.': 'Todavía no hay nadie en la clasificación. Sé el primero.',
+  'pts': 'pts',
+  'You': 'Tú',
+  'See all {n} on the leaderboard': 'Ver a los {n} en la clasificación',
+  'Open the challenge': 'Abrir el reto',
 }

@@ -119,7 +119,7 @@ export default function WinnersPodium({
               </Link>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{w.profiles?.name || 'Creator'}</span>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">
-                {fmt(scoreOf(w))} <span className="font-normal text-smoke">{unit}</span>
+                {fmt(scoreOf(w))} <span className="font-normal text-smoke">{isPoints && scoreOf(w) === 1 ? 'point' : unit}</span>
               </span>
             </li>
           )))}

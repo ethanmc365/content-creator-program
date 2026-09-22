@@ -190,6 +190,35 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setResults(res ?? [])
     setLoading(false)
 
+    // The size of the roster this challenge is running in front of. STARTED
+    // NOW, IN PARALLEL (22 Sep 2026): it used to wait behind the groups read
+    // and the feedback read, so the participation card was the last thing on
+    // the page to know its numbers and it arrived a second after everything
+    // else. Nothing below depends on it.
+    ;(async () => {
+      if (ch?.community_id) {
+        // The join column is `profile_id`. Same query MarketChallenges runs for
+        // its own bar, so the two can never disagree about who counts.
+        const { count } = await supabase
+          .from('community_members')
+          .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
+          .eq('community_id', ch.community_id)
+          .eq('status', 'active')
+          .eq('profiles.is_admin', false)
+          .in('profiles.is_test', testFlags())
+          .eq('profiles.status', 'active')
+        setAudience(count ?? 0)
+      } else {
+        const { count } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .eq('is_admin', false)
+          .in('is_test', testFlags())
+        setAudience(count ?? 0)
+      }
+    })()
+
     // THE GROUPS, IF THIS CHALLENGE HAS ANY.
     //
     // Four small reads rather than one big one, because three of them are
@@ -215,28 +244,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // query here and no branch on who is asking.
     setFeedback(await loadFeedback((subs ?? []).map((s) => s.id)))
 
-    // The size of the roster this challenge is running in front of.
-    if (ch?.community_id) {
-      // The join column is `profile_id`. Same query MarketChallenges runs for
-      // its own bar, so the two can never disagree about who counts.
-      const { count } = await supabase
-        .from('community_members')
-        .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
-        .eq('community_id', ch.community_id)
-        .eq('status', 'active')
-        .eq('profiles.is_admin', false)
-        .in('profiles.is_test', testFlags())
-        .eq('profiles.status', 'active')
-      setAudience(count ?? 0)
-    } else {
-      const { count } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .eq('is_admin', false)
-        .in('is_test', testFlags())
-      setAudience(count ?? 0)
-    }
   }, [id])
 
   useEffect(() => { load() }, [load])
@@ -844,13 +851,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* A market's Challenges tab passes its own numbers down, because it has
           already counted its roster and can say "here". Everywhere else the
           page works them out for itself rather than showing nothing. */}
-      {isLive && (participationShown ? (
+      {/* HELD FROM THE FIRST PAINT (22 Sep 2026): `pending` draws the card at
+          its full height while the audience count is still on its way, so its
+          arrival fills a bar in rather than shoving the tabs down. */}
+      {isLive && (participationShown || audience == null) && (
         <ParticipationBar
-          participation={participationShown.data}
-          where={participationShown.where}
+          participation={participationShown?.data ?? null}
+          pending={!participationShown}
+          where={participationShown?.where ?? 'in this challenge'}
           className="mb-10"
         />
-      ) : null)}
+      )}
 
       {/* THE TABS ARE BUTTONS, NOT UNDERLINED WORDS (2 Sep 2026).
           Ethan: "make the brief and entries tabs more visual, more clickable."
@@ -862,7 +873,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* `pt-1.5 -mt-1.5`: the row scrolls sideways, and a box that scrolls on
           one axis clips on both - so a pill lifting 2px on hover had its top
           sliced off (Ethan, 21 Sep). The padding is the room to lift into. */}
-      <div className="-mx-4 -mt-1.5 mb-8 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
+      {/* THE TABS, AND BESIDE THEM WHAT THE BOARD IS (22 Sep 2026).
+          Ethan: clicking Leaderboard showed a full-width "Current leaderboard"
+          card; "rather than have this go across the full screen I would have
+          it to the right of the three buttons, it would fit nicely, more
+          compact." It is a badge on the same row from `sm` up (under the tabs
+          on a phone), and it slides in when the Leaderboard tab opens. */}
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="-mx-4 -mt-1.5 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -888,6 +906,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             )}
           </button>
         ))}
+      </div>
+      {tab === 'leaderboard' && (
+        <BoardStatus
+          key={challenge.results_status}
+          status={challenge.results_status}
+          points={challenge.scoring === 'points'}
+          updatedAt={challenge.results_updated_at}
+          empty={results.length === 0}
+          tr={tr}
+        />
+      )}
       </div>
 
       {/* ---------- Tab: brief ---------- */}
@@ -1378,59 +1407,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
       {/* ---------- Tab: leaderboard ---------- */}
       {tab === 'leaderboard' && (
-        <div className="space-y-5">
-          {/* WHERE THE BOARD CAME FROM, IN ONE LINE, ALWAYS.
-              Three states, and the third one is the one that used to be nothing
-              at all: a challenge that has opened and has no logged views yet is
-              not an error, it is the starting line, and saying so is what makes
-              the empty board readable. */}
-          {/* AND IT SAYS WHAT THE BOARD IS ACTUALLY COUNTING. A points challenge
-              ranks on posts, view thresholds and claimed bonuses, so a banner
-              reading "Views logged so far" over a column headed POINTS was
-              describing the wrong contest - and it is the first line under the
-              heading, so it is the sentence somebody reads before the numbers.
-              Spain's is the first points challenge the platform has run; see
-              migration 173 for the other half of what that turned up. */}
-          {challenge.results_status === 'interim' ? (
-            // SOLID BRAND, WHITE TEXT (22 Sep 2026). Ethan did not like the pale
-            // tint; this is the Tryp.com orange the rest of the challenge uses.
-            <div className="flex items-start gap-3 rounded-card bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white shadow-card animate-fade-up">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
-                <Icon name="clock" className="h-5 w-5 text-white" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">{tr("Current leaderboard")}</p>
-                <p className="text-xs leading-relaxed text-white/85">
-                  {challenge.scoring === 'points' ? tr("Points earned so far") : tr("Views logged so far")}{challenge.results_updated_at ? ` · ${tr("updated")} ${timeAgo(challenge.results_updated_at)}` : ''}. {tr("These can still change. Final results are counted after the challenge closes.")}
-                </p>
-              </div>
-            </div>
-          ) : challenge.results_status === 'final' ? (
-            <div className="flex items-start gap-3 rounded-card border border-green-200 bg-green-50 px-5 py-4">
-              <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-              <div>
-                <p className="text-sm font-semibold text-green-700">{tr("Final results")}</p>
-                <p className="text-xs text-green-700/80">{tr("The challenge has closed and these standings are final.")}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-3 rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-5 py-4">
-              <Icon name="sparkles" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-              <div>
-                <p className="text-sm font-semibold text-brand">
-                  {results.length === 0 ? tr("Every place is still open") : tr("Standings so far")}
-                </p>
-                <p className="text-xs text-smoke">
-                  {results.length === 0
-                    ? (challenge.scoring === 'points'
-                      ? tr("Nobody has scored yet. Post a video and you take the top spot.")
-                      : tr("Nobody has a logged view count yet. Post a video and you take the top spot."))
-                    : tr("Views are counted automatically off each entry's link, a few times a day.")}
-                </p>
-              </div>
-            </div>
-          )}
-
+        <div className="space-y-5 animate-fade-up">
+          {/* WHERE THE BOARD CAME FROM is the badge beside the tabs now
+              (`BoardStatus`); the full-width card that said it is gone. */}
           {/* ONE TAB PER BOARD, AND IT OPENS ON YOURS.
               A challenge with groups has more than one leaderboard and they are
               not a ranking of each other - they are separate races for separate
@@ -1797,6 +1776,45 @@ function LifecycleMenu({ status, busy, onSet, tr }) {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+
+// WHAT THE BOARD IS, IN ONE BADGE BESIDE THE TABS (22 Sep 2026).
+//
+// Three states, the same three the full-width card used to spell out: live
+// (still moving, and when it last moved), final, and not started. The detail
+// sentence is still there, in the badge's title and for screen readers; what is
+// gone is a card the width of the page to say "these can still change".
+function BoardStatus({ status, points, updatedAt, empty, tr }) {
+  const live = status === 'interim'
+  const final = status === 'final'
+  const label = live ? tr('Current leaderboard') : final ? tr('Final results') : empty ? tr('Every place is still open') : tr('Standings so far')
+  const detail = live
+    ? `${points ? tr('Points earned so far') : tr('Views logged so far')}${updatedAt ? ` · ${tr('updated')} ${timeAgo(updatedAt)}` : ''}`
+    : final ? tr('The challenge has closed and these standings are final.')
+      : empty ? (points ? tr('Nobody has scored yet. Post a video and you take the top spot.') : tr('Nobody has a logged view count yet. Post a video and you take the top spot.'))
+        : tr("Views are counted automatically off each entry's link, a few times a day.")
+  const long = live ? `${detail}. ${tr('These can still change. Final results are counted after the challenge closes.')}` : detail
+  return (
+    <div
+      title={long}
+      className={cx(
+        'board-status inline-flex max-w-full items-center gap-2.5 self-start rounded-full py-1.5 pl-1.5 pr-4 sm:self-auto',
+        live || final ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-dashed border-brand/30 bg-white text-ink',
+      )}
+    >
+      <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full', live || final ? 'bg-white/20' : 'bg-brand-tint')}>
+        {live
+          ? <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
+          : <Icon name={final ? 'trophy' : 'sparkles'} className={cx('h-4 w-4', final ? 'text-white' : 'text-brand')} />}
+      </span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-[13px] font-semibold">{label}</span>
+        <span className={cx('block truncate text-[11px]', live || final ? 'text-white/85' : 'text-smoke')}>{detail}</span>
+      </span>
+      <span className="sr-only">{long}</span>
     </div>
   )
 }

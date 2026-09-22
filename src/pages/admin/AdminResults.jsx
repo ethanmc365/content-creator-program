@@ -518,7 +518,7 @@ export default function AdminResults() {
 
       <PrizeStandingsPanel challenge={challenge} refreshKey={`${standingsKey}:${submissions.length}:${resultsCount}`} />
 
-      {resultsCount > 0 ? <PrizesPanel challengeId={id} onFlash={flash} /> : null}
+      {resultsCount > 0 ? <PrizesPanel challengeId={id} onFlash={flash} ended={ended} /> : null}
 
       {submissions.length > 0 ? (
         <ViewSyncPanel challengeId={id} submissions={submissions} onSynced={load} />

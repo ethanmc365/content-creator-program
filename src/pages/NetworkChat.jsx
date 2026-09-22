@@ -27,6 +27,7 @@ import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import ResourceCard from '../components/ResourceCard'
+import LiveLeaderboardCard from '../components/LiveLeaderboardCard'
 import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
@@ -111,13 +112,14 @@ const CARD_KINDS = [
   { idKey: 'poll_id' },
   { idKey: 'game_event_id' },
   { idKey: 'resource_id' },
+  { idKey: 'leaderboard_challenge_id' },
 ]
 
 // Anything that would make a message worth drawing. A row with none of these is
 // not a quiet message, it is a data artefact, and drawing it as an empty bubble
 // with a reaction button under it helps nobody.
 const hasContent = (m) =>
-  !!(m.body?.trim() || m.image_url || m.video_url || m.poll_id || m.game_event_id || m.resource_id)
+  !!(m.body?.trim() || m.image_url || m.video_url || m.poll_id || m.game_event_id || m.resource_id || m.leaderboard_challenge_id)
 
 // WHAT A REPLY IS ANSWERING.
 //
@@ -225,6 +227,9 @@ function AttachedCard({ message }) {
       {message.poll_id && <PollCard pollId={message.poll_id} />}
       {message.game_event_id && <GameEventCard eventId={message.game_event_id} />}
       {message.resource_id && <ResourceCard resourceId={message.resource_id} />}
+      {message.leaderboard_challenge_id && (
+        <LiveLeaderboardCard challengeId={message.leaderboard_challenge_id} groupId={message.leaderboard_group_id} />
+      )}
     </div>
   )
 }

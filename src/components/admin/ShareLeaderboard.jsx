@@ -8,6 +8,7 @@ import { snapshotNode, downloadBlob, slugForFile } from '../../lib/domSnapshot'
 import ShareCard, { SHARE_LAYOUT } from './ShareCard'
 import { uploadFile } from '../../lib/upload'
 import { cx } from '../../lib/utils'
+import LiveLeaderboardCard from '../LiveLeaderboardCard'
 
 // SHARING THE RESULT OF A CHALLENGE, AS A PICTURE, INTO THE ROOM IT BELONGS IN.
 //
@@ -40,6 +41,16 @@ import { cx } from '../../lib/utils'
 // Now the dialog asks the database which rooms this challenge's community has,
 // and every option is a room that demonstrably exists.
 //
+// THE LIVE BOARD IS THE DEFAULT, THE PICTURE IS STILL THERE (22 Sep 2026).
+//
+// Ethan: "I still want the option to just download the image and share it
+// elsewhere, but whenever sharing it as an announcement or in general I would
+// like to embed the actual leaderboard in the chats... it would update live."
+// "Live leaderboard" posts a message carrying the challenge (migration 251) and
+// the room draws `LiveLeaderboardCard`, which moves with every sync. The podium
+// and table pictures are unchanged, and "Download the image" photographs the
+// table whenever the live board is the one picked.
+//
 // A SPLIT CHALLENGE HAS MORE THAN ONE RESULT, so it gets a board chooser. This
 // was listed as open work: the picture was built from the flat ranking, so
 // sharing a two-group challenge shared a board nobody had competed on.
@@ -48,7 +59,10 @@ export default function ShareLeaderboard({
   open, onClose, challenge, boards = [], subCountByCreator = {}, platformsFor, onDone,
 }) {
   const { user } = useAuth()
-  const [what, setWhat] = useState('podium')
+  const [what, setWhat] = useState('live')
+  // What gets PHOTOGRAPHED: the live board has no picture of its own, so its
+  // download is the full table.
+  const picture = what === 'live' ? 'table' : what
   const [boardIdx, setBoardIdx] = useState(0)
   const [roomId, setRoomId] = useState(null)
   const [note, setNote] = useState('')
@@ -104,14 +118,14 @@ export default function ShareLeaderboard({
   // open, and this photographs it. Off-screen rather than hidden: a node with
   // `display:none` has no layout, and a picture of no layout is 0x0.
   const render = useCallback(
-    () => snapshotNode(cardRef.current, { scale: (SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).scale }),
-    [what],
+    () => snapshotNode(cardRef.current, { scale: (SHARE_LAYOUT[picture] ?? SHARE_LAYOUT.podium).scale }),
+    [picture],
   )
 
   // Draw whichever is selected, so what you send is what you have already seen.
   const drawKey = `${what}:${boardIdx}:${board?.ranking?.length ?? 0}:${board?.winners?.length ?? 0}:${board?.entries ?? 0}:${board?.views ?? 0}`
   useEffect(() => {
-    if (!open) return
+    if (!open || what === 'live') return undefined
     let dead = false
     let url
     setDrawing(true)
@@ -131,7 +145,7 @@ export default function ShareLeaderboard({
       if (url) URL.revokeObjectURL(url)
       setPreview(null)
     }
-  }, [open, render, drawKey])
+  }, [open, render, drawKey, what])
 
   useEffect(() => {
     if (open) { setError(''); setNote(''); setBoardIdx(0) }
@@ -153,6 +167,21 @@ export default function ShareLeaderboard({
     setBusy(true)
     setError('')
     try {
+      if (what === 'live') {
+        if (!room) throw new Error('Pick a room to post into.')
+        const { posted, error: postError } = await postToRooms({
+          communityIds: room.community_id ? [room.community_id] : [],
+          base: room.key,
+          senderId: user.id,
+          body: (note.trim() || suggested),
+          extra: { leaderboard_challenge_id: challenge.id, leaderboard_group_id: board?.group?.id ?? null },
+        })
+        if (postError) throw postError
+        onDone?.(posted ? `Live leaderboard posted to ${room.label || ROOM_LABELS[room.key]?.label}. It updates by itself with every sync.` : 'No matching room was found for this challenge.')
+        onClose?.()
+        setBusy(false)
+        return
+      }
       const blob = await render()
       if (!blob) throw new Error('The image could not be drawn. Try again.')
       if (!room) throw new Error('Pick a room to post into.')
@@ -182,7 +211,7 @@ export default function ShareLeaderboard({
 
   async function download() {
     const blob = await render()
-    downloadBlob(blob, slugForFile(challenge?.title, what === 'podium' ? 'winners' : 'leaderboard'))
+    downloadBlob(blob, slugForFile(challenge?.title, picture === 'podium' ? 'winners' : 'leaderboard'))
   }
 
   const marketName = rooms?.[0]?.communities?.name ?? null
@@ -198,12 +227,12 @@ export default function ShareLeaderboard({
           aria-hidden
           style={{
             position: 'fixed', top: 0, left: '-20000px', pointerEvents: 'none', zIndex: -1,
-            width: `${(SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).width}px`,
+            width: `${(SHARE_LAYOUT[picture] ?? SHARE_LAYOUT.podium).width}px`,
           }}
         >
           <ShareCard
             cardRef={cardRef}
-            what={what}
+            what={picture}
             challenge={challenge}
             boardName={board.group?.name ?? null}
             prizes={board.prizes ?? []}
@@ -249,10 +278,11 @@ export default function ShareLeaderboard({
 
           <div>
             <p className="label">What to share</p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { key: 'podium', title: 'The podium', hint: 'Every winning place, the vouchers and the totals.', icon: 'trophy' },
-                { key: 'table', title: 'The leaderboard', hint: 'Every place in order, with the prize on each one.', icon: 'chart' },
+                { key: 'live', title: 'Live board', hint: 'Updates in the chat with every sync.', icon: 'sparkles' },
+                { key: 'podium', title: 'Podium image', hint: 'A picture of the winners.', icon: 'trophy' },
+                { key: 'table', title: 'Board image', hint: 'A picture of every place.', icon: 'chart' },
               ].map((o) => (
                 <button
                   key={o.key}
@@ -281,7 +311,11 @@ export default function ShareLeaderboard({
           <div>
             <p className="label">How it will look</p>
             <div className="rounded-card border border-gray-100 bg-cloud/40 p-3">
-              {preview && !drawing ? (
+              {what === 'live' ? (
+                <div className="mx-auto max-w-md">
+                  <LiveLeaderboardCard challengeId={challenge?.id} groupId={board?.group?.id ?? null} />
+                </div>
+              ) : preview && !drawing ? (
                 <img src={preview} alt="Exactly what will be shared" className="mx-auto block w-full max-w-[320px] rounded-xl shadow-card" />
               ) : (
                 <div className="flex h-56 items-center justify-center text-sm text-smoke">
@@ -312,15 +346,16 @@ export default function ShareLeaderboard({
                     onClick={() => setRoomId(r.id)}
                     className={cx(
                       'flex w-full items-center gap-3 rounded-card px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
-                      roomId === r.id ? 'border-2 border-brand bg-brand-tint/40' : 'border border-gray-200 hover:border-brand',
+                      // PICKED IS SOLID BRAND WITH WHITE ON IT, never a tint.
+                      roomId === r.id ? 'border border-brand bg-brand text-white shadow-card' : 'border border-gray-200 hover:border-brand',
                     )}
                   >
-                    <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', roomId === r.id ? 'text-brand' : 'text-smoke')} />
+                    <Icon name={r.icon || 'chat'} className={cx('h-4 w-4 shrink-0', roomId === r.id ? 'text-white' : 'text-smoke')} />
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold">{r.label || ROOM_LABELS[r.key]?.label}</span>
-                      <span className="block text-xs text-smoke">{ROOM_LABELS[r.key]?.hint}</span>
+                      <span className={cx('block text-xs', roomId === r.id ? 'text-white/85' : 'text-smoke')}>{ROOM_LABELS[r.key]?.hint}</span>
                     </span>
-                    {roomId === r.id && <Icon name="check" className="ml-auto h-4 w-4 shrink-0 text-brand" />}
+                    {roomId === r.id && <Icon name="check" className="ml-auto h-4 w-4 shrink-0 text-white" />}
                   </button>
                 ))}
               </div>
@@ -351,7 +386,7 @@ export default function ShareLeaderboard({
               <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose} disabled={busy}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy || drawing || !room}>
+              <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy || (what !== 'live' && drawing) || !room}>
                 {busy ? <Spinner className="h-4 w-4" /> : <Icon name="share" className="h-4 w-4" />}
                 {busy ? 'Sharing…' : 'Share'}
               </button>

@@ -504,7 +504,22 @@ export default function Reveal({
     // once, in order, with a main thread that has nothing else to do. The cost
     // is 400ms; the 1,200ms net below is what guarantees the content appears
     // regardless, so this can never be the reason something is missing.
-    if (!settled) return undefined
+    //
+    // BUT THE FIRST SCREEN DOES NOT WAIT FOR THE REST OF THE PAGE (22 Sep
+    // 2026). Ethan: the Worldwide page "takes too long to animate in, it shows
+    // a white screen for a second first." The gate was also holding sections
+    // ALREADY on screen at load, and the hub keeps changing height for a
+    // second or more (the map, who-to-meet, the spotlight all land late,
+    // BELOW the fold), so the first screen sat at opacity 0 for all of it.
+    // Growth happens under the first screen, so a section whose box is on
+    // screen now is where it will stay: it starts once painted. `bottom > 0`
+    // is also "has a real box" - a node with no layout reports all zeros.
+    if (!settled) {
+      const vh = window.innerHeight || 0
+      const r = node.getBoundingClientRect?.()
+      if (vh && r && r.bottom > 0 && r.top < vh * 0.92) setShown(true)
+      return undefined
+    }
     // No IntersectionObserver (very old browser, some test environments) must
     // never mean "invisible content". Show it and move on.
     if (typeof IntersectionObserver === 'undefined') {

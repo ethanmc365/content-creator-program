@@ -15,7 +15,7 @@ import { formatMoney } from '../../lib/utils'
 //
 // The dry run is the source of truth for "what SHOULD exist", so this panel and
 // the automatic award can never disagree about who is owed what.
-export default function PrizesPanel({ challengeId, onFlash }) {
+export default function PrizesPanel({ challengeId, onFlash, ended = true }) {
   const [rows, setRows] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [busy, setBusy] = useState(false)
@@ -72,12 +72,17 @@ export default function PrizesPanel({ challengeId, onFlash }) {
           <p className="mt-0.5 text-xs text-smoke">
             {blocked
               ? blocked.detail
-              : missing.length
+              : !ended && missing.length
+                ? 'Who would be paid if the challenge ended now. Prizes can be awarded once it has ended.'
+                : missing.length
                 ? `${missing.length} ${missing.length === 1 ? 'prize has' : 'prizes have'} not been awarded yet.`
                 : `Everything is awarded: ${formatMoney(sum(cash))} in cash and ${formatMoney(sum(vouchers))} in vouchers.`}
           </p>
         </div>
-        {missing.length > 0 && (
+        {/* NOT WHILE IT IS STILL RUNNING (22 Sep 2026): the places can still
+            change, so paying them is a decision for after the deadline, the
+            same rule as publishing the final leaderboard. */}
+        {ended && missing.length > 0 && (
           <button onClick={awardNow} disabled={busy} className="btn-primary !py-2 text-xs">
             {busy ? <Spinner /> : `Award ${missing.length === 1 ? 'it' : 'them'} now`}
           </button>
