@@ -8,7 +8,6 @@ import { ordinalFor } from '../../lib/podiumTiers'
 import { isHiddenTestRow } from '../../lib/testData'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
-import SpinningEarth from '../SpinningEarth'
 
 // THE GLOBAL CHALLENGE, ON THE COMMUNITY CARD (21 Sep 2026).
 //
@@ -28,9 +27,9 @@ import SpinningEarth from '../SpinningEarth'
 // global challenge card inside match the style, gradient and animations of the
 // global challenge card, that darker gradient." A translucent white panel on
 // the orange card read as part of the community card; this is the Global
-// Challenge card in miniature - the same deep-to-bright gradient, the same
-// turning Earth (SpinningEarth, which stops itself off screen), the same one
-// sweep of light as it arrives, and the same "Global challenge" pill.
+// Challenge card in miniature - the same deep-to-bright gradient, the same one
+// sweep of light as it arrives, and the same "Global challenge" pill. (The
+// turning Earth was tried here and removed the same day as too much.)
 
 function useTopThree(challengeId) {
   const [rows, setRows] = useState(null)
@@ -61,20 +60,19 @@ export default function GlobalChallengeStrip({ challenge, className = '' }) {
   return (
     <div
       className={cx(
-        'group/strip relative mt-7 overflow-hidden rounded-2xl bg-gradient-to-br from-[#4a1502] via-[#8f2a04] to-brand p-5 ring-1 ring-white/20',
-        'shadow-[0_22px_48px_-12px_rgba(70,18,0,0.55)] transition-[transform,box-shadow] duration-300 ease-out',
-        'hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-[0_28px_56px_-12px_rgba(70,18,0,0.6)] sm:p-6',
+        'group/strip relative mt-7 animate-fade-up overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 ring-1 ring-white/25',
+        'shadow-[0_18px_40px_-14px_rgba(90,25,0,0.45)] transition-[transform,box-shadow] duration-300 ease-out',
+        'hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-[0_24px_48px_-14px_rgba(90,25,0,0.5)] sm:p-6',
         className,
       )}
     >
       {/* Depth: a light bloom top right and a shadow bloom bottom left. */}
       <div aria-hidden className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-black/20 blur-2xl" />
-      {/* The Earth, turning, sat behind the title half. */}
-      <SpinningEarth
-        speed={9}
-        className="absolute -left-10 top-1/2 h-[19rem] w-[19rem] -translate-y-1/2 opacity-60 xl:left-[18%]"
-      />
+      {/* NO GLOBE HERE (22 Sep 2026). Ethan: "I don't think we need the
+          spinning world map on that because it's too much", and the gradient
+          was "almost too dark" - it is the Live now card's gradient now
+          (LiveNowRow), a shade deeper than the orange card it sits on. */}
       <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
 
       <div className="relative grid items-center gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

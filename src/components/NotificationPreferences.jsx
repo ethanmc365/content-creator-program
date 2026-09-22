@@ -63,16 +63,23 @@ export const LOCKED_CATEGORIES = [
   { key: 'announcement', label: 'Announcements from Tryp.com', hint: 'Challenge deadlines, payouts and anything the team needs every creator to see. These always arrive.' },
 ]
 
-// Admin-only alerts (hidden from regular creators). Push and the in-app bell
-// only, same as everything else while email notifications are off.
+// Admin-only alerts (hidden from regular creators).
+//
+// A SWITCHED-OFF ALERT IS NEVER WRITTEN (22 Sep 2026, migration 245): no bell
+// row and no push, via `admin_alert_filter` on notifications. These used to
+// gate only the push, so the bell filled with every entry anyway - Ethan: "I'm
+// getting tonnes of notifications whenever people submit an entry... we could
+// get hundreds of entries a day." `defaultOn` MUST match
+// `admin_alert_default()` in that migration: it is what an admin who has never
+// touched a switch actually gets.
 export const ADMIN_CATEGORIES = [
-  { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.', emailable: true },
-  { key: 'submission', label: 'New challenge entries', hint: 'When a creator submits a video to a challenge.', emailable: true },
-  { key: 'new_member', label: 'New creators joined', hint: 'When a creator is approved and becomes active.', emailable: true },
-  { key: 'referral', label: 'New referrals', hint: 'When a creator logs a referral lead.', emailable: true },
-  { key: 'deletion', label: 'Account deletion requests', hint: 'When a creator schedules their account for deletion.', emailable: true },
-  { key: 'inactive', label: 'Inactive creators', hint: 'When a creator has not logged in for 30+ days.', emailable: true },
-  { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.', emailable: true },
+  { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.', emailable: true, defaultOn: true },
+  { key: 'submission', label: 'New challenge entries', hint: 'Every video entered into any challenge. Off by default: busy challenges get hundreds a day.', emailable: true, defaultOn: false },
+  { key: 'new_member', label: 'New creators joined', hint: 'When a creator is approved and becomes active. Off by default.', emailable: true, defaultOn: false },
+  { key: 'referral', label: 'Referrals', hint: 'When a creator logs a referral lead, and your own referrals.', emailable: true, defaultOn: true },
+  { key: 'deletion', label: 'Account deletion requests', hint: 'When a creator schedules their account for deletion.', emailable: true, defaultOn: true },
+  { key: 'inactive', label: 'Inactive creators', hint: 'When a creator has not logged in for 30+ days. Off by default.', emailable: true, defaultOn: false },
+  { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.', emailable: true, defaultOn: true },
 ]
 
 const DEFAULT_PREFS = Object.fromEntries(
@@ -220,7 +227,7 @@ function PrefRow({ c, state }) {
         <p className="text-xs text-smoke">{c.hint}</p>
       </div>
       <div className="flex w-11 justify-center">
-        <Toggle on={state.prefs[c.key] !== false} onChange={(v) => state.togglePush(c.key, v)} label={`${c.label} push`} />
+        <Toggle on={state.prefs[c.key] ?? c.defaultOn ?? true} onChange={(v) => state.togglePush(c.key, v)} label={`${c.label} push`} />
       </div>
       {EMAIL_ENABLED && (
         <div className="flex w-11 justify-center">
@@ -636,12 +643,12 @@ export function AdminNotifications({ state }) {
   return (
     <>
       <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-        <span className="w-11 text-center">{tr("Push")}</span>
+        <span className="w-11 text-center">{tr("On")}</span>
         {EMAIL_ENABLED && <span className="w-11 text-center">{tr("Email")}</span>}
       </div>
       {ADMIN_CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
       <p className="mt-4 text-xs text-smoke">
-        {tr("These alerts only ever go to the Tryp.com Team. Creators never receive them, even by mistake.")}
+        {tr("These alerts only ever go to the Tryp.com Team. Switched off means nothing at all: no bell and no push.")}
       </p>
     </>
   )

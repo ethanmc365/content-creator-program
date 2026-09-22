@@ -80,7 +80,13 @@ export default function Settings() {
   // The URL is the source of truth and `setSection` writes to it, so Back comes
   // out of a section to the menu rather than off the page, and a link into one
   // survives a reload.
-  const section = SECTIONS.some((x) => x.key === params.get('section')) ? params.get('section') : null
+  // 'admin' IS A SECTION TOO (22 Sep 2026). It is drawn outside SECTIONS
+  // because only admins see it, and this test only accepted keys IN that list -
+  // so pressing "Admin settings" wrote ?section=admin, read it back as nothing
+  // and stayed on the menu. Ethan: "I clicked on admin settings and it's not
+  // showing the page."
+  const wanted = params.get('section')
+  const section = SECTIONS.some((x) => x.key === wanted) || (wanted === 'admin' && isAdmin) ? wanted : null
   const setSection = (key) => {
     const next = new URLSearchParams(params)
     if (key) next.set('section', key)

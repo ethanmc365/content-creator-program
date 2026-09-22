@@ -665,10 +665,26 @@ function LiveEconomics({ challenge, subs, standings, totalViews }) {
   const ccy = challenge.prize_currency || 'EUR'
   const lastRead = subs.reduce((m, s) => (s.views_synced_at && s.views_synced_at > m ? s.views_synced_at : m), '')
   const live = challenge.status === 'active'
+  // ONE CLEAN SURFACE (22 Sep 2026). Ethan: "there are weird brown squares
+  // around the numbers rather than just the clean background." Each figure had
+  // its own translucent dark tile on a 1px grid gap; now the four sit straight
+  // on the gradient, split by hairlines, and the explanatory footnote is gone.
+  const tiles = [
+    { label: live ? 'Current CPM' : 'CPM', value: spend.cpm == null ? '—' : formatMoney(Math.round(spend.cpm * 100) / 100, ccy), hint: 'per 1,000 views', big: true },
+    { label: 'Total views', value: formatViews(totalViews), hint: `${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`, big: true },
+    { label: 'Prize pot', value: formatMoney(spend.pot, ccy), hint: spend.awards ? `incl. ${formatMoney(spend.awards, ccy)} awards` : `${challenge.winners_count || ''} paid places`.trim() },
+    {
+      label: 'Taking-part vouchers',
+      value: formatMoney(spend.vouchers, ccy),
+      hint: spend.voucherCount ? `${spend.voucherCount} earned` : 'none earned yet',
+    },
+  ]
   return (
-    <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-[#2a1208] via-[#6b2106] to-brand text-white shadow-lift">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-7 sm:pt-6">
-        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/80">
+    <section className="relative mb-8 overflow-hidden rounded-card bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light text-white shadow-lift">
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+      <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
+      <div className="relative flex flex-wrap items-center justify-between gap-2 px-5 pt-5 sm:px-7 sm:pt-6">
+        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/85">
           {live && (
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
@@ -677,40 +693,27 @@ function LiveEconomics({ challenge, subs, standings, totalViews }) {
           )}
           {live ? 'Live economics' : 'Economics'}
         </p>
-        <p className="text-xs text-white/70">
-          {lastRead ? `Views last synced ${timeAgo(lastRead)}` : 'No views synced yet'} · updates on every sync
+        <p className="text-xs text-white/75">
+          {lastRead ? `Views last synced ${timeAgo(lastRead)}` : 'No views synced yet'}
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-px bg-white/10 lg:grid-cols-4">
-        <Tile label="Current CPM" value={spend.cpm == null ? '—' : formatMoney(spend.cpm, ccy)} hint="per 1,000 views, spend so far" big />
-        <Tile label="Total views" value={formatViews(totalViews)} hint={`${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`} big />
-        <Tile
-          label="Prize pot"
-          value={formatMoney(spend.pot, ccy)}
-          hint={`${formatMoney(spend.cash, ccy)} places${spend.awards ? ` + ${formatMoney(spend.awards, ccy)} awards` : ''}`}
-        />
-        <Tile
-          label="Taking-part vouchers"
-          value={formatMoney(spend.vouchers, ccy)}
-          hint={spend.voucherCount
-            ? `${spend.voucherCount} earned${challenge.participation_threshold ? ` at ${challenge.participation_threshold} ${challenge.participation_basis === 'points' ? 'pts' : 'videos'}` : ''}`
-            : 'none earned yet'}
-        />
-      </div>
-      <p className={cx('px-5 py-3 text-[11px] leading-relaxed text-white/70 sm:px-7')}>
-        Spend so far = the cash for every paid place ({formatMoney(spend.cash, ccy)}) plus the vouchers and
-        awards earned to date. It grows as creators cross the voucher line; the CPM falls as views come in.
-      </p>
+      <dl className="relative grid grid-cols-2 gap-y-5 px-5 pb-6 pt-5 sm:px-7 lg:grid-cols-4">
+        {tiles.map((t, i) => (
+          <div
+            key={t.label}
+            className={cx(
+              'min-w-0 animate-fade-up pr-4',
+              i % 2 === 1 && 'border-l border-white/20 pl-4 sm:pl-6',
+              i >= 1 && 'lg:border-l lg:border-white/20 lg:pl-6',
+            )}
+            style={{ animationDelay: `${0.05 + i * 0.06}s` }}
+          >
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/75">{t.label}</dt>
+            <dd className={cx('mt-1 font-bold tabular-nums tracking-tight', t.big ? 'text-3xl' : 'text-2xl')}>{t.value}</dd>
+            {t.hint && <dd className="mt-0.5 text-xs text-white/75">{t.hint}</dd>}
+          </div>
+        ))}
+      </dl>
     </section>
-  )
-}
-
-function Tile({ label, value, hint, big = false }) {
-  return (
-    <div className="bg-[#3a1508]/40 px-5 py-4 sm:px-7">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">{label}</p>
-      <p className={cx('mt-1 font-bold tabular-nums tracking-tight', big ? 'text-3xl' : 'text-2xl')}>{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-white/70">{hint}</p>}
-    </div>
   )
 }

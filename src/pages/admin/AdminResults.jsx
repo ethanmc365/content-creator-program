@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { confirm } from '../../lib/confirm'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../lib/utils'
 import { describeSyncError } from '../../lib/viewSync'
@@ -13,6 +13,7 @@ import PrizesPanel from '../../components/admin/PrizesPanel'
 import PrizeStandingsPanel, { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGroups'
+import { pickClass } from '../../lib/pick'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -36,6 +37,15 @@ export default function AdminResults() {
   const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [toast, setToast] = useState('')
+  // POSTED BEFORE THE CHALLENGE OPENED (22 Sep 2026, migration 245). Ethan:
+  // creators were entering old viral videos. `submissions.posted_at` is decoded
+  // from the video's own id (TikTok, Instagram) or read from the platform
+  // (YouTube); `challenge_starts_at` is midnight of the start date in the
+  // challenge's own market timezone.
+  const [startsAt, setStartsAt] = useState(null)
+  const [onlyEarly, setOnlyEarly] = useState(false)
+  const [disqualified, setDisqualified] = useState([])
+  const [dq, setDq] = useState(null) // { sub, reason, notify, busy }
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
@@ -60,6 +70,14 @@ export default function AdminResults() {
     // Global Challenge (points) it previewed - and put in the shared picture -
     // a podium nobody had actually won. `rebuild_challenge_results` is the
     // one piece of code that decides who is first, ties included.
+    const [{ data: start }, { data: dqs }] = await Promise.all([
+      supabase.rpc('challenge_starts_at', { p_challenge: id }),
+      supabase.from('submission_disqualifications')
+        .select('id, creator_id, snapshot, reason, disqualified_at, profiles:creator_id(name, photo_url)')
+        .eq('challenge_id', id).order('disqualified_at', { ascending: false }),
+    ])
+    setStartsAt(start ? new Date(start) : null)
+    setDisqualified(dqs ?? [])
     setChallenge(ch)
     setSubmissions(subs ?? [])
     setResults(res ?? [])
@@ -180,6 +198,33 @@ export default function AdminResults() {
     await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
     await reloadResults()
     setSavingId(null)
+  }
+
+  const isEarly = (sub) => !!(startsAt && sub.posted_at && new Date(sub.posted_at) < startsAt)
+  const earlyCount = submissions.filter(isEarly).length
+
+  async function confirmDisqualify() {
+    if (!dq?.reason?.trim()) return
+    setDq((d) => ({ ...d, busy: true }))
+    const { error } = await supabase.rpc('disqualify_submission', {
+      p_submission: dq.sub.id, p_reason: dq.reason.trim(), p_notify: dq.notify,
+    })
+    if (error) { setDq((d) => ({ ...d, busy: false })); flash(`Could not disqualify: ${error.message}`); return }
+    setDq(null)
+    flash(`${dq.sub.profiles?.name?.split(' ')[0] || 'That'} entry is disqualified and off the board.`)
+    await load()
+    loadBonuses()
+    setStandingsKey((k) => k + 1)
+  }
+
+  async function reinstate(row) {
+    if (!await confirm(`Put ${row.profiles?.name || 'this creator'}'s entry back into the challenge? It rejoins the board with the views it had.`)) return
+    const { error } = await supabase.rpc('reinstate_submission', { p_submission: row.id })
+    if (error) { flash(`Could not reinstate: ${error.message}`); return }
+    flash('Entry reinstated.')
+    await load()
+    loadBonuses()
+    setStandingsKey((k) => k + 1)
   }
 
   // Build the final leaderboard from the logged views.
@@ -502,12 +547,52 @@ export default function AdminResults() {
       {submissions.length === 0 ? (
         <EmptyState icon={<Icon name="video" className="h-7 w-7" />} title="No submissions to review" hint="Entries will appear here as creators submit their links." />
       ) : (
+        <>
+        {/* THE OLD-VIDEO CHECK, SAID ONCE ABOVE THE LIST. */}
+        {startsAt && (
+          <div className={cx(
+            'mb-4 flex flex-wrap items-center gap-3 rounded-card border px-4 py-3 sm:px-5',
+            earlyCount ? 'border-red-200 bg-red-50/70' : 'border-green-200 bg-green-50/60',
+          )}>
+            <Icon name={earlyCount ? 'alert' : 'check'} className={cx('h-5 w-5 shrink-0', earlyCount ? 'text-red-600' : 'text-green-700')} />
+            <p className={cx('min-w-0 flex-1 text-sm', earlyCount ? 'text-red-900' : 'text-green-900')}>
+              {earlyCount
+                ? <><span className="font-semibold">{earlyCount} {earlyCount === 1 ? 'entry was' : 'entries were'} posted before the challenge opened</span> ({formatDateTimeTz(startsAt)}). Check and disqualify.</>
+                : <>No entry was posted before the challenge opened ({formatDateTimeTz(startsAt)}).</>}
+              <span className="block text-xs opacity-75">
+                Read from each video&apos;s own id on TikTok and Instagram, and from YouTube. {submissions.filter((x) => !x.posted_at).length} not dated yet (short links date on their next sync).
+              </span>
+            </p>
+            {earlyCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyEarly((v) => !v)}
+                className={cx('rounded-full border px-3 py-1.5 text-xs font-semibold', pickClass(onlyEarly))}
+              >
+                {onlyEarly ? 'Show all entries' : `Show only these ${earlyCount}`}
+              </button>
+            )}
+          </div>
+        )}
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-          {submissions.map((s) => (
-            <div key={s.id} className="flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
+          {submissions.filter((x) => !onlyEarly || isEarly(x)).map((s) => (
+            <div
+              key={s.id}
+              className={cx(
+                'flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7',
+                isEarly(s) && 'border-l-4 border-l-red-400 bg-red-50/50',
+              )}
+            >
               <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
+                <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                  <span className="truncate">{s.profiles?.name}</span>
+                  {isEarly(s) && (
+                    <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      Posted before start
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-smoke">
                   {/* WHICH BOARD THIS ENTRY IS ON. Without it an admin reading
                       a list of forty entries cannot tell which leaderboard a
@@ -518,7 +603,12 @@ export default function AdminResults() {
                       {' · '}
                     </span>
                   )}
-                  {s.platform} · {formatDateTimeTz(s.submitted_at)}
+                  {s.platform} · entered {formatDateTimeTz(s.submitted_at)}
+                  {s.posted_at && (
+                    <span className={isEarly(s) ? 'font-semibold text-red-700' : undefined}>
+                      {' '}· posted {formatDateTimeTz(s.posted_at)}
+                    </span>
+                  )}
                   {s.views_sync_error ? (
                     <span className="text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
                       {' '}· {describeSyncError(s.views_sync_error)?.label}
@@ -529,6 +619,19 @@ export default function AdminResults() {
               <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
                 Watch ↗
               </a>
+              <button
+                type="button"
+                onClick={() => setDq({
+                  sub: s,
+                  reason: isEarly(s) ? 'This video was posted before the challenge opened, so it cannot be entered.' : '',
+                  notify: true,
+                  busy: false,
+                })}
+                className={cx('!py-2 text-xs', isEarly(s) ? 'btn-danger' : 'btn-secondary')}
+                title="Take this entry out of the challenge"
+              >
+                Disqualify
+              </button>
               <ViewCountField
                 submission={s}
                 saving={savingId === s.id}
@@ -628,7 +731,73 @@ export default function AdminResults() {
             </div>
           ))}
         </div>
+        </>
       )}
+
+      {/* DISQUALIFIED, AND THE WAY BACK. */}
+      {disqualified.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-base font-semibold">Disqualified ({disqualified.length})</h2>
+          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+            {disqualified.map((d) => (
+              <div key={d.id} className="flex flex-wrap items-center gap-3 border-b border-gray-50 px-5 py-3 last:border-0 sm:px-7">
+                <Avatar src={d.profiles?.photo_url} name={d.profiles?.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{d.profiles?.name}</p>
+                  <p className="text-xs text-smoke">
+                    {d.snapshot?.platform} · {Number(d.snapshot?.logged_views || 0).toLocaleString()} views · removed {timeAgo(d.disqualified_at)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink/80">{d.reason}</p>
+                </div>
+                {d.snapshot?.video_url && (
+                  <a href={d.snapshot.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">Watch ↗</a>
+                )}
+                <button type="button" onClick={() => reinstate(d)} className="btn-secondary !py-2 text-xs">Reinstate</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <Modal open={!!dq} onClose={() => !dq?.busy && setDq(null)} title="Disqualify this entry">
+        {dq && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl bg-cloud/60 p-3">
+              <Avatar src={dq.sub.profiles?.photo_url} name={dq.sub.profiles?.name} size="sm" />
+              <div className="min-w-0 text-sm">
+                <p className="truncate font-semibold">{dq.sub.profiles?.name}</p>
+                <p className="text-xs text-smoke">
+                  {dq.sub.platform} · {Number(dq.sub.logged_views || 0).toLocaleString()} views
+                  {dq.sub.posted_at && ` · posted ${formatDateTimeTz(dq.sub.posted_at)}`}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-smoke">
+              The entry comes off the board and its points and views stop counting. It is kept, with your reason,
+              under Disqualified, and you can reinstate it.
+            </p>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-smoke">Reason</span>
+              <textarea
+                className="input min-h-[5rem] no-ios-zoom"
+                value={dq.reason}
+                onChange={(e) => setDq((d) => ({ ...d, reason: e.target.value }))}
+                placeholder="Why it does not count"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={dq.notify} onChange={(e) => setDq((d) => ({ ...d, notify: e.target.checked }))} />
+              Tell the creator, with this reason
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-secondary !py-2 text-sm" onClick={() => setDq(null)} disabled={dq.busy}>Cancel</button>
+              <button type="button" className="btn-danger !py-2 text-sm" onClick={confirmDisqualify} disabled={dq.busy || !dq.reason.trim()}>
+                {dq.busy ? <Spinner className="h-4 w-4" /> : 'Disqualify'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
     </div>
   )
@@ -666,7 +835,10 @@ function ViewCountField({ submission: s, saving, onSave }) {
   }
 
   return (
-    <div className="flex w-full flex-col items-stretch gap-1 pl-[52px] sm:w-44 sm:pl-0">
+    <div
+      className="flex w-full flex-col items-stretch pl-[52px] sm:w-40 sm:pl-0"
+      title={manual ? 'Typed in by hand. The next sync reads the link again.' : undefined}
+    >
       <label className="sr-only" htmlFor={`views-${s.id}`}>Views for {s.profiles?.name}</label>
       <div
         className={cx(
@@ -701,16 +873,10 @@ function ViewCountField({ submission: s, saving, onSave }) {
           </span>
         )}
       </div>
-      <p className={cx('flex items-center justify-end gap-1.5 text-[11px] leading-tight', manual ? 'text-amber-700' : 'text-smoke')}>
-        <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', manual ? 'bg-amber-400' : s.views_synced_at ? 'bg-green-500' : 'bg-gray-300')} />
-        {editing
-          ? 'Enter to save, Esc to cancel'
-          : manual
-            ? 'Typed in by hand'
-            : s.views_synced_at
-              ? `${s.views_approx ? 'About, ' : ''}synced ${timeAgo(s.views_synced_at)}`
-              : 'Waiting for the first sync'}
-      </p>
+      {/* NO "SYNCED X AGO" LINE UNDER EVERY BOX (22 Sep 2026) - Ethan: it
+          takes a lot of space and is not necessary; the sync card above says
+          when the last read was. A number typed by hand keeps its amber edge
+          and says so on hover. */}
     </div>
   )
 }

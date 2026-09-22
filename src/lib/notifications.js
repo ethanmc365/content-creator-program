@@ -61,6 +61,13 @@ export const TYPE_META = {
   daily_streak: { icon: 'sparkles', group: 'updates', label: 'Streak' },
   daily_reminder: { icon: 'joystick', group: 'updates', label: 'Daily puzzle' },
   inactive: { icon: 'clock', group: 'updates', label: 'Reminder' },
+  // Written by the database and missing here until 22 Sep 2026, so they drew
+  // as a bare bell (the check constraint on notifications.type is the list).
+  board_answer: { icon: 'chat', group: 'people', label: 'Board answer' },
+  report: { icon: 'flag', group: 'updates', label: 'Report' },
+  event_reminder: { icon: 'calendar', group: 'updates', label: 'Event' },
+  event_rating: { icon: 'star', group: 'updates', label: 'Event' },
+  deletion: { icon: 'alert', group: 'updates', label: 'Account' },
 }
 
 export const metaFor = (type) => TYPE_META[type] || { icon: 'bell', group: 'updates', label: 'Update' }

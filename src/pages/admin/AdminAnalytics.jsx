@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
@@ -10,6 +10,7 @@ import { allRows } from '../../lib/fetchAll'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
+import { challengeSpend } from '../../lib/challengeSpend'
 import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
 import ErrorWatch from '../../components/admin/ErrorWatch'
@@ -199,6 +200,13 @@ export default function AdminAnalytics() {
         // rendered every market with an empty flag slot and no way to tell why.
         supabase.from('communities').select('id, slug, name, kind, currency, country_codes, retired_at').order('name'),
       ])
+      // WHAT A RUNNING CHALLENGE HAS COMMITTED SO FAR, for its live CPM: the
+      // vouchers and awards earned to date (challenge_prize_standings, the one
+      // definition). A finished challenge's cost is in `rewards` instead.
+      const live = (challenges || []).filter((c) => c.status === 'active')
+      const standings = await Promise.all(live.map((c) => supabase
+        .rpc('challenge_prize_standings', { p_challenge: c.id })
+        .then(({ data }) => [c.id, data || []], () => [c.id, []])))
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
       // stay pure under the react-hooks purity rules.
@@ -213,6 +221,7 @@ export default function AdminAnalytics() {
         voucherCounts: voucherCounts || [],
         memberRows: memberRows || [],
         marketRows: marketRows || [],
+        liveStandings: Object.fromEntries(standings),
         loadedAt: Date.now(),
       })
     }
@@ -347,6 +356,24 @@ export default function AdminAnalytics() {
         prizesPaid: rewards
           .filter((r) => r.challenge_id === c.id && r.status === 'distributed')
           .reduce((sum, r) => sum + money(r.amount, r.currency), 0),
+        // CPM PER CHALLENGE (22 Sep 2026). Ethan: "it doesn't seem to show the
+        // CPM at all, which it obviously should be. Not just the live CPM, but
+        // the CPM when the challenge is over." Running: the cash pot plus
+        // vouchers earned so far over views so far - the same number as the
+        // live band on the challenge's own page (lib/challengeSpend). Finished:
+        // what was actually awarded, cash and vouchers, pending included.
+        cpm: (() => {
+          if (!totalViews) return null
+          if (c.status === 'active') {
+            const sp = challengeSpend(c, raw.liveStandings?.[c.id] || [], totalViews)
+            return money(sp.spend, c.prize_currency) / (totalViews / 1000)
+          }
+          const awarded = rewards
+            .filter((r) => r.challenge_id === c.id && r.status !== 'cancelled')
+            .reduce((sum, r) => sum + money(r.amount, r.currency), 0)
+          const spend = awarded > 0 ? awarded : money(c.prize_amount, c.prize_currency)
+          return spend > 0 ? spend / (totalViews / 1000) : null
+        })(),
       }
     })
     // Charts stay readable by showing only the most recent 8 challenges;
@@ -1012,6 +1039,30 @@ export default function AdminAnalytics() {
         {/* The CSV column is named after the currency actually in it. It was
             hard-coded `prizes_paid_gbp` over figures in the reporting currency,
             which is a spreadsheet that lies about its own units. */}
+        {/* CPM PER CHALLENGE, next to what it cost. A running challenge's bar
+            is its spend so far and moves with every sync; a finished one is
+            what was awarded. Light bar = still running. */}
+        <ChartCard
+          title="CPM per challenge"
+          subtitle="Cost per 1,000 views · running challenges in light orange, spend so far"
+          onExport={() => downloadCsv('cpm-per-challenge.csv', derived.perChallenge.map(({ fullTitle, cpm, status }) => ({ challenge: fullTitle, status, [`cpm_${currency.toLowerCase()}`]: cpm == null ? '' : cpm.toFixed(2) })))}
+        >
+          <ResponsiveContainer>
+            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => (v == null ? 'No views yet' : formatMoney(v, currency))} />
+              <Bar dataKey="cpm" name="CPM" radius={[8, 8, 0, 0]} maxBarSize={48}
+                label={{ position: 'top', fontSize: 11, fill: '#6B7280', formatter: (v) => (v == null ? '' : formatMoney(Math.round(v * 100) / 100, currency)) }}>
+                {derived.perChallengeRecent.map((c) => (
+                  <Cell key={c.id} fill={c.status === 'active' ? BRAND_LIGHT : BRAND} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
         <ChartCard
           title="Prize money per challenge"
           subtitle="Recent challenges · tap a bar for the full breakdown"

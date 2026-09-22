@@ -308,8 +308,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 with the marks gone, and the brief itself is one tap away. */}
             {excerpt.text && (
               <p className="mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block">
+                {/* No "Read all" (22 Sep 2026): the whole card opens the brief. */}
                 {excerpt.text}
-                {excerpt.more && <span className="ml-1.5 font-semibold text-white underline-offset-2 group-hover:underline">{tr('Read all')}</span>}
               </p>
             )}
           </Link>

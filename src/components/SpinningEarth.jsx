@@ -17,8 +17,8 @@ import { cx } from '../lib/utils'
 // of 240 countries re-projected every frame is thousands of path strings a
 // second; a canvas redraws the same geometry without touching the DOM.
 //
-// Cheap on purpose: the atlas is thinned once (every third vertex), the loop
-// runs at ~30fps, and it stops completely whenever the card is off screen or
+// Cheap on purpose: the atlas is thinned once (every third vertex), and the
+// loop stops completely whenever the card is off screen or
 // the tab is hidden. Reduced motion gets one still frame.
 
 const CITIES = [
@@ -37,6 +37,9 @@ const ROUTES = [[0, 10], [1, 13], [2, 15], [3, 19], [4, 23], [5, 18], [6, 21], [
 const PLANE = typeof Path2D === 'function'
   ? new Path2D('M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z')
   : null
+
+// How long one flight takes, end to end. Slower reads as cruising.
+const FLIGHT_MS = 9000
 
 let thinned = null
 function thin(fc) {
@@ -134,31 +137,44 @@ export default function SpinningEarth({ className = '', tilt = -18, speed = 7 })
       const centre = [-lambda, -tilt]
       const planeSize = Math.max(9, size / 34)
       interps.forEach((f, i) => {
-        const k = ((t / 7000) + i / interps.length) % 1
+        const k = ((t / FLIGHT_MS) + i / interps.length) % 1
+        // TAKE-OFF AND LANDING, NOT A BLINK (22 Sep 2026). Ethan: "they seem
+        // to be a bit jittery... currently they just seem to flash in and
+        // out." A plane used to vanish at its destination and reappear at full
+        // size at its origin on the same frame. Now it fades up and grows over
+        // the first 12% of its route and fades and shrinks over the last 12%,
+        // on an ease so neither end has a corner.
+        const ramp = Math.min(1, k / 0.12, (1 - k) / 0.12)
+        const ease = ramp * ramp * (3 - 2 * ramp)
+        if (ease <= 0.01) return
         const here = f(k)
         const away = geoDistance(here, centre)
         if (away > Math.PI / 2 - 0.02) return
         const a = projection(here)
-        const b = projection(f(Math.min(1, k + 0.004)))
-        const c2 = projection(f(Math.max(0, k - 0.004)))
+        // The heading is taken over a wider stretch of the route, so it turns
+        // smoothly instead of twitching with every pixel of rounding.
+        const b = projection(f(Math.min(1, k + 0.02)))
+        const c2 = projection(f(Math.max(0, k - 0.02)))
         if (!a || !b || !c2) return
         const angle = Math.atan2(b[1] - c2[1], b[0] - c2[0]) + Math.PI / 2
         const edge = Math.min(1, (Math.PI / 2 - away) / 0.35)
+        const alpha = 0.98 * edge * ease
         if (PLANE) {
+          const sc = (planeSize / 24) * (0.55 + 0.45 * ease)
           ctx.save()
           ctx.translate(a[0], a[1])
           ctx.rotate(angle)
-          ctx.scale(planeSize / 24, planeSize / 24)
+          ctx.scale(sc, sc)
           ctx.translate(-11.5, -12)
-          ctx.shadowColor = 'rgba(0,0,0,0.25)'
+          ctx.shadowColor = `rgba(0,0,0,${0.25 * alpha})`
           ctx.shadowBlur = 3
-          ctx.fillStyle = `rgba(255,255,255,${0.98 * edge})`
+          ctx.fillStyle = `rgba(255,255,255,${alpha})`
           ctx.fill(PLANE)
           ctx.restore()
         } else {
           path.pointRadius(Math.max(1.6, size / 260))
           ctx.beginPath(); path({ type: 'Point', coordinates: here })
-          ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill()
+          ctx.fillStyle = `rgba(255,255,255,${alpha})`; ctx.fill()
         }
       })
 
@@ -180,7 +196,10 @@ export default function SpinningEarth({ className = '', tilt = -18, speed = 7 })
     const loop = (now) => {
       raf = 0
       if (!alive || !visible || document.hidden) return
-      if (now - last >= 33) {
+      // EVERY FRAME, NOT EVERY OTHER ONE. At 30fps a plane crossing the
+      // globe stepped a pixel or two at a time, which is the jitter; the
+      // drawing is cheap enough (thinned atlas) to run at display rate.
+      if (now - last >= 15) {
         const dt = last ? Math.min(100, now - last) : 0
         last = now
         lambda = (lambda + (speed * dt) / 1000) % 360
