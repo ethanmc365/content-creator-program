@@ -49,6 +49,13 @@ export default function AdminResults() {
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
   const isLive = challenge?.status === 'active'
+  // HAS IT FINISHED? (22 Sep 2026) Ethan: "the publish winners button should
+  // only show up after the challenge has ended, the leaderboard updates
+  // automatically anyway throughout." The deadline passing counts as ended even
+  // before the archive cron has flipped the status, so the button is there the
+  // moment entries close rather than up to five minutes later.
+  const [nowMs] = useState(() => Date.now())
+  const ended = !!challenge && (!isLive || (challenge.end_date && new Date(challenge.end_date).getTime() < nowMs))
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -240,7 +247,8 @@ export default function AdminResults() {
   async function togglePublished() {
     const already = !!challenge?.winners_published_at
     if (!already && resultsCount === 0) return flash('Log the final views and build the leaderboard first.')
-    if (!already && !await confirm(`Publish the winners podium for "${challenge.title}"? Every creator in this market will see it on the challenge board.`)) return
+    if (!already && !ended) return flash('The final leaderboard can be published once the challenge has ended.')
+    if (!already && !await confirm(`Publish the final leaderboard and winners for "${challenge.title}"? Every creator in this market will see it on the challenge board.`)) return
     if (already && !await confirm('Hide the winners podium again? It disappears from the challenge board until you publish it once more.')) return
 
     setPublishing(true)
@@ -440,21 +448,27 @@ export default function AdminResults() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-ink">
-                {challenge?.winners_published_at ? 'Published to the challenge board' : 'Not published yet'}
+                {challenge?.winners_published_at
+                  ? 'Final leaderboard published'
+                  : ended ? 'Final leaderboard not published yet' : 'Live leaderboard'}
               </p>
               <p className="mt-0.5 text-xs text-smoke">
                 {challenge?.winners_published_at
-                  ? `Creators can see this podium. Published ${timeAgo(challenge.winners_published_at)}.`
-                  : 'Only you can see this. Check it reads correctly, then publish it.'}
+                  ? `Creators can see the winners. Published ${timeAgo(challenge.winners_published_at)}.`
+                  : ended
+                    ? 'The challenge has ended. Check it reads correctly, then publish the final leaderboard.'
+                    : `Creators see this board update by itself after every view sync. Publishing the final leaderboard opens once the challenge ends${challenge?.end_date ? ` (${formatDateTimeTz(challenge.end_date)})` : ''}.`}
               </p>
             </div>
-            <button
-              onClick={togglePublished}
-              disabled={publishing}
-              className={challenge?.winners_published_at ? 'btn-secondary !py-2 text-xs' : 'btn-primary !py-2 text-xs'}
-            >
-              {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish the winners'}
-            </button>
+            {(ended || challenge?.winners_published_at) && (
+              <button
+                onClick={togglePublished}
+                disabled={publishing}
+                className={challenge?.winners_published_at ? 'btn-secondary !py-2 text-xs' : 'btn-primary !py-2 text-xs'}
+              >
+                {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish final leaderboard'}
+              </button>
+            )}
           </div>
           {/* THE SHARE DIALOG TAKES THE BOARDS, NOT ONE FLAT RANKING. A split
               challenge produces one entry per group here, each carrying its own

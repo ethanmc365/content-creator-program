@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from './ui'
 import Podium from './Podium'
-import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
-import { detectPlatformFromUrl } from '../lib/videoPreview'
 import { formatViews, cx } from '../lib/utils'
 import { ordinalFor } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
@@ -14,51 +12,21 @@ import { useT } from '../lib/i18n'
 // people who actually won, a heading nobody had asked for, and one <Link> around
 // the whole card so no individual piece of it could ever be its own target.
 //
-// Everything here is a target now. The face opens that creator's profile, the
-// small platform chip opens the video that won, and the space between them
-// belongs to the challenge. Nothing is an anchor inside an anchor: the caller
+// Everything here is a target now. The face opens that creator's profile and
+// the space around it belongs to the challenge. Nothing is an anchor inside an
+// anchor: the caller
 // lays a stretched link UNDER this block and every control here stops the click
 // from reaching it.
 
-const PLATFORM_ICON = {
-  TikTok: <path d={TIKTOK_PATH} />,
-  Instagram: (
-    <path d="M12 2.2c3.2 0 3.6 0 4.8.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.81s0 3.54-.07 4.81c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.81.07s-3.54 0-4.81-.07c-3.26-.15-4.77-1.7-4.92-4.92C2.2 15.54 2.2 15.17 2.2 12s0-3.54.07-4.81C2.42 3.96 3.94 2.42 7.19 2.27 8.46 2.21 8.84 2.2 12 2.2zm0 3.6a6.2 6.2 0 100 12.4 6.2 6.2 0 000-12.4zm0 2.2a4 4 0 110 8 4 4 0 010-8zm6.4-3.7a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z" />
-  ),
-  YouTube: (
-    <path d="M23 7.3a3 3 0 00-2.1-2.1C19 4.7 12 4.7 12 4.7s-7 0-8.9.5A3 3 0 001 7.3 31.2 31.2 0 00.5 12 31.2 31.2 0 001 16.7a3 3 0 002.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 002.1-2.1A31.2 31.2 0 0023.5 12 31.2 31.2 0 0023 7.3zM9.8 15.1V8.9L15.9 12l-6.1 3.1z" />
-  ),
-  Facebook: <path d={FACEBOOK_PATH} />,
-}
-
-const PLAY = <path d="M8 5.2v13.6a1 1 0 0 0 1.5.87l11-6.8a1 1 0 0 0 0-1.74l-11-6.8A1 1 0 0 0 8 5.2z" />
+// NO VIDEO LINK BESIDE A NAME (22 Sep 2026). Ethan: every video a creator
+// enters earns points, so one "Watch" chip per person pointed at a single video
+// as if it were the one that won. On a points board no one video won anything.
 
 /** Stop a click reaching the card-wide stretched link underneath. */
 const own = (e) => e.stopPropagation()
 
-// The chip that used to be a 112px-tall orange billboard. Same brand face, same
-// logo, one line high, and it says what it does ("Watch on TikTok") instead of
-// just naming the app.
-function VideoChip({ url, platform }) {
-  const tr = useT()
-  const plat = platform || detectPlatformFromUrl(url)
-  const icon = PLATFORM_ICON[plat] || PLAY
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={own}
-      className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold text-white transition-transform duration-150 hover:scale-105"
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3" aria-hidden>{icon}</svg>
-      {tr("Watch")}
-    </a>
-  )
-}
-
 /**
- * @param winners  [{ rank, final_views, points, profiles, videoUrl, platform }]
+ * @param winners  [{ rank, final_views, points, profiles }]
  * @param scoring  'points' scores in points, anything else in views
  * @param voucherWinners [{ id, name, photo_url }] participation prize earners
  */
@@ -124,7 +92,6 @@ export default function WinnersPodium({
     // On a points board the step carries the views as well, like the board
     // on the challenge page.
     sub: isPoints && w.total_views != null ? `${formatViews(w.total_views)} views` : null,
-    extra: w.videoUrl ? <VideoChip url={w.videoUrl} platform={w.platform} /> : null,
   }))
 
   return (
@@ -154,7 +121,6 @@ export default function WinnersPodium({
               <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">
                 {fmt(scoreOf(w))} <span className="font-normal text-smoke">{unit}</span>
               </span>
-              {w.videoUrl && <span className="hidden sm:inline-flex"><VideoChip url={w.videoUrl} platform={w.platform} /></span>}
             </li>
           )))}
         </ol>

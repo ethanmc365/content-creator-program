@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { useCommunity } from './CommunityContext'
+import { onResume, laterOf } from '../lib/resume'
 
 // WHICH ROOMS HAVE SOMETHING NEW IN THEM, ANSWERED ONCE FOR THE WHOLE APP.
 //
@@ -100,18 +101,33 @@ export function UnreadProvider({ children }) {
 
   useEffect(() => { refresh() }, [refresh])
 
-  // Where I had read up to, per room.
-  useEffect(() => {
-    if (!user?.id) return undefined
-    let alive = true
-    supabase.from('channel_reads')
+  // Where I had read up to, per room. MERGED FORWARD, never replaced: a read
+  // that lands while this request is in flight (the room you just opened)
+  // must survive the answer to a question asked a moment before it.
+  const loadReads = useCallback(async () => {
+    if (!user?.id) return
+    const { data, error } = await supabase.from('channel_reads')
       .select('channel, last_read_at')
       .eq('user_id', user.id)
-      .then(({ data }) => {
-        if (alive) setReadAt(new Map((data || []).map((r) => [r.channel, r.last_read_at])))
-      })
-    return () => { alive = false }
+    if (error) return
+    setReadAt((prev) => {
+      const next = new Map(prev ?? [])
+      for (const r of data || []) next.set(r.channel, laterOf(next.get(r.channel), r.last_read_at))
+      return next
+    })
   }, [user?.id])
+  useEffect(() => { loadReads() }, [loadReads])
+
+  // BACK IN THE APP, RE-READ BOTH HALVES (22 Sep 2026). Ethan: a dot on a room
+  // he had already read, "maybe because I refreshed or used different tabs or
+  // the mobile app". The realtime feed below keeps an OPEN screen in step, but
+  // a socket that was asleep (phone locked, app swapped out, a background tab)
+  // misses whatever happened meanwhile and never gets it back. So every return
+  // to the app asks again.
+  useEffect(() => {
+    if (!user?.id) return undefined
+    return onResume(() => { loadReads(); refresh() })
+  }, [user?.id, loadReads, refresh])
 
   // LIVE, AND DEBOUNCED. A new message anywhere I can see refreshes the map;
   // the debounce keeps a busy room from firing a query per message. The
@@ -141,7 +157,10 @@ export function UnreadProvider({ children }) {
         (payload) => {
           const row = payload.new
           if (!row?.channel) return
-          setReadAt((prev) => new Map(prev ?? []).set(row.channel, row.last_read_at))
+          setReadAt((prev) => {
+            const next = new Map(prev ?? [])
+            return next.set(row.channel, laterOf(next.get(row.channel), row.last_read_at))
+          })
         })
       .subscribe()
     return () => { clearTimeout(timer.current); supabase.removeChannel(ch) }
@@ -173,9 +192,19 @@ export function UnreadProvider({ children }) {
   // Reading a room, optimistically. The chat page writes the durable watermark
   // (it has to - it knows when the thread actually rendered); this is what puts
   // the dot out on the frame the room opens.
+  //
+  // NO LATER THAN THE NEWEST MESSAGE IT HAS SEEN, AT LEAST. This device's clock
+  // is not the server's: a phone a minute slow would stamp a watermark BEFORE
+  // the message it is displaying and keep the dot lit on the room it is in.
+  const lastRef = useRef(lastByChannel)
+  useEffect(() => { lastRef.current = lastByChannel }, [lastByChannel])
   const markRead = useCallback((channel) => {
     if (!channel) return
-    setReadAt((prev) => new Map(prev ?? []).set(channel, new Date().toISOString()))
+    const newest = lastRef.current.get(channel)?.created_at
+    setReadAt((prev) => {
+      const next = new Map(prev ?? [])
+      return next.set(channel, laterOf(laterOf(next.get(channel), new Date().toISOString()), newest))
+    })
   }, [])
 
   // Unread grouped by the place it is in, so a market card can say "3 new"

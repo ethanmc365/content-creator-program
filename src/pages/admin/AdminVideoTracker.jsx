@@ -118,7 +118,7 @@ export default function AdminVideoTracker() {
     setSyncNote(
       n.added || n.updated || n.dropped
         ? `${n.added || 0} new, ${n.updated || 0} refreshed, ${n.dropped || 0} retired`
-        : `Nothing changed. Top ${n.top ?? 3} of each challenge, plus anything over ${formatViews(n.threshold ?? 10000)} views.`,
+        : `Nothing changed. Anything over ${formatViews(n.threshold ?? 10000)} views, plus every paid place once a challenge ends.`,
     )
     load()
   }
@@ -541,10 +541,10 @@ function RulesModal({ rules, onClose, onSaved }) {
       <div className="space-y-4">
         {err && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke">{tr('Top videos per challenge')}</span>
+          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke">{tr('Podium places, for a challenge with no prize list')}</span>
           <input value={top} onChange={(e) => setTop(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric"
             className="no-ios-zoom w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm tabular-nums outline-none focus:border-brand" />
-          <span className="mt-1.5 block text-xs text-smoke">{tr('Three is the podium. Raise it on a challenge with hundreds of entries.')}</span>
+          <span className="mt-1.5 block text-xs text-smoke">{tr('A finished challenge brings in one video for every paid place it has (ten on the Global Challenge). This number is only used when a challenge lists no prizes.')}</span>
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke">{tr('View count that earns a place on its own')}</span>
@@ -555,6 +555,7 @@ function RulesModal({ rules, onClose, onSaved }) {
           </span>
         </label>
         <p className="rounded-xl bg-cloud/70 px-4 py-3 text-xs leading-relaxed text-smoke">
+          {tr('This runs by itself every ten minutes: a video that crosses the view line during a challenge appears straight away, and the podium lands the moment a challenge ends.')}{' '}
           {tr('Changing these never removes anything. A video that stops qualifying is marked retired and keeps its hook and notes.')}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row-reverse">

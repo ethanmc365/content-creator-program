@@ -32,6 +32,11 @@ export default function ShareCard({
         threshold: challenge?.participation_threshold || 1,
         prize: voucherPrize,
         basis: challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries',
+        // THE SCOPE TRAVELS WITH THE TERMS (22 Sep 2026). Without it the
+        // picture gave the leader of the Global Challenge the voucher badge -
+        // she is 1st, so she wins a place prize and the voucher is only for
+        // creators OUTSIDE the paid places.
+        scope: challenge?.participation_scope,
       }
     : null
   const isFinal = challenge?.results_status === 'final'

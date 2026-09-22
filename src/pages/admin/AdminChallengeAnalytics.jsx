@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext'
 import { loadMarkets } from '../../lib/markets'
 import { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { challengeSpend } from '../../lib/challengeSpend'
+import MarketSplit from '../../components/admin/MarketSplit'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -249,6 +250,9 @@ export default function AdminChallengeAnalytics() {
           )
         })()}
       </div>
+
+      {/* ---------- Which markets took part ---------- */}
+      <MarketSplit subs={subs} results={results} markets={markets} scoring={challenge.scoring} />
 
       {/* ---------- The groups, compared ---------- */}
       {boardRows.length > 0 && (

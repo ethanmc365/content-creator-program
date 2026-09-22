@@ -49,6 +49,7 @@ import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { onResume } from '../lib/resume'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -797,18 +798,62 @@ export default function NetworkChat() {
     return () => { alive = false; supabase.removeChannel(ch) }
   }, [roomKey])
 
-  const lastReadRef = useRef(0)
+  // WRITING "I HAVE READ THIS ROOM" (22 Sep 2026, migration 250).
+  //
+  // Ethan: rooms showed a dot for messages he had already read, after a
+  // refresh, another tab or the phone. This write was the cause three ways:
+  //   - a LEADING-EDGE throttle with no trailing call: a message that arrived
+  //     inside 2.5s of the last write was never recorded at all, so it was
+  //     "unread" again on the next load;
+  //   - the throttle was shared by EVERY room, so opening one room and then
+  //     another within 2.5s never marked the second;
+  //   - the browser's own clock, `upsert`ed over whatever was there, so a slow
+  //     phone or an old tab could move the watermark BACKWARDS.
+  // Now: `mark_channel_read` stamps the server's time and only moves forward;
+  // the write is per room, trailing (the last message always lands), and
+  // flushed when the room is left or the app goes to the background.
+  const readTimer = useRef(null)
+  const readPending = useRef(null)
+  const flushRead = useCallback(() => {
+    clearTimeout(readTimer.current)
+    const key = readPending.current
+    readPending.current = null
+    if (!key) return
+    supabase.rpc('mark_channel_read', { p_channel: key })
+      .then(({ data }) => {
+        if (data && user?.id) setReads((prev) => new Map(prev).set(user.id, data))
+      }, () => {})
+  }, [user?.id])
   useEffect(() => {
     if (!roomKey || !user?.id || loading || messages.length === 0) return
-    const now = Date.now()
-    if (now - lastReadRef.current < 2500) return
-    lastReadRef.current = now
-    const iso = new Date(now).toISOString()
-    setReads((prev) => new Map(prev).set(user.id, iso))
-    supabase.from('channel_reads')
-      .upsert({ channel: roomKey, user_id: user.id, last_read_at: iso }, { onConflict: 'channel,user_id' })
-      .then(() => {}, () => {})
-  }, [roomKey, user?.id, loading, messages.length])
+    if (document.visibilityState === 'hidden') return
+    // A different room waiting to be written goes now, not never.
+    if (readPending.current && readPending.current !== roomKey) flushRead()
+    const first = !readPending.current && !readTimer.current
+    readPending.current = roomKey
+    markRead(roomKey)
+    clearTimeout(readTimer.current)
+    readTimer.current = setTimeout(() => { readTimer.current = null; flushRead() }, first ? 300 : 1500)
+  }, [roomKey, user?.id, loading, messages.length, markRead, flushRead])
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') flushRead() }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', flushRead)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', flushRead)
+      flushRead()
+    }
+  }, [flushRead])
+  // Coming back to an open room is reading it again.
+  useEffect(() => {
+    if (!roomKey) return undefined
+    return onResume(() => {
+      readPending.current = roomKey
+      markRead(roomKey)
+      flushRead()
+    })
+  }, [roomKey, markRead, flushRead])
 
   // Everyone whose watermark is at or past this message, minus me and the
   // sender. `members` is the room's own roster, so a reader who left the market

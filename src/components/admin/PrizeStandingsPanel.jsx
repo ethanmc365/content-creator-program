@@ -90,7 +90,15 @@ export default function PrizeStandingsPanel({ challenge, refreshKey }) {
   const byPoints = challenge?.participation_basis === 'points'
   const threshold = Number(challenge?.participation_threshold) || 0
 
-  const part = rows.filter((r) => r.slot === 'participation')
+  // A CREATOR IN THE PRIZE PLACES IS NOT A VOUCHER CANDIDATE (22 Sep 2026).
+  // Ethan: the panel listed Zaira Amate (1st, 23 points) under the voucher as
+  // though she had earned it. The server already excluded her - the voucher on
+  // the Global Challenge is for creators OUTSIDE the top 10 - but drawing her
+  // in the list with a grey chip read as the opposite. They are named once,
+  // underneath, instead.
+  const allPart = rows.filter((r) => r.slot === 'participation')
+  const part = allPart.filter((r) => r.status !== 'excluded')
+  const placed = allPart.filter((r) => r.status === 'excluded')
   const earned = part.filter((r) => r.status === 'earned')
   const cap = challenge?.participation_cap
   const awards = [...new Set(rows.filter((r) => r.slot.startsWith('award:')).map((r) => r.slot))]
@@ -110,14 +118,14 @@ export default function PrizeStandingsPanel({ challenge, refreshKey }) {
         </div>
       </div>
 
-      {part.length > 0 && (
+      {allPart.length > 0 && (
         <div className="mt-5">
           <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold">
-            Participation: {part[0].prize}
+            Participation: {allPart[0].prize}
             <span className="text-xs font-normal text-smoke">
               {earned.length}{cap ? ` of ${cap}` : ''} earned
               {earned[0]?.amount ? ` · ${formatMoney(earned[0].amount * earned.length, earned[0].currency)} so far` : ''}
-              {' · '}{earned[0]?.reward_type || part[0].reward_type}
+              {' · '}{earned[0]?.reward_type || allPart[0].reward_type}
             </span>
           </p>
           <ul className="mt-1 divide-y divide-gray-50">
@@ -135,12 +143,22 @@ export default function PrizeStandingsPanel({ challenge, refreshKey }) {
                     byPoints ? `${r.entries} ${r.entries === 1 ? 'entry' : 'entries'}` : null,
                     r.seat ? `#${r.seat} to qualify` : null,
                     r.board_rank ? `${ordinal(r.board_rank)} on the board` : null,
-                    r.status === 'excluded' ? 'a prize place, so not the voucher' : null,
                   ].filter(Boolean).join(' · ')}
                 />
               )
             })}
           </ul>
+          {part.length === 0 && (
+            <p className="mt-2 text-sm text-smoke">Nobody outside the prize places has reached it yet.</p>
+          )}
+          {placed.length > 0 && (
+            <p className="mt-3 rounded-xl bg-cloud/60 px-3 py-2 text-xs text-smoke">
+              Not eligible, because they are in a prize place and win that instead:{' '}
+              <span className="font-semibold text-ink">
+                {placed.map((r) => `${r.creator_name}${r.board_rank ? ` (${ordinal(r.board_rank)})` : ''}`).join(', ')}
+              </span>
+            </p>
+          )}
         </div>
       )}
 

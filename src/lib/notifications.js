@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
+import { onResume } from './resume'
 import { showLocalNotification, closeNotificationsForPath } from './push'
 import { toast } from './toast'
 
@@ -214,7 +215,11 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     if (!userId) return undefined
     load()
     if (!live) return undefined
-    return openFeed(userId, prefsRef, pathRef)
+    const close = openFeed(userId, prefsRef, pathRef)
+    // A sleeping socket misses what was read or cleared on another device
+    // (22 Sep 2026); coming back to the app re-reads the list.
+    const off = onResume(load)
+    return () => { off(); close() }
   }, [userId, load, live])
 
   // Landing on the page a notification was for clears it, however you got

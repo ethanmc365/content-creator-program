@@ -6,6 +6,7 @@ import { syncPushSubscription } from '../../lib/push'
 import { useUnread } from '../../context/UnreadContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
+import { onResume } from '../../lib/resume'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
@@ -422,7 +423,10 @@ export default function AppLayout() {
       // Moving your own watermark in a group is what clears a group's unread.
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members', filter: `profile_id=eq.${user.id}` }, count)
       .subscribe()
-    return () => supabase.removeChannel(channel)
+    // Read on the phone, still badged on the laptop: a socket that slept
+    // missed it, so coming back recounts (22 Sep 2026).
+    const off = onResume(count)
+    return () => { off(); supabase.removeChannel(channel) }
   }, [user])
 
   // THE LOCAL #general PUSH IS GONE (12 Sep 2026).
