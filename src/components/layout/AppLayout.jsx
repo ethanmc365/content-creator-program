@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -62,7 +63,7 @@ const TABS = [
 
 // Lazy, and imported only here. It pulls in `motion`, so a static import would
 // put the animation runtime into the eagerly-loaded shell bundle.
-const CommandPalette = lazy(() => import('../network/CommandPalette'))
+const CommandPalette = lazyRoute(() => import('../network/CommandPalette'))
 
 // WHERE THE WALKTHROUGH POINTS.
 //

@@ -33,6 +33,7 @@ import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
 import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
+import GlowRing from '../components/network/GlowRing'
 import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
@@ -576,6 +577,7 @@ export default function GlobalHome() {
               // second case, whichever screen it is on.
               isGlobal ? (
                 <div key={challenge.id} className="global-glow-mobile">
+                  <GlowRing tone="onLight" />
                   <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
                 </div>
               ) : (
@@ -793,6 +795,7 @@ export default function GlobalHome() {
                           its border on a phone too (22 Sep 2026). */}
                       {isGlobal ? (
                         <div className="global-glow-mobile">
+                          <GlowRing tone="onLight" />
                           <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} expanded />
                         </div>
                       ) : (

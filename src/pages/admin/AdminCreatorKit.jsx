@@ -1,13 +1,14 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { pickClass } from '../../lib/pick'
 
-const KitLibrary = lazy(() => import('../../components/admin/kit/KitLibrary'))
-const CertificateStudio = lazy(() => import('../../components/admin/kit/CertificateStudio'))
-const AwardedList = lazy(() => import('../../components/admin/kit/AwardedList'))
+const KitLibrary = lazyRoute(() => import('../../components/admin/kit/KitLibrary'))
+const CertificateStudio = lazyRoute(() => import('../../components/admin/kit/CertificateStudio'))
+const AwardedList = lazyRoute(() => import('../../components/admin/kit/AwardedList'))
 
 // THE THINGS THE PROGRAMME HANDS A CREATOR TO POST.
 //

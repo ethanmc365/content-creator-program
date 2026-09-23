@@ -639,11 +639,22 @@ export default function AdminPanel() {
               </div>
               {desk.length > 0 ? (
                 <div className="relative grid gap-2 sm:grid-cols-2">
-                  {desk.map((r, i) => (
-                    <div key={r.to + r.label} className="animate-fade-up" style={{ animationDelay: `${60 + i * 45}ms` }}>
-                      <DeskRow {...r} />
-                    </div>
-                  ))}
+                  {desk.map((r, i) => {
+                    // An odd item out (most often the whole desk being just one
+                    // thing) used to sit alone in the LEFT half of a two-column
+                    // grid, half-width with dead space beside it. The last row
+                    // of an odd-length desk spans both columns instead.
+                    const isLastOdd = desk.length % 2 === 1 && i === desk.length - 1
+                    return (
+                      <div
+                        key={r.to + r.label}
+                        className={cx('animate-fade-up', isLastOdd && 'sm:col-span-2')}
+                        style={{ animationDelay: `${60 + i * 45}ms` }}
+                      >
+                        <DeskRow {...r} />
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <div

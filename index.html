@@ -133,6 +133,18 @@
          twice. -->
     <link rel="prefetch" href="/geo/countries-50m.json" as="fetch" />
 
+    <!-- THE TRYP.COM PLANE, FOR THE SAME REASON. Ethan: "the plane doesn't
+         seem to animate at all - it's frozen there, then it starts to animate
+         a little second after." It never was frozen: the contrail is a plain
+         SVG path and starts moving the instant TrypPlane mounts, but the
+         aircraft itself is a 336KB raster PNG with no warming anywhere, so on
+         a cold cache it was a blank gap beside a moving dashed line until the
+         bytes arrived - which read as "the plane is frozen, then it starts".
+         It appears on the worldwide hub and the live challenge card, both
+         seen within the first few screens of using the app, so it is worth
+         the same early, idle-priority fetch as the map atlas. -->
+    <link rel="prefetch" href="/brand/tryp-plane-cutout.png" as="image" />
+
     <title>Tryp.com Creator Community</title>
   </head>
   <body>

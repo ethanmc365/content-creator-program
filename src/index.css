@@ -2787,160 +2787,128 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   transform-origin: top center;
 }
 
-/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER
-   (22 Sep 2026). Ethan: "really add good animations for the global challenge
-   card to stand out, maybe a nice glow effect around the border too." A thin
-   conic ring turns slowly round the card (`::before`, masked to the border),
-   and a soft blurred copy of it breathes behind (`::after`). It fades in once
-   the card has landed, so it never competes with the entrance. */
-@property --glow-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-.global-glow {
+/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER,
+   REWRITTEN A THIRD TIME (23 Sep 2026) TO FIX IT PROPERLY - see
+   components/network/GlowRing.jsx for the full reasoning (why a rotating
+   TRANSFORM rather than an animated gradient angle, and why that also kills
+   the "weird orange square" mask-compositing bug). `.global-glow` and
+   `.global-glow-mobile` are now both just POSITIONING CONTEXTS - the ring and
+   halo are real elements from GlowRing, not pseudo-elements, because a
+   pseudo-element cannot itself have a rotating child. */
+.global-glow,
+.global-glow-mobile {
   position: relative;
   isolation: isolate;
   border-radius: var(--glow-r, 1rem);
 }
-.global-glow::before,
-.global-glow::after {
-  content: '';
+
+.glow-ring,
+.glow-halo {
   position: absolute;
   pointer-events: none;
-  opacity: 0;
-}
-/* The ring: two bright arcs chasing each other round a faint constant edge. */
-.global-glow::before {
-  inset: -3px;
-  border-radius: calc(var(--glow-r, 1rem) + 3px);
-  padding: 3px;
-  background:
-    conic-gradient(
-      from var(--glow-angle),
-      rgba(255, 255, 255, 0) 0deg,
-      rgba(255, 255, 255, 1) 45deg,
-      rgba(255, 196, 150, 1) 75deg,
-      rgba(255, 255, 255, 0) 120deg,
-      rgba(255, 255, 255, 0) 180deg,
-      rgba(255, 255, 255, 0.95) 225deg,
-      rgba(255, 196, 150, 0.9) 255deg,
-      rgba(255, 255, 255, 0) 300deg
-    ),
-    linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  z-index: 3;
-  animation: glow-spin 5s linear infinite, glow-in 0.9s ease-out 1.4s forwards;
-}
-/* The halo: the same arcs, blurred, breathing behind the card. */
-.global-glow::after {
-  inset: -10px;
-  border-radius: calc(var(--glow-r, 1rem) + 10px);
-  background: conic-gradient(
-    from var(--glow-angle),
-    rgba(255, 255, 255, 0) 0deg,
-    rgba(255, 240, 228, 0.95) 60deg,
-    rgba(255, 255, 255, 0) 130deg,
-    rgba(255, 255, 255, 0) 180deg,
-    rgba(255, 240, 228, 0.85) 240deg,
-    rgba(255, 255, 255, 0) 310deg
-  );
-  filter: blur(18px);
   z-index: -1;
-  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out 1.4s infinite;
+  overflow: hidden;
+  opacity: 0;
+  animation: glow-in 0.9s ease-out 1.4s forwards;
 }
-@keyframes glow-spin { to { --glow-angle: 360deg; } }
+/* THICKER AND MORE VISIBLE than the first two passes (23 Sep 2026). Ethan, of
+   the Challenges page card: "it looks like there is a light one going around,
+   but it should be a bit thicker and more visible." 4px, not 3, and the ring
+   carries its own faint SOLID colour underneath the rotating highlight, so it
+   reads as a ring even between passes of the brighter arc rather than only
+   flashing once every 5 seconds. */
+.glow-ring {
+  inset: -4px;
+  border-radius: calc(var(--glow-r, 1rem) + 4px);
+}
+.glow-halo {
+  inset: -11px;
+  border-radius: calc(var(--glow-r, 1rem) + 11px);
+  filter: blur(18px);
+  animation-name: glow-in, glow-breathe;
+  animation-duration: 0.9s, 3.2s;
+  animation-timing-function: ease-out, ease-in-out;
+  animation-delay: 1.4s, 1.4s;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: forwards, none;
+}
+/* THE ROTATING LAYER. Bigger than its container on every side so no corner of
+   the square ever spins into view; `transform` is the only thing that moves,
+   which is what makes this cheap enough to run on several cards at once. */
+.glow-spin {
+  position: absolute;
+  inset: -70%;
+  animation: glow-spin 5s linear infinite;
+}
+@keyframes glow-spin { to { transform: rotate(360deg); } }
 @keyframes glow-in { to { opacity: 1; } }
 @keyframes glow-breathe {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 0.95; }
 }
 
-/* THE MOBILE GLOW, DRAWN A DIFFERENT WAY - NO MASK-COMPOSITE AT ALL
-   (23 Sep 2026, rewritten again same day). Ethan: "it shows a weird orange
-   square rather than the smooth gradient background... you can't really tell
-   because of the light background", and then, once, still: "the card
-   initially does a little sparkle wave animation on it, and then it shows up
-   as this weird orange square."
-   `.global-glow`'s ring works by painting a conic gradient across the WHOLE
-   box and using `mask-composite: exclude` to punch the middle out, leaving
-   only a ring - a technique some mobile WebKit/Chromium builds fail to
-   composite correctly, falling back to the unmasked layer. The first rewrite
-   removed the mask but kept the bug's real cause: `opacity: 0 -> 1` was set
-   on the WRAPPER ITSELF, and the wrapper is also the real card's parent - so
-   the whole card, not just the ring, was invisible for the 1.4s delay plus
-   the 0.9s fade, and then popped in fully formed, ring and all, on one frame.
-   That is "does a sparkle" (whatever briefly painted before opacity:0 took
-   hold) "and then shows up as a weird orange square" (the ring's flat first
-   frame and the card arriving on the SAME tick, with no visible entrance).
-   NOW THE RING LIVES ON `::before`/`::after` ONLY, never on the element that
-   holds real content - exactly how `.global-glow` (desktop) already does it,
-   and for the same reason: a pseudo-element's opacity cannot take the real
-   card down with it. The card is visible from its own first frame; only the
-   ring fades in around it. Warm brand oranges, not white, because a white
-   light on a white page is invisible - the same reasoning the old on-light
-   variant had, kept here. */
-.global-glow-mobile {
-  position: relative;
-  isolation: isolate;
-  border-radius: 1rem;
-}
-.global-glow-mobile::before,
-.global-glow-mobile::after {
-  content: '';
-  position: absolute;
-  pointer-events: none;
-  opacity: 0;
-}
-/* The ring: bleeds 3px past the card's own edge, exactly like desktop's. */
-.global-glow-mobile::before {
-  inset: -3px;
-  z-index: -1;
-  border-radius: calc(1rem + 3px);
+/* `onOrange`: white/pale, for a card whose surrounding few pixels are
+   themselves painted orange (the global challenge strip, the big live
+   challenge card on /challenges). */
+.glow-ring--onOrange { background: rgba(255, 255, 255, 0.4); }
+.glow-ring--onOrange .glow-spin {
   background: conic-gradient(
-    from var(--glow-angle),
-    rgba(245, 133, 63, 0) 0deg,
-    rgba(245, 133, 63, 1) 45deg,
-    rgba(217, 68, 7, 1) 75deg,
-    rgba(245, 133, 63, 0) 120deg,
-    rgba(245, 133, 63, 0) 180deg,
-    rgba(245, 133, 63, 0.95) 225deg,
-    rgba(217, 68, 7, 0.9) 255deg,
-    rgba(245, 133, 63, 0) 300deg
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(255, 255, 255, 1) 55deg,
+    rgba(255, 196, 150, 1) 90deg,
+    rgba(255, 255, 255, 0) 140deg,
+    rgba(255, 255, 255, 0) 180deg,
+    rgba(255, 255, 255, 1) 235deg,
+    rgba(255, 196, 150, 0.95) 270deg,
+    rgba(255, 255, 255, 0) 320deg,
+    rgba(255, 255, 255, 0) 360deg
   );
-  animation: glow-spin 5s linear infinite, glow-in 0.9s ease-out 1.4s forwards;
 }
-/* The halo: blurred, breathing behind - the same free-standing technique
-   desktop's `::after` uses. */
-.global-glow-mobile::after {
-  inset: -10px;
-  z-index: -2;
-  border-radius: calc(1rem + 13px);
+.glow-halo--onOrange .glow-spin {
   background: conic-gradient(
-    from var(--glow-angle),
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(255, 240, 228, 0.95) 60deg,
+    rgba(255, 255, 255, 0) 130deg,
+    rgba(255, 255, 255, 0) 180deg,
+    rgba(255, 240, 228, 0.85) 240deg,
+    rgba(255, 255, 255, 0) 310deg,
+    rgba(255, 255, 255, 0) 360deg
+  );
+}
+
+/* `onLight`: warm brand orange, for a card that sits directly on the page's
+   white background (the worldwide hub's live-now card, phone and desktop
+   rail both) - a white light on a white page is invisible, which was the
+   original report this whole file exists to answer. */
+.glow-ring--onLight { background: rgba(217, 68, 7, 0.32); }
+.glow-ring--onLight .glow-spin {
+  background: conic-gradient(
     rgba(245, 133, 63, 0) 0deg,
-    rgba(245, 133, 63, 0.7) 60deg,
+    rgba(245, 133, 63, 1) 55deg,
+    rgba(217, 68, 7, 1) 90deg,
+    rgba(245, 133, 63, 0) 140deg,
+    rgba(245, 133, 63, 0) 180deg,
+    rgba(245, 133, 63, 1) 235deg,
+    rgba(217, 68, 7, 0.95) 270deg,
+    rgba(245, 133, 63, 0) 320deg,
+    rgba(245, 133, 63, 0) 360deg
+  );
+}
+.glow-halo--onLight .glow-spin {
+  background: conic-gradient(
+    rgba(245, 133, 63, 0) 0deg,
+    rgba(245, 133, 63, 0.75) 60deg,
     rgba(245, 133, 63, 0) 130deg,
     rgba(245, 133, 63, 0) 180deg,
-    rgba(217, 68, 7, 0.55) 240deg,
-    rgba(245, 133, 63, 0) 310deg
+    rgba(217, 68, 7, 0.6) 240deg,
+    rgba(245, 133, 63, 0) 310deg,
+    rgba(245, 133, 63, 0) 360deg
   );
-  filter: blur(16px);
-  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out 1.4s infinite;
 }
-.global-glow-mobile > * {
-  position: relative;
-  z-index: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .global-glow-mobile::before { animation: none; opacity: 0.7; }
-  .global-glow-mobile::after { animation: none; opacity: 0.5; }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .strip-board { animation: none; clip-path: none; }
-  .global-glow::before { animation: none; opacity: 0.7; }
-  .global-glow::after { animation: none; opacity: 0.5; }
+  .glow-spin { animation: none; }
+  .glow-ring { animation: none; opacity: 0.8; }
+  .glow-halo { animation: none; opacity: 0.5; }
 }

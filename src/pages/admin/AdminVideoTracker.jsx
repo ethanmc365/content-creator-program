@@ -7,10 +7,10 @@ import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
 import Reveal from '../../components/network/Reveal'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
-import { cx, formatViews, downloadCsv } from '../../lib/utils'
+import { cx, formatViews, formatDate, downloadCsv } from '../../lib/utils'
 import {
   CSV_COLUMNS, PLATFORMS, SORTS, atHandle, challengeOf,
-  challengeOptions, creatorLink, monthLabel, monthsOf, reasonLabel, summarise,
+  challengeOptions, creatorLink, monthLabel, monthsOf, summarise,
   toCsvRows, visibleVideos,
 } from '../../lib/videoTracker'
 import { resolveThumbnail, forgetThumbnail } from '../../lib/videoThumbs'
@@ -469,7 +469,6 @@ export default function AdminVideoTracker() {
 // because the sentence is what somebody came here to steal.
 function VideoCard({ v, place, onOpen, onPlay, onPin }) {
   const tr = useT()
-  const why = reasonLabel(v)
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
   const challenge = challengeOf(v)
@@ -661,17 +660,31 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
           </div>
         )}
 
-        <div className="mt-auto flex items-center gap-2 pt-3.5">
-          <span className={cx(
-            'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-            why.tone === 'brand' && 'bg-brand-tint text-brand',
-            why.tone === 'green' && 'bg-green-50 text-green-700',
-            why.tone === 'grey' && 'bg-cloud text-smoke',
-          )}>
-            {why.label}
+        {/* THE "OVER THE VIEW LINE" BADGE IS GONE (23 Sep 2026). Migration 252
+            made the tracker threshold-only - every synced row's reason IS
+            "over the line", always, so a badge repeating that on every single
+            card said nothing. Ethan: "there's no need to add that thing saying
+            'over the view line'... remove it and improve the UI of the whole
+            thing." What survives, `reason === 'manual'`, is a fact that still
+            varies card to card - a video from a market not yet on this
+            platform, added by a person - so it keeps a mark, just a quieter
+            one than a full-width pill. A thin top rule now separates the
+            footer from the card body instead. */}
+        <div className="mt-auto flex items-center gap-2 border-t border-gray-100 pt-3">
+          <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-gray-400">
+            {v.posted_at && <span className="tabular-nums">{formatDate(v.posted_at)}</span>}
+            {v.reason === 'manual' && (
+              <>
+                {v.posted_at && <span aria-hidden>·</span>}
+                <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-smoke">
+                  <Icon name="plus" className="h-3 w-3" strokeWidth={2.4} />
+                  {tr('Added by hand')}
+                </span>
+              </>
+            )}
           </span>
 
-          <span className="ml-auto flex items-center gap-1">
+          <span className="ml-auto flex shrink-0 items-center gap-1">
             <IconButton label={v.pinned ? tr('Unpin') : tr('Pin to the top')} onClick={onPin} active={v.pinned} name="star" />
             <IconButton label={tr('Open on the platform')} href={v.video_url} name="link" />
             <IconButton label={tr('Edit')} onClick={onOpen} name="pencil" />

@@ -1,6 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useCommunity } from '../../context/CommunityContext'
 import {
@@ -19,7 +20,7 @@ import { isMobileDevice, isStandalone } from '../../lib/install'
 //
 // It also exposes a way to start it deliberately, which is what the Settings
 // entry and the Testing Centre both use.
-const TourHost = lazy(() => import('./TourHost'))
+const TourHost = lazyRoute(() => import('./TourHost'))
 
 let openDeliberately = null
 

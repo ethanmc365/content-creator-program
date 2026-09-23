@@ -8,6 +8,7 @@ import { ordinalFor, rankInk } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
 import { briefExcerpt } from '../lib/briefExcerpt'
 import SpinningEarth from './SpinningEarth'
+import GlowRing from './network/GlowRing'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -206,6 +207,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           nothing else. Pure CSS, both of them, safe on this eagerly-routed
           page. */}
       <div className="global-glow">
+      <GlowRing tone="onOrange" />
       <div
         className={cx(
           'challenge-card relative block animate-card-wipe overflow-hidden rounded-card text-white shadow-lift',

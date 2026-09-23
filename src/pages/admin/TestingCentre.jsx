@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Icon from '../../components/Icon'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { PlaneLoader } from '../../components/ui'
 import { NotFoundScreen } from '../../components/ErrorScreen'
 import { SandboxLine } from './testing/kit'
@@ -29,11 +30,11 @@ import { SandboxLine } from './testing/kit'
 // /admin, the whole tree is lazy so a creator never downloads a byte of it, and
 // there is no link to it from any creator surface. See App.jsx.
 
-const SignupLab = lazy(() => import('./testing/SignupLab'))
-const OnboardingLab = lazy(() => import('./testing/OnboardingLab'))
-const InvoiceLab = lazy(() => import('./testing/InvoiceLab'))
-const ViewsLab = lazy(() => import('./testing/ViewsLab'))
-const WrappedLab = lazy(() => import('./testing/WrappedLab'))
+const SignupLab = lazyRoute(() => import('./testing/SignupLab'))
+const OnboardingLab = lazyRoute(() => import('./testing/OnboardingLab'))
+const InvoiceLab = lazyRoute(() => import('./testing/InvoiceLab'))
+const ViewsLab = lazyRoute(() => import('./testing/ViewsLab'))
+const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
 
 export const LABS = [
   {

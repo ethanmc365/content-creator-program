@@ -8,6 +8,7 @@ import { ordinalFor } from '../../lib/podiumTiers'
 import { isHiddenTestRow } from '../../lib/testData'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import GlowRing from './GlowRing'
 
 // THE GLOBAL CHALLENGE, ON THE COMMUNITY CARD (21 Sep 2026).
 //
@@ -72,6 +73,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         className,
       )}
     >
+    <GlowRing tone="onOrange" />
     <div
       className={cx(
         'group/strip relative animate-card-wipe overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 ring-1 ring-white/25',
