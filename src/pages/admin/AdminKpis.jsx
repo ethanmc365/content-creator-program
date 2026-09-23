@@ -8,7 +8,7 @@ import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
 import { confirm } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import {
-  adjacentQuarter, currentQuarter, kpiStatus, mergeKpiRows,
+  STANDARD_METRICS, adjacentQuarter, currentQuarter, kpiStatus, mergeKpiRows,
   metricIcon, metricLabel, quarterLabel,
 } from '../../lib/kpiTracker'
 import { useT } from '../../lib/i18n'
@@ -131,9 +131,18 @@ export default function AdminKpis() {
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
-      {/* ---------- scope + quarter ---------- */}
-      <div className="mb-6 rounded-card border border-gray-100 bg-white p-3 shadow-card sm:p-3.5">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* ---------- scope + quarter, EACH NAMED AND EACH ITS OWN ROW (23 Sep
+          2026). Ethan: "it should show clearly when the quarter is... I
+          notice that card [the market pills] is worldwide, Germany, etc.,
+          and the Q3 2026 is too big, they're not aligned." Sharing one row
+          meant the quarter control - a bordered box round two 28px buttons -
+          sat at a different height and weight than the market pills next to
+          it, and wrapped onto its own line at most widths anyway. Two
+          labelled rows, both built from the same pill, read as one control
+          panel instead of two controls that happen to be near each other. */}
+      <div className="mb-6 space-y-3.5 rounded-card border border-gray-100 bg-white p-3.5 shadow-card sm:p-4">
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Market')}</p>
           {!communities ? (
             <Skeleton className="h-9 w-64" />
           ) : (
@@ -161,27 +170,39 @@ export default function AdminKpis() {
               ))}
             </div>
           )}
+        </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-1 py-1">
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Quarter')}</p>
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setPeriod(adjacentQuarter(year, quarter, -1))}
               aria-label={tr('Previous quarter')}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
             </button>
-            <span className="min-w-[5.5rem] text-center text-sm font-bold tabular-nums text-ink">
+            <span className="flex h-9 min-w-[7rem] items-center justify-center rounded-xl bg-brand px-3.5 text-sm font-bold tabular-nums text-white shadow-card">
               {quarterLabel(year, quarter)}
             </span>
             <button
               type="button"
               onClick={() => setPeriod(adjacentQuarter(year, quarter, 1))}
               aria-label={tr('Next quarter')}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
             >
               <Icon name="chevronRight" className="h-4 w-4" />
             </button>
+            {(year !== currentQuarter().year || quarter !== currentQuarter().quarter) && (
+              <button
+                type="button"
+                onClick={() => setPeriod(currentQuarter())}
+                className="ml-1 text-xs font-semibold text-brand hoverable:hover:underline"
+              >
+                {tr('Jump to this quarter')}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -213,7 +234,7 @@ export default function AdminKpis() {
           {/* ---------- the KPIs ---------- */}
           {merged.length === 0 ? (
             <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
-              <Icon name="chartPie" className="mx-auto h-8 w-8 text-gray-300" />
+              <Icon name="trophy" className="mx-auto h-8 w-8 text-gray-300" />
               <p className="mt-3 text-sm font-semibold text-ink">{tr('No targets set for {q} yet', { q: quarterLabel(year, quarter) })}</p>
               <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
                 {canEdit
@@ -252,6 +273,14 @@ export default function AdminKpis() {
               )}
             </Reveal>
           )}
+
+          {/* ---------- the year, all four quarters at once (23 Sep 2026).
+              Ethan: "just work on improving that overall... more overviews,
+              like seeing a yearly overview as well." A single quarter answers
+              "are we on track right now"; a year answers "is this market
+              actually growing", which needs all four numbers side by side,
+              not four separate page loads to compare by memory. */}
+          <YearOverview scope={scope} year={year} />
         </>
       )}
 
@@ -266,6 +295,130 @@ export default function AdminKpis() {
           onSaved={() => { setEditing(null); load() }}
         />
       )}
+    </div>
+  )
+}
+
+// ALL FOUR QUARTERS OF ONE YEAR, FOR ONE SCOPE, SIDE BY SIDE.
+//
+// Reads the same two sources the main view does (kpi_targets + kpi_actuals),
+// once per quarter, in parallel - four small queries rather than one large
+// one, because the shape of "a year" here is four independent snapshots, not
+// a single range a database can answer in one call. A metric that only has a
+// target in some quarters still gets a full row; the quarters it has
+// nothing for are simply blank, not zero (a market that started setting KPIs
+// in Q3 did not "miss" Q1 and Q2 - it was not tracking yet).
+function YearOverview({ scope, year }) {
+  const tr = useT()
+  const [byQuarter, setByQuarter] = useState(null)
+
+  useEffect(() => {
+    if (!scope) return undefined
+    let alive = true
+    setByQuarter(null)
+    Promise.all([1, 2, 3, 4].map(async (q) => {
+      const [t, a] = await Promise.all([
+        supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year).eq('quarter', q),
+        supabase.rpc('kpi_actuals', { p_community_id: scope, p_year: year, p_quarter: q }),
+      ])
+      return { quarter: q, rows: mergeKpiRows(t.data || [], a.data || []) }
+    })).then((results) => { if (alive) setByQuarter(results) })
+    return () => { alive = false }
+  }, [scope, year])
+
+  const metrics = useMemo(() => {
+    if (!byQuarter) return null
+    // One entry per distinct (metric, label) across all four quarters, each
+    // carrying whichever quarters actually have a target - in
+    // STANDARD_METRICS order first, customs after, matching the main grid.
+    const order = new Map(STANDARD_METRICS.map((m, i) => [m.key, i]))
+    const byKey = new Map()
+    for (const { quarter, rows } of byQuarter) {
+      for (const row of rows) {
+        const key = `${row.metric}:${row.label}`
+        if (!byKey.has(key)) byKey.set(key, { metric: row.metric, label: row.label, quarters: {} })
+        byKey.get(key).quarters[quarter] = row
+      }
+    }
+    return [...byKey.values()].sort((a, b) => {
+      const ra = order.has(a.metric) ? order.get(a.metric) : 99
+      const rb = order.has(b.metric) ? order.get(b.metric) : 99
+      return ra !== rb ? ra - rb : a.label.localeCompare(b.label)
+    })
+  }, [byQuarter])
+
+  return (
+    <div className="mt-8">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Year overview · {y}', { y: String(year) })}</p>
+      {!metrics ? (
+        <Skeleton className="h-40 w-full rounded-card" />
+      ) : metrics.length === 0 ? (
+        <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">
+          {tr('Nothing to compare yet - set a target in at least one quarter of {y}.', { y: String(year) })}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          {metrics.map((m, i) => (
+            <YearRow key={`${m.metric}:${m.label}`} metric={m} year={year} last={i === metrics.length - 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function YearRow({ metric, year, last }) {
+  const tr = useT()
+  const quarters = [1, 2, 3, 4]
+  const totalTarget = quarters.reduce((s, q) => s + (metric.quarters[q]?.target_value ?? 0), 0)
+  const totalActual = quarters.reduce((s, q) => s + (metric.quarters[q] ? metric.quarters[q].actual : 0), 0)
+  const anyTarget = quarters.some((q) => metric.quarters[q])
+  const isViews = metric.metric === 'views'
+
+  return (
+    <div className={cx('flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5', !last && 'border-b border-gray-100')}>
+      <div className="flex items-center gap-2.5 sm:w-48 sm:shrink-0">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+          <Icon name={metric.metric === 'custom' ? 'sparkles' : STANDARD_METRICS.find((s) => s.key === metric.metric)?.icon || 'sparkles'} className="h-4 w-4" />
+        </span>
+        <span className="truncate text-sm font-semibold text-ink">{metric.label}</span>
+      </div>
+
+      <div className="grid flex-1 grid-cols-4 gap-2">
+        {quarters.map((q) => {
+          const row = metric.quarters[q]
+          if (!row) {
+            return (
+              <div key={q} className="flex flex-col items-center gap-1">
+                <div className="flex h-14 w-full items-end justify-center rounded-lg bg-cloud/60">
+                  <span className="pb-1.5 text-[10px] text-gray-300">—</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase text-gray-300">{tr('Q{q}', { q: String(q) })}</span>
+              </div>
+            )
+          }
+          const { status, pct } = kpiStatus({ target: row.target_value, actual: row.actual, year, quarter: q })
+          const style = STATUS_STYLE[status]
+          const fillPct = Math.max(6, Math.min(100, Math.round(pct * 100)))
+          return (
+            <div key={q} className="flex flex-col items-center gap-1">
+              <div className="flex h-14 w-full items-end overflow-hidden rounded-lg bg-cloud" title={`${formatMetricValue(row, row.actual)} / ${formatMetricValue(row, row.target_value)}`}>
+                <div className={cx('w-full rounded-t-md transition-[height] duration-500 ease-out', style.bar)} style={{ height: `${fillPct}%` }} />
+              </div>
+              <span className="text-[10px] font-semibold uppercase text-gray-400">{tr('Q{q}', { q: String(q) })}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="text-right sm:w-32 sm:shrink-0">
+        <p className="text-sm font-bold tabular-nums text-ink">
+          {anyTarget ? (isViews ? formatViews(totalActual) : totalActual.toLocaleString()) : '—'}
+        </p>
+        <p className="text-[11px] text-gray-400">
+          {anyTarget ? tr('of {t} for the year', { t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString() }) : tr('no targets yet')}
+        </p>
+      </div>
     </div>
   )
 }

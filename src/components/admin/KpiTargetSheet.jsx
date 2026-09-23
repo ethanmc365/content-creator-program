@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Modal, Select } from '../ui'
+import Icon from '../Icon'
 import { STANDARD_METRICS, quarterLabel } from '../../lib/kpiTracker'
 import { useT } from '../../lib/i18n'
 
@@ -74,20 +75,33 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
 
   return (
     <Modal open onClose={onClose} title={isNew ? tr('Set a KPI target') : tr('Edit this target')}>
-      <p className="mb-4 text-sm text-smoke">
+      {/* SCOPE AND QUARTER, AS A CHIP RATHER THAN A LINE OF GREY TEXT (23 Sep
+          2026). Ethan: "it should show clearly when the quarter is." A plain
+          sentence under the title was easy to skim past on a form whose
+          whole point is "which quarter am I setting this for" - the chip is
+          the first thing in the dialog and cannot be mistaken for a caption. */}
+      <div className="mb-5 inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1.5 text-sm font-bold text-brand">
+        <Icon name="calendar" className="h-4 w-4" />
         {communityName} · {quarterLabel(year, quarter)}
-      </p>
+      </div>
 
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink">{tr('Metric')}</label>
+          {/* NOT `inFlow` (23 Sep 2026). Ethan: "the card expands really
+              whenever I click on metrics to view the options - it should
+              stay the same size." `inFlow` was chosen to stop a floating
+              menu being clipped by the modal's own scroll box, but the fix
+              for a five-item list this near the top of a short dialog is
+              worse than the problem: the whole dialog visibly grows and
+              shrinks every time it opens or closes. A floating menu has
+              plenty of room here and never resizes anything around it. */}
           <Select
             value={metric}
             onChange={setMetric}
             options={METRIC_OPTIONS}
             variant="field"
             className="w-full"
-            inFlow
             disabled={!isNew}
           />
           {!isNew && (
@@ -111,8 +125,13 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
           </div>
         )}
 
+        {/* JUST THE NUMBER (23 Sep 2026). Ethan: "whenever it says 'target
+            for the quarter,' I don't want those - obviously just want to
+            type the number." The label is now the one word this field
+            actually needs; the placeholder and the automated/manual note
+            below carry the rest. */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{tr('Target for the quarter')}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">{tr('Target')}</label>
           <input
             type="number"
             inputMode="decimal"
@@ -121,12 +140,8 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             placeholder="0"
+            autoFocus={isNew}
           />
-          {!isCustom && (
-            <p className="mt-1.5 text-xs text-gray-400">
-              {tr('Read automatically from the platform - there is nothing else to fill in for this one.')}
-            </p>
-          )}
         </div>
 
         {isCustom && (

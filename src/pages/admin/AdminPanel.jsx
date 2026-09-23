@@ -111,7 +111,7 @@ const TOOLS = [
   // something that's already a bit cluttered, so maybe create a new page."
   // Analytics is a retrospective; a KPI is a plan checked as the quarter
   // runs, which is a different question asked at a different moment.
-  { id: 'kpis', to: '/admin/kpis', icon: 'chartPie', title: 'KPI tracker' },
+  { id: 'kpis', to: '/admin/kpis', icon: 'trophy', title: 'KPI tracker' },
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },

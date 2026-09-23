@@ -42,12 +42,7 @@ const PLANE = typeof Path2D === 'function'
 const FLIGHT_MS = 9000
 
 let thinned = null
-// Exported so CreatorGlobe (network/CreatorGlobe.jsx) can draw the same land
-// mass on the same canvas technique without re-deriving the thinning and
-// winding-order fix below - both are the same 240-country atlas turning on
-// the same kind of axis, and the fix for "the whole globe painted as land"
-// is not a decoration worth having twice.
-export function thin(fc) {
+function thin(fc) {
   if (thinned) return thinned
   const ring = (r) => (r.length > 12 ? r.filter((_, i) => i % 3 === 0 || i === r.length - 1) : r)
   // A RING WOUND THE OTHER WAY IS THE REST OF THE PLANET. On a flat map the

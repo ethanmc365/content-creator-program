@@ -34,7 +34,6 @@ import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/net
 import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
 import GlowRing from '../components/network/GlowRing'
-import CreatorGlobe from '../components/network/CreatorGlobe'
 import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
@@ -249,10 +248,6 @@ export default function GlobalHome() {
   const [d, setD] = useState(cachedHub ?? null)
   const [order, setOrder] = useState(loadOrder)
   const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
-  // THE GLOBE, BUILT AND SHOWN LOCALHOST-ONLY FOR NOW (23 Sep 2026). Ethan
-  // asked for the interactive globe to be reviewed before it reaches anybody
-  // else - see components/network/CreatorGlobe.
-  const [showGlobe, setShowGlobe] = useState(false)
   const isMobile = useIsMobile()
   // ONE CLOCK READING PER MOUNT, for the live challenge card's countdown.
   // `react-hooks/purity` bans a clock read during render, and rightly: a
@@ -568,26 +563,14 @@ export default function GlobalHome() {
           // live challenge card be like that in the top right." This rail IS
           // the top right, and it was drawing its own flatter version of the
           // same row. See components/network/LiveNowRow.
+          //
+          // NO GLOW HERE (23 Sep 2026, REMOVED). It was tried and Ethan did
+          // not like it on this card specifically - "it looks worse" - even
+          // though the same ring stayed on the phone's equivalent card. The
+          // rail card keeps its plain gradient.
           <div className="space-y-2">
             {myLive.map(({ market, challenge, global: isGlobal }) => (
-              // THE TOP-RIGHT CARD GETS THE SAME ROTATING GLOW AS THE PHONE'S
-              // (23 Sep 2026). Ethan: "for the live now challenge in the top
-              // right, I would like you to have a similar light glow effect
-              // that's constantly rotating around that card." `global-glow-
-              // mobile` reads as viewport-specific by its name only - what it
-              // actually is is the warm-orange, mask-free ring for a card that
-              // sits on the PAGE's own light background rather than on another
-              // orange card (which is what the white `global-glow` ring is
-              // for, on GlobalChallengeStrip). This rail card is exactly that
-              // second case, whichever screen it is on.
-              isGlobal ? (
-                <div key={challenge.id} className="global-glow-mobile">
-                  <GlowRing tone="onLight" />
-                  <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
-                </div>
-              ) : (
-                <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
-              )
+              <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
             ))}
           </div>
         )}
@@ -1227,22 +1210,7 @@ export default function GlobalHome() {
               <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
                 {d
                   ? (
-                    <div className="relative">
-                      {/* "VIEW GLOBE", TOP LEFT OF THE MAP ITSELF - A CORNER
-                          TOGGLE, NOT A SECOND MAP ON THE PAGE. Ethan: "in the
-                          top left, it should be that globe... you can zoom
-                          in... just be a little button that says GLOBE, like
-                          View Globe." Localhost only for now - see
-                          CreatorGlobe. */}
-                      <button
-                        type="button"
-                        onClick={() => setShowGlobe(true)}
-                        className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-brand shadow-card backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
-                      >
-                        <Icon name="globe" className="h-3.5 w-3.5" />
-                        {tr('View globe')}
-                      </button>
-                      <CreatorMap
+                    <CreatorMap
                       creators={d.mapPeople}
                       trips={d.mapTrips}
                       myId={session?.user?.id}
@@ -1266,19 +1234,10 @@ export default function GlobalHome() {
                       // `filterZoomEvent` in CreatorMap for the gate that lets
                       // this one take it safely.
                       navigable
-                      />
-                    </div>
+                    />
                   )
                   : <MapSkeleton />}
               </WhenVisible>
-              {showGlobe && (
-                <CreatorGlobe
-                  creators={d.mapPeople}
-                  trips={d.mapTrips}
-                  myId={session?.user?.id}
-                  onClose={() => setShowGlobe(false)}
-                />
-              )}
             </section>
           </Reveal>
 

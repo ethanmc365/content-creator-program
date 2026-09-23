@@ -2692,26 +2692,27 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 /* ---------------------------------------------------------------------------
-   THE CARD WIPE (22 Sep 2026).
+   THE CARD ARRIVES, IT DOES NOT WIPE (22 Sep 2026, SIMPLIFIED 23 Sep 2026).
 
-   Ethan, on the Worldwide page: the community card and the Global Challenge
-   band inside it "don't really animate in", while the Challenges page "has that
-   nice wipe effect". A card that leads a page is revealed left to right, rising
-   a little as it goes, and its `challenge-sheen` then passes over it once. It
-   runs on mount, so it plays whenever the card is drawn, and the stagger on the
-   pieces inside it (`.wipe-item`) follows the reveal across the card.
-   ------------------------------------------------------------------------- */
+   Ethan first asked for the community card to animate in at all, and it grew
+   a left-to-right `clip-path` reveal to match the Challenges page. Then, on a
+   phone: "whenever I click on the card, it responds to the right - I don't
+   need this expansion, I just need it to flow in nicely or appear
+   gradually." A `clip-path` sweep reads as a panel sliding open, which is a
+   heavier statement than "this appeared" - and animating `clip-path` is real
+   paint work every frame, on cards that already carry blooms and a glow.
+   A plain fade-and-rise says the same thing ("this is new") for a fraction
+   of the cost and cannot be mistaken for a slide. */
 @keyframes card-wipe {
-  0%   { clip-path: inset(0 100% 0 0 round 1rem); transform: translateY(14px); opacity: 0.2; }
-  30%  { opacity: 1; }
-  100% { clip-path: inset(0 0 0 0 round 1rem); transform: none; opacity: 1; }
+  0%   { transform: translateY(14px); opacity: 0.15; }
+  100% { transform: none; opacity: 1; }
 }
 .animate-card-wipe {
   /* `backwards`, not `both`: once it lands the element's own transform (a
      hover lift) must apply again, and a filled `transform: none` would win. */
-  animation: card-wipe 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: card-wipe 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
-.animate-card-wipe .challenge-sheen { animation-delay: 0.75s; }
+.animate-card-wipe .challenge-sheen { animation-delay: 0.4s; }
 @keyframes wipe-item-in {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
@@ -2788,127 +2789,52 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 /* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER,
-   REWRITTEN A THIRD TIME (23 Sep 2026) TO FIX IT PROPERLY - see
-   components/network/GlowRing.jsx for the full reasoning (why a rotating
-   TRANSFORM rather than an animated gradient angle, and why that also kills
-   the "weird orange square" mask-compositing bug). `.global-glow` and
-   `.global-glow-mobile` are now both just POSITIONING CONTEXTS - the ring and
-   halo are real elements from GlowRing, not pseudo-elements, because a
-   pseudo-element cannot itself have a rotating child. */
+   REWRITTEN A FOURTH TIME AND MADE MUCH SIMPLER (23 Sep 2026) - see
+   components/network/GlowRing.jsx for why. In short: a rotating conic
+   gradient repaints every frame forever, a blurred halo in its own
+   `isolation: isolate` context is what actually produced the "weird orange
+   square" on some mobile browsers, and Ethan asked for fewer, simpler
+   animations after the third rewrite made the page feel slower rather than
+   better. `.global-glow`/`.global-glow-mobile` are still just positioning
+   contexts; `.glow-ring` is now the ONLY element, animating ONLY opacity. */
 .global-glow,
 .global-glow-mobile {
   position: relative;
-  isolation: isolate;
   border-radius: var(--glow-r, 1rem);
 }
 
-.glow-ring,
-.glow-halo {
+.glow-ring {
   position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--glow-r, 1rem) + 3px);
   pointer-events: none;
   z-index: -1;
-  overflow: hidden;
   opacity: 0;
-  animation: glow-in 0.9s ease-out 1.4s forwards;
+  animation: glow-in 0.5s ease-out 0.2s forwards, glow-pulse 3.4s ease-in-out 0.7s infinite;
 }
-/* THICKER AND MORE VISIBLE than the first two passes (23 Sep 2026). Ethan, of
-   the Challenges page card: "it looks like there is a light one going around,
-   but it should be a bit thicker and more visible." 4px, not 3, and the ring
-   carries its own faint SOLID colour underneath the rotating highlight, so it
-   reads as a ring even between passes of the brighter arc rather than only
-   flashing once every 5 seconds. */
-.glow-ring {
-  inset: -4px;
-  border-radius: calc(var(--glow-r, 1rem) + 4px);
-}
-.glow-halo {
-  inset: -11px;
-  border-radius: calc(var(--glow-r, 1rem) + 11px);
-  filter: blur(18px);
-  animation-name: glow-in, glow-breathe;
-  animation-duration: 0.9s, 3.2s;
-  animation-timing-function: ease-out, ease-in-out;
-  animation-delay: 1.4s, 1.4s;
-  animation-iteration-count: 1, infinite;
-  animation-fill-mode: forwards, none;
-}
-/* THE ROTATING LAYER. Bigger than its container on every side so no corner of
-   the square ever spins into view; `transform` is the only thing that moves,
-   which is what makes this cheap enough to run on several cards at once. */
-.glow-spin {
-  position: absolute;
-  inset: -70%;
-  animation: glow-spin 5s linear infinite;
-}
-@keyframes glow-spin { to { transform: rotate(360deg); } }
 @keyframes glow-in { to { opacity: 1; } }
-@keyframes glow-breathe {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 0.95; }
+/* A SLOW BREATH, NOT A CHASE. It is the whole animation now - one property,
+   one layer - and it still reads as "this card is alive" without asking the
+   browser to do anything more than fade a flat colour up and down. */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
 }
 
-/* `onOrange`: white/pale, for a card whose surrounding few pixels are
-   themselves painted orange (the global challenge strip, the big live
-   challenge card on /challenges). */
-.glow-ring--onOrange { background: rgba(255, 255, 255, 0.4); }
-.glow-ring--onOrange .glow-spin {
-  background: conic-gradient(
-    rgba(255, 255, 255, 0) 0deg,
-    rgba(255, 255, 255, 1) 55deg,
-    rgba(255, 196, 150, 1) 90deg,
-    rgba(255, 255, 255, 0) 140deg,
-    rgba(255, 255, 255, 0) 180deg,
-    rgba(255, 255, 255, 1) 235deg,
-    rgba(255, 196, 150, 0.95) 270deg,
-    rgba(255, 255, 255, 0) 320deg,
-    rgba(255, 255, 255, 0) 360deg
-  );
+/* `onOrange`: pale, for a card whose surrounding few pixels are themselves
+   painted orange (the global challenge strip, the big live challenge card
+   on /challenges). */
+.glow-ring--onOrange {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 196, 150, 0.55));
 }
-.glow-halo--onOrange .glow-spin {
-  background: conic-gradient(
-    rgba(255, 255, 255, 0) 0deg,
-    rgba(255, 240, 228, 0.95) 60deg,
-    rgba(255, 255, 255, 0) 130deg,
-    rgba(255, 255, 255, 0) 180deg,
-    rgba(255, 240, 228, 0.85) 240deg,
-    rgba(255, 255, 255, 0) 310deg,
-    rgba(255, 255, 255, 0) 360deg
-  );
-}
-
 /* `onLight`: warm brand orange, for a card that sits directly on the page's
-   white background (the worldwide hub's live-now card, phone and desktop
-   rail both) - a white light on a white page is invisible, which was the
-   original report this whole file exists to answer. */
-.glow-ring--onLight { background: rgba(217, 68, 7, 0.32); }
-.glow-ring--onLight .glow-spin {
-  background: conic-gradient(
-    rgba(245, 133, 63, 0) 0deg,
-    rgba(245, 133, 63, 1) 55deg,
-    rgba(217, 68, 7, 1) 90deg,
-    rgba(245, 133, 63, 0) 140deg,
-    rgba(245, 133, 63, 0) 180deg,
-    rgba(245, 133, 63, 1) 235deg,
-    rgba(217, 68, 7, 0.95) 270deg,
-    rgba(245, 133, 63, 0) 320deg,
-    rgba(245, 133, 63, 0) 360deg
-  );
-}
-.glow-halo--onLight .glow-spin {
-  background: conic-gradient(
-    rgba(245, 133, 63, 0) 0deg,
-    rgba(245, 133, 63, 0.75) 60deg,
-    rgba(245, 133, 63, 0) 130deg,
-    rgba(245, 133, 63, 0) 180deg,
-    rgba(217, 68, 7, 0.6) 240deg,
-    rgba(245, 133, 63, 0) 310deg,
-    rgba(245, 133, 63, 0) 360deg
-  );
+   white background - a white light on a white page is invisible, which was
+   the original report this whole file exists to answer. */
+.glow-ring--onLight {
+  background: linear-gradient(135deg, rgba(217, 68, 7, 0.8), rgba(245, 133, 63, 0.45));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .strip-board { animation: none; clip-path: none; }
-  .glow-spin { animation: none; }
-  .glow-ring { animation: none; opacity: 0.8; }
-  .glow-halo { animation: none; opacity: 0.5; }
+  .glow-ring { animation: none; opacity: 0.85; }
 }

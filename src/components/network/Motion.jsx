@@ -224,33 +224,42 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
       clearTimeout(net)
       clearInterval(heartbeat)
     }
-    const tick = (now) => {
-      if (done) return
+    // ONE VALUE FUNCTION, TWO CALLERS - AND ONLY ONE OF THEM MAY RESCHEDULE
+    // A FRAME. `paintAt` is pure: give it a timestamp, it paints wherever
+    // the count should be at that instant. `tick` (rAF) is the only thing
+    // that ever calls `requestAnimationFrame` again.
+    //
+    // THE BUG THIS REPLACES (found 23 Sep 2026, the session after the
+    // heartbeat was added to fix "the counters just appear instead of
+    // counting"). The heartbeat called `tick` directly, and `tick`
+    // unconditionally reschedules itself via `requestAnimationFrame` before
+    // returning - so every 90ms heartbeat firing spawned a BRAND NEW,
+    // independent, self-perpetuating rAF chain on top of whichever chains
+    // were already running, and nothing ever cancelled the earlier ones
+    // (`raf` only ever tracks the MOST RECENT id, and cleanup cancels
+    // exactly one). Over one 1.6s count that is on the order of seventeen
+    // parallel 60fps loops all painting the same node by the time it
+    // finishes - on every counter on the page, all at once, on the exact
+    // frames a fresh page load is already busiest. That is the real shape
+    // of "everything is laggy" and "the numbers aren't counting" - not a
+    // slow animation, a main thread buried under an animation that had
+    // quietly turned into dozens.
+    //
+    // The fix keeps the property that made the heartbeat worth having (a
+    // dropped rAF frame anywhere in the chain used to kill the rest of the
+    // count silently) without the leak: the heartbeat now only paints,
+    // never reschedules, so it can never spawn a second chain.
+    const paintAt = (now) => {
       if (start === null) start = now
       const t = Math.min(1, (now - start) / ms)
       paint(Math.round(from + (target - from) * countEase(t)))
-      // The last frame is committed to state as well, so the number survives
-      // the next React render. Without it the node's text would be thrown away
-      // the moment the parent re-rendered for any other reason.
-      if (t >= 1) finish()
+      return t
+    }
+    const tick = (now) => {
+      if (done) return
+      if (paintAt(now) >= 1) finish()
       else raf = requestAnimationFrame(tick)
     }
-    // A HEARTBEAT ALONGSIDE rAF, NOT JUST rAF (23 Sep 2026). Ethan: "we lost
-    // the nice animation of the numbers counting up, they now just appear."
-    // Measured it: the counters sat on 0, painted NOTHING for over two
-    // seconds, then jumped straight to the final number in one step - the
-    // safety net below firing, not a single tick of the real animation.
-    //
-    // The bug is architectural: `tick` re-schedules itself, so ONE dropped
-    // rAF callback anywhere in the chain - a busy main thread, a frame the
-    // browser decided to skip on a page now full of competing animations -
-    // kills the rest of the count silently, with no way back except the
-    // safety net two seconds later. `setInterval` does not have this failure
-    // mode: a callback it fires doing nothing does not stop the next one from
-    // firing. Running both is not a race - `tick` is idempotent (it always
-    // paints the value wall-clock time says it should be, whichever caller
-    // asked), so the heartbeat only ever repeats work rAF already did, until
-    // the day a frame gets dropped and it is the one call that keeps going.
     net = setTimeout(() => {
       if (done) return
       done = true
@@ -263,7 +272,10 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     // one code path, and `setTimeout(fn, 0)` is the next task, not a frame.
     begin = setTimeout(() => {
       raf = requestAnimationFrame(tick)
-      heartbeat = setInterval(() => tick(performance.now()), 90)
+      heartbeat = setInterval(() => {
+        if (done) return
+        if (paintAt(performance.now()) >= 1) finish()
+      }, 90)
     }, startAfter)
     return () => { clearTimeout(begin); clearTimeout(net); clearInterval(heartbeat); cancelAnimationFrame(raf) }
   }, [started, startAfter, target, duration, reduced])

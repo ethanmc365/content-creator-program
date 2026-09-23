@@ -63,23 +63,22 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
 
   // THE GLOW IS ON A WRAPPER (22 Sep 2026): the card itself clips its
   // contents (`overflow-hidden`, for the blooms and the sheen), so a light
-  // running round its border has to live one box further out. The HOVER is on
-  // the wrapper too, so the ring and the card grow together - and it is a real
-  // magnification now; Ethan: "currently it's barely noticeable."
+  // running round its border has to live one box further out.
+  //
+  // NO HOVER MAGNIFY ANY MORE (23 Sep 2026, REMOVED). It used to scale and
+  // lift the whole card AND animate its box-shadow at the same time on
+  // hover - Ethan: "whenever I go over it, it magnifies. It's insanely
+  // laggy." A `box-shadow` transition repaints the card's shadow every
+  // frame for the whole 300ms, on a card that already carries two blurred
+  // blooms, a sheen and a glow ring - the single most expensive thing this
+  // card could have animated on hover, for a flourish nobody asked to keep.
   return (
     <div
-      className={cx(
-        'global-glow group/glow mt-7 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hoverable:hover:-translate-y-1 hoverable:hover:scale-[1.025]',
-        className,
-      )}
+      className={cx('global-glow mt-7', className)}
     >
     <GlowRing tone="onOrange" />
     <div
-      className={cx(
-        'group/strip relative animate-card-wipe overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 ring-1 ring-white/25',
-        'shadow-[0_18px_40px_-14px_rgba(90,25,0,0.45)] transition-shadow duration-300 ease-out',
-        'hoverable:group-hover/glow:shadow-[0_28px_56px_-14px_rgba(90,25,0,0.55)] sm:p-6',
-      )}
+      className="relative animate-card-wipe overflow-hidden rounded-2xl bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 shadow-[0_18px_40px_-14px_rgba(90,25,0,0.45)] ring-1 ring-white/25 sm:p-6"
       style={at(0)}
     >
       {/* Depth: a light bloom top right and a shadow bloom bottom left. */}
