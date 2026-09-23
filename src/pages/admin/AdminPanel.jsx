@@ -107,6 +107,11 @@ const TOOLS = [
   // the programme did, the tracker says what to make next. `video` is free -
   // see the note above about every icon in this grid appearing exactly once.
   { id: 'videos', to: '/admin/videos', icon: 'video', title: 'Video tracker' },
+  // NOT INSIDE ANALYTICS. Ethan: "I don't want this built into analytics or
+  // something that's already a bit cluttered, so maybe create a new page."
+  // Analytics is a retrospective; a KPI is a plan checked as the quarter
+  // runs, which is a different question asked at a different moment.
+  { id: 'kpis', to: '/admin/kpis', icon: 'chartPie', title: 'KPI tracker' },
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },

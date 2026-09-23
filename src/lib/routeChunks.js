@@ -67,6 +67,7 @@ export const chunk = {
   AdminAnalytics: () => import('../pages/admin/AdminAnalytics'),
   AdminChallengeAnalytics: () => import('../pages/admin/AdminChallengeAnalytics'),
   AdminVideoTracker: () => import('../pages/admin/AdminVideoTracker'),
+  AdminKpis: () => import('../pages/admin/AdminKpis'),
   AdminEvents: () => import('../pages/admin/AdminEvents'),
   AdminResources: () => import('../pages/admin/AdminResources'),
   AdminCreatorKit: () => import('../pages/admin/AdminCreatorKit'),
