@@ -57,10 +57,9 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
       )}
       <span className="relative min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-          </span>
+          {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
+              network/Motion.jsx. */}
+          <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
           {isGlobal ? 'Live · everyone' : `Live in ${market?.name || 'your market'}`}
         </span>
         {/* `line-clamp-2` rather than `truncate`: the rail is 20rem wide and a

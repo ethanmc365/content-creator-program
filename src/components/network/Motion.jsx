@@ -307,14 +307,20 @@ export function ProgressRing({ value = 0, size = 44, stroke = 4, className, chil
 /**
  * A live dot. Three sizes of the same idea used in five places, so it is one
  * component rather than five copies of a nested absolute span.
+ *
+ * JUST THE DOT, NOT A RING EXPANDING OUT OF IT (23 Sep 2026). Ethan, of the
+ * leaderboard's live dot: "I like how you have the pulsing thing, but I don't
+ * like the way it circles around it. Remove the white circle and just have
+ * that nice pulsing white dot." The ring was `animate-ping` - a second,
+ * absolutely-positioned copy of the dot scaling up and fading out around it,
+ * which is the classic "live" affordance but reads as a circle drawing itself
+ * repeatedly rather than one dot breathing. It is gone; the dot itself now
+ * pulses in place (opacity only, no scale, no second element).
  */
 export function LiveDot({ size = 'sm', tone = 'brand', className }) {
   const px = size === 'lg' ? 'h-2.5 w-2.5' : size === 'md' ? 'h-2 w-2' : 'h-1.5 w-1.5'
   const colour = tone === 'white' ? 'bg-white' : tone === 'green' ? 'bg-green-500' : 'bg-brand'
   return (
-    <span className={cx('relative flex', px, className)}>
-      <span className={cx('absolute inline-flex h-full w-full animate-ping rounded-full opacity-70', colour)} />
-      <span className={cx('relative inline-flex rounded-full', px, colour)} />
-    </span>
+    <span className={cx('inline-flex animate-pulse rounded-full', px, colour, className)} />
   )
 }

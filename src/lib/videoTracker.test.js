@@ -38,10 +38,10 @@ const v = (over = {}) => ({
 })
 
 describe('visibleVideos', () => {
-  it('hides a retired video by default and shows it on request', () => {
+  it('hides a retired video, with no filter that brings it back', () => {
     const rows = [v({ id: 'a' }), v({ id: 'b', qualifies: false })]
     expect(visibleVideos(rows).map((r) => r.id)).toEqual(['a'])
-    expect(visibleVideos(rows, { showRetired: true }).map((r) => r.id).sort()).toEqual(['a', 'b'])
+    expect(visibleVideos(rows, { showRetired: true }).map((r) => r.id)).toEqual(['a'])
   })
 
   // A PIN IS A DECISION, AND A DECISION MUST NOT BE FILTERED OUT BY A COUNTER.

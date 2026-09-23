@@ -2769,7 +2769,8 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 .reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .global-glow, .global-glow-mobile),
 .reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::before,
 .reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::after,
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::before {
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::before,
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::after {
   animation-play-state: paused;
 }
 
@@ -2859,27 +2860,46 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 /* THE MOBILE GLOW, DRAWN A DIFFERENT WAY - NO MASK-COMPOSITE AT ALL
-   (23 Sep 2026). Ethan: "it shows a weird orange square rather than the
-   smooth gradient background... the animated glow going around it... you
-   can't really tell because of the light background."
+   (23 Sep 2026, rewritten again same day). Ethan: "it shows a weird orange
+   square rather than the smooth gradient background... you can't really tell
+   because of the light background", and then, once, still: "the card
+   initially does a little sparkle wave animation on it, and then it shows up
+   as this weird orange square."
    `.global-glow`'s ring works by painting a conic gradient across the WHOLE
    box and using `mask-composite: exclude` to punch the middle out, leaving
    only a ring - a technique some mobile WebKit/Chromium builds fail to
-   composite correctly, falling back to the unmasked layer, which is exactly
-   a solid square the colour of the gradient. Desktop's version is confirmed
-   working and liked, so it stays untouched; this class is only for the phone
-   card that was breaking, and it cannot fail the same way because it never
-   asks the browser to composite a mask at all. The gradient is the WRAPPER's
-   own background; its one real child (the card) sits on top via z-index,
-   covering everything except a `padding`-width border - the ring is just
-   what shows through the gap. Warm brand oranges, not white, because a white
+   composite correctly, falling back to the unmasked layer. The first rewrite
+   removed the mask but kept the bug's real cause: `opacity: 0 -> 1` was set
+   on the WRAPPER ITSELF, and the wrapper is also the real card's parent - so
+   the whole card, not just the ring, was invisible for the 1.4s delay plus
+   the 0.9s fade, and then popped in fully formed, ring and all, on one frame.
+   That is "does a sparkle" (whatever briefly painted before opacity:0 took
+   hold) "and then shows up as a weird orange square" (the ring's flat first
+   frame and the card arriving on the SAME tick, with no visible entrance).
+   NOW THE RING LIVES ON `::before`/`::after` ONLY, never on the element that
+   holds real content - exactly how `.global-glow` (desktop) already does it,
+   and for the same reason: a pseudo-element's opacity cannot take the real
+   card down with it. The card is visible from its own first frame; only the
+   ring fades in around it. Warm brand oranges, not white, because a white
    light on a white page is invisible - the same reasoning the old on-light
    variant had, kept here. */
 .global-glow-mobile {
   position: relative;
   isolation: isolate;
+  border-radius: 1rem;
+}
+.global-glow-mobile::before,
+.global-glow-mobile::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+/* The ring: bleeds 3px past the card's own edge, exactly like desktop's. */
+.global-glow-mobile::before {
+  inset: -3px;
+  z-index: -1;
   border-radius: calc(1rem + 3px);
-  padding: 3px;
   background: conic-gradient(
     from var(--glow-angle),
     rgba(245, 133, 63, 0) 0deg,
@@ -2891,16 +2911,13 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
     rgba(217, 68, 7, 0.9) 255deg,
     rgba(245, 133, 63, 0) 300deg
   );
-  opacity: 0;
   animation: glow-spin 5s linear infinite, glow-in 0.9s ease-out 1.4s forwards;
 }
-/* The halo: no masking here either, just a blurred, blurred copy behind -
-   the same free-standing technique desktop's `::after` already uses. */
-.global-glow-mobile::before {
-  content: '';
-  position: absolute;
+/* The halo: blurred, breathing behind - the same free-standing technique
+   desktop's `::after` uses. */
+.global-glow-mobile::after {
   inset: -10px;
-  z-index: -1;
+  z-index: -2;
   border-radius: calc(1rem + 13px);
   background: conic-gradient(
     from var(--glow-angle),
@@ -2912,15 +2929,15 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
     rgba(245, 133, 63, 0) 310deg
   );
   filter: blur(16px);
-  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out infinite;
+  animation: glow-spin 5s linear infinite, glow-breathe 3.2s ease-in-out 1.4s infinite;
 }
 .global-glow-mobile > * {
   position: relative;
   z-index: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .global-glow-mobile { animation: none; opacity: 1; }
-  .global-glow-mobile::before { animation: none; opacity: 0.6; }
+  .global-glow-mobile::before { animation: none; opacity: 0.7; }
+  .global-glow-mobile::after { animation: none; opacity: 0.5; }
 }
 @media (prefers-reduced-motion: reduce) {
   .strip-board { animation: none; clip-path: none; }

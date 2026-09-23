@@ -54,8 +54,11 @@ import { useT } from '../../lib/i18n'
 // and there are five such markets.
 //
 // NOTHING HERE IS EVER DELETED BY THE MACHINE. A video that drops under the
-// threshold stops qualifying and keeps its notes; `Show retired` is the way
-// back to it. See migration 211.
+// threshold, or is disqualified, stops qualifying and keeps its notes in the
+// database (migration 211) - but this page never shows it again. Ethan, 23
+// Sep 2026: "there's no need to show the retired button and retired videos,
+// they should just be gone from this tracker", so a non-qualifying row is
+// filtered out with no toggle back to it (see `visibleVideos`).
 export default function AdminVideoTracker() {
   const tr = useT()
   const { profile } = useAuth()
@@ -82,7 +85,7 @@ export default function AdminVideoTracker() {
   // element. It stays in the shape so that `Clear` and `filtered` keep meaning
   // the same thing whichever of those two states the page is in.
   const [filter, setFilter] = useState({
-    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', showRetired: false,
+    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views',
   })
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
@@ -128,7 +131,6 @@ export default function AdminVideoTracker() {
   )
   const shown = useMemo(() => visibleVideos(rows || [], filter), [rows, filter])
   const totals = useMemo(() => summarise(shown), [shown])
-  const retired = useMemo(() => (rows || []).filter((v) => !v.qualifies && !v.pinned).length, [rows])
 
   const months = useMemo(() => monthsOf(rows || []), [rows])
   const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month
@@ -263,25 +265,6 @@ export default function AdminVideoTracker() {
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
 
-          {/* RETIRED ROWS ARE A DELIBERATE VISIT, not a default view. The count
-              is on the button because "show retired" with nothing behind it is
-              a control that does nothing, and no way to tell from here. */}
-          {retired > 0 && (
-            <button
-              type="button"
-              onClick={() => set({ showRetired: !filter.showRetired })}
-              aria-pressed={filter.showRetired}
-              className={cx(
-                'rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                filter.showRetired
-                  ? 'bg-brand text-white shadow-card'
-                  : 'border border-gray-200 bg-white text-smoke hoverable:hover:border-brand hoverable:hover:text-ink',
-              )}
-            >
-              {tr('Retired')} · {retired}
-            </button>
-          )}
-
           {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE (9 Sep 2026).
               Ethan: "when I click on July 2026 it changes how the card above
               looks, because the Clear button appears. I don't like how
@@ -297,12 +280,12 @@ export default function AdminVideoTracker() {
               order when it does nothing. */}
           <button
             type="button"
-            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, showRetired: false })}
-            aria-hidden={!(filtered || filter.showRetired)}
-            tabIndex={filtered || filter.showRetired ? 0 : -1}
+            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort })}
+            aria-hidden={!filtered}
+            tabIndex={filtered ? 0 : -1}
             className={cx(
               'rounded-xl px-3 py-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink',
-              !(filtered || filter.showRetired) && 'invisible',
+              !filtered && 'invisible',
             )}
           >
             {tr('Clear')}
@@ -687,11 +670,6 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
           )}>
             {why.label}
           </span>
-          {!v.qualifies && (
-            <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-              {tr('Retired')}
-            </span>
-          )}
 
           <span className="ml-auto flex items-center gap-1">
             <IconButton label={v.pinned ? tr('Unpin') : tr('Pin to the top')} onClick={onPin} active={v.pinned} name="star" />

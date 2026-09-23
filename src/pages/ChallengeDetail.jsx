@@ -99,7 +99,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [searchParams] = useSearchParams()
   const { user, isAdmin } = useAuth()
   const { networkId } = useMyScopes()
-  const [lifecycleBusy, setLifecycleBusy] = useState(false)
 
   const [challenge, setChallenge] = useState(null)
   // Who is earning the capped participation prize (migration 233). Same
@@ -464,18 +463,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // own tab.
   const shellClass = embedded ? '' : 'page'
 
-  // draft -> active -> ended -> archived. The same four states the manage list
-  // moved a challenge through, minus the list.
-  async function setChallengeStatus(status) {
-    const verb = { active: 'publish', ended: 'close entries on', archived: 'archive' }[status]
-    if (!await confirm(`Really ${verb} "${challenge.title}"?`)) return
-    setLifecycleBusy(true)
-    const { error } = await supabase.from('challenges').update({ status }).eq('id', id)
-    setLifecycleBusy(false)
-    if (error) { notice(`Could not update: ${error.message}`); return }
-    setChallenge((c) => ({ ...c, status }))
-  }
-
   if (loading) {
     return (
       <div className={cx(shellClass, 'space-y-6')}>
@@ -722,15 +709,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     </span>
                   )}
                 </Link>
-                <LifecycleMenu
-                  status={challenge.status}
-                  busy={lifecycleBusy}
-                  onSet={setChallengeStatus}
-                  tr={tr}
-                />
               </>
             )}
-            {isLive ? <Badge tone="brand">{tr("Live")}</Badge> : <Badge tone="grey">{challenge.status}</Badge>}
+            {/* NO "LIVE" BADGE HERE ANY MORE (23 Sep 2026). Ethan: "I don't
+                think we need that live button in the top right because it's
+                obviously live when it shows the countdown timer." The
+                countdown card right under this header already says so; a
+                second badge repeating it was the only thing this row said for
+                a live challenge. A non-live one still gets its status, which
+                nothing else on the page states. */}
+            {!isLive && <Badge tone="grey">{challenge.status}</Badge>}
           </div>
         }
       />
@@ -782,10 +770,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="w-full sm:w-auto">
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                </span>
+                {/* JUST THE DOT, NO RING (23 Sep 2026) - see the note on
+                    `LiveDot` in network/Motion.jsx. This page is eagerly
+                    routed, so it matches that component's look with a plain
+                    `animate-pulse` rather than importing motion for one dot. */}
+                <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
                 {tr('Closes in')}
               </p>
               <CountdownTimer endDate={challenge.end_date} />
@@ -1706,81 +1695,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   )
 }
 
-// THE LIFECYCLE, BEHIND ONE BUTTON.
-//
-// Publish, "close entries" and Archive are the three presses that change what a
-// challenge IS, and they were three flat buttons sitting in the same row as
-// Edit and Results - the same weight as opening a page, next to each other, on
-// a toolbar people use every day. "Close entries" in particular ends the
-// challenge for every creator in the market and there is no undo on this page.
-//
-// So they live under a "..." now: still one press away, no longer one slip
-// away, and out of the way of Results, which is the button a country manager
-// actually came for.
-function LifecycleMenu({ status, busy, onSet, tr }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  // Close on an outside press or Escape. Both, because a menu that only closes
-  // one way is a menu somebody leaves open.
-  useEffect(() => {
-    if (!open) return
-    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', away)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('mousedown', away)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [open])
-
-  const ACTIONS = {
-    draft:  { to: 'active',   label: tr('Publish challenge'), hint: tr('Creators in this market are notified.'), icon: 'megaphone' },
-    active: { to: 'ended',    label: tr('Close entries'),     hint: tr('No new entries. The board stays visible.'), icon: 'ban' },
-    ended:  { to: 'archived', label: tr('Archive'),           hint: tr('Moves it into the archive.'), icon: 'bucket' },
-  }
-  const action = ACTIONS[status]
-  if (!action) return null
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={busy}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={tr('More actions')}
-        className="btn-secondary !px-2.5 !py-2 text-xs"
-      >
-        <span aria-hidden className="block leading-none tracking-widest">···</span>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-30 mt-2 w-64 origin-top-right animate-fade-up overflow-hidden rounded-xl border border-cloud bg-white p-1 shadow-lift"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            disabled={busy}
-            onClick={() => { setOpen(false); onSet(action.to) }}
-            className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-brand-tint/50 disabled:opacity-50"
-          >
-            <Icon name={action.icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-            <span>
-              <span className="block text-sm font-semibold text-ink">{action.label}</span>
-              <span className="block text-xs text-smoke">{action.hint}</span>
-            </span>
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
 // WHAT THE BOARD IS, IN ONE BADGE BESIDE THE TABS (22 Sep 2026).
 //
 // Three states, the same three the full-width card used to spell out: live
@@ -1797,17 +1711,33 @@ function BoardStatus({ status, points, updatedAt, empty, tr }) {
       : empty ? (points ? tr('Nobody has scored yet. Post a video and you take the top spot.') : tr('Nobody has a logged view count yet. Post a video and you take the top spot.'))
         : tr("Views are counted automatically off each entry's link, a few times a day.")
   const long = live ? `${detail}. ${tr('These can still change. Final results are counted after the challenge closes.')}` : detail
+  // FULL WIDTH, LIKE ANOTHER CARD IN THE ROW - REVERSING THE 22 SEP DECISION
+  // ABOVE (23 Sep 2026). Ethan: "I wanted it to spread the whole way across,
+  // from that right side to the entries button, so it takes up that full
+  // space, like there's a full line of cards there." And for a phone: "it
+  // should extend the full way, from the brief to the end of entries" - the
+  // same instruction, both widths. `flex-1` fills whatever the tabs row does
+  // not use on `sm` and up; `w-full` does the same thing stacked on a phone.
+  // The pill becomes a card shape (`rounded-2xl`, not `rounded-full`) because
+  // a shape built to hug a few words looks stretched rather than spacious
+  // once it is asked to fill a row.
   return (
     <div
       title={long}
       className={cx(
-        'board-status inline-flex max-w-full items-center gap-2.5 self-start rounded-full py-1.5 pl-1.5 pr-4 sm:self-auto',
+        'board-status flex w-full items-center gap-2.5 rounded-2xl py-2.5 pl-2.5 pr-4 sm:flex-1',
         live || final ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-dashed border-brand/30 bg-white text-ink',
       )}
     >
       <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full', live || final ? 'bg-white/20' : 'bg-brand-tint')}>
         {live
-          ? <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
+          // JUST THE DOT, NO RING (23 Sep 2026). Ethan, of this exact dot:
+          // "I like how you have the pulsing thing, but I don't like the way
+          // it circles around it. Remove the white circle and just have that
+          // nice pulsing white dot." Matches `LiveDot` in network/Motion.jsx,
+          // reimplemented with a plain `animate-pulse` because this page is
+          // eagerly routed and motion is reserved for lazy ones.
+          ? <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
           : <Icon name={final ? 'trophy' : 'sparkles'} className={cx('h-4 w-4', final ? 'text-white' : 'text-brand')} />}
       </span>
       <span className="min-w-0 leading-tight">

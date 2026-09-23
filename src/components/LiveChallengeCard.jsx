@@ -191,9 +191,24 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
   const excerpt = briefExcerpt(c.description || '')
   return (
     <div>
+      {/* THE ROTATING GLOW, AND AN ARRIVAL ON MOBILE TOO (23 Sep 2026). Ethan:
+          "on the challenges page for desktop, I think we can definitely have
+          that same rotated glow effect going around the edge of the card...
+          it's on a white background, so it needs to stand out, and it can be
+          white... for the mobile one, we can add that glow effect around it
+          too, and also the animation. Mobile's animation is not clean."
+          `global-glow` (not `-mobile`) because this card, unlike the hub's
+          "Live now" row, IS the orange ground - a white ring against it is the
+          same contrast GlobalChallengeStrip already uses, on both screen
+          sizes. `animate-card-wipe` gives the card its own arrival: it used to
+          have none, only the leaderboard's rows did, and that panel is
+          `hidden` below `lg` - so a phone got the light-sweep sheen and
+          nothing else. Pure CSS, both of them, safe on this eagerly-routed
+          page. */}
+      <div className="global-glow">
       <div
         className={cx(
-          'challenge-card relative block overflow-hidden rounded-card text-white shadow-lift',
+          'challenge-card relative block animate-card-wipe overflow-hidden rounded-card text-white shadow-lift',
           // The global card is physically bigger as well as darker. Half of
           // "this is the important one" is the room it takes up.
           // MUCH TIGHTER ON A PHONE. This card was 44px of padding round a
@@ -252,10 +267,9 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
         <div className="relative lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:col-start-1 lg:row-start-1">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-              </span>
+              {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
+                  network/Motion.jsx. */}
+              <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
               {tr('Live now')}
             </span>
             {isGlobal && (
@@ -371,6 +385,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             </p>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Participation pace: nudges the quiet majority, names no one. The

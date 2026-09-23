@@ -564,7 +564,23 @@ export default function GlobalHome() {
           // same row. See components/network/LiveNowRow.
           <div className="space-y-2">
             {myLive.map(({ market, challenge, global: isGlobal }) => (
-              <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+              // THE TOP-RIGHT CARD GETS THE SAME ROTATING GLOW AS THE PHONE'S
+              // (23 Sep 2026). Ethan: "for the live now challenge in the top
+              // right, I would like you to have a similar light glow effect
+              // that's constantly rotating around that card." `global-glow-
+              // mobile` reads as viewport-specific by its name only - what it
+              // actually is is the warm-orange, mask-free ring for a card that
+              // sits on the PAGE's own light background rather than on another
+              // orange card (which is what the white `global-glow` ring is
+              // for, on GlobalChallengeStrip). This rail card is exactly that
+              // second case, whichever screen it is on.
+              isGlobal ? (
+                <div key={challenge.id} className="global-glow-mobile">
+                  <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                </div>
+              ) : (
+                <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+              )
             ))}
           </div>
         )}
@@ -723,8 +739,20 @@ export default function GlobalHome() {
               reported "the order isn't right, and then it corrects itself after
               a split second". You cannot stagger your way out of that; the only
               fix is to not draw a list you are about to reorder. The greeting
-              is inside the gate too now - see the note above it. */}
-          {!d ? (
+              is inside the gate too now - see the note above it.
+
+              `!network` JOINS THE GATE TOO (23 Sep 2026). Ethan: "the latest
+              announcements flash in, and then the global challenge cards
+              appear." `globalLive`/`myLive` read `network`, which is
+              `useCommunity()` - a SEPARATE fetch from `d`, not part of it. On a
+              cache-warm visit `d` can resolve on the very first frame while
+              `network` is still loading, so Live Now (which carries the mobile
+              Global Challenge card) computed an empty list, rendered nothing,
+              and only mounted - out of ladder order, after Announcements had
+              already stepped through it - once `network` caught up a moment
+              later. Exactly the round-trip gap the greeting fix above already
+              diagnosed, on the one section that also reads a second source. */}
+          {!d || !network ? (
             /* THE BUSIEST FIRST SCREEN IN THE PRODUCT, and it was drawing four
                grey bars. The hub has a market switcher, a greeting, the live
                challenge banner, the latest announcement and the puzzles - so
@@ -836,7 +864,14 @@ export default function GlobalHome() {
                 anchor, and that box is shorter than the plane - so it drops
                 further to fly between the figures and the band, not over the
                 kilometres. */}
-            <TrypPlane variant="hero" id="welcome" className={globalLive ? 'translate-y-[4.25rem]' : 'translate-y-4'} />
+            {/* NUDGED UP 2px AND LEVELLED WITH THE STAT HINTS' BASELINE (23 Sep
+                2026). Ethan: "move the tryp.com aeroplane up about 1 or 2
+                pixels, and then level it between the global challenge box and
+                the last word of 'across every market'." 4.25rem (68px) sat the
+                plane fractionally below the hint row's own baseline; 4.125rem
+                (66px) brings it level with it while staying clear of the
+                global challenge band underneath. */}
+            <TrypPlane variant="hero" id="welcome" className={globalLive ? 'translate-y-[4.125rem]' : 'translate-y-4'} />
             <div className="relative">
               {/* NO "WORLDWIDE" PILL. Ethan: "I think it says worldwide on the
                   top of that card - we can remove that, it doesn't necessarily

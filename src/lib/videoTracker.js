@@ -98,20 +98,24 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
  * applies, so pinning three videos gives you those three in order rather than
  * in the order they happened to be pinned.
  *
- * RETIRED ROWS ARE HIDDEN BY DEFAULT AND NEVER DELETED. See migration 211: a
- * video that drops out of a challenge's top three stops qualifying, it does not
- * stop existing, and the team's notes on it survive. `showRetired` is the way
- * back to them.
+ * A RETIRED ROW NEVER DRAWS, AND THERE IS NO WAY BACK TO IT FROM THIS PAGE.
+ * See migration 211: a video that drops out of a challenge's top three (or,
+ * since migration 252, drops below the view threshold, or is disqualified)
+ * stops QUALIFYING, it does not stop EXISTING - the row and the team's notes
+ * on it survive in the database. Ethan, 23 Sep 2026: "there's no need to show
+ * the retired button and retired videos, they should just be gone from this
+ * tracker" - so unlike an earlier version of this function, `qualifies: false`
+ * is not a state this page ever surfaces, not even behind a toggle.
  */
 export function visibleVideos(rows, filter = {}) {
   const {
     market = '', challenge = '', platform = '', month = '',
-    q = '', sort = 'views', showRetired = false,
+    q = '', sort = 'views',
   } = filter
   const needle = q.trim().toLowerCase()
 
   const kept = (rows || []).filter((v) => {
-    if (!showRetired && !v.qualifies && !v.pinned) return false
+    if (!v.qualifies && !v.pinned) return false
     if (market && v.community_id !== market) return false
     if (challenge && challengeKey(v) !== challenge) return false
     if (platform && v.platform !== platform) return false

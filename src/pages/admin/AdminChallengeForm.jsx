@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { confirm } from '../../lib/confirm'
+import { confirm, notice } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../../components/Icon'
 import RichEditable from '../../components/RichEditable'
@@ -782,6 +782,26 @@ export default function AdminChallengeForm() {
   const derivedWinners = rowWinners || Number(form.winners_count) || 0
   const potIsLegacy = !rowPot && derivedPot > 0
 
+  // CLOSING ENTRIES LIVES HERE NOW, NOT ON THE CHALLENGE PAGE (23 Sep 2026).
+  // Ethan: "we have the three dots that say 'Close all entries'. I don't
+  // think we should have these here. Maybe on the actual edit page, there's
+  // going to be somewhere to close all entries if you're editing it and the
+  // challenge is live, like at the bottom." It used to be a "..." menu on
+  // ChallengeDetail's own toolbar, sitting next to Edit and Results at the
+  // same weight as opening a page - for an action that ends the challenge for
+  // every creator in the market and cannot be undone from there. The edit
+  // screen is where a manager already is when they decide entries are over,
+  // same reasoning as Delete below it.
+  async function setLifecycle(status) {
+    const verb = { ended: 'close entries on', archived: 'archive' }[status]
+    if (!await confirm(`Really ${verb} "${form.title || 'this challenge'}"?`)) return
+    setBusy(true)
+    const { error: err } = await supabase.from('challenges').update({ status }).eq('id', editing)
+    setBusy(false)
+    if (err) { notice(`Could not update: ${err.message}`); return }
+    setForm((f) => ({ ...f, status }))
+  }
+
   async function destroy() {
     const { count } = await supabase
       .from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', editing)
@@ -1328,6 +1348,32 @@ export default function AdminChallengeForm() {
           </button>
         </div>
       </form>
+
+      {/* CLOSE ENTRIES / ARCHIVE, AT THE BOTTOM, ONLY WHEN THERE IS ONE TO DO.
+          `active` -> `ended` is the one live challenges need; `ended` ->
+          `archived` tidies a closed one away. `draft` is handled by "Save &
+          publish" above, which is publishing by another name. */}
+      {editing && (form.status === 'active' || form.status === 'ended') && (
+        <div className="mt-10 rounded-card border border-cloud bg-cloud/30 p-5">
+          <p className="text-xs font-semibold text-ink">
+            {form.status === 'active' ? 'Close entries' : 'Archive this challenge'}
+          </p>
+          <p className="mb-3 mt-1 text-[11px] leading-relaxed text-smoke">
+            {form.status === 'active'
+              ? 'Stops new entries for every creator in this market. The board stays visible. This cannot be undone from here.'
+              : 'Moves it into the archive. The board and its results stay exactly as they are.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setLifecycle(form.status === 'active' ? 'ended' : 'archived')}
+            disabled={busy}
+            className="btn-secondary !py-2 text-xs"
+          >
+            {busy ? <Spinner /> : <Icon name={form.status === 'active' ? 'ban' : 'bucket'} className="h-4 w-4" />}
+            {form.status === 'active' ? 'Close entries' : 'Archive'}
+          </button>
+        </div>
+      )}
 
       {/* DELETING A CHALLENGE LIVES ON THE CHALLENGE, like publishing and
           closing now do. It was the last thing keeping the separate

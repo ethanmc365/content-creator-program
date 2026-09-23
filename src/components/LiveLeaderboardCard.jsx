@@ -99,17 +99,17 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
     return () => clearInterval(t)
   }, [])
 
-  if (status === 'loading') {
-    return (
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white text-ink shadow-card">
-        <div className="h-16 animate-pulse bg-gradient-to-r from-brand/70 to-brand-light/70" />
-        <div className="space-y-2 p-3">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-9 animate-pulse rounded-xl bg-cloud" />)}
-        </div>
-      </div>
-    )
-  }
-  if (status !== 'ready' || !challenge) {
+  // THE BOX MOUNTS ONCE AND NEVER AGAIN, WHATEVER `status` DOES NEXT (23 Sep
+  // 2026). Ethan: "it just shows up as the leaderboard, and then it suddenly
+  // shows the white box with the leaderboard in it." The loading skeleton used
+  // to be a SEPARATE element with no motion of its own; the moment the query
+  // resolved, React unmounted it and mounted this card fresh, which is why the
+  // spring below appeared to fire out of nowhere partway through - it was
+  // firing on schedule, on an element that had only just been born. The card
+  // now springs in ONCE, on ITS OWN first mount, and loading/ready/gone are
+  // three things it can say inside that same box rather than three different
+  // boxes.
+  if (status !== 'ready' && status !== 'loading') {
     return (
       <div className="w-full max-w-md rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-5 text-center text-sm text-smoke">
         {tr('This leaderboard is no longer available.')}
@@ -117,15 +117,16 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
     )
   }
 
-  const points = challenge.scoring === 'points'
-  const final = !!challenge.winners_published_at
-  const prizes = (Array.isArray(challenge.prize_structure) ? challenge.prize_structure : [])
+  const loading = status === 'loading' || !challenge
+  const points = challenge?.scoring === 'points'
+  const final = !loading && !!challenge.winners_published_at
+  const prizes = loading ? [] : (Array.isArray(challenge.prize_structure) ? challenge.prize_structure : [])
   const prizeAt = new Map(prizes.map((p, i) => [placeNumber(p.place) ?? i + 1, p.prize]).filter(([n]) => n))
-  const top = rows.slice(0, compact ? 5 : SHOWN)
-  const more = Math.max(0, rows.length - top.length)
-  const mine = user?.id ? rows.find((r) => r.creator_id === user.id) : null
+  const top = loading ? [] : rows.slice(0, compact ? 5 : SHOWN)
+  const more = loading ? 0 : Math.max(0, rows.length - top.length)
+  const mine = !loading && user?.id ? rows.find((r) => r.creator_id === user.id) : null
   const mineShown = mine && top.some((r) => r.creator_id === mine.creator_id)
-  const endsIn = challenge.end_date ? Math.ceil((new Date(challenge.end_date) - now) / 86_400_000) : null
+  const endsIn = !loading && challenge.end_date ? Math.ceil((new Date(challenge.end_date) - now) / 86_400_000) : null
 
   return (
     <motion.div
@@ -142,18 +143,27 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
             <Icon name="trophy" className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold leading-tight">{challenge.title}</p>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium text-white/85">
-              {final ? (
-                <>{tr('Final leaderboard')}</>
-              ) : (
-                <>
-                  <LiveDot tone="white" />
-                  <span>{tr('Live leaderboard')}</span>
-                  {updatedAt && <span>· {shortAgo(updatedAt) === 'now' ? tr('updated just now') : tr('updated {t} ago', { t: shortAgo(updatedAt) })}</span>}
-                </>
-              )}
-            </p>
+            {loading ? (
+              <>
+                <p className="h-3.5 w-2/3 animate-pulse rounded bg-white/25" />
+                <p className="mt-2 h-3 w-1/3 animate-pulse rounded bg-white/20" />
+              </>
+            ) : (
+              <>
+                <p className="truncate text-sm font-bold leading-tight">{challenge.title}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium text-white/85">
+                  {final ? (
+                    <>{tr('Final leaderboard')}</>
+                  ) : (
+                    <>
+                      <LiveDot tone="white" />
+                      <span>{tr('Live leaderboard')}</span>
+                      {updatedAt && <span>· {shortAgo(updatedAt) === 'now' ? tr('updated just now') : tr('updated {t} ago', { t: shortAgo(updatedAt) })}</span>}
+                    </>
+                  )}
+                </p>
+              </>
+            )}
           </div>
           {!final && endsIn != null && endsIn >= 0 && (
             <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold">
@@ -164,7 +174,11 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
       </div>
 
       {/* ---------- The rows ---------- */}
-      {rows.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2 p-3" aria-hidden>
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-9 animate-pulse rounded-xl bg-cloud" />)}
+        </div>
+      ) : rows.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-smoke">{tr('No entries on the board yet. Be the first.')}</p>
       ) : (
         <motion.ol layout className="space-y-1 p-2.5">
@@ -233,13 +247,17 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
         </div>
       )}
 
-      <Link
-        to={`/challenges/${challenge.id}?tab=leaderboard`}
-        className="group flex items-center justify-between border-t border-gray-100 px-4 py-2.5 text-xs font-semibold text-brand transition-colors hover:bg-cloud/60"
-      >
-        <span>{more > 0 ? tr('See all {n} on the leaderboard', { n: rows.length }) : tr('Open the challenge')}</span>
-        <Icon name="chevronRight" className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-      </Link>
+      {loading ? (
+        <div className="h-9 border-t border-gray-100" aria-hidden />
+      ) : (
+        <Link
+          to={`/challenges/${challenge.id}?tab=leaderboard`}
+          className="group flex items-center justify-between border-t border-gray-100 px-4 py-2.5 text-xs font-semibold text-brand transition-colors hover:bg-cloud/60"
+        >
+          <span>{more > 0 ? tr('See all {n} on the leaderboard', { n: rows.length }) : tr('Open the challenge')}</span>
+          <Icon name="chevronRight" className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+        </Link>
+      )}
     </motion.div>
   )
 }
