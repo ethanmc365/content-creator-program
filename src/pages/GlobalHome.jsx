@@ -716,8 +716,10 @@ export default function GlobalHome() {
               It joins the same gate as the rest, and the ladder then does what
               it was written to do: greeting, then the first sections, 50ms
               apart, all off one moment. */}
+          {/* RISES, NEVER DROPS: it sits right under the market switcher, and
+              a drop-in started it on top of the switcher (24 Sep 2026). */}
           {d && (
-          <Reveal from="down" delay={stepDelay()} className="-mb-3">
+          <Reveal delay={stepDelay()} className="-mb-3">
             <section>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
                 Hey {profile?.name?.split(' ')[0]}

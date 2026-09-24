@@ -653,7 +653,12 @@ html {
      the card gliding into place. Dense lists keep their own rule below. */
   @media (max-width: 639px) {
     .reveal:not(.reveal-dense) > .reveal-item { transform: translate3d(0, 32px, 0); }
-    .reveal:not(.reveal-dense)[data-from='down'] > .reveal-item { transform: translate3d(0, -32px, 0); }
+    /* NOTHING DROPS IN FROM ABOVE ON A PHONE (24 Sep 2026). Ethan: "where it
+       says 'hey name' it shows that inside the worldwide market switcher at the
+       top." A `from="down"` section starts ABOVE its place, and in one column
+       the thing above it is the section before - so the greeting began its
+       entrance on top of the market switcher. Every phone entrance rises. */
+    .reveal:not(.reveal-dense)[data-from='down'] > .reveal-item { transform: translate3d(0, 24px, 0); }
     .reveal:not(.reveal-dense).is-in > .reveal-item,
     .reveal:not(.reveal-dense) > .reveal-item.is-in {
       transition-duration: 860ms, 860ms;
