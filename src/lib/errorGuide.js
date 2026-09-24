@@ -55,7 +55,7 @@ const GUIDE = [
     todo: 'Read the `reason` block in the context below - the supabase code and hint are the actionable half, and `keys` says what shape of object was thrown (`code,details,hint` is supabase; nothing at all is a bare object from a script that is not ours). If there is none, check `translated` and where the stack frames point before spending time on it.',
   },
   {
-    match: /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i,
+    match: /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|is not a valid javascript mime type/i,
     severity: 'expected after a deploy',
     means: 'The browser asked for a code chunk that no longer exists on the server.',
     cause: 'A tab that was open before a deploy. The new build has different file hashes, so the chunk that page was told to load has been replaced. This is normal and unavoidable for anybody holding a stale tab.',

@@ -81,3 +81,13 @@ describe('installPromptFor', () => {
     expect(installPromptFor()).toEqual({ mode: null, dismissible: true })
   })
 })
+
+describe('installPromptFor on an iPhone browser that is not Safari', () => {
+  const base = { phone: true, installed: false, inApp: false, wantsPush: false, status: 'active' }
+  it('sends Chrome-on-iPhone to Safari, as a wall', () => {
+    expect(installPromptFor({ ...base, iosOther: true })).toEqual({ mode: 'safari', dismissible: false })
+  })
+  it('asks nothing once the app is installed', () => {
+    expect(installPromptFor({ ...base, iosOther: true, installed: true }).mode).toBe(null)
+  })
+})

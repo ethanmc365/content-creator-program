@@ -66,8 +66,32 @@ const RELOAD_GAP_MS = 10_000
 //
 // `preload` is idempotent: the browser caches the module, and a second call
 // returns the same resolved promise.
+//
+// A PREFETCH MUST SWALLOW ITS REJECTION, NOT JUST ITS THROW (24 Sep 2026).
+// `importer()` returns a PROMISE, and a try/catch only sees a synchronous
+// throw - so on a tab left open across a deploy, every prefetch of a chunk that
+// no longer exists rejected with nobody listening, and `window.onrejection`
+// reported it as a crash: the "'text/html' is not a valid JavaScript MIME
+// type" row in Error monitoring (one iPad, three times, 1s into a page). The
+// page itself was fine; the navigation that actually needs the chunk goes
+// through `lazyRoute` below, which reloads.
 export function preloadRoute(importer) {
-  try { importer() } catch { /* a failed prefetch is not an error, just a miss */ }
+  try {
+    const p = importer()
+    if (p && typeof p.catch === 'function') p.catch(() => { /* a miss, never an error */ })
+  } catch { /* a failed prefetch is not an error, just a miss */ }
+}
+
+// THE SAME RELOAD, FOR FAILURES THAT DO NOT GO THROUGH `lazyRoute`.
+// Vite's own preload helper fires `vite:preloadError` when a dependency of a
+// dynamic import is missing. Same cause (a deploy), same cure, same guard.
+export function reloadForStaleChunk() {
+  let last = 0
+  try { last = Number(sessionStorage.getItem(RELOAD_KEY) || 0) } catch { /* no storage */ }
+  if (Date.now() - last <= RELOAD_GAP_MS) return false
+  try { sessionStorage.setItem(RELOAD_KEY, String(Date.now())) } catch { /* ignore */ }
+  window.location.reload()
+  return true
 }
 
 /**

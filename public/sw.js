@@ -2,7 +2,7 @@
    Handles web-push delivery, page-driven notifications, click routing, AND
    offline app-shell caching so the app still boots with no connection. */
 
-const CACHE = 'tryp-cache-v6'
+const CACHE = 'tryp-cache-v7'
 const SHELL = ['/', '/index.html', '/brand/tryp-logo.png', '/brand/tryp-plane.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
@@ -63,7 +63,12 @@ self.addEventListener('fetch', (event) => {
     if (cached) return cached
     try {
       const res = await fetch(request)
-      if (res && res.ok) await cache.put(request, res.clone())
+      // NEVER CACHE A WEB PAGE UNDER A SCRIPT'S NAME. A chunk that a deploy
+      // removed used to come back as index.html with a 200, and cache-first
+      // would then serve that page as "the script" for as long as this cache
+      // lived. v7 also throws away any v6 entry poisoned that way.
+      const html = /text\/html/i.test(res?.headers?.get('content-type') || '')
+      if (res && res.ok && !html) await cache.put(request, res.clone())
       return res
     } catch {
       return (await cache.match(request)) || Response.error()

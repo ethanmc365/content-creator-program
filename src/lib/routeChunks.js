@@ -162,7 +162,12 @@ export function prefetchForPath(pathname) {
   fetched.add(pathname)
   const load = chunkForPath(pathname)
   if (!load) return
-  try { load() } catch { /* a failed prefetch is a miss, never an error */ }
+  // The import is a promise: catch its REJECTION as well as a throw, or a stale
+  // tab reports every prefetched chunk as an unhandled crash (see lazyRoute).
+  try {
+    const p = load()
+    if (p && typeof p.catch === 'function') p.catch(() => {})
+  } catch { /* a failed prefetch is a miss, never an error */ }
 }
 
 // ------------------------------------------------------------------ shapes --

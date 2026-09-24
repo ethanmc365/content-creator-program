@@ -5,7 +5,7 @@ import { claimNag, finishNag, onNagChange, onTourRunning, tourRunning } from '..
 import { useAuth } from '../context/AuthContext'
 import {
   ANDROID_STEPS, IOS_STEPS,
-  canPromptInstall, installPromptFor, isIOS, isInAppBrowser, isMobileDevice,
+  canPromptInstall, installPromptFor, isIOS, isInAppBrowser, isIOSOtherBrowser, isMobileDevice, safariUrl,
   isStandalone, onInstallPromptChange, promptInstall,
 } from '../lib/install'
 import { enablePush as requestPush, pushPermission, pushSupported } from '../lib/push'
@@ -68,7 +68,7 @@ const DISMISSED = 'tryp_home_prompt_dismissed'
 export default function AddToHomePrompt() {
   const tr = useT()
   const { profile } = useAuth()
-  const [mode, setMode] = useState(null)          // null | 'install' | 'browser' | 'push'
+  const [mode, setMode] = useState(null)          // null | 'install' | 'browser' | 'safari' | 'push'
   // WHETHER THIS PARTICULAR ASK CAN BE CLOSED. See `installPromptFor` in
   // lib/install: the install and in-app-browser screens are walls for
   // everybody, the notifications ask is a dismissible nag. This is false for
@@ -125,6 +125,7 @@ export default function AddToHomePrompt() {
       phone: isMobileDevice(),
       installed,
       inApp: isInAppBrowser(),
+      iosOther: isIOSOtherBrowser(),
       wantsPush,
       isAdmin: !!profile.is_admin,
       status: profile.status,
@@ -250,6 +251,42 @@ export default function AddToHomePrompt() {
           <button
             type="button"
             onClick={() => { try { navigator.clipboard?.writeText(window.location.origin) } catch { /* no clipboard in this webview */ } }}
+            className="btn-secondary w-full justify-center"
+          >
+            {tr('Copy the web address')}
+          </button>
+        </div>
+      </Modal>
+    )
+  }
+
+  // CHROME (OR ANY NON-SAFARI BROWSER) ON AN IPHONE. Its "Add to Home Screen"
+  // makes a shortcut that reopens Chrome, so the install steps can be followed
+  // perfectly and this wall still returns on every launch (Daniela, 24 Sep
+  // 2026). The only way in is Safari, so that is the one thing this asks.
+  if (mode === 'safari') {
+    return (
+      <Modal open onClose={canClose ? dismiss : () => {}} dismissible={canClose} title={tr('Open Tryp.com in Safari')}>
+        <div className="space-y-5">
+          <Blurb icon="globe">
+            {tr('On iPhone the app can only be added from Safari. Adding it from Chrome makes a shortcut that opens Chrome again, which is why this screen keeps coming back.')}
+          </Blurb>
+          <ol>
+            {[
+              ['globe', 'Tap "Open in Safari" below, or paste the address into Safari'],
+              ['iosShare', 'In Safari, tap the three dots, then Share, then View More'],
+              ['addToHome', 'Tap "Add to Home Screen", keep "Open as Web App" on, then Add'],
+              ['check', 'Delete the old Chrome shortcut and open Tryp.com from the new icon'],
+            ].map(([icon, text], n, all) => (
+              <Step key={text} n={n} icon={icon} text={tr(text)} last={n === all.length - 1} />
+            ))}
+          </ol>
+          <a href={safariUrl()} className="btn-primary w-full justify-center">
+            {tr('Open in Safari')}
+          </a>
+          <button
+            type="button"
+            onClick={() => { try { navigator.clipboard?.writeText(window.location.origin) } catch { /* no clipboard */ } }}
             className="btn-secondary w-full justify-center"
           >
             {tr('Copy the web address')}

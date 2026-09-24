@@ -20,6 +20,7 @@ import Reveal from '../components/network/Reveal'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { airport } from '../lib/airports'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
+import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorPeek from '../components/admin/CreatorPeek'
@@ -281,13 +282,15 @@ export default function Profile() {
   // and so on, so the row was four words where it should have been four
   // recognisable shapes. See components/SocialMark.
   const socials = [
-    { url: creator.instagram_url, brand: 'instagram', label: 'Instagram' },
-    { url: creator.tiktok_url, brand: 'tiktok', label: 'TikTok' },
-    { url: creator.youtube_url, brand: 'youtube', label: 'YouTube' },
-    { url: creator.facebook_url, brand: 'facebook', label: 'Facebook' },
-    { url: creator.linkedin_url, brand: 'linkedin', label: 'LinkedIn' },
+    // socialHref, NEVER the raw field: a bare handle in an href is a path
+    // relative to this page, which is the "creator not found" screen.
+    { url: socialHref(creator.instagram_url, 'instagram'), brand: 'instagram', label: 'Instagram' },
+    { url: socialHref(creator.tiktok_url, 'tiktok'), brand: 'tiktok', label: 'TikTok' },
+    { url: socialHref(creator.youtube_url, 'youtube'), brand: 'youtube', label: 'YouTube' },
+    { url: socialHref(creator.facebook_url, 'facebook'), brand: 'facebook', label: 'Facebook' },
+    { url: socialHref(creator.linkedin_url, 'linkedin'), brand: 'linkedin', label: 'LinkedIn' },
     ...(Array.isArray(creator.other_links)
-      ? creator.other_links.map((l) => ({ url: l.url, brand: brandForUrl(l.url), label: l.label || 'Link' }))
+      ? creator.other_links.map((l) => ({ url: linkHref(l.url), brand: brandForUrl(linkHref(l.url) || ''), label: l.label || 'Link' }))
       : []),
   ].filter((x) => x.url)
 

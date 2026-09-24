@@ -98,6 +98,21 @@ export const isInAppBrowser = () => {
   return /FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|musical_ly|Snapchat|LinkedInApp|Pinterest|WhatsApp/i.test(s)
 }
 
+/**
+ * An iPhone browser that is not Safari: Chrome, Firefox, Edge, Opera, the Google
+ * app, DuckDuckGo. (24 Sep 2026, Daniela.) Their "Add to Home Screen" makes a
+ * shortcut that reopens THAT BROWSER, so `isStandalone()` stays false and the
+ * install wall comes back on every launch however many times the steps are
+ * followed. Only Safari installs the real app on an iPhone, so the only useful
+ * screen is "open this in Safari".
+ */
+export const isIOSOtherBrowser = () =>
+  isIOS() && /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|YaBrowser|Brave/i.test(ua())
+
+/** A link that opens this page in Safari from another iOS app (iOS 17+). */
+export const safariUrl = (href = typeof window === 'undefined' ? '' : window.location.href) =>
+  href.replace(/^https?:\/\//i, 'x-safari-https://')
+
 export const browserName = () => (isIOS() ? 'Safari' : 'Chrome')
 
 // The install prompt on Android, captured once at startup because the event
@@ -254,12 +269,13 @@ export function installSteps() {
  * @param {boolean} env.phone      a phone-shaped device (isMobileDevice)
  * @param {boolean} env.installed  running from the home screen (isStandalone)
  * @param {boolean} env.inApp      an Instagram/TikTok-style webview
+ * @param {boolean} env.iosOther   an iPhone browser that is not Safari
  * @param {boolean} env.wantsPush  push is supported and not yet granted
  * @param {boolean} env.isAdmin    a member of the team
  * @param {string}  env.status     the profile's status
- * @returns {{mode: 'install'|'browser'|'push'|null, dismissible: boolean}}
+ * @returns {{mode: 'install'|'browser'|'safari'|'push'|null, dismissible: boolean}}
  */
-export function installPromptFor({ phone, installed, inApp, wantsPush, isAdmin = false, status } = {}) {
+export function installPromptFor({ phone, installed, inApp, iosOther = false, wantsPush, isAdmin = false, status } = {}) {
   // A pending applicant has nothing to be notified about and no reason to
   // install anything - they are waiting on a person. The moment they are
   // approved, this is the first thing that matters.
@@ -273,6 +289,10 @@ export function installPromptFor({ phone, installed, inApp, wantsPush, isAdmin =
     // exactly as persistent as the install wall, and the way past it is doing
     // the thing it asks (open this in Safari or Chrome).
     if (inApp) return { mode: 'browser', dismissible: false }
+    // Chrome and friends on an iPhone cannot install the app at all - their
+    // shortcut reopens the browser, so the wall would return for ever. Same
+    // persistence, different instruction: open it in Safari.
+    if (iosOther) return { mode: 'safari', dismissible: false }
     // `isAdmin` is deliberately not read here any more. See the note above: the
     // wall is the same for everybody, and it is kept in the signature because
     // the notifications branch below still uses it.

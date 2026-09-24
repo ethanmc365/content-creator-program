@@ -12,6 +12,7 @@ import SocialMark, { brandForUrl } from '../../components/SocialMark'
 import { useMarkets, resolveMarketForCountryName } from '../../lib/markets'
 import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
+import { socialHref, linkHref } from '../../lib/socialLinks'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -546,13 +547,13 @@ export default function AdminApplications() {
   }, [inThisBucket, search, market, suggestion, emails])
 
   const linksOf = (a) => [
-    { label: 'Instagram', url: a.instagram_url },
-    { label: 'TikTok', url: a.tiktok_url },
-    { label: 'YouTube', url: a.youtube_url },
-    { label: 'Facebook', url: a.facebook_url },
-    { label: 'LinkedIn', url: a.linkedin_url },
-    ...(Array.isArray(a.other_links) ? a.other_links : []),
-  ].filter((s) => s.url?.trim())
+    { label: 'Instagram', url: socialHref(a.instagram_url, 'instagram') },
+    { label: 'TikTok', url: socialHref(a.tiktok_url, 'tiktok') },
+    { label: 'YouTube', url: socialHref(a.youtube_url, 'youtube') },
+    { label: 'Facebook', url: socialHref(a.facebook_url, 'facebook') },
+    { label: 'LinkedIn', url: socialHref(a.linkedin_url, 'linkedin') },
+    ...(Array.isArray(a.other_links) ? a.other_links.map((l) => ({ ...l, url: linkHref(l?.url) })) : []),
+  ].filter((s) => s.url)
 
   return (
     <div className="page max-w-4xl">
@@ -987,7 +988,7 @@ function ApplicationCard({
               return (
                 <a
                   key={l.label + l.url}
-                  href={/^https?:\/\//i.test(l.url) ? l.url : `https://${l.url}`}
+                  href={l.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1.5 pr-3 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:shadow-card"

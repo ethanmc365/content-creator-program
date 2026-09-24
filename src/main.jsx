@@ -14,6 +14,7 @@ import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
 import { installTranslationGuard } from './lib/translationGuard'
 import { goCanonical } from './lib/canonicalHost'
+import { reloadForStaleChunk } from './lib/lazyRoute'
 import './index.css'
 
 // ONE URL FOR BROWSERS, AND NEVER A WORD TO AN INSTALLED APP.
@@ -39,6 +40,13 @@ installTranslationGuard()
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
 initMonitoring()
+
+// A deploy removed a chunk this tab still expects. Vite raises this for the
+// preloads it injects ahead of a dynamic import; reload once (guarded) rather
+// than let it surface as an unhandled rejection. See lib/lazyRoute.
+window.addEventListener('vite:preloadError', (e) => {
+  if (reloadForStaleChunk()) e.preventDefault()
+})
 
 // NOTHING ON THIS PLATFORM ZOOMS BY ACCIDENT. Installed before React so a
 // gesture on the very first painted frame is already covered; anything inside

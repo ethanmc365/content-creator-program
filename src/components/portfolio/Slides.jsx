@@ -2,6 +2,7 @@ import Icon from '../Icon'
 import SocialMark from '../SocialMark'
 import { PAGE_W, PAGE_H, compactViews, contactEmail, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
 import { alpha, fillTemplate, formatAwardDate, readableOn, shift, tierOf } from '../../lib/certificates'
+import { socialHref, linkHref } from '../../lib/socialLinks'
 
 // THE PAGES OF A MEDIA KIT, AT 16:9.
 //
@@ -734,7 +735,9 @@ export function socialRows(creator, videos = [], extraPlatforms = []) {
     ['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', 'YouTube'],
     ['facebook', 'Facebook'], ['linkedin', 'LinkedIn'],
   ]) {
-    const url = links[brand]
+    // socialHref: a saved handle ("@sam") is not a URL, and the kit's own
+    // link would otherwise be relative to the page it is on.
+    const url = socialHref(links[brand], brand)
     if (url) out.push({ brand, label, url, handle: handleFrom(url) })
   }
 
@@ -757,7 +760,7 @@ export function socialRows(creator, videos = [], extraPlatforms = []) {
   // Free-form links they added to their profile ("other_links"), which are
   // usually a blog or a press kit and are worth carrying.
   for (const extra of creator?.other_links || []) {
-    const url = typeof extra === 'string' ? extra : extra?.url
+    const url = linkHref(typeof extra === 'string' ? extra : extra?.url)
     if (!url || out.some((r) => r.url === url)) continue
     out.push({ brand: 'link', label: (typeof extra === 'object' && extra?.label) || hostFrom(url), url, handle: null })
   }
