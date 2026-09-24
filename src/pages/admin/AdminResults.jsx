@@ -213,6 +213,13 @@ export default function AdminResults() {
 
   const isEarly = (sub) => !!(startsAt && sub.posted_at && new Date(sub.posted_at) < startsAt)
   const earlyCount = submissions.filter(isEarly).length
+  // THE FILTER ONLY APPLIES WHILE THERE IS SOMETHING TO FILTER TO (24 Sep
+  // 2026). Ethan: "whenever I click to disqualify an entry, the normal valid
+  // entries completely disappear and I have to refresh." Disqualifying the last
+  // pre-start entry took earlyCount to 0, which hides the "Show all entries"
+  // button - while `onlyEarly` stayed true and filtered the list down to
+  // nothing, with no control left on screen to undo it.
+  const showingEarly = onlyEarly && earlyCount > 0
 
   async function confirmDisqualify() {
     if (!dq?.reason?.trim()) return
@@ -583,10 +590,10 @@ export default function AdminResults() {
             {earlyCount > 0 && (
               <button
                 type="button"
-                onClick={() => setOnlyEarly((v) => !v)}
-                className={cx('rounded-full border px-3 py-1.5 text-xs font-semibold', pickClass(onlyEarly))}
+                onClick={() => setOnlyEarly(!showingEarly)}
+                className={cx('rounded-full border px-3 py-1.5 text-xs font-semibold', pickClass(showingEarly))}
               >
-                {onlyEarly ? 'Show all entries' : `Show only these ${earlyCount}`}
+                {showingEarly ? 'Show all entries' : `Show only these ${earlyCount}`}
               </button>
             )}
           </div>
@@ -613,7 +620,7 @@ export default function AdminResults() {
             correctly around the wrappers Reveal adds. */}
         <Reveal as="div" className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 shadow-card" stagger={0.03} maxStagger={10}>
           {submissions
-            .filter((x) => !onlyEarly || isEarly(x))
+            .filter((x) => !showingEarly || isEarly(x))
             .slice()
             .sort((a, b) => (viewSort === 'views' ? (b.logged_views ?? -1) - (a.logged_views ?? -1) : 0))
             .map((s) => (

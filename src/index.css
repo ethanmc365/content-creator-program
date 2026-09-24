@@ -2784,7 +2784,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   to   { clip-path: inset(0 0 0 0 round 0.75rem); transform: none; opacity: 1; }
 }
 .strip-board {
-  animation: strip-board-grow 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: strip-board-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transform-origin: top center;
 }
 
@@ -2838,3 +2838,8 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .strip-board { animation: none; clip-path: none; }
   .glow-ring { animation: none; opacity: 0.85; }
 }
+
+/* VoucherTicket's perforation notches are holes, so they wear the PAGE's
+   colour, not a card's - white on the light theme, --d-bg on the dark one. */
+.ticket-notch { background-color: #fff; }
+html[data-theme='dark'] .ticket-notch { background-color: var(--d-bg); }

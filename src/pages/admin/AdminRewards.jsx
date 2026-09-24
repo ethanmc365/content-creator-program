@@ -16,6 +16,7 @@ import { isRealMember } from '../../lib/members'
 import { rewardsTotal } from '../../lib/programme'
 import { groupRewards } from '../../lib/rewardsGrouping'
 import Reveal from '../../components/network/Reveal'
+import VoucherTicket from '../../components/VoucherTicket'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -165,6 +166,12 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
             {r.payment_notes && ` · ${r.payment_notes}`}
           </span>
         </p>
+        {r.voucher_code && (
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs">
+            <code className="rounded bg-cloud px-1.5 py-0.5 font-mono font-semibold tracking-wider text-ink">{r.voucher_code}</code>
+            {r.used_at && <span className="font-medium text-smoke">used {formatDate(r.used_at)}</span>}
+          </p>
+        )}
       </div>
       <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
       <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
@@ -186,6 +193,11 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
           {r.status === 'pending' && (
             <button onClick={() => onDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
               {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed'}
+            </button>
+          )}
+          {r.status === 'distributed' && r.reward_type === 'voucher' && (
+            <button onClick={() => onDistribute(r)} className="btn-secondary !py-2 text-xs">
+              {r.voucher_code ? 'Edit code' : 'Add code'}
             </button>
           )}
         </>
@@ -305,6 +317,7 @@ export default function AdminRewards() {
   // "Mark distributed" modal (replaces a flaky window.prompt).
   const [distributing, setDistributing] = useState(null) // the reward being marked
   const [distNotes, setDistNotes] = useState('')
+  const [distCode, setDistCode] = useState('')
 
   const inMarket = useMemo(() => {
     if (!market) return null
@@ -444,9 +457,12 @@ export default function AdminRewards() {
   useEffect(() => { load() }, [load])
 
   // Open the "mark distributed" modal, pre-filling any existing note.
+  // Also opened on a voucher that is ALREADY distributed, to add or change its
+  // code (the historical ones went out by DM) - then only the code is written.
   function openDistribute(reward) {
     setDistributing(reward)
-    setDistNotes(reward.payment_notes || 'Bank transfer')
+    setDistNotes(reward.payment_notes || (reward.reward_type === 'voucher' ? 'Voucher code' : 'Bank transfer'))
+    setDistCode(reward.voucher_code || '')
   }
 
   // Confirm distribution: set status + notes + timestamp.
@@ -454,9 +470,16 @@ export default function AdminRewards() {
   async function confirmDistribute(e) {
     e.preventDefault()
     setBusyId(distributing.id)
+    const code = distCode.trim() || null
+    const already = distributing.status === 'distributed'
     const { error } = await supabase
       .from('rewards')
-      .update({ status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString() })
+      .update(already
+        ? { voucher_code: code }
+        : {
+            status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString(),
+            ...(distributing.reward_type === 'voucher' ? { voucher_code: code } : {}),
+          })
       .eq('id', distributing.id)
     setBusyId(null)
     setDistributing(null)
@@ -848,19 +871,52 @@ export default function AdminRewards() {
       </Modal>
 
       {/* ---------- Mark distributed modal ---------- */}
-      <Modal open={!!distributing} onClose={() => setDistributing(null)} title="Mark reward as distributed">
+      <Modal
+        open={!!distributing}
+        onClose={() => setDistributing(null)}
+        title={distributing?.status === 'distributed' ? 'Voucher code' : 'Mark reward as distributed'}
+      >
         {distributing && (
           <form onSubmit={confirmDistribute} className="space-y-5">
             <p className="text-sm text-smoke">
-              Confirming payout of <span className="font-semibold text-ink">{formatMoney(distributing.amount, distributing.currency)}</span>{' '}
+              {distributing.status === 'distributed' ? 'The code for ' : 'Confirming payout of '}
+              <span className="font-semibold text-ink">{formatMoney(distributing.amount, distributing.currency)}</span>{' '}
               to <span className="font-semibold text-ink">{distributing.profiles?.name}</span>. They'll be notified automatically.
             </p>
-            <div>
-              <label htmlFor="dist-notes" className="label">Payment notes <span className="font-normal text-smoke">(method, reference)</span></label>
-              <input id="dist-notes" type="text" className="input" value={distNotes} onChange={(e) => setDistNotes(e.target.value)} placeholder="e.g. Bank transfer, ref TRYP-001" />
-            </div>
+            {/* THE CODE GOES ON THE REWARD, NOT IN A DM (24 Sep 2026). The
+                creator sees it on /rewards as a ticket they can copy and tick
+                off once used. Optional: a voucher sent some other way can still
+                just be marked distributed. */}
+            {distributing.reward_type === 'voucher' && (
+              <div>
+                <label htmlFor="dist-code" className="label">Voucher code <span className="font-normal text-smoke">(shown to the creator)</span></label>
+                <input
+                  id="dist-code"
+                  type="text"
+                  className="input font-mono tracking-wider"
+                  value={distCode}
+                  onChange={(e) => setDistCode(e.target.value)}
+                  placeholder="e.g. TRYP-10-ABCD"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                />
+                {distCode.trim() && (
+                  <div className="mt-3">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
+                    <VoucherTicket reward={{ ...distributing, voucher_code: distCode.trim(), distributed_at: distributing.distributed_at || new Date().toISOString(), used_at: null }} />
+                  </div>
+                )}
+              </div>
+            )}
+            {distributing.status !== 'distributed' && (
+              <div>
+                <label htmlFor="dist-notes" className="label">Payment notes <span className="font-normal text-smoke">(method, reference)</span></label>
+                <input id="dist-notes" type="text" className="input" value={distNotes} onChange={(e) => setDistNotes(e.target.value)} placeholder="e.g. Bank transfer, ref TRYP-001" />
+              </div>
+            )}
             <button type="submit" disabled={busyId === distributing.id} className="btn-primary w-full">
-              {busyId === distributing.id ? <Spinner /> : 'Confirm distributed'}
+              {busyId === distributing.id ? <Spinner /> : distributing.status === 'distributed' ? 'Save code' : 'Confirm distributed'}
             </button>
           </form>
         )}

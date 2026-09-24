@@ -794,6 +794,7 @@ export default function AdminApplications() {
                 onApprove={() => approve(a)}
                 onDecline={() => decline(a)}
                 onZoom={(e) => { if (!a.photo_url) return; zoomFrom.current = e?.currentTarget ?? null; setZoom({ src: a.photo_url, alt: a.name }) }}
+                onZoomPhoto={(e, i) => { zoomFrom.current = e?.currentTarget ?? null; setZoom({ list: photos[a.id] ?? [], index: i, alt: a.name }) }}
                 selected={picked.has(a.id)}
                 onSelect={() => togglePick(a.id)}
               />
@@ -821,8 +822,23 @@ export default function AdminApplications() {
           56px with no way to see it bigger. PhotoLightbox is the app's own
           viewer - pinch, wheel, double-tap, drag - and it is already what a
           photograph opens into everywhere else. */}
-      {zoom && (
+      {zoom && !zoom.list && (
         <PhotoLightbox src={zoom.src} alt={zoom.alt} shape="circle" origin={zoomFrom} onClose={() => setZoom(null)} />
+      )}
+      {/* THE TRAVEL PHOTOS OPEN TOO (24 Sep 2026). Ethan: "whenever I click on
+          the travel photos it doesn't actually do anything, but it should make
+          them show up big like it does when I click on the profile picture."
+          Same viewer, stepping through the set. */}
+      {zoom?.list && (
+        <PhotoLightbox
+          src={zoom.list[zoom.index]}
+          alt={zoom.alt}
+          origin={zoomFrom}
+          counter={zoom.list.length > 1 ? `${zoom.index + 1} / ${zoom.list.length}` : ''}
+          onPrev={zoom.list.length > 1 ? () => { zoomFrom.current = null; setZoom((z) => ({ ...z, index: (z.index - 1 + z.list.length) % z.list.length })) } : null}
+          onNext={zoom.list.length > 1 ? () => { zoomFrom.current = null; setZoom((z) => ({ ...z, index: (z.index + 1) % z.list.length })) } : null}
+          onClose={() => setZoom(null)}
+        />
       )}
     </div>
   )
@@ -888,10 +904,10 @@ function EmailRow({ email }) {
 // row of chips saying "no links" under a row that visibly has no links is the
 // page explaining itself to somebody who can already see.
 
-function ApplicationCard({
+export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
   marketLanguages: marketLanguageSet, marketsSpeaking,
-  placeIn, onPlaceIn, open, onToggle, busy, onApprove, onDecline, onZoom,
+  placeIn, onPlaceIn, open, onToggle, busy, onApprove, onDecline, onZoom, onZoomPhoto,
   selected, onSelect,
 }) {
   // `profiles.dob` IS NULL ON EVERY ROW AND ALWAYS WILL BE - a BEFORE trigger
@@ -1033,19 +1049,25 @@ function ApplicationCard({
           shoot, and the one thing this page never showed. */}
       {photos.length > 0 && (
         <div className="-mt-1 flex gap-2 overflow-x-auto px-4 pb-4 sm:px-6">
-          {photos.slice(0, 8).map((url) => (
-            <img
+          {photos.slice(0, 8).map((url, i) => (
+            <button
               key={url}
-              src={url}
-              alt=""
-              loading="lazy"
-              className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20"
-            />
+              type="button"
+              onClick={(e) => onZoomPhoto?.(e, i)}
+              aria-label={`See travel photo ${i + 1} full size`}
+              className="shrink-0 overflow-hidden rounded-xl transition-transform duration-200 hoverable:hover:scale-105"
+            >
+              <img src={url} alt="" loading="lazy" className="h-16 w-16 object-cover sm:h-20 sm:w-20" />
+            </button>
           ))}
           {photos.length > 8 && (
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-cloud text-xs font-semibold text-smoke sm:h-20 sm:w-20">
+            <button
+              type="button"
+              onClick={(e) => onZoomPhoto?.(e, 8)}
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-cloud text-xs font-semibold text-smoke transition-transform duration-200 hoverable:hover:scale-105 sm:h-20 sm:w-20"
+            >
               +{photos.length - 8}
-            </span>
+            </button>
           )}
         </div>
       )}

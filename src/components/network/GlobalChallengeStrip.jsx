@@ -32,8 +32,12 @@ import GlowRing from './GlowRing'
 // sweep of light as it arrives, and the same "Global challenge" pill. (The
 // turning Earth was tried here and removed the same day as too much.)
 
+// The last top three per challenge, kept across visits so a return to the hub
+// draws the names on the first frame instead of a placeholder.
+const topCache = new Map()
+
 function useTopThree(challengeId) {
-  const [rows, setRows] = useState(null)
+  const [rows, setRows] = useState(() => topCache.get(challengeId) ?? null)
   useEffect(() => {
     if (!challengeId) return undefined
     let alive = true
@@ -43,8 +47,10 @@ function useTopThree(challengeId) {
       .lte('rank', 4)
       .order('rank')
       .then(({ data }) => {
+        const next = (data || []).filter((r) => !isHiddenTestRow(r.profiles)).slice(0, 3)
+        topCache.set(challengeId, next)
         if (!alive) return
-        setRows((data || []).filter((r) => !isHiddenTestRow(r.profiles)).slice(0, 3))
+        setRows(next)
       })
     return () => { alive = false }
   }, [challengeId])
@@ -100,10 +106,10 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
               <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
               {tr('Live now')}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand">
-              <Icon name="globe" className="h-3.5 w-3.5" />
-              {tr('Global challenge')}
-            </span>
+            {/* NO "GLOBAL CHALLENGE" PILL (24 Sep 2026). Ethan: "it says Global
+                Challenge as the title and then above Live Now there's another
+                little card saying Global Challenge. We don't need that second
+                card." The title right under it already says so. */}
           </div>
           <Link to={`/challenges/${challenge.id}`} className="group mt-2.5 block">
             <h3 className="inline-block origin-left truncate text-2xl font-bold leading-tight tracking-[-0.01em] transition-transform duration-200 group-hover:scale-[1.03]">
@@ -132,17 +138,24 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         <Link
           to={`/challenges/${challenge.id}?tab=leaderboard`}
           className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
-          style={at(0.32)}
+          style={at(0.2)}
         >
           <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
             <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
           </p>
+          {/* EXACTLY THREE ROWS TALL, WHATEVER IS IN IT (24 Sep 2026). Ethan:
+              "the leaderboard seems to show up quite delayed, and it makes the
+              card jump bigger." The placeholder avatar was 24px and the real
+              one 28px, so the card grew 12px the moment the names landed; an
+              empty board or a board of two was shorter again. Every row is now
+              a fixed h-9 and the list holds three rows' height regardless. */}
+          <div className="min-h-[7rem]">
           {top == null ? (
             <ul className="space-y-0.5" aria-hidden>
               {[0, 1, 2].map((i) => (
-                <li key={i} className="flex items-center gap-2 rounded-lg px-1.5 py-1">
-                  <span className="h-3.5 w-5 shrink-0 animate-pulse rounded bg-cloud" />
-                  <span className="h-6 w-6 shrink-0 animate-pulse rounded-full bg-cloud" />
+                <li key={i} className="flex h-9 items-center gap-2 rounded-lg px-1.5">
+                  <span className="h-3.5 w-7 shrink-0 animate-pulse rounded bg-cloud" />
+                  <span className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-cloud" />
                   <span className="h-3.5 flex-1 animate-pulse rounded bg-cloud" />
                   <span className="h-3.5 w-9 shrink-0 animate-pulse rounded bg-cloud" />
                 </li>
@@ -155,7 +168,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
               {top.map((r, i) => (
                 <li
                   key={r.creator_id}
-                  className={cx('flex animate-fade-up items-center gap-2 rounded-lg px-1.5 py-1', Number(r.rank) === 1 && 'bg-brand-tint/60')}
+                  className={cx('flex h-9 animate-fade-up items-center gap-2 rounded-lg px-1.5', Number(r.rank) === 1 && 'bg-brand-tint/60')}
                   style={{ animationDelay: `${i * 0.09}s` }}
                 >
                   <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-brand">{ordinalFor(r.rank)}</span>
@@ -168,6 +181,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
               ))}
             </ul>
           )}
+          </div>
         </Link>
 
         {/* The two doors, the same size and the same shape. */}

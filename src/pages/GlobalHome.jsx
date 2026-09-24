@@ -229,12 +229,16 @@ function MineChip({ to, icon, value, label }) {
     >
       <Icon name={icon} className="h-3 w-3 shrink-0 text-white/80" />
       <span>
-        <span className="font-bold tabular-nums">{value == null ? '—' : value.toLocaleString('en-GB')}</span>
+        <span className="font-bold tabular-nums">{(value ?? 0).toLocaleString('en-GB')}</span>
         {' '}<span className="text-white/80">{label}</span>
       </span>
     </Link>
   )
 }
+
+// The welcome card's last figures, kept for the next visit to the hub.
+let lastFlights = null
+let lastMe = null
 
 export default function GlobalHome() {
   const tr = useT()
@@ -416,18 +420,20 @@ export default function GlobalHome() {
   // THE COMMUNITY'S DISTANCE FLOWN. Its own tiny query for the same reason as
   // `me` below: it is one figure on one card and holding the whole article back
   // for it would be the wrong trade. The card draws an em-dash until it lands.
-  const [flights, setFlights] = useState(null)
+  // Seeded from the last visit (module scope), so a return to the hub has its
+  // figures on the first frame and the counters start at once.
+  const [flights, setFlights] = useState(() => lastFlights)
   useEffect(() => {
     let cancelled = false
     supabase.rpc('community_flight_totals').then(({ data }) => {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
-      if (row) setFlights({ km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 })
+      if (row) setFlights((lastFlights = { km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 }))
     })
     return () => { cancelled = true }
   }, [])
 
-  const [me, setMe] = useState(null)
+  const [me, setMe] = useState(() => lastMe)
   useEffect(() => {
     const uid = session?.user?.id
     if (!uid) return undefined
@@ -446,7 +452,7 @@ export default function GlobalHome() {
       // them - the chips were cut to connections and videos a while back - and
       // the board they came from was retired with the points leaderboard. See
       // the note where that section used to be.
-      setMe({
+      setMe(lastMe = {
         videos: videos ?? 0,
         myVideos: myVideos ?? 0,
         connections: myConns ?? 0,
@@ -960,9 +966,19 @@ export default function GlobalHome() {
                   // the CountUp and replay the whole animation underneath it.
                   <div key={s.key} className="wipe-item" style={{ animationDelay: `${0.28 + i * 0.07}s` }}>
                     <p className="text-2xl font-bold sm:text-3xl">
-                      {all.some((x) => x.n == null)
-                        ? '—'
-                        : <CountUp value={s.n} format={(v) => Math.round(v).toLocaleString('en-GB')} />}
+                      {/* ZERO, NEVER A DASH (24 Sep 2026). Ethan: "before it
+                          does the animation counting them up it just shows a
+                          solid line, which shouldn't be there. It should start
+                          at zero and count up immediately." The counter is
+                          mounted from the card's first frame holding 0 and is
+                          handed the real figures together once all four are
+                          in, so the row still lands on one frame - it just
+                          waits at 0, which is where a count starts, instead
+                          of at a dash that then swaps for a 0. */}
+                      <CountUp
+                        value={all.every((x) => x.n != null) ? s.n : 0}
+                        format={(v) => Math.round(v).toLocaleString('en-GB')}
+                      />
                     </p>
                     {/* THE LABEL SHRINKS, THE CARD DOES NOT (2 Sep 2026).
                         Ethan: "on the worldwide page you seem to have

@@ -9,6 +9,8 @@ import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
 import CertificateWall from '../components/certificate/CertificateWall'
+import VoucherTicket from '../components/VoucherTicket'
+import { notice } from '../lib/confirm'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
@@ -21,6 +23,7 @@ export default function Rewards() {
   const { id: whose, viewing, person } = useViewAs()
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [ticking, setTicking] = useState(null)
   // THE CERTIFICATE IS GONE FOR NOW.
   //
   // A share-a-certificate button on every reward row, on a page a creator opens
@@ -46,6 +49,22 @@ export default function Rewards() {
         setLoading(false)
       })
   }, [whose])
+
+  // THE VOUCHERS WITH A CODE ON THEM, AS TICKETS (24 Sep 2026). The code used
+  // to travel by DM after "distributed"; it is on the reward row now and the
+  // creator ticks it off themselves once spent (set_reward_used, migration
+  // 255). Unused first, then newest.
+  const tickets = rewards
+    .filter((r) => r.reward_type === 'voucher' && r.status === 'distributed' && r.voucher_code?.trim())
+    .sort((a, b) => (!!a.used_at - !!b.used_at) || (new Date(b.distributed_at || 0) - new Date(a.distributed_at || 0)))
+
+  async function toggleUsed(reward, used) {
+    setTicking(reward.id)
+    const { data, error } = await supabase.rpc('set_reward_used', { p_reward: reward.id, p_used: used })
+    setTicking(null)
+    if (error) { notice(error.message); return }
+    setRewards((rs) => rs.map((r) => (r.id === reward.id ? { ...r, used_at: data ?? null } : r)))
+  }
 
   // Totals go through rewardsTotal: one figure, in euros, whole. The old sum
   // added amounts across currencies and printed the result with formatMoney's
@@ -74,6 +93,22 @@ export default function Rewards() {
             <StatCard label={tr("Total received")} value={showTotal(earned)} accent />
             <StatCard label={tr("Pending")} value={showTotal(pending)} hint={pending.amount > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
           </Reveal>
+
+          {tickets.length > 0 && (
+            <section className="mb-10">
+              <h2 className="mb-3 text-base font-semibold">{tr('Your vouchers')}</h2>
+              <Reveal className="grid grid-cols-1 gap-4 lg:grid-cols-2" stagger={0.07}>
+                {tickets.map((r) => (
+                  <VoucherTicket
+                    key={r.id}
+                    reward={r}
+                    busy={ticking === r.id}
+                    onToggleUsed={viewing ? undefined : (used) => toggleUsed(r, used)}
+                  />
+                ))}
+              </Reveal>
+            </section>
+          )}
 
           {rewards.length === 0 ? (
             <EmptyState

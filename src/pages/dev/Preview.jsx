@@ -19,6 +19,7 @@ import LiveNowRow from '../../components/network/LiveNowRow'
 import ChatBench from './ChatBench'
 import CertificateBench from './CertificateBench'
 import RecapBench from './RecapBench'
+import VoucherTicket from '../../components/VoucherTicket'
 import Icon from '../../components/Icon'
 import RouteSkeleton from '../../components/RouteSkeleton'
 
@@ -268,6 +269,15 @@ export default function Preview() {
   return (
     <div style={{ padding: 24, background: '#fff' }}>
       <RecapBench />
+
+      {/* VoucherTicket in both states, with a long code (it must wrap). */}
+      <section id="voucher-bench" className="mx-auto max-w-3xl space-y-4 px-4 py-10">
+        <h2 className="text-lg font-bold">Voucher tickets</h2>
+        {[
+          { id: 'v1', amount: 10, currency: 'EUR', voucher_code: 'TRYP10-SPAIN-4F7K', distributed_at: '2026-09-24T10:00:00Z', used_at: null, challenges: { title: 'Tryp.com Global Challenge' } },
+          { id: 'v2', amount: 20, currency: 'EUR', voucher_code: 'TRYPCOM-REFERRAL-2026-X9QZ-LONG', distributed_at: '2026-09-01T10:00:00Z', used_at: '2026-09-20T10:00:00Z', source: 'referral' },
+        ].map((r) => <VoucherTicket key={r.id} reward={r} onToggleUsed={() => {}} />)}
+      </section>
       <CertificateBench />
 
       {/* THE ROUTE SKELETONS, ALL OF THEM, SIDE BY SIDE.
