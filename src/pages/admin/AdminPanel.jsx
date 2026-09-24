@@ -88,7 +88,6 @@ import { cx } from '../../lib/utils'
 const TOOLS = [
   { id: 'creators', to: '/admin/creators', icon: 'users', title: 'Creators' },
   { id: 'applications', to: '/admin/applications', icon: 'check', title: 'Applications' },
-  { id: 'referrals', to: '/admin/referrals', icon: 'share', title: 'Referrals' },
   { id: 'reports', to: '/admin/reports', icon: 'flag', title: 'Reported Messages' },
   { id: 'team', to: '/admin/team', icon: 'shield', title: 'Tryp.com Team', globalOnly: true },
 
@@ -98,8 +97,9 @@ const TOOLS = [
   // they get to post when they reach a rung. `star` is free in this grid - see
   // the note above about every icon appearing exactly once.
   { id: 'kit', to: '/admin/creator-kit', icon: 'star', title: 'Creator kit' },
+  // The bank behind "Hook me up" on every challenge (24 Sep 2026).
+  { id: 'hooks', to: '/admin/hooks', icon: 'bulb', title: 'Hooks' },
 
-  { id: 'history', to: '/admin/challenges/history', icon: 'book', title: 'Challenge log' },
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
   { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },
   // BESIDE ANALYTICS, NOT INSIDE IT. Both read the same challenges and both are

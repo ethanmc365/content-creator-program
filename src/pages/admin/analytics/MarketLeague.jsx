@@ -89,32 +89,22 @@ function Spark({ byMonth, months }) {
   )
 }
 
-/** `YYYY-MM` for today, in the same shape `monthsInRecord` returns. */
-function thisMonthKey(now = new Date()) {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
 
 /**
- * WHICH MONTH THE LEAGUE OPENS ON.
+ * WHICH MONTH THE LEAGUE OPENS ON: ALL TIME (24 Sep 2026).
  *
- * Ethan: "rather than being all time, all time should still be an option. It
- * should always start be showing the data from the current month."
+ * It opened on the current month, and Ethan met it on a September with the
+ * Global Challenge running and read "No market ran a challenge in September".
+ * The fix for that half is in lib/marketStandings (a worldwide challenge now
+ * counts for every entrant's market); this half is his other ask: "Maybe it
+ * should start with all time, and then you can click to [a month]."
  *
- * It cannot be a `useState` initial value, because the months only exist once
- * `raw` has loaded and the first render happens before that. It is DERIVED
- * instead: `null` means "nobody has chosen yet, use the default", and any
- * string - INCLUDING the empty string that means all time - is a real choice
- * that sticks. An effect would work too and would flicker through all-time on
- * the way; this never renders the wrong month at all.
- *
- * Falls back to the newest month on record when the current one has nothing
- * yet, because opening on a provably empty table looks broken on the 1st.
+ * `null` means nobody has chosen yet; any string - including the empty string
+ * that means all time - is a real choice that sticks.
  */
-export function openingMonth(chosen, months, now = new Date()) {
+export function openingMonth(chosen) {
   if (chosen !== null && chosen !== undefined) return chosen
-  const current = thisMonthKey(now)
-  if (months.includes(current)) return current
-  return months[0] ?? ''
+  return ''
 }
 
 /** A market's months, newest first, for the expanded panel. */
@@ -128,7 +118,7 @@ export default function MarketLeague({ raw, currency }) {
   const [openRow, setOpenRow] = useState(null)
 
   const months = useMemo(() => monthsInRecord(raw), [raw])
-  const month = useMemo(() => openingMonth(chosenMonth, months), [chosenMonth, months])
+  const month = openingMonth(chosenMonth)
   const rows = useMemo(() => marketStandings(raw, { currency, month }), [raw, currency, month])
   const prev = useMemo(() => previousRanks(raw, month, { currency }), [raw, month, currency])
   // Every month, oldest first, for the sparklines - they read left to right.

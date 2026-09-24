@@ -53,7 +53,7 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
           >
             <Icon name={s.icon} className="h-4 w-4 shrink-0 text-brand" />
             <span className="flex-1 text-sm font-bold text-ink">{tr(s.label)}</span>
-            <Icon name="chevron-down" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform', open === s.key && 'rotate-180')} />
+            <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform', open === s.key && 'rotate-180')} />
           </button>
           {open === s.key && (
             <div className="space-y-5 border-t border-gray-100 p-4">

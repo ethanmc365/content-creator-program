@@ -14,6 +14,7 @@ import PeoplePicker from '../components/network/PeoplePicker'
 import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import { toast } from '../lib/toast'
 import Icon from '../components/Icon'
+import BackLink from '../components/BackLink'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Select } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { COUNTRIES } from '../lib/countries'
@@ -432,10 +433,9 @@ export default function ManageChapter() {
     <NetworkMotion>
       <NetworkLayout>
       <motion.div {...pageFade}>
-        <Link to={`/c/${slug}`} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
-          <Icon name="chevronLeft" className="h-4 w-4" />
-          {chapter.name}
-        </Link>
+        {/* History first (the admin panel opens this), the market as the
+            fallback on a cold load. See GlobalSettings for the report. */}
+        <BackLink to={`/c/${slug}`} label="Back" />
 
         <PageHeader
           title={`Manage ${chapter.name}`}

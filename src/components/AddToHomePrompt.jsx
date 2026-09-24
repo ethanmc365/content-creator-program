@@ -4,7 +4,7 @@ import Icon from './Icon'
 import { claimNag, finishNag, onNagChange, onTourRunning, tourRunning } from '../lib/appNag'
 import { useAuth } from '../context/AuthContext'
 import {
-  ANDROID_STEPS, IOS_STEPS,
+  ANDROID_STEPS, IOS_STEPS, SAFARI_STEPS,
   canPromptInstall, installPromptFor, isIOS, isInAppBrowser, isIOSOtherBrowser, isMobileDevice, safariUrl,
   isStandalone, onInstallPromptChange, promptInstall,
 } from '../lib/install'
@@ -260,41 +260,15 @@ export default function AddToHomePrompt() {
     )
   }
 
-  // CHROME (OR ANY NON-SAFARI BROWSER) ON AN IPHONE. Its "Add to Home Screen"
-  // makes a shortcut that reopens Chrome, so the install steps can be followed
+  // CHROME (OR ANY NON-SAFARI BROWSER) ON AN IPHONE is the same screen with
+  // the iPhone steps swapped for "go to Safari first". Its "Add to Home Screen"
+  // makes a shortcut that reopens Chrome, so the ordinary steps can be followed
   // perfectly and this wall still returns on every launch (Daniela, 24 Sep
-  // 2026). The only way in is Safari, so that is the one thing this asks.
-  if (mode === 'safari') {
-    return (
-      <Modal open onClose={canClose ? dismiss : () => {}} dismissible={canClose} title={tr('Open Tryp.com in Safari')}>
-        <div className="space-y-5">
-          <Blurb icon="globe">
-            {tr('On iPhone the app can only be added from Safari. Adding it from Chrome makes a shortcut that opens Chrome again, which is why this screen keeps coming back.')}
-          </Blurb>
-          <ol>
-            {[
-              ['globe', 'Tap "Open in Safari" below, or paste the address into Safari'],
-              ['iosShare', 'In Safari, tap the three dots, then Share, then View More'],
-              ['addToHome', 'Tap "Add to Home Screen", keep "Open as Web App" on, then Add'],
-              ['check', 'Delete the old Chrome shortcut and open Tryp.com from the new icon'],
-            ].map(([icon, text], n, all) => (
-              <Step key={text} n={n} icon={icon} text={tr(text)} last={n === all.length - 1} />
-            ))}
-          </ol>
-          <a href={safariUrl()} className="btn-primary w-full justify-center">
-            {tr('Open in Safari')}
-          </a>
-          <button
-            type="button"
-            onClick={() => { try { navigator.clipboard?.writeText(window.location.origin) } catch { /* no clipboard */ } }}
-            className="btn-secondary w-full justify-center"
-          >
-            {tr('Copy the web address')}
-          </button>
-        </div>
-      </Modal>
-    )
-  }
+  // 2026). The iPhone / Android toggle stays on top either way (Ethan, 24 Sep:
+  // "there should always be that toggle at the top between iPhone and
+  // Android"), because the person reading may be doing it on the other phone.
+  const viaSafari = mode === 'safari'
+  const iosList = viaSafari ? SAFARI_STEPS : IOS_STEPS
 
   return (
     // NO CLOSE, NO SCRIM PRESS, NO ESCAPE. See the note on `mode` above: on a
@@ -309,22 +283,9 @@ export default function AddToHomePrompt() {
             so the one sentence that says WHY read as a footnote. Solid brand is
             the loudest thing the palette has and this is the loudest thing on
             the screen. */}
-        <div className="flex items-start gap-3 rounded-card bg-brand px-4 py-3.5 text-white">
-          <Icon name="bell" className="mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-sm font-medium leading-relaxed">
-            {tr('The app is the only way to hear the moment a challenge goes live.')}
-          </p>
-        </div>
-
-        {/* THE REAL PROMPT WHERE THERE IS ONE. Android and desktop Chrome fire
-            `beforeinstallprompt`, so this is one tap. iOS never has and never
-            will, which is why the steps below exist at all. */}
-        {promptable && (
-          <button onClick={install} disabled={busy} className="btn-primary w-full justify-center">
-            {busy ? <Spinner /> : tr('Add it now')}
-          </button>
-        )}
-
+        {/* THE TOGGLE LEADS, so the platform is the first choice on the card
+            and everything under it (the one-line why, the steps, the buttons)
+            belongs to whichever phone is picked. */}
         {/* TWO SETS OF STEPS, ONE SHOWING, AND THE CARD DOES NOT RESIZE.
             Ethan: "when clicking from Android to iPhone the card jumps in size
             a bit - I would have it always the same size." iOS is five steps and
@@ -333,7 +294,7 @@ export default function AddToHomePrompt() {
             grows and shrinks under your thumb while you are reading it is the
             thing being complained about; a little white space is not. */}
         <div>
-          <div className="mb-3 flex gap-1.5 rounded-full bg-cloud p-1">
+          <div className="mb-4 flex gap-1.5 rounded-full bg-cloud p-1">
             {[['ios', 'iPhone'], ['android', 'Android']].map(([key, label]) => (
               <button
                 key={key}
@@ -351,6 +312,12 @@ export default function AddToHomePrompt() {
             ))}
           </div>
 
+          <div className="mb-3">
+            {viaSafari && showing === 'ios'
+              ? <Blurb icon="globe">{tr('On iPhone, the app can only be added from Safari.')}</Blurb>
+              : <Blurb icon="bell">{tr('The app is the only way to hear the moment a challenge goes live.')}</Blurb>}
+          </div>
+
           {/* BOTH LISTS OCCUPY THE SAME GRID CELL, so the box is always as tall
               as the taller one and the toggle changes the words and nothing
               else. A reserved min-height was the first attempt and it is a
@@ -359,7 +326,7 @@ export default function AddToHomePrompt() {
               five steps wrap to a third line. Stacking them means the browser
               works it out at whatever width it is actually being read on. */}
           <div className="grid">
-            {[['ios', IOS_STEPS], ['android', ANDROID_STEPS]].map(([key, list]) => (
+            {[['ios', iosList], ['android', ANDROID_STEPS]].map(([key, list]) => (
               <ol
                 key={key}
                 className={cx('col-start-1 row-start-1', showing !== key && 'invisible')}
@@ -372,6 +339,31 @@ export default function AddToHomePrompt() {
             ))}
           </div>
         </div>
+
+        {/* THE REAL PROMPT WHERE THERE IS ONE. Android and desktop Chrome fire
+            `beforeinstallprompt`, so this is one tap. iOS never has and never
+            will, which is why the steps below exist at all. */}
+        {promptable && !viaSafari && (
+          <button onClick={install} disabled={busy} className="btn-primary w-full justify-center">
+            {busy ? <Spinner /> : tr('Add it now')}
+          </button>
+        )}
+
+        {viaSafari && showing === 'ios' && (
+          <div className="flex flex-col gap-2">
+            <a href={safariUrl()} className="btn-primary w-full justify-center">
+              <Icon name="globe" className="h-4 w-4" />
+              {tr('Open in Safari')}
+            </a>
+            <button
+              type="button"
+              onClick={() => { try { navigator.clipboard?.writeText(window.location.origin) } catch { /* no clipboard */ } }}
+              className="btn-secondary w-full justify-center"
+            >
+              {tr('Copy the web address')}
+            </button>
+          </div>
+        )}
 
         {/* NOT A WAY OUT - A WAY IN. Ethan: "maybe someone opens it on the
             website but they already have the app, so there'd be a button to

@@ -387,7 +387,7 @@ function PlaceRooms({ place, rooms, state, open, onToggle }) {
         <span className={cx('shrink-0 text-[11px] font-semibold', off ? 'text-smoke' : 'text-brand')}>
           {off === 0 ? `${tr('All')} ${rooms.length} ${tr('on')}` : `${off} ${tr('of')} ${rooms.length} ${tr('off')}`}
         </span>
-        <Icon name="chevron-down" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform', open && 'rotate-180')} />
+        <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
         <div className="border-t border-gray-100">

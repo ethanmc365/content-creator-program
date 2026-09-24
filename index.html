@@ -131,6 +131,12 @@
          same-origin `fetch` - two different cache keys for the same URL, so the
          prefetched copy would never be used and the file would be downloaded
          twice. -->
+    <!-- The first thing a signed-in open does is talk to Supabase (session,
+         profile, the page's data). Opening that connection while the bundle
+         is still downloading takes the DNS + TLS handshake off the critical
+         path - a few hundred ms on a phone (24 Sep 2026). -->
+    <link rel="preconnect" href="https://heuhqqoxyggawuckxocp.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://heuhqqoxyggawuckxocp.supabase.co" />
     <link rel="prefetch" href="/geo/countries-50m.json" as="fetch" />
 
     <!-- THE TRYP.COM PLANE, FOR THE SAME REASON. Ethan: "the plane doesn't

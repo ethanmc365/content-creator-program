@@ -61,13 +61,14 @@ export const chunk = {
   AdminPanel: () => import('../pages/admin/AdminPanel'),
   AdminCreators: () => import('../pages/admin/AdminCreators'),
   AdminChallengeForm: () => import('../pages/admin/AdminChallengeForm'),
-  AdminChallengeHistory: () => import('../pages/admin/AdminChallengeHistory'),
   AdminResults: () => import('../pages/admin/AdminResults'),
   AdminRewards: () => import('../pages/admin/AdminRewards'),
   AdminAnalytics: () => import('../pages/admin/AdminAnalytics'),
   AdminChallengeAnalytics: () => import('../pages/admin/AdminChallengeAnalytics'),
   AdminVideoTracker: () => import('../pages/admin/AdminVideoTracker'),
   AdminKpis: () => import('../pages/admin/AdminKpis'),
+  AdminHooks: () => import('../pages/admin/AdminHooks'),
+  ChallengeRecap: () => import('../pages/ChallengeRecap'),
   AdminEvents: () => import('../pages/admin/AdminEvents'),
   AdminResources: () => import('../pages/admin/AdminResources'),
   AdminCreatorKit: () => import('../pages/admin/AdminCreatorKit'),
@@ -75,7 +76,6 @@ export const chunk = {
   PublicPortfolio: () => import('../pages/PublicPortfolio'),
   VerifyCertificate: () => import('../pages/VerifyCertificate'),
   AdminJobs: () => import('../pages/admin/AdminJobs'),
-  AdminReferrals: () => import('../pages/admin/AdminReferrals'),
   AdminEmail: () => import('../pages/admin/AdminEmail'),
   AdminApplications: () => import('../pages/admin/AdminApplications'),
   AdminAuditLog: () => import('../pages/admin/AdminAuditLog'),
@@ -98,6 +98,7 @@ const ROUTES = [
   [/^\/global\/chat/, 'NetworkChat'],
   [/^\/global/, 'GlobalHome'],
   [/^\/rooms/, 'Rooms'],
+  [/^\/challenges\/[^/]+\/recap/, 'ChallengeRecap'],
   [/^\/board/, 'Board'],
   [/^\/milestones/, 'Milestones'],
   [/^\/flights\/aircraft/, 'AircraftCollection'],
@@ -114,9 +115,6 @@ const ROUTES = [
   [/^\/admin\/creators/, 'AdminCreators'],
   [/^\/admin\/connections/, 'AdminConnections'],
   [/^\/admin\/challenges\/[^/]+\/results/, 'AdminResults'],
-  // More specific first: `/admin/challenges/history` is its own page and
-  // `/^\/admin\/challenges/` would otherwise swallow it.
-  [/^\/admin\/challenges\/history/, 'AdminChallengeHistory'],
   [/^\/admin\/challenges/, 'AdminChallengeForm'],
   [/^\/admin\/rewards/, 'AdminRewards'],
   [/^\/admin\/analytics\/[^/]+/, 'AdminChallengeAnalytics'],
@@ -128,7 +126,6 @@ const ROUTES = [
   [/^\/p\//, 'PublicPortfolio'],
   [/^\/verify/, 'VerifyCertificate'],
   [/^\/admin\/jobs/, 'AdminJobs'],
-  [/^\/admin\/referrals/, 'AdminReferrals'],
   [/^\/admin\/email/, 'AdminEmail'],
   [/^\/admin\/audit/, 'AdminAuditLog'],
   [/^\/admin\/team/, 'AdminTeam'],
@@ -138,6 +135,8 @@ const ROUTES = [
   [/^\/admin\/notes/, 'AdminNotes'],
   [/^\/admin\/languages/, 'AdminLanguages'],
   [/^\/admin\/testing/, 'TestingCentre'],
+  [/^\/admin\/kpis/, 'AdminKpis'],
+  [/^\/admin\/hooks/, 'AdminHooks'],
   [/^\/admin/, 'AdminPanel'],
 ]
 
@@ -185,7 +184,7 @@ const SHAPES = [
   // people out as two-across cards; the admin lists and the leaderboard really
   // are rows. They were all on 'list'. See components/PageSkeleton.
   [/^\/(creators|connections)/, 'directory'],
-  [/^\/(leaderboard|admin\/creators|admin\/applications|admin\/team|admin\/audit|admin\/reports|admin\/referrals)/, 'list'],
+  [/^\/(leaderboard|admin\/creators|admin\/applications|admin\/team|admin\/audit|admin\/reports)/, 'list'],
   [/^\/(global|c\/[^/]+)$/, 'hub'],
   [/^\/profile\//, 'profile'],
   [/^\/(collab|flights|board)$/, 'map'],

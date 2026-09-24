@@ -94,11 +94,11 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
           spinning world map on that because it's too much", and the gradient
           was "almost too dark" - it is the Live now card's gradient now
           (LiveNowRow), a shade deeper than the orange card it sits on. */}
-      <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" style={at(0.75)} />
+      <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" style={at(0.45)} />
 
       <div className="relative grid items-center gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* What it is and how long is left. */}
-        <div className="wipe-item min-w-0" style={at(0.2)}>
+        <div className="wipe-item min-w-0" style={at(0.1)}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
               {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
@@ -138,7 +138,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         <Link
           to={`/challenges/${challenge.id}?tab=leaderboard`}
           className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
-          style={at(0.2)}
+          style={at(0.1)}
         >
           <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
             <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
@@ -169,7 +169,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
                 <li
                   key={r.creator_id}
                   className={cx('flex h-9 animate-fade-up items-center gap-2 rounded-lg px-1.5', Number(r.rank) === 1 && 'bg-brand-tint/60')}
-                  style={{ animationDelay: `${i * 0.09}s` }}
+                  style={{ animationDelay: `${i * 0.05}s` }}
                 >
                   <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-brand">{ordinalFor(r.rank)}</span>
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
@@ -185,7 +185,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         </Link>
 
         {/* The two doors, the same size and the same shape. */}
-        <div className="wipe-item grid grid-cols-2 gap-2.5 lg:col-span-2 xl:col-span-1 xl:grid-cols-1" style={at(0.45)}>
+        <div className="wipe-item grid grid-cols-2 gap-2.5 lg:col-span-2 xl:col-span-1 xl:grid-cols-1" style={at(0.2)}>
           <Link to={`/challenges/${challenge.id}`} className="btn flex-1 justify-center whitespace-nowrap border border-white/50 text-white hover:scale-105 hover:bg-white/10">
             {tr('Read the brief')}
           </Link>

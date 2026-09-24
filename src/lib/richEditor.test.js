@@ -158,3 +158,25 @@ describe('mdToHtml cannot be made to emit attributes', () => {
     expect(a).toBeNull()
   })
 })
+
+// 24 Sep 2026: blank lines disappeared whenever the break was a <br> (Shift+Enter,
+// a paste, a line inside a block the formatting buttons made).
+describe('htmlToMd keeps blank lines (chat)', () => {
+  const md = (html) => {
+    const el = document.createElement('div')
+    el.innerHTML = html
+    return htmlToMd(el, { inlineOnly: true })
+  }
+  it('keeps a blank line made with two <br>s at the root', () => {
+    expect(md('Hello team<br><br>Second paragraph')).toBe('Hello team\n\nSecond paragraph')
+  })
+  it('keeps a blank line inside a block', () => {
+    expect(md('<div>Line one<br><br>Line two</div>')).toBe('Line one\n\nLine two')
+  })
+  it('keeps a blank line after a heading', () => {
+    expect(md('<h1>News</h1><div><br></div><div>Body <strong>bold</strong></div>')).toBe('# News\n\nBody **bold**')
+  })
+  it('does not turn the browser\'s trailing <br> into an extra line', () => {
+    expect(md('<div>One<br></div><div>Two</div>')).toBe('One\nTwo')
+  })
+})

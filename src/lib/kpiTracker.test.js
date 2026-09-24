@@ -138,3 +138,28 @@ describe('mergeKpiRows', () => {
     expect(merged[0].actual).toBe(0)
   })
 })
+
+import { adjacentMonth, currentMonth, monthLabel, periodLabel, periodRange } from './kpiTracker'
+
+describe('monthly KPI periods (24 Sep 2026)', () => {
+  it('knows the month and its quarter', () => {
+    expect(currentMonth(new Date(2026, 8, 24))).toEqual({ year: 2026, quarter: 3, month: 9 })
+    expect(monthLabel(2026, 9)).toBe('September 2026')
+    expect(periodLabel({ year: 2026, quarter: 3, month: null })).toBe('Q3 2026')
+  })
+  it('steps across a year boundary and carries the quarter', () => {
+    expect(adjacentMonth(2026, 12, 1)).toEqual({ year: 2027, quarter: 1, month: 1 })
+    expect(adjacentMonth(2026, 1, -1)).toEqual({ year: 2025, quarter: 4, month: 12 })
+    expect(adjacentMonth(2026, 9, 1)).toEqual({ year: 2026, quarter: 4, month: 10 })
+  })
+  it('judges pace against the month, not the quarter', () => {
+    const { start, end } = periodRange({ year: 2026, quarter: 3, month: 9 })
+    expect(start.getMonth()).toBe(8)
+    expect(end.getMonth()).toBe(9)
+    // Half-way through September, half the target is on pace; against the
+    // whole quarter it would already read "met" territory at five-sixths.
+    const mid = new Date(2026, 8, 16)
+    expect(kpiStatus({ target: 100, actual: 20, year: 2026, quarter: 3, month: 9, now: mid }).status).toBe('behind')
+    expect(kpiStatus({ target: 100, actual: 50, year: 2026, quarter: 3, month: 9, now: mid }).status).toBe('on_track')
+  })
+})

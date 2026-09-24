@@ -133,6 +133,45 @@ export function consistencyWindows(startIso, endIso, periodDays) {
 // awarded until the platform reads that the video got over 2,000 views."
 export const ruleUsesMinViews = (r) => r?.kind === 'bonus'
 
+// A BONUS CAN RUN FOR PART OF THE CHALLENGE (migration 256). Null at either end
+// means open at that end. Judged on the entry's submitted_at in the database.
+export const ruleUsesWindow = (r) => r?.kind === 'bonus'
+
+const isoOrNull = (v) => (v && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null)
+
+/** Is a windowed rule open at `at` (ms or ISO)? A rule with no window always is. */
+export function ruleOpenAt(r, at = Date.now()) {
+  const t = typeof at === 'number' ? at : Date.parse(at)
+  if (r?.starts_at && t < Date.parse(r.starts_at)) return false
+  if (r?.ends_at && t > Date.parse(r.ends_at)) return false
+  return true
+}
+
+/** 'upcoming' | 'live' | 'ended' | 'always' for a rule's window at `now`. */
+export function ruleWindowState(r, now = Date.now()) {
+  if (!r?.starts_at && !r?.ends_at) return 'always'
+  if (r.starts_at && now < Date.parse(r.starts_at)) return 'upcoming'
+  if (r.ends_at && now > Date.parse(r.ends_at)) return 'ended'
+  return 'live'
+}
+
+// THE WEEKS OF A CHALLENGE, for the "which week does this bonus run" picker.
+// Week N starts N-1 whole weeks after the challenge start; the last one stops
+// at the deadline rather than running past it.
+export function challengeWeeks(startIso, endIso) {
+  const start = Date.parse(startIso)
+  const end = Date.parse(endIso)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return []
+  const WEEK = 7 * 86400000
+  const out = []
+  for (let n = 0; start + n * WEEK < end && n < 26; n++) {
+    const from = start + n * WEEK
+    const to = Math.min(end, from + WEEK - 60000)
+    out.push({ n: n + 1, starts_at: new Date(from).toISOString(), ends_at: new Date(to).toISOString() })
+  }
+  return out
+}
+
 /** A rule trimmed to the columns its kind actually means. */
 export function normalisePointRule(r) {
   return {
@@ -146,5 +185,7 @@ export function normalisePointRule(r) {
     // the one that reads as "not set" when somebody looks at the row.
     min_views: ruleUsesMinViews(r) && Number(r.min_views) > 0 ? Number(r.min_views) : null,
     period_days: RULE_USES_PERIOD.has(r.kind) && Number(r.period_days) > 0 ? Math.round(Number(r.period_days)) : null,
+    starts_at: ruleUsesWindow(r) ? isoOrNull(r.starts_at) : null,
+    ends_at: ruleUsesWindow(r) ? isoOrNull(r.ends_at) : null,
   }
 }

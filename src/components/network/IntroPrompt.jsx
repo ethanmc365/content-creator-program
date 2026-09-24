@@ -6,6 +6,10 @@ import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import IntroCard from './IntroCard'
+import { INTRO_MAKES, INTRO_WANTS, buildIntro, introToText } from '../../lib/intro'
+import { airport } from '../../lib/airports'
+import { COUNTRIES } from '../../lib/countries'
 
 // The introductions room, with the hard part done for you.
 //
@@ -30,15 +34,6 @@ import { useT } from '../../lib/i18n'
 // the room rather than inside its layout. The invitation stays a one-line bar;
 // only the form moved.
 
-const MAKES = [
-  'City guides', 'Budget travel', 'Luxury stays', 'Food', 'Hotels', 'Solo travel',
-  'Family travel', 'Adventure', 'Road trips', 'Hidden gems', 'Deals', 'Vlogs',
-]
-
-const WANTS = [
-  'Collabs', 'Feedback on my videos', 'Meeting people near me',
-  'Getting better at hooks', 'Paid briefs', 'Travel buddies',
-]
 
 // onToggle takes the option, NOT the next array. Computing the next array here
 // would close over `value` from the render that drew the chip, so two toggles
@@ -125,10 +120,13 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   const tr = useT()
   const { profile, user } = useAuth()
   const [busy, setBusy] = useState(false)
-  // Options the creator typed themselves, kept beside the built-in lists so
-  // they render as chips like everything else and can be un-picked again.
   const [ownMakes, setOwnMakes] = useState([])
   const [ownWants, setOwnWants] = useState([])
+  // WHAT THE PROFILE ALREADY KNOWS, fetched when the card opens: the stats
+  // on the card (flights logged, challenge videos) and a next trip taken
+  // from their next logged flight. Prompted, never forced - every field stays
+  // theirs to change.
+  const [extras, setExtras] = useState({ flights: 0, videos: 0 })
   const [form, setForm] = useState({
     where: [profile?.city, profile?.country].filter(Boolean).join(', '),
     makes: [],
@@ -139,6 +137,28 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
+  useEffect(() => {
+    if (!open || !user?.id) return undefined
+    let alive = true
+    const today = new Date().toISOString().slice(0, 10)
+    Promise.all([
+      supabase.from('flights').select('id', { count: 'exact', head: true }).eq('creator_id', user.id),
+      supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('creator_id', user.id),
+      supabase.from('flights').select('to_iata, flown_on').eq('creator_id', user.id).gte('flown_on', today).order('flown_on').limit(1),
+    ]).then(([f, sub, up]) => {
+      if (!alive) return
+      setExtras({ flights: f.count || 0, videos: sub.count || 0 })
+      const trip = up.data?.[0]
+      const a = trip && airport(trip.to_iata)
+      if (a) {
+        const month = new Date(trip.flown_on).toLocaleDateString('en-GB', { month: 'long' })
+        const country = COUNTRIES.find((c) => c.iso2 === a.country)?.name
+        setForm((cur) => (cur.next ? cur : { ...cur, next: `${a.city}${country ? `, ${country}` : ''} in ${month}` }))
+      }
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [open, user?.id])
+
   const toggle = (key, option, max) =>
     setForm((f) => {
       const list = f[key]
@@ -147,8 +167,6 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
       return { ...f, [key]: [...list, option] }
     })
 
-  // Adding your own option selects it too. Typing something and then having to
-  // tap it as well is a step that exists only because of how this is built.
   const addOwn = (key, setOwn, option, max) => {
     const v = option.trim()
     if (!v) return
@@ -160,20 +178,9 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     })
   }
 
-  // Built as the creator types so what they are about to post is never a
-  // surprise. Every line is optional and an empty one is dropped rather than
-  // posted as a label with nothing after it.
-  const message = useMemo(() => {
-    const lines = []
-    const first = profile?.name?.split(' ')[0] || 'Hi'
-    lines.push(`👋 ${first} here${form.where ? `, based in ${form.where}` : ''}.`)
-    if (form.makes.length) lines.push(`I make: ${form.makes.join(', ')}.`)
-    if (form.next.trim()) lines.push(`Next trip: ${form.next.trim()}.`)
-    if (form.ask.trim()) lines.push(`Ask me about: ${form.ask.trim()}.`)
-    if (form.fact.trim()) lines.push(`Fun fact: ${form.fact.trim()}.`)
-    if (form.wants.length) lines.push(`Hoping to find: ${form.wants.join(', ')}.`)
-    return lines.join('\n')
-  }, [form, profile?.name])
+  // THE CARD IS THE PREVIEW (24 Sep 2026). What gets posted is exactly what
+  // is drawn beside the form - the same component the room uses.
+  const intro = useMemo(() => buildIntro(profile || {}, form, extras), [profile, form, extras])
 
   const enough = form.where.trim() || form.makes.length > 0
 
@@ -186,7 +193,8 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
       channel_id: channel.id,
       community_id: community.id,
       sender_id: user.id,
-      body: message,
+      body: introToText(intro),
+      intro,
     })
     setBusy(false)
     if (error) { notice(`Could not post: ${error.message}`); return }
@@ -194,16 +202,12 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   }
 
   return (
-    <>
-      {/* A CARD, NOT A FULL SCREEN. `sheet={false}` keeps it a floating panel
-          with the room visible round the edges on a phone as well as on a
-          desktop. A bottom sheet 90vh tall reads as having been sent somewhere
-          else, and this is an invitation you should be able to see past. */}
-      <Modal open={open} onClose={onClose} title={tr("Introduce yourself")} sheet={false}>
-        <p className="-mt-3 mb-5 text-sm text-smoke">
-          {tr("Skip anything you would rather not say. Only the last box gets posted.")}
-        </p>
+    <Modal open={open} onClose={onClose} title={tr("Introduce yourself")} sheet={false} wide>
+      <p className="-mt-3 mb-5 text-sm text-smoke">
+        {tr("We filled in what your profile already says. Change anything, skip anything, and your card is ready.")}
+      </p>
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-5">
           <Field label={tr("Where are you based?")}>
             <input className="input text-base sm:text-sm" value={form.where}
@@ -213,7 +217,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
 
           <Field label={tr("What do you make?")} hint={`Pick up to ${MAKES_MAX}, or add your own.`}>
             <Chips
-              options={[...MAKES, ...ownMakes]}
+              options={[...INTRO_MAKES, ...ownMakes]}
               value={form.makes}
               onToggle={(o) => toggle('makes', o, MAKES_MAX)}
               max={MAKES_MAX}
@@ -226,7 +230,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
 
           <Field label={tr("Where are you headed next?")}>
             <input className="input text-base sm:text-sm" value={form.next}
-              placeholder={tr("Lisbon in March")}
+              placeholder={tr("Lisbon, Portugal in March")}
               onChange={(e) => set({ next: e.target.value })} />
           </Field>
 
@@ -236,19 +240,15 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
               onChange={(e) => set({ ask: e.target.value })} />
           </Field>
 
-          {/* THE QUESTION THAT IS NOT ABOUT WORK.
-              Every other line here is a professional fact, and a room full of
-              professional facts is a directory. This is the one somebody
-              actually replies to. */}
           <Field label={tr("A hidden talent or a fun fact about you")}>
             <input className="input text-base sm:text-sm" value={form.fact}
               placeholder={tr("I can name any capital city in under a second")}
               onChange={(e) => set({ fact: e.target.value })} />
           </Field>
 
-          <Field label={tr("What are you hoping to do here?")} hint={`Pick up to ${WANTS_MAX}, or add your own.`}>
+          <Field label={tr("What are you hoping to find here?")} hint={`Pick up to ${WANTS_MAX}, or add your own.`}>
             <Chips
-              options={[...WANTS, ...ownWants]}
+              options={[...INTRO_WANTS, ...ownWants]}
               value={form.wants}
               onToggle={(o) => toggle('wants', o, WANTS_MAX)}
               max={WANTS_MAX}
@@ -258,38 +258,33 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
               onAdd={(v) => addOwn('wants', setOwnWants, v, WANTS_MAX)}
             />
           </Field>
+        </div>
 
-          {/* "One place you would go back to tomorrow" and "What do you shoot
-              on?" were here behind a toggle and are gone at Ethan's call. Both
-              were fine questions and neither earned its place: the first is
-              answered by the next-trip line above it, and the second turns an
-              introduction into a gear thread. */}
-
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
-              {tr("What gets posted")}
-            </p>
-            <p className="max-h-44 overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-xl border border-gray-100 bg-cloud/50 px-4 py-3 text-sm">
-              {message}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+        {/* THE CARD, LIVE. Sticky on a desktop so it stays beside whatever
+            field is being filled in; under the form on a phone. */}
+        <div className="lg:sticky lg:top-0 lg:self-start">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("Your card")}</p>
+          <IntroCard intro={intro} sender={{ id: user?.id, name: profile?.name, photo_url: profile?.photo_url }} myId={user?.id} />
+          <p className="mt-2 text-[11px] leading-relaxed text-smoke">
+            {tr("Countries, dream trips and socials come from your profile. Edit them there.")}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <button type="button" onClick={post} disabled={!enough || busy} className="btn-primary disabled:opacity-40">
-              {busy ? 'Posting…' : 'Post my intro'}
+              {busy ? tr('Posting…') : tr('Post my intro')}
             </button>
             <button type="button" onClick={onClose} className="btn-ghost">
               {tr("Not now")}
             </button>
-            {!enough && (
-              <span className="text-xs text-smoke">{tr("Add where you are based, or pick what you make.")}</span>
-            )}
           </div>
+          {!enough && (
+            <p className="mt-2 text-xs text-smoke">{tr("Add where you are based, or pick what you make.")}</p>
+          )}
         </div>
-      </Modal>
-    </>
+      </div>
+    </Modal>
   )
 }
+
 
 // ---------------------------------------------------------------- the invite
 //

@@ -303,11 +303,30 @@ async function tiktokViews(url: string, knownId: string | null, meta = false): P
       'No TikTok video id in that link. A deleted or private video redirects to the app store.')
   }
 
-  const targets = [`https://www.tiktok.com/embed/v2/${id}`, canonical ?? `https://www.tiktok.com/@_/video/${id}`]
+  // THREE PAGES, CHEAPEST FIRST (24 Sep 2026). The embed is small and usually
+  // enough - but it carries NOTHING for a PHOTO post (a slideshow), and a short
+  // vm.tiktok.com link followed from a server lands on an app shell with no
+  // count either. `/@_/video/<id>` serves the full item for both kinds: a
+  // measured 2,367 on the photo post that was reporting "Platform refused".
+  const targets = [...new Set([
+    `https://www.tiktok.com/embed/v2/${id}`,
+    `https://www.tiktok.com/@_/video/${id}`,
+    canonical ?? `https://www.tiktok.com/@_/video/${id}`,
+  ])]
   let lastErr = ''
   for (const target of targets) {
     try {
       const html = await getText(target)
+      // DELETED OR PRIVATE IS AN ANSWER, NOT A BLOCK. TikTok says so in the
+      // page's own state (statusCode / errorCode 10204,
+      // "item_privacy_authorization&status_deleted"). This used to fall through
+      // to the captcha test below, which matched the word "captcha" in the
+      // page's SCRIPT URLS - so a removed video read "Platform refused, it
+      // usually clears by itself" for ever, however many times sync was pressed.
+      if (/"(?:statusCode|errorCode)":\s*10204\b|status_deleted|item_privacy_authorization/.test(html)) {
+        return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'removed',
+          'TikTok says this video was deleted or made private.')
+      }
       const views = playCountFrom(html, id)
       if (views != null) {
         // GATED, EVEN THOUGH IT IS FREE. There is no second request here - the
@@ -317,7 +336,11 @@ async function tiktokViews(url: string, knownId: string | null, meta = false): P
         // exactly the work a view count needs and not one pass more.
         return { ...base, videoId: id, canonicalUrl: canonical, views, error: null, ...(meta ? tiktokMeta(html) : {}) }
       }
-      lastErr = /captcha|verify_bar|Access Denied/i.test(html.slice(0, 5000)) ? 'blocked' : 'no_count_in_page'
+      // A REAL CHECK PAGE IS SMALL. Every full TikTok page mentions
+      // "captcha" in its script bundle names, so the word alone proves nothing.
+      lastErr = (html.length < 60000 && /captcha|verify_bar|verify-bar/i.test(html)) || /Access Denied/i.test(html.slice(0, 3000))
+        ? 'blocked'
+        : (lastErr === 'blocked' ? 'blocked' : 'no_count_in_page')
     } catch (e) {
       lastErr = e instanceof HttpError ? 'fetch_failed' : 'fetch_failed'
     }
@@ -514,6 +537,15 @@ async function readFacebookCount(id: string): Promise<FbRead> {
   return null
 }
 
+async function looksLikeFacebookReel(id: string): Promise<boolean> {
+  try {
+    const html = await getText(`https://www.facebook.com/watch/?v=${id}`)
+    return /property="og:url"\s+content="[^"]*\/reel\//.test(html)
+  } catch {
+    return false
+  }
+}
+
 async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
   const base = { platform: 'Facebook' as const }
   let canonical: string | null = url
@@ -552,6 +584,15 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
   if (sawBlocked) {
     return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'blocked',
       'Facebook asked for a login instead of showing the video, which it does for posts that are not public.')
+  }
+  // A REEL IS A VIDEO WITH NO PUBLIC COUNT. Facebook states a reel's plays
+  // only to a signed-in viewer; signed out, the watch page's title is the
+  // caption and nothing anywhere in 470 kB carries the number (measured 24 Sep
+  // 2026). That needs a person to type it in, and the panel should say so
+  // rather than call it a photo post.
+  if (/\/reel\//.test(canonical ?? url) || (await looksLikeFacebookReel(candidates[0]))) {
+    return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'count_hidden',
+      'Facebook does not show a reel\'s view count to anyone signed out.')
   }
   return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'no_count_in_page',
     'Facebook served the post but stated no view count. Photo and text posts have none.')

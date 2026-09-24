@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Modal, Select } from '../ui'
 import Icon from '../Icon'
-import { STANDARD_METRICS, quarterLabel } from '../../lib/kpiTracker'
+import { STANDARD_METRICS, periodLabel } from '../../lib/kpiTracker'
 import { useT } from '../../lib/i18n'
 
 // SETTING OR EDITING ONE KPI TARGET.
@@ -20,7 +20,7 @@ const METRIC_OPTIONS = [
   { value: 'custom', label: 'Custom KPI' },
 ]
 
-export default function KpiTargetSheet({ row, communityName, year, quarter, profileId, onClose, onSaved }) {
+export default function KpiTargetSheet({ row, communityName, year, quarter, month = null, profileId, onClose, onSaved }) {
   const tr = useT()
   const isNew = !row?.id
   const [metric, setMetric] = useState(row?.metric || 'challenges_run')
@@ -51,6 +51,8 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
       community_id: row.community_id,
       year,
       quarter,
+      // A monthly target (migration 258); null = the whole quarter.
+      month: month ?? null,
       metric,
       label: isCustom ? label.trim() : standardLabel,
       target_value: targetNum,
@@ -67,7 +69,7 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
     if (error) {
       // A metric already set for this scope and quarter hits the unique
       // index rather than a friendlier check, so it is translated here.
-      setErr(error.code === '23505' ? tr('That KPI already has a target for this quarter - edit it instead of adding another.') : error.message)
+      setErr(error.code === '23505' ? tr('That KPI already has a target for {p} - edit it instead of adding another.', { p: periodLabel({ year, quarter, month }) }) : error.message)
       return
     }
     onSaved()
@@ -82,7 +84,7 @@ export default function KpiTargetSheet({ row, communityName, year, quarter, prof
           the first thing in the dialog and cannot be mistaken for a caption. */}
       <div className="mb-5 inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1.5 text-sm font-bold text-brand">
         <Icon name="calendar" className="h-4 w-4" />
-        {communityName} · {quarterLabel(year, quarter)}
+        {communityName} · {periodLabel({ year, quarter, month })}
       </div>
 
       <div className="space-y-4">

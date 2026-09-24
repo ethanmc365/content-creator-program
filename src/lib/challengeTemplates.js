@@ -44,6 +44,11 @@ export const TEMPLATE_FIELDS = [
   'participation_threshold',
   'participation_prize',
   'participation_cap',
+  // WHAT the threshold counts - videos or points (migration 241). It was
+  // missing, so "reach 18 points" came back as "post 18 videos" (Ethan, 24
+  // Sep 2026: "It saved as videos posted being 18, but it was actually points
+  // scored as 18").
+  'participation_basis',
   'participation_reward_type',
   'participation_amount',
   'participation_scope',
@@ -58,12 +63,19 @@ export const TEMPLATE_FIELDS = [
   'cpm_target',
   'scoring',
   'threshold_mode',
+  // The rest of the brief's decisions (24 Sep 2026: "everything should save,
+  // the only thing that shouldn't is the dates and times").
+  // (prize_amount, winners_count and market are DERIVED on save from the
+  // prizes, so carrying them would only be a second, stale copy.)
+  'tz',
 ]
 
 // The keys that make a point rule a ROW rather than a rule. Listed rather than
 // destructured away, because a destructure of names nobody reads is four lint
 // errors and reads as a mistake.
-const ROW_KEYS = ['id', 'challenge_id', 'community_id', 'created_at']
+// `starts_at` / `ends_at` are a bonus's DATES (migration 256), and dates are
+// the one thing a template never carries.
+const ROW_KEYS = ['id', 'challenge_id', 'community_id', 'created_at', 'starts_at', 'ends_at', 'is_active', 'position']
 
 /** A point rule with its database keys removed - the rule, not the row. */
 function ruleShape(rule) {

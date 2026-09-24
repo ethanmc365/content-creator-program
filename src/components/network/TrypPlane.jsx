@@ -140,10 +140,9 @@ function Drawing({ id, animate, tight = false }) {
 
       {/* Plane and trail move as ONE group. Animating them separately would
           unglue the trail from the tail on every frame of the bob. */}
-      <g
-        className={animate ? 'animate-cruise' : undefined}
-        style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-      >
+      {/* THE BOB IS NOT ON THIS GROUP ANY MORE (24 Sep 2026) - see
+          `Cruising` below. Only the contrail's dashes move in here. */}
+      <g>
         {/* Tail to edge, level. Drawn tail-first so the gradient's 0% lands on
             the end that touches the plane, and so a positive dash offset marches
             the dashes AWAY from it, which is the direction real exhaust goes.
@@ -196,6 +195,32 @@ const ANCHOR = {
  *   badge  - small mark next to a line of text
  * @param {'bottom'|'top'|'center'} anchor  which corner it parks in
  */
+// THE PLANE MOVES FROM THE FIRST FRAME (24 Sep 2026).
+//
+// Ethan: "whenever it originally loads in, the plane is frozen, then it starts
+// to animate. Remember, everything should be animated immediately."
+//
+// Two causes, both fixed here. The bob was a CSS transform on an SVG <g>, and a
+// transform on an SVG CHILD is animated on the MAIN THREAD - which is exactly
+// the thread that is busiest while the Worldwide page is loading (queries
+// landing, the map parsing, every section committing), so the plane sat still
+// until that settled. And the loop began at its own rest pose on the slowest
+// part of an ease-in-out, so even a free thread showed a second of nothing.
+//
+// Now the bob is on an HTML wrapper with `will-change: transform`, which the
+// compositor runs on its own whatever the main thread is doing, and it starts
+// a third of the way into the loop (negative delay), already moving.
+function Cruising({ animate, children }) {
+  return (
+    <span
+      className={cx('block h-full w-full', animate && 'animate-cruise will-change-transform')}
+      style={animate ? { animationDelay: '-2.3s' } : undefined}
+    >
+      {children}
+    </span>
+  )
+}
+
 export default function TrypPlane({ variant = 'hero', anchor = 'bottom', className, animate = true, id = 'plane' }) {
   if (variant === 'badge') {
     return (
@@ -224,7 +249,7 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
         // exactly the empty space this crop exists to remove.
         className={cx('pointer-events-none block aspect-[200/73] w-56 text-brand sm:w-80', className)}
       >
-        <Drawing id={`${id}-inline`} animate={animate} tight />
+        <Cruising animate={animate}><Drawing id={`${id}-inline`} animate={animate} tight /></Cruising>
       </span>
     )
   }
@@ -248,7 +273,7 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
         className,
       )}
     >
-      <Drawing id={`${id}-hero`} animate={animate} />
+      <Cruising animate={animate}><Drawing id={`${id}-hero`} animate={animate} /></Cruising>
     </span>
   )
 }

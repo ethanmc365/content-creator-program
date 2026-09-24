@@ -216,6 +216,17 @@ export const ANDROID_STEPS = [
   { icon: 'home', text: 'Open Tryp.com from your home screen' },
 ]
 
+// iPhone, but in Chrome / Firefox / another app's browser: the one thing that
+// differs is getting into Safari first. Five steps, like IOS_STEPS, so the card
+// does not change height when the toggle flips.
+export const SAFARI_STEPS = [
+  { icon: 'globe', text: 'Tap "Open in Safari" below, or paste the address into Safari' },
+  { icon: 'iosShare', text: 'In Safari, tap the three dots, then Share, then View More' },
+  { icon: 'addToHome', text: 'Tap "Add to Home Screen" and keep "Open as Web App" on' },
+  { icon: 'check', text: 'Tap "Add", then open Tryp.com from the new icon' },
+  { icon: 'trash', text: 'Delete the old Chrome shortcut if you made one' },
+]
+
 /** The per-platform steps, written to be followed while looking at a phone. */
 export function installSteps() {
   return isIOS() ? IOS_STEPS : ANDROID_STEPS

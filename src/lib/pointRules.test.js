@@ -124,3 +124,44 @@ describe('the consistency bonus', () => {
     expect(consistencyWindows('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 0)).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Migration 256: a bonus can run for part of the challenge.
+import { challengeWeeks, ruleOpenAt, ruleWindowState } from './scoring'
+
+describe('bonus windows', () => {
+  it('saves the window on a bonus and drops it from every other kind', () => {
+    const w = { starts_at: '2026-09-21T00:00:00.000Z', ends_at: '2026-09-27T22:59:00.000Z' }
+    expect(normalisePointRule({ kind: 'bonus', label: 'x', points: 1, ...w })).toMatchObject(w)
+    const other = normalisePointRule({ kind: 'per_post', label: 'x', points: 1, ...w })
+    expect(other.starts_at).toBeNull()
+    expect(other.ends_at).toBeNull()
+  })
+
+  it('treats a missing or broken date as open at that end', () => {
+    const r = normalisePointRule({ kind: 'bonus', label: 'x', points: 1, starts_at: '', ends_at: 'nope' })
+    expect(r.starts_at).toBeNull()
+    expect(r.ends_at).toBeNull()
+  })
+
+  it('knows when a window is open', () => {
+    const r = { starts_at: '2026-09-21T00:00:00Z', ends_at: '2026-09-27T23:00:00Z' }
+    expect(ruleOpenAt(r, Date.parse('2026-09-20T12:00:00Z'))).toBe(false)
+    expect(ruleOpenAt(r, Date.parse('2026-09-24T12:00:00Z'))).toBe(true)
+    expect(ruleOpenAt(r, Date.parse('2026-09-28T00:00:00Z'))).toBe(false)
+    expect(ruleOpenAt({}, 0)).toBe(true)
+    expect(ruleWindowState(r, Date.parse('2026-09-20T00:00:00Z'))).toBe('upcoming')
+    expect(ruleWindowState(r, Date.parse('2026-09-24T00:00:00Z'))).toBe('live')
+    expect(ruleWindowState(r, Date.parse('2026-09-29T00:00:00Z'))).toBe('ended')
+    expect(ruleWindowState({}, 0)).toBe('always')
+  })
+
+  it('cuts a four-week challenge into four weeks, the last one stopping at the deadline', () => {
+    const weeks = challengeWeeks('2026-09-20T23:00:00Z', '2026-10-18T22:59:00Z')
+    expect(weeks).toHaveLength(4)
+    expect(weeks[0].starts_at).toBe('2026-09-20T23:00:00.000Z')
+    expect(weeks[1].starts_at).toBe('2026-09-27T23:00:00.000Z')
+    expect(weeks[3].ends_at).toBe('2026-10-18T22:59:00.000Z')
+    expect(challengeWeeks(null, null)).toEqual([])
+  })
+})

@@ -70,11 +70,6 @@ export default function AdminVideoTracker() {
   const [syncNote, setSyncNote] = useState('')
   const [editing, setEditing] = useState(null)   // a row, or {} for a new one
   const [playing, setPlaying] = useState(null)
-  // THE ONE NUMBER THAT DECIDES WHAT GETS TRACKED (migration 252): any video
-  // over this many views, always - no podium, no per-challenge top N. It lives
-  // in `app_settings.video_tracker.view_threshold`, read fresh from whatever
-  // the sync RPC last reported.
-  const [threshold, setThreshold] = useState(10000)
 
   // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer
   // of it takes the whole thing (`visibleVideos`) and because that makes
@@ -90,16 +85,10 @@ export default function AdminVideoTracker() {
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
   const load = useCallback(async () => {
-    const [videos, settings] = await Promise.all([
-      supabase.rpc('admin_tracked_videos'),
-      supabase.from('app_settings').select('value').eq('key', 'video_tracker').maybeSingle(),
-    ])
+    const videos = await supabase.rpc('admin_tracked_videos')
     if (videos.error) { setErr(videos.error.message); setRows([]); return }
     setErr('')
     setRows(videos.data || [])
-    // A MISSING ROW IS NOT AN ERROR, it is a database that has not been told
-    // yet, and the default here is the same one the function falls back to.
-    setThreshold(Number(settings.data?.value?.view_threshold ?? 10000))
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -117,7 +106,7 @@ export default function AdminVideoTracker() {
     setSyncNote(
       n.added || n.updated || n.dropped
         ? `${n.added || 0} new, ${n.updated || 0} refreshed, ${n.dropped || 0} retired`
-        : `Nothing changed. Anything over ${formatViews(n.threshold ?? 10000)} views appears here automatically.`,
+        : 'Nothing changed.',
     )
     load()
   }
@@ -309,8 +298,9 @@ export default function AdminVideoTracker() {
               <span className="text-smoke">{monthLabel(filter.month)}</span>
             </>
           )}
-          <span className="text-gray-300" aria-hidden>·</span>
-          <span className="text-xs text-gray-400">{tr('over')} {formatViews(threshold)}</span>
+          {/* "over 10k" is gone (24 Sep 2026, Ethan: "you don't need to have
+              that copy there"). The threshold is still the rule; it is simply
+              not restated on every visit. */}
           <button
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}

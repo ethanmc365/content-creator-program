@@ -528,8 +528,14 @@ export default function GlobalHome() {
   // frame, and everything after it is zero.
   const LADDER_STEPS = 4
   let step = 0
+  // A PHONE GETS A LONGER, SLOWER LADDER (24 Sep 2026). Ethan: "on mobile...
+  // everything just appears all of a sudden... everything should appear in a
+  // staggered, real smooth flow. Currently it happens too fast." One column
+  // means the first screen is four or five sections stacked, and 50ms apart
+  // they land as one block. 110ms apart they visibly arrive one after another.
   const stepDelay = () => {
     const i = step++
+    if (isMobile) return i < 6 ? i * 0.11 : 0
     return i < LADDER_STEPS ? i * 0.05 : 0
   }
 
@@ -570,14 +576,19 @@ export default function GlobalHome() {
           // the top right, and it was drawing its own flatter version of the
           // same row. See components/network/LiveNowRow.
           //
-          // NO GLOW HERE (23 Sep 2026, REMOVED). It was tried and Ethan did
-          // not like it on this card specifically - "it looks worse" - even
-          // though the same ring stayed on the phone's equivalent card. The
-          // rail card keeps its plain gradient.
+          // THE GLOW IS BACK ON THIS CARD, IN ORANGE (24 Sep 2026). Ethan:
+          // "On that one with the white background, the small card, it should
+          // have an orange glow effect constantly animating around it." (It
+          // was removed on 23 Sep when it was a white ring on a white rail.)
           <div className="space-y-2">
-            {myLive.map(({ market, challenge, global: isGlobal }) => (
+            {myLive.map(({ market, challenge, global: isGlobal }) => (isGlobal ? (
+              <div key={challenge.id} className="global-glow-mobile">
+                <GlowRing tone="onLight" />
+                <LiveNowRow challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+              </div>
+            ) : (
               <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
-            ))}
+            )))}
           </div>
         )}
       </RailCard>
@@ -1058,7 +1069,7 @@ export default function GlobalHome() {
               </div>
             </div>
             </div>
-            {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" arriveDelay={0.45} />}
+            {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" arriveDelay={0.08} />}
           </section>
           </Reveal>
           )}

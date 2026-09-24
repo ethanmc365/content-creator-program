@@ -85,6 +85,12 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
   const [range, setRange] = useState('all')
   const [byReferrer, setByReferrer] = useState(null)
   const [stageFilter, setStageFilter] = useState('all')
+  // BUILT FOR A LONG LIST (24 Sep 2026). Ethan: "whenever there are more
+  // referrals, it becomes crowded." A search over both ends of a referral, and
+  // the first fifteen rows with the rest one press away.
+  const [query, setQuery] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const [allReferrers, setAllReferrers] = useState(false)
   // Read once, at mount: the range is "the last N days from when you opened it".
   const [openedAt] = useState(() => Date.now())
 
@@ -238,11 +244,15 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
     const list = data.people
       .filter((p) => !byReferrer || p.referred_by === byReferrer)
       .filter((p) => stageFilter === 'all' || p.stage.key === stageFilter)
+      .filter((p) => {
+        const q = query.trim().toLowerCase()
+        return !q || (p.name || '').toLowerCase().includes(q) || (p.referrer?.name || '').toLowerCase().includes(q)
+      })
     if (sort === 'views') list.sort((a, b) => b.views - a.views)
     else if (sort === 'recent') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     else list.sort((a, b) => b.stage.step - a.stage.step || b.views - a.views)
     return list
-  }, [data, sort, byReferrer, stageFilter])
+  }, [data, sort, byReferrer, stageFilter, query])
 
   if (!data) {
     return (
@@ -314,7 +324,6 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
               Every {terms.per} counted referrals earn the referrer a {formatMoney(terms.amount, terms.currency)} {terms.label}.
             </p>
           </div>
-          <Link to="/admin/referrals" className="btn-secondary !py-2 text-xs">Follow up referrals</Link>
         </div>
         <ol>
           {STEPS.map((step, i) => {
@@ -393,7 +402,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
             <p className="mt-6 text-sm text-smoke">Nobody in {scopeLabel} has shared an invite link yet.</p>
           ) : (
             <ul className="mt-3 space-y-1">
-              {data.leaderboard.slice(0, 8).map((r, i) => {
+              {data.leaderboard.slice(0, allReferrers ? undefined : 6).map((r, i) => {
                 const toNext = r.posted % terms.per
                 const picked = byReferrer === r.referrer.id
                 return (
@@ -431,6 +440,11 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
               })}
             </ul>
           )}
+          {data.leaderboard.length > 6 && (
+            <button type="button" onClick={() => setAllReferrers((v) => !v)} className="mt-2 w-full rounded-xl py-2 text-xs font-semibold text-brand transition-colors hover:bg-cloud/70">
+              {allReferrers ? 'Show the top six' : `Show all ${data.leaderboard.length} referrers`}
+            </button>
+          )}
         </section>
       </div>
 
@@ -455,15 +469,26 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
             </button>
           </div>
         </div>
-        {/* WHERE THEY ARE, AS FILTERS WITH THEIR COUNTS. */}
-        <div className="flex flex-wrap gap-1.5 border-b border-gray-50 px-5 py-3 sm:px-6">
+        {/* WHERE THEY ARE, AS FILTERS WITH THEIR COUNTS, and a search. */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-50 px-5 py-3 sm:px-6">
+          <div className="relative mr-1 w-full sm:w-56">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShowAll(false) }}
+              placeholder="Search either name"
+              aria-label="Search referred creators or who invited them"
+              className="input !h-8 !py-0 !pl-8 text-xs"
+            />
+          </div>
           {[{ key: 'all', label: 'Everyone', n: data.people.length }, ...STAGE_ORDER
             .filter((k) => data.stageCounts[k])
             .map((k) => ({ key: k, label: REFERRAL_STAGES[k].label, n: data.stageCounts[k] }))].map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setStageFilter(f.key)}
+              onClick={() => { setStageFilter(f.key); setShowAll(false) }}
               aria-pressed={stageFilter === f.key}
               className={cx(
                 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-200',
@@ -481,7 +506,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
           </p>
         ) : (
           <ul className="divide-y divide-gray-50">
-            {sorted.map((p, i) => (
+            {(showAll ? sorted : sorted.slice(0, 15)).map((p, i) => (
               <li key={p.id} className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 px-5 py-3.5 transition-colors animate-fade-up hover:bg-cloud/40 sm:grid-cols-[auto_1fr_auto_auto] sm:px-6" style={{ animationDelay: `${Math.min(i, 8) * 45 + 120}ms` }}>
                 <Avatar src={p.photo_url} name={p.name} size="sm" />
                 <div className="min-w-0">
@@ -506,6 +531,12 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
               </li>
             ))}
           </ul>
+        )}
+        {sorted.length > 15 && (
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="flex w-full items-center justify-center gap-1.5 border-t border-gray-50 py-3 text-sm font-semibold text-brand transition-colors hover:bg-cloud/40">
+            {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+            <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-300', showAll && 'rotate-180')} />
+          </button>
         )}
       </section>
     </div>

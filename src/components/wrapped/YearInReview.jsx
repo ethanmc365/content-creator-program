@@ -27,8 +27,10 @@ import Icon from '../Icon'
 // lesson is that a recap celebrates what somebody ACTUALLY did rather than
 // inventing goals to congratulate them for missing.
 
-export default function YearInReview({ data, onExit, autoplay = true }) {
-  const cards = useMemo(() => buildCards(data), [data])
+// REUSED BY THE CHALLENGE RECAP (24 Sep 2026): `build` makes the cards and
+// `Share` draws the closing card; both default to the year's.
+export default function YearInReview({ data, onExit, autoplay = true, build = buildCards, Share = ShareCard, fileStem }) {
+  const cards = useMemo(() => build(data), [data, build])
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(!autoplay)
   const [finished, setFinished] = useState(false)
@@ -132,7 +134,7 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
       const blob = await shoot(onShare ? null : cards[i])
       if (!blob) return
       const part = onShare ? 'card' : (cards[i]?.key || 'card')
-      await downloadBlob(blob, `tryp-${data?.year}-in-review-${slug}-${part}.png`)
+      await downloadBlob(blob, `${fileStem || `tryp-${data?.year}-in-review`}-${slug}-${part}.png`)
       setSaved(true)
       setTimeout(() => setSaved(false), 2200)
     } finally {
@@ -162,7 +164,7 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
         const blob = await shoot(all[n])
         if (!blob) continue
         const part = all[n]?.key || 'card'
-        await downloadBlob(blob, `tryp-${data?.year}-in-review-${slug}-${String(n + 1).padStart(2, '0')}-${part}.png`)
+        await downloadBlob(blob, `${fileStem || `tryp-${data?.year}-in-review`}-${slug}-${String(n + 1).padStart(2, '0')}-${part}.png`)
       }
       setSaved(true)
       setTimeout(() => setSaved(false), 2600)
@@ -306,7 +308,7 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
               largest thing on the opening card, and the recap is only ever
               looked at by the person it is about. The Tryp mark stays. */}
           {onShare
-            ? <ShareCard data={data} className="h-full" />
+            ? <Share data={data} className="h-full" />
             : (
               <Card palette={card?.palette} className="h-full">
                 {card?.render()}
@@ -432,7 +434,7 @@ export default function YearInReview({ data, onExit, autoplay = true }) {
       >
         <div ref={shotRef} style={{ width: 360, height: 640 }}>
           {shotCard === null
-            ? <ShareCard data={data} className="h-full" flush />
+            ? <Share data={data} className="h-full" flush />
             : (
               <Card palette={shotCard?.palette} className="h-full" flush>
                 {shotCard?.render()}

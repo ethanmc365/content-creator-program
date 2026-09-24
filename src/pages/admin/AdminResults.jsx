@@ -14,6 +14,7 @@ import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGroups'
 import { pickClass } from '../../lib/pick'
 import Reveal from '../../components/network/Reveal'
+import { ruleOpenAt } from '../../lib/scoring'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -125,7 +126,7 @@ export default function AdminResults() {
 
   const loadBonuses = useCallback(async () => {
     const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
-      supabase.from('point_rules').select('id, label, points, prompt, min_views, max_points')
+      supabase.from('point_rules').select('id, label, points, prompt, min_views, max_points, starts_at, ends_at')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
       supabase.from('point_awards').select('submission_id, rule_id')
         .eq('challenge_id', id).eq('is_auto', false),
@@ -607,7 +608,7 @@ export default function AdminResults() {
             className="w-[11.5rem] shrink-0"
             ariaLabel="Order entries by"
             options={[
-              { value: 'submitted', label: 'Submission order' },
+              { value: 'submitted', label: 'Newest first' },
               { value: 'views', label: 'Highest views' },
             ]}
           />
@@ -622,12 +623,17 @@ export default function AdminResults() {
           {submissions
             .filter((x) => !showingEarly || isEarly(x))
             .slice()
-            .sort((a, b) => (viewSort === 'views' ? (b.logged_views ?? -1) - (a.logged_views ?? -1) : 0))
+            // NEWEST FIRST (Ethan, 24 Sep 2026: "the most recent one should be
+            // showing first, rather than the oldest ones").
+            .sort((a, b) => (viewSort === 'views'
+              ? (b.logged_views ?? -1) - (a.logged_views ?? -1)
+              : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)))
             .map((s) => (
             <div
               key={s.id}
+              id={`entry-${s.id}`}
               className={cx(
-                'flex flex-wrap items-center gap-4 px-5 py-4 sm:px-7',
+                'flex scroll-mt-24 flex-wrap items-center gap-4 px-5 py-4 transition-shadow sm:px-7',
                 isEarly(s) && 'border-l-4 border-l-red-400 bg-red-50/50',
               )}
             >
@@ -711,6 +717,9 @@ export default function AdminResults() {
                 <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
                   {claimRules.map((r) => {
                     const claimed = claims.some((c) => c.submission_id === s.id && c.rule_id === r.id)
+                    // A bonus that ran for other dates does not apply to this
+                    // entry (migration 256), so an unclaimed chip is noise.
+                    if (!claimed && !ruleOpenAt(r, s.submitted_at)) return null
                     // A GATED BONUS THAT HAS NOT PAID YET IS NOT THE SAME AS ONE
                     // THAT HAS (migration 181). This is the page an admin reads
                     // to answer "were the bonus points applied correctly", and a
@@ -753,6 +762,7 @@ export default function AdminResults() {
                 <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
                   {bonusRules.map((r) => {
                     const given = awarded.has(`${s.id}:${r.id}`)
+                    if (!given && !ruleOpenAt(r, s.submitted_at)) return null
                     const waiting = given && r.min_views > 0 && (s.logged_views ?? 0) < r.min_views
                     return (
                       <button

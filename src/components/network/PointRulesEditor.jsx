@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import { Select } from '../ui'
-import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS } from '../../lib/scoring'
+import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS, challengeWeeks, ruleWindowState, isSavedRuleId } from '../../lib/scoring'
+import { confirm } from '../../lib/confirm'
+import { DateField } from '../DateTimeFields'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
@@ -130,7 +132,7 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
 // phone and stacking them is the honest answer there.
 const ROW_GRID = 'sm:grid sm:grid-cols-[2.25rem_minmax(6rem,1fr)_6.5rem_12rem_2.25rem] sm:items-center'
 
-function Row({ rule, onChange, onRemove }) {
+function Row({ rule, onChange, onRemove, weeks }) {
   const tr = useT()
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
@@ -228,9 +230,10 @@ function Row({ rule, onChange, onRemove }) {
               ? 'border-brand/40 bg-white font-medium text-brand'
               : 'border-gray-200 bg-white text-smoke',
           )}>
-            {rule.prompt?.trim()
-              ? (rule.min_views > 0 ? tr('Claimed, awarded at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('Creator claims it'))
-              : (rule.min_views > 0 ? tr('You award it, counts at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('You award it'))}
+            {/* WHO GIVES IT, AND NOTHING ELSE. It used to add the view gate
+                ("You award it, counts at 200"), which read as a to-do: the
+                gate has its own labelled box in the panel below. */}
+            {rule.prompt?.trim() ? tr('Creator ticks a box') : tr('You award it')}
           </span>
         )}
       </div>
@@ -261,7 +264,8 @@ function Row({ rule, onChange, onRemove }) {
         THE CAP: "for each one they can only get a max of 9 extra points from
         this bonus" - first qualifying entries by submission time. */}
     {rule.kind === 'bonus' && (
-      <div className="mt-2.5 grid gap-3 rounded-xl bg-cloud/70 p-3 sm:ml-[2.875rem] sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]">
+      <div className="mt-2.5 space-y-3 rounded-xl bg-cloud/70 p-3 sm:ml-[2.875rem]">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]">
         <label className="block min-w-0">
           <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Ask the creator when they submit")}</span>
           <input
@@ -284,7 +288,9 @@ function Row({ rule, onChange, onRemove }) {
             />
             <span className="shrink-0 text-xs text-smoke">{tr("views")}</span>
           </span>
-          <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: straight away")}</span>
+          <span className="mt-1 block text-[11px] text-smoke">
+            {rule.min_views > 0 ? tr('Held until the video passes this') : tr('Blank: counts straight away')}
+          </span>
         </label>
         <label className="block">
           <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Most per creator")}</span>
@@ -302,7 +308,108 @@ function Row({ rule, onChange, onRemove }) {
           <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: no limit")}</span>
         </label>
       </div>
+      <BonusWindow rule={rule} onChange={onChange} weeks={weeks} />
+      </div>
     )}
+    </div>
+  )
+}
+
+// WHEN A BONUS RUNS (migration 256).
+//
+// Ethan: "maybe I want the bonus point to run for the whole challenge, or maybe
+// just for a certain period or a certain week... so there's a different bonus
+// point every week." The only way to stop one used to be deleting it, which
+// took everybody's points with it.
+//
+// Three answers, one control: the whole challenge, one of its weeks (worked
+// out from the challenge's own dates, so "Week 2" means the same thing here as
+// it does to a creator), or two dates. It counts for entries SUBMITTED inside
+// the window, and ending it early keeps every point already earned.
+const dayMonth = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+const toLocalYmd = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+// A picked DAY runs from the first minute of the from-day to the last of the
+// until-day, on this computer's clock - the same clock the challenge's own
+// dates are typed in.
+const dayStart = (ymd) => (ymd ? new Date(`${ymd}T00:00:00`).toISOString() : null)
+const dayEnd = (ymd) => (ymd ? new Date(`${ymd}T23:59:00`).toISOString() : null)
+
+function BonusWindow({ rule, onChange, weeks }) {
+  const tr = useT()
+  const weekOf = weeks.find((w) => w.starts_at === rule.starts_at && w.ends_at === rule.ends_at)
+  const [custom, setCustom] = useState(() => !!(rule.starts_at || rule.ends_at) && !weekOf)
+  const choice = custom ? 'custom' : weekOf ? `w${weekOf.n}` : (rule.starts_at || rule.ends_at) ? 'custom' : 'all'
+  const options = [
+    { value: 'all', label: tr('The whole challenge') },
+    ...weeks.map((w) => ({ value: `w${w.n}`, label: `${tr('Week {n}', { n: w.n })}  ·  ${dayMonth(w.starts_at)} to ${dayMonth(w.ends_at)}` })),
+    { value: 'custom', label: tr('Pick the dates') },
+  ]
+  const state = ruleWindowState(rule)
+  const STATE = {
+    upcoming: { text: tr('Starts {d}', { d: rule.starts_at ? dayMonth(rule.starts_at) : '' }), cls: 'bg-white text-smoke ring-1 ring-gray-200' },
+    live: { text: rule.ends_at ? tr('Running, ends {d}', { d: dayMonth(rule.ends_at) }) : tr('Running'), cls: 'bg-brand text-white' },
+    ended: { text: tr('Ended {d}, points kept', { d: rule.ends_at ? dayMonth(rule.ends_at) : '' }), cls: 'bg-ink text-white' },
+  }[state]
+
+  return (
+    <div className="grid gap-3 border-t border-gray-200/70 pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <div className="min-w-0">
+        <span className="mb-1 flex items-center gap-2 text-[11px] font-semibold text-smoke">
+          {tr('When it runs')}
+          {STATE && <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-semibold', STATE.cls)}>{STATE.text}</span>}
+        </span>
+        <Select
+          className="w-full"
+          ariaLabel="When this bonus runs"
+          value={choice}
+          onChange={(v) => {
+            if (v === 'all') { setCustom(false); onChange({ ...rule, starts_at: null, ends_at: null }) }
+            else if (v === 'custom') { setCustom(true) }
+            else {
+              const w = weeks.find((x) => `w${x.n}` === v)
+              setCustom(false)
+              if (w) onChange({ ...rule, starts_at: w.starts_at, ends_at: w.ends_at })
+            }
+          }}
+          options={options}
+        />
+        {choice === 'custom' && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <DateField
+              id={`bonus-from-${rule.id}`}
+              label={tr('From')}
+              value={toLocalYmd(rule.starts_at)}
+              onChange={(ymd) => onChange({ ...rule, starts_at: dayStart(ymd) })}
+            />
+            <DateField
+              id={`bonus-until-${rule.id}`}
+              label={tr('Until the end of')}
+              value={toLocalYmd(rule.ends_at)}
+              min={toLocalYmd(rule.starts_at) || undefined}
+              onChange={(ymd) => onChange({ ...rule, ends_at: dayEnd(ymd) })}
+              futureError="The bonus would end before it starts."
+            />
+          </div>
+        )}
+        <span className="mt-1 block text-[11px] text-smoke">
+          {tr('Counts for entries submitted in this window. Ending it keeps every point already earned.')}
+        </span>
+      </div>
+      {state !== 'ended' && state !== 'upcoming' && (
+        <button
+          type="button"
+          onClick={() => { setCustom(true); onChange({ ...rule, ends_at: new Date().toISOString() }) }}
+          className="btn-secondary !h-[38px] !px-3 !py-0 !text-xs"
+          title={tr('Stop this bonus now. Points already earned stay.')}
+        >
+          <Icon name="clock" className="h-3.5 w-3.5" />
+          {tr('End it now')}
+        </button>
+      )}
     </div>
   )
 }
@@ -353,11 +460,27 @@ function ConsistencyPeriod({ rule, onChange }) {
   )
 }
 
-export default function PointRulesEditor({ rules, onChange, thresholdMode, onThresholdMode }) {
+export default function PointRulesEditor({ rules, onChange, thresholdMode, onThresholdMode, challengeStart, challengeEnd }) {
   const tr = useT()
+  const weeks = challengeWeeks(challengeStart, challengeEnd)
   const add = (kind) => onChange([...rules, newRule(kind)])
   const update = (i, next) => onChange(rules.map((r, j) => (j === i ? next : r)))
-  const remove = (i) => onChange(rules.filter((_, j) => j !== i))
+  // REMOVING A SAVED BONUS TAKES ITS POINTS BACK FROM EVERYBODY (the claims
+  // cascade). That is almost never what "stop this bonus" means, so it says so
+  // and offers the thing that is: end it today and keep what was earned.
+  const remove = async (i) => {
+    const r = rules[i]
+    if (r?.kind === 'bonus' && isSavedRuleId(r.id)) {
+      const endInstead = await confirm(
+        'Removing this bonus takes its points back from everyone who earned them.\n\nTo stop it without losing anybody\'s points, end it today instead.',
+        { title: 'Remove or end this bonus?', confirmLabel: 'End it today, keep points', cancelLabel: 'Remove it' },
+      )
+      if (endInstead) { update(i, { ...r, ends_at: new Date().toISOString() }); return }
+      const sure = await confirm('Every point earned from this bonus will be taken back when you save.', { title: 'Remove the bonus?', confirmLabel: 'Remove it', danger: true })
+      if (!sure) return
+    }
+    onChange(rules.filter((_, j) => j !== i))
+  }
 
   return (
     <div className="space-y-4">
@@ -378,7 +501,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           </div>
         ) : (
           rules.map((r, i) => (
-            <Row key={r.id ?? i} rule={r} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
+            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
           ))
         )}
       </div>

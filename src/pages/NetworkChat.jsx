@@ -38,6 +38,9 @@ import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playInbound } from '../lib/appSounds'
 import IntroInvite from '../components/network/IntroPrompt'
+import IntroCard from '../components/network/IntroCard'
+import { buildIntro, parseLegacyIntro } from '../lib/intro'
+import { loadRelationships } from '../lib/connections'
 import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
@@ -453,6 +456,45 @@ export default function NetworkChat() {
     () => channels.find((c) => c.key === channelKey) || channels[0] || null,
     [channels, channelKey],
   )
+
+  // THE INTRODUCTIONS ROOM DRAWS CARDS (24 Sep 2026). A new intro carries
+  // `intro` (migration 262); an old one is read back out of its text with
+  // parseLegacyIntro, so the whole room looks the same. Each card ends in a
+  // Connect button, so the reader's relationships are loaded once, here.
+  const isIntroRoom = active?.key === 'introductions'
+  const [relations, setRelations] = useState(() => new Map())
+  useEffect(() => {
+    if (!isIntroRoom || !user?.id) return undefined
+    let alive = true
+    loadRelationships(user.id).then((map) => { if (alive && map) setRelations(map) }).catch(() => {})
+    return () => { alive = false }
+  }, [isIntroRoom, user?.id])
+  // AN OLD INTRO GETS THE PROFILE'S FLAGS AND SOCIALS TOO. It was written
+  // before the card existed, so its text has none; the profile has them now.
+  const [introProfiles, setIntroProfiles] = useState(() => new Map())
+  const introSenders = useMemo(
+    () => (isIntroRoom ? [...new Set(messages.filter((m) => !m.intro).map((m) => m.sender_id))].sort().join(',') : ''),
+    [isIntroRoom, messages],
+  )
+  useEffect(() => {
+    if (!introSenders) return undefined
+    let alive = true
+    supabase.from('profiles')
+      .select('id, countries_visited, bucket_list, instagram_url, tiktok_url, youtube_url, facebook_url, languages')
+      .in('id', introSenders.split(','))
+      .then(({ data }) => { if (alive && data) setIntroProfiles(new Map(data.map((p) => [p.id, p]))) })
+    return () => { alive = false }
+  }, [introSenders])
+  const introOf = (m) => {
+    if (m.intro) return m.intro
+    if (!isIntroRoom || m.image_url || m.video_url) return null
+    const legacy = parseLegacyIntro(m.body)
+    if (!legacy) return null
+    const p = introProfiles.get(m.sender_id)
+    if (!p) return legacy
+    const rich = buildIntro(p, {}, {})
+    return { ...legacy, visited: rich.visited, dreams: rich.dreams, socials: rich.socials, stats: { countries: rich.stats.countries, flights: 0, videos: 0 } }
+  }
 
   // THE HEADER'S SEARCH BUTTON SEARCHES THIS ROOM WHILE IT IS OPEN.
   // See lib/chatSearch for why this is a module-level channel rather than a
@@ -1543,8 +1585,13 @@ export default function NetworkChat() {
                         // min-width - see components/MessageEditor.
                         editingId === m.id ? 'w-full' : 'w-fit',
                         'max-w-full rounded-2xl text-sm leading-relaxed',
-                        mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
-                        (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-3.5 py-2',
+                        // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE.
+                        introOf(m) && editingId !== m.id
+                          ? cx('!bg-transparent !p-0 text-ink', mine && 'ml-auto')
+                          : cx(
+                            mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
+                            (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-3.5 py-2',
+                          ),
                       )}
                     >
                       {/* WHAT THIS IS ANSWERING. A reply with no quote is a
@@ -1588,6 +1635,18 @@ export default function NetworkChat() {
                             }}
                           />
                         </div>
+                      ) : introOf(m) && !search ? (
+                        <IntroCard
+                          intro={introOf(m)}
+                          sender={m.profiles}
+                          myId={user?.id}
+                          relation={relations.get(m.sender_id) || null}
+                          onRelation={(id, next) => setRelations((cur) => {
+                            const copy = new Map(cur)
+                            if (next) copy.set(id, next); else copy.delete(id)
+                            return copy
+                          })}
+                        />
                       ) : (
                         m.body && (
                           <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>

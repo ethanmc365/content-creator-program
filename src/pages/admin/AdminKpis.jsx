@@ -8,9 +8,10 @@ import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
 import { confirm } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import {
-  STANDARD_METRICS, adjacentQuarter, currentQuarter, kpiStatus, mergeKpiRows,
-  metricIcon, metricLabel, quarterLabel,
+  STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, kpiStatus, mergeKpiRows,
+  metricIcon, metricLabel, periodLabel,
 } from '../../lib/kpiTracker'
+import Segmented from '../../components/network/Segmented'
 import { useT } from '../../lib/i18n'
 
 // THE KPI TRACKER.
@@ -51,7 +52,19 @@ export default function AdminKpis() {
   const [communities, setCommunities] = useState(null)
   const [managedIds, setManagedIds] = useState(null)
   const [scope, setScope] = useState('')
-  const [{ year, quarter }, setPeriod] = useState(currentQuarter())
+  // A PERIOD IS A QUARTER OR A MONTH (24 Sep 2026). `month` null = the whole
+  // quarter, as every target was before migration 258.
+  const [period, setPeriod] = useState(() => ({ ...currentQuarter(), month: null }))
+  const { year, quarter, month } = period
+  const byMonth = month != null
+  const now = currentMonth()
+  const isCurrent = byMonth
+    ? year === now.year && month === now.month
+    : year === now.year && quarter === now.quarter
+  const step = (delta) => setPeriod(byMonth ? adjacentMonth(year, month, delta) : { ...adjacentQuarter(year, quarter, delta), month: null })
+  const setMode = (m) => setPeriod(m === 'month'
+    ? (year === now.year && quarter === now.quarter ? now : { year, quarter, month: (quarter - 1) * 3 + 1 })
+    : { year, quarter, month: null })
   const [targets, setTargets] = useState(null)
   const [actuals, setActuals] = useState(null)
   const [err, setErr] = useState('')
@@ -85,15 +98,17 @@ export default function AdminKpis() {
     if (!scope) return
     setTargets(null)
     setActuals(null)
+    let tq = supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year).eq('quarter', quarter)
+    tq = byMonth ? tq.eq('month', month) : tq.is('month', null)
     const [t, a] = await Promise.all([
-      supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year).eq('quarter', quarter).order('created_at'),
-      supabase.rpc('kpi_actuals', { p_community_id: scope, p_year: year, p_quarter: quarter }),
+      tq.order('created_at'),
+      supabase.rpc('kpi_actuals', { p_community_id: scope, p_year: year, p_quarter: quarter, ...(byMonth ? { p_month: month } : {}) }),
     ])
     if (t.error) { setErr(t.error.message); setTargets([]); return }
     setErr(a.error ? a.error.message : '')
     setTargets(t.data || [])
     setActuals(a.data || [])
-  }, [scope, year, quarter])
+  }, [scope, year, quarter, month, byMonth])
   useEffect(() => { load() }, [load])
 
   const merged = useMemo(() => (targets ? mergeKpiRows(targets, actuals || []) : null), [targets, actuals])
@@ -102,8 +117,8 @@ export default function AdminKpis() {
   const ready = !!communities && managedIds !== null && merged !== null
 
   const statuses = useMemo(
-    () => (merged || []).map((r) => kpiStatus({ target: r.target_value, actual: r.actual, year, quarter })),
-    [merged, year, quarter],
+    () => (merged || []).map((r) => kpiStatus({ target: r.target_value, actual: r.actual, year, quarter, month })),
+    [merged, year, quarter, month],
   )
   const metCount = statuses.filter((s) => s.status === 'met').length
   const onTrackCount = statuses.filter((s) => s.status === 'on_track').length
@@ -118,15 +133,13 @@ export default function AdminKpis() {
     load()
   }
 
-  const usedMetrics = new Set((targets || []).filter((t) => t.metric !== 'custom').map((t) => t.metric))
-  const canAddStandard = usedMetrics.size < 4
 
   return (
     <div className="page">
       <PageHeader
         back="/admin"
         title={tr('KPI tracker')}
-        subtitle={tr('Set a target for the quarter, and watch it against the real numbers as they land.')}
+        subtitle={tr('Set a target for a quarter or a month, and watch it against the real numbers as they land.')}
       />
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
@@ -163,9 +176,6 @@ export default function AdminKpis() {
                 >
                   {c.kind === 'network' && <Icon name="globe" className="h-3.5 w-3.5" />}
                   {c.name}
-                  {managedIds?.has(c.id) && (
-                    <span className={cx('h-1.5 w-1.5 rounded-full', scope === c.id ? 'bg-white/70' : 'bg-brand/50')} aria-hidden />
-                  )}
                 </button>
               ))}
             </div>
@@ -173,34 +183,43 @@ export default function AdminKpis() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Quarter')}</p>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPeriod(adjacentQuarter(year, quarter, -1))}
-              aria-label={tr('Previous quarter')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
-            >
-              <Icon name="chevronLeft" className="h-4 w-4" />
-            </button>
-            <span className="flex h-9 min-w-[7rem] items-center justify-center rounded-xl bg-brand px-3.5 text-sm font-bold tabular-nums text-white shadow-card">
-              {quarterLabel(year, quarter)}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPeriod(adjacentQuarter(year, quarter, 1))}
-              aria-label={tr('Next quarter')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
-            >
-              <Icon name="chevronRight" className="h-4 w-4" />
-            </button>
-            {(year !== currentQuarter().year || quarter !== currentQuarter().quarter) && (
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Period')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented
+              value={byMonth ? 'month' : 'quarter'}
+              onChange={setMode}
+              size="sm"
+              label={tr('Quarter or month')}
+              options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
+            />
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setPeriod(currentQuarter())}
+                onClick={() => step(-1)}
+                aria-label={byMonth ? tr('Previous month') : tr('Previous quarter')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
+              >
+                <Icon name="chevronLeft" className="h-4 w-4" />
+              </button>
+              <span className="flex h-9 min-w-[9.5rem] items-center justify-center rounded-xl bg-brand px-3.5 text-sm font-bold tabular-nums text-white shadow-card">
+                {periodLabel(period)}
+              </span>
+              <button
+                type="button"
+                onClick={() => step(1)}
+                aria-label={byMonth ? tr('Next month') : tr('Next quarter')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
+              >
+                <Icon name="chevronRight" className="h-4 w-4" />
+              </button>
+            </div>
+            {!isCurrent && (
+              <button
+                type="button"
+                onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
                 className="ml-1 text-xs font-semibold text-brand hoverable:hover:underline"
               >
-                {tr('Jump to this quarter')}
+                {byMonth ? tr('Jump to this month') : tr('Jump to this quarter')}
               </button>
             )}
           </div>
@@ -224,7 +243,7 @@ export default function AdminKpis() {
                 <div className="h-8 w-px bg-white/25" aria-hidden />
                 <p className="max-w-md text-sm text-white/90">
                   {metCount === merged.length
-                    ? tr('Every target for {scope} is met this quarter.', { scope: community?.name })
+                    ? tr('Every target for {scope} is met for {p}.', { scope: community?.name, p: periodLabel(period) })
                     : tr('{n} of {total} targets for {scope} are on track or already met.', { n: metCount + onTrackCount, total: merged.length, scope: community?.name })}
                 </p>
               </div>
@@ -235,11 +254,11 @@ export default function AdminKpis() {
           {merged.length === 0 ? (
             <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
               <Icon name="trophy" className="mx-auto h-8 w-8 text-gray-300" />
-              <p className="mt-3 text-sm font-semibold text-ink">{tr('No targets set for {q} yet', { q: quarterLabel(year, quarter) })}</p>
+              <p className="mt-3 text-sm font-semibold text-ink">{tr('No targets set for {q} yet', { q: periodLabel(period) })}</p>
               <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
                 {canEdit
                   ? tr('Set a target for challenges run, creators recruited, participation, views, or your own KPI.')
-                  : tr('The people leading {scope} have not set any targets for this quarter yet.', { scope: community?.name })}
+                  : tr('The people leading {scope} have not set any targets for {p} yet.', { scope: community?.name, p: periodLabel(period) })}
               </p>
               {canEdit && (
                 <button type="button" onClick={() => setEditing({ community_id: scope })} className="btn-primary mx-auto mt-4">
@@ -256,19 +275,28 @@ export default function AdminKpis() {
                   row={row}
                   year={year}
                   quarter={quarter}
+                  month={month}
                   canEdit={canEdit}
                   onEdit={() => setEditing(row)}
                   onDelete={() => removeTarget(row)}
                 />
               ))}
-              {canEdit && (canAddStandard || true) && (
+              {canEdit && (
+                /* THE ADD CARD IS A CARD (24 Sep 2026). Ethan: "the add KPI
+                   copy doesn't actually fit in it." The dashed box took the
+                   grid row's height from the Reveal wrapper, which does not
+                   stretch it, so on a short row it was shorter than its own
+                   icon and words. It fills its cell now, like the cards. */
                 <button
                   type="button"
                   onClick={() => setEditing({ community_id: scope })}
-                  className="flex min-h-[10rem] flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-gray-200 text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand"
+                  className="flex h-full min-h-[9.5rem] w-full flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-gray-200 px-4 py-5 text-center text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand"
                 >
-                  <Icon name="plus" className="h-6 w-6" strokeWidth={2.2} />
-                  <span className="text-sm font-semibold">{tr('Add a KPI')}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cloud">
+                    <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
+                  </span>
+                  <span className="text-sm font-semibold leading-tight">{tr('Add a KPI')}</span>
+                  <span className="text-[11px] leading-snug text-gray-400">{tr('for {p}', { p: periodLabel(period) })}</span>
                 </button>
               )}
             </Reveal>
@@ -280,7 +308,7 @@ export default function AdminKpis() {
               "are we on track right now"; a year answers "is this market
               actually growing", which needs all four numbers side by side,
               not four separate page loads to compare by memory. */}
-          <YearOverview scope={scope} year={year} />
+          <YearOverview scope={scope} year={year} byMonth={byMonth} />
         </>
       )}
 
@@ -290,6 +318,7 @@ export default function AdminKpis() {
           communityName={community?.name || ''}
           year={year}
           quarter={quarter}
+          month={month}
           profileId={profile?.id}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
@@ -308,36 +337,46 @@ export default function AdminKpis() {
 // target in some quarters still gets a full row; the quarters it has
 // nothing for are simply blank, not zero (a market that started setting KPIs
 // in Q3 did not "miss" Q1 and Q2 - it was not tracking yet).
-function YearOverview({ scope, year }) {
+// THE YEAR AT A GLANCE: four quarters, or twelve months when the page is on
+// months. One query for the year's targets, then the live numbers only for the
+// periods that actually have one.
+function YearOverview({ scope, year, byMonth }) {
   const tr = useT()
-  const [byQuarter, setByQuarter] = useState(null)
+  const [byPeriod, setByPeriod] = useState(null)
+  const periods = useMemo(() => (byMonth
+    ? Array.from({ length: 12 }, (_, i) => ({ key: i + 1, year, quarter: Math.floor(i / 3) + 1, month: i + 1, short: MONTH_SHORT[i] }))
+    : [1, 2, 3, 4].map((q) => ({ key: q, year, quarter: q, month: null, short: `Q${q}` }))), [year, byMonth])
 
   useEffect(() => {
     if (!scope) return undefined
     let alive = true
-    setByQuarter(null)
-    Promise.all([1, 2, 3, 4].map(async (q) => {
-      const [t, a] = await Promise.all([
-        supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year).eq('quarter', q),
-        supabase.rpc('kpi_actuals', { p_community_id: scope, p_year: year, p_quarter: q }),
-      ])
-      return { quarter: q, rows: mergeKpiRows(t.data || [], a.data || []) }
-    })).then((results) => { if (alive) setByQuarter(results) })
+    setByPeriod(null)
+    ;(async () => {
+      let tq = supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year)
+      tq = byMonth ? tq.not('month', 'is', null) : tq.is('month', null)
+      const { data: all } = await tq
+      const results = await Promise.all(periods.map(async (p) => {
+        const mine = (all || []).filter((t) => (byMonth ? t.month === p.month : t.quarter === p.quarter))
+        if (mine.length === 0) return { key: p.key, rows: [] }
+        const { data: a } = await supabase.rpc('kpi_actuals', {
+          p_community_id: scope, p_year: year, p_quarter: p.quarter, ...(byMonth ? { p_month: p.month } : {}),
+        })
+        return { key: p.key, rows: mergeKpiRows(mine, a || []) }
+      }))
+      if (alive) setByPeriod(results)
+    })()
     return () => { alive = false }
-  }, [scope, year])
+  }, [scope, year, byMonth, periods])
 
   const metrics = useMemo(() => {
-    if (!byQuarter) return null
-    // One entry per distinct (metric, label) across all four quarters, each
-    // carrying whichever quarters actually have a target - in
-    // STANDARD_METRICS order first, customs after, matching the main grid.
+    if (!byPeriod) return null
     const order = new Map(STANDARD_METRICS.map((m, i) => [m.key, i]))
     const byKey = new Map()
-    for (const { quarter, rows } of byQuarter) {
+    for (const { key: pk, rows } of byPeriod) {
       for (const row of rows) {
         const key = `${row.metric}:${row.label}`
-        if (!byKey.has(key)) byKey.set(key, { metric: row.metric, label: row.label, quarters: {} })
-        byKey.get(key).quarters[quarter] = row
+        if (!byKey.has(key)) byKey.set(key, { metric: row.metric, label: row.label, periods: {} })
+        byKey.get(key).periods[pk] = row
       }
     }
     return [...byKey.values()].sort((a, b) => {
@@ -345,21 +384,25 @@ function YearOverview({ scope, year }) {
       const rb = order.has(b.metric) ? order.get(b.metric) : 99
       return ra !== rb ? ra - rb : a.label.localeCompare(b.label)
     })
-  }, [byQuarter])
+  }, [byPeriod])
 
   return (
     <div className="mt-8">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Year overview · {y}', { y: String(year) })}</p>
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+        {byMonth ? tr('Month by month · {y}', { y: String(year) }) : tr('Year overview · {y}', { y: String(year) })}
+      </p>
       {!metrics ? (
         <Skeleton className="h-40 w-full rounded-card" />
       ) : metrics.length === 0 ? (
         <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">
-          {tr('Nothing to compare yet - set a target in at least one quarter of {y}.', { y: String(year) })}
+          {byMonth
+            ? tr('Nothing to compare yet - set a target for at least one month of {y}.', { y: String(year) })
+            : tr('Nothing to compare yet - set a target in at least one quarter of {y}.', { y: String(year) })}
         </div>
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
           {metrics.map((m, i) => (
-            <YearRow key={`${m.metric}:${m.label}`} metric={m} year={year} last={i === metrics.length - 1} />
+            <YearRow key={`${m.metric}:${m.label}`} metric={m} periods={periods} last={i === metrics.length - 1} />
           ))}
         </div>
       )}
@@ -367,45 +410,48 @@ function YearOverview({ scope, year }) {
   )
 }
 
-function YearRow({ metric, year, last }) {
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function YearRow({ metric, periods, last }) {
   const tr = useT()
-  const quarters = [1, 2, 3, 4]
-  const totalTarget = quarters.reduce((s, q) => s + (metric.quarters[q]?.target_value ?? 0), 0)
-  const totalActual = quarters.reduce((s, q) => s + (metric.quarters[q] ? metric.quarters[q].actual : 0), 0)
-  const anyTarget = quarters.some((q) => metric.quarters[q])
+  const rows = periods.map((p) => metric.periods[p.key])
+  const totalTarget = rows.reduce((s, r) => s + (r?.target_value ?? 0), 0)
+  const totalActual = rows.reduce((s, r) => s + (r ? r.actual : 0), 0)
+  const anyTarget = rows.some(Boolean)
   const isViews = metric.metric === 'views'
+  const many = periods.length > 4
 
   return (
     <div className={cx('flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5', !last && 'border-b border-gray-100')}>
       <div className="flex items-center gap-2.5 sm:w-48 sm:shrink-0">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-          <Icon name={metric.metric === 'custom' ? 'sparkles' : STANDARD_METRICS.find((s) => s.key === metric.metric)?.icon || 'sparkles'} className="h-4 w-4" />
+          <Icon name={metric.metric === 'custom' ? 'sparkles' : STANDARD_METRICS.find((st) => st.key === metric.metric)?.icon || 'sparkles'} className="h-4 w-4" />
         </span>
         <span className="truncate text-sm font-semibold text-ink">{metric.label}</span>
       </div>
 
-      <div className="grid flex-1 grid-cols-4 gap-2">
-        {quarters.map((q) => {
-          const row = metric.quarters[q]
+      <div className={cx('grid flex-1 gap-1.5', many ? 'grid-cols-6 sm:grid-cols-12' : 'grid-cols-4 gap-2')}>
+        {periods.map((p) => {
+          const row = metric.periods[p.key]
           if (!row) {
             return (
-              <div key={q} className="flex flex-col items-center gap-1">
+              <div key={p.key} className="flex flex-col items-center gap-1">
                 <div className="flex h-14 w-full items-end justify-center rounded-lg bg-cloud/60">
-                  <span className="pb-1.5 text-[10px] text-gray-300">—</span>
+                  <span className="pb-1.5 text-[10px] text-gray-300">-</span>
                 </div>
-                <span className="text-[10px] font-semibold uppercase text-gray-300">{tr('Q{q}', { q: String(q) })}</span>
+                <span className="text-[10px] font-semibold uppercase text-gray-300">{p.short}</span>
               </div>
             )
           }
-          const { status, pct } = kpiStatus({ target: row.target_value, actual: row.actual, year, quarter: q })
+          const { status, pct } = kpiStatus({ target: row.target_value, actual: row.actual, year: p.year, quarter: p.quarter, month: p.month })
           const style = STATUS_STYLE[status]
           const fillPct = Math.max(6, Math.min(100, Math.round(pct * 100)))
           return (
-            <div key={q} className="flex flex-col items-center gap-1">
+            <div key={p.key} className="flex flex-col items-center gap-1">
               <div className="flex h-14 w-full items-end overflow-hidden rounded-lg bg-cloud" title={`${formatMetricValue(row, row.actual)} / ${formatMetricValue(row, row.target_value)}`}>
                 <div className={cx('w-full rounded-t-md transition-[height] duration-500 ease-out', style.bar)} style={{ height: `${fillPct}%` }} />
               </div>
-              <span className="text-[10px] font-semibold uppercase text-gray-400">{tr('Q{q}', { q: String(q) })}</span>
+              <span className="text-[10px] font-semibold uppercase text-gray-400">{p.short}</span>
             </div>
           )
         })}
@@ -413,7 +459,7 @@ function YearRow({ metric, year, last }) {
 
       <div className="text-right sm:w-32 sm:shrink-0">
         <p className="text-sm font-bold tabular-nums text-ink">
-          {anyTarget ? (isViews ? formatViews(totalActual) : totalActual.toLocaleString()) : '—'}
+          {anyTarget ? (isViews ? formatViews(totalActual) : totalActual.toLocaleString()) : '-'}
         </p>
         <p className="text-[11px] text-gray-400">
           {anyTarget ? tr('of {t} for the year', { t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString() }) : tr('no targets yet')}
@@ -441,9 +487,9 @@ function formatMetricValue(row, value) {
 // fill runs to 100% at the target and keeps counting in the LABEL past it -
 // a KPI hit at 140% is worth celebrating, not clipping off at a full bar
 // that looks identical to one hit at exactly 100%.
-function KpiCard({ row, year, quarter, canEdit, onEdit, onDelete }) {
+function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
   const tr = useT()
-  const { status, pct, progress } = kpiStatus({ target: row.target_value, actual: row.actual, year, quarter })
+  const { status, pct, progress } = kpiStatus({ target: row.target_value, actual: row.actual, year, quarter, month })
   const style = STATUS_STYLE[status]
   const fillPct = Math.min(100, Math.round(pct * 100))
 

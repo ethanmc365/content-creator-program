@@ -81,6 +81,27 @@ async function callAuthGate(body) {
   }
 }
 
+// THE PROFILE FROM LAST TIME, SO THE APP DRAWS BEFORE THE NETWORK ANSWERS
+// (24 Sep 2026). Ethan: "currently the loading time is like a second, which is
+// too long." Every app open waited on a profile round trip before the route
+// guard would draw a single page. The last profile this device saw is used the
+// moment the stored session says it is the same person; the real one is
+// fetched straight after and replaces it. Nothing is trusted from it that the
+// server does not re-check: every read and write still goes through RLS.
+const PROFILE_CACHE = 'tryp_profile_cache_v1'
+function readCachedProfile(userId) {
+  try {
+    const c = JSON.parse(localStorage.getItem(PROFILE_CACHE) || 'null')
+    return c && c.id === userId && c.data ? c.data : null
+  } catch { return null }
+}
+function writeCachedProfile(p) {
+  try {
+    if (p?.id) localStorage.setItem(PROFILE_CACHE, JSON.stringify({ id: p.id, data: p }))
+    else localStorage.removeItem(PROFILE_CACHE)
+  } catch { /* private mode or full */ }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfileState] = useState(null)
@@ -98,6 +119,7 @@ export function AuthProvider({ children }) {
     // the name and the IP.
     identifyForMonitoring(p?.id || null)
     setProfileState(p)
+    writeCachedProfile(p)
   }, [])
   const [loading, setLoading] = useState(true) // true until the first session check resolves
   // Whether the profile fetch for the CURRENT user has resolved. The route
@@ -449,6 +471,14 @@ export function AuthProvider({ children }) {
         reconcileImpersonation(session)
         if (session?.user) {
           upgradeLegacyToken(session)
+          // Draw now from last time's profile; loadProfile replaces it.
+          const cached = readCachedProfile(session.user.id)
+          if (cached && loadedForUser.current !== session.user.id) {
+            setProfileState(cached)
+            adoptTestDataVisibility(cached)
+            loadedForUser.current = session.user.id
+            setProfileLoaded(true)
+          }
           loadProfile(session.user.id)
         } else {
           setProfileLoaded(true)

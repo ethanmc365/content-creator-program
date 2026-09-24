@@ -7,6 +7,7 @@ import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import Icon from '../components/Icon'
+import BackLink from '../components/BackLink'
 import { Avatar, Badge, EmptyState, Select } from '../components/ui'
 import { confirm, notice, promptText } from '../lib/confirm'
 import { COUNTRIES } from '../lib/countries'
@@ -540,9 +541,12 @@ export default function GlobalSettings() {
       <NetworkLayout>
         <motion.div {...pageFade} className="space-y-9">
           <section>
-            <Link to="/global" className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
-              <Icon name="chevronLeft" className="h-4 w-4" /> Worldwide
-            </Link>
+            {/* BACK GOES WHERE YOU CAME FROM (24 Sep 2026). Ethan: "if I'm on
+                manage markets in the admin panel and I click the back button,
+                it brings me back to worldwide rather than the admin panel." It
+                was a hard link to /global; this page is opened from the admin
+                panel, so history first and the admin panel as the fallback. */}
+            <BackLink to="/admin" label="Back" />
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Manage markets</h1>
           </section>
 

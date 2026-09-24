@@ -11,7 +11,6 @@ import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
-import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
 import Referrals from './analytics/Referrals'
 import ErrorWatch from '../../components/admin/ErrorWatch'
@@ -51,10 +50,6 @@ const TABS = [
   { key: 'referrals', label: 'Referrals' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
-  // Community network folded in from its own admin page. "How connected is the
-  // community" and "how is the community doing" were two doors onto the same
-  // question, and one of them was a tile on the panel.
-  { key: 'network', label: 'Connections' },
   // ERRORS GET THEIR OWN TAB (8 Sep 2026). Ethan: "I wouldn't put that at the
   // bottom of [community health] and would rather have a new tab for it, and
   // actually build it properly." It was a panel at the foot of a long page,
@@ -162,7 +157,7 @@ export default function AdminAnalytics() {
         // `community_id` is what makes a market's challenge list a real list.
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
-        supabase.from('challenges').select('id, title, status, start_date, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
+        supabase.from('challenges').select('id, title, status, start_date, end_date, scoring, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
         // THE PROGRAMME DID NOT START WHEN THE PLATFORM DID. Forty-nine
         // challenges ran on a spreadsheet before this existed (migrations
         // 197/198). Without them the Overview - the first screen anybody opens -
@@ -416,7 +411,9 @@ export default function AdminAnalytics() {
     const totalPaid = cashPaid + voucherPaid
     const liveViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
     const totalViews = liveViews + histViews
-    const verifiedViews = results.reduce((s, r) => s + (r.final_views || 0), 0)
+    // A points board keeps its SCORE in `final_views`, so it is not a view count.
+    const pointsBoards = new Set(challenges.filter((c) => c.scoring === 'points').map((c) => c.id))
+    const verifiedViews = results.filter((r) => !pointsBoards.has(r.challenge_id)).reduce((s, r) => s + (r.final_views || 0), 0)
     // The programme's cash: what the reward ledger knows about, plus what the
     // spreadsheet recorded before there was a ledger.
     const programmeCash = cashPaid + histPrize
@@ -538,7 +535,9 @@ export default function AdminAnalytics() {
   // of material on its own: what is happening, what the money bought, and
   // whether the community is actually alive. The tab is in the URL so a link to
   // "the CPM table" lands on the CPM table.
-  const tab = params.get('tab') || 'overview'
+  // `network` was the Connections tab; it is a section of Community health
+  // now (24 Sep 2026), so an old link lands there.
+  const tab = params.get('tab') === 'network' ? 'community' : (params.get('tab') || 'overview')
   const setCurrency = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next === 'EUR') delete q.ccy; else q.ccy = next
@@ -750,7 +749,7 @@ export default function AdminAnalytics() {
           back="/admin" title="Analytics" subtitle="What the programme costs and what it returns." />
         {tabBar}
         {filterBar}
-        <ProgrammePerformance market={marketName} currency={currency} />
+        <ProgrammePerformance market={marketName} currency={currency} mode="list" />
       </div>
     )
   }
@@ -780,16 +779,6 @@ export default function AdminAnalytics() {
             scope that cannot change the answer is a control that teaches people
             the controls do not work. */}
         <ErrorWatch />
-      </div>
-    )
-  }
-  if (tab === 'network') {
-    return (
-      <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle={`Who is connecting with whom in ${scopeLabel}, and who holds the community together.`} />
-        {tabBar}
-        {filterBar}
-        <AdminNetwork market={market} memberRows={raw?.memberRows || []} />
       </div>
     )
   }
@@ -824,7 +813,7 @@ export default function AdminAnalytics() {
           hint={derived.totals.unmeasuredChallenges
             ? `${derived.totals.unmeasuredChallenges} with no views logged`
             : 'live and logged'}
-          onClick={() => navigate('/admin/challenges/history')}
+          onClick={() => setTab('programme')}
         />
         <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
         <StatCard
@@ -849,6 +838,15 @@ export default function AdminAnalytics() {
           value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'}
           hint="cash and vouchers per 1,000 views"
         />
+      </div>
+
+      {/* ---- Programme economics ----
+          Was the Challenges tab's "Summary" view, and nearly all of it
+          repeated these tiles (24 Sep 2026). What it had that the Overview did
+          not - the ratios, the month-by-month charts and the breakdowns - is
+          here now, under the tiles, and the Challenges tab is just the list. */}
+      <div className="mb-10">
+        <ProgrammePerformance market={marketName} currency={currency} mode="summary" />
       </div>
 
       {/* ---- Funnel + community health ---- */}
@@ -886,7 +884,7 @@ export default function AdminAnalytics() {
         <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />
           <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint="all-time, all modes" onClick={() => navigate('/game')} />
-          <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => navigate('/admin/network')} />
+          <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => setTab('community')} />
           <StatCard label="Trips posted" value={derived.activity7d.tripsPosted} hint="collab board" onClick={() => navigate('/collab')} />
         </div>
       </div>

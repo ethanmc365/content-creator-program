@@ -138,3 +138,19 @@ describe('templateSummary', () => {
     expect(templateSummary({})).toBe('')
   })
 })
+
+describe('what the 24 Sep 2026 report found missing', () => {
+  it('keeps whether taking part is counted in videos or points', () => {
+    const p = templateFromForm({ participation_threshold: 18, participation_basis: 'points' })
+    expect(formFromTemplate(p).form).toMatchObject({ participation_threshold: 18, participation_basis: 'points' })
+  })
+
+  it('keeps the timezone but never a bonus\'s dates', () => {
+    const p = templateFromForm({ tz: 'Europe/Lisbon' }, [
+      { id: 'x', kind: 'bonus', label: 'Week 2', points: 3, starts_at: '2026-09-28T00:00:00Z', ends_at: '2026-10-04T22:59:00Z' },
+    ])
+    expect(p.tz).toBe('Europe/Lisbon')
+    expect(p.point_rules[0]).not.toHaveProperty('starts_at')
+    expect(p.point_rules[0]).not.toHaveProperty('ends_at')
+  })
+})

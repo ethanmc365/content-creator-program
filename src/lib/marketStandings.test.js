@@ -58,8 +58,41 @@ describe('market standings', () => {
     expect(monthLabel('2026-08')).toBe('August 2026')
   })
 
-  it('lists every month the record touches, newest first', () => {
-    expect(monthsInRecord(raw)).toEqual(['2026-04', '2026-03'])
+  it('lists every month from the first through this one, newest first', () => {
+    expect(monthsInRecord(raw, new Date('2026-04-15T00:00:00Z'))).toEqual(['2026-04', '2026-03'])
+    // A month with nothing in it yet still appears once it is here.
+    expect(monthsInRecord(raw, new Date('2026-06-02T00:00:00Z'))).toEqual(['2026-06', '2026-05', '2026-04', '2026-03'])
+  })
+
+  it('counts a challenge in every month it ran in', () => {
+    const spanning = {
+      ...raw,
+      history: [{ community_id: SPAIN, starts_at: '2026-07-15', ends_at: '2026-08-15', title: 'Summer', total_views: 10_000, posts: 5, creators: 2, prize_total: 50, prize_currency: 'EUR' }],
+      challenges: [], submissions: [], rewards: [],
+    }
+    expect(bySlug(marketStandings(spanning, { month: '2026-07' }), 'spain').challenges).toBe(1)
+    expect(bySlug(marketStandings(spanning, { month: '2026-08' }), 'spain').challenges).toBe(1)
+    expect(bySlug(marketStandings(spanning, {}), 'spain').challenges).toBe(1)
+  })
+
+  it('counts a worldwide platform challenge for each entrant\'s market', () => {
+    const global = {
+      ...raw,
+      history: [],
+      challenges: [{ id: 'g', community_id: 'ww', status: 'active', scoring: 'points', start_date: '2026-09-21T00:00:00Z', end_date: '2026-10-18T22:59:00Z', title: 'Global', prize_amount: 600, prize_currency: 'EUR' }],
+      submissions: [
+        { challenge_id: 'g', creator_id: 'p1', logged_views: 1000 },
+        { challenge_id: 'g', creator_id: 'p3', logged_views: 500 },
+      ],
+      // A points board's results hold the SCORE, not views.
+      results: [{ challenge_id: 'g', final_views: 7 }],
+      rewards: [],
+    }
+    const sept = marketStandings(global, { month: '2026-09' })
+    expect(bySlug(sept, 'spain').views).toBe(1000)
+    expect(bySlug(sept, 'uk').views).toBe(500)
+    expect(bySlug(sept, 'spain').spend).toBe(300)
+    expect(bySlug(marketStandings(global, { month: '2026-10' }), 'uk').challenges).toBe(1)
   })
 
   it('ranks by views, all time', () => {
@@ -151,25 +184,12 @@ describe('market standings', () => {
 })
 
 describe('openingMonth', () => {
-  const months = ['2026-09', '2026-08', '2026-07']   // newest first, as monthsInRecord returns
-  it('opens on the current month when the record has it', () => {
-    expect(openingMonth(null, months, new Date('2026-09-20T10:00:00Z'))).toBe('2026-09')
-  })
-  it('falls back to the newest month rather than showing an empty table', () => {
-    // 1 Oct: nothing has run this month yet, so open on September rather than
-    // on a provably empty table.
-    expect(openingMonth(null, months, new Date('2026-10-01T10:00:00Z'))).toBe('2026-09')
-  })
-  it('opens on all time when there is no record at all', () => {
-    expect(openingMonth(null, [], new Date('2026-09-20T10:00:00Z'))).toBe('')
-  })
-  it('an explicit All time choice sticks and is not re-defaulted', () => {
-    expect(openingMonth('', months, new Date('2026-09-20T10:00:00Z'))).toBe('')
+  it('opens on all time', () => {
+    expect(openingMonth(null)).toBe('')
+    expect(openingMonth(undefined)).toBe('')
   })
   it('an explicit month choice sticks', () => {
-    expect(openingMonth('2026-07', months, new Date('2026-09-20T10:00:00Z'))).toBe('2026-07')
-  })
-  it('pads a single-digit month so it matches the record keys', () => {
-    expect(openingMonth(null, ['2026-03'], new Date('2026-03-04T10:00:00Z'))).toBe('2026-03')
+    expect(openingMonth('2026-07')).toBe('2026-07')
+    expect(openingMonth('')).toBe('')
   })
 })

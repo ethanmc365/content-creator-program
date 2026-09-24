@@ -645,6 +645,21 @@ html {
       transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: calc(var(--reveal-base, 0ms) + var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
+  /* ON A PHONE, A LITTLE FURTHER AND A LITTLE SLOWER (24 Sep 2026). Ethan:
+     "on mobile... everything just appears kind of all of a sudden... it
+     happens too fast." A 375px screen shows a card at almost full width, so
+     24px of travel is a smaller share of what the eye sees than on a desktop,
+     and 720ms read as a blink. 32px over 860ms with a softer curve reads as
+     the card gliding into place. Dense lists keep their own rule below. */
+  @media (max-width: 639px) {
+    .reveal:not(.reveal-dense) > .reveal-item { transform: translate3d(0, 32px, 0); }
+    .reveal:not(.reveal-dense)[data-from='down'] > .reveal-item { transform: translate3d(0, -32px, 0); }
+    .reveal:not(.reveal-dense).is-in > .reveal-item,
+    .reveal:not(.reveal-dense) > .reveal-item.is-in {
+      transition-duration: 860ms, 860ms;
+      transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
   /* A DENSE LIST LANDS; IT DOES NOT TRAVEL. See the `dense` prop in Reveal.
      Twenty conversation rows at 24px over 720ms, each promised its own
      compositor layer while its avatar is still decoding, is the "laggy and
@@ -2767,11 +2782,8 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
    their first frame until the Reveal says the section is on screen. (The
    counters already follow the card through lib/revealContext.)
    ------------------------------------------------------------------------- */
-.reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .global-glow, .global-glow-mobile),
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::before,
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow::after,
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::before,
-.reveal:not(.is-in) > .reveal-item:not(.is-in) .global-glow-mobile::after {
+.reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .glow-ring),
+.reveal:not(.is-in) > .reveal-item:not(.is-in) .glow-ring::before {
   animation-play-state: paused;
 }
 
@@ -2788,15 +2800,23 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   transform-origin: top center;
 }
 
-/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER,
-   REWRITTEN A FOURTH TIME AND MADE MUCH SIMPLER (23 Sep 2026) - see
-   components/network/GlowRing.jsx for why. In short: a rotating conic
-   gradient repaints every frame forever, a blurred halo in its own
-   `isolation: isolate` context is what actually produced the "weird orange
-   square" on some mobile browsers, and Ethan asked for fewer, simpler
-   animations after the third rewrite made the page feel slower rather than
-   better. `.global-glow`/`.global-glow-mobile` are still just positioning
-   contexts; `.glow-ring` is now the ONLY element, animating ONLY opacity. */
+/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER.
+   Fifth pass (24 Sep 2026). Ethan: "We lost the animated glow that was going
+   around the card. Can you add that back in?" The fourth pass had made it a
+   flat breathing ring because the page felt laggy - but the lag was a leaking
+   counter animation (fixed in the same commit), not this. So the light runs
+   round again, built the one way that is cheap enough to run forever:
+
+   - ONE layer, a STATIC conic gradient painted once, turned by `transform`
+     only. The compositor rotates a finished bitmap; nothing is repainted per
+     frame. (Animating the gradient's ANGLE repaints every frame - that was
+     pass one.)
+   - NO blur halo and NO mask. The blurred halo in its own stacking context is
+     what drew the "weird orange square" on some phones; the ring is simply what
+     peeks out from behind the card's own opaque background.
+   - The spinning square is centred and 150% of the card's WIDTH on each side,
+     so no corner of it ever swings into the visible 3px band on a wide card.
+   `.global-glow` / `.global-glow-mobile` are positioning contexts only. */
 .global-glow,
 .global-glow-mobile {
   position: relative;
@@ -2809,37 +2829,51 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   border-radius: calc(var(--glow-r, 1rem) + 3px);
   pointer-events: none;
   z-index: -1;
+  overflow: hidden;
   opacity: 0;
-  animation: glow-in 0.5s ease-out 0.2s forwards, glow-pulse 3.4s ease-in-out 0.7s infinite;
+  animation: glow-in 0.45s ease-out 0.1s forwards;
+}
+.glow-ring::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: glow-spin 4.2s linear infinite;
+  will-change: transform;
 }
 @keyframes glow-in { to { opacity: 1; } }
-/* A SLOW BREATH, NOT A CHASE. It is the whole animation now - one property,
-   one layer - and it still reads as "this card is alive" without asking the
-   browser to do anything more than fade a flat colour up and down. */
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.65; }
-  50% { opacity: 1; }
+@keyframes glow-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* `onOrange`: pale, for a card whose surrounding few pixels are themselves
-   painted orange (the global challenge strip, the big live challenge card
-   on /challenges). */
-.glow-ring--onOrange {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 196, 150, 0.55));
+/* `onOrange`: white, for a card whose surrounding pixels are orange. A faint
+   constant edge underneath, and two bright arcs chasing round on top. */
+.glow-ring--onOrange { background: rgba(255, 255, 255, 0.35); }
+.glow-ring--onOrange::before {
+  background: conic-gradient(
+    rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, 1) 60deg, rgba(255, 214, 184, 1) 95deg,
+    rgba(255, 255, 255, 0) 150deg, rgba(255, 255, 255, 0) 180deg, rgba(255, 255, 255, 1) 240deg,
+    rgba(255, 214, 184, 1) 275deg, rgba(255, 255, 255, 0) 330deg, rgba(255, 255, 255, 0) 360deg
+  );
 }
-/* `onLight`: warm brand orange, for a card that sits directly on the page's
-   white background - a white light on a white page is invisible, which was
-   the original report this whole file exists to answer. */
-.glow-ring--onLight {
-  background: linear-gradient(135deg, rgba(217, 68, 7, 0.8), rgba(245, 133, 63, 0.45));
+/* `onLight`: brand orange, for a card on the page's white background - a
+   white light on a white page is invisible. */
+.glow-ring--onLight { background: rgba(217, 68, 7, 0.22); }
+.glow-ring--onLight::before {
+  background: conic-gradient(
+    rgba(245, 133, 63, 0) 0deg, rgba(245, 133, 63, 1) 60deg, rgba(217, 68, 7, 1) 95deg,
+    rgba(245, 133, 63, 0) 150deg, rgba(245, 133, 63, 0) 180deg, rgba(245, 133, 63, 1) 240deg,
+    rgba(217, 68, 7, 1) 275deg, rgba(245, 133, 63, 0) 330deg, rgba(245, 133, 63, 0) 360deg
+  );
 }
 
 @media (prefers-reduced-motion: reduce) {
   .strip-board { animation: none; clip-path: none; }
   .glow-ring { animation: none; opacity: 0.85; }
+  .glow-ring::before { animation: none; }
 }
 
-/* VoucherTicket's perforation notches are holes, so they wear the PAGE's
-   colour, not a card's - white on the light theme, --d-bg on the dark one. */
-.ticket-notch { background-color: #fff; }
-html[data-theme='dark'] .ticket-notch { background-color: var(--d-bg); }
+

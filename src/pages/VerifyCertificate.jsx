@@ -155,7 +155,7 @@ function Ask({ typed, setTyped, busy, onSubmit }) {
       <label htmlFor="serial" className="label">The code on the certificate</label>
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[200px] flex-1">
-          <Icon name="search" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+          <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
           <input
             id="serial"
             value={typed}

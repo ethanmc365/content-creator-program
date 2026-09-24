@@ -15,7 +15,9 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import CollapsibleRich from '../components/CollapsibleRich'
 import { useMyScopes } from '../lib/scope'
-import ScoringPanel from '../components/network/ScoringPanel'
+import ScoringPanel, { usePointRules } from '../components/network/ScoringPanel'
+import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPointsCard'
+import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
@@ -26,6 +28,7 @@ import { podiumTier, placeNumber } from '../lib/podiumTiers'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { ruleOpenAt } from '../lib/scoring'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -114,6 +117,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const isMobile = useIsMobile()
   const [playing, setPlaying] = useState(null) // submission being watched inline
   const [feedback, setFeedback] = useState({}) // submission id -> the team's note
+  // The scoring rules, fetched once: the view ladder (ScoringPanel) and the
+  // bonus card in the rail both read them. See usePointRules.
+  const pointRules = usePointRules(challenge)
   // Captured once so it stays pure during render; a fresh page load re-reads it.
   const [nowMs] = useState(() => Date.now())
 
@@ -228,7 +234,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
       supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
       supabase.from('point_rules')
-        .select('id, label, points, prompt, min_views')
+        .select('id, label, points, prompt, min_views, starts_at, ends_at')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
         .not('prompt', 'is', null).order('position'),
       supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
@@ -629,6 +635,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     claimsBySubmission.get(c.submission_id).add(c.rule_id)
   }
   const bonusById = new Map(bonusRules.map((r) => [r.id, r]))
+  // A BONUS CAN RUN FOR PART OF THE CHALLENGE (migration 256). The submit form
+  // offers only the ones open right now; an entry can claim one only if it was
+  // submitted inside that bonus's dates, which is also what the database checks.
+  const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
+  const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
   // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
   //
@@ -852,6 +863,24 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         />
       )}
 
+      {/* THE RECAP, ONCE IT IS OVER (24 Sep 2026). A finished challenge you
+          entered opens with your own story of it - see pages/ChallengeRecap. */}
+      {!isLive && challenge.status !== 'draft' && myEntries.length > 0 && (
+        <Link
+          to={`/challenges/${challenge.id}/recap`}
+          className="animate-fade-up group mb-8 flex items-center gap-4 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white shadow-card transition-transform duration-200 hover:-translate-y-0.5"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <Icon name="sparkles" className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-bold leading-tight">{tr('Your recap is ready')}</span>
+            <span className="block text-xs text-white/85">{tr('Where you placed, your top videos and what you made, ready to share.')}</span>
+          </span>
+          <Icon name="chevronRight" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
+        </Link>
+      )}
+
       {/* THE TABS ARE BUTTONS, NOT UNDERLINED WORDS (2 Sep 2026).
           Ethan: "make the brief and entries tabs more visual, more clickable."
           A 2px underline under grey text is the quietest control this app
@@ -896,6 +925,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
+      {tab !== 'leaderboard' && (
+        <LiveBonusCallout
+          rules={pointRules}
+          now={nowMs}
+          onOpen={() => {
+            setTab('brief')
+            setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+          }}
+        />
+      )}
       {tab === 'leaderboard' && (
         <BoardStatus
           key={challenge.results_status}
@@ -977,7 +1016,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               nobody asked for. New challenges pick one of the three modes and
               get the panel. */}
           {challenge.scoring && challenge.scoring !== 'prize' && (
-            <ScoringPanel challenge={challenge} />
+            <ScoringPanel challenge={challenge} rules={pointRules} />
           )}
           </>
         )
@@ -1059,7 +1098,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 className="flex w-full items-center justify-center gap-1.5 border-t border-gray-50 px-5 py-3 text-sm font-semibold text-brand"
               >
                 {allPrizes ? tr('Show less') : (prizes.length - 5 === 1 ? tr('+1 more prize') : tr('+{n} more prizes', { n: prizes.length - 5 }))}
-                <Icon name="chevron-down" className={cx('h-4 w-4 transition-transform duration-300', allPrizes && 'rotate-180')} />
+                <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-300', allPrizes && 'rotate-180')} />
               </button>
             )}
 
@@ -1184,13 +1223,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // below the brief section and above the points section but have that
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
+        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} />
+        // THE HOOK CARD (24 Sep 2026): above the prizes in the rail, and on a
+        // phone right after the brief and rules - the moment somebody is
+        // deciding what to film. Not on a finished challenge.
+        const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
         if (isMobile) {
           return (
             <div className="space-y-6">
               {prizesCard}
               {briefCard}
               {rulesCard}
+              {hookCard}
               {scoringCard}
+              {bonusCard}
               {platformsCard}
             </div>
           )
@@ -1203,8 +1249,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               {scoringCard}
             </div>
             <div className="space-y-6">
+              {hookCard}
               {prizesCard}
               {platformsCard}
+              {bonusCard}
             </div>
           </div>
         )
@@ -1299,13 +1347,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       absurd. So an unclaimed bonus shows on your OWN entries
                       while the challenge is live. */}
                   {isLive && s.creator_id === user.id
-                    && bonusRules.some((r) => !claimsBySubmission.get(s.id)?.has(r.id)) && (
+                    && claimableFor(s).length > 0 && (
                     <div className="rounded-xl border border-dashed border-brand/30 bg-brand-tint/20 p-3">
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-brand">
                         {tr("Bonus points you can still claim")}
                       </p>
                       <div className="space-y-1.5">
-                        {bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id)).map((r) => (
+                        {claimableFor(s).map((r) => (
                           <button
                             key={r.id}
                             type="button"
@@ -1627,14 +1675,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               bonuses have always worked.
               The points are stated on every line. A tick box that does not say
               what it is worth is a tick box people leave alone. */}
-          {bonusRules.length > 0 && (
+          {openBonusRules.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
               <p className="text-sm font-semibold">{tr("Bonus points")}</p>
               <p className="mb-3 text-xs text-smoke">
                 {tr("Tick anything this video qualifies for. The team can see what you ticked next to the video.")}
               </p>
               <div className="space-y-2">
-                {bonusRules.map((r) => (
+                {openBonusRules.map((r) => (
                   <label key={r.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 transition-colors hover:border-brand/40">
                     <input
                       type="checkbox"

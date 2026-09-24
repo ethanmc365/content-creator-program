@@ -1003,6 +1003,8 @@ export default function AdminChallengeForm() {
                 onChange={setRules}
                 thresholdMode={form.threshold_mode}
                 onThresholdMode={(v) => set({ threshold_mode: v })}
+                challengeStart={parseDateTime(form.startDateStr, form.startTimeStr)}
+                challengeEnd={parseDateTime(form.endDateStr, form.endTimeStr)}
               />
             </div>
           )}

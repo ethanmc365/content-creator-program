@@ -81,13 +81,14 @@ const Leaderboard = lazyRoute(chunk.Leaderboard)
 const AdminPanel = lazyRoute(chunk.AdminPanel)
 const AdminCreators = lazyRoute(chunk.AdminCreators)
 const AdminChallengeForm = lazyRoute(chunk.AdminChallengeForm)
-const AdminChallengeHistory = lazyRoute(chunk.AdminChallengeHistory)
 const AdminResults = lazyRoute(chunk.AdminResults)
 const AdminRewards = lazyRoute(chunk.AdminRewards)
 const AdminAnalytics = lazyRoute(chunk.AdminAnalytics)
 const AdminChallengeAnalytics = lazyRoute(chunk.AdminChallengeAnalytics)
 const AdminVideoTracker = lazyRoute(chunk.AdminVideoTracker)
 const AdminKpis = lazyRoute(chunk.AdminKpis)
+const AdminHooks = lazyRoute(chunk.AdminHooks)
+const ChallengeRecap = lazyRoute(chunk.ChallengeRecap)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
 const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
@@ -95,7 +96,6 @@ const Portfolio = lazyRoute(chunk.Portfolio)
 const PublicPortfolio = lazyRoute(chunk.PublicPortfolio)
 const VerifyCertificate = lazyRoute(chunk.VerifyCertificate)
 const AdminJobs = lazyRoute(chunk.AdminJobs)
-const AdminReferrals = lazyRoute(chunk.AdminReferrals)
 const AdminEmail = lazyRoute(chunk.AdminEmail)
 const AdminApplications = lazyRoute(chunk.AdminApplications)
 const AdminAuditLog = lazyRoute(chunk.AdminAuditLog)
@@ -277,6 +277,7 @@ export default function App() {
           <Route path="/messages/:conversationId" element={<Messages />} />
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/challenges/:id" element={<ChallengeDetail />} />
+          <Route path="/challenges/:id/recap" element={<ChallengeRecap />} />
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/events" element={<Events />} />
@@ -349,11 +350,10 @@ export default function App() {
                 three now live on the challenge itself, so this is one list
                 fewer to keep in step. Old links still land somewhere sensible. */}
             <Route path="/admin/challenges" element={<Navigate to="/challenges" replace />} />
-            {/* The challenge LOG: every challenge the programme has run,
-                including the forty-nine that predate this platform, and the
-                place an externally-run challenge's results are typed in. See
-                pages/admin/AdminChallengeHistory. */}
-            <Route path="/admin/challenges/history" element={<AdminChallengeHistory />} />
+            {/* THE CHALLENGE LOG PAGE IS GONE (24 Sep 2026): its list, its
+                totals and its edit form all live in Analytics - the list on the
+                Challenges tab, each row's edit on /admin/analytics/:id. */}
+            <Route path="/admin/challenges/history" element={<Navigate to="/admin/analytics?tab=programme" replace />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/results" element={<AdminResults />} />
@@ -362,6 +362,7 @@ export default function App() {
             <Route path="/admin/analytics/:id" element={<AdminChallengeAnalytics />} />
             <Route path="/admin/videos" element={<AdminVideoTracker />} />
             <Route path="/admin/kpis" element={<AdminKpis />} />
+            <Route path="/admin/hooks" element={<AdminHooks />} />
             {/* Community network folded into Analytics as its Connections tab.
                 It was a second door onto "how is the community doing". */}
             <Route path="/admin/network" element={<Navigate to="/admin/analytics?tab=network" replace />} />
@@ -372,7 +373,8 @@ export default function App() {
                 pages/admin/AdminCreatorKit. */}
             <Route path="/admin/creator-kit" element={<AdminCreatorKit />} />
             <Route path="/admin/jobs" element={<AdminJobs />} />
-            <Route path="/admin/referrals" element={<AdminReferrals />} />
+            {/* Referrals live in Analytics (24 Sep 2026). */}
+            <Route path="/admin/referrals" element={<Navigate to="/admin/analytics?tab=referrals" replace />} />
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="/admin/team" element={<AdminTeam />} />

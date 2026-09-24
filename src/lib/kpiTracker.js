@@ -64,11 +64,46 @@ export function quarterRange(year, quarter) {
   return { start, end }
 }
 
+// ---- MONTHS (24 Sep 2026) -------------------------------------------------
+// Ethan: "you can also build in tracking for each month, like KPIs for
+// September, October, or the quarter." A PERIOD is `{ year, quarter, month }`;
+// `month` null means the whole quarter, exactly as every row was before.
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']
+
+export function currentMonth(now = new Date()) {
+  const month = now.getMonth() + 1
+  return { year: now.getFullYear(), quarter: Math.floor((month - 1) / 3) + 1, month }
+}
+
+export function monthLabel(year, month) {
+  return `${MONTHS[month - 1]} ${year}`
+}
+
+/** The month `delta` months away, carrying its quarter. */
+export function adjacentMonth(year, month, delta) {
+  const zeroBased = year * 12 + (month - 1) + delta
+  const y = Math.floor(zeroBased / 12)
+  const m = (((zeroBased % 12) + 12) % 12) + 1
+  return { year: y, quarter: Math.floor((m - 1) / 3) + 1, month: m }
+}
+
+export function periodLabel({ year, quarter, month }) {
+  return month ? monthLabel(year, month) : quarterLabel(year, quarter)
+}
+
+/** [start, end) of a period: a month when `month` is set, else the quarter. */
+export function periodRange({ year, quarter, month }) {
+  if (month) return { start: new Date(year, month - 1, 1), end: new Date(year, month, 1) }
+  return quarterRange(year, quarter)
+}
+
 /** How far through the quarter `now` sits, clamped to [0, 1]. A quarter that
  *  has not started reads 0 (nothing is late yet); one that has finished
  *  reads 1 (the whole thing has had its chance). */
-export function quarterProgress(year, quarter, now = new Date()) {
-  const { start, end } = quarterRange(year, quarter)
+export function quarterProgress(year, quarter, now = new Date(), month = null) {
+  const { start, end } = periodRange({ year, quarter, month })
   const total = end - start
   if (total <= 0) return 1
   return Math.min(1, Math.max(0, (now - start) / total))
@@ -89,8 +124,8 @@ export function quarterProgress(year, quarter, now = new Date()) {
  * linear through a quarter (a challenge that launches mid-quarter moves the
  * numbers in a clump, not a trickle).
  */
-export function kpiStatus({ target, actual, year, quarter, now = new Date() }) {
-  const progress = quarterProgress(year, quarter, now)
+export function kpiStatus({ target, actual, year, quarter, month = null, now = new Date() }) {
+  const progress = quarterProgress(year, quarter, now, month)
   const pct = target > 0 ? actual / target : (actual > 0 ? 1 : 0)
   if (actual >= target) return { status: 'met', pct, progress }
   if (progress >= 1) return { status: 'missed', pct, progress }

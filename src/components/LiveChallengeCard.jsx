@@ -206,8 +206,11 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           `hidden` below `lg` - so a phone got the light-sweep sheen and
           nothing else. Pure CSS, both of them, safe on this eagerly-routed
           page. */}
+      {/* ORANGE, NOT WHITE (24 Sep 2026). Ethan: "that big global challenge
+          card should have the orange glow effect around it because it's on a
+          white background." The ring sits OUTSIDE the card, on the page. */}
       <div className="global-glow">
-      <GlowRing tone="onOrange" />
+      <GlowRing tone="onLight" />
       <div
         className={cx(
           'challenge-card relative block animate-card-wipe overflow-hidden rounded-card text-white shadow-lift',

@@ -25,6 +25,13 @@ import { cx } from '../../lib/utils'
 // animate - the layer is painted once and every frame after that is the
 // compositor blending it, which is why this can sit on several cards at
 // once without being the thing that makes the page feel slow.
+//
+// FIFTH PASS (24 Sep 2026): THE LIGHT RUNS ROUND AGAIN. Ethan: "We lost the
+// animated glow that was going around the card." The lag the fourth pass was
+// answering turned out to be a leaking counter animation, so the chase is
+// back - as one static conic gradient on a ::before, turned by `transform`
+// alone (compositor-only), with no blur and no mask. See `.glow-ring` in
+// index.css.
 export default function GlowRing({ tone = 'onOrange' }) {
   return <span aria-hidden className={cx('glow-ring', `glow-ring--${tone}`)} />
 }

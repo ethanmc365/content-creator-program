@@ -78,7 +78,7 @@ export default function CollapsibleRich({ md = '', className = '' }) {
           className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-card transition-transform duration-200 hover:-translate-y-0.5 active:scale-95"
         >
           {open ? tr('Show less') : tr('Read all')}
-          <Icon name="chevron-down" className={cx('h-4 w-4 transition-transform duration-300', open && 'rotate-180')} />
+          <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-300', open && 'rotate-180')} />
         </button>
       )}
     </div>

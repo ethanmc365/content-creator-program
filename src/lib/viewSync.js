@@ -38,6 +38,14 @@ export const SYNC_ERRORS = {
     label: 'No count on the page',
     hint: 'The post loaded but carries no view count. Photo posts and carousels have none.',
   },
+  removed: {
+    label: 'Deleted or private',
+    hint: 'The platform says this video was deleted or made private, so there is no count to read. Ask the creator, or disqualify the entry.',
+  },
+  count_hidden: {
+    label: 'Count not public',
+    hint: 'Facebook only shows a reel\'s view count to a signed-in viewer. Ask the creator for the number and type it in on the entry.',
+  },
   blocked: {
     label: 'Platform refused',
     hint: 'The platform served a check page instead of the video. It usually clears by itself on the next run.',
@@ -56,7 +64,7 @@ export const SYNC_ERRORS = {
 // Which problems need a person, and which sort themselves out. `needs` means
 // somebody has to do something; `waiting` resolves on a later run by itself.
 export const NEEDS_ATTENTION = new Set([
-  'not_on_reels_tab', 'not_a_video', 'no_video_id',
+  'not_on_reels_tab', 'not_a_video', 'no_video_id', 'removed', 'count_hidden',
   'needs_youtube_key', 'youtube_key_rejected', 'unsupported', 'bad_url',
 ])
 

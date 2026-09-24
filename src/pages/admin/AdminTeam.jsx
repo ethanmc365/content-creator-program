@@ -105,18 +105,31 @@ export default function AdminTeam() {
   const [everyone, setEveryone] = useState([])
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
+  // SORTED BY MARKET (24 Sep 2026). Ethan: "can you sort it better? ... show
+  // each market with the [people] inside it, so I can see it easily, and then
+  // add [people] in a specific spot." One card per market with its managers
+  // and its own Add button; `addingTo` is the market that button opened.
+  const [markets, setMarkets] = useState([])
+  const [memberIds, setMemberIds] = useState({}) // market id -> Set of member ids
+  const [addingTo, setAddingTo] = useState(null)
 
   const viewerIsLead = profile?.platform_role === 'owner'
 
   const load = useCallback(async () => {
-    const [{ data: roster, error }, { data: people }] = await Promise.all([
+    const [{ data: roster, error }, { data: people }, { data: mk }, { data: mem }] = await Promise.all([
       supabase.rpc('team_roster'),
       supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
-        .eq('status', 'active').eq('is_test', false).order('name').limit(500),
+        .eq('status', 'active').eq('is_test', false).order('name').limit(1000),
+      supabase.from('communities').select('id, name, slug, kind').eq('kind', 'chapter').is('retired_at', null).order('name'),
+      supabase.from('community_members').select('community_id, profile_id').eq('status', 'active').limit(5000),
     ])
     if (error) { notice(`Could not load the team: ${error.message}`); setTeam([]); return }
     setTeam(roster || [])
     setEveryone(people || [])
+    setMarkets(mk || [])
+    const byMarket = {}
+    for (const r of mem || []) (byMarket[r.community_id] ||= new Set()).add(r.profile_id)
+    setMemberIds(byMarket)
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -210,18 +223,58 @@ export default function AdminTeam() {
     toast(`${target.name} now leads the programme.`)
   }
 
+  // MAKING SOMEBODY A MARKET'S MANAGER, FROM HERE. The same write
+  // ManageChapter's "Make manager" does - the membership row's role - plus the
+  // row itself when they were not in that market yet.
+  async function addManager(market, picked) {
+    const personId = Array.isArray(picked) ? picked[0] : picked
+    const person = everyone.find((p) => p.id === personId)
+    if (!person) return
+    const ok = await confirm(
+      `${person.name} will be able to edit ${market.name}, its rules and its roster. It does not make them a Tryp.com admin.`,
+      { title: `Make ${person.name} a manager of ${market.name}?`, confirmLabel: 'Make manager' },
+    )
+    if (!ok) return
+    setBusy(true)
+    const already = memberIds[market.id]?.has(personId)
+    const { error } = already
+      ? await supabase.from('community_members').update({ role: 'manager' }).eq('community_id', market.id).eq('profile_id', personId)
+      : await supabase.from('community_members').insert({ community_id: market.id, profile_id: personId, role: 'manager', status: 'active' })
+    setBusy(false)
+    if (error) { notice(error.message); return }
+    setAddingTo(null)
+    await load()
+    toast(`${person.name} now manages ${market.name}.`)
+  }
+
+  async function removeManager(market, person) {
+    const ok = await confirm(
+      `${person.name} stays a member of ${market.name}; they just stop managing it.`,
+      { title: `Remove ${person.name} as manager of ${market.name}?`, confirmLabel: 'Remove', danger: true },
+    )
+    if (!ok) return
+    setBusy(true)
+    const { error } = await supabase.from('community_members').update({ role: 'creator' })
+      .eq('community_id', market.id).eq('profile_id', person.id)
+    setBusy(false)
+    if (error) { notice(error.message); return }
+    await load()
+    toast(`${person.name} no longer manages ${market.name}.`)
+  }
+
   const lead = (team || []).find((t) => t.platform_role === 'owner')
   const admins = (team || []).filter((t) => t.platform_role === 'global_admin')
-  const managers = (team || []).filter((t) => t.platform_role === 'none')
+  const managersOf = (market) => (team || []).filter((t) => (t.market_slugs || []).includes(market.slug))
 
   return (
     <div className="page">
       <PageHeader
         back="/admin"
         title="Tryp.com team"
+        subtitle="The worldwide team, then every market and who runs it."
         action={
           <button onClick={() => setAdding((v) => !v)} className="btn-primary !py-2.5">
-            <Icon name="plus" className="h-4 w-4" /> Add someone
+            <Icon name="plus" className="h-4 w-4" /> Add to worldwide team
           </button>
         }
       />
@@ -244,57 +297,112 @@ export default function AdminTeam() {
         </div>
       ) : (
         <div className="space-y-10">
+          {/* ---- Worldwide: the lead and the Tryp.com team ---- */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold">Programme lead</h2>
-            {lead ? (
-              <RoleRow
-                person={lead}
-                isMe={lead.id === profile?.id}
-                viewerIsLead={viewerIsLead}
-                onTitle={setTitle}
-                onDemote={demote}
-                onHandOver={handOver}
-                busy={busy}
-              />
-            ) : (
-              <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Nobody leads the programme" />
-            )}
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white">
+                <Icon name="globe" className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold leading-tight">Worldwide team</h2>
+                <p className="text-xs text-smoke">Admins across every market.</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {lead ? (
+                <RoleRow
+                  person={lead}
+                  isMe={lead.id === profile?.id}
+                  viewerIsLead={viewerIsLead}
+                  onTitle={setTitle}
+                  onDemote={demote}
+                  onHandOver={handOver}
+                  busy={busy}
+                />
+              ) : (
+                <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Nobody leads the programme" />
+              )}
+              {admins.map((p) => (
+                <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
+                  viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
+              ))}
+            </div>
           </section>
 
+          {/* ---- One card per market ---- */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold">Tryp.com team</h2>
-            {admins.length === 0 ? (
-              <EmptyState
-                icon={<Icon name="users" className="h-6 w-6" />}
-                title="Nobody else on the team yet"
-                hint="Add a country manager or a community lead and they will appear here."
-              />
-            ) : (
-              <div className="space-y-3">
-                {admins.map((p) => (
-                  <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
-                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
-                ))}
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cloud text-brand">
+                <Icon name="flag" className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold leading-tight">Markets</h2>
+                <p className="text-xs text-smoke">Who runs each market. A manager's reach stops at the market they manage.</p>
               </div>
-            )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {markets.map((m) => {
+                const mgrs = managersOf(m)
+                return (
+                  <div key={m.id} className="flex flex-col rounded-card border border-gray-100 bg-white shadow-card">
+                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3.5">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{m.name}</p>
+                        <p className="text-xs text-smoke">
+                          {(memberIds[m.id]?.size ?? 0).toLocaleString()} members · {mgrs.length === 0 ? 'no manager yet' : `${mgrs.length} manager${mgrs.length === 1 ? '' : 's'}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAddingTo(m)}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand"
+                      >
+                        <Icon name="plus" className="h-3.5 w-3.5" /> Add manager
+                      </button>
+                    </div>
+                    {mgrs.length === 0 ? (
+                      <p className="flex-1 px-5 py-4 text-sm text-smoke">
+                        Nobody manages {m.name} yet. The worldwide team covers it until someone does.
+                      </p>
+                    ) : (
+                      <ul className="flex-1 divide-y divide-gray-50">
+                        {mgrs.map((p) => (
+                          <li key={p.id} className="flex items-center gap-3 px-5 py-3">
+                            <Avatar src={p.photo_url} name={p.name} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <Link to={`/profile/${p.id}`} className="block truncate text-sm font-semibold hover:text-brand">{p.name}</Link>
+                              <p className="truncate text-xs text-smoke">{p.role_title || (p.is_admin ? permissionLabel(p.platform_role) : 'Market manager')}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeManager(m, p)}
+                              disabled={busy}
+                              aria-label={`Remove ${p.name} as manager of ${m.name}`}
+                              className="rounded-full p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                            >
+                              <Icon name="close" className="h-4 w-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </section>
 
-          {managers.length > 0 && (
-            <section>
-              <h2 className="mb-1 text-lg font-semibold">Market managers</h2>
-              <p className="mb-4 text-sm text-smoke">
-                Creators who run one market. They are not Tryp.com admins: their reach stops at the market they manage,
-                which is set on that market&rsquo;s own page.
-              </p>
-              <div className="space-y-3">
-                {managers.map((p) => (
-                  <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
-                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
-                ))}
-              </div>
-            </section>
-          )}
-
+          <PeoplePicker
+            open={!!addingTo}
+            onClose={() => setAddingTo(null)}
+            people={addingTo ? everyone.filter((p) => !managersOf(addingTo).some((t) => t.id === p.id)) : []}
+            onConfirm={(picked) => addManager(addingTo, picked)}
+            title={addingTo ? `Add a manager to ${addingTo.name}` : ''}
+            hint="Search any active creator. If they are not in this market yet, they join it as its manager."
+            confirmLabel="Make manager"
+            multi={false}
+            busy={busy}
+          />
         </div>
       )}
     </div>

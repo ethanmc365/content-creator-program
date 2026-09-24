@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { format, startOfMonth } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
-import { EmptyState, Skeleton, StatCard, Select } from '../../../components/ui'
+import { EmptyState, Skeleton, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
@@ -66,7 +66,15 @@ const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximu
 // while the Challenges tab beside it read pounds - two controls answering one
 // question, which is half of "there's way too many buttons at the top". The
 // shell owns it now and hands it down; see the filter bar in AdminAnalytics.
-export default function ProgrammePerformance({ market: scopeMarket = null, currency = 'EUR' }) {
+// TWO MODES, ONE DATA LOAD (24 Sep 2026). Ethan: "when you click on
+// [Challenges] it shows a summary, and then there's a separate challenges
+// button. I think the summary is pretty much the same as the whole overview, so
+// build whatever you need from summary into overview... For that challenges
+// page, it can just be the way the challenges view shows up."
+//   mode 'summary' - the economics (ratios, month charts, breakdowns), drawn on
+//                    the OVERVIEW tab under its own headline tiles.
+//   mode 'list'    - the Challenges tab: every challenge, and nothing else.
+export default function ProgrammePerformance({ market: scopeMarket = null, currency = 'EUR', mode = 'list' }) {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [rates, setRates] = useState(FALLBACK_RATES)
@@ -90,7 +98,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
   // segmented control below: the report and the list of challenges are read at
   // different times, and stacking them meant scrolling past whichever you did
   // not come for.
-  const [view, setView] = useState('summary')
+  const view = mode
   // A CLOCK THE COMPONENT OWNS, BECAUSE "RUNNING NOW" IS A CLAIM ABOUT NOW.
   //
   // Reading `Date.now()` inside the memo would make it impure and would also
@@ -326,25 +334,15 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
           above the thing it changes rather than in a toolbar at the top of the
           page. -------------------------------------------------------------- */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="flex w-full gap-1 rounded-xl border border-gray-200 bg-white p-1 sm:w-fit">
-          {[
-            { key: 'summary', label: 'Summary', icon: 'chart' },
-            { key: 'list', label: `Challenges (${data.scoped.length})`, icon: 'reorder' },
-          ].map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              onClick={() => setView(v.key)}
-              aria-pressed={view === v.key}
-              className={cx(
-                'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none',
-                view === v.key ? 'bg-brand text-white' : 'text-smoke hover:text-brand',
-              )}
-            >
-              <Icon name={v.icon} className="h-4 w-4" />
-              {v.label}
-            </button>
-          ))}
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold">
+            {view === 'summary' ? 'Programme economics' : `Every challenge (${data.scoped.length})`}
+          </h2>
+          <p className="mt-0.5 text-xs text-smoke">
+            {view === 'summary'
+              ? `Blended across ${b.challenges} challenge${b.challenges === 1 ? '' : 's'}: totals divided once, never an average of averages.`
+              : 'Live ones first. Press any challenge for its full breakdown.'}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -377,6 +375,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
               Clear
             </button>
           )}
+          {view === 'list' && <>
           <span className="mx-1 hidden h-6 w-px bg-gray-100 sm:block" />
           <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
             <Icon name="download" className="h-4 w-4" /> Export
@@ -388,6 +387,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
           <button onClick={() => setLogging(true)} className="btn-primary !py-2 text-xs">
             <Icon name="plus" className="h-4 w-4" /> Log a challenge
           </button>
+          </>}
         </div>
       </div>
 
@@ -398,39 +398,16 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
               spend and "posts per creator" carried identical weight. Four
               headline figures at full size and the rest as a quiet strip is the
               same information with a hierarchy on it. */}
+          {/* THE HEADLINE FOUR ARE THE OVERVIEW'S OWN TILES (Cash CPM, Total
+              CPM, views, prizes) now, so this block starts at the ratios. */}
           <div>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Programme economics</h2>
-              <p className="mt-1 text-xs text-smoke">
-                Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an
-                average of averages. Money is what has actually been awarded, including prizes still to pay.
-              </p>
-            </div>
-            <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
-              {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS. Cash alone is what
-                  leaves the business - a Tryp.com voucher is redeemed against a
-                  booking we make margin on, so it does not cost its face value
-                  and folding it in makes the programme look about a third more
-                  expensive than it is. */}
-              <StatCard
-                label="Cash CPM"
-                value={money(b.cashCpm, currency, 2)}
-                hint={b.unmeasuredChallenges
-                  ? `per 1,000 views · ${b.measuredChallenges} of ${b.challenges} measured`
-                  : 'cash only, per 1,000 views'}
-                accent
-              />
-              <StatCard label="Total views" value={formatViews(b.views)} hint="as logged" />
-              <StatCard label="Cash prizes" value={money(b.cashSpend, currency, 0)} hint="awarded, pending included" />
-              <StatCard label="Voucher value" value={money(b.voucherSpend, currency, 0)} hint="face value, not cost" />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-card border border-gray-100 bg-cloud/40 px-5 py-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-card border border-gray-100 bg-cloud/40 px-5 py-4 sm:grid-cols-3 lg:grid-cols-6">
+              <Ratio label="Cash CPM" value={money(b.cashCpm, currency, 2)} />
               <Ratio label="Total CPM" value={money(b.combinedCpm, currency, 2)} />
               <Ratio label="Cost / post" value={money(b.costPerPost, currency, 2)} />
               <Ratio label="Cost / creator" value={money(b.costPerCreator, currency, 2)} />
               <Ratio label="Posts / creator" value={num(b.postsPerCreator, 1)} />
               <Ratio label="Views / post" value={b.viewsPerPost ? formatViews(Math.round(b.viewsPerPost)) : '-'} />
-              <Ratio label="On target" value={b.onTargetPct != null ? `${b.onTargetPct}%` : '-'} />
             </div>
           </div>
 
@@ -722,8 +699,24 @@ function ChallengeList({ rows, running, currency }) {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {shown.map((r) => <LogCard key={r.id} r={r} currency={currency} />)}
+        /* ONE ROW EACH, NOT ONE CARD EACH (24 Sep 2026). Ethan: "it looks a
+           bit cluttered. There's a lot of scrolling." Fifty 200px cards was
+           ten screens; a row is 60px and the columns line up down the list,
+           which is what comparing challenges actually needs. The big card is
+           kept for the ones running now, above. */
+        <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          <div className="hidden grid-cols-[minmax(0,1fr)_6rem_6rem_6rem_5rem_5rem_6.5rem] items-center gap-3 border-b border-gray-100 bg-cloud/40 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-smoke lg:grid">
+            <span>Challenge</span>
+            <span className="text-right">CPM</span>
+            <span className="text-right">Spend</span>
+            <span className="text-right">Views</span>
+            <span className="text-right">Creators</span>
+            <span className="text-right">Posts</span>
+            <span className="text-right">Result</span>
+          </div>
+          <ul className="divide-y divide-gray-50">
+            {shown.map((r) => <LogRow key={r.id} r={r} currency={currency} />)}
+          </ul>
         </div>
       )}
 
@@ -837,6 +830,40 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
         </p>
       )}
     </Link>
+  )
+}
+
+// A finished challenge as one line. The grid matches the header above it on a
+// desktop; on a phone it folds to the title and a line of the three figures
+// that matter most.
+function LogRow({ r, currency }) {
+  return (
+    <li>
+      <Link
+        to={`/admin/analytics/${r.id}`}
+        className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-5 py-3 transition-colors hover:bg-cloud/50 lg:grid-cols-[minmax(0,1fr)_6rem_6rem_6rem_5rem_5rem_6.5rem]"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold transition-colors group-hover:text-brand">{r.title}</span>
+          <span className="block truncate text-xs text-smoke">
+            {[r.market || 'Unspecified', r.start_date?.slice(0, 10), `${r.days} days`, label('format', r.format)].filter(Boolean).join(' · ')}
+          </span>
+        </span>
+        <span className="text-right text-sm font-bold tabular-nums text-brand">{money(r.cpm, currency, 2)}</span>
+        <span className="col-span-2 flex gap-4 text-xs tabular-nums text-smoke lg:hidden">
+          <span>{money(r.spend, currency, 0)}</span>
+          <span>{r.views > 0 ? `${formatViews(r.views)} views` : 'no views logged'}</span>
+          <span>{r.creators ? `${r.creators} creators` : ''}</span>
+        </span>
+        <span className="hidden text-right text-sm tabular-nums lg:block">{money(r.spend, currency, 0)}</span>
+        <span className="hidden text-right text-sm tabular-nums lg:block">{r.views > 0 ? formatViews(r.views) : '-'}</span>
+        <span className="hidden text-right text-sm tabular-nums lg:block">{r.creators ? r.creators.toLocaleString() : '-'}</span>
+        <span className="hidden text-right text-sm tabular-nums lg:block">{r.posts ? r.posts.toLocaleString() : '-'}</span>
+        <span className="hidden justify-end lg:flex">
+          <span className={cx('rounded-full px-2.5 py-0.5 text-[11px] font-semibold', BAND_STYLE[r.band])}>{BAND_LABEL[r.band]}</span>
+        </span>
+      </Link>
+    </li>
   )
 }
 

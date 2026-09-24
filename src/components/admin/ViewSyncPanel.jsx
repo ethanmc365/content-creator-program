@@ -305,7 +305,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
                 name={meta.needsAttention ? 'alert' : 'clock'}
                 className={`mt-0.5 h-4 w-4 shrink-0 ${meta.needsAttention ? 'text-amber-700' : 'text-smoke'}`}
               />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className={`text-sm font-semibold ${meta.needsAttention ? 'text-amber-900' : 'text-ink'}`}>
                   {meta.label}
                   <span className="ml-2 font-normal text-smoke">
@@ -317,6 +317,37 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
                     {meta.hint}
                   </p>
                 ) : null}
+                {/* WHICH ENTRIES (24 Sep 2026). Ethan: "It should tell me which
+                    one the error is actually with, so I can then check it out."
+                    A count alone sent him scrolling forty rows looking for the
+                    one with a small orange note. Each row names the creator,
+                    opens the link, and jumps to the entry below. */}
+                <ul className="mt-2.5 space-y-1.5">
+                  {rows.map((r) => (
+                    <li key={r.id} className="flex min-w-0 items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs">
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="font-semibold text-ink">{r.profiles?.name || 'Unknown creator'}</span>
+                        <span className="text-smoke"> · {r.platform}{r.logged_views != null ? ` · last read ${Number(r.logged_views).toLocaleString()}` : ''}</span>
+                      </span>
+                      <a href={r.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 font-semibold text-brand hover:underline">
+                        Open link
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById(`entry-${r.id}`)
+                          if (!el) return
+                          el.scrollIntoView({ block: 'center' })
+                          el.classList.add('ring-2', 'ring-brand')
+                          setTimeout(() => el.classList.remove('ring-2', 'ring-brand'), 1800)
+                        }}
+                        className="shrink-0 font-semibold text-smoke hover:text-ink"
+                      >
+                        Show entry
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           ))}

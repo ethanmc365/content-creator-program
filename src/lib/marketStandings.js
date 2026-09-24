@@ -29,9 +29,13 @@ import { convert, FALLBACK_RATES } from './programme'
 // entries and prize money go with it. That is one rule, it holds over the whole
 // record, and it is the rule the Challenges tab already uses.
 //
-// WHICH MONTH. The month the challenge STARTED, whole. Splitting a challenge's
-// views across the weeks it ran would be inventing a distribution nobody
-// measured - the historical rows carry one total each and nothing else.
+// WHICH MONTH. EVERY month the challenge RAN IN, whole (24 Sep 2026). Ethan:
+// "some challenges are run throughout two months, and they both show up, like
+// a challenge from the 15th of July to the 15th of August." It used to belong
+// to its start month only, so August read "no market ran a challenge" while one
+// was running. Splitting its views across the weeks would be inventing a
+// distribution nobody measured, so it counts whole in each month it touched;
+// all time still counts it once.
 
 /** 'YYYY-MM' for a date, or null. */
 export function monthKey(d) {
@@ -39,6 +43,22 @@ export function monthKey(d) {
   const t = new Date(d)
   if (Number.isNaN(t.getTime())) return null
   return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/** Every 'YYYY-MM' from the month of `from` to the month of `to`, inclusive. */
+export function monthsBetween(from, to) {
+  const a = monthKey(from)
+  if (!a) return []
+  const b = monthKey(to) || a
+  const out = []
+  let [y, m] = a.split('-').map(Number)
+  const [yb, mb] = (b < a ? a : b).split('-').map(Number)
+  while ((y < yb || (y === yb && m <= mb)) && out.length < 36) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+  }
+  return out
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -64,6 +84,7 @@ function contests(raw) {
     out.push({
       marketId: h.community_id || null,
       month: monthKey(h.starts_at),
+      months: monthsBetween(h.starts_at, h.ends_at),
       title: h.title,
       views,
       posts: Number(h.posts || 0),
@@ -92,13 +113,61 @@ function contests(raw) {
     resultViews.set(r.challenge_id, (resultViews.get(r.challenge_id) || 0) + Number(r.final_views || 0))
   }
 
+  // A WORLDWIDE CHALLENGE IS EVERY MARKET'S (24 Sep 2026). The Global
+  // Challenge runs on the worldwide network, which is not a market, so it was
+  // in nobody's row and September read "no market ran a challenge" while all
+  // six were running one. Its entries are counted for each ENTRANT'S market -
+  // their first market membership - and its prize money is split by the share
+  // of entrants each market brought, which is the one split that needs no
+  // measurement nobody took.
+  const chapterIds = new Set((raw?.marketRows || []).filter((m) => m.kind === 'chapter').map((m) => m.id))
+  const homeOf = new Map()
+  for (const r of raw?.memberRows || []) {
+    if (chapterIds.has(r.community_id) && !homeOf.has(r.profile_id)) homeOf.set(r.profile_id, r.community_id)
+  }
+
   for (const c of raw?.challenges || []) {
     if (c.status === 'draft') continue
+    const months = monthsBetween(c.start_date, c.end_date)
+    if (c.community_id && !chapterIds.has(c.community_id) && chapterIds.size) {
+      const parts = new Map()
+      let entrants = 0
+      for (const sub of raw?.submissions || []) {
+        if (sub.challenge_id !== c.id) continue
+        const home = homeOf.get(sub.creator_id)
+        if (!home) continue
+        const at = parts.get(home) || { posts: 0, views: 0, creators: new Set() }
+        at.posts += 1
+        at.views += Number(sub.logged_views || 0)
+        at.creators.add(sub.creator_id)
+        parts.set(home, at)
+      }
+      for (const p of parts.values()) entrants += p.creators.size
+      for (const [home, p] of parts) {
+        out.push({
+          marketId: home,
+          month: monthKey(c.start_date),
+          months,
+          title: c.title,
+          views: p.views,
+          posts: p.posts,
+          entries: p.creators.size,
+          spend: entrants ? Number(c.prize_amount || 0) * (p.creators.size / entrants) : 0,
+          currency: c.prize_currency || 'EUR',
+          live: true,
+          shared: true,
+        })
+      }
+      continue
+    }
     const s = subsByChallenge.get(c.id) || { posts: 0, views: 0, creators: new Set() }
-    const verified = resultViews.get(c.id)
+    // A points board stores the SCORE in `final_views`, so only a views
+    // board's results are a view count.
+    const verified = c.scoring === 'points' ? null : resultViews.get(c.id)
     out.push({
       marketId: c.community_id || null,
       month: monthKey(c.start_date),
+      months,
       title: c.title,
       views: verified != null && verified > 0 ? verified : s.views,
       posts: s.posts,
@@ -111,11 +180,26 @@ function contests(raw) {
   return out
 }
 
-/** Every month the record touches, newest first. */
-export function monthsInRecord(raw) {
-  const set = new Set()
-  for (const c of contests(raw)) if (c.month) set.add(c.month)
-  return [...set].sort().reverse()
+/**
+ * Every month from the programme's first through THIS one, newest first
+ * (24 Sep 2026). It was only the months a challenge STARTED in, so a month a
+ * challenge merely ran into was missing, and a new month did not appear until
+ * something started in it. Ethan: "ensure the new months always show up".
+ */
+export function monthsInRecord(raw, now = new Date()) {
+  let first = null
+  let last = null
+  for (const c of contests(raw)) {
+    for (const m of c.months?.length ? c.months : [c.month]) {
+      if (!m) continue
+      if (!first || m < first) first = m
+      if (!last || m > last) last = m
+    }
+  }
+  if (!first) return []
+  const current = monthKey(now)
+  const end = current && current > last ? current : last
+  return monthsBetween(`${first}-01`, `${end}-01`).reverse()
 }
 
 /**
@@ -174,7 +258,8 @@ export function marketStandings(raw, { currency = 'EUR', rates = FALLBACK_RATES,
   for (const c of contests(raw)) {
     const row = rows.get(c.marketId)
     if (!row) continue                      // worldwide, or a retired market
-    if (month && c.month !== month) continue
+    const inMonths = c.months?.length ? c.months : [c.month]
+    if (month && !inMonths.includes(month)) continue
     const spend = money(c.spend, c.currency)
     row.challenges += 1
     row.posts += c.posts
@@ -186,10 +271,13 @@ export function marketStandings(raw, { currency = 'EUR', rates = FALLBACK_RATES,
       row.spendKnown += spend
       row.measured += 1
     }
-    const bucket = (row.byMonth[c.month] ||= { views: 0, spend: 0, challenges: 0 })
-    bucket.views += c.views || 0
-    bucket.spend += spend
-    bucket.challenges += 1
+    for (const m of inMonths) {
+      if (!m || (month && m !== month)) continue
+      const bucket = (row.byMonth[m] ||= { views: 0, spend: 0, challenges: 0 })
+      bucket.views += c.views || 0
+      bucket.spend += spend
+      bucket.challenges += 1
+    }
   }
 
   // What actually left the bank through the platform. Kept apart from `spend`
