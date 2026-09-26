@@ -178,6 +178,7 @@ function ChatSearchField({ target }) {
 }
 
 export default function AppLayout() {
+
   const tr = useT()
   const chatSearch = useChatSearchTarget()
   const chromeHidden = useChatChromeHidden()

@@ -136,7 +136,11 @@ export default function ConnectButton({
     none: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
     pending_sent: 'bg-brand-light/25 text-brand ring-1 ring-brand-light/60 hover:bg-brand-light/40',
     pending_received: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
-    connected: 'bg-white text-smoke ring-1 ring-gray-200 hover:bg-cloud hover:text-ink',
+    // THE PUZZLE'S GREEN (26 Sep 2026). Ethan: "Whenever you're connected with
+    // the creator, I think the button should actually show up in the nice
+    // green colour that we've used ... whenever you play the daily puzzle."
+    // The same green-600 as a finished daily puzzle's tile, white on it.
+    connected: 'bg-green-600 text-white ring-1 ring-green-600 hover:bg-green-700',
   }[rel]
   const title = rel === 'pending_sent' ? tr('Cancel request') : rel === 'connected' ? tr('Disconnect') : ''
 
@@ -151,7 +155,7 @@ export default function ConnectButton({
       className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 ${tone} ${className}`}
     >
       {rel === 'connected' && (
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-green-600" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M4 12l5 5L20 6" />
         </svg>
       )}

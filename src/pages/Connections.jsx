@@ -489,7 +489,7 @@ export default function Connections() {
             <div className="mb-6">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-smoke">
                 <Icon name="plane" className="h-4 w-4 text-brand" />
-                {tr("On the move")}
+                {tr("Travelling")}
                 <span className="text-brand">{d.travelling.length}</span>
               </h2>
               <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

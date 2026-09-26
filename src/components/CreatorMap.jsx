@@ -633,6 +633,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // Ignored in full screen, where the map owns the window and there is no card
   // to remove.
   flush = false }) {
+
   const tr = useT()
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -1038,15 +1039,17 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // Resolve any legacy profile that has a town but no stored coordinates.
   useEffect(() => {
     let cancelled = false
+    // A miss is remembered as `null` (checked with `in`) so a town nothing can
+    // resolve is asked once, not again every time another town resolves.
     const missing = creators.filter(
-      (c) => c.city_lat == null && !extraCoords[c.id] && (c.city || c.country)
+      (c) => c.city_lat == null && !(c.id in extraCoords) && (c.city || c.country)
     )
     if (missing.length === 0) return
     ;(async () => {
       for (const c of missing) {
         const coords = await geocodeCity(c.city, c.country)
         if (cancelled) return
-        if (coords) setExtraCoords((prev) => ({ ...prev, [c.id]: coords }))
+        setExtraCoords((prev) => ({ ...prev, [c.id]: coords || null }))
       }
     })()
     return () => { cancelled = true }
@@ -1105,7 +1108,15 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
         if (!t?.city || !t?.country) continue
         const key = `${t.city.trim().toLowerCase()}|${t.country.trim().toLowerCase()}`
         if (storedTripCoords[key]) continue
-        if (!tripCoords[key]) wanted.set(key, t)
+        // `in`, NOT a truthiness test (26 Sep 2026). A miss is stored as
+        // `null` precisely so it is never asked again - and `!null` is true,
+        // so it was asked again, stored as `null` in a NEW object, which re-ran
+        // this effect, for ever. That loop re-rendered the Creator Network page
+        // ~28 times a second while it sat there idle, and those urgent renders
+        // starved every navigation away from it: Ethan's "I try to click on
+        // Worldwide, Rooms, Challenges, or Calendar, and none of those buttons
+        // work ... Whenever I refresh, it actually ends up going to the page".
+        if (!(key in tripCoords)) wanted.set(key, t)
       }
     }
     if (wanted.size === 0) return undefined
@@ -1435,7 +1446,15 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // Let the parent filter the creator cards to exactly the travellers the map
   // shows, so the "Who's travelling" button and the grid stay in lockstep.
-  useEffect(() => { onTravellersChange?.(travellerIds) }, [travellerIds, onTravellersChange])
+  // Reported only when WHO is travelling changes, not every time the set is
+  // rebuilt - a parent that stores it re-renders this map, which rebuilds it.
+  const reportedTravellers = useRef('')
+  useEffect(() => {
+    const sig = [...travellerIds].sort().join(',')
+    if (sig === reportedTravellers.current) return
+    reportedTravellers.current = sig
+    onTravellersChange?.(travellerIds)
+  }, [travellerIds, onTravellersChange])
   const visibleTowns = useMemo(() => {
     const only = (ids) => towns
       .map((t) => ({ ...t, creators: t.creators.filter((c) => ids.has(c.id)) }))
@@ -1451,15 +1470,54 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //  2. Float the SELECTED pin to the very end, so tapping a pin always brings
   //     it fully to the front instead of leaving it buried behind others.
   //     Deselecting restores the normal order.
+  // PINS THAT WOULD OVERLAP BECOME ONE PIN (26 Sep 2026).
+  //
+  // Ethan: "For some of the pins, they're all overlapping ... if there are too
+  // many close together that are unclickable, they should be grouped.
+  // Currently, for some of them, I can just barely see the corner of them."
+  // Towns were only merged when two creators typed the SAME town, so Lisbon,
+  // Amadora and Sintra were three pins stacked on one spot. Now any towns
+  // whose pins would touch AT THE CURRENT ZOOM merge into one, carrying the
+  // count; zooming in pulls them apart again. Worked in the map's own units,
+  // where a pin's head is ~30 wide and is counter-scaled by zoom^-0.7 (see
+  // Pin), and on the SETTLED zoom so a pinch does not re-cluster every frame.
+  const clusteredTowns = useMemo(() => {
+    const zoom = Math.max(1, planeZoom)
+    const reach = 30 * Math.pow(zoom, -0.7)
+    const pts = visibleTowns
+      .map((t) => {
+        const p = projection(t.coords)
+        return p ? { t, x: p[0], y: p[1] } : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.t.creators.length - a.t.creators.length)
+    const groups = []
+    for (const p of pts) {
+      const g = groups.find((c) => Math.hypot(c.x - p.x, c.y - p.y) < reach)
+      if (g) g.members.push(p.t)
+      else groups.push({ x: p.x, y: p.y, members: [p.t] })
+    }
+    return groups.map((g) => {
+      if (g.members.length === 1) return g.members[0]
+      const creators = g.members.flatMap((t) => t.creators).sort(byPinPriority)
+      return {
+        key: `cluster:${g.members.map((t) => t.key).sort().join('+')}`,
+        coords: g.members[0].coords,
+        creators,
+        towns: g.members,
+      }
+    })
+  }, [visibleTowns, planeZoom])
+
   const paintOrder = useMemo(() => {
-    const list = [...visibleTowns].sort((a, b) => b.coords[1] - a.coords[1])
+    const list = [...clusteredTowns].sort((a, b) => b.coords[1] - a.coords[1])
     if (!selected) return list
     const i = list.findIndex((t) => t.key === selected.key)
     if (i === -1) return list
     const [picked] = list.splice(i, 1)
     list.push(picked)
     return list
-  }, [visibleTowns, selected])
+  }, [clusteredTowns, selected])
 
   const visibleJourneys = connectionsView ? [] : (focusJourney ? [focusJourney] : journeys)
   const quietMap = travelView || connectionsView || nearMe || !!focusJourney // hide the full thread web
@@ -1775,7 +1833,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
               carries next month's flights is a label that undersells its own
               content, and a creator scanning for somebody to meet in Lisbon in
               three weeks had no reason to press it. */}
-          <span className="truncate">{tr('On the move')}{travelView ? ` · ${journeys.length}` : ''}</span>
+          <span className="truncate">{tr('Travelling')}{travelView ? ` · ${journeys.length}` : ''}</span>
         </button>
       )}
       {onToggleNearMe && (

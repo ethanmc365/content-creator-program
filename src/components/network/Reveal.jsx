@@ -135,6 +135,7 @@ export default function Reveal({
   innerRef = null,
   ...rest
 }) {
+
   // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES (18 Sep 2026).
   //
   // Ethan, on a phone: "when the worldwide page loads on mobile there is no

@@ -1277,7 +1277,7 @@ export default function GlobalHome() {
           {d?.trips?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="pin" title={tr("Creators on the move")} to="/collab" toLabel={tr('Collab board')} />
+                <SectionHead icon="pin" title={tr("Creators travelling")} to="/collab" toLabel={tr('Collab board')} />
                 <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.07}>
                   {d.trips.map((t) => (
                     <MotionLink key={t.id} to="/collab" {...cardHover}
