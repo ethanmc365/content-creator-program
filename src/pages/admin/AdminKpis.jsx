@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Skeleton } from '../../components/ui'
+import { Link } from 'react-router-dom'
+import { Avatar, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
 import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
@@ -9,7 +10,7 @@ import { confirm } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import {
   STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, kpiStatus, mergeKpiRows,
-  metricIcon, metricLabel, periodLabel,
+  metricLabel, periodLabel,
 } from '../../lib/kpiTracker'
 import Segmented from '../../components/network/Segmented'
 import { useT } from '../../lib/i18n'
@@ -98,7 +99,10 @@ export default function AdminKpis() {
     if (!scope) return
     setTargets(null)
     setActuals(null)
-    let tq = supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('year', year).eq('quarter', quarter)
+    // WHO SET IT (26 Sep 2026). Ethan: "show the profile of the admin that
+    // actually created the KPI ... so we can see who created it, and then I can
+    // follow up if I need to."
+    let tq = supabase.from('kpi_targets').select('*, creator:created_by(id, name, photo_url)').eq('community_id', scope).eq('year', year).eq('quarter', quarter)
     tq = byMonth ? tq.eq('month', month) : tq.is('month', null)
     const [t, a] = await Promise.all([
       tq.order('created_at'),
@@ -424,9 +428,6 @@ function YearRow({ metric, periods, last }) {
   return (
     <div className={cx('flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5', !last && 'border-b border-gray-100')}>
       <div className="flex items-center gap-2.5 sm:w-48 sm:shrink-0">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-          <Icon name={metric.metric === 'custom' ? 'sparkles' : STANDARD_METRICS.find((st) => st.key === metric.metric)?.icon || 'sparkles'} className="h-4 w-4" />
-        </span>
         <span className="truncate text-sm font-semibold text-ink">{metric.label}</span>
       </div>
 
@@ -495,10 +496,10 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
 
   return (
     <article className="group relative flex flex-col gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
+      {/* NO ICON TILE (26 Sep 2026). Ethan: "I don't like the orange
+          background ... remove them completely because they're not necessary."
+          The name leads; who set the target sits in the corner. */}
       <div className="flex items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
-          <Icon name={metricIcon(row)} className="h-[18px] w-[18px]" />
-        </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-semibold leading-snug text-ink">{metricLabel(row)}</span>
           {!row.is_automated && (
@@ -544,11 +545,19 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
         </div>
       </div>
 
-      <div className="mt-auto flex items-center justify-between pt-0.5">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
         <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', style.chip)}>
           {tr(style.label)}
         </span>
-        <span className="text-xs font-semibold tabular-nums text-gray-400">{fillPct}%</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-xs font-semibold tabular-nums text-gray-400">{fillPct}%</span>
+          {row.creator && (
+            <Link to={`/profile/${row.creator.id}`} title={`${tr('Set by')} ${row.creator.name}`} className="flex min-w-0 items-center gap-1.5 rounded-full bg-cloud py-0.5 pl-0.5 pr-2 transition-colors hover:bg-brand-tint">
+              <Avatar src={row.creator.photo_url} name={row.creator.name} size="xs" />
+              <span className="truncate text-[11px] font-medium text-smoke">{row.creator.name?.split(' ')[0]}</span>
+            </Link>
+          )}
+        </span>
       </div>
     </article>
   )
