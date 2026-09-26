@@ -74,3 +74,12 @@ describe('stripMarkup', () => {
     expect(stripMarkup('**Seven days left!\n**\nGet posting')).not.toContain('*')
   })
 })
+
+describe('blank lines', () => {
+  it('keeps a blank line between paragraphs as a line of height', () => {
+    const { container } = wrap(<div>{renderMessageBody('First paragraph\n\nSecond paragraph', { rich: true })}</div>)
+    const blocks = container.querySelectorAll('span.block')
+    expect(blocks.length).toBe(3)
+    expect(blocks[1].className).toContain('h-[1.25em]')
+  })
+})

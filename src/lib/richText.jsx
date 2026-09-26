@@ -140,7 +140,14 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
           : 'mt-2 block text-[15px] font-bold leading-snug first:mt-0'
       return <span key={`h${i}`} className={cls}>{renderInline(h[2], opts, `h${i}`)}</span>
     }
-    return <span key={`l${i}`} className="block">{renderInline(line, opts, `l${i}`) ?? ' '}</span>
+    // AN EMPTY LINE IS A BLANK LINE, NOT NOTHING (26 Sep 2026). Ethan: "when
+    // I have spaces and paragraphs in it, and then I send it, it's all joined
+    // together." The text was stored with its blank lines; this drew each one
+    // as an empty block - renderInline('') is an empty list, not null, so the
+    // no-break-space fallback never fired - and an empty block is zero pixels
+    // tall. A paragraph break is a line of height.
+    if (!line.trim()) return <span key={`l${i}`} className="block h-[1.25em]" aria-hidden />
+    return <span key={`l${i}`} className="block">{renderInline(line, opts, `l${i}`)}</span>
   })
 }
 
