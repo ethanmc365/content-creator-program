@@ -10,6 +10,8 @@ import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../component
 import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/roles'
 import { cx } from '../../lib/utils'
 
+const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', germany: '🇩🇪', romania: '🇷🇴', nordics: '🇸🇪' }
+
 // Who runs Tryp.com, and what each of them is called.
 //
 // TWO SEPARATE QUESTIONS ON ONE PAGE
@@ -230,8 +232,17 @@ export default function AdminTeam() {
     const personId = Array.isArray(picked) ? picked[0] : picked
     const person = everyone.find((p) => p.id === personId)
     if (!person) return
+    // A MANAGER IS ON THE TEAM (26 Sep 2026). Ethan: "it shows up: Maria will
+    // be able to edit Germany, but this will not make them a TikTok admin.
+    // Obviously, it should, and she already is an admin." Somebody who runs a
+    // market needs the admin panel to run it, so a creator made a manager
+    // joins the Tryp.com team in the same step - and the dialog says whichever
+    // of the two is true instead of warning about something that is not.
+    const isAdmin = (team || []).some((t) => t.id === personId)
     const ok = await confirm(
-      `${person.name} will be able to edit ${market.name}, its rules and its roster. It does not make them a Tryp.com admin.`,
+      isAdmin
+        ? `${person.name} is already on the Tryp.com team. They will now run ${market.name}: its challenges, rules and roster, and show under ${market.name} on this page.`
+        : `${person.name} will run ${market.name}: its challenges, rules and roster. They also join the Tryp.com team, so they get the admin panel they need to do it.`,
       { title: `Make ${person.name} a manager of ${market.name}?`, confirmLabel: 'Make manager' },
     )
     if (!ok) return
@@ -240,6 +251,10 @@ export default function AdminTeam() {
     const { error } = already
       ? await supabase.from('community_members').update({ role: 'manager' }).eq('community_id', market.id).eq('profile_id', personId)
       : await supabase.from('community_members').insert({ community_id: market.id, profile_id: personId, role: 'manager', status: 'active' })
+    if (!error && !isAdmin) {
+      const { error: adminErr } = await supabase.rpc('set_team_member', { target: personId, p_admin: true })
+      if (adminErr) notice(`${person.name} manages ${market.name}, but could not be added to the team: ${adminErr.message}`)
+    }
     setBusy(false)
     if (error) { notice(error.message); return }
     setAddingTo(null)
@@ -262,16 +277,27 @@ export default function AdminTeam() {
     toast(`${person.name} no longer manages ${market.name}.`)
   }
 
-  const lead = (team || []).find((t) => t.platform_role === 'owner')
-  const admins = (team || []).filter((t) => t.platform_role === 'global_admin')
-  const managersOf = (market) => (team || []).filter((t) => (t.market_slugs || []).includes(market.slug))
+  // Test and sandbox accounts (the demo login) are on the roster but not on
+  // the team anybody means; `everyone` is the real, non-test people.
+  const real = new Set(everyone.map((p) => p.id))
+  const people = (team || []).filter((t) => real.has(t.id) || t.id === profile?.id)
+  const lead = people.find((t) => t.platform_role === 'owner')
+  // THE WORLDWIDE TEAM IS WHO RUNS NO ONE MARKET (26 Sep 2026). Ethan: "If
+  // they're in a market ... then they shouldn't be showing up in the
+  // worldwide team. Hannah won't be showing up under a market manager, but she
+  // should still show up there. I can still show up there as well." The lead
+  // is always here, whatever they manage.
+  const admins = people.filter((t) => t.platform_role === 'global_admin' && !(t.market_slugs || []).length)
+  const managersOf = (market) => people
+    .filter((t) => (t.market_slugs || []).includes(market.slug))
+    .sort((a, b) => (a.platform_role === 'owner') - (b.platform_role === 'owner') || a.name.localeCompare(b.name))
 
   return (
     <div className="page">
       <PageHeader
         back="/admin"
         title="Tryp.com team"
-        subtitle="The worldwide team, then every market and who runs it."
+        subtitle="Who runs the programme worldwide, and who runs each market."
         action={
           <button onClick={() => setAdding((v) => !v)} className="btn-primary !py-2.5">
             <Icon name="plus" className="h-4 w-4" /> Add to worldwide team
@@ -305,7 +331,7 @@ export default function AdminTeam() {
               </span>
               <div>
                 <h2 className="text-lg font-semibold leading-tight">Worldwide team</h2>
-                <p className="text-xs text-smoke">Admins across every market.</p>
+                <p className="text-xs text-smoke">Admins who cover every market rather than running one.</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -341,44 +367,54 @@ export default function AdminTeam() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {markets.map((m) => {
+              {markets.map((m, i) => {
                 const mgrs = managersOf(m)
                 return (
-                  <div key={m.id} className="flex flex-col rounded-card border border-gray-100 bg-white shadow-card">
-                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3.5">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">{m.name}</p>
+                  <div
+                    key={m.id}
+                    style={{ animationDelay: `${i * 50}ms` }}
+                    className="animate-fade-up flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card"
+                  >
+                    <div className="flex items-center gap-3 px-5 py-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cloud text-xl leading-none">
+                        {MARKET_FLAG[m.slug] || '🌍'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-base font-semibold">{m.name}</p>
                         <p className="text-xs text-smoke">
-                          {(memberIds[m.id]?.size ?? 0).toLocaleString()} members · {mgrs.length === 0 ? 'no manager yet' : `${mgrs.length} manager${mgrs.length === 1 ? '' : 's'}`}
+                          {(memberIds[m.id]?.size ?? 0).toLocaleString()} members
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setAddingTo(m)}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-xs font-semibold text-white shadow-card transition-transform duration-200 hover:-translate-y-0.5"
                       >
                         <Icon name="plus" className="h-3.5 w-3.5" /> Add manager
                       </button>
                     </div>
                     {mgrs.length === 0 ? (
-                      <p className="flex-1 px-5 py-4 text-sm text-smoke">
+                      <p className="flex-1 border-t border-gray-100 px-5 py-4 text-sm text-smoke">
                         Nobody manages {m.name} yet. The worldwide team covers it until someone does.
                       </p>
                     ) : (
-                      <ul className="flex-1 divide-y divide-gray-50">
+                      <ul className="flex-1 divide-y divide-gray-50 border-t border-gray-100">
                         {mgrs.map((p) => (
-                          <li key={p.id} className="flex items-center gap-3 px-5 py-3">
-                            <Avatar src={p.photo_url} name={p.name} size="sm" />
+                          <li key={p.id} className="group flex items-center gap-3 px-5 py-3">
+                            <Avatar src={p.photo_url} name={p.name} size="md" />
                             <div className="min-w-0 flex-1">
-                              <Link to={`/profile/${p.id}`} className="block truncate text-sm font-semibold hover:text-brand">{p.name}</Link>
-                              <p className="truncate text-xs text-smoke">{p.role_title || (p.is_admin ? permissionLabel(p.platform_role) : 'Market manager')}</p>
+                              <Link to={`/profile/${p.id}`} className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
+                                <span className="truncate">{p.name}</span>
+                                {p.platform_role === 'owner' && <Badge tone="brand">{LEAD_TITLE_SHORT}</Badge>}
+                              </Link>
+                              <p className="truncate text-xs text-smoke">{p.role_title || `${m.name} manager`}</p>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeManager(m, p)}
                               disabled={busy}
                               aria-label={`Remove ${p.name} as manager of ${m.name}`}
-                              className="rounded-full p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                              className="rounded-full p-1.5 text-smoke opacity-60 transition-all hover:bg-red-50 hover:text-red-600 hover:opacity-100 disabled:opacity-40"
                             >
                               <Icon name="close" className="h-4 w-4" />
                             </button>
