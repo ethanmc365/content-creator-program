@@ -7,7 +7,7 @@ import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import IntroCard from './IntroCard'
-import { INTRO_MAKES, INTRO_WANTS, buildIntro, introToText } from '../../lib/intro'
+import { INTRO_MAKES, INTRO_WANTS, INTRO_SINCE, INTRO_PLATFORMS, buildIntro, introToText } from '../../lib/intro'
 import { airport } from '../../lib/airports'
 import { COUNTRIES } from '../../lib/countries'
 
@@ -60,6 +60,34 @@ function Chips({ options, value, onToggle, max }) {
             )}
           >
             {o}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// One answer from a short list. Pressing the picked one again clears it.
+function OneOf({ options, value, onChange }) {
+  const tr = useT()
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const on = value === o
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(on ? '' : o)}
+            aria-pressed={on}
+            className={cx(
+              'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
+              on
+                ? 'border-brand bg-brand text-white glow-brand'
+                : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+            )}
+          >
+            {tr(o)}
           </button>
         )
       })}
@@ -134,6 +162,11 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     ask: '',
     fact: '',
     wants: [],
+    since: '',
+    platform: '',
+    fav: '',
+    hack: '',
+    local: '',
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
@@ -204,7 +237,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   return (
     <Modal open={open} onClose={onClose} title={tr("Introduce yourself")} sheet={false} wide>
       <p className="-mt-3 mb-5 text-sm text-smoke">
-        {tr("We filled in what your profile already says. Change anything, skip anything, and your card is ready.")}
+        {tr("We filled in what your profile already says. Answer what you like, and your card builds itself as you go.")}
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -228,16 +261,42 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
             />
           </Field>
 
+          <Field label={tr("How long have you been creating?")}>
+            <OneOf options={INTRO_SINCE} value={form.since} onChange={(v) => set({ since: v })} />
+          </Field>
+
+          <Field label={tr("Where do you post the most?")}>
+            <OneOf options={INTRO_PLATFORMS} value={form.platform} onChange={(v) => set({ platform: v })} />
+          </Field>
+
           <Field label={tr("Where are you headed next?")}>
             <input className="input text-base sm:text-sm" value={form.next}
               placeholder={tr("Lisbon, Portugal in March")}
               onChange={(e) => set({ next: e.target.value })} />
           </Field>
 
+          <Field label={tr("Your best trip so far")}>
+            <input className="input text-base sm:text-sm" value={form.fav}
+              placeholder={tr("Three days in Porto for under 200")}
+              onChange={(e) => set({ fav: e.target.value })} />
+          </Field>
+
           <Field label={tr("One thing people should ask you about")}>
             <input className="input text-base sm:text-sm" value={form.ask}
               placeholder={tr("Finding cheap flights out of Dublin")}
               onChange={(e) => set({ ask: e.target.value })} />
+          </Field>
+
+          <Field label={tr("Your best travel hack")}>
+            <input className="input text-base sm:text-sm" value={form.hack}
+              placeholder={tr("Search one-way flights both ways, then book the cheaper pair")}
+              onChange={(e) => set({ hack: e.target.value })} />
+          </Field>
+
+          <Field label={tr("Your favourite spot in your home town")}>
+            <input className="input text-base sm:text-sm" value={form.local}
+              placeholder={tr("The rooftop bar above the old market")}
+              onChange={(e) => set({ local: e.target.value })} />
           </Field>
 
           <Field label={tr("A hidden talent or a fun fact about you")}>
@@ -333,7 +392,7 @@ export default function IntroInvite({ community, channel, canPost = true }) {
   const isIntroRoom = community?.kind === 'network' && channel?.key === 'introductions'
 
   useEffect(() => {
-    if (!user?.id || !isIntroRoom || !canPost) { setPosted(true); return undefined }
+    if (!user?.id || !isIntroRoom || !canPost) return undefined
     let alive = true
     supabase
       .from('messages').select('id')
@@ -352,24 +411,35 @@ export default function IntroInvite({ community, channel, canPost = true }) {
     return () => { alive = false }
   }, [user?.id, isIntroRoom, canPost])
 
-  if (!isIntroRoom || posted) return null
+  // ALWAYS THERE IN THIS ROOM (26 Sep 2026). Ethan: "there should be a button
+  // ... so that anyone can always redo it if they want to, so they can post
+  // another one. Because currently, once you've done it, there's no button to
+  // redo it again." It still only opens ITSELF for somebody who has never
+  // posted; after that it is a quieter "post a new intro".
+  if (!isIntroRoom || !canPost || !user?.id) return null
 
   return (
     <>
-      {/* The line above the composer. It is the whole reason the X is safe. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mb-2 flex w-full items-center gap-2.5 rounded-xl border border-brand/25 bg-brand-tint/40 px-3 py-2 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand/50"
+        className={cx(
+          'group mb-2 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5',
+          posted
+            ? 'border border-gray-200 bg-white hover:border-brand/40'
+            : 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card',
+        )}
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
-          <Icon name="sparkles" className="h-3.5 w-3.5" />
+        <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', posted ? 'bg-brand-tint text-brand' : 'bg-white/20 text-white')}>
+          <Icon name="sparkles" className="hook-sparkles h-4 w-4" />
         </span>
-        <span className="min-w-0 flex-1 text-xs font-medium text-brand">
-          {tr("Introduce yourself")}
-          <span className="hidden font-normal text-smoke sm:inline"> · answer a few questions and we will write it</span>
+        <span className={cx('min-w-0 flex-1 text-[13px] font-semibold', posted ? 'text-ink' : 'text-white')}>
+          {posted ? tr("Post a new intro") : tr("Introduce yourself")}
+          <span className={cx('hidden font-normal sm:inline', posted ? 'text-smoke' : 'text-white/85')}>
+            {posted ? ` · ${tr('share what is new with you')}` : ` · ${tr('answer a few questions and we will write it')}`}
+          </span>
         </span>
-        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand/60" />
+        <Icon name="chevronRight" className={cx('h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5', posted ? 'text-smoke' : 'text-white/80')} />
       </button>
 
       <IntroModal

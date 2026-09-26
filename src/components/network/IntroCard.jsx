@@ -83,9 +83,21 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
             )}
           </div>
         </div>
-        {stats?.length > 0 && (
+        {(stats?.length > 0 || intro.since || intro.platform) && (
           <div className="relative mt-3 flex flex-wrap gap-1.5">
-            {stats.map((s) => (
+            {intro.since && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand">
+                <Icon name="clock" className="h-3 w-3" />
+                {intro.since === 'Just starting' ? tr('Just starting out') : tr('Creating {t}', { t: tr(intro.since).toLowerCase() })}
+              </span>
+            )}
+            {intro.platform && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold">
+                <SocialMark brand={intro.platform.toLowerCase()} className="h-3 w-3" />
+                {tr('Mostly on {p}', { p: intro.platform })}
+              </span>
+            )}
+            {(stats || []).map((s) => (
               <span key={s.label} className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold">
                 <Icon name={s.icon} className="h-3 w-3" />
                 <span className="tabular-nums">{s.value}</span> {s.label}
@@ -121,7 +133,10 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
             <Flags list={intro.dreams} max={10} />
           </Row>
         )}
+        {intro.fav && <Row icon="star" label={tr('Best trip so far')}>{intro.fav}</Row>}
         {intro.ask && <Row icon="chat" label={tr('Ask me about')}>{intro.ask}</Row>}
+        {intro.hack && <Row icon="bulb" label={tr('Best travel hack')}>{intro.hack}</Row>}
+        {intro.local && <Row icon="pin" label={tr('Favourite spot at home')}>{intro.local}</Row>}
         {intro.fact && <Row icon="sparkles" label={tr('Fun fact')}>{intro.fact}</Row>}
         {intro.wants?.length > 0 && (
           <Row icon="users" label={tr('Here for')}>

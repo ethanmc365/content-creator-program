@@ -19,6 +19,7 @@
 //     makes: [..], wants: [..],           chips
 //     next: { text, iso },                where they are headed
 //     ask, fact,                          two lines in their own words
+//     since, platform, fav, hack, local   added 26 Sep 2026
 //     visited: [{ name, iso }],           from the profile's countries
 //     dreams:  [{ name, iso }],           from the profile's bucket list
 //     socials: { instagram, tiktok, youtube, facebook },
@@ -33,6 +34,12 @@ export const INTRO_MAKES = [
   'City guides', 'Budget travel', 'Luxury stays', 'Food', 'Hotels', 'Solo travel',
   'Family travel', 'Adventure', 'Road trips', 'Hidden gems', 'Deals', 'Vlogs',
 ]
+
+// More questions, 26 Sep 2026. Ethan: "asking more questions, getting more
+// details from them ... the more the people learn about each other, the more
+// they're likely to connect." Every one can be skipped.
+export const INTRO_SINCE = ['Just starting', 'Under a year', '1 to 3 years', '3+ years']
+export const INTRO_PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'Facebook']
 
 export const INTRO_WANTS = [
   'Collabs', 'Feedback on my videos', 'Meeting people near me',
@@ -89,6 +96,11 @@ export function buildIntro(profile = {}, form = {}, extras = {}) {
     next: clean(form.next) ? { text: clean(form.next), iso: isoInText(form.next) } : null,
     ask: clean(form.ask) || null,
     fact: clean(form.fact) || null,
+    since: clean(form.since) || null,
+    platform: clean(form.platform) || null,
+    fav: clean(form.fav) || null,
+    hack: clean(form.hack) || null,
+    local: clean(form.local) || null,
     visited: visited.slice(0, 40),
     dreams: dreams.slice(0, 12),
     socials: {
@@ -116,6 +128,11 @@ export function introToText(intro) {
   if (intro.next?.text) lines.push(`Next trip: ${intro.next.text}.`)
   if (intro.ask) lines.push(`Ask me about: ${intro.ask}.`)
   if (intro.fact) lines.push(`Fun fact: ${intro.fact}.`)
+  if (intro.since) lines.push(`Creating for: ${intro.since}.`)
+  if (intro.platform) lines.push(`Favourite platform: ${intro.platform}.`)
+  if (intro.fav) lines.push(`Best trip so far: ${intro.fav}.`)
+  if (intro.hack) lines.push(`Best travel hack: ${intro.hack}.`)
+  if (intro.local) lines.push(`Favourite spot at home: ${intro.local}.`)
   if (intro.wants?.length) lines.push(`Hoping to find: ${intro.wants.join(', ')}.`)
   return lines.join('\n')
 }
