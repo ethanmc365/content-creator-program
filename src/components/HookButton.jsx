@@ -3,6 +3,7 @@ import Icon from './Icon'
 import { Modal, Spinner } from './ui'
 import { supabase } from '../lib/supabase'
 import { pickHook } from '../lib/hooks'
+import { fetchAll } from '../lib/fetchAll'
 import { copyToClipboard } from '../lib/clipboard'
 import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
@@ -35,7 +36,8 @@ function writeSeen(set) {
 
 async function loadBank() {
   if (bank) return bank
-  const { data, error } = await supabase.from('hooks').select('id, text, uses').eq('is_active', true)
+  // Paged: the API stops at 1,000 rows and the bank is bigger than that.
+  const { data, error } = await fetchAll(() => supabase.from('hooks').select('id, text, uses').eq('is_active', true))
   if (error) throw error
   bank = data || []
   return bank

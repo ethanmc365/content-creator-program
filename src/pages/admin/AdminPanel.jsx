@@ -98,7 +98,7 @@ const TOOLS = [
   // the note above about every icon appearing exactly once.
   { id: 'kit', to: '/admin/creator-kit', icon: 'star', title: 'Creator kit' },
   // The bank behind "Hook me up" on every challenge (24 Sep 2026).
-  { id: 'hooks', to: '/admin/hooks', icon: 'bulb', title: 'Hooks' },
+  { id: 'hooks', to: '/admin/hooks', icon: 'quote', title: 'Hooks' },
 
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
   { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },

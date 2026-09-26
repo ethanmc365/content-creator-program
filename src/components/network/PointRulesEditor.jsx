@@ -226,14 +226,14 @@ function Row({ rule, onChange, onRemove, weeks }) {
              out of line with every other one. */
           <span className={cx(
             'w-fit truncate rounded-lg border border-dashed px-2.5 py-1.5 text-xs sm:w-full sm:text-center',
-            rule.prompt?.trim()
+            rule.prompt != null
               ? 'border-brand/40 bg-white font-medium text-brand'
               : 'border-gray-200 bg-white text-smoke',
           )}>
             {/* WHO GIVES IT, AND NOTHING ELSE. It used to add the view gate
                 ("You award it, counts at 200"), which read as a to-do: the
                 gate has its own labelled box in the panel below. */}
-            {rule.prompt?.trim() ? tr('Creator ticks a box') : tr('You award it')}
+            {rule.prompt != null ? tr('Creator ticks a box') : tr('You award it')}
           </span>
         )}
       </div>
@@ -265,17 +265,48 @@ function Row({ rule, onChange, onRemove, weeks }) {
         this bonus" - first qualifying entries by submission time. */}
     {rule.kind === 'bonus' && (
       <div className="mt-2.5 space-y-3 rounded-xl bg-cloud/70 p-3 sm:ml-[2.875rem]">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]">
-        <label className="block min-w-0">
-          <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Ask the creator when they submit")}</span>
-          <input
-            className="input !h-[38px] !py-0 !no-ios-zoom sm:text-sm"
-            value={rule.prompt ?? ''}
-            onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
-            placeholder={tr("Is this video featuring a Christmas market?")}
-          />
-          <span className="mt-1 block text-[11px] text-smoke">{tr("Leave blank to award it yourself from the results page.")}</span>
-        </label>
+      {/* HOW IT IS EARNED, AS A CHOICE (26 Sep 2026). Ethan: "the bonus thing
+          with all those different things seems a bit confusing ... make it more
+          user-friendly to the admins." It used to be a question box whose
+          meaning changed when it was left blank. Now it is two buttons that say
+          what happens, and the question only appears for the one that needs it.
+          A null prompt is "I award it"; a string (even empty while typing) is
+          "creator ticks a box". Saving trims an empty one back to null. */}
+      <div>
+        <span className="mb-1.5 block text-[11px] font-semibold text-smoke">{tr("How it is earned")}</span>
+        <div className="grid grid-cols-2 gap-1.5 sm:max-w-md">
+          {[
+            { on: rule.prompt != null, label: tr('Creator ticks a box'), icon: 'check', set: () => onChange({ ...rule, prompt: rule.prompt ?? '' }) },
+            { on: rule.prompt == null, label: tr('I award it'), icon: 'star', set: () => onChange({ ...rule, prompt: null }) },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={o.set}
+              aria-pressed={o.on}
+              className={cx(
+                'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200',
+                o.on ? 'bg-brand text-white shadow-sm' : 'border border-gray-200 bg-white text-smoke hover:border-brand/40 hover:text-ink',
+              )}
+            >
+              <Icon name={o.icon} className="h-3.5 w-3.5" />
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={cx('grid gap-3', rule.prompt != null ? 'sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]' : 'sm:grid-cols-2 sm:max-w-md')}>
+        {rule.prompt != null && (
+          <label className="block min-w-0">
+            <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("The question on the submit form")}</span>
+            <input
+              className="input !h-[38px] !py-0 !no-ios-zoom sm:text-sm"
+              value={rule.prompt ?? ''}
+              onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
+              placeholder={tr("Does this video feature a Christmas market?")}
+            />
+          </label>
+        )}
         <label className="block">
           <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("Views needed")}</span>
           <span className="flex h-[38px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3">
@@ -482,57 +513,62 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
     onChange(rules.filter((_, j) => j !== i))
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        {rules.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center">
-            <p className="text-sm text-smoke">{tr("No rules yet, so nobody can score.")}</p>
-            <button
-              type="button"
-              onClick={() => onChange(STARTER_POINT_RULES.map((r, i) => ({ ...r, id: `new-${tempId++}-${i}` })))}
-              className="btn-secondary mt-3 !py-2 !px-4 !text-sm"
-            >
-              {tr("Use the standard set")}
-            </button>
-            <p className="mt-2 text-xs text-smoke">
-              {tr("A point per video capped at ten, plus 5k / 10k / 50k view milestones.")}
-            </p>
-          </div>
-        ) : (
-          rules.map((r, i) => (
-            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
-          ))
-        )}
-      </div>
+  // TWO SECTIONS, EACH WITH ITS OWN ADD BUTTONS (26 Sep 2026). One list of
+  // every kind, with six add-buttons under it, mixed view milestones in among
+  // bonuses and made the section hard to read. The indexes into `rules` are
+  // kept so edits land on the right row whichever section draws it.
+  const indexed = rules.map((r, i) => ({ r, i }))
+  const milestones = indexed.filter(({ r }) => RULE_USES_THRESHOLD.has(r.kind))
+  const extras = indexed.filter(({ r }) => !RULE_USES_THRESHOLD.has(r.kind))
+  const addButton = (kind, label) => {
+    const meta = KINDS[kind]
+    return (
+      <button
+        key={kind}
+        type="button"
+        onClick={() => add(kind)}
+        className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white px-3 py-2.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5 shrink-0" />
+        <Icon name={meta.icon} className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 truncate">{label || meta.label}</span>
+      </button>
+    )
+  }
 
-      {/* THE FIVE KINDS, AS A GRID RATHER THAN A WRAPPING ROW.
-          Ethan: "improve the UI and design of per video posted, view milestone,
-          total views milestone, per platform posted on - and make sure it is
-          aligned."
-          Five `btn-secondary` pills of five different widths wrapped into a
-          ragged two-and-a-half lines under a set of rows that had just been
-          brought into alignment, which made the alignment above look accidental.
-          A grid gives them one width each, in tidy rows, and reads as a palette
-          of things you can add rather than a sentence that ran on. The dashed
-          border says the same: these make something, they are not actions on
-          what is already there. */}
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">{tr("Add a rule")}</p>
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {Object.entries(KINDS).map(([kind, meta]) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => add(kind)}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2.5 text-left text-xs font-medium text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand"
-            >
-              <Icon name={meta.icon} className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 leading-tight">{meta.label}</span>
-            </button>
+  return (
+    <div className="space-y-6">
+      {rules.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center">
+          <p className="text-sm text-smoke">{tr("No rules yet, so nobody can score.")}</p>
+          <button
+            type="button"
+            onClick={() => onChange(STARTER_POINT_RULES.map((r, i) => ({ ...r, id: `new-${tempId++}-${i}` })))}
+            className="btn-secondary mt-3 !py-2 !px-4 !text-sm"
+          >
+            {tr("Use the standard set")}
+          </button>
+          <p className="mt-2 text-xs text-smoke">
+            {tr("A point per video capped at ten, plus 5k / 10k / 50k view milestones.")}
+          </p>
+        </div>
+      )}
+
+      <section>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="text-sm font-semibold text-ink">{tr("View milestones")}</p>
+          <p className="text-[11px] text-smoke">{tr("Points for views")}</p>
+        </div>
+        <div className="space-y-2">
+          {milestones.map(({ r, i }) => (
+            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
           ))}
         </div>
-      </div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {addButton('views_threshold', tr('Add a milestone on one video'))}
+          {addButton('total_views_threshold', tr('Add a milestone on total views'))}
+        </div>
+      </section>
 
       {/* Only meaningful once there is more than one milestone, so it hides
           itself rather than asking a question with one possible answer. */}
@@ -576,6 +612,30 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           </p>
         </div>
       )}
+
+      <section className="rounded-2xl border border-brand/15 bg-brand-tint/20 p-3 sm:p-4">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Icon name="star" className="h-4 w-4 text-brand" />
+            {tr("Bonus points")}
+          </p>
+          <p className="text-[11px] text-smoke">{tr("On top of the views")}</p>
+        </div>
+        <div className="space-y-2">
+          {extras.length === 0 && (
+            <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-center text-xs text-smoke">{tr("No bonuses yet. Add one below.")}</p>
+          )}
+          {extras.map(({ r, i }) => (
+            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {addButton('bonus', tr('Special bonus'))}
+          {addButton('per_post', tr('Per video'))}
+          {addButton('platform_spread', tr('Per platform'))}
+          {addButton('consistency', tr('Posting streak'))}
+        </div>
+      </section>
     </div>
   )
 }
