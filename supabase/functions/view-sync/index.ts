@@ -546,7 +546,90 @@ async function looksLikeFacebookReel(id: string): Promise<boolean> {
   }
 }
 
+// THE CRAWLER VIEW, measured 26 Sep 2026.
+//
+// Signed out, a browser gets a reel page with no count in it anywhere - which
+// is why reels used to come back "count hidden" and share links "goes nowhere".
+// The SAME url asked for as a search crawler is answered with the full page
+// data, and in it every video carries a `video_view_count_renderer` whose
+// `associated_video.id` names the video it belongs to, followed by
+// `play_count` (the plays figure the creator sees on their own reels tab) and
+// `video_view_count`. The page also holds a dozen RECOMMENDED reels with counts
+// of their own, so the count is only ever taken from the block bound to OUR id.
+//
+// Share links (/share/r/..., story.php?story_fbid=pfbid...) redirect over plain
+// HTTP for this agent, straight to /reel/<id>/, so the real video id falls out
+// of the final URL. The id stored from the old resolver could be a PAGE id
+// (122125890357428229 on 26 Sep), so the link is always re-resolved here.
+// Several agents, tried in order: a platform that checks one crawler's address
+// range may not check another's.
+const CRAWLER_UAS = [
+  'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+  'Mozilla/5.0 (compatible; Google-InspectionTool/1.0)',
+  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+]
+
+export function facebookCountFor(html: string, id: string): { views: number; approx: boolean } | null {
+  const esc = id.replace(/\D/g, '')
+  const block = new RegExp(`"associated_video":\\{[^{}]*"id":"${esc}"\\}([^{}]{0,1200})`).exec(html)?.[1]
+  if (!block) return null
+  const play = block.match(/"play_count":(\d+)/)?.[1]
+  const views = block.match(/"video_view_count":(\d+)/)?.[1]
+  const n = Math.max(Number(play ?? 0), Number(views ?? 0))
+  if (!play && !views) return null
+  return { views: n, approx: false }
+}
+
+async function crawlerFetch(url: string, ua = CRAWLER_UAS[0]): Promise<{ html: string; url: string } | null> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS * 2)
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' },
+      redirect: 'follow',
+      signal: ctrl.signal,
+    })
+    if (!res.ok) { await res.body?.cancel(); return null }
+    return { html: await res.text(), url: res.url || url }
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function facebookViewsAsCrawler(url: string, knownId: string | null): Promise<Resolved | null> {
+  const base = { platform: 'Facebook' as const }
+  for (const ua of CRAWLER_UAS) {
+    const page = await crawlerFetch(url, ua)
+    if (!page) { await sleep(300); continue }
+    const canonicalHref = page.html.match(/rel="canonical"\s+href="([^"]+)"/)?.[1] ?? null
+    const ids = [
+      facebookIdFrom(page.url),
+      canonicalHref ? facebookIdFrom(canonicalHref) : null,
+      ...facebookIdCandidates(page.html),
+      knownId,
+    ].filter((v, i, a): v is string => !!v && a.indexOf(v) === i)
+    for (const id of ids.slice(0, 4)) {
+      let found = facebookCountFor(page.html, id)
+      // A /watch or /videos page sometimes carries only the player. The reel
+      // route serves the renderer for any video id.
+      if (!found) {
+        const reel = await crawlerFetch(`https://www.facebook.com/reel/${id}/`, ua)
+        if (reel) found = facebookCountFor(reel.html, id)
+      }
+      if (found) {
+        return { ...base, videoId: id, canonicalUrl: canonicalHref ?? page.url, views: found.views, approx: found.approx, error: null }
+      }
+    }
+  }
+  return null
+}
+
 async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
+  const viaCrawler = await facebookViewsAsCrawler(url, knownId)
+  if (viaCrawler) return viaCrawler
+
   const base = { platform: 'Facebook' as const }
   let canonical: string | null = url
   let candidates: string[] = []
@@ -1142,7 +1225,7 @@ const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, crea
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first
 // hundred being refreshed over and over.
-async function staleRows(challengeId: string | undefined, intervalHours: number, force = false): Promise<Row[]> {
+async function staleRows(challengeId: string | undefined, intervalHours: number, force = false, runStartedAt?: string): Promise<Row[]> {
   let q = supabase.from('submissions').select(ROW_COLS)
 
   if (challengeId) {
@@ -1160,6 +1243,14 @@ async function staleRows(challengeId: string | undefined, intervalHours: number,
   if (!force) {
     const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
     q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  } else if (runStartedAt) {
+    // A FORCED RUN NEVER READS AN ENTRY TWICE (26 Sep 2026). Each chunk used to
+    // take the 120 OLDEST readings, and the entries the first chunk had just
+    // read were not the newest by then for long - so chunk two re-read most of
+    // chunk one. Ethan saw "Reading 210 of 134", and every failure was counted
+    // once per re-read ("7 could not be read" for 4 entries). Anything read
+    // since this run began is done.
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${runStartedAt}`)
   }
 
   const { data } = await q
@@ -1294,7 +1385,7 @@ Deno.serve(async (req) => {
 
   const interval = await syncInterval()
   const force = body.force === true
-  const rows = await staleRows(body.challenge_id, interval, force)
+  const rows = await staleRows(body.challenge_id, interval, force, continuation?.started_at)
 
   if (!rows.length) {
     // Nothing stale. If this is the tail of a chain, close the run properly so
@@ -1325,7 +1416,7 @@ Deno.serve(async (req) => {
     // out with. Using "remaining stale" for a forced run would never reach zero
     // and would loop until the chunk cap.
     const more = force
-      ? after.done < after.total
+      ? after.done < after.total && rows.length >= CHUNK
       : (await countStale(body.challenge_id, interval)) > 0
 
     if (more && after.chunk < MAX_CHUNKS_PER_CHAIN) {
