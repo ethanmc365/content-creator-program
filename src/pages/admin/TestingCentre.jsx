@@ -35,6 +35,7 @@ const OnboardingLab = lazyRoute(() => import('./testing/OnboardingLab'))
 const InvoiceLab = lazyRoute(() => import('./testing/InvoiceLab'))
 const ViewsLab = lazyRoute(() => import('./testing/ViewsLab'))
 const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
+const RecapLab = lazyRoute(() => import('./testing/RecapLab'))
 
 export const LABS = [
   {
@@ -65,6 +66,12 @@ export const LABS = [
     blurb: 'A creator’s personal recap of the year, played card by card and ending in something they can post.',
     tags: ['Real data', 'Read-only'],
     element: <WrappedLab />,
+  },
+  {
+    key: 'recap', title: 'Challenge recap', icon: 'trophy', group: 'The programme',
+    blurb: 'The story every entrant gets when a challenge closes, where it shows up, and how it looks on a phone and a laptop.',
+    tags: ['Real data', 'Read-only'],
+    element: <RecapLab />,
   },
   {
     key: 'views', title: 'View counts', icon: 'eye', group: 'The programme',

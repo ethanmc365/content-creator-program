@@ -11,6 +11,7 @@ import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import EntryPreview from '../components/challenge/EntryPreview'
 import SwapIn from '../components/challenge/SwapIn'
+import RecapBanner from '../components/challenge/RecapBanner'
 import { useEntryPoints } from '../lib/entryPoints'
 import { previewLink, storeThumbnail } from '../lib/videoThumbs'
 import VideoEmbedModal from '../components/VideoEmbedModal'
@@ -876,19 +877,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* THE RECAP, ONCE IT IS OVER (24 Sep 2026). A finished challenge you
           entered opens with your own story of it - see pages/ChallengeRecap. */}
       {!isLive && challenge.status !== 'draft' && myEntries.length > 0 && (
-        <Link
-          to={`/challenges/${challenge.id}/recap`}
-          className="animate-fade-up group mb-8 flex items-center gap-4 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white shadow-card transition-transform duration-200 hover:-translate-y-0.5"
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
-            <Icon name="sparkles" className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-bold leading-tight">{tr('Your recap is ready')}</span>
-            <span className="block text-xs text-white/85">{tr('Where you placed, your top videos and what you made, ready to share.')}</span>
-          </span>
-          <Icon name="chevronRight" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
-        </Link>
+        <RecapBanner to={`/challenges/${challenge.id}/recap`} className="mb-8" />
       )}
 
       {/* THE TABS ARE BUTTONS, NOT UNDERLINED WORDS (2 Sep 2026).
