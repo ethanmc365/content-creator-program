@@ -139,6 +139,13 @@ function sentence(e, marketName, isTeam) {
 
 // The trigger's own "status: pending -> active" line on a profile is the same
 // event as the approval the RPC logs a millisecond later; one line, not two.
+// THE PLATFORM'S OWN BOOKKEEPING (26 Sep 2026). The view sync writes its
+// progress into app_settings on every chunk of every run - 280 "Changed the
+// setting" rows a fortnight, a third of the whole log - and none of it is a
+// decision anybody made.
+const isBookkeeping = (e) => e.entity === 'app_settings'
+  && ['view_sync_run', 'view_sync_last_run', 'fx_rates'].includes(e.target_name)
+
 const isApprovalEcho = (e) => e.action === 'Changed creator' && e.meta?.status?.from === 'pending'
   && e.meta?.status?.to === 'active' && Object.keys(e.meta).length === 1
 
@@ -213,7 +220,7 @@ export default function AdminAuditLog() {
   // instant and avoids a round trip per keystroke.
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const base = (rows ?? []).filter((r) => !isApprovalEcho(r))
+    const base = (rows ?? []).filter((r) => !isApprovalEcho(r) && !isBookkeeping(r))
     if (!q) return base
     return base.filter((r) =>
       `${r.actor_name ?? ''} ${r.action ?? ''} ${r.target_name ?? ''} ${r.detail ?? ''}`
@@ -225,7 +232,7 @@ export default function AdminAuditLog() {
       `tryp-audit-${new Date().toISOString().slice(0, 10)}.csv`,
       shown.map((r) => ({
         when: formatDateTime(r.created_at),
-        who: r.actor_name || 'System',
+        who: (r.actor_id && r.actor_name) || 'Tryp.com platform',
         action: sentence(r, marketName, isTeam),
         category: r.category || '',
         target: r.target_name || '',
@@ -258,15 +265,26 @@ export default function AdminAuditLog() {
     }
   }, [shown])
 
+  // ONE LINE FOR A RUN OF THE SAME THING (26 Sep 2026). Cleaning the hook bank
+  // wrote 1,207 "Changed hook" rows in a second; read as 1,207 lines they are
+  // the whole log. The same person doing the same action to the same kind of
+  // thing back to back is one line with a count, and it opens to the list.
   const days_ = useMemo(() => {
     const out = []
     for (const e of shown) {
       const label = dayLabel(e.created_at, nowMs)
       if (!out.length || out[out.length - 1].label !== label) out.push({ label, rows: [] })
-      out[out.length - 1].rows.push(e)
+      const day = out[out.length - 1]
+      const prev = day.rows[day.rows.length - 1]
+      if (prev && prev.actor_id === e.actor_id && prev.action === e.action && prev.entity === e.entity && !e.target_name) {
+        prev.group = [...(prev.group || [prev]), e]
+      } else {
+        day.rows.push({ ...e })
+      }
     }
     return out
   }, [shown, nowMs])
+  const [openId, setOpenId] = useState(null)
 
   const actors = useMemo(
     () => Object.values(people).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
@@ -280,7 +298,6 @@ export default function AdminAuditLog() {
       <PageHeader
         back="/admin"
         title="Audit log"
-        subtitle="Everything the team and the platform changed, as it happened."
         action={
           <button onClick={exportLog} disabled={!shown.length} className="btn-secondary disabled:opacity-40">
             <Icon name="download" className="h-4 w-4" /> Export CSV
@@ -375,37 +392,84 @@ export default function AdminAuditLog() {
                       const c = catOf(e)
                       const who = people[e.actor_id]
                       const flag = isSensitive(e)
+                      const open = openId === e.id
+                      const count = e.group?.length || 1
+                      const changes = e.meta && typeof e.meta === 'object'
+                        ? Object.entries(e.meta).filter(([, v]) => v && typeof v === 'object' && 'from' in v)
+                        : []
                       return (
-                        <li key={e.id} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-cloud/40 sm:px-5">
-                          {who
-                            ? <Avatar src={who.photo_url} name={who.name} size="sm" className="!ring-0" />
-                            : (
-                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cloud text-smoke">
-                                <Icon name="device" className="h-4 w-4" />
+                        <li key={e.id} className={cx('transition-colors', open ? 'bg-cloud/40' : 'hover:bg-cloud/30')}>
+                          <button type="button" onClick={() => setOpenId(open ? null : e.id)} aria-expanded={open} className="flex w-full items-start gap-3 px-4 py-3 text-left sm:px-5">
+                            {/* WHO DID IT, AS A FACE (26 Sep 2026). Ethan: "It should
+                                show the profile picture of whoever actually logged
+                                it, as in, the side where it currently shows just a
+                                computer icon." A person is their photo; a change the
+                                platform made by itself - a scheduled job, the sync, a
+                                database update - is the Tryp.com mark, labelled. */}
+                            {who
+                              ? <Avatar src={who.photo_url} name={who.name} size="sm" className="!ring-0" />
+                              : (
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white" title="Done automatically by the platform">
+                                  <Icon name="plane-tryp" className="h-4 w-4" />
+                                </span>
+                              )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm leading-snug">
+                                <span className="font-semibold">{who?.name || (e.actor_id && e.actor_name) || 'Tryp.com platform'}</span>
+                                <span className="text-ink/80"> {sentence(e, marketName, isTeam)}</span>
+                                {e.target_name && <> <span className="font-semibold">{e.target_name}</span></>}
+                                {count > 1 && <span className="ml-1.5 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-white">× {count.toLocaleString()}</span>}
+                              </p>
+                              {!open && e.detail && !e.meta && (
+                                <p className="mt-0.5 text-xs text-smoke">{humanFields(e.detail)}</p>
+                              )}
+                              {!open && <ChangeChips meta={e.meta} />}
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span className="whitespace-nowrap text-xs tabular-nums text-smoke" title={formatDateTime(e.created_at)}>
+                                {new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                               </span>
-                            )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm leading-snug">
-                              <span className="font-semibold">{e.actor_name || 'System'}</span>
-                              <span className="text-ink/80"> {sentence(e, marketName, isTeam)}</span>
-                              {e.target_name && <> <span className="font-semibold">{e.target_name}</span></>}
-                            </p>
-                            {e.detail && !e.meta && (
-                              <p className="mt-0.5 text-xs text-smoke">{humanFields(e.detail)}</p>
-                            )}
-                            <ChangeChips meta={e.meta} />
-                          </div>
-                          <div className="flex shrink-0 flex-col items-end gap-1">
-                            <span className="whitespace-nowrap text-xs tabular-nums text-smoke" title={formatDateTime(e.created_at)}>
-                              {new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <span className={cx(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                              flag ? 'bg-brand text-white' : 'bg-cloud text-smoke',
-                            )}>
-                              <Icon name={c.icon} className="h-3 w-3" />
-                              {e.category ? c.label : 'Other'}
-                            </span>
+                              <span className={cx(
+                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                flag ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                              )}>
+                                <Icon name={c.icon} className="h-3 w-3" />
+                                {e.category ? c.label : 'Other'}
+                              </span>
+                            </div>
+                          </button>
+                          <div className={cx('grid transition-[grid-template-rows] duration-300 ease-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+                            <div className="overflow-hidden">
+                              <div className="mx-4 mb-3 space-y-3 rounded-xl border border-gray-100 bg-white p-3.5 text-xs sm:mx-5 sm:ml-[4.25rem]">
+                                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                                  <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-smoke">When</dt><dd className="font-medium">{formatDateTime(e.created_at)}</dd></div>
+                                  <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-smoke">Who</dt><dd className="font-medium">{who?.name || (e.actor_id ? (e.actor_name || 'A creator') : 'The platform, automatically')}</dd></div>
+                                  <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-smoke">Area</dt><dd className="font-medium">{e.category ? c.label : 'Other'}{e.entity ? ` · ${String(e.entity).replace(/_/g, ' ')}` : ''}</dd></div>
+                                  {marketName(e.community_id) && <div><dt className="text-[10px] font-semibold uppercase tracking-wide text-smoke">Market</dt><dd className="font-medium">{marketName(e.community_id)}</dd></div>}
+                                </dl>
+                                {changes.length > 0 && (
+                                  <div>
+                                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-smoke">What changed</p>
+                                    <ul className="space-y-1">
+                                      {changes.map(([field, v]) => (
+                                        <li key={field} className="grid grid-cols-[8rem_minmax(0,1fr)] gap-2">
+                                          <span className="font-semibold text-ink">{FIELD_WORDS[field] ?? field.replace(/_/g, ' ')}</span>
+                                          <span className="min-w-0 [overflow-wrap:anywhere] text-smoke">
+                                            <span className="line-through decoration-gray-300">{v.from == null || v.from === '' ? 'empty' : typeof v.from === 'object' ? JSON.stringify(v.from) : String(v.from)}</span>
+                                            <span className="mx-1.5 text-gray-300">→</span>
+                                            <span className="font-medium text-ink">{v.to == null || v.to === '' ? 'empty' : typeof v.to === 'object' ? JSON.stringify(v.to) : String(v.to)}</span>
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {e.detail && changes.length === 0 && <p className="text-smoke">{humanFields(e.detail)}</p>}
+                                {count > 1 && (
+                                  <p className="text-smoke">{count.toLocaleString()} of these in a row, between {new Date(e.group[e.group.length - 1].created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} and {new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </li>
                       )
