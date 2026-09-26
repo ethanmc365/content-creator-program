@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
 import PendingLabel from '../components/PendingLabel'
 import { confirm, notice } from '../lib/confirm'
@@ -786,6 +787,21 @@ export default function Messages() {
 
   // ---------- Active thread ----------
   useEffect(() => {
+    // A DRAFT HAS NO HISTORY (26 Sep 2026). Ethan: "if I'm on a DM chat and I
+    // search for a creator I haven't messaged before, I open that chat. It then
+    // shows the message that I was just on with the other creator." Going from
+    // a thread to a draft (`/messages?to=`) leaves `conversationId` empty, and
+    // this used to return early - leaving the PREVIOUS thread's messages in
+    // state under the new person's name. Clear it the moment the thread goes,
+    // and when switching straight to another thread too, so the old one never
+    // shows for the length of a round trip.
+    // Not when a draft has just BECOME this thread: the first message is
+    // already on screen and belongs to it (see ensureConversation).
+    if (!justCreatedRef.current.has(conversationId)) {
+      setThread([])
+      setReactions([])
+      setEntryRefs({})
+    }
     if (!conversationId) return
     let cancelled = false
     async function loadThread() {
@@ -1229,10 +1245,19 @@ export default function Messages() {
   //
   // Pinning had no route at all on a phone: the pin button only appears on
   // hover, and there is no hover.
-  const startConvPress = (c) => {
+  // THE MENU OPENS BESIDE THE CHAT YOU HELD (26 Sep 2026). Ethan: holding a
+  // creator "highlights the entire page in this weird grey box ... It should
+  // highlight just the person's name ... in orange". The row's box is kept so
+  // the menu can sit right under it (or above, near the foot of the screen),
+  // with no dimmed backdrop - the held row itself turns orange.
+  const openConvMenu = (c, el) => {
+    const r = el?.getBoundingClientRect?.()
+    setConvSheet({ ...c, _anchor: r ? { top: r.top, bottom: r.bottom, left: r.left, width: r.width } : null })
+  }
+  const startConvPress = (c, el) => {
     clearTimeout(convTimer.current)
     convLongPressed.current = false
-    convTimer.current = setTimeout(() => { convLongPressed.current = true; setConvSheet(c) }, 550)
+    convTimer.current = setTimeout(() => { convLongPressed.current = true; openConvMenu(c, el) }, 550)
   }
   const cancelConvPress = () => clearTimeout(convTimer.current)
 
@@ -1908,9 +1933,9 @@ export default function Messages() {
                 tabIndex={0}
                 onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) } }}
-                onTouchStart={() => startConvPress(c)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
-                onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
-                onContextMenu={(e) => { e.preventDefault(); setConvSheet(c) }}
+                onTouchStart={(e) => startConvPress(c, e.currentTarget)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
+                onMouseDown={(e) => startConvPress(c, e.currentTarget)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
+                onContextMenu={(e) => { e.preventDefault(); openConvMenu(c, e.currentTarget) }}
                 className={cx(
                   // `hoverable:` - A ROW WITH A `:hover` RULE COSTS YOU THE
                   // FIRST TAP ON iOS. Safari treats the first tap on an element
@@ -1928,7 +1953,8 @@ export default function Messages() {
                   // the finger being down rather than to a hover that never
                   // ends.
                   'active:bg-cloud/70',
-                  c.id === conversationId && 'bg-brand-tint/50'
+                  c.id === conversationId && 'bg-brand-tint/50',
+                  convSheet?.id === c.id && '!bg-brand-tint ring-2 ring-inset ring-brand/40',
                 )}
               >
                 {c.kind === 'group'
@@ -1936,7 +1962,7 @@ export default function Messages() {
                   : <Avatar src={c.other?.photo_url} name={c.other?.name} size="md" />}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold">
+                    <p className={cx('truncate text-sm font-semibold transition-colors', convSheet?.id === c.id && 'text-brand')}>
                       {c.kind === 'group' ? groupName(c, c.members, user.id) : (c.other?.name ?? 'Creator')}
                     </p>
                     {c.kind === 'group'
@@ -2768,13 +2794,25 @@ export default function Messages() {
           it). Two items, because there are two: pin it to the top, or get rid
           of it. Fixed and centred so no list overflow can clip it, and the
           backdrop is the way out. */}
-      {convSheet && (
+      {convSheet && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/40 p-6"
+          className="fixed inset-0 z-[70]"
           onClick={() => setConvSheet(null)}
           onContextMenu={(e) => { e.preventDefault(); setConvSheet(null) }}
         >
-          <div className="w-72 max-w-full overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="absolute w-72 max-w-[calc(100vw-2rem)] origin-top animate-fade-up overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lift"
+            style={(() => {
+              const a = convSheet._anchor
+              const vw = typeof window !== 'undefined' ? window.innerWidth : 400
+              const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+              if (!a) return { left: '50%', top: '40%', transform: 'translate(-50%, -50%)' }
+              const left = Math.max(16, Math.min(a.left + 16, vw - 288 - 16))
+              const below = a.bottom + 6
+              return below + 210 < vh ? { left, top: below } : { left, bottom: Math.max(16, vh - a.top + 6) }
+            })()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="truncate border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-smoke">
               {convSheet.kind === 'group'
                 ? groupName(convSheet, convSheet.members, user.id)
@@ -2804,7 +2842,8 @@ export default function Messages() {
               {tr('Cancel')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* ONE FULL-SCREEN LAYER FOR THE WHOLE THREAD. It portals to the body, so
