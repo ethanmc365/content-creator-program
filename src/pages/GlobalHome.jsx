@@ -9,7 +9,7 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
-import GlobalChallengeStrip from '../components/network/GlobalChallengeStrip'
+import GlobalChallengeStrip, { prefetchTopThree } from '../components/network/GlobalChallengeStrip'
 import SectionTitle from '../components/network/SectionTitle'
 import { CountUp } from '../components/network/Motion'
 import Reorderable from '../components/network/Reorderable'
@@ -377,6 +377,9 @@ export default function GlobalHome() {
           total: netMembers ?? 0,
         }
       }
+      // The live boards' top three, before the page draws (see prefetchTopThree).
+      await prefetchTopThree((challenges || []).map((c) => c.id)).catch(() => {})
+      if (cancelled) return
       const latestResource = latestRes?.[0]?.created_at ? new Date(latestRes[0].created_at).getTime() : 0
       const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({

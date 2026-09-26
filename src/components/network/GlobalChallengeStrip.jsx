@@ -36,13 +36,30 @@ import GlowRing from './GlowRing'
 // draws the names on the first frame instead of a placeholder.
 const topCache = new Map()
 
+const TOP_SELECT = 'challenge_id, creator_id, rank, final_views, profiles:creator_id(name, photo_url, is_test)'
+
+// THE TOP THREE ARRIVE WITH THE PAGE (26 Sep 2026). Ethan: "the leaderboard
+// still shows in very delayed ... ensure the leaderboard comes in ... the same
+// time the global challenge card comes in." The strip used to ask for its rows
+// when it MOUNTED, which is always one round trip after the card had started
+// arriving. The Worldwide page now calls this inside its own first load, so
+// the cache is full before the strip draws its first frame.
+export async function prefetchTopThree(challengeIds) {
+  const ids = (challengeIds || []).filter(Boolean)
+  if (!ids.length) return
+  const { data } = await supabase.from('results').select(TOP_SELECT).in('challenge_id', ids).lte('rank', 4).order('rank')
+  for (const id of ids) {
+    topCache.set(id, (data || []).filter((r) => r.challenge_id === id && !isHiddenTestRow(r.profiles)).slice(0, 3))
+  }
+}
+
 function useTopThree(challengeId) {
   const [rows, setRows] = useState(() => topCache.get(challengeId) ?? null)
   useEffect(() => {
     if (!challengeId) return undefined
     let alive = true
     supabase.from('results')
-      .select('creator_id, rank, final_views, profiles:creator_id(name, photo_url, is_test)')
+      .select(TOP_SELECT)
       .eq('challenge_id', challengeId)
       .lte('rank', 4)
       .order('rank')

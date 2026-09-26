@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Icon from './Icon'
 import { Spinner } from './ui'
 import { copyToClipboard } from '../lib/clipboard'
-import { toast } from '../lib/toast'
+import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
 import { cx, formatDate, formatMoney } from '../lib/utils'
 
@@ -16,6 +16,12 @@ import { cx, formatDate, formatMoney } from '../lib/utils'
 // from), the white half carries the CODE, which is the only thing on it anybody
 // will copy. A used voucher greys out and is stamped rather than removed - it
 // is still a record of something earned.
+//
+// ONE PIECE (26 Sep 2026). Ethan: "I still want that orange card to be like
+// joined onto the white card, but there to be no border around the orange
+// part ... so it does look like an actual ticket rather than just the orange
+// part inside." The stub now runs to the card's own edge on three sides, and
+// the hairline border belongs to the white half alone.
 //
 // NO PERFORATION (24 Sep 2026). Ethan: "The way it's cut the little circles on
 // two of the corners, I don't like that. Maybe just make it rounded, and remove
@@ -36,7 +42,7 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
     const ok = await copyToClipboard(reward.voucher_code)
     if (ok !== false) {
       setCopied(true)
-      toast(tr('Voucher code copied'))
+      toastSuccess(tr('Voucher code copied'))
       setTimeout(() => setCopied(false), 1800)
     }
   }
@@ -44,12 +50,12 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
   return (
     <div
       className={cx(
-        'relative flex gap-1.5 overflow-hidden rounded-card border border-gray-100 bg-white p-1.5 shadow-card transition-[filter,opacity] duration-300',
+        'relative flex overflow-hidden rounded-card bg-white shadow-card transition-[filter,opacity] duration-300',
         used && 'opacity-70 grayscale',
       )}
     >
       {/* The stub: what it is worth and where it came from. */}
-      <div className="relative flex w-[30%] min-w-[6.25rem] shrink-0 flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-brand to-brand-light p-3.5 text-white sm:w-[32%] sm:min-w-[7.5rem] sm:p-4">
+      <div className="relative flex w-[30%] min-w-[6.5rem] shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br from-brand to-brand-light p-4 text-white sm:w-[32%] sm:min-w-[7.5rem] sm:p-5">
         <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10 blur-xl" />
         <p className="relative flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/80">
           <Icon name="ticket" className="h-3.5 w-3.5" /> {tr('Voucher')}
@@ -61,7 +67,7 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
       </div>
 
       {/* The code. */}
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 rounded-r-card border-y border-r border-gray-100 px-3.5 py-3 sm:px-5 sm:py-4">
         <div className="min-w-0">
           {from && <p className="truncate text-xs text-smoke">{from}</p>}
           <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">{tr('Your code')}</p>

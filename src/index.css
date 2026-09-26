@@ -659,8 +659,16 @@ html {
        the thing above it is the section before - so the greeting began its
        entrance on top of the market switcher. Every phone entrance rises. */
     .reveal:not(.reveal-dense)[data-from='down'] > .reveal-item { transform: translate3d(0, 24px, 0); }
+    /* THE TRANSFORM IS RESET HERE TOO (26 Sep 2026). The starting offset two
+       rules up is exactly as specific as `.reveal.is-in > .reveal-item` and
+       comes later in the file, so on a phone it WON: every revealed item
+       faded in and then stayed parked 24-32px below its place for good. That
+       was Ethan's "some of them are squished and some of them there's too much
+       space" on the Worldwide page - each section sat on top of the gap below
+       it. These selectors outrank both starting rules. */
     .reveal:not(.reveal-dense).is-in > .reveal-item,
     .reveal:not(.reveal-dense) > .reveal-item.is-in {
+      transform: translate3d(0, 0, 0);
       transition-duration: 860ms, 860ms;
       transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), cubic-bezier(0.16, 1, 0.3, 1);
     }
