@@ -2882,3 +2882,27 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 
+
+/* ---------------------------------------------------------------------------
+   HOOK ME UP SPARKLES (26 Sep 2026). Ethan: "the stars beside 'Hook Me Up'
+   could be animating." A slow twinkle - scale and a little turn - with a pause
+   between, so it catches the eye without buzzing. */
+.hook-sparkles { animation: hook-twinkle 2.8s ease-in-out infinite; transform-origin: 50% 50%; }
+@keyframes hook-twinkle {
+  0%, 60%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  70% { transform: scale(1.25) rotate(-12deg); opacity: 0.85; }
+  80% { transform: scale(0.9) rotate(8deg); opacity: 1; }
+  90% { transform: scale(1.12) rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hook-sparkles { animation: none; }
+}
+
+/* The exit half of `board-status` (see components/challenge/SwapIn). */
+.board-status-out > * { animation: board-status-out 0.2s ease-in both; }
+@keyframes board-status-out {
+  to { opacity: 0; transform: translateX(14px) scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-status-out > * { animation: none; }
+}

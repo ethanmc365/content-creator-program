@@ -277,20 +277,13 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
               <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
               {tr('Live now')}
             </span>
-            {isGlobal && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
-                <Icon name="globe" className="h-3.5 w-3.5" />
-                {tr("Global challenge")}
-              </span>
-            )}
-            {/* THE DATE RANGE IS DESKTOP-ONLY IN THIS ROW (1 Sep 2026).
-                Ethan, of the phone card: "everything just seems jumbled and not
-                right". At 375px "Live now" + "Global challenge" + "12 Sep -> 30
-                Sep" is three unlike things competing for one line, and they
-                wrap into a ragged two-and-a-half rows of mixed weights before
-                the title has even started. Two pills is a row; a sentence of
-                dates is not a pill. It reappears under the title below. */}
-            <span className="hidden text-xs text-white/75 sm:inline">
+            {/* THE DATES, WHERE "GLOBAL CHALLENGE" WAS (26 Sep 2026). Ethan: "you
+                don't need to say that because 'Global Challenge' is literally
+                the title. You can remove that and just show the dates there
+                instead." One white pill on every width, so the phone no longer
+                needs a second date line under the title. */}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
+              <Icon name="calendar" className="h-3.5 w-3.5" />
               {formatDate(c.start_date)} → {formatDate(c.end_date)}
             </span>
           </div>
@@ -315,12 +308,6 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 {tr('Every market, every creator. One brief, one leaderboard.')}
               </p>
             )}
-            {/* Where the dates went on a phone: their own quiet line, with the
-                glyph doing the labelling, under the thing they are about. */}
-            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-white/75 sm:hidden">
-              <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
-              {formatDate(c.start_date)} → {formatDate(c.end_date)}
-            </p>
             {/* The blurb is desktop-only. On a phone the whole card is a link
                 to the brief, which is the same words with room to read them. */}
             {/* THE FIRST PARAGRAPH, AS WORDS (21 Sep 2026). This printed the

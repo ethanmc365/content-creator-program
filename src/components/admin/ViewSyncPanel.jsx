@@ -47,7 +47,7 @@ function Stat({ label, children }) {
   )
 }
 
-export default function ViewSyncPanel({ challengeId, submissions = [], onSynced }) {
+export default function ViewSyncPanel({ challengeId, submissions = [], onSynced, onShowEntries }) {
   const [status, setStatus] = useState(null)
   const [backlog, setBacklog] = useState(null)
   const [starting, setStarting] = useState(false)
@@ -218,7 +218,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
           disabled={starting || running}
         >
           {starting || running ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" />}
-          {running ? `Reading ${run.done ?? 0} of ${run.total ?? 0}` : starting ? 'Starting…' : 'Sync now'}
+          {running ? `Reading ${Math.min(run.done ?? 0, run.total ?? 0)} of ${run.total ?? 0}` : starting ? 'Starting…' : 'Sync now'}
         </button>
       </div>
 
@@ -273,82 +273,100 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
           list under it was noise. A failure still says how many, and the
           reasons are grouped just below. */}
       {outcome ? (() => {
-        const n = outcome.ran ?? submissions.length
-        const ok = !outcome.failed
+        // Never more than there are entries: an old run could count a re-read twice.
+        const n = Math.min(outcome.ran ?? submissions.length, submissions.length)
+        const failedNow = submissions.filter((x) => x.views_sync_error).length
+        const failed = Math.min(outcome.failed ?? 0, failedNow)
+        const ok = !failed
         return (
-          <div className="mx-5 mb-5 flex items-center gap-3 rounded-card bg-brand-tint/50 px-4 py-3 animate-fade-up sm:mx-7">
-            <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white', ok ? 'bg-brand' : 'bg-amber-500')}>
+          <div className={cx('mx-5 mb-5 flex items-center gap-3 rounded-card px-4 py-3 animate-fade-up sm:mx-7', ok ? 'bg-green-50' : 'bg-cloud')}>
+            <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white', ok ? 'bg-green-600' : 'bg-brand')}>
               <Icon name={ok ? 'check' : 'alert'} className="h-3.5 w-3.5" />
             </span>
             <p className="min-w-0 text-sm font-semibold text-ink">
               {ok
                 ? `All ${n} ${n === 1 ? 'video' : 'videos'} read successfully. Leaderboard updated.`
-                : `Read ${n - outcome.failed} of ${n} videos. ${outcome.failed} could not be read, see below.`}
+                : `Read ${n - failed} of ${n} videos. ${failed} could not be read, see below.`}
             </p>
           </div>
         )
       })() : null}
 
-      {/* ---- What needs a person, said loudly enough to notice ---- */}
+      {/* ---- What needs a person ----
+          REDRAWN 26 Sep 2026. Ethan: "The UI for these errors needs to be
+          improved. I don't like the current colour." The amber wash is gone:
+          each reason is a white card with a brand disc when it needs you and a
+          grey one when it will sort itself out, and the entries under it are
+          chips you can open or pin. "Show entry" no longer scrolls you a
+          hundred rows down; it lifts every entry with that reason to the top
+          of the list, where the list starts. */}
       {problemList.length > 0 ? (
-        <div className="space-y-3 border-t border-gray-100 px-5 py-5 sm:px-7">
-          {problemList.map(({ code, rows, meta }) => (
+        <div className="grid gap-3 border-t border-gray-100 bg-cloud/30 px-5 py-5 sm:px-7">
+          {problemList.map(({ code, rows, meta }, i) => (
             <div
               key={code}
-              className={
-                meta.needsAttention
-                  ? 'flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50/70 px-4 py-3'
-                  : 'flex items-start gap-3 rounded-card bg-cloud/60 px-4 py-3'
-              }
+              style={{ animationDelay: `${i * 50}ms` }}
+              className="animate-fade-up rounded-2xl border border-gray-100 bg-white p-4 shadow-card"
             >
-              <Icon
-                name={meta.needsAttention ? 'alert' : 'clock'}
-                className={`mt-0.5 h-4 w-4 shrink-0 ${meta.needsAttention ? 'text-amber-700' : 'text-smoke'}`}
-              />
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${meta.needsAttention ? 'text-amber-900' : 'text-ink'}`}>
-                  {meta.label}
-                  <span className="ml-2 font-normal text-smoke">
-                    {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
-                  </span>
-                </p>
-                {meta.hint ? (
-                  <p className={`mt-1 text-xs leading-relaxed ${meta.needsAttention ? 'text-amber-800' : 'text-smoke'}`}>
-                    {meta.hint}
+              <div className="flex items-start gap-3">
+                <span className={cx(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                  meta.needsAttention ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                )}>
+                  <Icon name={meta.needsAttention ? 'alert' : 'clock'} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
+                    {meta.label}
+                    <span className={cx(
+                      'rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums',
+                      meta.needsAttention ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
+                    )}>
+                      {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
+                    </span>
                   </p>
-                ) : null}
-                {/* WHICH ENTRIES (24 Sep 2026). Ethan: "It should tell me which
-                    one the error is actually with, so I can then check it out."
-                    A count alone sent him scrolling forty rows looking for the
-                    one with a small orange note. Each row names the creator,
-                    opens the link, and jumps to the entry below. */}
-                <ul className="mt-2.5 space-y-1.5">
-                  {rows.map((r) => (
-                    <li key={r.id} className="flex min-w-0 items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs">
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="font-semibold text-ink">{r.profiles?.name || 'Unknown creator'}</span>
-                        <span className="text-smoke"> · {r.platform}{r.logged_views != null ? ` · last read ${Number(r.logged_views).toLocaleString()}` : ''}</span>
-                      </span>
-                      <a href={r.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 font-semibold text-brand hover:underline">
-                        Open link
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const el = document.getElementById(`entry-${r.id}`)
-                          if (!el) return
-                          el.scrollIntoView({ block: 'center' })
-                          el.classList.add('ring-2', 'ring-brand')
-                          setTimeout(() => el.classList.remove('ring-2', 'ring-brand'), 1800)
-                        }}
-                        className="shrink-0 font-semibold text-smoke hover:text-ink"
-                      >
-                        Show entry
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                  {meta.hint ? <p className="mt-1 text-xs leading-relaxed text-smoke">{meta.hint}</p> : null}
+                </div>
+                {onShowEntries && (
+                  <button
+                    type="button"
+                    onClick={() => onShowEntries(rows.map((r) => r.id), meta.label)}
+                    className="hidden shrink-0 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-200 hoverable:hover:-translate-y-0.5 sm:inline-flex"
+                  >
+                    {rows.length === 1 ? 'Show entry' : 'Show entries'}
+                  </button>
+                )}
               </div>
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {rows.map((r) => (
+                  <li key={r.id} className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-gray-100 bg-cloud/50 py-1 pl-1 pr-1 text-xs">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-bold text-brand">
+                      {r.profiles?.photo_url
+                        ? <img src={r.profiles.photo_url} alt="" className="h-full w-full object-cover" />
+                        : (r.profiles?.name || '?').slice(0, 1)}
+                    </span>
+                    <span className="min-w-0 truncate font-semibold text-ink">{r.profiles?.name || 'Unknown creator'}</span>
+                    <span className="shrink-0 text-smoke">{r.platform}</span>
+                    <a
+                      href={r.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded-full bg-white px-2 py-0.5 font-semibold text-brand shadow-sm hover:underline"
+                    >
+                      Open
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              {onShowEntries && (
+                <button
+                  type="button"
+                  onClick={() => onShowEntries(rows.map((r) => r.id), meta.label)}
+                  className="mt-3 w-full rounded-xl bg-ink py-2 text-xs font-semibold text-white sm:hidden"
+                >
+                  {rows.length === 1 ? 'Show entry' : 'Show entries'}
+                </button>
+              )}
             </div>
           ))}
         </div>

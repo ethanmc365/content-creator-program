@@ -69,6 +69,7 @@ export const TYPE_META = {
   event_reminder: { icon: 'calendar', group: 'updates', label: 'Event' },
   event_rating: { icon: 'star', group: 'updates', label: 'Event' },
   deletion: { icon: 'alert', group: 'updates', label: 'Account' },
+  community: { icon: 'globe', group: 'updates', label: 'Market' },
 }
 
 export const metaFor = (type) => TYPE_META[type] || { icon: 'bell', group: 'updates', label: 'Update' }

@@ -4,9 +4,10 @@ import { Modal, Spinner } from './ui'
 import { supabase } from '../lib/supabase'
 import { pickHook } from '../lib/hooks'
 import { copyToClipboard } from '../lib/clipboard'
-import { toast } from '../lib/toast'
+import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
+import DealFinder from './DealFinder'
 
 // "HOOK ME UP" (24 Sep 2026).
 //
@@ -73,51 +74,56 @@ export default function HookButton({ className }) {
   async function copy() {
     if (!hook) return
     const ok = await copyToClipboard(hook.text)
-    if (ok !== false) toast(tr('Hook copied'))
+    if (ok !== false) toastSuccess(tr('Hook copied'))
   }
 
   return (
     <>
-      <section className={cx('relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card', className)}>
-        <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-brand/10 blur-2xl" />
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
-            <Icon name="bulb" className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-ink">{tr('Stuck on the first line?')}</p>
-            <p className="text-xs leading-snug text-smoke">{tr('Get an opener that has worked for other Tryp.com creators.')}</p>
-          </div>
+      {/* JUST THE BUTTON, AND IT ASKS TO BE PRESSED (26 Sep 2026).
+          Ethan: "remove where it says 'Stuck on the first line' and the other
+          icon ... All I would have here is the button, small. Maybe have it
+          glow a bit. Make people want to click it ... the stars beside 'Hook
+          Me Up' could be animating." A slow glow breathes behind it and the
+          sparkles twinkle; both are decoration and stop under reduced motion. */}
+      <section className={cx('relative rounded-card border border-gray-100 bg-white p-3 shadow-card', className)}>
+        <div className="relative">
+          <span aria-hidden className="absolute inset-0 -z-0 animate-cta-glow rounded-xl bg-brand/60 blur-md" />
+          <button
+            type="button"
+            onClick={start}
+            className="hook-cta relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-brand to-brand-light px-5 py-3 text-sm font-bold text-white shadow-card transition-transform duration-200 hoverable:hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+            <span className="hook-sparkles relative h-5 w-5" aria-hidden>
+              <Icon name="sparkles" className="h-5 w-5" />
+            </span>
+            {tr('Hook me up')}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={start}
-          className="btn-primary relative mt-4 w-full justify-center transition-transform duration-200 hoverable:hover:scale-[1.02]"
-        >
-          <Icon name="sparkles" className="h-4 w-4" />
-          {tr('Hook me up')}
-        </button>
+        {/* The other thing a creator needs before filming: a price to show. */}
+        <DealFinder className="mt-2.5" />
       </section>
 
       <Modal open={open} onClose={() => setOpen(false)} title={tr('Your hook')}>
         <div className="space-y-5">
-          <div className="relative min-h-[8.5rem] overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-5 py-6 text-white shadow-card">
-            <span aria-hidden className="pointer-events-none absolute bottom-[-2.25rem] right-3 select-none font-serif text-[8rem] font-bold leading-none text-white/15">&rdquo;</span>
+          {/* THE QUOTE MARK HAS ITS OWN ROW (26 Sep 2026). It was a huge glyph
+              pinned to a corner, and a long hook ran straight over it. Now it
+              sits above the words, so no length of hook can touch it. */}
+          <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-5 pb-6 pt-4 text-white shadow-card sm:px-6">
+            <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <span aria-hidden className="block select-none font-serif text-5xl font-bold leading-none text-white/35">&ldquo;</span>
             {busy && !hook ? (
               <div className="flex h-20 items-center justify-center"><Spinner /></div>
             ) : failed ? (
               <p className="relative text-sm font-medium">{tr('Could not load the hooks. Try again in a moment.')}</p>
             ) : hook ? (
-              <p key={turn} className="animate-fade-up relative text-xl font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] sm:text-2xl">
+              <p key={turn} className="animate-fade-up relative -mt-2 text-xl font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] sm:text-2xl">
                 {hook.text}
               </p>
             ) : (
               <p className="relative text-sm font-medium">{tr('No hooks yet.')}</p>
             )}
           </div>
-          <p className="text-xs leading-relaxed text-smoke">
-            {tr('Make it yours: swap in your city, your price, your destination. Keep the shape.')}
-          </p>
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
             <button type="button" onClick={next} disabled={busy} className="btn-primary flex-1 justify-center disabled:opacity-60">
               {busy ? <Spinner /> : <><Icon name="refresh" className="h-4 w-4" /> {tr('Another one')}</>}

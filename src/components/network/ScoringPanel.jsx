@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { cx } from '../../lib/utils'
 import Icon from '../Icon'
 import { scoringMode, ruleWindowState } from '../../lib/scoring'
 import { useT } from '../../lib/i18n'
@@ -107,25 +108,42 @@ export default function ScoringPanel({ challenge, rules: given }) {
           {perVideo.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("Views on one video")}</p>
-              <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                {perVideo.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex flex-col items-center justify-center rounded-xl bg-cloud/70 px-2 py-2.5 text-center"
-                  >
-                    <span className="text-[15px] font-bold tabular-nums leading-none text-ink">{compact(r.threshold)}</span>
-                    <span className="mt-1 text-[11px] text-smoke">{tr("views")}</span>
-                    <span className="mt-1.5 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-                      +{Number(r.points)}
-                    </span>
-                  </li>
-                ))}
+              {/* A LADDER THAT WARMS AS IT CLIMBS (26 Sep 2026). Ethan liked the
+                  tiles and asked for "that UI even more" without the sentence
+                  under them. Each step is a shade deeper than the last, so the
+                  top of the ladder reads as the prize it is; the step number
+                  in the corner says the order without a line of copy. */}
+              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {perVideo.map((r, i) => {
+                  const heat = perVideo.length > 1 ? i / (perVideo.length - 1) : 1
+                  const hot = heat > 0.55
+                  return (
+                    <li
+                      key={r.id}
+                      style={{ backgroundColor: `rgba(217, 68, 7, ${(0.07 + heat * 0.93).toFixed(3)})`, animationDelay: `${i * 30}ms` }}
+                      className={cx(
+                        'animate-fade-up relative flex flex-col items-center justify-center overflow-hidden rounded-2xl px-2 pb-2.5 pt-3 text-center transition-transform duration-200 hoverable:hover:-translate-y-0.5',
+                        hot ? 'text-white shadow-card' : 'text-ink',
+                      )}
+                    >
+                      <span className={cx('absolute left-2 top-1.5 text-[9px] font-bold tabular-nums', hot ? 'text-white/60' : 'text-brand/50')}>{i + 1}</span>
+                      <span className="text-base font-bold tabular-nums leading-none">{compact(r.threshold)}</span>
+                      <span className={cx('mt-1 text-[10px] font-medium uppercase tracking-wide', hot ? 'text-white/80' : 'text-smoke')}>{tr("views")}</span>
+                      <span className={cx(
+                        'mt-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
+                        hot ? 'bg-white text-brand' : 'bg-brand text-white',
+                      )}>
+                        +{Number(r.points)}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
-              <p className="mt-2 text-xs text-smoke">
-                {challenge.threshold_mode === 'cumulative'
-                  ? tr("A video that passes several milestones scores every one of them.")
-                  : tr("Each video scores its highest milestone. Every video you post counts.")}
-              </p>
+              {challenge.threshold_mode === 'cumulative' && (
+                <p className="mt-2 text-xs text-smoke">
+                  {tr("A video that passes several milestones scores every one of them.")}
+                </p>
+              )}
             </div>
           )}
           {totals.length > 0 && (

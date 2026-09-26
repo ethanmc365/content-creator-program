@@ -31,20 +31,20 @@ export const SYNC_ERRORS = {
     hint: 'Instagram view counts are read off the creator\'s public reels tab. This one is not there, which means a private account, a feed video rather than a reel, or a reel too far back to reach. Ask the creator for the number and type it in.',
   },
   no_video_id: {
-    label: 'Link goes nowhere',
-    hint: 'The link does not resolve to a video. Usually it was deleted, set to private, or pasted incompletely.',
+    label: 'Link does not open a video',
+    hint: 'No video could be reached at this link. Open it: if the video is gone, disqualify it; if it plays, type the views in from the post.',
   },
   no_count_in_page: {
-    label: 'No count on the page',
-    hint: 'The post loaded but carries no view count. Photo posts and carousels have none.',
+    label: 'No view count on the post',
+    hint: 'The post opened but shows no number to a visitor (Facebook does this for most reels and for photo posts). Type the views in from the post.',
   },
   removed: {
-    label: 'Deleted or private',
-    hint: 'The platform says this video was deleted or made private, so there is no count to read. Ask the creator, or disqualify the entry.',
+    label: 'Video deleted',
+    hint: 'The platform says this video has been deleted or made private, so it cannot gain views. It keeps its last reading until you disqualify it.',
   },
   count_hidden: {
-    label: 'Count not public',
-    hint: 'Facebook only shows a reel\'s view count to a signed-in viewer. Ask the creator for the number and type it in on the entry.',
+    label: 'Facebook hides the count',
+    hint: 'Facebook shows reel plays only to the account that posted it, never to a visitor or a server. Type the plays in from the creator\'s screenshot.',
   },
   blocked: {
     label: 'Platform refused',
@@ -64,7 +64,7 @@ export const SYNC_ERRORS = {
 // Which problems need a person, and which sort themselves out. `needs` means
 // somebody has to do something; `waiting` resolves on a later run by itself.
 export const NEEDS_ATTENTION = new Set([
-  'not_on_reels_tab', 'not_a_video', 'no_video_id', 'removed', 'count_hidden',
+  'not_on_reels_tab', 'not_a_video', 'no_video_id', 'no_count_in_page', 'removed', 'count_hidden',
   'needs_youtube_key', 'youtube_key_rejected', 'unsupported', 'bad_url',
 ])
 

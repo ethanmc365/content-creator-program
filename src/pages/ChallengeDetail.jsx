@@ -9,7 +9,9 @@ import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
-import VideoThumb from '../components/VideoThumb'
+import EntryPreview from '../components/challenge/EntryPreview'
+import SwapIn from '../components/challenge/SwapIn'
+import { useEntryPoints } from '../lib/entryPoints'
 import { previewLink, storeThumbnail } from '../lib/videoThumbs'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
@@ -175,6 +177,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
   const [board, setBoard] = useState(null)
+  // Points each entry has earned, for the chip on its cover (points challenges only).
+  const entryPoints = useEntryPoints(id, challenge?.scoring === 'points', `${challenge?.results_updated_at ?? ''}:${submissions.length}`)
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -639,6 +643,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // offers only the ones open right now; an entry can claim one only if it was
   // submitted inside that bonus's dates, which is also what the database checks.
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
+  // Bonus points that have actually LANDED on an entry: claimed, and past any
+  // view gate. A claim still waiting on its views is shown in the body, amber.
+  const landedBonus = (s) => [...(claimsBySubmission.get(s.id) || [])]
+    .map((rid) => bonusById.get(rid))
+    .filter((r) => r && !(r.min_views > 0 && (s.logged_views ?? 0) < r.min_views))
+    .reduce((sum, r) => sum + Number(r.points || 0), 0)
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
   // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
@@ -925,26 +935,27 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
-      {tab !== 'leaderboard' && (
-        <LiveBonusCallout
-          rules={pointRules}
-          now={nowMs}
-          onOpen={() => {
-            setTab('brief')
-            setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
-          }}
-        />
-      )}
-      {tab === 'leaderboard' && (
-        <BoardStatus
-          key={challenge.results_status}
-          status={challenge.results_status}
-          points={challenge.scoring === 'points'}
-          updatedAt={challenge.results_updated_at}
-          empty={results.length === 0}
-          tr={tr}
-        />
-      )}
+      <SwapIn swapKey={tab === 'leaderboard' ? 'board' : 'bonus'}>
+        {tab !== 'leaderboard' ? (
+          <LiveBonusCallout
+            rules={pointRules}
+            now={nowMs}
+            onOpen={() => {
+              setTab('brief')
+              setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+            }}
+          />
+        ) : (
+          <BoardStatus
+            key={challenge.results_status}
+            status={challenge.results_status}
+            points={challenge.scoring === 'points'}
+            updatedAt={challenge.results_updated_at}
+            empty={results.length === 0}
+            tr={tr}
+          />
+        )}
+      </SwapIn>
       </div>
 
       {/* ---------- Tab: brief ---------- */}
@@ -1224,17 +1235,18 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
         const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} />
-        // THE HOOK CARD (24 Sep 2026): above the prizes in the rail, and on a
-        // phone right after the brief and rules - the moment somebody is
-        // deciding what to film. Not on a finished challenge.
+        // THE HOOK BUTTON (24 Sep 2026, moved 26 Sep): first thing in the rail
+        // and first thing on a phone, above the prizes. Ethan: "Currently, it's
+        // way down at the bottom, whereas it should be at the top." Not on a
+        // finished challenge.
         const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
         if (isMobile) {
           return (
             <div className="space-y-6">
+              {hookCard}
               {prizesCard}
               {briefCard}
               {rulesCard}
-              {hookCard}
               {scoringCard}
               {bonusCard}
               {platformsCard}
@@ -1251,8 +1263,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             <div className="space-y-6">
               {hookCard}
               {prizesCard}
-              {platformsCard}
               {bonusCard}
+              {platformsCard}
             </div>
           </div>
         )
@@ -1268,15 +1280,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr("Submit your video")}</button>}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
             {submissions.map((s) => (
-              <div key={s.id} className="card group flex flex-col overflow-hidden !p-0">
-                <button type="button" onClick={() => setPlaying(s)} className="block w-full text-left" aria-label={`Play ${s.profiles?.name || 'this'} entry`}>
-                  <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} />
-                </button>
-                <div className="flex flex-1 flex-col gap-3 p-4">
-                  <div className="flex items-center gap-3">
-                    <Link to={`/profile/${s.profiles?.id}`}>
+              <div key={s.id} className={cx(
+                'card group flex flex-col overflow-hidden !p-0 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift',
+                s.creator_id === user.id && 'ring-2 ring-brand/30',
+              )}>
+                <EntryPreview
+                  submission={s}
+                  points={challenge.scoring === 'points' ? (entryPoints.get(s.id) ?? 0) : null}
+                  bonus={landedBonus(s)}
+                  onPlay={() => setPlaying(s)}
+                />
+                <div className="flex flex-1 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <Link to={`/profile/${s.profiles?.id}`} className="shrink-0">
                       <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
                     </Link>
                     <div className="min-w-0 flex-1">
@@ -1291,10 +1309,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                           settles a deadline argument - "about 1 month ago" is
                           not evidence of anything. Shown in the reader's own
                           zone, with the zone named. */}
-                      <p className="text-xs text-smoke">{formatDateTimeTz(s.submitted_at)}</p>
+                      <p className="truncate text-[11px] text-smoke sm:text-xs">{formatDateTimeTz(s.submitted_at)}</p>
                     </div>
                   </div>
-                  {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
+                  {s.caption && <p className="line-clamp-2 text-xs text-smoke [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm">{s.caption}</p>}
 
                   {/* ---- WHAT THIS ENTRY CLAIMED ----
                       Ethan: "it should show +1 point or plus x points on the
@@ -1326,11 +1344,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                               ? `${r.prompt || r.label}. Awarded at ${Number(r.min_views).toLocaleString()} views`
                               : (r.prompt || r.label)}
                             className={cx(
-                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                              'inline-flex max-w-full items-start gap-1 rounded-xl px-2 py-1 text-[10px] font-semibold leading-snug sm:rounded-full sm:px-2.5 sm:text-[11px]',
                               waiting ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700',
                             )}>
-                            <Icon name={waiting ? 'clock' : 'check'} className="h-3 w-3" />
-                            +{r.points} {r.label}
+                            <Icon name={waiting ? 'clock' : 'check'} className="mt-px h-3 w-3 shrink-0" />
+                            <span className="line-clamp-2">+{r.points} {r.label.replace(/^\+?\d+\s*/, '')}</span>
                             {waiting && ` · ${tr("at {n} views", { n: Number(r.min_views).toLocaleString() })}`}
                           </span>
                         )
@@ -1404,9 +1422,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       an admin sees the editor on every entry. Nobody else sees
                       anything, because nobody else's query returns a row. */}
                   <div className="mt-auto flex flex-col gap-3 pt-1">
-                  {s.logged_views != null && (
-                    <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
-                  )}
                   {s.creator_id === user.id && <EntryFeedbackNote feedback={feedback[s.id]} />}
                   {isAdmin && (
                     <EntryFeedbackEditor
@@ -1422,7 +1437,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       href={s.video_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-secondary inline-flex flex-1 items-center justify-center gap-1.5 !py-2 text-xs"
+                      className="btn inline-flex flex-1 items-center justify-center gap-1.5 bg-brand-tint !py-2 text-xs !text-brand transition-transform duration-200 hoverable:hover:-translate-y-0.5"
                     >
                       <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -1594,24 +1609,53 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           branded card below, not in the browser's own popup bubble. */}
       <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")}>
         <form onSubmit={submitEntry} noValidate className="space-y-5">
+          {/* THE SUBMIT FORM, REDRAWN (26 Sep 2026). Ethan: "I would make the
+              UI of this much better ... The tick button, whenever I tick it,
+              should look like the other platform design." Numbered steps, a
+              link box with its own Paste button, and bonus rows that turn
+              solid brand when ticked - the platform's one rule for a picked
+              option - instead of the browser's own tick box. */}
           <div>
-            <label htmlFor="video_url" className="label">{tr("Video link")}</label>
-            <input
-              id="video_url"
-              type="text"
-              inputMode="url"
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={errorField === 'url'}
-              aria-describedby={submitError ? 'submit-error' : undefined}
-              className={cx('input', errorField === 'url' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder={tr("Paste your video link…")}
-              value={videoUrl}
-              onChange={(e) => {
-                setVideoUrl(e.target.value)
-                if (errorField === 'url') { setSubmitError(''); setErrorField('') }
-              }}
-            />
+            <label htmlFor="video_url" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">1</span>
+              {tr("Your video link")}
+            </label>
+            <div className={cx(
+              'flex items-center gap-2 rounded-xl border bg-white pl-3 pr-1.5 transition-all duration-200 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15',
+              errorField === 'url' ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200',
+            )}>
+              <Icon name="link" className="h-4 w-4 shrink-0 text-smoke" />
+              <input
+                id="video_url"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={errorField === 'url'}
+                aria-describedby={submitError ? 'submit-error' : undefined}
+                className="no-ios-zoom min-w-0 flex-1 bg-transparent py-3 text-sm text-ink outline-none placeholder:text-smoke"
+                placeholder={tr("tiktok.com/@you/video/…")}
+                value={videoUrl}
+                onChange={(e) => {
+                  setVideoUrl(e.target.value)
+                  if (errorField === 'url') { setSubmitError(''); setErrorField('') }
+                }}
+              />
+              {!videoUrl.trim() && typeof navigator !== 'undefined' && navigator.clipboard?.readText && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const text = (await navigator.clipboard.readText()).trim()
+                      if (text) setVideoUrl(text)
+                    } catch { /* permission refused: they can still type */ }
+                  }}
+                  className="shrink-0 rounded-lg bg-brand-tint px-3 py-1.5 text-xs font-bold text-brand transition-transform duration-200 active:scale-95"
+                >
+                  {tr("Paste")}
+                </button>
+              )}
+            </div>
             {/* WHAT WE FOUND AT THE END OF THE LINK. It replaces a line that
                 said "Detected platform: TikTok" - which is a fact about our
                 parsing rather than about their video, and which they could
@@ -1648,7 +1692,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             )}
           </div>
           <div>
-            <label htmlFor="caption" className="label">{tr("Caption")}</label>
+            <label htmlFor="caption" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">2</span>
+              {tr("Caption")}
+            </label>
             <textarea
               id="caption"
               rows={3}
@@ -1676,41 +1723,52 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               The points are stated on every line. A tick box that does not say
               what it is worth is a tick box people leave alone. */}
           {openBonusRules.length > 0 && (
-            <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
-              <p className="text-sm font-semibold">{tr("Bonus points")}</p>
-              <p className="mb-3 text-xs text-smoke">
+            <div>
+              <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white"><Icon name="star" className="h-3.5 w-3.5" /></span>
+                {tr("Bonus points")}
+              </p>
+              <p className="mb-3 pl-8 text-xs text-smoke">
                 {tr("Tick anything this video qualifies for. The team can see what you ticked next to the video.")}
               </p>
               <div className="space-y-2">
-                {openBonusRules.map((r) => (
-                  <label key={r.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 transition-colors hover:border-brand/40">
-                    <input
-                      type="checkbox"
-                      checked={claiming.includes(r.id)}
-                      onChange={(e) => setClaiming((cur) => (
-                        e.target.checked ? [...cur, r.id] : cur.filter((x) => x !== r.id)
-                      ))}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
-                    />
-                    <span className="min-w-0 flex-1 text-sm text-ink">
-                      {r.prompt}
-                      {/* A GATED BONUS SAYS SO BEFORE IT IS TICKED (3 Sep 2026).
-                          Migration 181 lets a bonus wait until the entry passes
-                          a view count. A tick box that pays nothing on the day
-                          you tick it, with no explanation, reads as broken - so
-                          the condition is on the label, and the creator ticks it
-                          once knowing the point arrives later by itself. */}
-                      {r.min_views > 0 && (
-                        <span className="mt-0.5 block text-[11px] font-medium text-smoke">
-                          {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
-                        </span>
+                {openBonusRules.map((r) => {
+                  const on = claiming.includes(r.id)
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => setClaiming((cur) => (on ? cur.filter((x) => x !== r.id) : [...cur, r.id]))}
+                      className={cx(
+                        'flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 active:scale-[0.99]',
+                        on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40',
                       )}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
-                      +{r.points}
-                    </span>
-                  </label>
-                ))}
+                    >
+                      <span className={cx(
+                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-200',
+                        on ? 'border-white bg-white text-brand' : 'border-gray-300 bg-white text-transparent',
+                      )}>
+                        <Icon name="check" className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm font-medium">
+                        {r.prompt}
+                        {r.min_views > 0 && (
+                          <span className={cx('mt-0.5 block text-[11px] font-medium', on ? 'text-white/80' : 'text-smoke')}>
+                            {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                          </span>
+                        )}
+                      </span>
+                      <span className={cx(
+                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold',
+                        on ? 'bg-white text-brand' : 'bg-brand text-white',
+                      )}>
+                        +{r.points}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1725,8 +1783,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               <span>{submitError}</span>
             </div>
           )}
-          <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? <Spinner /> : 'Enter the challenge'}
+          <button type="submit" disabled={submitting} className="btn-primary w-full justify-center !py-3.5 text-base shadow-card">
+            {submitting ? <Spinner /> : <><Icon name="video" className="h-5 w-5" /> {tr('Enter the challenge')}</>}
           </button>
         </form>
       </Modal>

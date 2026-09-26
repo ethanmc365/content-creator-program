@@ -15,6 +15,8 @@ import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGro
 import { pickClass } from '../../lib/pick'
 import Reveal from '../../components/network/Reveal'
 import { ruleOpenAt } from '../../lib/scoring'
+import EntryPreview from '../../components/challenge/EntryPreview'
+import { useEntryPoints } from '../../lib/entryPoints'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -52,6 +54,10 @@ export default function AdminResults() {
   const [onlyEarly, setOnlyEarly] = useState(false)
   const [disqualified, setDisqualified] = useState([])
   const [dq, setDq] = useState(null) // { sub, reason, notify, busy }
+  // ENTRIES LIFTED TO THE TOP (26 Sep 2026). Ethan: "For the show entry button,
+  // I don't want it to scroll me way down to the bottom ... it should then show
+  // up at the very top of entries." { ids, label } from the sync panel.
+  const [pinned, setPinned] = useState(null)
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
@@ -123,6 +129,7 @@ export default function AdminResults() {
   // Bumped whenever something that moves the participation standings changes.
   const [standingsKey, setStandingsKey] = useState(0)
   const standings = usePrizeStandings(id, `${standingsKey}:${submissions.length}:${resultsCount}`)
+  const entryPoints = useEntryPoints(id, challenge?.scoring === 'points', `${standingsKey}:${submissions.length}:${JSON.stringify(results.map((r) => r.final_views))}`)
 
   const loadBonuses = useCallback(async () => {
     const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
@@ -566,7 +573,16 @@ export default function AdminResults() {
       )}
 
       {submissions.length > 0 ? (
-        <ViewSyncPanel challengeId={id} submissions={submissions} onSynced={load} />
+        <ViewSyncPanel
+          challengeId={id}
+          submissions={submissions}
+          onSynced={load}
+          onShowEntries={(ids, label) => {
+            setOnlyEarly(false)
+            setPinned({ ids, label })
+            setTimeout(() => document.getElementById('entries-top')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 40)
+          }}
+        />
       ) : null}
 
       {submissions.length === 0 ? (
@@ -599,8 +615,8 @@ export default function AdminResults() {
             )}
           </div>
         )}
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Entries ({submissions.length})</h2>
+        <div id="entries-top" className="mb-3 flex scroll-mt-24 items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Entries <span className="text-smoke">({submissions.length})</span></h2>
           <Select
             value={viewSort}
             onChange={setViewSort}
@@ -619,82 +635,123 @@ export default function AdminResults() {
             `last:` selector on the row itself would then match every row.
             `divide-y` targets direct children instead, so it still divides
             correctly around the wrappers Reveal adds. */}
-        <Reveal as="div" className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 shadow-card" stagger={0.03} maxStagger={10}>
+        {pinned && (
+          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-white animate-fade-up">
+            <Icon name="pin" className="h-4 w-4 shrink-0 text-brand-light" />
+            <p className="min-w-0 flex-1 text-sm">
+              <span className="font-semibold">{pinned.label}</span>
+              <span className="text-white/70"> · {pinned.ids.length} {pinned.ids.length === 1 ? 'entry' : 'entries'} shown first</span>
+            </p>
+            <button type="button" onClick={() => setPinned(null)} className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold hover:bg-white/25">
+              Clear
+            </button>
+          </div>
+        )}
+        <Reveal as="div" className="space-y-3" stagger={0.03} maxStagger={10}>
           {submissions
             .filter((x) => !showingEarly || isEarly(x))
             .slice()
             // NEWEST FIRST (Ethan, 24 Sep 2026: "the most recent one should be
             // showing first, rather than the oldest ones").
-            .sort((a, b) => (viewSort === 'views'
-              ? (b.logged_views ?? -1) - (a.logged_views ?? -1)
-              : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)))
+            .sort((a, b) => {
+              const pa = pinned?.ids.includes(a.id) ? 1 : 0
+              const pb = pinned?.ids.includes(b.id) ? 1 : 0
+              if (pa !== pb) return pb - pa
+              return viewSort === 'views'
+                ? (b.logged_views ?? -1) - (a.logged_views ?? -1)
+                : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)
+            })
             .map((s) => (
             <div
               key={s.id}
               id={`entry-${s.id}`}
               className={cx(
-                'flex scroll-mt-24 flex-wrap items-center gap-4 px-5 py-4 transition-shadow sm:px-7',
-                isEarly(s) && 'border-l-4 border-l-red-400 bg-red-50/50',
+                'flex scroll-mt-24 gap-3 rounded-2xl border bg-white p-3 shadow-card transition-all duration-300 sm:gap-4 sm:p-4',
+                isEarly(s) ? 'border-red-200 bg-red-50/40' : pinned?.ids.includes(s.id) ? 'border-brand/40 ring-2 ring-brand/15' : 'border-gray-100',
               )}
             >
-              {/* CLICKING THE FACE OR THE NAME OPENS THEIR PROFILE (23 Sep
-                  2026), matching the pattern the rest of the app uses. */}
-              <Link to={`/profile/${s.creator_id}`} className="shrink-0">
-                <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                  <Link to={`/profile/${s.creator_id}`} className="truncate hover:text-brand">{s.profiles?.name}</Link>
-                  {isEarly(s) && (
-                    <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                      Posted before start
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-smoke">
-                  {/* WHICH BOARD THIS ENTRY IS ON. Without it an admin reading
-                      a list of forty entries cannot tell which leaderboard a
-                      view count is going to move. */}
-                  {groups.length > 0 && (
-                    <span className="font-semibold text-brand">
-                      {groups.find((g) => g.id === byCreator.get(s.creator_id))?.name || 'Not in a group'}
-                      {' · '}
-                    </span>
-                  )}
-                  {s.platform} · entered {formatDateTimeTz(s.submitted_at)}
-                  {s.posted_at && (
-                    <span className={isEarly(s) ? 'font-semibold text-red-700' : undefined}>
-                      {' '}· posted {formatDateTimeTz(s.posted_at)}
-                    </span>
-                  )}
-                  {s.views_sync_error ? (
-                    <span className="text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
-                      {' '}· {describeSyncError(s.views_sync_error)?.label}
-                    </span>
-                  ) : null}
-                </p>
-              </div>
-              <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
-                Watch ↗
+              {/* THE ENTRY ITSELF, NOT A LINK TO IT (26 Sep 2026). A card per
+                  entry with its cover, the points it earned on the cover and
+                  the view count along its foot. Ethan: on a phone "you can't
+                  even read their name" - the old row put avatar, name, three
+                  buttons and a box on one wrapping line. */}
+              <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="w-[5.5rem] shrink-0 self-start overflow-hidden rounded-xl sm:w-28">
+                <EntryPreview
+                  compact
+                  submission={s}
+                  points={challenge?.scoring === 'points' ? (entryPoints.get(s.id) ?? 0) : null}
+                />
               </a>
-              <button
-                type="button"
-                onClick={() => setDq({
-                  sub: s,
-                  reason: isEarly(s) ? 'This video was posted before the challenge opened, so it cannot be entered.' : '',
-                  notify: true,
-                  busy: false,
-                })}
-                className={cx('!py-2 text-xs', isEarly(s) ? 'btn-danger' : 'btn-secondary')}
-                title="Take this entry out of the challenge"
-              >
-                Disqualify
-              </button>
-              <ViewCountField
-                submission={s}
-                saving={savingId === s.id}
-                onSave={(raw) => saveViews(s, raw)}
-              />
+              <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                <div className="flex min-w-0 items-start gap-2">
+                  <Link to={`/profile/${s.creator_id}`} className="shrink-0">
+                    <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="xs" />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-tight">
+                      <Link to={`/profile/${s.creator_id}`} className="min-w-0 truncate hover:text-brand">{s.profiles?.name}</Link>
+                      {isEarly(s) && (
+                        <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          Posted before start
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-smoke sm:text-xs">
+                      {groups.length > 0 && (
+                        <span className="font-semibold text-brand">
+                          {groups.find((g) => g.id === byCreator.get(s.creator_id))?.name || 'Not in a group'}
+                          {' · '}
+                        </span>
+                      )}
+                      {s.platform} · entered {formatDateTimeTz(s.submitted_at)}
+                      {s.posted_at && (
+                        <span className={isEarly(s) ? 'font-semibold text-red-700' : undefined}>
+                          {' '}· posted {formatDateTimeTz(s.posted_at)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {s.views_sync_error ? (
+                  <p className="inline-flex max-w-full items-center gap-1.5 self-start rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
+                    <Icon name="alert" className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{describeSyncError(s.views_sync_error)?.label}</span>
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <ViewCountField
+                    submission={s}
+                    saving={savingId === s.id}
+                    onSave={(raw) => saveViews(s, raw)}
+                  />
+                  <a
+                    href={s.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-tint px-3 py-2 text-xs font-semibold text-brand transition-transform duration-200 hoverable:hover:-translate-y-0.5"
+                  >
+                    <Icon name="video" className="h-3.5 w-3.5" />
+                    Watch
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setDq({
+                      sub: s,
+                      reason: isEarly(s) ? 'This video was posted before the challenge opened, so it cannot be entered.'
+                        : s.views_sync_error === 'removed' ? 'This video has been deleted, so it cannot be judged.' : '',
+                      notify: true,
+                      busy: false,
+                    })}
+                    className={cx(
+                      'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-transform duration-200 hoverable:hover:-translate-y-0.5',
+                      isEarly(s) || s.views_sync_error === 'removed' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600',
+                    )}
+                    title="Take this entry out of the challenge"
+                  >
+                    <Icon name="ban" className="h-3.5 w-3.5" />
+                    Disqualify
+                  </button>
+                </div>
 
               {/* BONUS POINTS ARE GIVEN HERE, to this entry, by a person.
                   A bonus rule says what it is called and what it is worth; it
@@ -714,7 +771,7 @@ export default function AdminResults() {
                   different from an admin's own award below on purpose: green
                   and ticked is somebody's answer, orange is your decision. */}
               {claimRules.length > 0 && (
-                <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
+                <div className="flex flex-wrap gap-1.5">
                   {claimRules.map((r) => {
                     const claimed = claims.some((c) => c.submission_id === s.id && c.rule_id === r.id)
                     // A bonus that ran for other dates does not apply to this
@@ -759,7 +816,7 @@ export default function AdminResults() {
               )}
 
               {bonusRules.length > 0 && (
-                <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
+                <div className="flex flex-wrap gap-1.5">
                   {bonusRules.map((r) => {
                     const given = awarded.has(`${s.id}:${r.id}`)
                     if (!given && !ruleOpenAt(r, s.submitted_at)) return null
@@ -790,6 +847,7 @@ export default function AdminResults() {
                   })}
                 </div>
               )}
+              </div>
             </div>
           ))}
         </Reveal>
@@ -902,7 +960,7 @@ function ViewCountField({ submission: s, saving, onSave }) {
 
   return (
     <div
-      className="flex w-full flex-col items-stretch pl-[52px] sm:w-40 sm:pl-0"
+      className="flex w-full flex-col items-stretch sm:w-40"
       title={manual ? 'Typed in by hand. The next sync reads the link again.' : undefined}
     >
       <label className="sr-only" htmlFor={`views-${s.id}`}>Views for {s.profiles?.name}</label>
@@ -931,7 +989,7 @@ function ViewCountField({ submission: s, saving, onSave }) {
             if (e.key === 'Enter') e.currentTarget.blur()
             if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() }
           }}
-          className="no-ios-zoom min-w-0 flex-1 bg-transparent py-2.5 pl-2 pr-3 text-right text-base font-semibold tabular-nums text-ink outline-none placeholder:text-sm placeholder:font-normal placeholder:text-smoke"
+          className="no-ios-zoom min-w-0 flex-1 bg-transparent py-2 pl-2 pr-3 text-right text-base font-semibold tabular-nums text-ink outline-none placeholder:text-sm placeholder:font-normal placeholder:text-smoke"
         />
         {(saving || justSaved) && (
           <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white shadow-card">

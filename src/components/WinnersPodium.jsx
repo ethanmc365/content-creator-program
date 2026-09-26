@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import { Avatar } from './ui'
 import Podium from './Podium'
 import { formatViews, cx } from '../lib/utils'
@@ -47,6 +48,7 @@ export default function WinnersPodium({
   className = '',
 }) {
   const tr = useT()
+  const isMobile = useIsMobile()
   if (!winners.length && !places) return null
 
   const isPoints = scoring === 'points'
@@ -69,8 +71,12 @@ export default function WinnersPodium({
   const slots = places
     ? Array.from({ length: deepest }, (_, i) => byRank.get(i + 1) || { rank: i + 1, empty: true })
     : winners
-  const top = slots.filter((w) => w.rank <= 5)
-  const rest = slots.filter((w) => w.rank > 5)
+  // THREE STEPS ON A PHONE (26 Sep 2026). Five steps in 343px squeezed names
+  // and scores into each other on the results page ("you can't even read their
+  // name"). Fourth and fifth join the list under the podium instead.
+  const podiumDepth = isMobile ? 3 : 5
+  const top = slots.filter((w) => w.rank <= podiumDepth)
+  const rest = slots.filter((w) => w.rank > podiumDepth)
 
   // THE TOP THREE ARE THE SHARED PODIUM (components/Podium), which is the same
   // block the all-time leaderboard draws. It used to be a second drawing of the

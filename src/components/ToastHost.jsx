@@ -23,13 +23,13 @@ import { useT } from '../lib/i18n'
 
 const TONES = {
   default: 'border-gray-200 bg-white text-ink',
-  success: 'border-brand/30 bg-white text-ink',
+  success: 'border-green-200 bg-white text-ink',
   warn: 'border-amber-300 bg-amber-50 text-amber-900',
 }
 
 const ICON_TONES = {
   default: 'bg-cloud text-smoke',
-  success: 'bg-brand text-white',
+  success: 'bg-green-600 text-white',
   warn: 'bg-amber-400 text-white',
 }
 

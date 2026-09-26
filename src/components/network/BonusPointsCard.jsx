@@ -12,6 +12,10 @@ import { isBonusKind } from './ScoringPanel'
 // on'. This should be a different UI that stands out more than the regular
 // points."
 //
+// WHITE CARDS INSIDE THE ORANGE (26 Sep 2026). Ethan: "I like the nice orange
+// card that makes it stand out, but I would make the card inside it maybe white
+// ... it seems to be too much orange, and it's quite hard to read."
+//
 // So it is the one SOLID BRAND card on the page. The view ladder on the left is
 // the steady part of the scoring and reads as a table; these are the offers,
 // the things a creator can go and do this week to jump a place, and they are
@@ -44,7 +48,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
   const ended = bonuses.filter((r) => stateOf(r) === 'ended')
 
   return (
-    <section id="bonus-points" className={cx('scroll-mt-24 overflow-hidden rounded-card bg-brand text-white shadow-card', className)}>
+    <section id="bonus-points" className={cx('scroll-mt-24 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light text-white shadow-card', className)}>
       <div className="flex items-center gap-2.5 px-5 pb-3 pt-4">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
           <Icon name="star" className="h-4 w-4" />
@@ -61,14 +65,14 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
           return (
             <li
               key={r.id}
-              className={cx('flex items-start gap-3 rounded-xl px-3 py-2.5', done ? 'bg-white/10 opacity-70' : 'bg-white/[0.14]')}
+              className={cx('flex items-start gap-3 rounded-xl px-3 py-3 shadow-sm transition-transform duration-200', done ? 'bg-white/70 opacity-70' : 'bg-white hoverable:hover:-translate-y-0.5')}
             >
-              <Icon name={ICON[r.kind] || 'star'} className="mt-0.5 h-4 w-4 shrink-0 text-white/90" />
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug [overflow-wrap:anywhere]">{r.label.trim()}</p>
-                <p className="mt-0.5 text-xs leading-snug text-white/80">{howToEarn(r, tr)}</p>
+                <p className="text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{r.label.trim()}</p>
+                <p className="mt-0.5 text-xs leading-snug text-smoke">{howToEarn(r, tr)}</p>
                 {(r.max_points != null || (r.kind === 'bonus' && Number(r.min_views) > 0)) && (
-                  <p className="mt-0.5 text-[11px] text-white/70">
+                  <p className="mt-0.5 text-[11px] text-smoke">
                     {[
                       r.max_points != null ? tr('Up to {n} points', { n: Number(r.max_points) }) : null,
                       r.kind === 'bonus' && Number(r.min_views) > 0
@@ -79,7 +83,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
                 {state !== 'always' && (
                   <span className={cx(
                     'mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                    done ? 'bg-white/15 text-white/80' : 'bg-white text-brand',
+                    done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
                   )}>
                     <Icon name="clock" className="h-3 w-3" />
                     {state === 'ended' ? tr('Ended {d}, points kept', { d: dm(r.ends_at) })
@@ -90,7 +94,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
               </div>
               <span className={cx(
                 'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
-                done ? 'bg-white/20 text-white' : 'bg-white text-brand',
+                done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
               )}>
                 +{Number(r.points)}
               </span>
@@ -110,26 +114,34 @@ export function LiveBonusCallout({ rules, now, onOpen }) {
   const live = (rules || []).filter((r) => isBonusKind(r) && r.ends_at && ruleWindowState(r, now) === 'live')
   if (live.length === 0) return null
   const r = live[0]
+  // AS WIDE AS THE ROW, AND IT ARRIVES LIKE THE LEADERBOARD BADGE (26 Sep
+  // 2026). Ethan: "you have more space to widen it on desktop ... start from
+  // that right and go as far as the entries button ... make it stand out more"
+  // and "show up ... with that same animation, so it looks clean, like
+  // expanding in and out." `sm:flex-1` fills the row beside the tabs exactly as
+  // BoardStatus does, and `board-status` is that badge's own entrance.
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="animate-fade-up group flex w-full min-w-0 items-center gap-3 rounded-2xl bg-ink px-3.5 py-2 text-left text-white shadow-card transition-transform duration-200 hover:-translate-y-0.5 sm:w-auto sm:max-w-[26rem]"
+      className="board-status group relative flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] py-2.5 pl-2.5 pr-3.5 text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 sm:flex-1"
     >
-      <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand">
-        <Icon name="star" className="h-4 w-4" />
+      <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand">
+        <Icon name="star" className="hook-sparkles h-4 w-4" />
         <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/40 [animation-duration:2.4s]" />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="relative min-w-0 flex-1">
         <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">
           {tr('Bonus running until {d}', { d: dm(r.ends_at) })}
         </span>
         <span className="block truncate text-[13px] font-semibold">{r.label.trim()}</span>
       </span>
-      <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold tabular-nums">+{Number(r.points)}</span>
       {live.length > 1 && (
-        <span className="shrink-0 text-[11px] font-semibold text-white/70">{tr('+{n} more', { n: live.length - 1 })}</span>
+        <span className="relative hidden shrink-0 text-[11px] font-semibold text-white/70 sm:inline">{tr('+{n} more', { n: live.length - 1 })}</span>
       )}
+      <span className="relative shrink-0 rounded-full bg-brand px-2.5 py-1 text-xs font-bold tabular-nums shadow-card">+{Number(r.points)}</span>
+      <Icon name="chevronRight" className="relative hidden h-4 w-4 shrink-0 text-white/70 transition-transform duration-200 group-hover:translate-x-0.5 sm:block" />
     </button>
   )
 }
