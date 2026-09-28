@@ -20,7 +20,9 @@ describe('challenge recap cards', () => {
     const data = { ...buildChallengeRecap({ challenge, me, submissions: subs, results, rewards: [{ amount: 50, currency: 'EUR', reward_type: 'cash' }] }), prizes: { total: 620, vouchers: 120 } }
     const cards = buildChallengeCards(data)
     const keys = cards.map((c) => c.key)
-    expect(keys).toEqual(['open', 'place', 'totals', 'top-3', 'top-2', 'top-1', 'top-all', 'facts', 'won', 'together'])
+    // No 'facts' card: "Your challenge in numbers" was removed on 28 Sep 2026
+    // because every figure on it had already been said by an earlier card.
+    expect(keys).toEqual(['open', 'place', 'totals', 'top-3', 'top-2', 'top-1', 'top-all', 'won', 'together'])
     for (const c of cards) {
       const { container } = render(<MemoryRouter>{c.render()}</MemoryRouter>)
       expect(container.textContent.length).toBeGreaterThan(5)

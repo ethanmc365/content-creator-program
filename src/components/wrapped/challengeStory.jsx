@@ -27,7 +27,6 @@ import { formatDate } from '../../lib/utils'
 
 const nf = (n) => Number(n || 0).toLocaleString('en-GB')
 const SOCIAL = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook' }
-const listOf = (xs) => xs.join(', ').replace(/, ([^,]*)$/, ' and $1')
 
 function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height' }) {
   const big = size === 'xl' || size === 'lg'
@@ -256,57 +255,16 @@ export function buildChallengeCards(data) {
     }
   }
 
-  // ----------------------------------------------------------------- facts
-  // THE NUMBERS BEHIND IT (28 Sep 2026, evening). Ethan: "I don't like where it
-  // says 'Good to know', and also I don't like the background of this colour
-  // ... I'd redesign this card and make it look better." So: no heading
-  // phrase, the dusk palette instead of sand, and each fact led by its own
-  // number in large type, with the sentence as its caption.
-  const times = totals.avg > 0 && community.avg > 0 ? totals.avg / community.avg : 0
-  const facts = [
-    totals.firstDay && {
-      big: totals.firstDay === 1 ? 'Day 1' : `Day ${totals.firstDay}`,
-      text: totals.firstDay === 1 ? 'You posted on the very first day.' : 'When your first video landed.',
-    },
-    times >= 1.1 && {
-      big: `${times >= 10 ? Math.round(times) : times.toFixed(1)}×`,
-      text: `Your average video (${formatViews(totals.avg)}) against the challenge average of ${formatViews(community.avg)}.`,
-    },
-    totals.share != null && totals.share >= 1 && {
-      big: `${totals.share}%`,
-      text: 'Of every view in the challenge was yours.',
-    },
-    totals.bestPlatform && totals.platforms.length > 1 && {
-      big: formatViews(totals.bestPlatform.views),
-      text: `From ${totals.bestPlatform.name}, your strongest platform.`,
-    },
-  ].filter(Boolean)
-  if (facts.length >= 2) {
-    push({
-      key: 'facts', palette: 'dusk', hold: 5200,
-      render: () => (
-        <>
-          <Eyebrow palette="dusk">Your challenge in numbers</Eyebrow>
-          <div className="flex min-h-0 flex-1 flex-col justify-center gap-3">
-            {facts.slice(0, 4).map((f, n) => (
-              <div
-                key={f.text}
-                data-anim="rise"
-                data-delay={String(150 + n * 160)}
-                className="flex items-center gap-4 rounded-2xl px-4 py-3.5"
-                style={{ background: 'rgba(255,255,255,0.10)' }}
-              >
-                <span className="w-[5.5rem] shrink-0 text-[30px] font-extrabold leading-none tracking-tight tabular-nums text-[#ffb37a]">
-                  {f.big}
-                </span>
-                <span className="min-w-0 text-[14px] font-semibold leading-snug text-white/90">{f.text}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      ),
-    })
-  }
+  // "YOUR CHALLENGE IN NUMBERS" IS GONE (28 Sep 2026). Ethan, reviewing the
+  // recap in the Testing Centre: "I like it all except for the Your Challenge
+  // and Numbers page. I think we don't need that page at all. It's unnecessary
+  // because you already kind of mentioned those things."
+  //
+  // He is right: every fact on it had already been said. The entries count and
+  // the view total are the "What you made" card, the placing is "Where you
+  // finished", and the strongest platform is implied by the posters. A recap
+  // that repeats itself in a different layout is longer without being fuller.
+  // The card and the figures it alone computed have gone with it.
 
   // ----------------------------------------------------------------- prizes
   if (won.length > 0) {
@@ -377,7 +335,7 @@ export function buildChallengeCards(data) {
  * by word, it is never split into letters.
  */
 export function ChallengeShareCard({ data, className = '', style, flush = false }) {
-  const { me, challenge, placing, totals, top, points, community } = data
+  const { me, challenge, placing, totals, top, points } = data
   const best = top[0]?.views > 0 ? top[0] : null
   // THE PLACE IS A BADGE BY THE NAME; THE NUMBERS DO NOT REPEAT IT (28 Sep
   // 2026, evening). Ethan: "for the 3rd, 2nd, and 1st, maybe have it in a
@@ -395,16 +353,14 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
   const badge = placing?.kind === 'podium'
     ? { text: `${ordinalFor(placing.rank)} place`, tier: podiumTier(placing.rank) }
     : placing?.kind === 'top' ? { text: `Top ${placing.pct}%`, tier: null } : null
-  // HOW THEY DID OVERALL, IN WORDS (28 Sep 2026). "Rather than saying 'Best
-  // video, top 1% of the challenge', just say overall what they were like."
-  const times = totals.avg > 0 && community?.avg > 0 ? totals.avg / community.avg : 0
-  const quote = placing
-    ? `${placing.kind === 'podium' ? `${ordinalFor(placing.rank)} of ${nf(placing.field)}` : `Top ${placing.pct}% of ${nf(placing.field)}`} creators overall${times >= 1.1 ? `, ${times >= 10 ? Math.round(times) : times.toFixed(1)}× the average video` : ''}.`
-    : times >= 1.1
-      ? `${times >= 10 ? Math.round(times) : times.toFixed(1)}× the challenge's average video.`
-      : totals.platforms.length > 1
-        ? `Posted on ${listOf(totals.platforms)}.`
-        : null
+  // NO SUMMING-UP LINE ALONG THE BOTTOM (28 Sep 2026). This read "1st of 28
+  // creators overall, 4.8× the average video" under the Tryp mark. Ethan, on
+  // the final card: "I wouldn't show that at all. I think the other stats on
+  // this page are all we need."
+  //
+  // It was the third time the placing appeared on one card - the badge beside
+  // the name says it, the stat tiles say the numbers, and this said both again
+  // in a sentence. The mark now has the footer to itself.
 
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between gap-4" style={style}>
@@ -457,7 +413,6 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
 
       <div data-anim="rise" className="flex items-center justify-between gap-3 border-t border-white/25 pt-3.5">
         <TrypMark className="!h-6 !opacity-100" />
-        {quote && <span className="min-w-0 text-right text-[11px] font-semibold leading-snug opacity-90">{quote}</span>}
       </div>
     </Card>
   )
