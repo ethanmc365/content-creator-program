@@ -5,10 +5,10 @@ import { toast } from '../../lib/toast'
 import Icon from '../../components/Icon'
 import Reorderable from '../../components/network/Reorderable'
 import MilestonePath from '../../components/network/MilestonePath'
-import { Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import { cx } from '../../lib/utils'
 import {
-  METRICS, METRIC_BY_VALUE, REWARD_KINDS, UNITS,
+  METRICS, METRIC_BY_VALUE, REWARD_PARTS, rewardSummary, UNITS,
   criterionNeed, fromDays, toDays,
 } from '../../lib/milestones'
 import { CURRENCIES } from '../../lib/timezones'
@@ -41,6 +41,7 @@ const ICONS = ['flag', 'video', 'eye', 'star', 'trophy', 'plane', 'chart', 'mega
 const BLANK = {
   title: '', description: '', reward: '', reward_kind: 'merch',
   role_title: '', voucher_amount: '', voucher_currency: 'EUR',
+  items: [], gives: [],
   icon: 'flag', is_active: true,
   criteria: [{ metric: 'videos', threshold: 1, unit: 'days' }],
 }
@@ -200,12 +201,20 @@ export default function AdminMilestones() {
     }
     const bad = m.criteria.find((c) => !(Number(c.threshold) > 0))
     if (bad) { notice(`The ${METRIC_BY_VALUE[bad.metric]?.label} requirement has to be more than zero.`); return }
-    if (m.reward_kind === 'voucher' && !(Number(m.voucher_amount) > 0)) {
-      notice('A voucher milestone needs an amount. That is what gets paid out when a creator reaches it.')
+    const gives = m.gives || []
+    const items = (m.items || []).filter((it) => gives.includes(it.kind) && it.label?.trim())
+      .map((it) => ({ kind: it.kind, label: it.label.trim() }))
+    if (gives.includes('voucher') && !(Number(m.voucher_amount) > 0)) {
+      notice('The voucher needs an amount. That is what gets paid out when a creator reaches this stop.')
       return
     }
-    if (m.reward_kind === 'role' && !m.role_title?.trim()) {
-      notice('A role milestone needs the title it grants. That is the text worn beside the creator\'s name.')
+    if (gives.includes('role') && !m.role_title?.trim()) {
+      notice('The new title needs its wording. That is the text worn beside the creator\'s name.')
+      return
+    }
+    const missingItem = gives.find((g) => REWARD_PARTS.find((p) => p.value === g)?.item && !items.some((it) => it.kind === g))
+    if (missingItem) {
+      notice(`Say what the ${REWARD_PARTS.find((p) => p.value === missingItem).label.toLowerCase()} is, so the team knows what to send.`)
       return
     }
 
@@ -213,14 +222,19 @@ export default function AdminMilestones() {
     const patch = {
       title: m.title.trim(),
       description: m.description?.trim() || null,
-      reward: m.reward?.trim() || null,
-      reward_kind: m.reward_kind,
-      role_title: m.reward_kind === 'role' ? m.role_title.trim() : null,
-      voucher_amount: m.reward_kind === 'voucher' ? Number(m.voucher_amount) || null : null,
-      voucher_currency: m.reward_kind === 'voucher' ? (m.voucher_currency || 'EUR') : null,
+      role_title: gives.includes('role') ? m.role_title.trim() : null,
+      voucher_amount: gives.includes('voucher') ? Number(m.voucher_amount) || null : null,
+      voucher_currency: gives.includes('voucher') ? (m.voucher_currency || 'EUR') : 'EUR',
+      items,
+      // The headline kind older screens read: the only thing it gives, or
+      // "other" when it gives several.
+      reward_kind: gives.length === 1 ? (gives[0] === 'prize' ? 'other' : gives[0]) : 'other',
       icon: m.icon || 'flag',
       is_active: m.is_active !== false,
     }
+    // The line creators read on the route: what the admin wrote, or everything
+    // it gives, listed.
+    patch.reward = m.reward?.trim() || rewardSummary(patch) || null
 
     let id = m.id
     let error
@@ -311,9 +325,18 @@ export default function AdminMilestones() {
   const draftRows = (() => {
     const base = rows.filter((m) => m.is_active)
     if (!editing) return base
+    const gives = editing.gives || []
+    const shownParts = {
+      role_title: gives.includes('role') ? editing.role_title : null,
+      voucher_amount: gives.includes('voucher') ? Number(editing.voucher_amount) || null : null,
+      voucher_currency: editing.voucher_currency,
+      items: (editing.items || []).filter((it) => gives.includes(it.kind)),
+    }
     const live = {
       ...editing,
-      voucher_amount: Number(editing.voucher_amount) || null,
+      ...shownParts,
+      reward: editing.reward?.trim() || rewardSummary(shownParts),
+      reward_kind: gives.length === 1 ? (gives[0] === 'prize' ? 'other' : gives[0]) : 'other',
       criteria: editing.criteria || [],
     }
     if (!editing.id) return [...base, live]
@@ -425,95 +448,125 @@ export default function AdminMilestones() {
 
           {/* ---------- what they get ---------- */}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Field label="Reward">
-              <input className="input" value={editing.reward || ''} maxLength={80}
-                placeholder="Tryp.com t-shirt"
-                onChange={(e) => setEditing((m) => ({ ...m, reward: e.target.value }))} />
-            </Field>
-
-            {/* A ROW OF CHOICES, NOT A ROLLER.
-                A native <select> renders as the OS picker - a grey iOS roller on
-                a phone, a system dropdown on a Mac - which is why one field
-                looked like it belonged to a different application than
-                everything around it. Four kinds that never change: showing all
-                four is cheaper than hiding them behind a control that has to be
-                opened. ("Access" and "Status" are gone: access promised early
-                briefs that nothing in the product delivers, and status was the
-                word "role" said twice.) */}
-            <Field label="Reward type" hint={REWARD_KINDS.find((x) => x.value === editing.reward_kind)?.hint}>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reward type">
-                {REWARD_KINDS.map((x) => (
-                  <button
-                    key={x.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={editing.reward_kind === x.value}
-                    onClick={() => setEditing((m) => ({ ...m, reward_kind: x.value }))}
-                    className={cx(
-                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:scale-105',
-                      editing.reward_kind === x.value
-                        ? 'border-brand bg-brand text-white'
-                        : 'border-gray-200 text-smoke hover:border-brand/40',
-                    )}
-                  >
-                    {x.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            {/* THE TITLE ITSELF, only when the reward is one.
-                It is written to a column of its own rather than to `role_title`,
-                which is the team's job titles and is guarded so only an admin can
-                set it. An earned role can only ever replace the generic "Creator"
-                badge - it never overwrites somebody's actual job. */}
-            {/* THE AMOUNT, because a voucher milestone now PAYS.
-                Reaching it mints a row in `rewards` - the same ledger challenge
-                prizes use - so it turns up in the creator's own rewards page,
-                in the admin payouts list and in every CPM calculation. Before
-                this the reward was a sentence on a drawing and nothing else
-                happened. */}
-            {editing.reward_kind === 'voucher' && (
-              <Field label="Voucher amount">
-                <div className="flex gap-2">
-                  <div className="flex shrink-0 gap-1">
-                    {CURRENCIES.map((cur) => (
+            {/* WHAT THEY GET, AS SEVERAL THINGS (26 Sep 2026). Ethan: "give a
+                new title as a reward and also a watch as a reward ... Also,
+                add merch." Pick any mix; each one opens the field it needs. The
+                title and the voucher are paid by the platform by itself; merch,
+                prizes and anything else go on the team's "to send" list below
+                the route when somebody reaches the stop. */}
+            <div className="sm:col-span-2">
+              <Field label="What they get" hint="Pick as many as you like.">
+                <div className="flex flex-wrap gap-1.5">
+                  {REWARD_PARTS.map((p) => {
+                    const on = (editing.gives || []).includes(p.value)
+                    return (
                       <button
-                        key={cur.value}
+                        key={p.value}
                         type="button"
-                        aria-pressed={(editing.voucher_currency || 'EUR') === cur.value}
-                        onClick={() => setEditing((m) => ({ ...m, voucher_currency: cur.value }))}
+                        aria-pressed={on}
+                        onClick={() => setEditing((m) => {
+                          const gives = on ? (m.gives || []).filter((g) => g !== p.value) : [...(m.gives || []), p.value]
+                          const items = p.item && !on && !(m.items || []).some((it) => it.kind === p.value)
+                            ? [...(m.items || []), { kind: p.value, label: '' }]
+                            : (m.items || [])
+                          return { ...m, gives, items }
+                        })}
                         className={cx(
-                          'rounded-lg border px-3 py-2 text-sm font-semibold transition-colors',
-                          (editing.voucher_currency || 'EUR') === cur.value
-                            ? 'border-brand bg-brand text-white'
-                            : 'border-gray-200 text-smoke hover:border-brand/40',
+                          'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5',
+                          on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 text-smoke hover:border-brand/40 hover:text-ink',
                         )}
                       >
-                        {cur.value === 'GBP' ? '£' : '€'}
+                        <Icon name={on ? 'check' : p.icon} className="h-3.5 w-3.5" />
+                        {p.label}
                       </button>
-                    ))}
-                  </div>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    step="any"
-                    placeholder="25"
-                    value={editing.voucher_amount ?? ''}
-                    onChange={(e) => setEditing((m) => ({ ...m, voucher_amount: e.target.value }))}
-                  />
+                    )
+                  })}
                 </div>
               </Field>
-            )}
 
-            {editing.reward_kind === 'role' && (
-              <Field label="Role title" hint="Worn beside their name on their profile and in chat.">
-                <input className="input" value={editing.role_title || ''} maxLength={40}
-                  placeholder="Tryp.com Senior Creator"
-                  onChange={(e) => setEditing((m) => ({ ...m, role_title: e.target.value }))} />
-              </Field>
-            )}
+              {(editing.gives || []).length > 0 && (
+                <div className="mt-3 space-y-3 rounded-2xl border border-gray-100 bg-cloud/40 p-3.5">
+                  {(editing.gives || []).includes('role') && (
+                    <Field label="New title" hint="Worn beside their name on their profile and in chat.">
+                      <input className="input" value={editing.role_title || ''} maxLength={40}
+                        placeholder="Tryp.com Senior Creator"
+                        onChange={(e) => setEditing((m) => ({ ...m, role_title: e.target.value }))} />
+                    </Field>
+                  )}
+                  {(editing.gives || []).includes('voucher') && (
+                    <Field label="Voucher amount" hint="Lands in their rewards and the payouts list when they reach it.">
+                      <div className="flex gap-2">
+                        <div className="flex shrink-0 gap-1">
+                          {CURRENCIES.map((cur) => (
+                            <button
+                              key={cur.value}
+                              type="button"
+                              aria-pressed={(editing.voucher_currency || 'EUR') === cur.value}
+                              onClick={() => setEditing((m) => ({ ...m, voucher_currency: cur.value }))}
+                              className={cx(
+                                'rounded-lg border px-3 py-2 text-sm font-semibold transition-colors',
+                                (editing.voucher_currency || 'EUR') === cur.value
+                                  ? 'border-brand bg-brand text-white'
+                                  : 'border-gray-200 bg-white text-smoke hover:border-brand/40',
+                              )}
+                            >
+                              {cur.value === 'GBP' ? '£' : '€'}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          className="input"
+                          type="number"
+                          min="1"
+                          step="any"
+                          placeholder="25"
+                          value={editing.voucher_amount ?? ''}
+                          onChange={(e) => setEditing((m) => ({ ...m, voucher_amount: e.target.value }))}
+                        />
+                      </div>
+                    </Field>
+                  )}
+                  {REWARD_PARTS.filter((p) => p.item && (editing.gives || []).includes(p.value)).map((p) => (
+                    <Field key={p.value} label={p.label} hint="What the team sends. Add more than one if they get several.">
+                      <div className="space-y-2">
+                        {(editing.items || []).map((it, i) => (it.kind !== p.value ? null : (
+                          <div key={i} className="flex gap-2">
+                            <input
+                              className="input"
+                              value={it.label}
+                              maxLength={60}
+                              placeholder={p.placeholder}
+                              onChange={(e) => setEditing((m) => ({ ...m, items: m.items.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) }))}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Remove"
+                              onClick={() => setEditing((m) => ({ ...m, items: m.items.filter((_, j) => j !== i) }))}
+                              className="shrink-0 rounded-lg px-2.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Icon name="close" className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )))}
+                        <button
+                          type="button"
+                          onClick={() => setEditing((m) => ({ ...m, items: [...(m.items || []), { kind: p.value, label: '' }] }))}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                        >
+                          <Icon name="plus" className="h-3.5 w-3.5" /> Add another
+                        </button>
+                      </div>
+                    </Field>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Field label="How it reads on the route" hint={rewardSummary({ ...editing, voucher_amount: (editing.gives || []).includes('voucher') ? editing.voucher_amount : null, role_title: (editing.gives || []).includes('role') ? editing.role_title : null, items: (editing.items || []).filter((it) => (editing.gives || []).includes(it.kind)) }) ? 'Leave blank to list everything it gives.' : 'Optional.'}>
+              <input className="input" value={editing.reward || ''} maxLength={120}
+                placeholder={rewardSummary({ ...editing, voucher_amount: (editing.gives || []).includes('voucher') ? editing.voucher_amount : null, role_title: (editing.gives || []).includes('role') ? editing.role_title : null, items: (editing.items || []).filter((it) => (editing.gives || []).includes(it.kind)) }) || 'You are officially a Tryp.com Creator'}
+                onChange={(e) => setEditing((m) => ({ ...m, reward: e.target.value }))} />
+            </Field>
 
             <Field label="Icon" hint="Shown on this page, so a long ladder is scannable.">
               <div className="flex flex-wrap gap-1.5">
@@ -574,15 +627,15 @@ export default function AdminMilestones() {
                       <p className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-semibold">{m.title}</span>
                         {!m.is_active && <Badge tone="grey">Off the route</Badge>}
-                        {m.reward_kind === 'role' && m.role_title && <Badge tone="light">{m.role_title}</Badge>}
-                        {m.reward_kind === 'voucher' && Number(m.voucher_amount) > 0 && (
+                        {m.role_title && <Badge tone="light">{m.role_title}</Badge>}
+                        {Number(m.voucher_amount) > 0 && (
                           <Badge tone="green">
                             {m.voucher_currency === 'GBP' ? '£' : '€'}{Number(m.voucher_amount)}
                           </Badge>
                         )}
-                        {m.reward_kind === 'voucher' && !(Number(m.voucher_amount) > 0) && (
-                          <Badge tone="amber">No amount set</Badge>
-                        )}
+                        {(Array.isArray(m.items) ? m.items : []).map((it, i) => (
+                          <Badge key={i} tone="grey">{it.label}</Badge>
+                        ))}
                       </p>
                       {/* EVERY REQUIREMENT, not the first one. A stop asking for
                           three things and showing one is the version of this row
@@ -624,9 +677,18 @@ export default function AdminMilestones() {
                       </button>
                       <button onClick={() => setEditing({
                         ...m,
+                        // A reward line that is just the generated list is not the
+                        // admin's own wording; clear it so it regenerates on save.
+                        reward: m.reward && m.reward === rewardSummary(m) ? '' : (m.reward || ''),
                         role_title: m.role_title || '',
                         voucher_amount: m.voucher_amount ?? '',
                         voucher_currency: m.voucher_currency || 'EUR',
+                        items: Array.isArray(m.items) ? m.items.map((it) => ({ ...it })) : [],
+                        gives: [
+                          ...(m.role_title ? ['role'] : []),
+                          ...(Number(m.voucher_amount) > 0 ? ['voucher'] : []),
+                          ...[...new Set((Array.isArray(m.items) ? m.items : []).map((it) => it.kind))],
+                        ],
                         criteria: (m.criteria || []).map((c) => ({ ...c })),
                       })} title="Edit"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
@@ -655,6 +717,81 @@ export default function AdminMilestones() {
           </div>
         </aside>
       </div>
+      <ItemsToSend />
     </div>
+  )
+}
+
+
+// WHAT THE TEAM OWES, AND TICKING IT OFF (26 Sep 2026, migration 267).
+//
+// A title and a voucher pay themselves. A hoodie or a watch does not - somebody
+// has to post it - so everybody who has reached a stop that gives an item is
+// listed here until an admin marks it sent. Sent rows stay, greyed, as the
+// record of what went out.
+function ItemsToSend() {
+  const [rows, setRows] = useState(null)
+  const [busy, setBusy] = useState(null)
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('milestone_items_to_send')
+    if (error) { setRows([]); return }
+    setRows(data || [])
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function mark(r, sent) {
+    setBusy(`${r.profile_id}:${r.milestone_id}`)
+    const { data: { user } = {} } = await supabase.auth.getUser()
+    const { error } = await supabase.from('creator_milestones')
+      .update({ items_sent_at: sent ? new Date().toISOString() : null, items_sent_by: sent ? user?.id ?? null : null })
+      .eq('profile_id', r.profile_id).eq('milestone_id', r.milestone_id)
+    setBusy(null)
+    if (error) { notice(error.message); return }
+    toast(sent ? 'Marked as sent.' : 'Moved back to the list.')
+    load()
+  }
+
+  if (!rows || rows.length === 0) return null
+  const waiting = rows.filter((r) => !r.sent_at).length
+  return (
+    <section className="mt-10">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold">Rewards to send</h2>
+        <p className="text-xs text-smoke">{waiting === 0 ? 'Everything has been sent.' : `${waiting} waiting`}</p>
+      </div>
+      <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <ul className="divide-y divide-gray-50">
+          {rows.map((r) => {
+            const key = `${r.profile_id}:${r.milestone_id}`
+            return (
+              <li key={key} className={cx('flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5', r.sent_at && 'opacity-60')}>
+                <Avatar src={r.photo_url} name={r.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{r.name}<span className="font-normal text-smoke"> · {r.milestone_title}</span></p>
+                  <p className="mt-0.5 flex flex-wrap gap-1.5">
+                    {(Array.isArray(r.items) ? r.items : []).map((it, i) => (
+                      <span key={i} className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-medium text-ink">{it.label}</span>
+                    ))}
+                    {r.country && <span className="text-[11px] text-smoke">{r.country}</span>}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy === key}
+                  onClick={() => mark(r, !r.sent_at)}
+                  className={cx(
+                    'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-transform duration-200 hover:-translate-y-0.5',
+                    r.sent_at ? 'bg-green-600 text-white' : 'border border-gray-200 text-ink',
+                  )}
+                >
+                  <Icon name="check" className="h-3.5 w-3.5" />
+                  {r.sent_at ? 'Sent' : 'Mark as sent'}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </section>
   )
 }

@@ -90,6 +90,29 @@ export const REWARD_KINDS = [
   { value: 'other', label: 'Something else' },
 ]
 
+// A STOP CAN GIVE SEVERAL THINGS (26 Sep 2026, migration 267). Ethan: "give a
+// new title as a reward and also a watch as a reward ... Also, add merch."
+// The title and the voucher are columns the engine pays by itself; everything
+// physical is an ITEM ({ kind, label }) the team sends and ticks off.
+export const REWARD_PARTS = [
+  { value: 'role', label: 'New title', icon: 'star' },
+  { value: 'voucher', label: 'Voucher', icon: 'ticket' },
+  { value: 'merch', label: 'Merch', icon: 'briefcase', item: true, placeholder: 'Tryp.com hoodie' },
+  { value: 'prize', label: 'Prize', icon: 'trophy', item: true, placeholder: 'A smart watch' },
+  { value: 'other', label: 'Something else', icon: 'sparkles', item: true, placeholder: 'Dinner with the team' },
+]
+
+/** Everything a stop gives, in reading order: title, voucher, then items. */
+export function rewardSummary({ role_title: role, voucher_amount: amount, voucher_currency: cur, items } = {}) {
+  const parts = []
+  if (role && String(role).trim()) parts.push(`Title: ${String(role).trim()}`)
+  if (Number(amount) > 0) parts.push(`${cur === 'GBP' ? '£' : '€'}${Number(amount)} Tryp.com voucher`)
+  for (const it of Array.isArray(items) ? items : []) {
+    if (it?.label && String(it.label).trim()) parts.push(String(it.label).trim())
+  }
+  return parts.join(' · ')
+}
+
 // WHAT KIND OF REWARD IT IS, SAID IN A WORD.
 //
 // It used to be said in a COLOUR - merch orange, voucher green, role black -
@@ -100,6 +123,7 @@ export const REWARD_NOUN = {
   merch: 'Merch',
   voucher: 'Voucher',
   role: 'Role',
+  prize: 'Prize',
   other: '',
 }
 
