@@ -7,7 +7,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes } from '../lib/scope'
-import { PageHeader } from '../components/ui'
+import { Modal, PageHeader } from '../components/ui'
 import PageSkeleton from '../components/PageSkeleton'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import Icon from '../components/Icon'
@@ -642,56 +642,39 @@ export default function Events() {
                   <span className="text-gray-400 sm:hidden">{tr("Swipe to change month")}</span>
                 </p>
 
-                {/* THE DAY PANEL GROWS OUT OF NOTHING rather than appearing.
-                    `grid-template-rows: 0fr -> 1fr` animates to the content's
-                    own height without anybody measuring anything. */}
-                <div className={cx(
-                  'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
-                  selectedDay ? 'mt-5 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-                )}>
-                  <div className="overflow-hidden">
-                    {selectedDay && (
-                      <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <h3 className="text-sm font-bold">{format(selectedDay, 'EEEE d MMMM')}</h3>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }}
-                              className="rounded-full px-2.5 py-1 text-xs font-semibold text-brand transition-colors hover:bg-brand-tint"
-                            >
-                              + Add
-                            </button>
-                            <button onClick={() => setSelectedDay(null)} aria-label={tr("Close")}
-                              className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-all duration-150 hover:bg-cloud hover:text-ink active:scale-90">
-                              <Icon name="close" className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                        {travelDays.get(dayKey(selectedDay)) && (
-                          <p className="mb-3 flex items-center gap-2 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs font-semibold text-brand">
-                            <Icon name="plane-tryp" className="h-3.5 w-3.5" />
-                            You are in {travelDays.get(dayKey(selectedDay))}
-                          </p>
-                        )}
-                        {dayEvents.length === 0 ? (
-                          <p className="text-sm text-smoke">{tr("Nothing planned. A good day to film something.")}</p>
-                        ) : (
-                          // `Reveal`, NOT a hand-written `reveal is-in`
-                          // (18 Sep 2026). A container born with `is-in` has no
-                          // FROM state to transition out of - the browser
-                          // coalesces the two and the rows simply appear. Every
-                          // list on this page had the same fault; see the note
-                          // in components/network/BoardCard.
-                          <Reveal className="space-y-3" dense stagger={0.05}>
-                            {dayEvents.map((e) => (
-                              <EventCard key={e.id} e={e} {...cardProps} compact live={liveIds.has(e.id)} />
-                            ))}
-                          </Reveal>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {/* THE DAY OPENS AS A CARD OVER THE PAGE (26 Sep 2026). Ethan:
+                    "When you click on it, it only shows something at the bottom,
+                    so you can barely even notice it." It grew open under the
+                    grid, below the fold on most screens. Now it is a modal: on
+                    a phone a sheet from the bottom, on a desktop a centred
+                    card, and the grid stays exactly where it was. */}
+                <Modal open={!!selectedDay} onClose={() => setSelectedDay(null)} title={selectedDay ? format(selectedDay, 'EEEE d MMMM') : ''}>
+                  {selectedDay && (
+                    <div className="space-y-4">
+                      {travelDays.get(dayKey(selectedDay)) && (
+                        <p className="flex items-center gap-2 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs font-semibold text-brand">
+                          <Icon name="plane-tryp" className="h-3.5 w-3.5" />
+                          You are in {travelDays.get(dayKey(selectedDay))}
+                        </p>
+                      )}
+                      {dayEvents.length === 0 ? (
+                        <p className="rounded-xl bg-cloud/60 px-4 py-6 text-center text-sm text-smoke">{tr("Nothing planned. A good day to film something.")}</p>
+                      ) : (
+                        <Reveal className="space-y-3" dense stagger={0.05}>
+                          {dayEvents.map((e) => (
+                            <EventCard key={e.id} e={e} {...cardProps} compact live={liveIds.has(e.id)} />
+                          ))}
+                        </Reveal>
+                      )}
+                      <button
+                        onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }}
+                        className="btn-secondary w-full justify-center"
+                      >
+                        <Icon name="plus" className="h-4 w-4" /> {tr("Add something to this day")}
+                      </button>
+                    </div>
+                  )}
+                </Modal>
               </div>
 
               </Reveal>
@@ -932,16 +915,25 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
           const today = isToday(day)
           const away = travelDays.get(dayKey(day))
           const hasLive = list.some((e) => liveIds.has(e.id))
+          const busy = list.length > 0
           return (
             <button
               key={day.toISOString()}
               onClick={() => onSelect(selected ? null : day)}
               aria-label={`${format(day, 'd MMMM')}${list.length ? `, ${list.length} events` : ''}${away ? `, travelling` : ''}`}
               aria-pressed={!!selected}
+              // A DAY WITH SOMETHING ON IS AN ORANGE SQUARE (26 Sep 2026). Ethan:
+              // "it only shows a dot and a little preview sentence ... if there's
+              // an event on a day, that whole square should be orange-coloured,
+              // and it should show the preview name on it." Busy days are the
+              // brand gradient with the first title on them at every width;
+              // empty days stay white, travelling days keep their wash.
               className={cx(
-                'group relative flex min-h-[68px] flex-col items-center gap-1.5 p-2 transition-all duration-150 sm:min-h-[92px]',
-                'hover:z-10 hover:bg-brand-tint/40 active:scale-[0.97]',
-                away ? 'bg-brand-tint/50' : outside ? 'bg-cloud/30' : 'bg-white',
+                'group relative flex min-h-[72px] flex-col items-center gap-1 p-1.5 transition-all duration-150 sm:min-h-[96px] sm:gap-1.5 sm:p-2',
+                'hover:z-10 active:scale-[0.97]',
+                busy
+                  ? cx('bg-gradient-to-br text-white hover:brightness-105', outside ? 'from-brand/60 to-brand-light/60' : 'from-brand to-brand-light')
+                  : cx('hover:bg-brand-tint/40', away ? 'bg-brand-tint/50' : outside ? 'bg-cloud/30' : 'bg-white'),
                 selected && 'z-10',
               )}
             >
@@ -970,7 +962,10 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
               {selected && (
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute inset-[3px] rounded-xl border-2 border-brand bg-white shadow-[0_4px_14px_-4px_rgba(217,68,7,0.45)]"
+                  className={cx(
+                    'pointer-events-none absolute inset-[3px] rounded-xl border-2',
+                    busy ? 'border-white/90' : 'border-brand bg-white shadow-[0_4px_14px_-4px_rgba(217,68,7,0.45)]',
+                  )}
                 />
               )}
               {/* The travelling wash gets a hairline at the top of the cell so a
@@ -978,42 +973,27 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
               {away && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand-light/70" aria-hidden />}
               <span className={cx(
                 'relative flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums transition-all duration-200',
-                today ? 'bg-brand text-white shadow-card' : outside ? 'text-gray-300' : 'text-ink group-hover:bg-white',
+                busy
+                  ? (today ? 'bg-white text-brand shadow-card' : 'text-white')
+                  : today ? 'bg-brand text-white shadow-card' : outside ? 'text-gray-300' : 'text-ink group-hover:bg-white',
                 // On the selected day the number is the brand, so the cell says
                 // "this one" twice without needing a second fill behind it.
-                selected && !today && 'text-brand',
+                selected && !today && !busy && 'text-brand',
               )}>
                 {format(day, 'd')}
               </span>
 
-              {list.length > 0 && (
-                <span className="relative flex flex-wrap items-center justify-center gap-1">
-                  {list.slice(0, 4).map((e) => (
-                    <span
-                      key={e.id}
-                      title={e.title}
-                      className={cx(
-                        'h-1.5 w-1.5 rounded-full transition-transform duration-200 group-hover:scale-125',
-                        TONE_DOT[metaFor(e.type).tone],
-                        liveIds.has(e.id) && 'animate-ping-slow',
-                      )}
-                    />
-                  ))}
-                  {list.length > 4 && (
-                    <span className="text-[9px] font-bold leading-none text-smoke">+{list.length - 4}</span>
+              {busy && (
+                <span className="relative w-full px-0.5 text-center">
+                  <span className={cx(
+                    'line-clamp-2 text-[9px] font-semibold leading-tight [overflow-wrap:anywhere] sm:text-[11px]',
+                    hasLive && 'animate-pulse',
+                  )}>
+                    {list[0].title}
+                  </span>
+                  {list.length > 1 && (
+                    <span className="mt-0.5 inline-block rounded-full bg-white/25 px-1.5 text-[9px] font-bold leading-4">+{list.length - 1}</span>
                   )}
-                </span>
-              )}
-
-              {/* The first title, where there is room for it. A month grid that
-                  only shows dots makes you click every day to find out what is
-                  on it. */}
-              {list.length > 0 && (
-                <span className={cx(
-                  'hidden w-full truncate px-0.5 text-[10px] font-medium leading-tight sm:block',
-                  hasLive ? 'font-bold text-brand' : 'text-smoke',
-                )}>
-                  {list[0].title}
                 </span>
               )}
             </button>
