@@ -1459,22 +1459,11 @@ export default function NetworkChat() {
                     pressing a profile picture in a chat means "who is this",
                     and it used to open the react/reply bar because the press
                     handler was on the row. */}
-                {!mine && (
-                  <div className="w-9 shrink-0 self-end pb-5">
-                    {m.profiles?.id ? (
-                      <Link
-                        to={`/profile/${m.profiles.id}`}
-                        className="block rounded-full transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                        title={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
-                        aria-label={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
-                      >
-                        <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
-                      </Link>
-                    ) : (
-                      <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
-                    )}
-                  </div>
-                )}
+                {/* THE FACE MOVED INSIDE MessageActions (28 Sep 2026). Here
+                    it was `self-end` in this row, so opening the action bar -
+                    which makes space under the bubble - grew the row and took
+                    the face down with it. It is passed as `lead` now and shares
+                    a row with the bubble alone. Same change in the DMs. */}
 
                 <div className={cx('flex w-full min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
                   {/* THE META LINE IS INSIDE MessageActions, and that is the
@@ -1488,6 +1477,21 @@ export default function NetworkChat() {
                   <MessageActions
                     className="w-full"
                     side={mine ? 'right' : 'left'}
+                    leadWidth={9}
+                    lead={!mine ? (
+                      m.profiles?.id ? (
+                        <Link
+                          to={`/profile/${m.profiles.id}`}
+                          className="block rounded-full transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                          title={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
+                          aria-label={m.profiles?.name ? `View ${m.profiles.name}` : 'View profile'}
+                        >
+                          <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
+                        </Link>
+                      ) : (
+                        <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
+                      )
+                    ) : null}
                     reactions={chips}
                     myId={user?.id}
                     onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}

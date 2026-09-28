@@ -58,6 +58,22 @@ import { useT } from '../../lib/i18n'
 // CSS, NOT MOTION. Both chat surfaces are reachable without a route split and
 // the DMs are eagerly routed, so pulling the animation runtime in for an
 // open/close state would cost every creator on their first paint.
+//
+// AND THE FACE BESIDE THE MESSAGE BELONGS TO THE MESSAGE, NOT TO THE ROW
+// (28 Sep 2026). Ethan: "if you click on a chat a creator sent so that it shows
+// up the functions to reply/react to the message, it moves their profile
+// picture down. This shouldn't move their profile picture, it should stay where
+// it is."
+//
+// The avatar was a sibling of this whole component in a flex row, aligned to the
+// BOTTOM of that row (`self-end`). Making space under the bubble grows the row,
+// and the bottom of the row is where the avatar was pinned - so opening the bar
+// carried the face thirty pixels down with it.
+//
+// It is passed in as `lead` now, and drawn in a row with the bubble ALONE. That
+// row's height is the bubble's height, whatever opens underneath it, so the
+// face sits exactly where it sat. The bar, the chips and the receipt are
+// indented by the width of that column so they still line up with the bubble.
 export default function MessageActions({
   children,
   // 'right' for your own messages, 'left' for everybody else's. Decides which
@@ -77,6 +93,13 @@ export default function MessageActions({
   // Called when the bar has finished its job: an action was pressed, or a
   // reaction was picked, or Escape. The parent clears its own state.
   onClose,
+  // The sender's face, for a surface that shows one. Rendered HERE rather than
+  // beside this component so the bar cannot move it - see the note above.
+  lead = null,
+  // The face column's width in Tailwind units - 8 in the DMs (an `xs` avatar),
+  // 9 in the rooms (an `sm` one). Spelled out rather than interpolated because
+  // Tailwind only ships the classes it can see in the source.
+  leadWidth = 8,
   // "Seen by", the edited note - anything that belongs under this message.
   // Passed in rather than rendered as a sibling so that this component owns the
   // order of everything below the bubble and can keep the bar clear of it.
@@ -112,9 +135,23 @@ export default function MessageActions({
   // this - some of their handlers cleared the state and some did not.
   const run = (fn) => (...args) => { fn?.(...args); onClose?.() }
 
+  // Everything below the bubble lines up with the bubble, not with the gutter
+  // the face sits in: the column's width plus the 0.5rem gap beside it.
+  const leadCol = leadWidth === 9 ? 'w-9' : 'w-8'
+  const indent = lead
+    ? (leadWidth === 9 ? (mine ? 'pr-11' : 'pl-11') : (mine ? 'pr-10' : 'pl-10'))
+    : null
+
   return (
     <div className={cx('relative', className)}>
-      {children}
+      {lead
+        ? (
+          <div className={cx('flex items-end gap-2', mine && 'flex-row-reverse')}>
+            <span className={cx(leadCol, 'shrink-0')}>{lead}</span>
+            <div className="min-w-0 flex-1">{children}</div>
+          </div>
+        )
+        : children}
 
       {hasBar && (
         <div
@@ -126,6 +163,7 @@ export default function MessageActions({
             // phone when a message has five actions on it.
             'grid transition-[grid-template-rows] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
             open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+            indent,
           )}
         >
           {/* THE CLIP IS RELEASED WHILE THE EMOJI PANEL IS UP, AND THAT IS THE
@@ -201,7 +239,7 @@ export default function MessageActions({
       )}
 
       {reactions.length > 0 && (
-        <div data-msg-chips className={cx('mt-1 flex select-none flex-wrap items-center gap-0.5', mine && 'justify-end')}>
+        <div data-msg-chips className={cx('mt-1 flex select-none flex-wrap items-center gap-0.5', mine && 'justify-end', indent)}>
           {reactions.map(([emoji, count, isMine, names, ids]) => (
             <ReactionChip
               key={emoji}
@@ -218,7 +256,7 @@ export default function MessageActions({
         </div>
       )}
 
-      {footer && <div data-msg-footer className="mt-0.5">{footer}</div>}
+      {footer && <div data-msg-footer className={cx('mt-0.5', indent)}>{footer}</div>}
     </div>
   )
 }

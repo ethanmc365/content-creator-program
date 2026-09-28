@@ -2407,23 +2407,14 @@ export default function Messages() {
                       )}
                       style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
                     >
-                      {/* The face column, drawn on EVERY message rather than
-                          once per run - see the same change in the rooms. A
-                          tinted shrink-to-fit bubble with an empty gutter
-                          beside it reads as floating, which is exactly how
-                          Ethan described it. */}
-                      {isGroup && !mine && (
-                        <span className="w-8 shrink-0 self-end pb-5">
-                          <Link
-                            to={`/profile/${m.sender_id}`}
-                            className="block rounded-full transition-transform hover:scale-105"
-                            title={sender?.name ? `View ${sender.name}` : 'View profile'}
-                            aria-label={sender?.name ? `View ${sender.name}` : 'View profile'}
-                          >
-                            <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
-                          </Link>
-                        </span>
-                      )}
+                      {/* THE FACE IS INSIDE MessageActions NOW (28 Sep 2026).
+                          It used to be a sibling here, `self-end` in this flex
+                          row - so the moment the action bar made space under
+                          the bubble the row grew and the face went down with
+                          it. Ethan: "it moves their profile picture down. This
+                          shouldn't move their profile picture." Passed as
+                          `lead`, it shares a row with the bubble alone and
+                          nothing opening underneath can reach it. */}
                       <div
                         // A queued message fades back a little: still yours,
                         // still there, just not out in the world yet.
@@ -2459,6 +2450,16 @@ export default function Messages() {
                         side={mine ? 'right' : 'left'}
                         open={showActions}
                         onClose={() => setActionsFor(null)}
+                        lead={isGroup && !mine ? (
+                          <Link
+                            to={`/profile/${m.sender_id}`}
+                            className="block rounded-full transition-transform hover:scale-105"
+                            title={sender?.name ? `View ${sender.name}` : 'View profile'}
+                            aria-label={sender?.name ? `View ${sender.name}` : 'View profile'}
+                          >
+                            <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
+                          </Link>
+                        ) : null}
                         reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info), info.ids || []])}
                         myId={user?.id}
                         onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
