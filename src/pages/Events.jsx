@@ -18,7 +18,7 @@ import EventTime from '../components/calendar/EventTime'
 import ReminderBell from '../components/calendar/ReminderBell'
 import RsvpFaces from '../components/calendar/RsvpFaces'
 import PersonalEventModal from '../components/calendar/PersonalEventModal'
-import { releasesGesture } from '../lib/wheelGesture'
+import { noteWheel, releasesGesture, resetGesture } from '../lib/wheelGesture'
 import SubscribeCalendar from '../components/calendar/SubscribeCalendar'
 import TimezonePrompt from '../components/calendar/TimezonePrompt'
 import { DeadlineReminderModal } from '../components/NotificationPreferences'
@@ -887,12 +887,13 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // the next swipe was swallowed. Moving the mouse "fixed" it only because it
 // meant waiting: the tail died, the gap opened, the next swipe counted.
 //
-// So the release no longer depends on silence alone. Momentum only ever DECAYS,
-// which makes a delta bigger than the one before it a reliable signal that the
-// fingers are back on the glass; `mag` carries the last magnitude so a spent
-// gesture can be released on that rise. The quiet gap stays as the other door,
-// for a swipe that follows a tail that has already died.
-const wheelGesture = { sum: 0, spent: false, last: 0, mag: 0 }
+// So the release no longer depends on silence alone: a rise in the deltas means
+// the fingers are back on the glass. That rise has to be measured against the
+// gesture's PEAK rather than against the previous event, which is the second
+// bug and the one Ethan saw next - "it scrolls through 4 months and is really
+// laggy". A swipe ramps up, so every event of a fresh flick is bigger than the
+// one before it. See lib/wheelGesture, where the whole thing is rehearsed.
+const wheelGesture = { sum: 0, spent: false, last: 0, mag: 0, peak: 0, decayed: false }
 const WHEEL_GAP_MS = 240
 
 function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, liveIds, onSwipe }) {
@@ -921,21 +922,16 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
       e.preventDefault()
       const now = performance.now()
       const mag = Math.abs(e.deltaX)
-      if (releasesGesture(wheelGesture, mag, now, WHEEL_GAP_MS)) {
-        wheelGesture.sum = 0
-        wheelGesture.spent = false
-      }
-      wheelGesture.last = now
-      wheelGesture.mag = mag
+      if (releasesGesture(wheelGesture, mag, now, WHEEL_GAP_MS)) resetGesture(wheelGesture)
+      noteWheel(wheelGesture, mag, now)
       clearTimeout(settle)
-      // The tail has stopped: let the grid fall back and open the gesture, so a
-      // swipe that comes after a pause is not waiting on the 240ms test too.
-      settle = setTimeout(() => {
-        setOffset(0, true)
-        wheelGesture.spent = false
-        wheelGesture.sum = 0
-        wheelGesture.mag = 0
-      }, 120)
+      // THIS ONLY PUTS THE GRID BACK. It used to open the gesture as well, and
+      // that was a third way to turn an extra month: a momentum tail is not a
+      // smooth stream, and any gap of more than 120ms in it un-spent the
+      // gesture and let the REST of the same tail fill the accumulator again.
+      // Deciding when a gesture is over belongs in one place, and that place is
+      // `releasesGesture`, which is asked on the next real event.
+      settle = setTimeout(() => setOffset(0, true), 120)
       if (wheelGesture.spent) return
       wheelGesture.sum += e.deltaX
       setOffset(Math.max(-40, Math.min(40, -wheelGesture.sum * 0.35)))
