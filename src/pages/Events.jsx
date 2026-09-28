@@ -18,6 +18,7 @@ import EventTime from '../components/calendar/EventTime'
 import ReminderBell from '../components/calendar/ReminderBell'
 import RsvpFaces from '../components/calendar/RsvpFaces'
 import PersonalEventModal from '../components/calendar/PersonalEventModal'
+import { releasesGesture } from '../lib/wheelGesture'
 import SubscribeCalendar from '../components/calendar/SubscribeCalendar'
 import TimezonePrompt from '../components/calendar/TimezonePrompt'
 import { DeadlineReminderModal } from '../components/NotificationPreferences'
@@ -875,7 +876,23 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // turned again, remounted again, and cascaded. The state lives out here now,
 // where a remount cannot reset it: a gesture is spent until the wheel has been
 // silent for a beat, whichever grid is on screen.
-const wheelGesture = { sum: 0, spent: false, last: 0 }
+// A SECOND SWIPE LANDS WITHOUT WAITING (28 Sep 2026, later). Ethan: "it only
+// moves one page, but whenever I do it and try to do it again, it doesn't work.
+// It's only when I move my mouse that I can then do it a second time."
+//
+// The gesture was released by a QUIET GAP - 240ms with no horizontal wheel
+// event - and macOS's momentum phase keeps firing events for up to a second
+// after the fingers lift. Every one of those refreshed `last` even though the
+// gesture was spent and the handler returned early, so the gap never opened and
+// the next swipe was swallowed. Moving the mouse "fixed" it only because it
+// meant waiting: the tail died, the gap opened, the next swipe counted.
+//
+// So the release no longer depends on silence alone. Momentum only ever DECAYS,
+// which makes a delta bigger than the one before it a reliable signal that the
+// fingers are back on the glass; `mag` carries the last magnitude so a spent
+// gesture can be released on that rise. The quiet gap stays as the other door,
+// for a swipe that follows a tail that has already died.
+const wheelGesture = { sum: 0, spent: false, last: 0, mag: 0 }
 const WHEEL_GAP_MS = 240
 
 function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, liveIds, onSwipe }) {
@@ -903,10 +920,22 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) return
       e.preventDefault()
       const now = performance.now()
-      if (now - wheelGesture.last > WHEEL_GAP_MS) { wheelGesture.sum = 0; wheelGesture.spent = false }
+      const mag = Math.abs(e.deltaX)
+      if (releasesGesture(wheelGesture, mag, now, WHEEL_GAP_MS)) {
+        wheelGesture.sum = 0
+        wheelGesture.spent = false
+      }
       wheelGesture.last = now
+      wheelGesture.mag = mag
       clearTimeout(settle)
-      settle = setTimeout(() => setOffset(0, true), 120)
+      // The tail has stopped: let the grid fall back and open the gesture, so a
+      // swipe that comes after a pause is not waiting on the 240ms test too.
+      settle = setTimeout(() => {
+        setOffset(0, true)
+        wheelGesture.spent = false
+        wheelGesture.sum = 0
+        wheelGesture.mag = 0
+      }, 120)
       if (wheelGesture.spent) return
       wheelGesture.sum += e.deltaX
       setOffset(Math.max(-40, Math.min(40, -wheelGesture.sum * 0.35)))
@@ -1051,9 +1080,17 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
                   )}
                 />
               )}
-              {/* The travelling wash gets a hairline at the top of the cell so a
-                  run of days reads as one stay rather than six tinted squares. */}
-              {away && <span className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-brand-light/70" aria-hidden />}
+              {/* NO HAIRLINE ON A TRAVELLING DAY (28 Sep 2026). There was a 2px
+                  brand bar pinned to the top of the cell, meant to tie a run of
+                  days together into one stay. It could not: `inset-x-2` held it
+                  8px clear of both edges, so it stopped short at every cell and
+                  read as a stray rule rather than a continuous line. Ethan: "it
+                  shows a light-coloured square because it shows I'm actually in
+                  Oslo there, but then there's this weird orange border at the
+                  very top. It's not around at all, which is weird."
+                  The cell already carries a full brand border and the tint, and
+                  a run of them is already contiguous, so the bar was saying
+                  nothing the wash was not saying better. */}
               <span className={cx(
                 'relative flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-all duration-200 sm:h-7 sm:w-7 sm:text-xs',
                 busy
