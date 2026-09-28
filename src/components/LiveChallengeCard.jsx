@@ -355,8 +355,12 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           </div>
 
           <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
-            {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
-                the brief" is what the rest of the card already does. */}
+            {/* BOTH BUTTONS ON A PHONE TOO (28 Sep 2026). This used to be one
+                button on a phone, on the reasoning that submitting is the one
+                you came for. Ethan asked for the details button back: what sits
+                behind it is no longer just the brief, it is everything about the
+                challenge, and it should be easy to reach. Single column below
+                `sm`, so it lands directly ABOVE "Submit your video". */}
             {/* THE TWO BUTTONS ARE ONE WIDTH (22 Sep 2026). Ethan: "I want them
                 to be the same length, currently read your brief is shorter." A
                 two-column grid gives both the width of the wider one, and the
@@ -365,8 +369,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
               {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
                   border the solid one did not, so it stood 2px taller, and an
                   arrow its twin lacked. Both carry a 1px border now. */}
-              <Link to={`/challenges/${c.id}`} className="btn hidden justify-center whitespace-nowrap border border-white/50 text-white hover:bg-white/10 sm:inline-flex">
-                {tr('Read the brief')}
+              <Link to={`/challenges/${c.id}`} className="btn inline-flex justify-center whitespace-nowrap border border-white/50 text-white hover:bg-white/10">
+                {tr('View all details')}
               </Link>
               <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center whitespace-nowrap border border-white bg-white !text-brand hover:bg-white/90">
                 {tr('Submit your video')}

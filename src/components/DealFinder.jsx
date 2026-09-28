@@ -33,17 +33,16 @@ const TIPS = [
   { icon: 'refresh', title: 'Not finding a good one? Create more trips', body: 'Scroll to the bottom of the results and press "Create more trips". Tryp.com keeps looking for more deals and puts the best ones at the top.' },
   { icon: 'plane', title: 'Flight and hotel together', body: 'Booking both in one trip usually comes out cheaper than booking them separately. Show the total per person.' },
   { icon: 'pin', title: 'Try a multi-city trip', body: 'Two or three cities in one booking. It is the kind of trip people do not know they can get this cheaply.' },
+  // ONE SENTENCE, ONE CARD THE SIZE OF THE OTHERS (28 Sep 2026, later).
+  // This card grew a lead-in about prices moving and a three-bullet list, and
+  // stood about twice as tall as its neighbours. Ethan: "Don't say 'prices
+  // move'... no need to do this. All we're saying is how they should record
+  // their screen. No need for bullet points... just keep it simple like that."
+  // So: no lead-in, no `ways` list, the three ways read as one sentence.
   {
     icon: 'device',
     title: 'Capture the trip',
-    body: 'Prices move, so catch the price, dates and airport the moment you find them. Any of these works:',
-    // Ethan, 28 Sep 2026 (evening): the three, as a list, the last "so
-    // viewers will actually see the website, the prices, and the dates."
-    ways: [
-      'Screenshot the trip',
-      'Screen record your screen as you scroll through it',
-      'Film your laptop screen with your phone, so viewers see the website, the prices and the dates',
-    ],
+    body: 'Screenshot the trip, screen record your screen as you scroll through it, or film your laptop screen with your phone so viewers see the website, the prices and the dates.',
   },
 ]
 
@@ -104,8 +103,13 @@ export default function DealFinder({ className, variant = 'button' }) {
                   style={{ animationDelay: `${120 + i * 40}ms` }}
                   className="group animate-pop-in flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-gray-100 bg-white px-2 py-3 text-center text-xs font-semibold leading-tight text-ink shadow-card transition-all duration-200 [animation-fill-mode:both] hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:text-brand"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-tint text-brand transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-6deg]">
-                    <Icon name={k.icon} className="h-4 w-4" />
+                  {/* NO TINTED DISC BEHIND THE GLYPH (28 Sep 2026). Ethan:
+                      "I don't think we need the orange background. We should
+                      instead just have a bold Tryp.com orange icon." The box
+                      keeps its 36px so the grid's rows stay level; the icon
+                      itself grows into the space the disc was filling. */}
+                  <span className="flex h-9 w-9 items-center justify-center text-brand transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-6deg]">
+                    <Icon name={k.icon} className="h-6 w-6" strokeWidth={2.1} />
                   </span>
                   <span className="[overflow-wrap:anywhere]">{tr(k.label)}</span>
                 </a>
@@ -138,16 +142,6 @@ export default function DealFinder({ className, variant = 'button' }) {
                       {tr(t.title)}
                     </span>
                     <span className="mt-0.5 block text-xs leading-relaxed text-smoke">{tr(t.body)}</span>
-                    {t.ways && (
-                      <ul className="mt-2 space-y-1.5">
-                        {t.ways.map((w) => (
-                          <li key={w} className="flex items-start gap-2 text-xs leading-relaxed text-ink/85">
-                            <span aria-hidden className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-                            <span>{tr(w)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </span>
                 </li>
               ))}

@@ -99,17 +99,23 @@ export default function ChallengeLeaderboard({
 
   // WHO HAS REACHED THE TAKING-PART VOUCHER (22 Sep 2026). Ethan: "ensure it
   // shows on the leaderboard who has reached the 10 euro participation voucher
-  // for reaching 18 points." The badge existed but was desktop-only and silent
-  // until somebody crossed the line. Now the board opens with the terms and a
-  // count, a reached row carries the badge at every width, and a row on its way
-  // says how far it has to go. On an `outside_prizes` challenge a paid place
-  // wins its place prize instead, so it gets no voucher badge.
+  // for reaching 18 points." A reached row carries the badge at every width,
+  // and a row on its way says how far it has to go. On an `outside_prizes`
+  // challenge a paid place wins its place prize instead, so it gets no badge.
+  //
+  // THE TERMS NO LONGER HEAD THE BOARD (28 Sep 2026). There was a green banner
+  // above the first row spelling out "Reach N points for a <prize>" with a
+  // count of who had. Ethan: "I think we don't necessarily need to show 'Reach
+  // 18 points for a EUR 10 Tryp.com voucher' above, because I think it is a
+  // weird placement for it. It does show when someone earns a Tryp.com
+  // voucher, which is great. We want to keep that, but just remove it from the
+  // very top." The terms live on the brief and in the taking-part card; the
+  // board keeps only the per-row badge and the "N points to the voucher" hint.
   const partScore = (row) => (participation?.basis === 'points'
     ? Number(row.final_views) || 0
     : subCountByCreator[row.creator_id] || 0)
   const reached = (row) => !!participation?.threshold && partScore(row) >= participation.threshold
   const voucherFor = (row, rank) => reached(row) && !(participation?.scope === 'outside_prizes' && prizeAt.has(rank))
-  const reachedCount = participation?.threshold ? rows.filter((r) => voucherFor(r, Number(r.rank))).length : 0
   const unitWord = participation?.basis === 'points' ? tr('points') : tr('videos')
 
   const hasPrizes = paidPlaces.length > 0
@@ -117,24 +123,6 @@ export default function ChallengeLeaderboard({
 
   return (
     <div className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', className)}>
-      {participation?.threshold && participation?.prize ? (
-        <div className={cx('flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-green-100 bg-green-50/70 py-3', wide ? 'px-8' : 'px-4 sm:px-8')}>
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
-            <Icon name="ticket" className="h-3.5 w-3.5" />
-          </span>
-          <p className="min-w-[12rem] flex-1 text-sm text-green-900">
-            <span className="font-semibold">
-              {tr('Reach {n} {unit} for a {prize}', { n: participation.threshold, unit: unitWord, prize: participation.prize })}
-            </span>
-            {participation.scope === 'outside_prizes' && (
-              <span className="text-green-800/80"> {tr('(outside the prize places)')}</span>
-            )}
-          </p>
-          <span className="ml-10 shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-green-700 shadow-[0_1px_0_rgba(0,0,0,0.04)] sm:ml-0">
-            {reachedCount === 1 ? tr('1 creator reached it') : tr('{n} creators reached it', { n: reachedCount })}
-          </span>
-        </div>
-      ) : null}
       {/* THE COLUMNS SAY WHAT THEY ARE (28 Sep 2026, evening). Ethan: "the UI
           of these still seems very crowded and hard to read or understand ...
           the way the cash, the streak, the video icons, points, and views show

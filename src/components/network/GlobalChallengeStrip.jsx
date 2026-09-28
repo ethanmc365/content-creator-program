@@ -204,7 +204,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         {/* The two doors, the same size and the same shape. */}
         <div className="wipe-item grid grid-cols-2 gap-2.5 lg:col-span-2 xl:col-span-1 xl:grid-cols-1" style={at(0.2)}>
           <Link to={`/challenges/${challenge.id}`} className="btn flex-1 justify-center whitespace-nowrap border border-white/50 text-white hover:scale-105 hover:bg-white/10">
-            {tr('Read the brief')}
+            {tr('View all details')}
           </Link>
           <Link to={`/challenges/${challenge.id}?submit=1`} className="btn flex-1 justify-center whitespace-nowrap border border-white bg-white !text-brand shadow-[0_8px_20px_rgba(40,10,0,0.25)] hover:scale-105 hover:bg-white/90">
             {tr('Submit your video')}

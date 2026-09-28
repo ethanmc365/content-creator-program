@@ -271,7 +271,7 @@ export default function LiveChallengeCard({
           )}>
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <Link to={`/challenges/${challenge.id}`} className="btn whitespace-nowrap border border-white/40 text-white hover:bg-white/10">
-                {tr("Read the brief →")}
+                {tr("View all details")}
               </Link>
               <Link to={`/challenges/${challenge.id}?submit=1`} className="btn whitespace-nowrap bg-white !text-brand hover:bg-white/90">
                 {tr("Submit your video")}
