@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import Icon from '../Icon'
+import { Modal } from '../ui'
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 import { ruleWindowState } from '../../lib/scoring'
@@ -21,6 +23,19 @@ import { isBonusKind } from './ScoringPanel'
 // the things a creator can go and do this week to jump a place, and they are
 // drawn as offers. A bonus with dates (migration 256) says when it runs, and
 // one that has finished drops to the foot, dimmed, saying the points are kept.
+//
+// AND THE SMALL PRINT MOVED BEHIND A PRESS (28 Sep 2026). Ethan: "for the bonus
+// points UI can you make this shorter - 'Tick the box when you submit the
+// video', 'Counts once the video passes 500 views' - or only appear when it's
+// clicked, just to make the card and UI tidied. Clicking on the bonus points
+// should show a card with the information bigger and better UI."
+//
+// Every row was carrying up to four lines of conditions, and a rail of them
+// read as a terms-and-conditions page rather than a list of offers. A row is
+// now the three things you choose between - what it is, when it runs, what it
+// pays - and everything that qualifies those (how you earn it, the ceiling, the
+// views a video has to pass) opens in its own card, where there is room to say
+// it properly instead of in grey eleven-pixel type.
 
 const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calendar', bonus: 'star' }
 
@@ -41,9 +56,12 @@ function howToEarn(r, tr) {
 
 export default function BonusPointsCard({ rules, now = 0, className }) {
   const tr = useT()
+  // Before the early return: a hook cannot be called conditionally, and this
+  // component returns nothing at all when a challenge has no bonuses.
+  const [open, setOpen] = useState(null)
   const bonuses = (rules || []).filter(isBonusKind)
-  if (bonuses.length === 0) return null
   const stateOf = (r) => ruleWindowState(r, now || undefined)
+  if (bonuses.length === 0) return null
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
   const ended = bonuses.filter((r) => stateOf(r) === 'ended')
 
@@ -63,46 +81,116 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
           const state = stateOf(r)
           const done = state === 'ended'
           return (
-            <li
-              key={r.id}
-              className={cx('flex items-start gap-3 rounded-xl px-3 py-3 shadow-sm transition-transform duration-200', done ? 'bg-white/70 opacity-70' : 'bg-white hoverable:hover:-translate-y-0.5')}
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{r.label.trim()}</p>
-                <p className="mt-0.5 text-xs leading-snug text-smoke">{howToEarn(r, tr)}</p>
-                {(r.max_points != null || (r.kind === 'bonus' && Number(r.min_views) > 0)) && (
-                  <p className="mt-0.5 text-[11px] text-smoke">
-                    {[
-                      r.max_points != null ? tr('Up to {n} points', { n: Number(r.max_points) }) : null,
-                      r.kind === 'bonus' && Number(r.min_views) > 0
-                        ? tr('Counts once the video passes {n} views', { n: Number(r.min_views).toLocaleString() }) : null,
-                    ].filter(Boolean).join(' · ')}
-                  </p>
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => setOpen(r)}
+                aria-label={tr('How {label} works', { label: r.label.trim() })}
+                className={cx(
+                  'group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left shadow-sm transition-transform duration-200',
+                  done ? 'bg-white/70 opacity-70' : 'bg-white hoverable:hover:-translate-y-0.5',
                 )}
-                {state !== 'always' && (
-                  <span className={cx(
-                    'mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                    done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
-                  )}>
-                    <Icon name="clock" className="h-3 w-3" />
-                    {state === 'ended' ? tr('Ended {d}, points kept', { d: dm(r.ends_at) })
-                      : state === 'upcoming' ? tr('Starts {d}', { d: dm(r.starts_at) })
-                        : r.ends_at ? tr('Until {d}', { d: dm(r.ends_at) }) : tr('Running now')}
-                  </span>
-                )}
-              </div>
-              <span className={cx(
-                'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
-                done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
-              )}>
-                +{Number(r.points)}
-              </span>
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{r.label.trim()}</span>
+                  {state !== 'always' && (
+                    <span className={cx(
+                      'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                      done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
+                    )}>
+                      <Icon name="clock" className="h-3 w-3" />
+                      {state === 'ended' ? tr('Ended {d}, points kept', { d: dm(r.ends_at) })
+                        : state === 'upcoming' ? tr('Starts {d}', { d: dm(r.starts_at) })
+                          : r.ends_at ? tr('Until {d}', { d: dm(r.ends_at) }) : tr('Running now')}
+                    </span>
+                  )}
+                </span>
+                <span className={cx(
+                  'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
+                  done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
+                )}>
+                  +{Number(r.points)}
+                </span>
+                <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </button>
             </li>
           )
         })}
       </ul>
+      <BonusDetail rule={open} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} />
     </section>
+  )
+}
+
+// ONE BONUS, WITH ROOM TO EXPLAIN ITSELF.
+//
+// Everything the row used to whisper in eleven-pixel grey, said once, in order:
+// what it pays, how you earn it, what caps it, and when it runs. Each condition
+// is its own line with its own icon, because they are different KINDS of fact -
+// "post on four platforms" is an instruction and "the video has to pass 500
+// views" is a condition on whether that instruction counted.
+function BonusDetail({ rule, state, onClose }) {
+  const tr = useT()
+  if (!rule) return null
+  const min = rule.kind === 'bonus' ? Number(rule.min_views) || 0 : 0
+  const facts = [
+    { icon: 'check', label: tr('How you earn it'), value: howToEarn(rule, tr) },
+    rule.max_points != null
+      ? { icon: 'trophy', label: tr('The most it can pay'), value: tr('{n} points in total, however many times you do it', { n: Number(rule.max_points) }) }
+      : null,
+    min > 0
+      ? { icon: 'eye', label: tr('Before it counts'), value: tr('The video has to pass {n} views. It is added as soon as it does.', { n: min.toLocaleString() }) }
+      : null,
+    state && state !== 'always'
+      ? {
+        icon: 'calendar',
+        label: tr('When it runs'),
+        value: state === 'ended'
+          ? tr('Finished on {d}. Points already earned are kept.', { d: dm(rule.ends_at) })
+          : state === 'upcoming'
+            ? tr('Opens on {d}.', { d: dm(rule.starts_at) })
+            : rule.ends_at
+              ? tr('Running now, until {d}.', { d: dm(rule.ends_at) })
+              : tr('Running now.'),
+      }
+      : { icon: 'calendar', label: tr('When it runs'), value: tr('For the whole challenge.') },
+  ].filter(Boolean)
+
+  return (
+    <Modal open onClose={onClose} title={tr('Bonus points')}>
+      <div className="space-y-5">
+        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card">
+          <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+              <Icon name={ICON[rule.kind] || 'star'} className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{rule.label.trim()}</p>
+              <p className="mt-0.5 text-xs text-white/80">{tr('On top of your view points')}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold tabular-nums text-brand shadow-card">
+              +{Number(rule.points)}
+            </span>
+          </div>
+        </div>
+
+        <ul className="space-y-3">
+          {facts.map((f) => (
+            <li key={f.label} className="flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cloud text-smoke">
+                <Icon name={f.icon} className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-400">{f.label}</span>
+                <span className="block text-sm leading-relaxed text-ink">{f.value}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Modal>
   )
 }
 
