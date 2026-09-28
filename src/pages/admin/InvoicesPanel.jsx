@@ -6,7 +6,7 @@ import { Skeleton, Spinner, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import { notice } from '../../lib/confirm'
-import { formatMoney, isoToDateInput } from '../../lib/utils'
+import { cx, formatMoney, isoToDateInput } from '../../lib/utils'
 import {
   DEFAULT_BILL_TO,
   EMPTY_PAYEE,
@@ -28,6 +28,22 @@ const LAST_RECIPIENT_KEY = 'tryp_invoice_to'
 const BILL_TO_SETTING = 'invoice_bill_to'
 // Free, keyless ECB exchange rates (also allowed in the prod CSP connect-src).
 const FX_URL = 'https://api.frankfurter.dev/v1/latest?base=GBP&symbols=EUR'
+
+// SOMEBODY WHO IS NOT ON THE PLATFORM STILL GETS PAID.
+//
+// Ethan: "if there's anything like a challenge run off the platform that we
+// still want to create an invoice for a creator, they can do it super easily on
+// here and download it ... rather than choosing a creator, at the very bottom
+// there should be an option to just click Other, and then you can actually type
+// the specific name of the creator and the prize amount."
+//
+// The picker was the only way to name a payee, and it only listed accounts. A
+// creator who won a prize in a campaign run somewhere else had no account, so
+// the invoice could not be written at all - which meant it was written by hand,
+// somewhere else, off the numbering. This is a sentinel in the picker, never a
+// creator id: the row it writes carries `creator_id = null` and the name, the
+// amount and the bank block are simply typed.
+const OFF_PLATFORM = '__off_platform__'
 
 /** "11/07/2026" -> ISO date "2026-07-11" (null if malformed). */
 function dateInputToIso(v = '') {
@@ -71,8 +87,23 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   const [creatorName, setCreatorName] = useState('')
   const [payee, setPayee] = useState(EMPTY_PAYEE)
   const [hasSaved, setHasSaved] = useState(true) // did the creator save payment details?
-  const [gbpAmount, setGbpAmount] = useState('') // the prize, always in pounds
-  const [eurOverride, setEurOverride] = useState(null) // admin-typed euro amount (beats the auto conversion)
+  // THE AMOUNT IS TYPED IN THE CURRENCY THE INVOICE IS WRITTEN IN.
+  //
+  // Ethan: "currently it's showing the prize amount in pounds, although it
+  // should be in euros ... this one seems to be in euros, but it's still
+  // showing the pound sign."
+  //
+  // It was two boxes: type the prize in POUNDS, and a second box underneath
+  // showed the euros it converted to. So the field you typed into wore a £ even
+  // when the line item, the total, the bank transfer and the PDF were all in
+  // euros - the sign on the box was telling you the wrong thing about the
+  // money. There is one box now, denominated in whatever the invoice is in,
+  // with the switch beside it. Converting a sterling prize is still automatic
+  // (see `switchCurrency` and the reward prefill below); it is just no longer
+  // the only way to type an amount.
+  const [amount, setAmount] = useState('')
+  const [convertedFrom, setConvertedFrom] = useState(null) // {amount, currency} once we converted it
+  const [gbpToConvert, setGbpToConvert] = useState(null)   // a pound prize waiting on the rate
   const [description, setDescription] = useState('')
   const [issueDate, setIssueDate] = useState(isoToDateInput(new Date().toISOString()))
   const [billTo, setBillTo] = useState(DEFAULT_BILL_TO)
@@ -115,26 +146,59 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // EUROS UNLESS THE PAYEE'S OWN RECORD ASKS FOR POUNDS. The programme settles
   // in euros; a payee who has chosen GBP still gets GBP, and every invoice
   // already raised keeps the currency it was raised in.
+  //
+  // ONE currency on this form, not two: the same flag decides the sign on the
+  // amount, the words in the notes, the line on the PDF and which bank fields
+  // are asked for (a euro payment needs an IBAN, a sterling one a sort code).
+  // An invoice whose total said € and whose "Pay to" box asked for a sort code
+  // would be unpayable in two directions at once.
   const currency = payee.currency || 'EUR'
+  const offPlatform = creatorId === OFF_PLATFORM
 
   // Keep the default note in step with the currency until the admin edits it.
   useEffect(() => {
     if (!notesTouched.current) setNotes(defaultNotes(currency))
   }, [currency])
 
-  // Load the exchange rate the first time euros come up.
+  // The rate is fetched once, whichever currency the invoice opens in - the
+  // switch needs it the moment somebody presses it, not a request later.
   useEffect(() => {
-    if (currency !== 'EUR' || fxRate !== null) return
     fetch(FX_URL)
       .then((r) => r.json())
       .then((d) => setFxRate(d?.rates?.EUR || 0))
       .catch(() => setFxRate(0))
-  }, [currency, fxRate])
+  }, [])
 
-  // The amount that actually goes on the invoice: pounds as typed, or the
-  // automatic euro conversion (which the admin can overtype).
-  const autoEur = fxRate > 0 && Number(gbpAmount) > 0 ? (Number(gbpAmount) * fxRate).toFixed(2) : ''
-  const invoiceAmount = currency === 'EUR' ? (eurOverride ?? autoEur) : gbpAmount
+  // A PRIZE IS SET IN POUNDS; THE INVOICE IS USUALLY WRITTEN IN EUROS.
+  // A reward row hands this composer a sterling figure, and the rate arrives
+  // asynchronously, so the conversion waits for it here rather than being done
+  // inline with whatever `fxRate` happened to be at the time (null, usually).
+  useEffect(() => {
+    if (gbpToConvert == null || fxRate === null) return
+    if (currency === 'EUR' && fxRate > 0) {
+      setAmount((Number(gbpToConvert) * fxRate).toFixed(2))
+      setConvertedFrom({ amount: Number(gbpToConvert), currency: 'GBP' })
+    }
+    setGbpToConvert(null)
+  }, [gbpToConvert, fxRate, currency])
+
+  // What goes on the document is what was typed, in the currency shown beside
+  // it. No second figure derived from a first one.
+  const invoiceAmount = amount
+
+  // Changing the currency converts what is already there instead of clearing
+  // it - it is the same prize either way - and says so underneath, because a
+  // number that changes itself when you press a button should explain itself.
+  function switchCurrency(next) {
+    if (next === currency) return
+    const n = Number(amount)
+    if (n > 0 && fxRate > 0) {
+      setAmount(next === 'EUR' ? (n * fxRate).toFixed(2) : (n / fxRate).toFixed(2))
+      setConvertedFrom({ amount: n, currency })
+    }
+    setGbpToConvert(null)
+    setPayee((p) => ({ ...p, currency: next }))
+  }
 
   async function reserveNumber() {
     setTo(localStorage.getItem(LAST_RECIPIENT_KEY) || '')
@@ -154,29 +218,43 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     setCreatorId('')
     setCreatorName('')
     setPayee(EMPTY_PAYEE)
-    setGbpAmount('')
-    setEurOverride(null)
+    setAmount('')
+    setConvertedFrom(null)
+    setGbpToConvert(null)
     setDescription('')
     setIssueDate(isoToDateInput(new Date().toISOString()))
     setGmailPending(false)
     notesTouched.current = false
-    setNotes(defaultNotes('GBP'))
+    setNotes(defaultNotes('EUR'))
   }
 
   // Selecting a creator pulls in their saved payment details (admins can read
   // creator_private). Everything stays editable for this invoice only.
   async function selectCreator(id) {
     setCreatorId(id)
+    setConvertedFrom(null)
+    // NOBODY TO LOOK UP. An off-platform payee has no account and therefore no
+    // saved bank details: the name is typed above and the IBAN and billing
+    // address are typed into the same block every other invoice uses. Euros by
+    // default, which is what an off-platform prize is settled in unless the
+    // admin says otherwise.
+    if (id === OFF_PLATFORM) {
+      setCreatorName('')
+      setPayee({ ...EMPTY_PAYEE, currency: 'EUR' })
+      setHasSaved(true)
+      return
+    }
     const p = creators.find((c) => c.id === id)
     setCreatorName(p?.name || '')
-    if (!id) { setPayee(EMPTY_PAYEE); return }
+    if (!id) { setPayee(EMPTY_PAYEE); setHasSaved(true); return }
     const { data } = await supabase.from('creator_private').select('*').eq('id', id).maybeSingle()
     const pay = payeeFromPrivate(data)
     if (!pay.name) pay.name = p?.name || ''
-    if (!pay.currency) pay.currency = 'GBP'
+    // EUROS WHEN THEIR RECORD DOES NOT SAY. This used to fall back to GBP,
+    // which is how a euro programme kept opening sterling invoices.
+    if (!pay.currency) pay.currency = 'EUR'
     setPayee(pay)
     setHasSaved(!!data?.pay_currency)
-    setEurOverride(null)
   }
 
   // A reward row's "Invoice" button lands here with everything prefilled.
@@ -196,15 +274,24 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
         setInvoiceId(prefill.invoiceId)
         setStage(prefill.stage || null)
         setNumber(prefill.number)
-        setCreatorId(prefill.creatorId || '')
+        // An invoice with no creator behind it was written for somebody off the
+        // platform; reopening it should land back on that option, not on an
+        // empty picker that then complains nobody is chosen.
+        setCreatorId(prefill.creatorId || (prefill.invoiceId ? OFF_PLATFORM : ''))
         setCreatorName(prefill.creatorName || '')
         // The currency is DERIVED from the payee (`payee.currency`), so the
-        // snapshot sets it. In euros the stored amount is already the euro
-        // figure, so it goes in as the override rather than being re-converted
-        // from a pound amount nobody kept.
-        if (prefill.payee) { setPayee(prefill.payee); setHasSaved(!!prefill.payee.currency) }
-        if (prefill.currency === 'EUR') setEurOverride(String(prefill.amount ?? ''))
-        setGbpAmount(prefill.currency === 'EUR' ? '' : String(prefill.amount ?? ''))
+        // snapshot sets it - falling back to the row's own currency when the
+        // snapshot was written before the payee had chosen one.
+        if (prefill.payee) {
+          setPayee({ ...prefill.payee, currency: prefill.payee.currency || prefill.currency || 'EUR' })
+          setHasSaved(!!prefill.payee.currency)
+        } else if (prefill.currency) {
+          setPayee({ ...EMPTY_PAYEE, currency: prefill.currency })
+        }
+        // The stored amount is ALREADY in the row's own currency, whichever it
+        // is, so it goes straight into the box. Re-converting it would restate
+        // a figure somebody has already approved.
+        setAmount(prefill.amount != null ? String(prefill.amount) : '')
         if (prefill.description) setDescription(prefill.description)
         if (prefill.billTo) setBillTo(prefill.billTo)
         if (prefill.notes) { notesTouched.current = true; setNotes(prefill.notes) }
@@ -212,8 +299,12 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       }
       await reserveNumber()
       await selectCreator(prefill.creatorId)
-      setGbpAmount(prefill.amount != null ? String(prefill.amount) : '')
-      setEurOverride(null)
+      // A REWARD IS HELD IN POUNDS. If the invoice is going out in euros (which
+      // it usually is) the effect above converts it the moment the ECB rate
+      // lands, and says on screen that it did.
+      setAmount(prefill.amount != null ? String(prefill.amount) : '')
+      setConvertedFrom(null)
+      setGbpToConvert(prefill.amount != null ? prefill.amount : null)
       if (prefill.description) setDescription(prefill.description)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,9 +326,9 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
   function validate({ needRecipient = false } = {}) {
     const problems = []
-    if (!creatorId) problems.push('Pick the creator this invoice is for.')
-    if (!(Number(gbpAmount) > 0)) problems.push('Enter the prize amount in pounds.')
-    if (currency === 'EUR' && !(Number(invoiceAmount) > 0)) problems.push('The euro amount is missing. The exchange rate may not have loaded; type it manually.')
+    if (!creatorId) problems.push('Pick the creator this invoice is for, or choose “Someone not on the platform”.')
+    if (offPlatform && !creatorName.trim()) problems.push('Type the name of the creator this invoice is for.')
+    if (!(Number(invoiceAmount) > 0)) problems.push(`Enter the prize amount in ${currency === 'EUR' ? 'euros' : 'pounds'}.`)
     if (!description.trim()) problems.push('Describe the prize (e.g. Placed 1st in the Summer Challenge).')
     if (!dateInputToIso(issueDate)) problems.push('The date should look like 15/07/2026.')
     if (!billTo.trim()) problems.push('Fill in the Tryp.com company details (Invoice to).')
@@ -265,8 +356,23 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // Only an approved row may be emailed. Everything else goes to the queue.
   const approvedToSend = !!invoiceId && stage === 'approved'
 
-  // Write (or update) the draft and put it in front of an approver. This is the
-  // ONLY way an invoice leaves this form now.
+  // SAVING AN INVOICE IS ONE PRESS, NOT A CEREMONY.
+  //
+  // Ethan: "remove this copy, it's not needed, it's not needing to be approved
+  // by another admin."
+  //
+  // The form used to explain, at length, that an invoice would sit in a queue
+  // until a SECOND admin approved it - and it meant it: the send buttons only
+  // appeared on a row somebody else had signed off. For a prize the person
+  // writing the invoice has already decided to pay, that is a round trip
+  // through another human to get back to where they started.
+  //
+  // What has NOT changed is the server. `decide_invoice` still refuses to let a
+  // plain global admin approve their own submission; an OWNER may, and always
+  // could. So this asks - and if the database says somebody else has to look at
+  // it, that is what happens and the form says so. The rule about who may
+  // approve what still lives in exactly one place, which is the only reason it
+  // is a rule.
   async function saveToQueue() {
     const problems = validate()
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
@@ -274,7 +380,9 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     try {
       const row = {
         number,
-        creator_id: creatorId || null,
+        // The sentinel is a UI value, never an id: an off-platform invoice is
+        // one with nobody behind it.
+        creator_id: offPlatform ? null : (creatorId || null),
         creator_name: inv.creatorName,
         amount: Number(invoiceAmount),
         currency,
@@ -301,9 +409,23 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       // invoice is caught.
       const { error: subErr } = await supabase.rpc('submit_invoice', { p_id: id })
       if (subErr) throw new Error(subErr.message)
-      notice(`Invoice ${invoiceRef(number)} is with an approver.\n\nIt appears under "Waiting for approval" in the queue.`)
+
+      // Sign it off in the same press. `decide_invoice` is the authority on
+      // whether that is allowed (owners yes, a global admin on their own
+      // submission no), so the answer comes from it rather than from a guess
+      // here about who is logged in.
+      const { error: okErr } = await supabase.rpc('decide_invoice', { p_id: id, p_approve: true, p_note: null })
+      if (okErr) {
+        setInvoiceId(id)
+        setStage('awaiting_approval')
+        notice(`Invoice ${invoiceRef(number)} is saved, but it needs a second pair of eyes: ${okErr.message}\n\nIt is under "Waiting for approval" in the queue.`)
+        onSent?.()
+        return
+      }
+      notice(`Invoice ${invoiceRef(number)} is saved and ready to send.`)
+      setInvoiceId(id)
+      setStage('approved')
       onSent?.()
-      closeComposer()
     } catch (e) {
       notice(e.message)
     } finally {
@@ -334,7 +456,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
         channel,
         invoiceId,
         number,
-        creatorId,
+        creatorId: offPlatform ? null : (creatorId || null),
         creatorName: inv.creatorName,
         amount: Number(invoiceAmount),
         currency,
@@ -458,9 +580,29 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 id="inv-creator" variant="field" ariaLabel="Creator" placeholder="Choose a creator…"
                 value={creatorId}
                 onChange={selectCreator}
-                options={creators.map((c) => ({ value: c.id, label: c.name }))}
+                // LAST IN THE LIST, WHICH IS WHERE IT BELONGS: the everyday case
+                // is a creator on the platform, and this is the way out when it
+                // is not one.
+                options={[
+                  ...creators.map((c) => ({ value: c.id, label: c.name })),
+                  { value: OFF_PLATFORM, label: 'Other — someone not on the platform' },
+                ]}
               />
-              {creatorId && !hasSaved && (
+              {offPlatform && (
+                <div className="mt-3 space-y-2 rounded-xl border border-brand/25 bg-brand-tint/40 px-4 py-3">
+                  <label htmlFor="inv-offname" className="label !mb-1">Creator name</label>
+                  <input
+                    id="inv-offname" type="text" className="input" autoComplete="off"
+                    placeholder="e.g. Marta Oliveira"
+                    value={creatorName} onChange={(e) => setCreatorName(e.target.value)}
+                  />
+                  <p className="text-[11px] leading-relaxed text-smoke">
+                    They have no account here, so nothing fills itself in: type the amount below and
+                    their IBAN and billing address in “Bank details on the invoice”, then download the PDF.
+                  </p>
+                </div>
+              )}
+              {creatorId && !offPlatform && !hasSaved && (
                 <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
                   {creatorName} hasn’t saved payment details yet. Ask them to add them in Edit profile,
                   or fill in their bank details below for this invoice.
@@ -470,16 +612,44 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="inv-amount" className="label">Prize amount (£)</label>
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="inv-amount" className="label">
+                    Prize amount ({currency === 'EUR' ? '€' : '£'})
+                  </label>
+                  {/* THE SWITCH, BESIDE THE MONEY IT CHANGES. Euros are the
+                      default because that is what the programme pays in;
+                      pounds are one press away for the payees who need them. */}
+                  <div className="mb-1.5 flex overflow-hidden rounded-lg border border-gray-200 text-xs font-semibold">
+                    {[['EUR', '€ EUR'], ['GBP', '£ GBP']].map(([code, label]) => (
+                      <button
+                        key={code} type="button" onClick={() => switchCurrency(code)}
+                        aria-pressed={currency === code}
+                        className={cx('px-2.5 py-1 transition-colors',
+                          currency === code ? 'bg-brand text-white' : 'bg-white text-smoke hover:text-ink')}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-smoke">£</span>
+                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-smoke">
+                    {currency === 'EUR' ? '€' : '£'}
+                  </span>
                   <input
                     id="inv-amount" type="number" min="0" step="0.01" inputMode="decimal"
                     className="input !pl-9" placeholder="50"
-                    value={gbpAmount}
-                    onChange={(e) => { setGbpAmount(e.target.value); setEurOverride(null) }}
+                    value={amount}
+                    onChange={(e) => { setAmount(e.target.value); setConvertedFrom(null); setGbpToConvert(null) }}
                   />
                 </div>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
+                  {convertedFrom
+                    ? `Converted from ${formatMoney(convertedFrom.amount, convertedFrom.currency)} at today’s European Central Bank rate (£1 = €${fxRate}). Overtype it if you need a different figure.`
+                    : fxRate === null ? 'Fetching today’s exchange rate…'
+                    : fxRate === 0 ? 'Couldn’t load today’s exchange rate, so switching currency won’t convert the figure — type it yourself.'
+                    : `The invoice, the total and the transfer are all in ${currency === 'EUR' ? 'euros' : 'pounds'}. Today’s rate: £1 = €${fxRate}.`}
+                </p>
               </div>
               <div>
                 <label htmlFor="inv-date" className="label">Invoice date</label>
@@ -489,29 +659,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 />
               </div>
             </div>
-
-            {currency === 'EUR' && (
-              <div className="rounded-xl bg-brand-tint px-4 py-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-xs font-semibold text-brand">{creatorName ? `${firstName(creatorName)} gets paid in euros:` : 'Paid in euros:'}</p>
-                  <div className="relative w-36">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-smoke">€</span>
-                    <input
-                      type="number" min="0" step="0.01" inputMode="decimal"
-                      className="input !py-2 !pl-7 no-ios-zoom sm:text-sm"
-                      value={invoiceAmount}
-                      onChange={(e) => setEurOverride(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-smoke">
-                  {fxRate === null ? 'Fetching today’s exchange rate…'
-                    : fxRate === 0 ? 'Couldn’t load the exchange rate, so type the euro amount yourself.'
-                    : eurOverride !== null ? 'You’ve set the euro amount yourself. Change the £ prize to go back to the automatic rate.'
-                    : `Converted automatically at today’s European Central Bank rate (£1 = €${fxRate}). You can overtype it.`}
-                </p>
-              </div>
-            )}
 
             <div>
               <label htmlFor="inv-desc" className="label">Prize won</label>
@@ -569,34 +716,30 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
               </div>
             </div>
 
-            {/* SENDING IS GATED ON APPROVAL, AND THAT INCLUDES THIS FORM.
-                An approval queue that any admin can walk around by opening the
-                composer instead is not a control, it is a suggestion. So a
-                hand-written invoice goes into the queue like every other one -
-                the only difference is that the automation did not write it.
-                Only a row that has come back APPROVED gets a send button. */}
+            {/* THE COPY ABOUT APPROVAL IS GONE (28 Sep 2026).
+                Ethan: "remove this copy, it's not needed, it's not needing to
+                be approved by another admin." It was a paragraph explaining a
+                round trip that no longer happens - saving the invoice signs it
+                off in the same press (see `saveToQueue`). The one case that
+                still needs saying is the one where the database refused to let
+                the same person approve their own submission, and that line only
+                appears when it actually happened. */}
             {!approvedToSend ? (
-              <div className="rounded-card border border-brand/25 bg-brand-tint/25 px-4 py-4">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="shield" className="h-4 w-4 shrink-0 text-brand" />
-                  {stage === 'awaiting_approval'
-                    ? 'This one is with an approver'
-                    : stage === 'rejected'
-                      ? 'This came back for a change'
-                      : 'Invoices are approved before they go out'}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-smoke">
-                  {stage === 'awaiting_approval'
-                    ? 'Nothing to do here until somebody approves it. It will appear under "Approved, ready to send" in the queue.'
-                    : 'Save it to the approval queue. Once another admin approves it, open it again from the queue and the send buttons are here.'}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="space-y-3">
+                {stage === 'awaiting_approval' && (
+                  <p className="flex items-start gap-2 rounded-card bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-700">
+                    <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" />
+                    Saved, and waiting for another admin to approve it. It is under “Waiting for
+                    approval” in the queue; the send buttons appear here once it comes back.
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-end gap-3">
                   <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
                     {downloading ? <Spinner /> : 'Download PDF'}
                   </button>
                   {stage !== 'awaiting_approval' && (
                     <button type="button" className="btn-primary" onClick={saveToQueue} disabled={sending}>
-                      {sending ? <Spinner /> : 'Send for approval'}
+                      {sending ? <Spinner /> : 'Save invoice'}
                     </button>
                   )}
                 </div>
