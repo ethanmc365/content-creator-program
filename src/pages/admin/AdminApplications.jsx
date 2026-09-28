@@ -319,37 +319,6 @@ export default function AdminApplications() {
       .filter((x) => x.langs.length > 0)
   }
 
-  // WHICH LANGUAGE CHIPS GO ORANGE, AND WHY THE OLD ANSWER LOOKED BROKEN.
-  //
-  // Ethan, 16 Sep 2026: "for the languages sometimes it shows them grey and
-  // sometimes in orange, it's weird, I don't understand why - like they speak
-  // Spanish and Portuguese and live in Spain but the Portuguese is the language
-  // highlighted."
-  //
-  // That is exactly what the code did, and it is indefensible from the outside.
-  // The highlight was driven by `languageMatches`, which exists to answer a
-  // narrow question - "does a language point at a market OTHER than the one we
-  // are already suggesting" - and so it deliberately EXCLUDES the suggested
-  // market. For a Spaniard who speaks both, Spain is the suggestion, so Spanish
-  // was struck out of the list and Portuguese was the only thing left to light
-  // up. The colour was answering a question nobody had asked, and it read as a
-  // bug because it behaves like one.
-  //
-  // The rule is now the one a reader would guess: a chip is orange when that
-  // language is spoken in ANY of our markets. It means "this language matters
-  // here", which is a stable fact about the language rather than a side effect
-  // of which market we happened to suggest, and the two of them can now be
-  // orange together. English stays grey - it is the programme's working
-  // language and the assumed baseline, so a highlight that fires for everybody
-  // would tell an admin nothing.
-  const marketLanguageSet = useMemo(() => {
-    const set = new Set()
-    for (const m of markets ?? []) {
-      if (m.kind !== 'chapter' || !m.is_active) continue
-      for (const l of marketLanguages(m)) set.add(l.toLowerCase())
-    }
-    return set
-  }, [markets])
 
   // Which markets a given language is lived in, so the chip can say so.
   const marketsSpeaking = (lang) => (markets ?? [])
@@ -783,7 +752,6 @@ export default function AdminApplications() {
                 links={linksOf(a)}
                 suggested={suggestion[a.id]}
                 languageHints={languageMatches(a)}
-                marketLanguages={marketLanguageSet}
                 marketsSpeaking={marketsSpeaking}
                 markets={(markets ?? []).filter((m) => m.kind === 'chapter' && m.is_active)}
                 placeIn={placeIn[a.id] ?? []}
@@ -906,7 +874,7 @@ function EmailRow({ email }) {
 
 export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
-  marketLanguages: marketLanguageSet, marketsSpeaking,
+  marketsSpeaking,
   placeIn, onPlaceIn, open, onToggle, busy, onApprove, onDecline, onZoom, onZoomPhoto,
   selected, onSelect,
 }) {
@@ -1020,23 +988,32 @@ export function ApplicationCard({
             )}
           </div>
 
-          {/* LANGUAGES, PROMOTED. Orange = lived in one of our markets. */}
+          {/* LANGUAGES: THE FIRST ONE IS THEIR MAIN LANGUAGE (26 Sep 2026).
+              Ethan: "it still shows certain languages like Portuguese and
+              Spanish in orange and English in grey, and I don't really
+              understand which is their main language." The orange meant
+              "spoken in one of our markets", which nobody could guess. Now the
+              one colour means the one thing a reader expects: the language
+              they picked FIRST is their main language, solid and labelled;
+              the rest are grey. Which market a language points at is still in
+              the tooltip, and still drives the "Approve into" suggestion. */}
           {app.languages?.length > 0 && (
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Speaks</span>
-              {app.languages.map((l) => {
+              {app.languages.map((l, i) => {
                 const where = marketsSpeaking?.(l) ?? []
-                const hit = marketLanguageSet?.has(String(l).toLowerCase()) ?? false
+                const main = i === 0
                 return (
                   <span
                     key={l}
-                    title={hit ? `Spoken in ${where.join(' and ')}` : undefined}
+                    title={where.length ? `Spoken in ${where.join(' and ')}` : undefined}
                     className={cx(
-                      'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                      hit ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                      main ? 'bg-brand text-white' : 'bg-cloud text-smoke',
                     )}
                   >
                     {l}
+                    {main && app.languages.length > 1 && <span className="rounded-full bg-white/25 px-1 text-[9px] uppercase tracking-wide">Main</span>}
                   </span>
                 )
               })}

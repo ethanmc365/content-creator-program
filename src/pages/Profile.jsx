@@ -635,8 +635,17 @@ export default function Profile() {
                   <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
                   {tr("Languages")}
                 </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-smoke">
-                  {creator.languages.join(' · ')}
+                {/* The first one they picked is their main language. */}
+                <p className="mt-2 flex flex-wrap gap-1.5">
+                  {creator.languages.map((l, i) => (
+                    <span key={l} className={cx(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                      i === 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                    )}>
+                      {l}
+                      {i === 0 && creator.languages.length > 1 && <span className="rounded-full bg-white/25 px-1 text-[9px] uppercase tracking-wide">{tr('Main')}</span>}
+                    </span>
+                  ))}
                 </p>
               </div>
             )}
@@ -938,13 +947,17 @@ export default function Profile() {
                   at somebody they have not let in yet, so what this row says
                   instead is what that means and where the decision is made. */}
               {creator?.status === 'pending' ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
-                    <Icon name="clock" className="h-3.5 w-3.5" />
+                <div className="flex flex-wrap items-center gap-3 [&>*]:min-w-[10rem]">
+                  {/* ONE HEIGHT FOR EVERYTHING ON THIS ROW (26 Sep 2026). Ethan:
+                      the status and "Go to applications" were different sizes
+                      from the Approve and Decline buttons; all four are the same
+                      40px pill now, the status just is not pressable. */}
+                  <span className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800">
+                    <Icon name="clock" className="h-4 w-4" />
                     {creator?.onboarded ? tr('Application awaiting review') : tr('Signed up, profile not finished')}
                   </span>
                   {isAdmin && (
-                    <Link to="/admin/applications" className="btn-secondary !py-2 text-xs">{tr('Go to applications')}</Link>
+                    <Link to="/admin/applications" className="btn-secondary inline-flex h-10 flex-1 items-center justify-center whitespace-nowrap !py-0 text-sm">{tr('Go to applications')}</Link>
                   )}
                 </div>
               ) : (
@@ -981,8 +994,8 @@ export default function Profile() {
                   don't have to bounce back to the applications list. */}
               {isApplication && (
                 <div className="flex gap-3">
-                  <button onClick={() => decideApplication('active')} disabled={deciding} className="btn-primary flex-1 !py-2.5 text-sm">{tr("Approve")}</button>
-                  <button onClick={() => decideApplication('declined')} disabled={deciding} className="btn-danger flex-1 !py-2.5 text-sm">{tr("Decline")}</button>
+                  <button onClick={() => decideApplication('active')} disabled={deciding} className="btn-primary inline-flex h-10 flex-1 items-center justify-center !py-0 text-sm">{tr("Approve")}</button>
+                  <button onClick={() => decideApplication('declined')} disabled={deciding} className="btn-danger inline-flex h-10 flex-1 items-center justify-center !py-0 text-sm">{tr("Decline")}</button>
                 </div>
               )}
             </>
