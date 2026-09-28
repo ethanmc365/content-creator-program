@@ -254,17 +254,6 @@ export default function AdminAuditLog() {
   const chapterMarkets = markets.filter((m) => m.kind === 'chapter')
   const [nowMs] = useState(() => Date.now())
 
-  // THE DAY'S HEADLINE, SO THE PAGE MONITORS RATHER THAN JUST LISTS.
-  const summary = useMemo(() => {
-    const list = shown
-    return {
-      changes: list.length,
-      people: new Set(list.map((r) => r.actor_id).filter(Boolean)).size,
-      sensitive: list.filter(isSensitive).length,
-      money: list.filter((r) => r.category === 'money').length,
-    }
-  }, [shown])
-
   // ONE LINE FOR A RUN OF THE SAME THING (26 Sep 2026). Cleaning the hook bank
   // wrote 1,207 "Changed hook" rows in a second; read as 1,207 lines they are
   // the whole log. The same person doing the same action to the same kind of
@@ -308,8 +297,10 @@ export default function AdminAuditLog() {
       {/* THE CONTROLS, AS ONE PANEL (24 Sep 2026) - the same shape as the KPI
           tracker's and the analytics filter bar, instead of a loose row of
           multicoloured pills over a loose row of fields. */}
-      <div className="mb-6 space-y-3 rounded-card border border-gray-100 bg-white p-3.5 shadow-card sm:p-4">
-        <div className="pick-row -mx-1 flex gap-1.5 overflow-x-auto px-1">
+      {/* COMPACT (28 Sep 2026): smaller chips, tighter padding, the fields on
+          one line from a tablet up. Ethan: "too much space there". */}
+      <div className="mb-5 space-y-2.5 rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
+        <div className="pick-row -mx-1 flex gap-1 overflow-x-auto px-1">
           {CATEGORIES.map((c) => {
             const on = category === c.value
             return (
@@ -319,7 +310,7 @@ export default function AdminAuditLog() {
                 onClick={() => setCategory(c.value)}
                 aria-pressed={on}
                 className={cx(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200',
+                  'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 sm:text-[13px]',
                   on ? 'bg-brand text-white shadow-card'
                     : 'border border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand',
                 )}
@@ -330,8 +321,8 @@ export default function AdminAuditLog() {
             )
           })}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-64">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative w-full sm:w-auto sm:flex-1">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input
               type="search"
@@ -366,22 +357,9 @@ export default function AdminAuditLog() {
         />
       ) : (
         <>
-          {/* ---- What this window adds up to ---- */}
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: 'Changes', value: `${summary.changes}${more ? '+' : ''}`, accent: true },
-              { label: 'People', value: summary.people },
-              { label: 'Worth a look', value: summary.sensitive, hint: 'money, rights, deletions' },
-              { label: 'Money', value: summary.money },
-            ].map((t) => (
-              <div key={t.label} className={cx('rounded-card px-4 py-3', t.accent ? 'bg-brand text-white shadow-card' : 'border border-gray-100 bg-white shadow-card')}>
-                <p className={cx('text-2xl font-bold tabular-nums leading-none', !t.accent && 'text-ink')}>{t.value}</p>
-                <p className={cx('mt-1.5 text-[11px] font-semibold uppercase tracking-wide', t.accent ? 'text-white/80' : 'text-smoke')}>{t.label}</p>
-                {t.hint && <p className="text-[10px] text-gray-400">{t.hint}</p>}
-              </div>
-            ))}
-          </div>
-
+          {/* NO SUMMARY TILES (28 Sep 2026). Ethan: "you don't need to say
+              'Worth a look,' and you don't need the money card, the five
+              changes, or the two people. It's unnecessary." */}
           <div className="space-y-6">
             {days_.map((day) => (
               <section key={day.label}>

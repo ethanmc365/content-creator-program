@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
-import PlatformBadges from '../../components/PlatformBadges'
 import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv, timeAgo, cx } from '../../lib/utils'
 import { compareBoards, prizeForGroup } from '../../lib/challengeGroups'
 import Icon from '../../components/Icon'
@@ -16,6 +15,8 @@ import { loadMarkets } from '../../lib/markets'
 import { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { challengeSpend } from '../../lib/challengeSpend'
 import MarketSplit from '../../components/admin/MarketSplit'
+import EntryPreview from '../../components/challenge/EntryPreview'
+import { useEntryPoints } from '../../lib/entryPoints'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -156,6 +157,8 @@ export default function AdminChallengeAnalytics() {
   }
 
   const { challenge, logged, siblings, subs, results, groups, groupMembers } = raw
+  const homeMarket = challenge ? markets.find((m) => m.id === challenge.community_id) : null
+  const singleMarket = !!homeMarket && homeMarket.kind !== 'network' && homeMarket.slug !== 'worldwide'
 
   // A LOGGED CHALLENGE, OR NOTHING AT ALL. Neither is a crash.
   if (!challenge) {
@@ -251,8 +254,14 @@ export default function AdminChallengeAnalytics() {
         })()}
       </div>
 
-      {/* ---------- Which markets took part ---------- */}
-      <MarketSplit subs={subs} results={results} markets={markets} scoring={challenge.scoring} />
+      {/* ---------- Which markets took part ----------
+          ONLY WHEN MORE THAN ONE COULD (28 Sep 2026). Ethan: the UK-only
+          Creative Challenge still showed "participation by market", which
+          says nothing when there was one market. A challenge run in one market
+          shows how its entries and views built up over the weeks instead. */}
+      {singleMarket
+        ? <EntriesOverTime subs={subs} challenge={challenge} />
+        : <MarketSplit subs={subs} results={results} markets={markets} scoring={challenge.scoring} />}
 
       {/* ---------- The groups, compared ---------- */}
       {boardRows.length > 0 && (
@@ -408,28 +417,11 @@ export default function AdminChallengeAnalytics() {
         </section>
       )}
 
-      {/* ---------- All submissions ---------- */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold">All entries ({subs.length})</h2>
-        {subs.length === 0 ? (
-          <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">No entries for this challenge.</p>
-        ) : (
-          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-            {subs.map((s) => (
-              <div key={s.id} className="flex items-center gap-4 border-b border-gray-50 px-5 py-3 last:border-0 sm:px-7">
-                <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
-                  <p className="text-xs text-smoke">{formatDateTimeTz(s.submitted_at)}</p>
-                </div>
-                <PlatformBadges platforms={[s.platform]} className="hidden sm:flex" />
-                <span className="w-20 text-right text-sm tabular-nums">{s.logged_views != null ? formatViews(s.logged_views) : '-'}</span>
-                <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">Watch ↗</a>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* ---------- All submissions ----------
+          THE SAME CARDS AS THE CHALLENGE'S OWN ENTRIES (28 Sep 2026): the
+          cover with its views and points on it, the creator under it, and a
+          search and an order above. */}
+      <AllEntries subs={subs} challenge={challenge} />
     </div>
   )
 }
@@ -732,6 +724,165 @@ function LiveEconomics({ challenge, subs, standings, totalViews }) {
           </div>
         ))}
       </dl>
+    </section>
+  )
+}
+
+function AllEntries({ subs, challenge }) {
+  const [query, setQuery] = useState('')
+  const [order, setOrder] = useState('views')
+  const [shown, setShown] = useState(24)
+  const points = useEntryPoints(challenge.id, challenge.scoring === 'points', subs.length)
+  const norm = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = norm(query.trim())
+  const list = subs
+    .filter((s) => !q || norm(s.profiles?.name).includes(q))
+    .slice()
+    .sort((a, b) => (order === 'views'
+      ? (b.logged_views ?? -1) - (a.logged_views ?? -1)
+      : order === 'points'
+        ? (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0)
+        : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)))
+  const orders = [
+    { value: 'views', label: 'Most views' },
+    ...(challenge.scoring === 'points' ? [{ value: 'points', label: 'Most points' }] : []),
+    { value: 'newest', label: 'Newest' },
+  ]
+  return (
+    <section className="mt-10">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">All entries <span className="text-smoke">({subs.length})</span></h2>
+        <div className="flex gap-1 rounded-full bg-cloud p-1">
+          {orders.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setOrder(o.value)}
+              className={cx('rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200', order === o.value ? 'bg-white text-ink shadow-card' : 'text-smoke hover:text-ink')}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {subs.length === 0 ? (
+        <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">No entries for this challenge.</p>
+      ) : (
+        <>
+          <div className="relative mb-4">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShown(24) }}
+              placeholder="Search by creator name"
+              aria-label="Search entries by creator name"
+              className="input no-ios-zoom !pl-10"
+            />
+          </div>
+          {list.length === 0 ? (
+            <p className="py-8 text-center text-sm text-smoke">No entries from anyone called &ldquo;{query.trim()}&rdquo;.</p>
+          ) : (
+            <div key={`${order}:${q}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              {list.slice(0, shown).map((s, i) => (
+                <a
+                  key={s.id}
+                  href={s.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+                  className="card group flex animate-fade-up flex-col overflow-hidden !p-0 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift"
+                >
+                  <EntryPreview submission={s} points={challenge.scoring === 'points' ? (points.get(s.id) ?? 0) : null} />
+                  <div className="flex items-center gap-2 p-3">
+                    <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="xs" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold group-hover:text-brand">{s.profiles?.name}</p>
+                      <p className="truncate text-[11px] text-smoke">{s.platform} · {formatDate(s.submitted_at)}</p>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+          {list.length > shown && (
+            <div className="mt-5 text-center">
+              <button type="button" onClick={() => setShown((n) => n + 24)} className="btn-secondary !py-2 text-sm">
+                Show more ({list.length - shown} left)
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+// HOW A ONE-MARKET CHALLENGE BUILT UP: entries per day as bars, the running
+// total of views as the area behind them. Views are placed on the day the entry
+// was submitted, which is the only date every entry has.
+function EntriesOverTime({ subs, challenge }) {
+  const [nowMs] = useState(() => Date.now())
+  const data = useMemo(() => {
+    if (!subs.length) return []
+    const dayKey = (d) => new Date(d).toISOString().slice(0, 10)
+    const firstSub = subs.reduce((m, s) => Math.min(m, Date.parse(s.submitted_at)), Infinity)
+    const lastSub = subs.reduce((m, s) => Math.max(m, Date.parse(s.submitted_at)), 0)
+    const start = new Date(Math.min(firstSub, challenge.start_date ? Date.parse(challenge.start_date) : firstSub))
+    const end = new Date(Math.min(nowMs, Math.max(lastSub, challenge.end_date ? Date.parse(challenge.end_date) : lastSub)))
+    const byDay = new Map()
+    for (const s of subs) {
+      const k = dayKey(s.submitted_at)
+      const cur = byDay.get(k) || { entries: 0, views: 0 }
+      cur.entries += 1
+      cur.views += s.logged_views || 0
+      byDay.set(k, cur)
+    }
+    const out = []
+    let running = 0
+    for (let t = new Date(dayKey(start)); t <= end && out.length < 120; t = new Date(t.getTime() + 86400000)) {
+      const k = dayKey(t)
+      const v = byDay.get(k) || { entries: 0, views: 0 }
+      running += v.views
+      out.push({ day: t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), entries: v.entries, views: running })
+    }
+    return out
+  }, [subs, challenge, nowMs])
+  const busiest = data.reduce((m, d) => (d.entries > (m?.entries ?? 0) ? d : m), null)
+  return (
+    <section className="card mb-10 animate-fade-up">
+      <h2 className="font-semibold">How the entries came in</h2>
+      <p className="mt-0.5 text-sm text-smoke">
+        Entries each day, with the views they went on to get building up behind them.
+        {busiest ? <> Busiest day: <span className="font-semibold text-ink">{busiest.day}</span>, {busiest.entries} {busiest.entries === 1 ? 'entry' : 'entries'}.</> : null}
+      </p>
+      <div className="mt-5 h-64">
+        {data.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-sm text-smoke">No entries yet.</p>
+        ) : (
+          <ResponsiveContainer>
+            <ComposedChart data={data} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="viewsFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={BRAND_LIGHT} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={BRAND_LIGHT} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={24} />
+              <YAxis yAxisId="e" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
+              <YAxis yAxisId="v" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ fill: 'rgba(217,68,7,0.06)' }}
+                formatter={(v, name) => (name === 'views' ? [formatViews(v), 'Views so far'] : [v, 'Entries'])}
+              />
+              <Area yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />
+              <Bar yAxisId="e" dataKey="entries" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={22} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </section>
   )
 }

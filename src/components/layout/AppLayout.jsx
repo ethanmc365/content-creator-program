@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { lazyRoute } from '../../lib/lazyRoute'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -22,7 +22,7 @@ import { startHeartbeat } from '../../lib/presence'
 import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
-import { repairScrollLock } from '../../lib/scrollLock'
+import { lockedScrollY, onScrollLockChange, repairScrollLock } from '../../lib/scrollLock'
 import { resetPageSettled } from '../../lib/pageSettled'
 import { usePinnedToBottom } from '../../lib/pinnedBar'
 import { useT } from '../../lib/i18n'
@@ -182,6 +182,7 @@ export default function AppLayout() {
   const tr = useT()
   const chatSearch = useChatSearchTarget()
   const chromeHidden = useChatChromeHidden()
+  const lockedY = useSyncExternalStore(onScrollLockChange, lockedScrollY, () => 0)
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
   // Which of the five tabs the current URL belongs to. See activeTab above.
@@ -571,7 +572,14 @@ export default function AppLayout() {
         // UNDER THE CLOCK IN DARK MODE. The status bar is translucent there
         // (see index.html), so the app runs up behind it and the header fills
         // that strip with its own colour. Zero everywhere else.
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          // THE BAR STAYS WHILE A POP-UP IS OPEN (28 Sep 2026). Freezing the
+          // page pins the body at `top: -y`, which carries this sticky header
+          // off the top with it. Pushing it back down by the same y keeps it
+          // exactly where it was, behind the pop-up's scrim.
+          ...(lockedY && !chromeHidden ? { transform: `translateY(${lockedY}px)`, transition: 'none' } : null),
+        }}
       >
         {/* White shield directly ABOVE the header. Normally off-screen; if iOS
             rubber-bands the page down at the top it fills that gap with clean

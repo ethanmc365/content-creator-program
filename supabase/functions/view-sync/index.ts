@@ -626,9 +626,55 @@ async function facebookViewsAsCrawler(url: string, knownId: string | null): Prom
   return null
 }
 
+// THE EMBED PLAYER, measured 28 Sep 2026.
+//
+// From Supabase's servers every facebook.com page - reel, watch, share link,
+// under every crawler agent above - now answers with the login page. The
+// embeddable player (`/plugins/video.php`) is the one route Facebook serves to
+// third-party sites by design, so it is tried next: it names the video, and for
+// a public post it carries the poster frame and, on some videos, the play count.
+// A person is still the fallback; this only narrows how often one is needed.
+export function facebookEmbedRead(html: string): { views: number | null; approx: boolean; thumbnail: string | null; id: string | null } {
+  const unescape = (v: string) => v.replace(/\\\//g, '/').replace(/&amp;/g, '&')
+  const thumb = html.match(/"preferred_thumbnail":\{"image":\{"uri":"([^"]+)"/)?.[1]
+    ?? html.match(/"thumbnailImage":\{"uri":"([^"]+)"/)?.[1]
+    ?? html.match(/<img[^>]+class="[^"]*_1p6f[^"]*"[^>]+src="([^"]+)"/)?.[1]
+    ?? null
+  const id = html.match(/"videoID":"(\d{6,})"/)?.[1] ?? html.match(/"video_id":"(\d{6,})"/)?.[1] ?? null
+  const play = html.match(/"play_count":(\d+)/)?.[1] ?? html.match(/"video_view_count":(\d+)/)?.[1]
+  if (play) return { views: Number(play), approx: false, thumbnail: thumb ? unescape(thumb) : null, id }
+  const rounded = decodeEntities(html).match(/([\d.,]+\s?[KMB]?)\s+(?:views|plays)\b/i)?.[1]
+  const n = rounded ? parseCompactCount(rounded.replace(/\s/g, '')) : null
+  return { views: n, approx: !!rounded && /[KMB]/i.test(rounded), thumbnail: thumb ? unescape(thumb) : null, id }
+}
+
+async function facebookViewsViaEmbed(url: string, knownId: string | null): Promise<Resolved | null> {
+  const hrefs = [knownId ? `https://www.facebook.com/reel/${knownId}/` : null, url].filter((v): v is string => !!v)
+  for (const href of hrefs) {
+    for (const ua of [UA, MOBILE_UA]) {
+      let html: string
+      try {
+        html = await getText(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false`, { 'User-Agent': ua, Referer: 'https://trypcreators.vercel.app/' })
+      } catch {
+        continue
+      }
+      const read = facebookEmbedRead(html)
+      if (read.views != null) {
+        return {
+          platform: 'Facebook', videoId: read.id ?? knownId, canonicalUrl: href,
+          views: read.views, approx: read.approx, error: null, thumbnail: read.thumbnail,
+        }
+      }
+    }
+  }
+  return null
+}
+
 async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
   const viaCrawler = await facebookViewsAsCrawler(url, knownId)
   if (viaCrawler) return viaCrawler
+  const viaEmbed = await facebookViewsViaEmbed(url, knownId ?? facebookIdFrom(url))
+  if (viaEmbed) return viaEmbed
 
   const base = { platform: 'Facebook' as const }
   let canonical: string | null = url
@@ -1065,6 +1111,7 @@ type Row = {
   platform_video_id: string | null
   creator_id: string | null
   posted_at?: string | null
+  views_source?: string | null
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -1130,8 +1177,14 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     const now = new Date().toISOString()
 
     if (r.views == null) {
+      // A NUMBER A PERSON TYPED IS AN ANSWER (28 Sep 2026). Facebook now sends
+      // every server to its login page, so a Facebook entry fails every run -
+      // and used to go straight back on the "needs a person" list the moment
+      // somebody had already typed its views in. Once there is a hand-typed
+      // number the failure is not news; only a deleted video still is.
+      const answered = row.views_source === 'manual' && row.logged_views != null && r.error !== 'removed'
       await supabase.from('submissions').update({
-        views_sync_error: r.error,
+        views_sync_error: answered ? null : r.error,
         views_synced_at: now,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
       }).eq('id', row.id)
@@ -1220,7 +1273,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, views_source'
 
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first

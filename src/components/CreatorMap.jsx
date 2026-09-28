@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
@@ -226,6 +226,44 @@ function byPinPriority(a, b) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
+// THE MOVE BETWEEN TWO GROUPINGS. A wrapper <g> around a pin, animated with
+// the Web Animations API on mount only, so a pin that stays put never moves.
+// `arriving`: fly in from (dx, dy) away, or pop in place when `pop`.
+// `leaving`: a pin that has just been swallowed, flying (dx, dy) into its new
+// group and fading as it goes. Offsets are in the map's own units, which is
+// what the wrapper sits in. Under reduced motion nothing animates.
+const MORPH_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+function PinMorph({ x, y, dx = 0, dy = 0, pop = false, arriving = false, leaving = false, children }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !(arriving || leaving) || typeof el.animate !== 'function') return undefined
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
+    const origin = `${x ?? 0}px ${y ?? 0}px`
+    el.style.transformOrigin = leaving ? `${(x ?? 0)}px ${(y ?? 0)}px` : origin
+    const frames = leaving
+      ? [
+        { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.7)`, opacity: 0 },
+      ]
+      : pop
+        ? [
+          { transform: 'scale(0.55)', opacity: 0.3 },
+          { transform: 'scale(1.08)', opacity: 1, offset: 0.65 },
+          { transform: 'scale(1)', opacity: 1 },
+        ]
+        : [
+          { transform: `translate(${dx}px, ${dy}px) scale(0.8)`, opacity: 0.4 },
+          { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+        ]
+    const a = el.animate(frames, { duration: leaving ? 380 : 420, easing: MORPH_EASE, fill: leaving ? 'forwards' : 'none' })
+    return () => a.cancel()
+    // Mount only: the move is from where the pin WAS to where it is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return <g ref={ref} style={leaving ? { pointerEvents: 'none' } : undefined}>{children}</g>
+}
+
 function Pin({ group, zoom, active, dim, onSelect, landing = false, queue = 0 }) {
   const lead = group.creators[0]
   const count = group.creators.length
@@ -1481,8 +1519,16 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // count; zooming in pulls them apart again. Worked in the map's own units,
   // where a pin's head is ~30 wide and is counter-scaled by zoom^-0.7 (see
   // Pin), and on the SETTLED zoom so a pinch does not re-cluster every frame.
+  //
+  // AND IT FOLLOWS THE ZOOM AS IT HAPPENS (28 Sep 2026). Ethan: "there is a
+  // real delay between me scrolling in and scrolling out ... the pins should
+  // separate a bit, but they don't ... slightly delayed." This read the SETTLED
+  // zoom, which only moves when the gesture ends. It reads the live one now,
+  // rounded to quarter-octave steps (about 19% of zoom each), so pins split
+  // and merge while you scroll without re-grouping on every frame.
+  const clusterZoom = Math.pow(2, Math.round(Math.log2(Math.max(1, liveZoom)) * 4) / 4)
   const clusteredTowns = useMemo(() => {
-    const zoom = Math.max(1, planeZoom)
+    const zoom = clusterZoom
     const reach = 30 * Math.pow(zoom, -0.7)
     const pts = visibleTowns
       .map((t) => {
@@ -1507,7 +1553,51 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
         towns: g.members,
       }
     })
-  }, [visibleTowns, planeZoom])
+  }, [visibleTowns, clusterZoom])
+
+  // PINS MOVE WHEN THEY SPLIT AND MERGE (28 Sep 2026). Ethan: "I would like
+  // some animations for this rather than just flashing, appearing, and
+  // disappearing ... like them merging together." Each time the grouping
+  // changes, this compares it with the last one: a pin that came out of a
+  // group starts where the group was and flies to its own place; a group that
+  // formed pops in while the pins it swallowed fly into it and fade. Worked out
+  // during render from the previous layout held in state (React's documented
+  // "adjust state when a prop changes" pattern), so the first frame of the new
+  // grouping is already the first frame of the animation.
+  const pinLayout = useMemo(() => clusteredTowns.map((t) => {
+    const p = projection(t.coords) || [0, 0]
+    return { key: t.key, x: p[0], y: p[1], towns: t.towns ? t.towns.map((m) => m.key) : [t.key], group: t }
+  }), [clusteredTowns])
+  const [morph, setMorph] = useState({ layout: null, from: new Map(), ghosts: [], id: 0 })
+  if (morph.layout !== pinLayout) {
+    const prev = morph.layout
+    const from = new Map()
+    const ghosts = []
+    if (prev && !entering) {
+      const prevByTown = new Map()
+      for (const p of prev) for (const k of p.towns) prevByTown.set(k, p)
+      const prevKeys = new Set(prev.map((p) => p.key))
+      const curKeys = new Set(pinLayout.map((l) => l.key))
+      for (const cur of pinLayout) {
+        if (prevKeys.has(cur.key)) continue
+        const sources = [...new Set(cur.towns.map((k) => prevByTown.get(k)).filter(Boolean))]
+        if (sources.length === 1) {
+          from.set(cur.key, { dx: sources[0].x - cur.x, dy: sources[0].y - cur.y, x: cur.x, y: cur.y })
+        } else if (sources.length > 1) {
+          from.set(cur.key, { dx: 0, dy: 0, x: cur.x, y: cur.y, pop: true })
+          for (const src of sources) {
+            if (!curKeys.has(src.key)) ghosts.push({ ...src, dx: cur.x - src.x, dy: cur.y - src.y, gid: `${morph.id}:${src.key}` })
+          }
+        }
+      }
+    }
+    setMorph({ layout: pinLayout, from, ghosts, id: morph.id + 1 })
+  }
+  useEffect(() => {
+    if (!morph.ghosts.length) return undefined
+    const t = setTimeout(() => setMorph((m) => (m.ghosts.length ? { ...m, ghosts: [] } : m)), 520)
+    return () => clearTimeout(t)
+  }, [morph.id, morph.ghosts.length])
 
   const paintOrder = useMemo(() => {
     const list = [...clusteredTowns].sort((a, b) => b.coords[1] - a.coords[1])
@@ -2552,13 +2642,19 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
             ))}
           </g>
 
+          {morph.ghosts.map((g) => (
+            <PinMorph key={`ghost:${g.gid}`} x={g.x} y={g.y} dx={g.dx} dy={g.dy} leaving>
+              <Pin group={g.group} zoom={z} active={false} dim={false} onSelect={() => {}} />
+            </PinMorph>
+          ))}
           {paintOrder.map((town, ti) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
+            const f = morph.from.get(town.key)
             return (
-              <g key={town.key}>
+              <PinMorph key={town.key} x={f?.x} y={f?.y} dx={f?.dx} dy={f?.dy} pop={f?.pop} arriving={!!f}>
                 <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
                   onSelect={selectTown} landing={entering} queue={ti} />
-              </g>
+              </PinMorph>
             )
           })}
           </g>

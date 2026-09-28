@@ -222,9 +222,15 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       pop: [{ opacity: 0, scale: '0.8' }, { opacity: 1, scale: '1' }],
       zoom: [{ opacity: 0, translate: '0 24px', scale: '0.9' }, { opacity: 1, translate: '0 0', scale: '1' }],
       fade: [{ opacity: 0 }, { opacity: 1 }],
+      // Lands big and settles: for the one thing a card is about.
+      spot: [{ opacity: 0, scale: '1.35', translate: '0 30px' }, { opacity: 1, scale: '0.97', translate: '0 0', offset: 0.7 }, { opacity: 1, scale: '1', translate: '0 0' }],
       draw: [{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }],
     }
     const anims = []
+    // `data-delay` (ms) overrides the ladder for an element that has to come in
+    // on its own beat - the challenge recap's top videos arrive one at a time,
+    // well after the rest of the card (28 Sep 2026). `data-dur` stretches one.
+    let lastEnd = 0
     root.querySelectorAll('[data-anim]').forEach((el, n) => {
       const kind = el.getAttribute('data-anim')
       const frames = FRAMES[kind]
@@ -233,13 +239,18 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       // top-left corner, which that translate has moved onto its true centre -
       // so it grows from the middle and does not drift. (Measured: about its
       // default centre origin it wandered 4px while popping in.)
-      if (kind === 'pop' || kind === 'zoom') {
+      if (kind === 'pop' || kind === 'zoom' || kind === 'spot') {
         try { if (getComputedStyle(el).transform !== 'none') el.style.transformOrigin = '0 0' } catch { /* ignore */ }
       }
+      const ownDelay = Number(el.getAttribute('data-delay'))
+      const delay = Number.isFinite(ownDelay) && el.hasAttribute('data-delay') ? ownDelay : 140 + n * 85
+      const ownDur = Number(el.getAttribute('data-dur'))
+      const duration = ownDur > 0 ? ownDur : kind === 'draw' ? 1100 : kind === 'zoom' ? 720 : 520
+      lastEnd = Math.max(lastEnd, delay + duration)
       try {
         anims.push(el.animate(frames, {
-          duration: kind === 'draw' ? 1100 : kind === 'zoom' ? 720 : 520,
-          delay: 140 + n * 85,
+          duration,
+          delay,
           easing: kind === 'draw' ? 'cubic-bezier(0.45, 0, 0.2, 1)' : ease,
           fill: 'backwards',
         }))
@@ -265,7 +276,7 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       anims.forEach((a) => { try { a.finish() } catch { /* already done */ } })
       clearInterval(tick)
       restore()
-    }, 2600)
+    }, Math.max(2600, lastEnd + 300))
     return () => {
       clearTimeout(finish)
       clearInterval(tick)

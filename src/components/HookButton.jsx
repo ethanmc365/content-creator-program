@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Icon from './Icon'
-import { Modal, Spinner } from './ui'
+import { Modal } from './ui'
 import { supabase } from '../lib/supabase'
 import { pickHook } from '../lib/hooks'
 import { fetchAll } from '../lib/fetchAll'
@@ -34,13 +34,54 @@ function writeSeen(set) {
   try { localStorage.setItem(SEEN, JSON.stringify([...set].slice(-2000))) } catch { /* private mode */ }
 }
 
-async function loadBank() {
-  if (bank) return bank
+// NO LOADING ON THE FIRST PRESS (28 Sep 2026). Ethan: "immediately, whenever
+// you do it for the very first time, it shows a bit of a loading thing ...
+// just make it happen faster." Two things make the first press instant:
+//   1. The bank is kept on the device for a day, so a returning creator has it
+//      before they ever press.
+//   2. It is fetched quietly as soon as the button is on screen (when the
+//      browser is idle), so a first-time visitor usually has it too.
+// A hook served from the device copy is still a real, active hook; the copy is
+// refreshed in the background once it is a day old.
+const BANK_KEY = 'tryp_hooks_bank_v1'
+const BANK_TTL = 24 * 3600 * 1000
+let inflight = null
+
+function readCachedBank() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BANK_KEY) || 'null')
+    if (raw && Array.isArray(raw.hooks) && raw.hooks.length) return raw
+  } catch { /* private mode or bad JSON */ }
+  return null
+}
+
+async function fetchBank() {
   // Paged: the API stops at 1,000 rows and the bank is bigger than that.
   const { data, error } = await fetchAll(() => supabase.from('hooks').select('id, text, uses').eq('is_active', true))
   if (error) throw error
   bank = data || []
+  try { localStorage.setItem(BANK_KEY, JSON.stringify({ at: Date.now(), hooks: bank })) } catch { /* full or private */ }
   return bank
+}
+
+export function loadBank() {
+  if (bank) return Promise.resolve(bank)
+  const cached = readCachedBank()
+  if (cached) {
+    bank = cached.hooks
+    if (Date.now() - (cached.at || 0) > BANK_TTL && !inflight) {
+      inflight = fetchBank().catch(() => bank).finally(() => { inflight = null })
+    }
+    return Promise.resolve(bank)
+  }
+  if (!inflight) inflight = fetchBank().finally(() => { inflight = null })
+  return inflight
+}
+
+export function prefetchHooks() {
+  const go = () => { loadBank().catch(() => {}) }
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2500 })
+  else setTimeout(go, 600)
 }
 
 export default function HookButton({ className }) {
@@ -51,17 +92,24 @@ export default function HookButton({ className }) {
   const [turn, setTurn] = useState(0) // re-keys the quote so each one animates in
   const [failed, setFailed] = useState(false)
 
+  useEffect(() => { prefetchHooks() }, [])
+
+  function show(hooks) {
+    let seen = readSeen()
+    const { hook: h, reset } = pickHook(hooks, seen)
+    if (reset) seen = new Set()
+    if (h) { seen.add(h.id); writeSeen(seen) }
+    setHook(h)
+    setTurn((n) => n + 1)
+  }
+
   async function next() {
-    setBusy(true)
     setFailed(false)
+    // Already here: no await, no spinner, the next hook is simply there.
+    if (bank) { show(bank); return }
+    setBusy(true)
     try {
-      const hooks = await loadBank()
-      let seen = readSeen()
-      const { hook: h, reset } = pickHook(hooks, seen)
-      if (reset) seen = new Set()
-      if (h) { seen.add(h.id); writeSeen(seen) }
-      setHook(h)
-      setTurn((n) => n + 1)
+      show(await loadBank())
     } catch {
       setFailed(true)
     }
@@ -115,7 +163,12 @@ export default function HookButton({ className }) {
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             <span aria-hidden className="block select-none font-serif text-5xl font-bold leading-none text-white/35">&ldquo;</span>
             {busy && !hook ? (
-              <div className="flex h-20 items-center justify-center"><Spinner /></div>
+              // Lines where the words will be, not a spinner: it reads as the
+              // hook arriving rather than the app thinking.
+              <div className="relative -mt-1 space-y-2.5" aria-label={tr('Loading')}>
+                <span className="block h-5 w-11/12 animate-pulse rounded-full bg-white/30" />
+                <span className="block h-5 w-8/12 animate-pulse rounded-full bg-white/25 [animation-delay:120ms]" />
+              </div>
             ) : failed ? (
               <p className="relative text-sm font-medium">{tr('Could not load the hooks. Try again in a moment.')}</p>
             ) : hook ? (
@@ -125,10 +178,15 @@ export default function HookButton({ className }) {
             ) : (
               <p className="relative text-sm font-medium">{tr('No hooks yet.')}</p>
             )}
+            {/* AND A CLOSING MARK, SO THE CARD LEVELS OUT (28 Sep 2026). Ethan:
+                "maybe there should also be quotes at the bottom so it levels
+                out." Its own row again, right-aligned, so a long hook pushes it
+                down rather than running into it. */}
+            <span aria-hidden className="-mb-4 mt-1 block select-none text-right font-serif text-5xl font-bold leading-none text-white/35">&rdquo;</span>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
             <button type="button" onClick={next} disabled={busy} className="btn-primary flex-1 justify-center disabled:opacity-60">
-              {busy ? <Spinner /> : <><Icon name="refresh" className="h-4 w-4" /> {tr('Another one')}</>}
+              <Icon name="refresh" className={cx('h-4 w-4', busy && 'animate-spin')} /> {tr('Another one')}
             </button>
             <button type="button" onClick={copy} disabled={!hook} className="btn-secondary flex-1 justify-center disabled:opacity-50">
               <Icon name="copy" className="h-4 w-4" /> {tr('Copy')}

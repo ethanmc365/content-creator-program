@@ -6,6 +6,7 @@ import { Avatar, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
 import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
+import KpiDetail from '../../components/admin/KpiDetail'
 import { confirm } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import {
@@ -70,6 +71,7 @@ export default function AdminKpis() {
   const [actuals, setActuals] = useState(null)
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(null) // a target row, or {} for a new one
+  const [detail, setDetail] = useState(null) // the KPI opened for its story
 
   // COMMUNITIES AND MANAGED SCOPES LOAD ONCE. Worldwide first - it is the
   // scope every creator belongs to and the one Ethan named first ("KPIs for
@@ -157,13 +159,16 @@ export default function AdminKpis() {
           it, and wrapped onto its own line at most widths anyway. Two
           labelled rows, both built from the same pill, read as one control
           panel instead of two controls that happen to be near each other. */}
-      <div className="mb-6 space-y-3.5 rounded-card border border-gray-100 bg-white p-3.5 shadow-card sm:p-4">
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Market')}</p>
+      {/* ONE COMPACT BAR (28 Sep 2026). Ethan: "too much white space between
+          them, so just make it more compact." Market and period share one row
+          from a laptop up, each led by a small label rather than a heading. */}
+      <div className="mb-5 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2.5 shadow-card lg:flex-row lg:items-center lg:gap-4 lg:p-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <p className="hidden shrink-0 text-[10px] font-bold uppercase tracking-wide text-gray-400 sm:block">{tr('Market')}</p>
           {!communities ? (
-            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-8 w-64" />
           ) : (
-            <div className="pick-row -mx-1 flex gap-1.5 overflow-x-auto px-1" role="tablist">
+            <div className="pick-row -mx-1 flex min-w-0 gap-1 overflow-x-auto px-1" role="tablist">
               {communities.map((c) => (
                 <button
                   key={c.id}
@@ -172,10 +177,10 @@ export default function AdminKpis() {
                   aria-selected={scope === c.id}
                   onClick={() => setScope(c.id)}
                   className={cx(
-                    'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200',
+                    'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-all duration-200',
                     scope === c.id
                       ? 'bg-brand text-white shadow-card'
-                      : 'border border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand',
+                      : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
                   )}
                 >
                   {c.kind === 'network' && <Icon name="globe" className="h-3.5 w-3.5" />}
@@ -186,47 +191,44 @@ export default function AdminKpis() {
           )}
         </div>
 
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Period')}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Segmented
-              value={byMonth ? 'month' : 'quarter'}
-              onChange={setMode}
-              size="sm"
-              label={tr('Quarter or month')}
-              options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
-            />
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => step(-1)}
-                aria-label={byMonth ? tr('Previous month') : tr('Previous quarter')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
-              >
-                <Icon name="chevronLeft" className="h-4 w-4" />
-              </button>
-              <span className="flex h-9 min-w-[9.5rem] items-center justify-center rounded-xl bg-brand px-3.5 text-sm font-bold tabular-nums text-white shadow-card">
-                {periodLabel(period)}
-              </span>
-              <button
-                type="button"
-                onClick={() => step(1)}
-                aria-label={byMonth ? tr('Next month') : tr('Next quarter')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-colors hoverable:hover:border-brand/40 hoverable:hover:text-brand"
-              >
-                <Icon name="chevronRight" className="h-4 w-4" />
-              </button>
-            </div>
-            {!isCurrent && (
-              <button
-                type="button"
-                onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
-                className="ml-1 text-xs font-semibold text-brand hoverable:hover:underline"
-              >
-                {byMonth ? tr('Jump to this month') : tr('Jump to this quarter')}
-              </button>
-            )}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2.5 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+          <Segmented
+            value={byMonth ? 'month' : 'quarter'}
+            onChange={setMode}
+            size="sm"
+            label={tr('Quarter or month')}
+            options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
+          />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              aria-label={byMonth ? tr('Previous month') : tr('Previous quarter')}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand"
+            >
+              <Icon name="chevronLeft" className="h-4 w-4" />
+            </button>
+            <span key={periodLabel(period)} className="flex h-8 min-w-[8.5rem] animate-pop-in items-center justify-center rounded-lg bg-brand-tint px-3 text-[13px] font-bold tabular-nums text-brand">
+              {periodLabel(period)}
+            </span>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              aria-label={byMonth ? tr('Next month') : tr('Next quarter')}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand"
+            >
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </button>
           </div>
+          {!isCurrent && (
+            <button
+              type="button"
+              onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
+              className="text-xs font-semibold text-brand hoverable:hover:underline"
+            >
+              {byMonth ? tr('This month') : tr('This quarter')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -283,6 +285,7 @@ export default function AdminKpis() {
                   canEdit={canEdit}
                   onEdit={() => setEditing(row)}
                   onDelete={() => removeTarget(row)}
+                  onOpen={() => setDetail(row)}
                 />
               ))}
               {canEdit && (
@@ -315,6 +318,14 @@ export default function AdminKpis() {
           <YearOverview scope={scope} year={year} byMonth={byMonth} />
         </>
       )}
+
+      <KpiDetail
+        row={detail}
+        scope={scope}
+        scopeName={community?.name || ''}
+        period={period}
+        onClose={() => setDetail(null)}
+      />
 
       {editing && (
         <KpiTargetSheet
@@ -488,14 +499,21 @@ function formatMetricValue(row, value) {
 // fill runs to 100% at the target and keeps counting in the LABEL past it -
 // a KPI hit at 140% is worth celebrating, not clipping off at a full bar
 // that looks identical to one hit at exactly 100%.
-function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
+function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete, onOpen }) {
   const tr = useT()
   const { status, pct, progress } = kpiStatus({ target: row.target_value, actual: row.actual, year, quarter, month })
   const style = STATUS_STYLE[status]
   const fillPct = Math.min(100, Math.round(pct * 100))
 
   return (
-    <article className="group relative flex flex-col gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
+    // THE CARD OPENS (28 Sep 2026): its history, who is behind it, the charts.
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
+      className="group relative flex cursor-pointer flex-col gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift"
+    >
       {/* NO ICON TILE (26 Sep 2026). Ethan: "I don't like the orange
           background ... remove them completely because they're not necessary."
           The name leads; who set the target sits in the corner. */}
@@ -511,10 +529,10 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
         </span>
         {canEdit && (
           <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <button type="button" onClick={onEdit} aria-label={tr('Edit')} className="flex h-7 w-7 items-center justify-center rounded-full text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">
+            <button type="button" onClick={(e) => { e.stopPropagation(); onEdit() }} aria-label={tr('Edit')} className="flex h-7 w-7 items-center justify-center rounded-full text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">
               <Icon name="pencil" className="h-3.5 w-3.5" />
             </button>
-            <button type="button" onClick={onDelete} aria-label={tr('Delete')} className="flex h-7 w-7 items-center justify-center rounded-full text-smoke hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
+            <button type="button" onClick={(e) => { e.stopPropagation(); onDelete() }} aria-label={tr('Delete')} className="flex h-7 w-7 items-center justify-center rounded-full text-smoke hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
               <Icon name="trash" className="h-3.5 w-3.5" />
             </button>
           </span>
@@ -530,19 +548,20 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
             {tr('of')} <strong className="font-semibold text-ink">{formatMetricValue(row, row.target_value)}</strong>
           </span>
         </div>
+        {/* NO PACE HAIRLINE INSIDE THE BAR (28 Sep 2026). Ethan: "there's a
+            weird black line in it". Where the period has got to is said in
+            words under the bar instead, and drawn properly in the detail. */}
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-cloud">
           <div
-            className={cx('h-full rounded-full transition-[width] duration-700 ease-out', style.bar)}
-            style={{ width: `${fillPct}%` }}
+            className={cx('kpi-fill h-full rounded-full', style.bar)}
+            style={{ width: `${Math.max(fillPct > 0 ? 3 : 0, fillPct)}%` }}
           />
-          {/* Where the quarter itself has got to, as a thin marker against the
-              bar - what "on pace" is being judged against, made visible. */}
-          {progress > 0 && progress < 1 && (
-            <div className="relative -mt-2 h-2" aria-hidden>
-              <div className="absolute top-0 h-2 w-px bg-ink/25" style={{ left: `${Math.round(progress * 100)}%` }} />
-            </div>
-          )}
         </div>
+        {progress > 0 && progress < 1 && status !== 'met' && (
+          <p className="mt-1.5 text-[11px] text-gray-400">
+            {tr('{p}% of the way through', { p: Math.round(progress * 100) })} · {tr('pace {n}', { n: formatMetricValue(row, Math.round(row.target_value * progress)) })}
+          </p>
+        )}
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
@@ -550,9 +569,9 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete }) {
           {tr(style.label)}
         </span>
         <span className="flex min-w-0 items-center gap-2">
-          <span className="text-xs font-semibold tabular-nums text-gray-400">{fillPct}%</span>
+          <span className="text-xs font-semibold tabular-nums text-gray-400">{Math.round(pct * 100)}%</span>
           {row.creator && (
-            <Link to={`/profile/${row.creator.id}`} title={`${tr('Set by')} ${row.creator.name}`} className="flex min-w-0 items-center gap-1.5 rounded-full bg-cloud py-0.5 pl-0.5 pr-2 transition-colors hover:bg-brand-tint">
+            <Link to={`/profile/${row.creator.id}`} onClick={(e) => e.stopPropagation()} title={`${tr('Set by')} ${row.creator.name}`} className="flex min-w-0 items-center gap-1.5 rounded-full bg-cloud py-0.5 pl-0.5 pr-2 transition-colors hover:bg-brand-tint">
               <Avatar src={row.creator.photo_url} name={row.creator.name} size="xs" />
               <span className="truncate text-[11px] font-medium text-smoke">{row.creator.name?.split(' ')[0]}</span>
             </Link>

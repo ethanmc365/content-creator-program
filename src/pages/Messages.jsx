@@ -1954,7 +1954,10 @@ export default function Messages() {
                   // ends.
                   'active:bg-cloud/70',
                   c.id === conversationId && 'bg-brand-tint/50',
-                  convSheet?.id === c.id && '!bg-brand-tint ring-2 ring-inset ring-brand/40',
+                  // ROUNDED WHEN HELD (28 Sep 2026). Ethan: "the corners are
+                  // really square ... should be rounded". The orange hold state
+                  // is a rounded tile, not a full-bleed square band.
+                  convSheet?.id === c.id && '!bg-brand-tint rounded-2xl ring-2 ring-inset ring-brand/40',
                 )}
               >
                 {c.kind === 'group'
@@ -2801,7 +2804,7 @@ export default function Messages() {
           onContextMenu={(e) => { e.preventDefault(); setConvSheet(null) }}
         >
           <div
-            className="absolute w-72 max-w-[calc(100vw-2rem)] origin-top animate-fade-up overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lift"
+            className="absolute w-72 max-w-[calc(100vw-2rem)] origin-top animate-fade-up overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lift"
             style={(() => {
               const a = convSheet._anchor
               const vw = typeof window !== 'undefined' ? window.innerWidth : 400

@@ -29,7 +29,7 @@ export default function EntryPreview({
       {...(onPlay ? { type: 'button', onClick: onPlay, 'aria-label': `Play ${s.profiles?.name || 'this'} entry` } : {})}
       className={cx('group/entry relative block w-full overflow-hidden text-left', className)}
     >
-      <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} className={thumbClassName} />
+      <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} videoId={s.platform === 'Facebook' ? s.platform_video_id : undefined} className={thumbClassName} />
 
       {/* A scrim so white type reads on any frame, bright beach or dark club. */}
       <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
@@ -38,11 +38,13 @@ export default function EntryPreview({
         <span
           className={cx(
             'pointer-events-none absolute inline-flex items-center gap-1 rounded-full font-bold tabular-nums shadow-card',
-            compact ? 'left-1 top-1 px-1.5 py-0.5 text-[10px]' : 'left-2 top-2 px-2.5 py-1 text-[11px]',
+            // BIGGER ON THE CARD (28 Sep 2026). Ethan: "make the points even
+            // more clear, maybe slightly bigger, on how many points it earned."
+            compact ? 'left-1 top-1 px-1.5 py-0.5 text-[11px]' : 'left-2 top-2 px-3 py-1.5 text-sm sm:text-[15px]',
             points > 0 ? 'bg-brand text-white' : 'bg-white/90 text-smoke',
           )}
         >
-          {!compact && <Icon name="trophy" className="h-3 w-3" />}
+          {!compact && <Icon name="trophy" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           {points > 0 ? `+${points}${compact ? '' : ' pts'}` : compact ? '0' : '0 pts'}
         </span>
       )}

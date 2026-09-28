@@ -74,6 +74,14 @@ const compact = (n) => {
   return String(v)
 }
 
+const ladderCols = (n) => (n <= 1 ? 'grid-cols-1'
+  : n === 2 ? 'grid-cols-2'
+    : n === 3 ? 'grid-cols-3'
+      : n === 4 ? 'grid-cols-2 sm:grid-cols-4'
+        : n <= 6 ? 'grid-cols-3'
+          : n <= 8 ? 'grid-cols-3 sm:grid-cols-4'
+            : 'grid-cols-3 sm:grid-cols-5')
+
 export default function ScoringPanel({ challenge, rules: given }) {
   const tr = useT()
   const mode = scoringMode(challenge.scoring)
@@ -92,9 +100,11 @@ export default function ScoringPanel({ challenge, rules: given }) {
           <Icon name={mode.icon} className="h-5 w-5" />
         </span>
         <div className="min-w-0">
+          {/* THE RULE IS THE TITLE (28 Sep 2026). Ethan: "I wouldn't call it a
+              leaderboard ... just say 'most points at the deadline wins' as the
+              title and remove 'points leaderboard' altogether." */}
           <p className="text-xs font-semibold uppercase tracking-widest text-brand">{tr("How this is won")}</p>
-          <p className="mt-0.5 text-xl font-bold tracking-tight">{mode.label}</p>
-          <p className="mt-1 text-sm text-ink/80">{mode.winner}</p>
+          <p className="mt-0.5 text-xl font-bold leading-snug tracking-tight">{tr(mode.winner.replace(/\.$/, ''))}</p>
         </div>
       </div>
 
@@ -113,7 +123,10 @@ export default function ScoringPanel({ challenge, rules: given }) {
                   under them. Each step is a shade deeper than the last, so the
                   top of the ladder reads as the prize it is; the step number
                   in the corner says the order without a line of copy. */}
-              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {/* THE GRID FOLLOWS THE LADDER (28 Sep 2026): two steps sit side
+                  by side, three in a row, and a long ladder wraps four or five
+                  across, so any number of milestones fills the width. */}
+              <ul className={cx('grid gap-2', ladderCols(perVideo.length))}>
                 {perVideo.map((r, i) => {
                   const heat = perVideo.length > 1 ? i / (perVideo.length - 1) : 1
                   const hot = heat > 0.55
@@ -149,7 +162,7 @@ export default function ScoringPanel({ challenge, rules: given }) {
           {totals.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("Views across all your videos")}</p>
-              <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+              <ul className={cx('grid gap-1.5', ladderCols(totals.length))}>
                 {totals.map((r) => (
                   <li key={r.id} className="flex flex-col items-center justify-center rounded-xl bg-cloud/70 px-2 py-2.5 text-center">
                     <span className="text-[15px] font-bold tabular-nums leading-none text-ink">{compact(r.threshold)}</span>

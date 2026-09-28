@@ -112,7 +112,19 @@ export const PLATFORMS = {
  * @param {string} [thumbnailUrl] the row's stored frame, if it has one
  * @param {string} [className]
  */
-export default function VideoThumb({ url, platform, thumbnailUrl, className }) {
+// FACEBOOK'S OWN PLAYER AS THE COVER (28 Sep 2026). Ethan: "for Facebook, on
+// the scraper, it's not actually pulling the thumbnail for the card." Facebook
+// now shows every server its login page, so there is no frame to fetch and
+// cache. A viewer's own browser IS shown the video, and the embeddable player
+// is the one route Facebook offers other sites on purpose - so a Facebook entry
+// with no stored frame draws that player, still and untouchable, where the
+// picture goes. The card around it stays the button.
+function facebookEmbedSrc(url, videoId) {
+  const href = videoId ? `https://www.facebook.com/reel/${videoId}/` : url
+  return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=320&autoplay=false&mute=true`
+}
+
+export default function VideoThumb({ url, platform, thumbnailUrl, videoId, className }) {
   const plat = platform || detectPlatformFromUrl(url)
   const p = PLATFORMS[plat] || PLATFORMS.Other
   // An admin is the only caller who can reach the Instagram probe. Read here
@@ -199,6 +211,18 @@ export default function VideoThumb({ url, platform, thumbnailUrl, className }) {
                 links, TikTok photo posts and Instagram carousels, which were
                 all six of the ones Ethan could see. What is left is a private
                 post, a deleted one, or a platform none of the routes know. */}
+            {plat === 'Facebook' && url && (
+              <iframe
+                src={facebookEmbedSrc(url, videoId)}
+                title="Facebook video"
+                loading="lazy"
+                tabIndex={-1}
+                aria-hidden
+                scrolling="no"
+                allow="encrypted-media"
+                className="pointer-events-none absolute inset-0 z-[1] h-full w-full border-0 bg-black"
+              />
+            )}
             <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
             <div className="absolute inset-0 flex items-center justify-center">

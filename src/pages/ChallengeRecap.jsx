@@ -6,6 +6,7 @@ import YearInReview from '../components/wrapped/YearInReview'
 import { buildChallengeCards, ChallengeShareCard } from '../components/wrapped/challengeStory'
 import { Card, Eyebrow, Line } from '../components/wrapped/cards'
 import { buildChallengeRecap } from '../lib/challengeRecap'
+import { challengeSpend } from '../lib/challengeSpend'
 import { resolveThumbnail } from '../lib/videoThumbs'
 import Icon from '../components/Icon'
 import BackLink from '../components/BackLink'
@@ -32,8 +33,8 @@ export default function ChallengeRecap() {
     let alive = true
     ;(async () => {
       const [{ data: challenge }, { data: subs }, { data: results }, { data: meRow }] = await Promise.all([
-        supabase.from('challenges').select('id, title, status, scoring, start_date, end_date, prize_amount, prize_currency, community_id').eq('id', id).maybeSingle(),
-        supabase.from('submissions').select('id, creator_id, logged_views, platform, video_url, thumbnail_url, profiles:creator_id(is_test)').eq('challenge_id', id).limit(5000),
+        supabase.from('challenges').select('id, title, status, scoring, start_date, end_date, prize_amount, prize_currency, participation_amount, community_id').eq('id', id).maybeSingle(),
+        supabase.from('submissions').select('id, creator_id, logged_views, platform, video_url, thumbnail_url, submitted_at, profiles:creator_id(is_test)').eq('challenge_id', id).limit(5000),
         supabase.from('results').select('creator_id, rank, final_views, group_id').eq('challenge_id', id),
         supabase.from('profiles').select('id, name, photo_url, country').eq('id', who).maybeSingle(),
       ])
@@ -44,9 +45,17 @@ export default function ChallengeRecap() {
 
       // Rewards: a creator reads their own; an admin previewing reads the
       // creator's through the admin policy.
-      const { data: rewards } = await supabase.from('rewards')
-        .select('amount, currency, reward_type, prize_slot, status')
-        .eq('challenge_id', id).eq('creator_id', who)
+      // THE PRIZE POOL COUNTS THE VOUCHERS (28 Sep 2026). Ethan: "For the
+      // prize pool, it should also include any Tryp.com vouchers so that it
+      // looks even bigger." Same arithmetic as the analytics page's spend
+      // (lib/challengeSpend), from the same standings the payout reads.
+      const [{ data: rewards }, { data: standings }] = await Promise.all([
+        supabase.from('rewards')
+          .select('amount, currency, reward_type, prize_slot, status')
+          .eq('challenge_id', id).eq('creator_id', who),
+        supabase.rpc('challenge_prize_standings', { p_challenge: id }),
+      ])
+      const spend = challengeSpend(challenge, standings || [], 0)
 
       const hidden = new Set((subs || []).filter((s) => s.profiles?.is_test).map((s) => s.creator_id))
       const recap = buildChallengeRecap({ challenge, me: meRow, submissions: subs || [], results: results || [], rewards: rewards || [], hidden })
@@ -58,7 +67,10 @@ export default function ChallengeRecap() {
         v.thumbnail ? v : { ...v, thumbnail: await resolveThumbnail(v.url).catch(() => null) }
       )))
       if (!alive) return
-      setState({ status: 'ready', data: { ...recap, top: withThumbs } })
+      setState({
+        status: 'ready',
+        data: { ...recap, top: withThumbs, prizes: { cash: spend.pot, vouchers: spend.vouchers, voucherCount: spend.voucherCount, total: spend.spend } },
+      })
     })()
     return () => { alive = false }
   }, [id, who, profile?.is_admin])

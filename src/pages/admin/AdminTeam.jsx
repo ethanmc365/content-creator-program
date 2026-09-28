@@ -6,7 +6,7 @@ import { confirm, notice, promptText } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
 import Icon from '../../components/Icon'
 import PeoplePicker from '../../components/network/PeoplePicker'
-import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/roles'
 import { cx } from '../../lib/utils'
 
@@ -36,7 +36,7 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
   return (
     <div className={cx(
       'flex flex-wrap items-center gap-3 rounded-card border bg-white px-5 py-4',
-      lead ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100',
+      'border-gray-100',
     )}>
       <Avatar src={person.photo_url} name={person.name} size="sm" />
       <div className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
             {person.name}
           </Link>
           {isMe && <span className="text-xs text-smoke">(you)</span>}
-          {lead && <Badge tone="brand">{LEAD_TITLE_SHORT}</Badge>}
+          {lead && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-brand">{LEAD_TITLE_SHORT}</span>}
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
           <span className="font-medium text-ink">{person.role_title || permissionLabel(person.platform_role)}</span>
@@ -117,18 +117,24 @@ export default function AdminTeam() {
 
   const viewerIsLead = profile?.platform_role === 'owner'
 
+  // THE TEAM FIRST, EVERYTHING ELSE AFTER (28 Sep 2026). Ethan: "the team
+  // admin panel page is not loading at all ... It did load eventually." The
+  // page waited for all four reads - including every active creator, only
+  // needed once somebody presses Add - before drawing anything. The roster and
+  // the markets draw the page; the people and the member counts fill in behind.
   const load = useCallback(async () => {
-    const [{ data: roster, error }, { data: people }, { data: mk }, { data: mem }] = await Promise.all([
+    const peopleP = supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
+      .eq('status', 'active').eq('is_test', false).order('name').limit(1000)
+    const memP = supabase.from('community_members').select('community_id, profile_id').eq('status', 'active').limit(5000)
+    const [{ data: roster, error }, { data: mk }] = await Promise.all([
       supabase.rpc('team_roster'),
-      supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
-        .eq('status', 'active').eq('is_test', false).order('name').limit(1000),
       supabase.from('communities').select('id, name, slug, kind').eq('kind', 'chapter').is('retired_at', null).order('name'),
-      supabase.from('community_members').select('community_id, profile_id').eq('status', 'active').limit(5000),
     ])
     if (error) { notice(`Could not load the team: ${error.message}`); setTeam([]); return }
     setTeam(roster || [])
-    setEveryone(people || [])
     setMarkets(mk || [])
+    const [{ data: people }, { data: mem }] = await Promise.all([peopleP, memP])
+    setEveryone(people || [])
     const byMarket = {}
     for (const r of mem || []) (byMarket[r.community_id] ||= new Set()).add(r.profile_id)
     setMemberIds(byMarket)
@@ -280,7 +286,8 @@ export default function AdminTeam() {
   // Test and sandbox accounts (the demo login) are on the roster but not on
   // the team anybody means; `everyone` is the real, non-test people.
   const real = new Set(everyone.map((p) => p.id))
-  const people = (team || []).filter((t) => real.has(t.id) || t.id === profile?.id)
+  // Until the people arrive, trust the roster (it already leaves test accounts out).
+  const people = (team || []).filter((t) => !everyone.length || real.has(t.id) || t.id === profile?.id)
   const lead = people.find((t) => t.platform_role === 'owner')
   // THE WORLDWIDE TEAM IS WHO RUNS NO ONE MARKET (26 Sep 2026). Ethan: "If
   // they're in a market ... then they shouldn't be showing up in the
@@ -326,9 +333,7 @@ export default function AdminTeam() {
           {/* ---- Worldwide: the lead and the Tryp.com team ---- */}
           <section>
             <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white">
-                <Icon name="globe" className="h-4 w-4" />
-              </span>
+              <Icon name="globe" className="h-6 w-6 shrink-0 text-brand" />
               <div>
                 <h2 className="text-lg font-semibold leading-tight">Worldwide team</h2>
                 <p className="text-xs text-smoke">Admins who cover every market rather than running one.</p>
@@ -358,9 +363,7 @@ export default function AdminTeam() {
           {/* ---- One card per market ---- */}
           <section>
             <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cloud text-brand">
-                <Icon name="flag" className="h-4 w-4" />
-              </span>
+              <Icon name="flag" className="h-6 w-6 shrink-0 text-brand" />
               <div>
                 <h2 className="text-lg font-semibold leading-tight">Markets</h2>
                 <p className="text-xs text-smoke">Who runs each market. A manager's reach stops at the market they manage.</p>
@@ -376,7 +379,7 @@ export default function AdminTeam() {
                     className="animate-fade-up flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card"
                   >
                     <div className="flex items-center gap-3 px-5 py-4">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cloud text-xl leading-none">
+                      <span aria-hidden className="shrink-0 text-[2rem] leading-none drop-shadow-sm">
                         {MARKET_FLAG[m.slug] || '🌍'}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -405,7 +408,6 @@ export default function AdminTeam() {
                             <div className="min-w-0 flex-1">
                               <Link to={`/profile/${p.id}`} className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
                                 <span className="truncate">{p.name}</span>
-                                {p.platform_role === 'owner' && <Badge tone="brand">{LEAD_TITLE_SHORT}</Badge>}
                               </Link>
                               <p className="truncate text-xs text-smoke">{p.role_title || `${m.name} manager`}</p>
                             </div>

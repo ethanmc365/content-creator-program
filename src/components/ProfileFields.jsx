@@ -13,6 +13,7 @@ import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Spinner, Select } from './ui'
 import Icon from './Icon'
 import AutoTextarea from './AutoTextarea'
+import PhotoCropper from './PhotoCropper'
 import SocialMark, { BRAND_COLOR } from './SocialMark'
 import { useT } from '../lib/i18n'
 
@@ -72,6 +73,11 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
   // cleanup can revoke it without making it an effect dependency.
   const [preview, setPreview] = useState('')
   const previewRef = useRef('')
+  // THE CROP STEP (28 Sep 2026). The picked photo, decoded (HEIC included), is
+  // shown in PhotoCropper first; only the square the creator settles on is
+  // uploaded. `cropSrc` is an object URL for the cropper and is revoked when it
+  // closes.
+  const [cropSrc, setCropSrc] = useState('')
 
   const dropPreview = useCallback(() => {
     if (previewRef.current) {
@@ -94,34 +100,39 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
     if (file.size > 15 * 1024 * 1024) return setError('Please choose an image under 15MB.')
     setError('')
 
-    // SHOW IT NOW. A HEIC will not render in most browsers, so this is a
-    // best-effort preview: if the browser cannot decode it the old avatar
-    // stays and the progress ring still says something is happening.
-    dropPreview()
-    const localUrl = URL.createObjectURL(file)
-    previewRef.current = localUrl
-    setPreview(localUrl)
-
-    const isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
-    setBusy(isHeic ? 'reading' : 'uploading')
-
-    let compressed
+    setBusy('reading')
+    let decoded
     try {
-      // 1080px WebP (26 Sep 2026), not 512: the profile header, the photo viewer
-      // and a 3x phone screen all draw the ORIGINAL bigger than 512, which is
-      // why avatars looked soft beside the 1280px travel photos. Small places
-      // are served resized by thumbUrl, so the bigger original costs storage
-      // (~100 kB) and never bandwidth in a list.
-      compressed = await compressImage(file, { maxDim, quality: 0.85 })
+      // Decoded big enough to zoom into: the crop is drawn from this, so it
+      // keeps twice the final size (or 2048px) of detail to crop into.
+      decoded = await compressImage(file, { maxDim: Math.max(2048, maxDim * 2), quality: 0.92 })
     } catch (err) {
-      setError(err.message); setBusy(''); dropPreview(); setPreview('')
+      setError(err.message); setBusy('')
       return
     }
+    setBusy('')
+    setCropSrc(URL.createObjectURL(decoded))
+  }
+
+  function closeCrop() {
+    setCropSrc((cur) => {
+      if (cur) { try { URL.revokeObjectURL(cur) } catch { /* gone */ } }
+      return ''
+    })
+  }
+
+  async function uploadCropped(blob) {
+    // SHOW IT NOW: the square they chose, before the upload finishes.
+    dropPreview()
+    const localUrl = URL.createObjectURL(blob)
+    previewRef.current = localUrl
+    setPreview(localUrl)
+    closeCrop()
     setBusy('uploading')
-    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
     const path = `${user.id}/avatar-${Date.now()}.${ext}` // unique name busts caches
     try {
-      const url = await uploadFile('avatars', path, compressed, compressed.type || 'image/jpeg')
+      const url = await uploadFile('avatars', path, blob, blob.type || 'image/jpeg')
       onUploaded(url)
       // The remote URL is now the source of truth. The preview is kept for one
       // more beat and dropped by the effect below once the real image has
@@ -198,6 +209,13 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
         </button>
       )}
       {error && <p className="max-w-xs text-center text-xs text-red-600">{error}</p>}
+      <PhotoCropper
+        open={!!cropSrc}
+        src={cropSrc}
+        outputSize={maxDim}
+        onCancel={closeCrop}
+        onDone={uploadCropped}
+      />
     </div>
   )
 }

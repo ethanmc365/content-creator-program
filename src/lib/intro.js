@@ -20,6 +20,8 @@
 //     next: { text, iso },                where they are headed
 //     ask, fact,                          two lines in their own words
 //     since, platform, fav, hack, local   added 26 Sep 2026
+//     about, more                         added 28 Sep 2026: free text, in
+//                                         their own words, line breaks kept
 //     visited: [{ name, iso }],           from the profile's countries
 //     dreams:  [{ name, iso }],           from the profile's bucket list
 //     socials: { instagram, tiktok, youtube, facebook },
@@ -47,6 +49,11 @@ export const INTRO_WANTS = [
 ]
 
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
+// A paragraph they wrote: spaces tidied, their line breaks kept (at most one
+// blank line in a row), capped so one intro cannot become an essay.
+const paragraph = (s, max = 1200) => String(s ?? '')
+  .split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n')
+  .replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
 
 /** The first country named anywhere in a sentence ("Lisbon in March" -> null,
  *  "Thailand in October" -> TH), for a flag beside the next trip. */
@@ -101,6 +108,8 @@ export function buildIntro(profile = {}, form = {}, extras = {}) {
     fav: clean(form.fav) || null,
     hack: clean(form.hack) || null,
     local: clean(form.local) || null,
+    about: paragraph(form.about) || null,
+    more: paragraph(form.more) || null,
     visited: visited.slice(0, 40),
     dreams: dreams.slice(0, 12),
     socials: {
@@ -124,6 +133,7 @@ export function introToText(intro) {
   const lines = []
   const where = [intro.city, intro.country].filter(Boolean).join(', ')
   lines.push(`👋 ${intro.first} here${where ? `, based in ${where}` : ''}.`)
+  if (intro.about) lines.push(intro.about)
   if (intro.makes?.length) lines.push(`I make: ${intro.makes.join(', ')}.`)
   if (intro.next?.text) lines.push(`Next trip: ${intro.next.text}.`)
   if (intro.ask) lines.push(`Ask me about: ${intro.ask}.`)
@@ -134,6 +144,7 @@ export function introToText(intro) {
   if (intro.hack) lines.push(`Best travel hack: ${intro.hack}.`)
   if (intro.local) lines.push(`Favourite spot at home: ${intro.local}.`)
   if (intro.wants?.length) lines.push(`Hoping to find: ${intro.wants.join(', ')}.`)
+  if (intro.more) lines.push(intro.more)
   return lines.join('\n')
 }
 

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar } from './ui'
+import { Avatar, Modal } from './ui'
+import Flame from './games/Flame'
 import Icon from './Icon'
 import SocialMark from './SocialMark'
 import { podiumTier, ordinalFor, placeNumber } from '../lib/podiumTiers'
@@ -66,8 +68,13 @@ export default function ChallengeLeaderboard({
   rows = [], prizes = [], meId = null, participation = null, subCountByCreator = {},
   platformsFor = () => [], linkProfiles = true, wide = false, scoreLabel = 'views',
   startAt = 1, className = '',
+  // POSTING STREAKS AND VIDEO COUNTS (28 Sep 2026). `streaks` is creatorId ->
+  // { weeks, live } from lib/postingStreak; drawn only while the challenge is
+  // running (`showStreaks`), because a streak is about what happens next.
+  streaks = null, showStreaks = false, showVideos = false,
 }) {
   const tr = useT()
+  const [aboutStreaks, setAboutStreaks] = useState(false)
 
   // The paid places, in order, ignoring the participation line (which is not a
   // rank and has its own row at the foot).
@@ -141,6 +148,23 @@ export default function ChallengeLeaderboard({
         const togo = row && participation?.threshold && !reached(row) && partScore(row) > 0
           && !(participation.scope === 'outside_prizes' && prizeAt.has(rank))
           ? participation.threshold - partScore(row) : null
+        const vids = subCountByCreator[row?.creator_id] || 0
+        const st = showStreaks && row ? streaks?.get(row.creator_id) : null
+        const streakChip = (small) => st?.weeks > 0 && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAboutStreaks(true) }}
+            title={tr('{n}-week posting streak. What is this?', { n: st.weeks })}
+            className={cx(
+              'inline-flex shrink-0 items-center gap-0.5 rounded-full font-bold tabular-nums transition-transform duration-200 hover:-translate-y-0.5',
+              st.live ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
+              small ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]',
+            )}
+          >
+            <Flame className={small ? 'h-3.5 w-3.5' : 'h-4 w-4'} state={st.live ? 'lit' : 'ember'} />
+            {st.weeks}{small ? tr('w') : ` ${st.weeks === 1 ? tr('week') : tr('weeks')}`}
+          </button>
+        )
         const who = row && (
           <>
             <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="sm" />
@@ -149,6 +173,12 @@ export default function ChallengeLeaderboard({
                 {row.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">{tr('(you)')}</span>}
               </span>
               {phonePrize}
+              {(showVideos || st?.weeks > 0) && (
+                <span className={cx('mt-0.5 flex items-center gap-1.5 text-[11px] text-smoke', wide ? 'hidden' : 'sm:hidden')}>
+                  {showVideos && vids > 0 && <span className="tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>}
+                  {streakChip(true)}
+                </span>
+              )}
               {hasVoucher && (
                 <span className={cx('mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700', wide ? 'hidden' : 'sm:hidden')}>
                   <Icon name="ticket" className="h-3 w-3 shrink-0" /> {participation.prize}
@@ -248,6 +278,20 @@ export default function ChallengeLeaderboard({
               )}
             </span>
 
+            {/* VIDEOS POSTED AND THE STREAK, a column of their own from a
+                tablet up. Ethan: "we have a lot of space here on that
+                leaderboard". */}
+            {(showVideos || showStreaks) && (
+              <span className={cx('w-24 shrink-0 flex-col items-end gap-1', wide ? 'flex' : 'hidden sm:flex')}>
+                {row && showVideos && (
+                  <span className="text-xs font-semibold tabular-nums text-ink">
+                    {vids} <span className="font-normal text-smoke">{vids === 1 ? tr('video') : tr('videos')}</span>
+                  </span>
+                )}
+                {row && streakChip(false)}
+              </span>
+            )}
+
             {/* Only the platforms this creator actually submitted on, in the
                 platform's own colour - the grey set read as "unavailable". */}
             <span className={cx(
@@ -288,6 +332,33 @@ export default function ChallengeLeaderboard({
           </div>
         )
       })}
+      <Modal open={aboutStreaks} onClose={() => setAboutStreaks(false)} title={tr('Posting streaks')}>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card">
+            <Flame className="h-12 w-12 shrink-0" tone="warm" sparks />
+            <p className="text-sm font-medium leading-relaxed">
+              {tr('Post at least one video every 7 days and your streak grows by a week.')}
+            </p>
+          </div>
+          <ul className="space-y-2.5 text-sm text-ink/85">
+            <li className="flex gap-2.5">
+              <Flame className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>{tr('A lit flame means you have posted in the last 7 days.')}</span>
+            </li>
+            <li className="flex gap-2.5">
+              <Flame className="mt-0.5 h-5 w-5 shrink-0" state="ember" />
+              <span>{tr('An unlit flame means your streak is still alive, but you need to post this week to keep it.')}</span>
+            </li>
+            <li className="flex gap-2.5">
+              <Icon name="refresh" className="mt-0.5 h-5 w-5 shrink-0 text-smoke" />
+              <span>{tr('Miss a whole week and it starts again from your next video.')}</span>
+            </li>
+          </ul>
+          <p className="rounded-xl bg-cloud/70 px-4 py-3 text-xs text-smoke">
+            {tr('Streaks count this challenge only, and show while it is running.')}
+          </p>
+        </div>
+      </Modal>
     </div>
   )
 }

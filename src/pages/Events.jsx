@@ -638,7 +638,7 @@ export default function Events() {
                       </span>
                     )}
                   </span>
-                  <span className="hidden text-gray-400 sm:inline">{tr("Arrow keys change month · T for today")}</span>
+                  <span className="hidden text-gray-400 sm:inline">{tr("Swipe with two fingers or use the arrow keys to change month")}</span>
                   <span className="text-gray-400 sm:hidden">{tr("Swipe to change month")}</span>
                 </p>
 
@@ -847,9 +847,43 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // The arrows stay. The guard is that the gesture must be more horizontal than
 // vertical AND clear 45px, or every attempt to scroll the page past the grid
 // would jump a month.
+//
+// AND A TWO-FINGER SWIPE ON A TRACKPAD (28 Sep 2026). Ethan: "whenever I swipe
+// with two fingers on my Mac, I want it to move the calendar to the next
+// month." A trackpad swipe arrives as horizontal `wheel` events. They are added
+// up until they clear a threshold, then the month turns once and the gesture is
+// spent until the fingers stop (a quiet gap), so one swipe is one month however
+// long the momentum tail runs. `overscroll-behavior-x` stops Safari reading the
+// same swipe as "go back a page".
 function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, liveIds, onSwipe }) {
   const startRef = useRef(null)
   const [drag, setDrag] = useState(0)
+  const boxRef = useRef(null)
+  const swipeRef = useRef(onSwipe)
+  useEffect(() => { swipeRef.current = onSwipe }, [onSwipe])
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return undefined
+    let sum = 0
+    let spent = false
+    let quiet = null
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) return
+      e.preventDefault()
+      clearTimeout(quiet)
+      quiet = setTimeout(() => { sum = 0; spent = false; setDrag(0) }, 180)
+      if (spent) return
+      sum += e.deltaX
+      setDrag(Math.max(-60, Math.min(60, -sum * 0.6)))
+      if (Math.abs(sum) > 70) {
+        spent = true
+        setDrag(0)
+        swipeRef.current(sum > 0 ? 1 : -1)
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(quiet) }
+  }, [])
 
   const onTouchStart = (e) => {
     const t = e.touches[0]
@@ -890,7 +924,10 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
 
   return (
     <div
-      className="overflow-hidden rounded-card border border-gray-100 shadow-card"
+      ref={boxRef}
+      // `touch-action: pan-y`: a vertical drag still scrolls the page, and a
+      // sideways one is handed to the swipe below instead of to the browser.
+      className="overflow-hidden rounded-card border border-gray-100 bg-white p-1 shadow-card [overscroll-behavior-x:contain] [touch-action:pan-y] sm:p-1.5"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -899,15 +936,21 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
       // makes the gesture discoverable: the page answers before you commit.
       style={drag ? { transform: `translateX(${drag * 0.35}px)` } : undefined}
     >
-      <div className="grid grid-cols-7 border-b border-gray-100 bg-cloud/60">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-          <div key={d} className="py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-smoke">
+          <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-widest text-smoke">
             <span className="hidden sm:inline">{d}</span>
             <span className="sm:hidden">{d[0]}</span>
           </div>
         ))}
       </div>
-      <div className={cx('grid grid-cols-7 gap-px bg-gray-100', !drag && 'transition-transform duration-300 ease-out')}>
+      {/* ROUNDED DAY TILES ON A WHITE CARD (28 Sep 2026), not squares on a
+          grey grid. Ethan: "I would round the corners ... for those ones that
+          have events", and on a phone the grid looked "compact, a bit
+          squared". Each day is its own rounded tile with a small gap, so a
+          busy day is an orange rounded tile and the month reads as a set of
+          days rather than a table. */}
+      <div className={cx('grid grid-cols-7 gap-1 sm:gap-1.5', !drag && 'transition-transform duration-300 ease-out')}>
         {days.map((day) => {
           const list = eventsOn(day)
           const selected = selectedDay && isSameDay(day, selectedDay)
@@ -929,11 +972,11 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
               // brand gradient with the first title on them at every width;
               // empty days stay white, travelling days keep their wash.
               className={cx(
-                'group relative flex min-h-[72px] flex-col items-center gap-1 p-1.5 transition-all duration-150 sm:min-h-[96px] sm:gap-1.5 sm:p-2',
-                'hover:z-10 active:scale-[0.97]',
+                'group relative flex min-h-[58px] flex-col items-center gap-0.5 overflow-hidden rounded-xl p-1 transition-all duration-200 sm:min-h-[92px] sm:gap-1.5 sm:rounded-2xl sm:p-2',
+                'hover:z-10 active:scale-[0.96] hoverable:hover:-translate-y-0.5',
                 busy
-                  ? cx('bg-gradient-to-br text-white hover:brightness-105', outside ? 'from-brand/60 to-brand-light/60' : 'from-brand to-brand-light')
-                  : cx('hover:bg-brand-tint/40', away ? 'bg-brand-tint/50' : outside ? 'bg-cloud/30' : 'bg-white'),
+                  ? cx('bg-gradient-to-br text-white shadow-[0_6px_16px_-8px_rgba(217,68,7,0.7)] hover:brightness-105', outside ? 'from-brand/55 to-brand-light/55' : 'from-brand to-brand-light')
+                  : cx('hover:bg-brand-tint/50', away ? 'bg-brand-tint/60' : outside ? 'bg-transparent' : 'bg-cloud/70'),
                 selected && 'z-10',
               )}
             >
@@ -963,16 +1006,16 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
                 <span
                   aria-hidden
                   className={cx(
-                    'pointer-events-none absolute inset-[3px] rounded-xl border-2',
+                    'pointer-events-none absolute inset-0 rounded-[inherit] border-2',
                     busy ? 'border-white/90' : 'border-brand bg-white shadow-[0_4px_14px_-4px_rgba(217,68,7,0.45)]',
                   )}
                 />
               )}
               {/* The travelling wash gets a hairline at the top of the cell so a
                   run of days reads as one stay rather than six tinted squares. */}
-              {away && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand-light/70" aria-hidden />}
+              {away && <span className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-brand-light/70" aria-hidden />}
               <span className={cx(
-                'relative flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums transition-all duration-200',
+                'relative flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-all duration-200 sm:h-7 sm:w-7 sm:text-xs',
                 busy
                   ? (today ? 'bg-white text-brand shadow-card' : 'text-white')
                   : today ? 'bg-brand text-white shadow-card' : outside ? 'text-gray-300' : 'text-ink group-hover:bg-white',

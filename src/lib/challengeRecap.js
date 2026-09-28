@@ -30,7 +30,7 @@ export function topPercent(rank, field) {
  * @param {object} input.challenge   the challenge row
  * @param {object} input.me          { id, name, photo_url, country }
  * @param {Array}  input.submissions every entry in the challenge
- *                                   { id, creator_id, logged_views, platform, video_url, thumbnail_url }
+ *                                   { id, creator_id, logged_views, platform, video_url, thumbnail_url, submitted_at }
  * @param {Array}  input.results     { creator_id, rank, final_views, group_id }
  * @param {Array}  input.rewards     MY rewards in this challenge { amount, currency, reward_type, prize_slot }
  * @param {Set}    [input.hidden]    creator ids to leave out of the field (test accounts)
@@ -73,6 +73,24 @@ export function buildChallengeRecap({ challenge, me, submissions = [], results =
     }))
 
   const communityViews = entries.reduce((sum, s) => sum + num(s.logged_views), 0)
+
+  // FACTS WORTH A LINE (28 Sep 2026). Ethan: "add in some more analytics and
+  // cool facts about the challenge". Each is null when it would not be true or
+  // not be flattering enough to say.
+  const best = top[0]?.views || 0
+  const allViews = entries.map((s) => num(s.logged_views))
+  const beaten = best > 0 ? allViews.filter((v) => v < best).length : 0
+  const bestBeatPct = best > 0 && entries.length > 1 ? Math.round((beaten / (entries.length - 1)) * 100) : null
+  const startMs = challenge.start_date ? Date.parse(challenge.start_date) : null
+  const firstMine = mine.map((s) => Date.parse(s.submitted_at)).filter(Number.isFinite).sort((a, b) => a - b)[0]
+  const firstDay = startMs && firstMine ? Math.max(1, Math.floor((firstMine - startMs) / 86400000) + 1) : null
+  const byPlatform = new Map()
+  for (const s of mine) byPlatform.set(s.platform, (byPlatform.get(s.platform) || 0) + num(s.logged_views))
+  const bestPlatform = [...byPlatform.entries()].sort((a, b) => b[1] - a[1])[0]
+  const communityPlatforms = new Map()
+  for (const s of entries) communityPlatforms.set(s.platform, (communityPlatforms.get(s.platform) || 0) + 1)
+  const topPlatform = [...communityPlatforms.entries()].sort((a, b) => b[1] - a[1])[0]
+  const biggest = Math.max(0, ...allViews)
   const days = challenge.start_date && challenge.end_date
     ? Math.max(1, Math.round((Date.parse(challenge.end_date) - Date.parse(challenge.start_date)) / 86400000))
     : null
@@ -105,6 +123,10 @@ export function buildChallengeRecap({ challenge, me, submissions = [], results =
       best: top[0]?.views || 0,
       platforms,
       share: communityViews > 0 ? Math.round((views / communityViews) * 1000) / 10 : null,
+      avg: mine.length ? Math.round(views / mine.length) : 0,
+      bestBeatPct: bestBeatPct != null && bestBeatPct >= 50 ? bestBeatPct : null,
+      firstDay,
+      bestPlatform: bestPlatform && bestPlatform[1] > 0 ? { name: bestPlatform[0], views: bestPlatform[1] } : null,
     },
     top,
     won,
@@ -113,6 +135,9 @@ export function buildChallengeRecap({ challenge, me, submissions = [], results =
       creators: creators.size,
       videos: entries.length,
       views: communityViews,
+      topPlatform: topPlatform ? { name: topPlatform[0], videos: topPlatform[1] } : null,
+      biggest,
+      avg: entries.length ? Math.round(communityViews / entries.length) : 0,
     },
   }
 }

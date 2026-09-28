@@ -67,7 +67,11 @@ export function SandboxLine({ className = '' }) {
 export function Panel({ title, hint, action, children, className = '', tone = 'card', i = 0 }) {
   return (
     <section
-      className={cx('lab-in', tone === 'card' ? 'card !p-6 sm:!p-7' : '', className)}
+      // `relative focus-within:z-30`: every panel's entrance leaves a transform
+      // on it, which makes each one its own layer - so a dropdown opened in one
+      // panel was drawn UNDER the next (28 Sep 2026, "Whose recap" was stuck
+      // behind the panel below). The panel you are using comes to the front.
+      className={cx('lab-in relative focus-within:z-30', tone === 'card' ? 'card !p-6 sm:!p-7' : '', className)}
       style={{ '--lab-i': Math.min(i, 3) }}
     >
       {(title || action) && (

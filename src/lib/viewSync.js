@@ -48,7 +48,7 @@ export const SYNC_ERRORS = {
   },
   blocked: {
     label: 'Platform refused',
-    hint: 'The platform served a check page instead of the video. It usually clears by itself on the next run.',
+    hint: 'The platform served a login or check page instead of the video. On TikTok and YouTube it usually clears on the next run. Facebook now does it every time, so type Facebook views in by hand.',
   },
   fetch_failed: {
     label: 'Could not reach it',

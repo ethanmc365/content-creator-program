@@ -7,7 +7,8 @@ import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import IntroCard from './IntroCard'
-import { INTRO_MAKES, INTRO_WANTS, INTRO_SINCE, INTRO_PLATFORMS, buildIntro, introToText } from '../../lib/intro'
+import AutoTextarea from '../AutoTextarea'
+import { INTRO_WANTS, INTRO_SINCE, INTRO_PLATFORMS, buildIntro, introToText } from '../../lib/intro'
 import { airport } from '../../lib/airports'
 import { COUNTRIES } from '../../lib/countries'
 
@@ -140,7 +141,6 @@ function Field({ label, hint, children }) {
   )
 }
 
-const MAKES_MAX = 5
 const WANTS_MAX = 3
 
 // THE FORM ITSELF, AS A DIALOG. See IntroGate below for who opens it and when.
@@ -148,7 +148,6 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   const tr = useT()
   const { profile, user } = useAuth()
   const [busy, setBusy] = useState(false)
-  const [ownMakes, setOwnMakes] = useState([])
   const [ownWants, setOwnWants] = useState([])
   // WHAT THE PROFILE ALREADY KNOWS, fetched when the card opens: the stats
   // on the card (flights logged, challenge videos) and a next trip taken
@@ -167,6 +166,8 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     fav: '',
     hack: '',
     local: '',
+    about: '',
+    more: '',
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
@@ -215,7 +216,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   // is drawn beside the form - the same component the room uses.
   const intro = useMemo(() => buildIntro(profile || {}, form, extras), [profile, form, extras])
 
-  const enough = form.where.trim() || form.makes.length > 0
+  const enough = form.where.trim() || form.about.trim()
 
   async function post() {
     if (!enough || busy) return
@@ -243,21 +244,22 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-5">
           <Field label={tr("Where are you based?")}>
-            <input className="input text-base sm:text-sm" value={form.where}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.where}
               placeholder={tr("Manchester, UK")}
               onChange={(e) => set({ where: e.target.value })} />
           </Field>
 
-          <Field label={tr("What do you make?")} hint={`Pick up to ${MAKES_MAX}, or add your own.`}>
-            <Chips
-              options={[...INTRO_MAKES, ...ownMakes]}
-              value={form.makes}
-              onToggle={(o) => toggle('makes', o, MAKES_MAX)}
-              max={MAKES_MAX}
-            />
-            <CustomChip
-              disabled={form.makes.length >= MAKES_MAX}
-              onAdd={(v) => addOwn('makes', setOwnMakes, v, MAKES_MAX)}
+          {/* IN YOUR OWN WORDS (28 Sep 2026). Ethan: "add the space for them
+              to write more about themselves, like adding a bit about their
+              hobbies ... I would remove the 'What do you make?' section." */}
+          <Field label={tr("A bit about you")} hint={tr("What you do, what you love, your hobbies. Write as much as you like.")}>
+            <AutoTextarea
+              className="input resize-none text-base leading-relaxed sm:text-sm"
+              minRows={3}
+              maxLength={1200}
+              value={form.about}
+              placeholder={tr("I film budget city breaks around my 9 to 5, and when I'm not travelling I'm climbing or hunting down the best coffee in town.")}
+              onChange={(e) => set({ about: e.target.value })}
             />
           </Field>
 
@@ -270,37 +272,37 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
           </Field>
 
           <Field label={tr("Where are you headed next?")}>
-            <input className="input text-base sm:text-sm" value={form.next}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.next}
               placeholder={tr("Lisbon, Portugal in March")}
               onChange={(e) => set({ next: e.target.value })} />
           </Field>
 
           <Field label={tr("Your best trip so far")}>
-            <input className="input text-base sm:text-sm" value={form.fav}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.fav}
               placeholder={tr("Three days in Porto for under 200")}
               onChange={(e) => set({ fav: e.target.value })} />
           </Field>
 
           <Field label={tr("One thing people should ask you about")}>
-            <input className="input text-base sm:text-sm" value={form.ask}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.ask}
               placeholder={tr("Finding cheap flights out of Dublin")}
               onChange={(e) => set({ ask: e.target.value })} />
           </Field>
 
           <Field label={tr("Your best travel hack")}>
-            <input className="input text-base sm:text-sm" value={form.hack}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.hack}
               placeholder={tr("Search one-way flights both ways, then book the cheaper pair")}
               onChange={(e) => set({ hack: e.target.value })} />
           </Field>
 
           <Field label={tr("Your favourite spot in your home town")}>
-            <input className="input text-base sm:text-sm" value={form.local}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.local}
               placeholder={tr("The rooftop bar above the old market")}
               onChange={(e) => set({ local: e.target.value })} />
           </Field>
 
           <Field label={tr("A hidden talent or a fun fact about you")}>
-            <input className="input text-base sm:text-sm" value={form.fact}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.fact}
               placeholder={tr("I can name any capital city in under a second")}
               onChange={(e) => set({ fact: e.target.value })} />
           </Field>
@@ -315,6 +317,17 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
             <CustomChip
               disabled={form.wants.length >= WANTS_MAX}
               onAdd={(v) => addOwn('wants', setOwnWants, v, WANTS_MAX)}
+            />
+          </Field>
+
+          <Field label={tr("Anything else you want to share?")} hint={tr("A project you're working on, a question for the community, something you're proud of.")}>
+            <AutoTextarea
+              className="input resize-none text-base leading-relaxed sm:text-sm"
+              minRows={2}
+              maxLength={1200}
+              value={form.more}
+              placeholder={tr("I'm planning a Balkans road trip next spring and would love to team up with anyone heading that way.")}
+              onChange={(e) => set({ more: e.target.value })}
             />
           </Field>
         </div>
@@ -336,7 +349,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
             </button>
           </div>
           {!enough && (
-            <p className="mt-2 text-xs text-smoke">{tr("Add where you are based, or pick what you make.")}</p>
+            <p className="mt-2 text-xs text-smoke">{tr("Add where you are based, or a bit about you.")}</p>
           )}
         </div>
       </div>
@@ -423,23 +436,27 @@ export default function IntroInvite({ community, channel, canPost = true }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={cx(
-          'group mb-2 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5',
-          posted
-            ? 'border border-gray-200 bg-white hover:border-brand/40'
-            : 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card',
-        )}
+        // ALWAYS MOVING, ALWAYS COLOURFUL (28 Sep 2026). Ethan: "improve the
+        // UI if it maybe had some constant animations. Maybe make it a little
+        // bit colourful so it stands out." A warm gradient that drifts, a pass
+        // of light across it and twinkling sparkles; the same whether or not
+        // you have posted before. Decoration only - it stops under reduced
+        // motion and nothing moves position.
+        className="intro-cta group relative mb-2 flex w-full items-center gap-2.5 overflow-hidden rounded-xl px-3 py-2.5 text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 active:scale-[0.99]"
       >
-        <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', posted ? 'bg-brand-tint text-brand' : 'bg-white/20 text-white')}>
+        <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/25 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)]">
           <Icon name="sparkles" className="hook-sparkles h-4 w-4" />
         </span>
-        <span className={cx('min-w-0 flex-1 text-[13px] font-semibold', posted ? 'text-ink' : 'text-white')}>
+        <span className="relative min-w-0 flex-1 text-[13px] font-semibold">
           {posted ? tr("Post a new intro") : tr("Introduce yourself")}
-          <span className={cx('hidden font-normal sm:inline', posted ? 'text-smoke' : 'text-white/85')}>
+          <span className="hidden font-normal text-white/90 sm:inline">
             {posted ? ` · ${tr('share what is new with you')}` : ` · ${tr('answer a few questions and we will write it')}`}
           </span>
         </span>
-        <Icon name="chevronRight" className={cx('h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5', posted ? 'text-smoke' : 'text-white/80')} />
+        <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/25">
+          <Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </span>
       </button>
 
       <IntroModal

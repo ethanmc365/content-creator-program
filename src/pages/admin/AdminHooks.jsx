@@ -3,9 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Select, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { confirm, notice, promptText } from '../../lib/confirm'
+import { confirm, notice } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
-import { hookTier } from '../../lib/hooks'
+import AutoTextarea from '../../components/AutoTextarea'
 import { cx } from '../../lib/utils'
 import { fetchAll } from '../../lib/fetchAll'
 
@@ -21,12 +21,9 @@ import { fetchAll } from '../../lib/fetchAll'
 // is never dealt. The tier chip is the one hint of how proven a hook is - the
 // creator's button shows none of this.
 
-const TIER_STYLE = {
-  proven: 'bg-brand text-white',
-  validated: 'bg-brand/15 text-brand',
-  promising: 'bg-cloud text-ink',
-  fresh: 'bg-cloud text-smoke',
-}
+// NO TIER CHIPS (28 Sep 2026). Ethan: "I don't like the 'Validated',
+// 'Promising' new headings ... it just adds more clutter." The order still
+// puts the most-used hooks first; nothing is labelled with it.
 
 export default function AdminHooks() {
   const { profile } = useAuth()
@@ -37,6 +34,11 @@ export default function AdminHooks() {
   const [text, setText] = useState('')
   const [family, setFamily] = useState('')
   const [saving, setSaving] = useState(false)
+  // EDITED IN PLACE, IN A BOX THAT GROWS (28 Sep 2026). Ethan: "if a hook is
+  // a bit longer, it's hard to write it because it doesn't really fit in the
+  // box." The one-line prompt dialog is gone; the row itself opens.
+  const [editingId, setEditingId] = useState(null)
+  const [draft, setDraft] = useState('')
 
   const load = useCallback(async () => {
     // PAGED: the API answers at most 1,000 rows and the bank holds ~1,500, so
@@ -97,14 +99,18 @@ export default function AdminHooks() {
     if (error) { notice(error.message); load() }
   }
 
-  async function edit(h) {
-    const next = await promptText('Edit the hook. Keep it short enough to say in the first two seconds.', {
-      title: 'Edit hook', defaultValue: h.text, confirmLabel: 'Save',
-    })
-    if (next === null || next.trim() === h.text) return
-    const { error } = await supabase.from('hooks').update({ text: next.trim() }).eq('id', h.id)
-    if (error) { notice(error.message); return }
-    load()
+  function startEdit(h) {
+    setEditingId(h.id)
+    setDraft(h.text)
+  }
+
+  async function saveEdit(h) {
+    const next = draft.trim().replace(/\s+/g, ' ')
+    setEditingId(null)
+    if (!next || next === h.text) return
+    setRows((cur) => cur.map((x) => (x.id === h.id ? { ...x, text: next } : x)))
+    const { error } = await supabase.from('hooks').update({ text: next }).eq('id', h.id)
+    if (error) { notice(error.message); load() } else toast('Hook saved.')
   }
 
   async function remove(h) {
@@ -114,33 +120,69 @@ export default function AdminHooks() {
     if (error) { notice(error.message); load() }
   }
 
-  const row = (h) => {
-    const tier = hookTier(h.uses)
+  const row = (h, i) => {
+    const editingThis = editingId === h.id
     return (
-      <li key={h.id} className={cx('group flex items-start gap-3 px-4 py-3 sm:px-5', !h.is_active && 'opacity-50')}>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm leading-snug text-ink [overflow-wrap:anywhere]">{h.text}</span>
-          <span className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', TIER_STYLE[tier.key])}>
-              {h.source === 'team' ? 'Team' : tier.label}
+      <li
+        key={h.id}
+        style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }}
+        className={cx(
+          'group animate-fade-up flex items-start gap-3 px-4 py-3.5 transition-colors sm:px-5',
+          !h.is_active && 'opacity-50',
+          editingThis ? 'bg-brand-tint/40' : 'hover:bg-cloud/40',
+        )}
+      >
+        <span aria-hidden className="mt-0.5 select-none font-serif text-2xl font-bold leading-none text-brand/30">&ldquo;</span>
+        {editingThis ? (
+          <form
+            className="min-w-0 flex-1"
+            onSubmit={(e) => { e.preventDefault(); saveEdit(h) }}
+          >
+            <AutoTextarea
+              autoFocus
+              value={draft}
+              minRows={2}
+              maxLength={400}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setEditingId(null)
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(h) }
+              }}
+              className="input no-ios-zoom w-full resize-none text-sm leading-relaxed"
+            />
+            <span className="mt-2 flex items-center gap-2">
+              <button type="submit" className="btn-primary !py-1.5 text-xs">Save</button>
+              <button type="button" onClick={() => setEditingId(null)} className="btn-ghost !py-1.5 text-xs">Cancel</button>
+              <span className="ml-auto text-[11px] tabular-nums text-smoke">{draft.length}/400</span>
             </span>
-            {group === 'all' && <span className="text-[11px] text-smoke">{h.family}</span>}
+          </form>
+        ) : (
+          <button type="button" onClick={() => startEdit(h)} className="min-w-0 flex-1 text-left" title="Edit">
+            <span className="block text-[15px] font-medium leading-snug text-ink [overflow-wrap:anywhere]">{h.text}</span>
+            {(group === 'all' || h.source === 'team') && (
+              <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-smoke">
+                {group === 'all' && <span>{h.family}</span>}
+                {h.source === 'team' && <span className="rounded-full bg-brand-tint px-1.5 py-px font-semibold text-brand">Added by the team</span>}
+              </span>
+            )}
+          </button>
+        )}
+        {!editingThis && (
+          <span className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+            <button type="button" onClick={() => toggle(h)} title={h.is_active ? 'Hide from the button' : 'Put back in the rotation'}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
+              <Icon name={h.is_active ? 'eye' : 'ban'} className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => startEdit(h)} title="Edit"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
+              <Icon name="pencil" className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => remove(h)} title="Delete"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
           </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-0.5">
-          <button type="button" onClick={() => toggle(h)} title={h.is_active ? 'Hide from the button' : 'Put back in the rotation'}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
-            <Icon name={h.is_active ? 'eye' : 'ban'} className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" onClick={() => edit(h)} title="Edit"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
-            <Icon name="pencil" className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" onClick={() => remove(h)} title="Delete"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-            <Icon name="trash" className="h-3.5 w-3.5" />
-          </button>
-        </span>
+        )}
       </li>
     )
   }
@@ -152,11 +194,13 @@ export default function AdminHooks() {
       {/* ---- Add one ---- */}
       <form onSubmit={add} className="mb-6 rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
         <p className="mb-2 text-sm font-semibold">Add a hook</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            className="input flex-1"
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <AutoTextarea
+            className="input no-ios-zoom flex-1 resize-none leading-relaxed"
+            minRows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit() } }}
             placeholder='e.g. "Flights to Lisbon are cheaper than my weekly food shop"'
             maxLength={400}
           />
@@ -186,7 +230,12 @@ export default function AdminHooks() {
         </div>
       </div>
 
-      <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 pt-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0" role="tablist" aria-label="Hook groups">
+      {/* ONE LINE OF TABS THAT SCROLLS SIDEWAYS, at every width (28 Sep
+          2026). Ethan: "I want it all in one line, like tabs, and then I can
+          scroll horizontally ... rather than just having a bunch of buttons
+          everywhere." The picked tab slides itself into view. */}
+      <div className="relative mb-5">
+      <div className="-mx-4 flex gap-1 overflow-x-auto scroll-smooth border-b border-gray-100 px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Hook groups">
         {[{ name: 'all', label: 'All', count: (rows || []).length }, ...families.map((f) => ({ name: f.name, label: f.name, count: f.hooks.length }))].map((g, i) => {
           const on = group === g.name
           return (
@@ -195,18 +244,23 @@ export default function AdminHooks() {
               type="button"
               role="tab"
               aria-selected={on}
-              onClick={() => { setGroup(g.name); setLimit(120) }}
+              onClick={(e) => {
+                setGroup(g.name); setLimit(120); setEditingId(null)
+                e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+              }}
               style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}
               className={cx(
-                'animate-fade-up inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-all duration-200',
-                on ? 'bg-brand text-white shadow-card' : 'border border-gray-200 bg-white text-ink hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40',
+                'animate-fade-up relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 pb-3 pt-2 text-sm font-semibold transition-colors duration-200',
+                on ? 'text-brand' : 'text-smoke hover:text-ink',
               )}
             >
-              {g.label}
-              <span className={cx('rounded-full px-1.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/25' : 'bg-cloud text-smoke')}>{g.count}</span>
+              {g.label === 'all' ? 'All' : g.label}
+              <span className={cx('rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums transition-colors', on ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{g.count}</span>
+              <span aria-hidden className={cx('absolute inset-x-2 bottom-0 h-[3px] rounded-full bg-brand transition-all duration-300', on ? 'opacity-100' : 'scale-x-0 opacity-0')} />
             </button>
           )
         })}
+      </div>
       </div>
 
       {rows === null ? (
@@ -215,7 +269,7 @@ export default function AdminHooks() {
         <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">Nothing matches that.</p>
       ) : (
         <div key={group} className="animate-fade-up overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-          <ul className="divide-y divide-gray-50">{shown.slice(0, limit).map(row)}</ul>
+          <ul className="divide-y divide-gray-50">{shown.slice(0, limit).map((h, i) => row(h, i))}</ul>
           {shown.length > limit && (
             <button
               type="button"

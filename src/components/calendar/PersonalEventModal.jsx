@@ -116,11 +116,11 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit your event' : 'Add a personal event'}>
       <form onSubmit={save} className="space-y-5">
-        <p className="flex items-start gap-2.5 rounded-xl bg-brand-tint/60 p-3 text-xs text-ink">
-          <Icon name="eye" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-          <span>
-            {tr("Only you can see this. It rides along in your calendar subscription, so it lands in Apple or Google Calendar with everything else.")}
-          </span>
+        {/* JUST THE ONE FACT (28 Sep 2026). Ethan: "All I would say is 'Only
+            you can see this.' That's all I would add there." */}
+        <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint/70 px-3 py-1.5 text-xs font-semibold text-brand">
+          <Icon name="lock" className="h-3.5 w-3.5 shrink-0" />
+          {tr('Only you can see this.')}
         </p>
 
         <div>

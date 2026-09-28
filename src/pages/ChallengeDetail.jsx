@@ -10,6 +10,7 @@ import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import EntryPreview from '../components/challenge/EntryPreview'
+import { streaksByCreator } from '../lib/postingStreak'
 import SwapIn from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
 import { useEntryPoints } from '../lib/entryPoints'
@@ -115,6 +116,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries
+  // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB (28 Sep 2026). Ethan:
+  // "a button for the creators ... that says 'My Entries' so they can quickly
+  // see all their entries."
+  const [entryScope, setEntryScope] = useState('all') // all | mine
+  const [entryQuery, setEntryQuery] = useState('')
   const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
@@ -496,6 +502,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
   const isGlobalChallenge = !!networkId && challenge.community_id === networkId
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
+  const streaks = streaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
+  const normName = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const entryQ = normName(entryQuery.trim())
+  const shownEntries = entryScope === 'mine'
+    ? myEntries
+    : entryQ ? submissions.filter((s) => normName(s.profiles?.name).includes(entryQ)) : submissions
 
   // Given, or worked out. `audience` is null until the count lands, which is
   // why this is not simply an `||` with a zero default: a bar that says
@@ -815,9 +827,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 {myEntries.length > 0 ? tr('Add another entry') : tr('Submit your video')}
               </button>
               {myEntries.length > 0 && (
-                <p className="mt-2 text-center text-xs text-white/80 sm:text-right">
-                  {myEntries.length === 1 ? tr('1 entry in') : tr('{n} entries in', { n: myEntries.length })}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => { setTab('entries'); setEntryScope('mine') }}
+                  className="mt-2 block w-full text-center text-xs text-white/85 underline-offset-2 hover:underline sm:text-right"
+                >
+                  {myEntries.length === 1 ? tr('1 entry in') : tr('{n} entries in', { n: myEntries.length })} · {tr('see them')}
+                </button>
               )}
             </div>
           </div>
@@ -1260,7 +1276,58 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       })()}
 
       {/* ---------- Tab: entries gallery ---------- */}
-      {tab === 'entries' && (
+      {tab === 'entries' && submissions.length > 0 && (
+        <div className="mb-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <div className="flex shrink-0 gap-1 rounded-full bg-cloud p-1" role="radiogroup" aria-label={tr('Whose entries')}>
+            {[
+              { key: 'all', label: tr('All entries'), icon: 'video', n: submissions.length },
+              { key: 'mine', label: tr('My entries'), icon: 'user', n: myEntries.length },
+            ].map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                role="radio"
+                aria-checked={entryScope === o.key}
+                onClick={() => setEntryScope(o.key)}
+                className={cx(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-all duration-200 sm:flex-none sm:text-sm',
+                  entryScope === o.key ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink',
+                )}
+              >
+                <Icon name={o.icon} className="h-3.5 w-3.5" />
+                {o.label}
+                <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', entryScope === o.key ? 'bg-white/25' : 'bg-white')}>{o.n}</span>
+              </button>
+            ))}
+          </div>
+          {entryScope === 'all' && (
+            <div className="relative min-w-0 flex-1 animate-fade-up">
+              <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+              <input
+                type="search"
+                value={entryQuery}
+                onChange={(e) => setEntryQuery(e.target.value)}
+                placeholder={tr('Search by name')}
+                aria-label={tr('Search entries by name')}
+                className="input no-ios-zoom !rounded-full !py-2 !pl-10"
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {tab === 'entries' && submissions.length > 0 && shownEntries.length === 0 && (
+        entryScope === 'mine' ? (
+          <EmptyState
+            icon={<Icon name="video" className="h-7 w-7" />}
+            title={tr('You have no entries yet')}
+            hint={isLive ? tr('Post a video, paste the link, and it shows up here.') : tr('You did not enter this challenge.')}
+            action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr('Submit your video')}</button>}
+          />
+        ) : (
+          <p className="py-10 text-center text-sm text-smoke">{tr('No entries from anyone called "{q}".', { q: entryQuery.trim() })}</p>
+        )
+      )}
+      {tab === 'entries' && (submissions.length === 0 || shownEntries.length > 0) && (
         submissions.length === 0 ? (
           <EmptyState
             icon={<Icon name="video" className="h-7 w-7" />}
@@ -1269,9 +1336,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr("Submit your video")}</button>}
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-            {submissions.map((s) => (
-              <div key={s.id} className={cx(
+          <div key={`${entryScope}:${entryQuery}`} className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+            {shownEntries.map((s, i) => (
+              <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
+                'animate-fade-up',
                 'card group flex flex-col overflow-hidden !p-0 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift',
                 s.creator_id === user.id && 'ring-2 ring-brand/30',
               )}>
@@ -1555,6 +1623,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             subCountByCreator={subCountByCreator}
             platformsFor={submittedPlatforms}
             scoreLabel={challenge.scoring === 'points' ? 'points' : 'views'}
+            streaks={streaks}
+            showStreaks={isLive}
+            showVideos
           />
 
           {/* A challenge with no prize breakdown at all has no places to lay
@@ -1610,7 +1681,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               {tr("Your video link")}
             </label>
             <div className={cx(
-              'flex items-center gap-2 rounded-xl border bg-white pl-3 pr-1.5 transition-all duration-200 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15',
+              // `field-shell`: the BOX shows focus, not the input inside it.
+              // Without it the input drew its own 1px orange ring inside the
+              // box, the "weird orange lines" Ethan saw (28 Sep 2026).
+              'field-shell flex items-center gap-2 rounded-xl border bg-white pl-3 pr-1.5 transition-all duration-200 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15',
               errorField === 'url' ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200',
             )}>
               <Icon name="link" className="h-4 w-4 shrink-0 text-smoke" />

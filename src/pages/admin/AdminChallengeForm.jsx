@@ -819,7 +819,10 @@ export default function AdminChallengeForm() {
   return (
     <div className="page max-w-5xl">
       <PageHeader
-        back={{ to: '/admin/challenges', label: 'Challenges' }}
+        // BACK TO THE CHALLENGE YOU WERE EDITING (28 Sep 2026). Cancel used
+        // `editing` (a boolean) as the id and landed on /challenges/true,
+        // "Challenge not found".
+        back={editing ? { to: `/challenges/${id}`, label: 'Challenge' } : { to: '/challenges', label: 'Challenges' }}
         title={editing ? 'Edit challenge' : 'New challenge'}
       />
 
@@ -1339,7 +1342,7 @@ export default function AdminChallengeForm() {
             build={() => templateFromForm(form, rules, groups)}
           />
           <span className="flex-1" />
-          <button type="button" onClick={() => navigate(editing ? `/challenges/${editing}` : '/challenges')} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={() => navigate(editing ? `/challenges/${id}` : '/challenges')} className="btn-ghost">Cancel</button>
           {(!editing || form.status === 'draft') && (
             <button type="button" disabled={busy} onClick={(e) => save(e, true)} className="btn-secondary">
               {busy ? <Spinner /> : 'Save & publish'}

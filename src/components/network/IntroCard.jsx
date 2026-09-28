@@ -108,6 +108,13 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
       </div>
 
       <div className="space-y-3 px-4 py-3.5">
+        {/* IN THEIR OWN WORDS FIRST (28 Sep 2026): the paragraph about
+            themselves, as they wrote it, line breaks and all. */}
+        {intro.about && (
+          <p className="whitespace-pre-line rounded-xl bg-brand-tint/50 px-3.5 py-3 text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">
+            {intro.about}
+          </p>
+        )}
         {intro.makes?.length > 0 && (
           <Row icon="video" label={tr('Makes')}>
             <div className="mt-0.5 flex flex-wrap gap-1">
@@ -138,6 +145,11 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
         {intro.hack && <Row icon="bulb" label={tr('Best travel hack')}>{intro.hack}</Row>}
         {intro.local && <Row icon="pin" label={tr('Favourite spot at home')}>{intro.local}</Row>}
         {intro.fact && <Row icon="sparkles" label={tr('Fun fact')}>{intro.fact}</Row>}
+        {intro.more && (
+          <Row icon="chat" label={tr('Also')}>
+            <span className="whitespace-pre-line [overflow-wrap:anywhere]">{intro.more}</span>
+          </Row>
+        )}
         {intro.wants?.length > 0 && (
           <Row icon="users" label={tr('Here for')}>
             <div className="mt-0.5 flex flex-wrap gap-1">

@@ -55,6 +55,12 @@ let saved = null
 const watchers = new Set()
 const announce = () => { watchers.forEach((fn) => { try { fn(depth > 0) } catch { /* a bad listener is not the lock's problem */ } }) }
 
+/** How far down the page was when it was frozen (0 when it is not). A sticky
+ *  header is scrolled off with the rest of the body while the body is pinned at
+ *  `top: -y`, so the shell pushes it back down by this much (28 Sep 2026:
+ *  "whenever I click on it, the bar at the top ... disappears"). */
+export function lockedScrollY() { return depth > 0 && saved ? saved.y : 0 }
+
 /** Is anything holding the page still right now? */
 export function isScrollLocked() { return depth > 0 }
 

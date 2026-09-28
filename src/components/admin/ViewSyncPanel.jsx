@@ -47,7 +47,7 @@ function Stat({ label, children }) {
   )
 }
 
-export default function ViewSyncPanel({ challengeId, submissions = [], onSynced, onShowEntries }) {
+export default function ViewSyncPanel({ challengeId, submissions = [], onSynced, onShowEntries, onSaveViews }) {
   const [status, setStatus] = useState(null)
   const [backlog, setBacklog] = useState(null)
   const [starting, setStarting] = useState(false)
@@ -129,13 +129,30 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
 
   // Grouped by REASON rather than listed row by row: an admin needs to know
   // "one of these is a photo post" once, not once per entry.
+  //
+  // FACEBOOK IS ONE GROUP (28 Sep 2026). Facebook now answers every server with
+  // its login page, so "platform refused", "count hidden" and "no count" were
+  // three cards saying one thing: a person has to type these in. They share one
+  // card with a box per entry, so it is done without scrolling to the list.
+  const FB_CODES = new Set(['blocked', 'count_hidden', 'no_count_in_page', 'no_video_id'])
+  const keyFor = (s) => (s.platform === 'Facebook' && FB_CODES.has(s.views_sync_error) ? 'facebook' : s.views_sync_error)
   const problems = submissions.reduce((acc, s) => {
     if (!s.views_sync_error) return acc
-    ;(acc[s.views_sync_error] ??= []).push(s)
+    ;(acc[keyFor(s)] ??= []).push(s)
     return acc
   }, {})
   const problemList = Object.entries(problems)
-    .map(([code, rows]) => ({ code, rows, meta: describeSyncError(code) }))
+    .map(([code, rows]) => ({
+      code,
+      rows,
+      meta: code === 'facebook'
+        ? {
+          label: 'Facebook: type the views in',
+          hint: 'Facebook shows its videos only to people who are signed in, so no server can read them. Open each one, read the views, and type them in here. A typed number is kept, and the entry stops being flagged.',
+          needsAttention: true,
+        }
+        : describeSyncError(code),
+    }))
     .sort((a, b) => Number(b.meta.needsAttention) - Number(a.meta.needsAttention))
 
   // A missing or rejected credential is the one thing here a person has to go
@@ -159,7 +176,14 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   const igFailed = igRows.filter((s) => s.views_sync_error === 'no_video_id' || s.views_sync_error === 'not_on_reels_tab')
   const instagramLooksBroken = igRows.length >= 3 && igFailed.length === igRows.length
 
-  const automatic = submissions.filter((s) => s.views_source && s.views_source !== 'manual').length
+  // ONE COUNT, SAID THE SAME WAY IN BOTH PLACES (28 Sep 2026). Ethan: "it says
+  // 192 of 193 automatic, but then it says 187 of 193 videos: 6 cannot be
+  // read." The first counted every entry that had EVER been read automatically,
+  // including five that failed this time; the second counted this run. Both now
+  // count entries that have a number and nothing wrong with them.
+  const flagged = submissions.filter((s) => s.views_sync_error).length
+  const readFine = submissions.length - flagged
+  const typed = submissions.filter((s) => s.views_source === 'manual' && !s.views_sync_error).length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0
   const queued = backlog?.stale ?? 0
 
@@ -259,7 +283,8 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
         <Stat label="Last read">{lastRun?.at ? timeAgo(lastRun.at) : 'never'}</Stat>
         <Stat label="Next">{nextDue(lastRun?.at, settings.interval_hours ?? 24)}</Stat>
         <Stat label="This challenge">
-          <span className="tabular-nums">{automatic} of {submissions.length}</span> automatic
+          <span className="tabular-nums">{readFine} of {submissions.length}</span> read
+          {typed > 0 && <span className="block text-xs font-medium text-smoke">{typed} typed in by hand</span>}
         </Stat>
         <Stat label="Waiting to read">
           {queued > 0 ? <span className="tabular-nums">{queued} entries</span> : 'nothing'}
@@ -274,9 +299,8 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
           reasons are grouped just below. */}
       {outcome ? (() => {
         // Never more than there are entries: an old run could count a re-read twice.
-        const n = Math.min(outcome.ran ?? submissions.length, submissions.length)
-        const failedNow = submissions.filter((x) => x.views_sync_error).length
-        const failed = Math.min(outcome.failed ?? 0, failedNow)
+        const n = submissions.length
+        const failed = flagged
         const ok = !failed
         return (
           <div className={cx('mx-5 mb-5 flex items-center gap-3 rounded-card px-4 py-3 animate-fade-up sm:mx-7', ok ? 'bg-green-50' : 'bg-cloud')}>
@@ -286,7 +310,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
             <p className="min-w-0 text-sm font-semibold text-ink">
               {ok
                 ? `All ${n} ${n === 1 ? 'video' : 'videos'} read successfully. Leaderboard updated.`
-                : `Read ${n - failed} of ${n} videos. ${failed} could not be read, see below.`}
+                : `${n - failed} of ${n} videos read. ${failed} ${failed === 1 ? 'needs' : 'need'} a look, see below.`}
             </p>
           </div>
         )
@@ -337,16 +361,28 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
                   </button>
                 )}
               </div>
-              <ul className="mt-3 flex flex-wrap gap-1.5">
-                {rows.map((r) => (
+              <ul className={cx('mt-3', code === 'facebook' ? 'grid gap-2' : 'flex flex-wrap gap-1.5')}>
+                {rows.map((r) => (code === 'facebook' && onSaveViews ? (
+                  <FacebookRow key={r.id} row={r} onSave={onSaveViews} onShow={onShowEntries} />
+                ) : (
                   <li key={r.id} className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-gray-100 bg-cloud/50 py-1 pl-1 pr-1 text-xs">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-bold text-brand">
-                      {r.profiles?.photo_url
-                        ? <img src={r.profiles.photo_url} alt="" className="h-full w-full object-cover" />
-                        : (r.profiles?.name || '?').slice(0, 1)}
-                    </span>
-                    <span className="min-w-0 truncate font-semibold text-ink">{r.profiles?.name || 'Unknown creator'}</span>
-                    <span className="shrink-0 text-smoke">{r.platform}</span>
+                    {/* THE NAME LIFTS THAT ONE ENTRY TO THE TOP (28 Sep 2026).
+                        Ethan: "if I click on 'Antonio posted a TikTok there', it
+                        should just bring it to the top." */}
+                    <button
+                      type="button"
+                      onClick={() => onShowEntries?.([r.id], `${r.profiles?.name?.split(' ')[0] || 'Entry'}'s ${r.platform}`)}
+                      className="flex min-w-0 items-center gap-1.5 rounded-full text-left transition-colors hover:text-brand"
+                      title="Show this entry at the top of the list"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-bold text-brand">
+                        {r.profiles?.photo_url
+                          ? <img src={r.profiles.photo_url} alt="" className="h-full w-full object-cover" />
+                          : (r.profiles?.name || '?').slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 truncate font-semibold text-ink hover:text-brand">{r.profiles?.name || 'Unknown creator'}</span>
+                      <span className="shrink-0 text-smoke">{r.platform}</span>
+                    </button>
                     <a
                       href={r.video_url}
                       target="_blank"
@@ -356,7 +392,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
                       Open
                     </a>
                   </li>
-                ))}
+                )))}
               </ul>
               {onShowEntries && (
                 <button
@@ -404,5 +440,55 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
         </div>
       ) : null}
     </section>
+  )
+}
+
+// ONE FACEBOOK ENTRY: who, the link, and a box for the number. Saving goes
+// through the results page's own save, so it rebuilds the board like any other
+// typed number does.
+function FacebookRow({ row, onSave, onShow }) {
+  const [val, setVal] = useState(row.logged_views == null ? '' : String(row.logged_views))
+  const [busy, setBusy] = useState(false)
+  async function save() {
+    const raw = val.replace(/\D+/g, '')
+    if (raw === '' || raw === String(row.logged_views ?? '')) return
+    setBusy(true)
+    await onSave(row, raw)
+    setBusy(false)
+  }
+  return (
+    <li className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-cloud/40 p-2 text-xs sm:flex-nowrap">
+      <button
+        type="button"
+        onClick={() => onShow?.([row.id], `${row.profiles?.name?.split(' ')[0] || 'Entry'}'s Facebook`)}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-bold text-brand">
+          {row.profiles?.photo_url ? <img src={row.profiles.photo_url} alt="" className="h-full w-full object-cover" /> : (row.profiles?.name || '?').slice(0, 1)}
+        </span>
+        <span className="min-w-0 truncate font-semibold text-ink">{row.profiles?.name || 'Unknown creator'}</span>
+      </button>
+      <a href={row.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-white px-3 py-1.5 font-semibold text-brand shadow-sm hover:underline">
+        Open post
+      </a>
+      <form
+        onSubmit={(e) => { e.preventDefault(); save() }}
+        className="flex shrink-0 items-center gap-1.5"
+      >
+        <input
+          type="text"
+          inputMode="numeric"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={save}
+          placeholder="Views"
+          aria-label={`Views for ${row.profiles?.name || 'this entry'}`}
+          className="no-ios-zoom w-24 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-right text-sm font-semibold tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+        />
+        <button type="submit" disabled={busy} className="rounded-lg bg-brand px-3 py-1.5 font-semibold text-white disabled:opacity-60">
+          {busy ? <Spinner className="h-3.5 w-3.5" /> : 'Save'}
+        </button>
+      </form>
+    </li>
   )
 }

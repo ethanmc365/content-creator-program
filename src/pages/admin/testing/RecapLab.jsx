@@ -78,7 +78,7 @@ export default function RecapLab() {
       sandbox={false}
       subtitle="The story a creator gets when a challenge closes: where they placed, their top videos and a card to share. Real data, read-only."
     >
-      <Panel i={0} title="Whose recap" hint="Pick a challenge and anybody who entered it. Places are listed first.">
+      <Panel i={0} className="z-20" title="Whose recap" hint="Pick a challenge and anybody who entered it. Places are listed first.">
         <div className="grid gap-3 sm:grid-cols-2">
           {challenges === null ? <Skeleton className="h-11 w-full rounded-xl" /> : (
             <Select

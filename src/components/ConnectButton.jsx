@@ -140,7 +140,12 @@ export default function ConnectButton({
     // the creator, I think the button should actually show up in the nice
     // green colour that we've used ... whenever you play the daily puzzle."
     // The same green-600 as a finished daily puzzle's tile, white on it.
-    connected: 'bg-green-600 text-white ring-1 ring-green-600 hover:bg-green-700',
+    // AND THEN THE PUZZLE'S *PLAYED* GREEN (28 Sep 2026). Ethan: "whenever I
+    // have played a daily puzzle like Flypath, it then shows up in that light
+    // green colour, but it's a bit transparent and a bit glowing. That's the
+    // colour I want." The Played chip's own wash, ring and ink, with a soft
+    // green glow under it.
+    connected: 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30 shadow-[0_0_14px_-3px_rgba(34,197,94,0.45)] hover:bg-green-100/80',
   }[rel]
   const title = rel === 'pending_sent' ? tr('Cancel request') : rel === 'connected' ? tr('Disconnect') : ''
 
@@ -155,7 +160,7 @@ export default function ConnectButton({
       className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 ${tone} ${className}`}
     >
       {rel === 'connected' && (
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-white" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-green-600" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M4 12l5 5L20 6" />
         </svg>
       )}
