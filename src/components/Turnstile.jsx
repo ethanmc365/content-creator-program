@@ -143,7 +143,7 @@ export default function Turnstile({ onToken }) {
           {' '}
           <button type="button" onClick={retry} className="font-semibold underline">{tr("Try again")}</button>
           {' '}
-          — if it keeps failing, please let us know rather than waiting.
+          . If it keeps failing, please let us know rather than waiting.
         </div>
       )}
     </div>

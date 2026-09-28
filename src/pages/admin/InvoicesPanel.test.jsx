@@ -53,7 +53,7 @@ async function open() {
 
 async function pickOffPlatform() {
   fireEvent.click(screen.getByRole('combobox', { name: 'Creator' }))
-  fireEvent.click(await screen.findByText('Other — someone not on the platform'))
+  fireEvent.click(await screen.findByText('Someone not on the platform'))
 }
 
 describe('the invoice composer', () => {
@@ -75,14 +75,22 @@ describe('the invoice composer', () => {
 
     // EUROS UNLESS TOLD OTHERWISE - and the box says so, which is the bug:
     // "this one seems to be in euros, but it's still showing the pound sign."
-    expect(screen.getByLabelText('Prize amount (€)')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Prize amount (€)'), { target: { value: '120' } })
+    //
+    // THE CURRENCY IS NOT READ OFF THE LABEL ANY MORE (28 Sep 2026). It used to
+    // say "Prize amount (€)" and this test asserted on that, which made the
+    // label the thing under test rather than the behaviour. Ethan had the symbol
+    // removed from the heading - the switch and the box both say it already - so
+    // the assertion is now on the switch's own pressed state and on the totals.
+    expect(screen.getByLabelText('Prize amount')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '€ EUR' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.change(screen.getByLabelText('Prize amount'), { target: { value: '120' } })
     expect(await screen.findAllByText('€120.00')).not.toHaveLength(0)
 
     fireEvent.click(screen.getByRole('button', { name: '£ GBP' }))
-    await waitFor(() => expect(screen.getByLabelText('Prize amount (£)')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '£ GBP' }).getAttribute('aria-pressed')).toBe('true'))
     // Switching converts what was already typed rather than dropping it.
-    expect(screen.getByLabelText('Prize amount (£)').value).toBe('100.00')
+    expect(screen.getByLabelText('Prize amount').value).toBe('100.00')
     expect(await screen.findAllByText('£100.00')).not.toHaveLength(0)
   })
 })

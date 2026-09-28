@@ -585,7 +585,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 // is not one.
                 options={[
                   ...creators.map((c) => ({ value: c.id, label: c.name })),
-                  { value: OFF_PLATFORM, label: 'Other — someone not on the platform' },
+                  { value: OFF_PLATFORM, label: 'Someone not on the platform' },
                 ]}
               />
               {offPlatform && (
@@ -612,14 +612,26 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <label htmlFor="inv-amount" className="label">
-                    Prize amount ({currency === 'EUR' ? '€' : '£'})
+                {/* THE TWO COLUMNS START THEIR INPUTS ON ONE LINE (28 Sep 2026).
+                    Adding the currency switch gave this column a header the
+                    height of a button while "Invoice date" still had a plain
+                    label, so the two boxes sat at different heights and the row
+                    read as crooked. Both headers are now the same fixed height
+                    with their contents sitting on the bottom edge, so the
+                    inputs line up whatever is in the header. */}
+                <div className="flex h-8 items-end justify-between gap-2">
+                  {/* NO SYMBOL IN THE LABEL. It said "Prize amount (€)", which
+                      was the only way to know the currency before the switch
+                      existed. The switch says it, and the box says it again
+                      inside the field, so a third copy in the heading was just
+                      one more thing to keep in step. */}
+                  <label htmlFor="inv-amount" className="label !mb-0">
+                    Prize amount
                   </label>
                   {/* THE SWITCH, BESIDE THE MONEY IT CHANGES. Euros are the
                       default because that is what the programme pays in;
                       pounds are one press away for the payees who need them. */}
-                  <div className="mb-1.5 flex overflow-hidden rounded-lg border border-gray-200 text-xs font-semibold">
+                  <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs font-semibold">
                     {[['EUR', '€ EUR'], ['GBP', '£ GBP']].map(([code, label]) => (
                       <button
                         key={code} type="button" onClick={() => switchCurrency(code)}
@@ -632,7 +644,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                     ))}
                   </div>
                 </div>
-                <div className="relative">
+                <div className="relative mt-2">
                   <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-smoke">
                     {currency === 'EUR' ? '€' : '£'}
                   </span>
@@ -647,14 +659,16 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                   {convertedFrom
                     ? `Converted from ${formatMoney(convertedFrom.amount, convertedFrom.currency)} at today’s European Central Bank rate (£1 = €${fxRate}). Overtype it if you need a different figure.`
                     : fxRate === null ? 'Fetching today’s exchange rate…'
-                    : fxRate === 0 ? 'Couldn’t load today’s exchange rate, so switching currency won’t convert the figure — type it yourself.'
+                    : fxRate === 0 ? 'Couldn’t load today’s exchange rate, so switching currency won’t convert the figure. Type it yourself.'
                     : `The invoice, the total and the transfer are all in ${currency === 'EUR' ? 'euros' : 'pounds'}. Today’s rate: £1 = €${fxRate}.`}
                 </p>
               </div>
               <div>
-                <label htmlFor="inv-date" className="label">Invoice date</label>
+                <div className="flex h-8 items-end justify-between gap-2">
+                  <label htmlFor="inv-date" className="label !mb-0">Invoice date</label>
+                </div>
                 <input
-                  id="inv-date" type="text" className="input" placeholder="DD/MM/YYYY"
+                  id="inv-date" type="text" className="input mt-2" placeholder="DD/MM/YYYY"
                   value={issueDate} onChange={(e) => setIssueDate(e.target.value)}
                 />
               </div>
