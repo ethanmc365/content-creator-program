@@ -200,6 +200,26 @@ export default function AppLayout() {
     a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setSettling(false)) })
     return () => { cancelAnimationFrame(a); cancelAnimationFrame(b) }
   }, [settling])
+  // MEASURED, NOT ASSUMED (28 Sep 2026, evening). The first version pushed the
+  // header down by the whole frozen scroll distance on the theory that pinning
+  // the body always carries a sticky header off the top. On iOS it does; in
+  // desktop Chrome it does NOT, so the push put the bar in the middle of the
+  // screen above the scrim of every pop-up opened from a scrolled page. Now the
+  // header's real position is read once the page is frozen, and it is moved by
+  // exactly as much as it actually left the top - which is y on one browser and
+  // zero on another.
+  const headerRef = useRef(null)
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    el.style.transform = ''
+    if (!lockedY || chromeHidden) return
+    const top = el.getBoundingClientRect().top
+    if (top < -1) {
+      el.style.transition = 'none'
+      el.style.transform = `translateY(${-top}px)`
+    }
+  }, [lockedY, chromeHidden])
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
   // Which of the five tabs the current URL belongs to. See activeTab above.
@@ -574,6 +594,7 @@ export default function AppLayout() {
           transform is on the header itself so it composites, and the chat
           overlay grows into the space in the same 300ms. */}
       <header
+        ref={headerRef}
         data-ptr-handle
         className={cx(
           'sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur',
@@ -591,12 +612,9 @@ export default function AppLayout() {
         // that strip with its own colour. Zero everywhere else.
         style={{
           paddingTop: 'env(safe-area-inset-top)',
-          // THE BAR STAYS WHILE A POP-UP IS OPEN (28 Sep 2026). Freezing the
-          // page pins the body at `top: -y`, which carries this sticky header
-          // off the top with it. Pushing it back down by the same y keeps it
-          // exactly where it was, behind the pop-up's scrim.
-          ...(lockedY && !chromeHidden ? { transform: `translateY(${lockedY}px)`, transition: 'none' } : null),
-          ...(settling ? { transition: 'none' } : null),
+          // THE BAR STAYS WHILE A POP-UP IS OPEN (28 Sep 2026). The push-back
+          // is measured in the layout effect above (headerRef), not assumed.
+          ...(lockedY || settling ? { transition: 'none' } : null),
         }}
       >
         {/* White shield directly ABOVE the header. Normally off-screen; if iOS

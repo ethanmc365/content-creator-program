@@ -208,8 +208,16 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
 
               {/* ---- 3. What it is made of ---- */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* FULL WIDTH WHEN IT IS ALONE (28 Sep 2026). Ethan: "The one who
+                    joined is only half a screen. It should be full screen as
+                    well, like the graphs." A recruitment KPI has no challenges
+                    beside it, so its list took one column of two and left the
+                    other empty. */}
                 {row.metric !== 'challenges_run' && (
-                  <section className="animate-fade-up rounded-card border border-gray-100 bg-white shadow-card [animation-delay:140ms]">
+                  <section className={cx(
+                    'animate-fade-up rounded-card border border-gray-100 bg-white shadow-card [animation-delay:140ms]',
+                    !(data.challenges || []).length && 'lg:col-span-2',
+                  )}>
                     <h3 className="flex items-center justify-between border-b border-gray-100 px-4 py-3 text-sm font-semibold">
                       {peopleTitle}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{(data.people || []).length}</span>
@@ -217,7 +225,10 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                     {(data.people || []).length === 0 ? (
                       <p className="px-4 py-6 text-center text-sm text-smoke">{tr('Nobody yet.')}</p>
                     ) : (
-                      <ul className="max-h-72 divide-y divide-gray-50 overflow-y-auto">
+                      <ul className={cx(
+                        'max-h-72 divide-y divide-gray-50 overflow-y-auto',
+                        !(data.challenges || []).length && 'lg:grid lg:max-h-96 lg:grid-cols-2 lg:divide-y-0',
+                      )}>
                         {data.people.map((p, i) => (
                           <li key={p.id}>
                             <Link to={`/profile/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-cloud/60">
