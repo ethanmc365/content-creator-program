@@ -1,7 +1,7 @@
 import { Card, Eyebrow, Hero, Line, Facts, TrypMark, wholeMoney, roughMoney, formatViews } from './cards'
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
-import { ordinalFor } from '../../lib/podiumTiers'
+import { ordinalFor, podiumTier } from '../../lib/podiumTiers'
 import { formatDate } from '../../lib/utils'
 
 // THE END-OF-CHALLENGE RECAP: THE CARDS (24 Sep 2026, rewritten 28 Sep 2026).
@@ -45,14 +45,24 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
           </span>
         )}
       <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))' }} />
+      {/* A PLACE BADGE, NOT A BARE NUMBER (28 Sep 2026, evening). Ethan: "it
+          shows 1 through 3, which looks a bit odd ... use an actual badge
+          showing 2nd, 3rd, to make it easier to understand." The ordinal, in
+          the podium's own tones: Tryp.com orange, light orange, peach. */}
       {rank != null && (
-        <span className={`absolute left-2.5 top-2.5 flex items-center justify-center rounded-full bg-white font-extrabold text-ink shadow-lg ${big ? 'h-9 w-9 text-base' : 'h-6 w-6 text-[11px]'}`}>
-          {rank}
+        <span
+          className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full font-extrabold shadow-lg ${big ? 'px-2.5 py-1 text-[13px]' : 'px-1.5 py-0.5 text-[10px]'}`}
+          style={{ background: podiumTier(rank).disc, color: podiumTier(rank).ink }}
+        >
+          <Icon name="trophy" className={big ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5'} />
+          {ordinalFor(rank)}
         </span>
       )}
+      {/* THE PLATFORM, SMALL (28 Sep 2026): "we don't necessarily need it to
+          be that big." Its own colours, in the corner. */}
       {video.platform && SOCIAL[video.platform] && (
-        <span className={`absolute right-2.5 top-2.5 flex items-center justify-center rounded-full bg-white/95 text-ink shadow ${big ? 'h-8 w-8' : 'h-6 w-6'}`}>
-          <SocialMark brand={SOCIAL[video.platform]} className={big ? 'h-4 w-4' : 'h-3 w-3'} />
+        <span className={`absolute right-2 top-2 block overflow-hidden rounded-md shadow ${big ? 'h-5 w-5' : 'h-4 w-4'}`}>
+          <SocialMark brand={SOCIAL[video.platform]} tile className="h-full w-full" />
         </span>
       )}
       <span className="absolute inset-x-3 bottom-3 block">
@@ -108,7 +118,7 @@ export function buildChallengeCards(data) {
               </span>
             </div>
           )}
-          <Line palette="ember">Tap through for your part in it.</Line>
+          <Line palette="ember">Tap through to see your stats.</Line>
         </div>
       </>
     ),
@@ -224,13 +234,21 @@ export function buildChallengeCards(data) {
                   )
                 })}
               </div>
-              <Facts
-                palette="night"
-                items={[
-                  { label: 'Across these', value: formatViews(ranked.reduce((n, v) => n + v.views, 0)) },
-                  totals.avg > 0 && totals.videos > 1 && { label: 'Average a video', value: formatViews(totals.avg) },
-                ]}
-              />
+              {/* TWO EQUAL CELLS ON ONE LINE (28 Sep 2026, evening). Ethan: the
+                  "189.5k across these" and "20.9k average video" pair was
+                  "misaligned" - a wrapping flex row puts each figure wherever
+                  its own width lands it. A two-column grid, centred, with a
+                  hairline between, lines them up whatever the digits. */}
+              <div data-anim="rise" data-delay="700" className="mx-auto grid w-full max-w-[18rem] grid-cols-2 overflow-hidden rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <span className="px-3 py-3">
+                  <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(ranked.reduce((n, v) => n + v.views, 0))}</span>
+                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{`Your top ${ranked.length}`}</span>
+                </span>
+                <span className="border-l border-white/15 px-3 py-3">
+                  <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(totals.avg > 0 ? totals.avg : 0)}</span>
+                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">Per video</span>
+                </span>
+              </div>
             </div>
           </>
         ),
@@ -239,26 +257,50 @@ export function buildChallengeCards(data) {
   }
 
   // ----------------------------------------------------------------- facts
+  // THE NUMBERS BEHIND IT (28 Sep 2026, evening). Ethan: "I don't like where it
+  // says 'Good to know', and also I don't like the background of this colour
+  // ... I'd redesign this card and make it look better." So: no heading
+  // phrase, the dusk palette instead of sand, and each fact led by its own
+  // number in large type, with the sentence as its caption.
+  const times = totals.avg > 0 && community.avg > 0 ? totals.avg / community.avg : 0
   const facts = [
-    totals.firstDay && { icon: 'calendar', text: totals.firstDay === 1 ? 'You posted on day one.' : `Your first video landed on day ${totals.firstDay}.` },
-    totals.bestPlatform && totals.platforms.length > 1 && { icon: 'chart', text: `${totals.bestPlatform.name} brought you the most views: ${formatViews(totals.bestPlatform.views)}.` },
-    totals.avg > 0 && community.avg > 0 && totals.avg > community.avg && { icon: 'sparkles', text: `Your videos averaged ${formatViews(totals.avg)} views, above the challenge average of ${formatViews(community.avg)}.` },
-    totals.share != null && totals.share >= 1 && { icon: 'eye', text: `${totals.share}% of every view in the challenge was yours.` },
+    totals.firstDay && {
+      big: totals.firstDay === 1 ? 'Day 1' : `Day ${totals.firstDay}`,
+      text: totals.firstDay === 1 ? 'You posted on the very first day.' : 'When your first video landed.',
+    },
+    times >= 1.1 && {
+      big: `${times >= 10 ? Math.round(times) : times.toFixed(1)}×`,
+      text: `Your average video (${formatViews(totals.avg)}) against the challenge average of ${formatViews(community.avg)}.`,
+    },
+    totals.share != null && totals.share >= 1 && {
+      big: `${totals.share}%`,
+      text: 'Of every view in the challenge was yours.',
+    },
+    totals.bestPlatform && totals.platforms.length > 1 && {
+      big: formatViews(totals.bestPlatform.views),
+      text: `From ${totals.bestPlatform.name}, your strongest platform.`,
+    },
   ].filter(Boolean)
   if (facts.length >= 2) {
     push({
-      key: 'facts', palette: 'sand', hold: 5200,
+      key: 'facts', palette: 'dusk', hold: 5200,
       render: () => (
         <>
-          <Eyebrow palette="sand">Good to know</Eyebrow>
+          <Eyebrow palette="dusk">Your challenge in numbers</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-3">
-            {facts.slice(0, 4).map((f) => (
-              <p key={f.text} data-anim="rise" className="flex items-start gap-3 rounded-2xl px-4 py-3.5 text-[15px] font-semibold leading-snug" style={{ background: 'rgba(217,68,7,0.10)' }}>
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#d94407] text-white">
-                  <Icon name={f.icon} className="h-3.5 w-3.5" />
+            {facts.slice(0, 4).map((f, n) => (
+              <div
+                key={f.text}
+                data-anim="rise"
+                data-delay={String(150 + n * 160)}
+                className="flex items-center gap-4 rounded-2xl px-4 py-3.5"
+                style={{ background: 'rgba(255,255,255,0.10)' }}
+              >
+                <span className="w-[5.5rem] shrink-0 text-[30px] font-extrabold leading-none tracking-tight tabular-nums text-[#ffb37a]">
+                  {f.big}
                 </span>
-                {f.text}
-              </p>
+                <span className="min-w-0 text-[14px] font-semibold leading-snug text-white/90">{f.text}</span>
+              </div>
             ))}
           </div>
         </>
@@ -314,11 +356,9 @@ export function buildChallengeCards(data) {
                 Including {wholeMoney(prizes.vouchers, challenge.currency)} in Tryp.com vouchers
               </span>
             )}
-            <Line palette="ember">
-              {community.biggest > 0
-                ? `What ${nf(community.creators)} creators made together. The biggest single video reached ${formatViews(community.biggest)}.`
-                : `What ${nf(community.creators)} creators made together.`}
-            </Line>
+            {/* Just the one line (28 Sep 2026): "Don't say, 'The biggest single
+                video reached 143k.' Just keep that first line." */}
+            <Line palette="ember">{`What ${nf(community.creators)} creators made together.`}</Line>
           </div>
         </>
       ),
@@ -337,21 +377,34 @@ export function buildChallengeCards(data) {
  * by word, it is never split into letters.
  */
 export function ChallengeShareCard({ data, className = '', style, flush = false }) {
-  const { me, challenge, placing, totals, top, points } = data
+  const { me, challenge, placing, totals, top, points, community } = data
   const best = top[0]?.views > 0 ? top[0] : null
+  // THE PLACE IS A BADGE BY THE NAME; THE NUMBERS DO NOT REPEAT IT (28 Sep
+  // 2026, evening). Ethan: "for the 3rd, 2nd, and 1st, maybe have it in a
+  // different colour or use an actual badge", and "you're kind of repeating
+  // some information." The place was a stat AND the footer line restated a
+  // ranking; now it is said once, as a badge in the podium's own tone, and the
+  // grid holds only numbers said nowhere else on the card.
   const stats = [
-    placing?.kind === 'podium' && { label: 'Place', value: ordinalFor(placing.rank) },
-    placing?.kind === 'top' && { label: 'Finished', value: `Top ${placing.pct}%` },
     points != null && points > 0 && { label: 'Points', value: nf(points) },
     totals.views > 0 && { label: 'Views', value: formatViews(totals.views) },
     totals.videos > 0 && { label: totals.videos === 1 ? 'Video' : 'Videos', value: String(totals.videos) },
     totals.share != null && totals.share >= 1 && { label: 'Of all views', value: `${totals.share}%` },
+    totals.avg > 0 && totals.videos > 1 && { label: 'Per video', value: formatViews(totals.avg) },
   ].filter(Boolean).slice(0, 4)
-  const quote = totals.bestBeatPct != null
-    ? `Best video: top ${Math.max(1, 100 - totals.bestBeatPct)}% of the challenge.`
-    : totals.platforms.length > 1
-      ? `Posted on ${listOf(totals.platforms)}.`
-      : null
+  const badge = placing?.kind === 'podium'
+    ? { text: `${ordinalFor(placing.rank)} place`, tier: podiumTier(placing.rank) }
+    : placing?.kind === 'top' ? { text: `Top ${placing.pct}%`, tier: null } : null
+  // HOW THEY DID OVERALL, IN WORDS (28 Sep 2026). "Rather than saying 'Best
+  // video, top 1% of the challenge', just say overall what they were like."
+  const times = totals.avg > 0 && community?.avg > 0 ? totals.avg / community.avg : 0
+  const quote = placing
+    ? `${placing.kind === 'podium' ? `${ordinalFor(placing.rank)} of ${nf(placing.field)}` : `Top ${placing.pct}% of ${nf(placing.field)}`} creators overall${times >= 1.1 ? `, ${times >= 10 ? Math.round(times) : times.toFixed(1)}× the average video` : ''}.`
+    : times >= 1.1
+      ? `${times >= 10 ? Math.round(times) : times.toFixed(1)}× the challenge's average video.`
+      : totals.platforms.length > 1
+        ? `Posted on ${listOf(totals.platforms)}.`
+        : null
 
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between gap-4" style={style}>
@@ -371,18 +424,19 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
               {(me?.name || '?').slice(0, 1)}
             </span>
           )}
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="line-clamp-2 break-words text-[18px] font-extrabold leading-tight">{me?.name}</span>
-          {totals.platforms.length > 0 && (
-            <span className="mt-1 flex items-center gap-1">
-              {totals.platforms.map((p) => SOCIAL[p] && (
-                <span key={p} className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-ink">
-                  <SocialMark brand={SOCIAL[p]} className="h-3 w-3" />
-                </span>
-              ))}
-            </span>
-          )}
         </span>
+        {badge && (
+          <span
+            data-anim="pop"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-extrabold shadow-lg"
+            style={badge.tier ? { background: badge.tier.disc === '#d94407' ? '#ffffff' : badge.tier.disc, color: badge.tier.disc === '#d94407' ? '#d94407' : badge.tier.ink } : { background: '#ffffff', color: '#d94407' }}
+          >
+            <Icon name="trophy" className="h-3.5 w-3.5" />
+            {badge.text}
+          </span>
+        )}
       </div>
 
       <div className="flex min-h-0 items-stretch gap-4">
