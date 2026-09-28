@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { confirm, notice } from '../lib/confirm'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
+import ChallengePush from '../components/admin/ChallengePush'
 import Podium from '../components/Podium'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -108,6 +109,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const { networkId } = useMyScopes()
 
   const [challenge, setChallenge] = useState(null)
+  // The admin push composer, which lives behind the button beside Edit.
+  const [pushing, setPushing] = useState(false)
   // Who is earning the capped participation prize (migration 233). Same
   // function the payout reads, so "you have earned it" is never a promise the
   // payout then breaks.
@@ -752,6 +755,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 See AdminResults' lifecycle card. */}
             {isAdmin && (
               <>
+                {/* A PUSH ABOUT THIS CHALLENGE, FROM THIS CHALLENGE (28 Sep
+                    2026). The platform could already notify a whole market, but
+                    only by posting in an announcements room - which is a
+                    different act: a room post is a message people reply to and
+                    it lives there forever. "Two days left" is neither. */}
+                <button
+                  type="button"
+                  onClick={() => setPushing(true)}
+                  className="btn-secondary inline-flex items-center gap-1.5 !py-2 text-xs"
+                >
+                  <Icon name="bell" className="h-3.5 w-3.5" />
+                  {tr("Send a push")}
+                </button>
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">{tr("Edit")}</Link>
                 <Link
                   to={`/admin/challenges/${id}/results`}
@@ -1886,6 +1902,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         onDone={() => { setSuccess(null); setTab('entries') }}
         onAddAnother={submitAnother}
       />
+
+      {/* ---------- The admin push composer ---------- */}
+      {isAdmin && challenge && (
+        <ChallengePush challenge={challenge} open={pushing} onClose={() => setPushing(false)} />
+      )}
     </div>
   )
 }
