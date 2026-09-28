@@ -183,6 +183,23 @@ export default function AppLayout() {
   const chatSearch = useChatSearchTarget()
   const chromeHidden = useChatChromeHidden()
   const lockedY = useSyncExternalStore(onScrollLockChange, lockedScrollY, () => 0)
+  // The frame the lock lets go, the header's push-down is removed - and with
+  // its slide transition on, it would visibly glide up from where it was held.
+  // `settling` keeps the transition off across that change ("adjust state
+  // while rendering", so it is already set on the frame the transform goes).
+  const [prevLockedY, setPrevLockedY] = useState(lockedY)
+  const [settling, setSettling] = useState(false)
+  if (prevLockedY !== lockedY) {
+    if (prevLockedY > 0 && lockedY === 0) setSettling(true)
+    setPrevLockedY(lockedY)
+  }
+  useEffect(() => {
+    if (!settling) return undefined
+    let a = 0
+    let b = 0
+    a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setSettling(false)) })
+    return () => { cancelAnimationFrame(a); cancelAnimationFrame(b) }
+  }, [settling])
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
   // Which of the five tabs the current URL belongs to. See activeTab above.
@@ -579,6 +596,7 @@ export default function AppLayout() {
           // off the top with it. Pushing it back down by the same y keeps it
           // exactly where it was, behind the pop-up's scrim.
           ...(lockedY && !chromeHidden ? { transform: `translateY(${lockedY}px)`, transition: 'none' } : null),
+          ...(settling ? { transition: 'none' } : null),
         }}
       >
         {/* White shield directly ABOVE the header. Normally off-screen; if iOS
