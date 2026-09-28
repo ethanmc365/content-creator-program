@@ -392,6 +392,25 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     if (!caption.trim()) return fail('caption', 'Please add a caption for your entry.')
 
     setSubmitting(true)
+
+    // THE ENTRY CARRIES THE VIDEO'S REAL ID WHEN WE KNOW IT (28 Sep 2026).
+    //
+    // TikTok mints a NEW vm.tiktok.com code every time Share is pressed, so the
+    // same video submitted twice arrives as two links with nothing in common.
+    // `trg_one_video_one_entry` keys on the URL, so it could not see that, and a
+    // repeat was only caught a day or two later when view-sync resolved the
+    // link - after it had been scoring. Taking those points back is what
+    // Natalia saw as thirty becoming twenty-one, and she had no way to know why.
+    //
+    // The preview that fills the cover and the caption has already followed the
+    // link by then, so the id is sitting in `linkMeta`. Writing it with the row
+    // lets the guard that was always there fire NOW, with a sentence she can act
+    // on, and no points are ever given to a repeat.
+    //
+    // Only when the preview is for the link actually being submitted: a stale
+    // meta from a URL since replaced would stamp the wrong video's id on it.
+    const resolvedId = linkMeta && linkMeta.url === url && !linkMeta.loading ? linkMeta.videoId : null
+
     // `select().single()` because the bonus claims below have to point at the
     // row that was just written, and a second read to find it would be a race
     // with anything else this creator is doing.
@@ -401,8 +420,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       platform,
       video_url: url,
       caption: caption.trim(),
+      ...(resolvedId ? { platform_video_id: resolvedId } : {}),
     }).select('id').single()
-    if (error) { setSubmitting(false); return fail('', error.message) }
+    if (error) {
+      setSubmitting(false)
+      // The guard raises 23505 with its own sentence. Say it against the link,
+      // which is the field they can do something about.
+      return fail(
+        /already been entered/i.test(error.message) ? 'url' : '',
+        error.message,
+      )
+    }
 
     // THE COVER IS STORED THE MOMENT THE ROW EXISTS, NOT THE FIRST TIME
     // SOMEBODY LOOKS AT IT (10 Sep 2026).

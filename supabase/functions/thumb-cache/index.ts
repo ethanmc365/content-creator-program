@@ -163,19 +163,44 @@ async function followTo(start: string, hops = 5): Promise<string | null> {
 //
 // So the id is what matters and the noun in the path is not.
 /** What a platform will tell us about a post without being asked for a key. */
+//
+// `videoId` IS WHY A DUPLICATE CAN BE CAUGHT AT THE DOOR (28 Sep 2026).
+//
+// A vm.tiktok.com share link is minted fresh every time somebody presses Share,
+// so the same video shared twice gives two links that look nothing alike. The
+// insert-time guard keys on the URL, so it could not see through that, and a
+// repeat entry was only discovered a day or two later when view-sync resolved
+// the link - by which time it had been scoring, and taking it away read as
+// points being removed. That is exactly what happened to Natalia, who watched
+// thirty become twenty-one.
+//
+// This function was ALREADY following the short link to fetch the cover. It
+// simply never told anyone where it landed. Returning the id costs nothing, and
+// it lets the submit form write `platform_video_id` with the row - so the guard
+// that was always there now fires at the moment of submitting, with a sentence
+// the creator can act on, and no points are ever awarded to a repeat.
 type Meta = {
   thumbnail: string | null
   caption: string | null
   author: string | null
   handle: string | null
+  canonical: string | null
+  videoId: string | null
 }
-const NOTHING: Meta = { thumbnail: null, caption: null, author: null, handle: null }
+const NOTHING: Meta = {
+  thumbnail: null, caption: null, author: null, handle: null, canonical: null, videoId: null,
+}
 
 /** `https://www.tiktok.com/@someone` -> `someone`. */
 function handleFromAuthorUrl(u: unknown): string | null {
   if (typeof u !== 'string') return null
   const m = u.match(/\/@([A-Za-z0-9._-]+)/)
   return m ? m[1] : null
+}
+
+/** `.../@someone/video/7688651686713330966` -> the id. Same rule as view-sync. */
+function tiktokIdFrom(u: string): string | null {
+  return u.match(/\/(?:video|photo)\/(\d{6,})/)?.[1] ?? u.match(/[?&]item_id=(\d{6,})/)?.[1] ?? null
 }
 
 async function tiktokMeta(url: string): Promise<Meta> {
@@ -189,21 +214,26 @@ async function tiktokMeta(url: string): Promise<Meta> {
   // shared link carries - and ask for the id as a video whatever it is called.
   target = target.split('?')[0].replace('/photo/', '/video/')
   if (!pageAllowed(target)) return NOTHING
+  // THE ID IS REPORTED EVEN IF oEmbed THEN SAYS NOTHING. The cover and the
+  // caption are a nicety; the id is what stops a repeat entry scoring, and it is
+  // already known here whether or not TikTok feels like answering.
+  const identity = { canonical: target, videoId: tiktokIdFrom(target) }
   try {
     const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(target)}`, {
       headers: { accept: 'application/json', 'user-agent': UA },
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return NOTHING
+    if (!res.ok) return { ...NOTHING, ...identity }
     const b = await res.json()
     return {
+      ...identity,
       thumbnail: typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : null,
       caption: typeof b?.title === 'string' ? b.title : null,
       author: typeof b?.author_name === 'string' ? b.author_name : null,
       handle: handleFromAuthorUrl(b?.author_url),
     }
   } catch {
-    return NOTHING
+    return { ...NOTHING, ...identity }
   }
 }
 
@@ -212,7 +242,14 @@ async function youtubeMeta(url: string): Promise<Meta> {
   if (!id) return NOTHING
   // The deterministic still is the floor: it needs no request and never fails,
   // so a bot-blocked oEmbed costs a caption rather than a picture.
-  const floor: Meta = { ...NOTHING, thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` }
+  // YouTube's id is in the link itself, so the identity never depends on
+  // YouTube answering. Same reasoning as TikTok above.
+  const floor: Meta = {
+    ...NOTHING,
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    canonical: `https://www.youtube.com/watch?v=${id}`,
+    videoId: id,
+  }
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`,
@@ -221,6 +258,7 @@ async function youtubeMeta(url: string): Promise<Meta> {
     if (!res.ok) return floor
     const b = await res.json()
     return {
+      ...floor,
       thumbnail: typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : floor.thumbnail,
       caption: typeof b?.title === 'string' ? b.title : null,
       author: typeof b?.author_name === 'string' ? b.author_name : null,

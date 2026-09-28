@@ -153,6 +153,14 @@ export async function previewLink(url) {
       caption: data.caption || null,
       author: data.author || null,
       handle: data.handle || null,
+      // WHICH VIDEO THIS ACTUALLY IS (28 Sep 2026). A vm.tiktok.com link is
+      // minted per share, so two links to one video look completely different
+      // and the insert-time "one video, one entry" guard could not see through
+      // them. The preview already follows the link; it reports where it landed
+      // now, so the entry can be written with its real id and a repeat is
+      // refused at the door instead of scoring for a day and then vanishing.
+      canonical: data.canonical || null,
+      videoId: data.videoId || null,
     }
   } catch {
     return null
