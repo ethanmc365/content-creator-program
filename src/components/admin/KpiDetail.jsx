@@ -131,14 +131,23 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                 which is pure white, but it's kind of hard to understand because
                 normally the progress bar wouldn't be white. It appears like it's
                 not filled at all, even though it's 100%."
-                The track is now dark against the orange, so the white fill is
-                the bright thing rather than the whole thing, and reaching the
+                The track is now dark against the orange, so the fill is the
+                bright thing rather than the whole thing, and reaching the
                 target sweeps a shine across it once instead of arriving with no
-                event at all. */}
+                event at all.
+
+                AND THE FILL IS GREEN (28 Sep 2026, later). Ethan: "for the
+                progress bar, whenever I click on anything, can the progress bar
+                be a gradient green rather than white?" White was still the same
+                colour as the type around it, so the bar read as part of the
+                panel; green is the one colour on this header that means
+                progress and cannot be confused with anything else on it. A
+                gradient rather than a flat fill so the leading edge is the
+                brightest part, which is where the eye goes. */}
             <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-black/25">
               <div
                 className={cx(
-                  'kpi-fill relative h-full overflow-hidden rounded-full bg-white',
+                  'kpi-fill relative h-full overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-300',
                   status === 'met' && 'kpi-complete',
                 )}
                 style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }}

@@ -2991,3 +2991,23 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 @media (prefers-reduced-motion: reduce) {
   .brand-drift { animation: none; background-position: 30% 50%; }
 }
+
+/* THE MARKET ROW SCROLLS SIDEWAYS, AND LOOKS LIKE IT DOES (28 Sep 2026).
+   Ethan asked for the markets on "one line and scrollable" so the row's height
+   never changes when something else appears beside it. Scrollbars are hidden
+   everywhere in this app, so without a hint the last pill just looks cut off -
+   which is the complaint that made them wrap in the first place. A mask fades
+   the last few pixels instead, so the row reads as continuing.
+
+   `[data-overflow="true"]` is set by the component when the content is actually
+   wider than the box: fading the edge of a row that fits would dim a pill for
+   no reason at all. */
+.kpi-markets {
+  scroll-snap-type: x proximity;
+}
+.kpi-markets > * {
+  scroll-snap-align: start;
+}
+.kpi-markets[data-overflow='true'] {
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+}

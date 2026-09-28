@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { Avatar, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
 import KpiDetail from '../../components/admin/KpiDetail'
+import RecruitersChart from '../../components/admin/RecruitersChart'
 import { confirm } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import {
@@ -57,6 +58,24 @@ export default function AdminKpis() {
   // A PERIOD IS A QUARTER OR A MONTH (24 Sep 2026). `month` null = the whole
   // quarter, as every target was before migration 258.
   const [period, setPeriod] = useState(() => ({ ...currentQuarter(), month: null }))
+
+  // IS THERE ANYTHING TO SCROLL TO? The market row fades its right edge so a
+  // clipped pill reads as "there is more" rather than as a bug, and that fade
+  // must not appear on a row that already fits - it would dim the last market
+  // for no reason. Measured rather than assumed, and re-measured when the box
+  // or the list changes.
+  const marketsRef = useRef(null)
+  const [marketsOverflow, setMarketsOverflow] = useState(false)
+  useEffect(() => {
+    const el = marketsRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const measure = () => setMarketsOverflow(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    for (const child of el.children) ro.observe(child)
+    return () => ro.disconnect()
+  }, [communities])
   const { year, quarter, month } = period
   const byMonth = month != null
   const now = currentMonth()
@@ -178,17 +197,20 @@ export default function AdminKpis() {
           under them) is gone with it; and the period sits on the same centre
           line at the right. */}
       <div className="mb-5 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up lg:flex-row lg:items-center lg:gap-3">
-        {/* ROOM FOR MORE MARKETS, WITHOUT THE ROW TAKING OVER THE PAGE
-            (28 Sep 2026). Ethan: "ensure that whenever we add in more countries,
-            there's space for it, but it will scroll smoothly. For now,
-            obviously, it can stay like that."
-            The pills wrap, so each new market makes this taller; at seven they
-            are one or two rows and nothing here does anything. Past about three
-            rows it scrolls instead of pushing the KPIs down the page, and
-            `overscroll-contain` stops that scroll running on into the page once
-            it reaches the end. */}
+        {/* ONE LINE, SCROLLING SIDEWAYS (28 Sep 2026, later). Ethan, on what
+            happens when you step to another quarter: "the market selection goes
+            on 2 lines, rather than being on one line and scrollable."
+            Wrapping was the earlier answer to "nothing should be clipped", and
+            it has a cost he has now seen: the row's HEIGHT depends on what else
+            is in the bar, so the moment the jump-back button appeared the
+            markets reflowed onto a second line and the whole card grew. A row
+            that scrolls sideways is always exactly one pill tall, whatever is
+            beside it and however many markets there are. `overscroll-contain`
+            keeps that scroll off the page behind it. */}
         <div
-          className="flex max-h-[6.5rem] min-w-0 flex-1 flex-wrap items-center gap-1 overflow-y-auto overscroll-contain scroll-smooth"
+          ref={marketsRef}
+          data-overflow={marketsOverflow ? 'true' : 'false'}
+          className="kpi-markets flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-contain scroll-smooth"
           role="tablist"
           aria-label={tr('Market')}
         >
@@ -245,17 +267,34 @@ export default function AdminKpis() {
               <Icon name="chevronRight" className="h-4 w-4" />
             </button>
           </div>
-          {!isCurrent && (
-            <button
-              type="button"
-              onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
-              className="text-xs font-semibold text-brand hoverable:hover:underline"
-            >
-              {byMonth ? tr('This month') : tr('This quarter')}
-            </button>
-          )}
         </div>
       </div>
+
+      {/* BACK TO TODAY, OUTSIDE THE CARD AND SAYING WHERE IT GOES (28 Sep
+          2026). Ethan: "it shows up a 'this quarter' button which then makes
+          that card expand ... also the UI of the 'this quarter' button doesn't
+          really make sense as it seems as if I'm viewing the current quarter,
+          the UI should be improved and maybe a separate button outside the
+          card."
+          Two faults, both fixed by moving it out and renaming it. Inside the
+          bar it changed the bar's height, which reflowed the markets; and
+          "This quarter" is what a LABEL for the period you are on would say,
+          so as a button it read as a statement rather than a way back. It
+          names the period it returns to now - "Back to Q4 2026" - which can
+          only be an action, and it sits under the bar where appearing and
+          disappearing moves nothing but itself. */}
+      {!isCurrent && (
+        <div className="-mt-3 mb-4 flex justify-end animate-fade-up">
+          <button
+            type="button"
+            onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand/25 bg-brand-tint px-3 py-1.5 text-xs font-semibold text-brand transition-colors hoverable:hover:bg-brand hoverable:hover:text-white"
+          >
+            <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+            {tr('Back to {p}', { p: periodLabel(byMonth ? now : { ...currentQuarter(), month: null }) })}
+          </button>
+        </div>
+      )}
 
       {!ready && !merged ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -342,6 +381,12 @@ export default function AdminKpis() {
               "are we on track right now"; a year answers "is this market
               actually growing", which needs all four numbers side by side,
               not four separate page loads to compare by memory. */}
+          {/* WHO BROUGHT THEM IN, above the year (28 Sep 2026). "Creators
+              recruited" is a target the cards above can only ever answer with a
+              number; this is the chart that says where that number came from,
+              and it belongs between "are we on track this quarter" and "is this
+              market going anywhere". */}
+          <RecruitersChart scope={scope} period={period} />
           <YearOverview scope={scope} year={year} byMonth={byMonth} />
         </div>
       )}
@@ -465,6 +510,17 @@ function YearRow({ metric, periods, last }) {
   const anyTarget = rows.some(Boolean)
   const isViews = metric.metric === 'views'
   const many = periods.length > 4
+  // WHERE "FOR THE YEAR" COMES FROM (28 Sep 2026). Ethan: "I don't get why it
+  // chose 1.1 million of 12.5 million for the year, and creators recruited
+  // 176 of 100 for the year. Where are you getting this?"
+  //
+  // Both figures are sums over the periods that HAVE A TARGET - the totals are
+  // right, the label was not. A year with targets in two quarters said "for the
+  // year" over a number covering half of it, so 176 recruited "of 100 for the
+  // year" looked like arithmetic nobody could reproduce. It now says how much
+  // of the year it is actually adding up whenever that is not all of it.
+  const withTarget = rows.filter(Boolean).length
+  const whole = withTarget === periods.length
 
   return (
     <div className={cx('flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5', !last && 'border-b border-gray-100')}>
@@ -504,7 +560,20 @@ function YearRow({ metric, periods, last }) {
           {anyTarget ? (isViews ? formatViews(totalActual) : totalActual.toLocaleString()) : '-'}
         </p>
         <p className="text-[11px] text-gray-400">
-          {anyTarget ? tr('of {t} for the year', { t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString() }) : tr('no targets yet')}
+          {!anyTarget
+            ? tr('no targets yet')
+            : whole
+              ? tr('of {t} for the year', { t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString() })
+              : withTarget === 1
+                ? tr('of {t} in the only {unit} with a target', {
+                  t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString(),
+                  unit: periods.length > 4 ? tr('month') : tr('quarter'),
+                })
+                : tr('of {t} across the {n} {unit} with a target', {
+                  t: isViews ? formatViews(totalTarget) : totalTarget.toLocaleString(),
+                  n: withTarget,
+                  unit: periods.length > 4 ? tr('months') : tr('quarters'),
+                })}
         </p>
       </div>
     </div>
@@ -653,9 +722,20 @@ function KpiCard({ row, year, quarter, month, canEdit, onEdit, onDelete, onOpen,
             style={{ width: `${Math.max(fillPct > 0 ? 3 : 0, fillPct)}%` }}
           />
         </div>
+        {/* WHAT THE LINE ACTUALLY MEANS (28 Sep 2026). Ethan: "under Creators
+            participated, it says 98% of the way through (£49). I don't really
+            get what that means, so please change the copy."
+            Fair: "98% of the way through" was the QUARTER, not the target
+            sitting right above it, and "pace £49" was a bare figure with no
+            sentence round it. Both facts are now said in words - how much of
+            the period has gone, and what a steady pace would have reached by
+            today - which is the same wording the detail card uses. */}
         {progress > 0 && progress < 1 && status !== 'met' && (
-          <p className="mt-1.5 text-[11px] text-gray-400">
-            {tr('{p}% of the way through', { p: Math.round(progress * 100) })} · {tr('pace {n}', { n: formatMetricValue(row, Math.round(row.target_value * progress)) })}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400">
+            {tr('{p}% through · a steady pace would be at {n} today', {
+              p: Math.round(progress * 100),
+              n: formatMetricValue(row, Math.round(row.target_value * progress)),
+            })}
           </p>
         )}
       </div>
