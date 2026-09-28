@@ -1,5 +1,5 @@
 import Icon from '../Icon'
-import { designStyle, fillTemplate, formatAwardDate, tierOf } from '../../lib/certificates'
+import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf, ordinal } from '../../lib/certificates'
 
 // A CERTIFICATE, AS A PICTURE.
 //
@@ -11,32 +11,37 @@ import { designStyle, fillTemplate, formatAwardDate, tierOf } from '../../lib/ce
 // no dark mode.
 //
 // ---------------------------------------------------------------------------
-// THE 21 SEP REDESIGN
+// THE 28 SEP REDESIGN
 //
-// Ethan: "I hate even more how it looks now. The font is really weird. It
-// doesn't match the style of the platform... you added the other layouts, and
-// I like that there's multiple layout options, but they're all quite similar
-// and none of them I like at all. It needs to be well-designed, matching the
-// platform, using the fonts like the Poppins Bold, ensuring the logo's correct
-// and other graphics like the Tryp.com orange, and the gradients we have on
-// the platform."
+// Ethan: "the Tryp.com plane is looking randomly placed ... other issues about
+// the fonts and the styling. The colors, some of the graphics, like those
+// dotted lines going behind the text, which makes it look weird. Although I do
+// like those dotted lines, but it's just placing everything properly. Have a
+// proper UI, like the badges. Some of them look weird."
 //
-// Three decisions follow from that, and every layout below obeys them:
+// The six objects stay (they were the right idea); every one was rebuilt to
+// the same rules:
 //
-//   1. POPPINS, 400 AND 700, AND NOTHING ELSE. Instrument Serif was the "weird
-//      font". 400 and 700 are also the two weights `domSnapshot` embeds, so
-//      the downloaded PNG is set in exactly what is on screen.
+//   1. ONE GRID. A 56px margin on every side, content columns on 8px steps,
+//      and the same type scale everywhere: 11px kicker, 36-40px title, the
+//      name as the hero (up to 64px), 16px body, 9px labels over 13px values.
+//      Poppins 400/700 only - the two weights `domSnapshot` embeds.
 //
-//   2. THE PLATFORM'S OWN PARTS. The hub card's gradient (accent to a LIGHTER
-//      tone, with soft white glows), the dotted flight route from the
-//      milestone page, the real Tryp livery plane from the hub, and the real
-//      wordmark cut out of its white square (`/brand/tryp-wordmark*.svg`) -
-//      so there is no white plate anywhere, which was the logo complaint.
+//   2. DECORATION HAS ITS OWN ZONE. A dotted route or the plane is drawn only
+//      where no words will ever be: inside the gradient panel, along a margin,
+//      or trailing off the edge of the band. Never behind a title or a footer.
+//      The plane sits ON its route at a fixed anchor, tail on the line, so it
+//      reads as flying the route rather than as a sticker.
 //
-//   3. SIX OBJECTS, NOT SIX ARRANGEMENTS. Horizon, a boarding pass, a
-//      postcard, a sky banner, a flight path and a minimal page are things a
-//      travel company would actually hand you. They share parts, never a
-//      composition - the previous six were one composition with the bars moved.
+//   3. THE BADGE SAYS WHAT WAS WON. A place award carries a medal - 1st, 2nd,
+//      3rd and the rest each drawn differently - and every other award a seal
+//      naming it (Participant, Milestone, Honour). The tier word is gone.
+//
+//   4. THE ID IS A LINK YOU CAN TYPE. "Verify at .../verify" became the full
+//      address with the code in it, which /verify/:serial opens directly.
+//
+//   5. ANY ACCENT CAN BE READ. Words on the accent use `onBlock`, so the new
+//      yellow gets dark type and every other accent white.
 // ---------------------------------------------------------------------------
 
 // WHERE /verify ACTUALLY LIVES: this app's canonical host, not tryp.com.
@@ -44,6 +49,7 @@ const VERIFY_HOST = 'trypcreators.vercel.app'
 
 export const CERT_W = 1000
 export const CERT_H = 707
+const M = 56 // the margin, on every side of every layout
 
 const SANS = 'Poppins, system-ui, sans-serif'
 
@@ -65,8 +71,9 @@ function fit(text, max) {
 
 export default function CertificateCard({ design, facts = {}, cardRef, className }) {
   const d = design || {}
-  const tier = tierOf(d.tier)
   const s = designStyle(d)
+  const o = optionsOf(d)
+  const kind = awardKind(d, facts)
 
   const c = {
     subtitle: fillTemplate(d.subtitle, facts),
@@ -78,7 +85,12 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
     serial: facts.serial || '',
     signature: d.signature || '',
     signatureRole: d.signature_role || '',
-    tier: tier.label,
+    market: facts.market || '',
+    challenge: facts.challenge || '',
+    kind,
+    place: kind.place || null,
+    places: Number(facts.places) || null,
+    preamble: o.preamble ?? 'This certifies that',
   }
 
   const Layout = LAYOUTS[s.layout.key] || LAYOUTS.horizon
@@ -92,7 +104,7 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
         background: s.bg, color: s.ink, fontFamily: SANS, WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <Layout s={s} c={c} />
+      <Layout s={s} c={c} o={o} />
     </div>
   )
 }
@@ -108,7 +120,7 @@ function Kicker({ s, children, align = 'left', color, size = 11 }) {
     <p style={{
       margin: 0, display: 'flex', alignItems: 'center', gap: 8,
       justifyContent: align === 'center' ? 'center' : 'flex-start',
-      fontSize: size, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: col,
+      fontSize: size, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: col,
     }}>
       <span style={{ display: 'inline-flex', transform: 'rotate(45deg)', color: col }}>
         <Icon name="plane-flight" className="h-3.5 w-3.5" />
@@ -118,10 +130,10 @@ function Kicker({ s, children, align = 'left', color, size = 11 }) {
   )
 }
 
-function Title({ s, children, size = 44, align = 'left', color }) {
+function Title({ s, children, size = 38, align = 'left', color }) {
   return (
     <p style={{
-      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.08,
+      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.1,
       letterSpacing: '-0.02em', color: color || s.ink, textAlign: align,
     }}>
       {children}
@@ -129,7 +141,8 @@ function Title({ s, children, size = 44, align = 'left', color }) {
   )
 }
 
-function Preamble({ s, children = 'This certifies that', align = 'left', color }) {
+function Preamble({ s, children, align = 'left', color }) {
+  if (!children) return null
   return (
     <p style={{
       margin: 0, fontSize: 13, fontWeight: 400, letterSpacing: '0.02em',
@@ -144,7 +157,7 @@ function Name({ s, children, size = 58, align = 'left', color }) {
   if (!children) return null
   return (
     <p style={{
-      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.06,
+      margin: 0, fontSize: fit(children, size), fontWeight: 700, lineHeight: 1.05,
       letterSpacing: '-0.025em', color: color || s.accentText, textAlign: align,
     }}>
       {children}
@@ -156,9 +169,20 @@ function Body({ s, children, align = 'left', width = 540, size = 16, color }) {
   if (!children) return null
   return (
     <p style={{
-      margin: 0, maxWidth: width, fontSize: size, fontWeight: 400, lineHeight: 1.65,
+      margin: 0, maxWidth: width, fontSize: size, fontWeight: 400, lineHeight: 1.6,
       color: color || s.muted, whiteSpace: 'pre-line', textAlign: align,
       ...(align === 'center' ? { marginLeft: 'auto', marginRight: 'auto' } : null),
+    }}>
+      {children}
+    </p>
+  )
+}
+
+function Label({ s, children, color }) {
+  return (
+    <p style={{
+      margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em',
+      textTransform: 'uppercase', color: color || s.faint,
     }}>
       {children}
     </p>
@@ -168,16 +192,11 @@ function Body({ s, children, align = 'left', width = 540, size = 16, color }) {
 function Fact({ s, label, value, align = 'left', mono = false, color, labelColor }) {
   if (!value) return null
   return (
-    <div style={{ textAlign: align }}>
+    <div style={{ textAlign: align, minWidth: 0 }}>
+      <Label s={s} color={labelColor}>{label}</Label>
       <p style={{
-        margin: 0, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em',
-        textTransform: 'uppercase', color: labelColor || s.faint,
-      }}>
-        {label}
-      </p>
-      <p style={{
-        margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: color || s.ink,
-        letterSpacing: mono ? '0.06em' : 'normal',
+        margin: '5px 0 0', fontSize: 13, fontWeight: 700, color: color || s.ink,
+        letterSpacing: mono ? '0.06em' : 'normal', whiteSpace: 'nowrap',
         ...(mono ? { fontVariantNumeric: 'tabular-nums' } : null),
       }}>
         {value}
@@ -186,51 +205,43 @@ function Fact({ s, label, value, align = 'left', mono = false, color, labelColor
   )
 }
 
-function Credential({ s, serial, align = 'left', color, labelColor }) {
-  if (!serial) return null
-  return (
-    <div style={{ textAlign: align }}>
-      <Fact s={s} label="Certificate ID" value={serial} align={align} mono color={color} labelColor={labelColor} />
-      <p style={{ margin: '3px 0 0', fontSize: 9.5, fontWeight: 400, color: labelColor || s.faint }}>
-        Verify at {VERIFY_HOST}/verify
-      </p>
-    </div>
-  )
-}
-
 function Signature({ s, name, role, align = 'left', color }) {
   if (!name) return null
   return (
-    <div style={{ textAlign: align }}>
-      <p style={{ margin: 0, fontSize: 17, fontWeight: 700, lineHeight: 1.2, color: color || s.ink }}>{name}</p>
+    <div style={{ textAlign: align, minWidth: 0 }}>
+      <p style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.2, color: color || s.ink, whiteSpace: 'nowrap' }}>{name}</p>
       <div style={{
-        height: 1, width: 150, background: s.hair,
-        margin: align === 'right' ? '7px 0 6px auto' : align === 'center' ? '7px auto 6px' : '7px 0 6px',
+        height: 1.5, width: 132, background: s.rule,
+        margin: align === 'right' ? '8px 0 6px auto' : align === 'center' ? '8px auto 6px' : '8px 0 6px',
       }} />
-      <p style={{
-        margin: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em',
-        textTransform: 'uppercase', color: s.faint,
-      }}>
-        {role || 'Tryp.com'}
-      </p>
+      <Label s={s}>{role || 'Tryp.com'}</Label>
     </div>
   )
 }
 
-/** The real wordmark, orange on a light ground and white on a dark one. */
-function Wordmark({ white, height = 30, style }) {
+/** The code and where to check it, as one line anyone can type. */
+function Verify({ s, serial, align = 'left', color }) {
+  if (!serial) return null
+  return (
+    <p style={{ margin: 0, fontSize: 10, fontWeight: 400, color: color || s.faint, textAlign: align, whiteSpace: 'nowrap' }}>
+      Verify at <span style={{ fontWeight: 700 }}>{VERIFY_HOST}/verify/{serial}</span>
+    </p>
+  )
+}
+
+/** The real wordmark: white, or orange on a light ground. */
+function Wordmark({ white, height = 28, style }) {
   return (
     <img
       src={white ? '/brand/tryp-wordmark-white.svg' : '/brand/tryp-wordmark.svg'}
       alt="Tryp.com"
       crossOrigin="anonymous"
-      // `alignSelf` so a flex column cannot stretch the image to its width -
-      // an SVG stretched that way centres its drawing, which is how the
-      // postcard's wordmark ended up in the middle of the column.
+      // `alignSelf` so a flex column cannot stretch the image to its width.
       style={{ height, width: 'auto', display: 'block', alignSelf: 'flex-start', flexShrink: 0, ...style }}
     />
   )
 }
+const isWhite = (hex) => String(hex).toLowerCase() === '#ffffff'
 
 /** The hub card: gradient, rounded, two soft glows. */
 function GradientBlock({ s, style, children, radius = 28 }) {
@@ -238,11 +249,11 @@ function GradientBlock({ s, style, children, radius = 28 }) {
     <div style={{ position: 'absolute', overflow: 'hidden', borderRadius: radius, background: s.block, ...style }}>
       <div style={{
         position: 'absolute', right: -110, top: -120, width: 360, height: 360, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0) 68%)',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0) 68%)',
       }} />
       <div style={{
         position: 'absolute', left: -120, bottom: -140, width: 380, height: 380, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 68%)',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 68%)',
       }} />
       {children}
     </div>
@@ -250,7 +261,7 @@ function GradientBlock({ s, style, children, radius = 28 }) {
 }
 
 /** A dotted flight route, in the coordinate space of the box it sits in. */
-function Route({ d, color = '#ffffff', opacity = 0.8, width = 3, gap = 10, style }) {
+function Route({ d, color = '#ffffff', opacity = 0.75, width = 3, gap = 10, style }) {
   return (
     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', ...style }} aria-hidden="true">
       <path d={d} fill="none" stroke={color} strokeOpacity={opacity} strokeWidth={width}
@@ -259,33 +270,103 @@ function Route({ d, color = '#ffffff', opacity = 0.8, width = 3, gap = 10, style
   )
 }
 
-/** The Tryp livery, from the hub. Faces left; never mirrored (its side would read backwards). */
-function Plane({ width = 240, style }) {
+// The livery image is 1200x471 and faces LEFT. Its tail fin is ~88% across
+// and ~18% down; routes end there so the plane is flying the line.
+const PLANE_RATIO = 471 / 1200
+function Plane({ width = 240, left, top, rotate = -8 }) {
   return (
     <img
       src="/brand/tryp-plane-cutout.png"
       alt=""
       crossOrigin="anonymous"
-      style={{ position: 'absolute', width, height: 'auto', filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.20))', ...style }}
+      style={{
+        position: 'absolute', left, top, width, height: width * PLANE_RATIO,
+        transform: `rotate(${rotate}deg)`, transformOrigin: '50% 50%',
+        filter: 'drop-shadow(0 12px 16px rgba(0,0,0,0.18))',
+      }}
     />
   )
 }
 
-/** A round gradient seal with the plane and the tier. */
-function Seal({ s, tier, size = 108, style }) {
+/**
+ * THE BADGE. A place gets a medal that is visibly its own place:
+ *   1st  the full gradient, a white ring and a star
+ *   2nd  white with a heavy accent ring
+ *   3rd  a soft accent tint with a lighter ring
+ *   4th+ white with a dashed ring
+ * Anything else gets a seal naming the award. `onDark` is true when the badge
+ * sits on the gradient, where the white versions stay white and read cleanly.
+ */
+function Badge({ s, c, size = 112, style, onGradient = false }) {
+  const base = {
+    position: 'absolute', width: size, height: size, borderRadius: '50%',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    textAlign: 'center', ...style,
+  }
+  if (c.place) {
+    const p = c.place
+    const look = p === 1
+      ? { background: onGradient ? '#ffffff' : s.grad, color: onGradient ? s.accentDeep : s.onAccent,
+        boxShadow: `0 14px 30px ${alpha(s.accent, 0.35)}, inset 0 0 0 5px ${onGradient ? alpha(s.accent, 0.18) : 'rgba(255,255,255,0.4)'}` }
+      : p === 2
+        ? { background: '#ffffff', color: s.accentDeep, boxShadow: `0 10px 24px rgba(26,26,26,0.12), inset 0 0 0 5px ${s.accent}` }
+        : p === 3
+          ? { background: onGradient ? '#ffffff' : alpha(s.accent, 0.12), color: s.accentDeep, boxShadow: `inset 0 0 0 3px ${alpha(s.accent, 0.55)}` }
+          : { background: '#ffffff', color: s.accentDeep, border: `2px dashed ${alpha(s.accent, 0.55)}` }
+    const n = String(p)
+    const suffix = ordinal(p).slice(n.length)
+    return (
+      <div style={{ ...base, ...look }}>
+        {p === 1 && (
+          <span style={{ display: 'inline-flex', marginBottom: 2, opacity: 0.95 }}><Icon name="star" className="h-4 w-4" /></span>
+        )}
+        <span style={{ display: 'flex', alignItems: 'flex-start', lineHeight: 1 }}>
+          <span style={{ fontSize: size * (n.length > 1 ? 0.36 : 0.42), fontWeight: 700, letterSpacing: '-0.03em' }}>{n}</span>
+          <span style={{ fontSize: size * 0.14, fontWeight: 700, marginTop: size * 0.04, marginLeft: 1 }}>{suffix}</span>
+        </span>
+        <span style={{ fontSize: Math.max(8, size * 0.078), fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4 }}>
+          Place
+        </span>
+        {c.places && (
+          <span style={{ fontSize: Math.max(7.5, size * 0.07), fontWeight: 400, marginTop: 2, opacity: 0.8 }}>of {c.places}</span>
+        )}
+      </div>
+    )
+  }
   return (
     <div style={{
-      position: 'absolute', width: size, height: size, borderRadius: '50%', background: s.light ? s.grad : '#ffffff',
-      color: s.light ? '#ffffff' : s.accent, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 4, boxShadow: `0 12px 28px rgba(0,0,0,0.16), inset 0 0 0 5px ${s.light ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.05)'}`,
-      ...style,
+      ...base,
+      background: onGradient ? '#ffffff' : s.grad,
+      color: onGradient ? s.accentDeep : s.onAccent,
+      boxShadow: `0 12px 26px ${alpha(s.accent, 0.3)}, inset 0 0 0 5px ${onGradient ? alpha(s.accent, 0.15) : 'rgba(255,255,255,0.35)'}`,
+      gap: 5,
     }}>
-      <span style={{ display: 'inline-flex', transform: 'rotate(45deg)' }}>
-        <Icon name="plane-flight" className="h-7 w-7" />
+      <span style={{ display: 'inline-flex' }}><Icon name={c.kind.icon} className="h-6 w-6" /></span>
+      <span style={{ fontSize: Math.max(8, size * 0.08), fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', lineHeight: 1.2, maxWidth: size - 24 }}>
+        {c.kind.label}
       </span>
-      <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2, maxWidth: size - 22 }}>
-        {tier}
-      </span>
+    </div>
+  )
+}
+
+/** The three facts every certificate ends on, on one line. */
+function Footer({ s, c, style, align = 'split', colors = {} }) {
+  return (
+    <div style={{ position: 'absolute', ...style }}>
+      {c.footnote && (
+        <p style={{ margin: '0 0 12px', fontSize: 11, color: colors.faint || s.faint, textAlign: align === 'center' ? 'center' : 'left' }}>{c.footnote}</p>
+      )}
+      <div style={{ height: 1, background: colors.hair || s.hair, marginBottom: 18 }} />
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 28 }}>
+        {c.signature
+          ? <Signature s={s} name={c.signature} role={c.signatureRole} color={colors.ink} />
+          : <Fact s={s} label="Issued by" value="Tryp.com" color={colors.ink} labelColor={colors.faint} />}
+        <Fact s={s} label="Awarded" value={c.date} align={align === 'split' ? 'center' : 'left'} color={colors.ink} labelColor={colors.faint} />
+        <Fact s={s} label="Certificate ID" value={c.serial} align="right" mono color={colors.ink} labelColor={colors.faint} />
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <Verify s={s} serial={c.serial} align={align === 'center' ? 'center' : 'right'} color={colors.faint} />
+      </div>
     </div>
   )
 }
@@ -295,185 +376,187 @@ function Seal({ s, tier, size = 108, style }) {
 // ---------------------------------------------------------------------------
 
 /**
- * HORIZON - the hub card down the left, the Tryp plane on a dotted route
- * through it, and the certificate's words beside it. The default: it is the
- * most "this is the platform" of the six.
+ * HORIZON - the hub card down the left, the Tryp plane flying a dotted route
+ * across it, the badge at its foot; the certificate's words beside it.
  */
-function Horizon({ s, c }) {
-  const PANEL = 340
+function Horizon({ s, c, o }) {
+  const PANEL = 332
+  const ink = s.onBlock
+  const white = isWhite(ink)
   return (
     <>
       <GradientBlock s={s} style={{ left: 28, top: 28, bottom: 28, width: PANEL }}>
-        <Wordmark white height={30} style={{ position: 'absolute', left: 36, top: 36 }} />
-        <Route d="M -20 520 C 60 520, 90 440, 160 420 S 300 300, 250 210 S 180 90, 330 60" />
-        <Plane width={270} style={{ left: 40, top: 360, transform: 'rotate(-8deg)' }} />
-        <div style={{ position: 'absolute', left: 36, right: 36, bottom: 36 }}>
-          <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>
-            {c.tier}
+        <Wordmark white={white} height={28} style={{ position: 'absolute', left: 32, top: 34 }} />
+        {/* The route climbs from the panel's lower left to the plane's tail
+            and on up and out of the top right corner - through the middle of
+            the panel, where nothing else is. */}
+        {o.route && <Route d="M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110" color={ink} opacity={0.55} />}
+        {o.plane && <Plane width={230} left={48} top={262} rotate={-14} />}
+        {o.medal && <Badge s={s} c={c} size={104} onGradient style={{ left: 30, bottom: 30 }} />}
+        <div style={{ position: 'absolute', left: o.medal ? 150 : 32, right: 28, bottom: 42 }}>
+          <p style={{ margin: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ink, opacity: 0.8 }}>
+            {c.kind.label}
           </p>
-          <p style={{ margin: '6px 0 0', fontSize: 15, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
-            Tryp.com Content Creator Community
+          <p style={{ margin: '6px 0 0', fontSize: 13, fontWeight: 700, color: ink, lineHeight: 1.3 }}>
+            Tryp.com Creator<br />Community
           </p>
         </div>
       </GradientBlock>
 
       <div style={{
-        position: 'absolute', left: 28 + PANEL + 64, right: 64, top: 0, bottom: 0,
-        display: 'flex', flexDirection: 'column', padding: '64px 0 52px',
+        position: 'absolute', left: 28 + PANEL + 60, right: M + 8, top: M, bottom: 170,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
       }}>
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Kicker s={s}>{c.subtitle}</Kicker>
-          <div style={{ height: c.subtitle ? 14 : 0 }} />
-          <Title s={s} size={44}>{c.title}</Title>
-          <div style={{ height: 34 }} />
-          <Preamble s={s} />
-          <div style={{ height: 6 }} />
-          <Name s={s} size={54}>{c.name}</Name>
-          <div style={{ height: 16 }} />
-          <Body s={s} width={500}>{c.body}</Body>
-        </div>
-        <div>
-          {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
-          <div style={{ height: 1, background: s.hair, marginBottom: 18 }} />
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-            <Signature s={s} name={c.signature} role={c.signatureRole} />
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 36, marginLeft: 'auto' }}>
-              <Fact s={s} label="Awarded" value={c.date} />
-              <Credential s={s} serial={c.serial} />
-            </div>
-          </div>
-        </div>
+        <Kicker s={s}>{c.subtitle}</Kicker>
+        <div style={{ height: c.subtitle ? 12 : 0 }} />
+        <Title s={s} size={38}>{c.title}</Title>
+        <div style={{ height: 34 }} />
+        <Preamble s={s}>{c.preamble}</Preamble>
+        <div style={{ height: 6 }} />
+        <Name s={s} size={56}>{c.name}</Name>
+        <div style={{ height: 14 }} />
+        <Body s={s} width={500}>{c.body}</Body>
       </div>
+      <Footer s={s} c={c} style={{ left: 28 + PANEL + 60, right: M + 8, bottom: M - 6 }} />
     </>
   )
 }
 
 /**
- * BOARDING PASS - a real one: passenger, a route from "you" to Tryp.com, gate
- * and seat, and a perforated stub carrying the date and the code. The pass is
- * always a white card; the paper is what it lies on.
+ * BOARDING PASS - a real one: passenger, route from you to Tryp, gate, class
+ * and seat, and a stub with the badge and a barcode. The pass is always a white
+ * card; the paper is what it lies on.
  */
-function Boarding({ s, c }) {
-  const L = 48
-  const T = 64
+function Boarding({ s, c, o }) {
+  const L = M
+  const T = 62
   const W = CERT_W - L * 2
   const H = CERT_H - T * 2
   const STUB = 250
+  const BAND = 72
   const initials = (c.name || 'You').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || 'YOU'
   const ink = '#1A1A1A'
-  const faint = '#9A9CA4'
+  const faint = '#8E9099'
   const muted = '#5E6068'
+  const onBand = s.onAccent
+  const white = { ...s, ink, faint, hair: 'rgba(26,26,26,0.10)', accentText: s.accentDeep, muted }
   return (
     <>
-      {s.light && (
-        <Route d={`M -20 ${CERT_H - 40} C 200 ${CERT_H - 10}, 360 ${CERT_H - 70}, 520 ${CERT_H - 30} S 860 ${CERT_H - 60}, 1020 ${CERT_H - 20}`}
-          color={s.accent} opacity={0.35} />
-      )}
       <div style={{
         position: 'absolute', left: L, top: T, width: W, height: H, borderRadius: 26, background: '#ffffff',
-        boxShadow: '0 24px 60px rgba(26,26,26,0.14), 0 0 0 1px rgba(26,26,26,0.05)', overflow: 'hidden',
+        boxShadow: '0 24px 60px rgba(26,26,26,0.16), 0 0 0 1px rgba(26,26,26,0.05)', overflow: 'hidden',
       }}>
-        {/* The top band: the airline strip of a real pass. */}
+        {/* The airline strip. */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: 0, height: 74, background: s.grad,
+          position: 'absolute', left: 0, right: 0, top: 0, height: BAND, background: s.grad,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 34px',
         }}>
-          <Wordmark white height={28} />
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#ffffff' }}>
-            Boarding pass · {c.tier}
+          <Wordmark white={isWhite(onBand)} height={26} style={{ alignSelf: 'center' }} />
+          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: onBand }}>
+            Boarding pass
           </span>
         </div>
 
         {/* Main part */}
-        <div style={{ position: 'absolute', left: 34, top: 74 + 30, right: STUB + 34, bottom: 30, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'absolute', left: 36, top: BAND + 30, right: STUB + 36, bottom: 30, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
             <div>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>FROM</p>
-              <p style={{ margin: '2px 0 0', fontSize: 40, fontWeight: 700, letterSpacing: '0.02em', color: ink, lineHeight: 1 }}>{initials}</p>
+              <Label s={white}>From</Label>
+              <p style={{ margin: '4px 0 0', fontSize: 38, fontWeight: 700, letterSpacing: '0.02em', color: ink, lineHeight: 1 }}>{initials}</p>
             </div>
             <div style={{ flex: 1, position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
-              <div style={{ flex: 1, borderTop: `3px dotted ${s.accent}`, opacity: 0.6 }} />
-              <span style={{ display: 'inline-flex', color: s.accent, transform: 'rotate(90deg)', margin: '0 10px' }}>
+              <div style={{ flex: 1, borderTop: `3px dotted ${alpha(s.accent, 0.55)}` }} />
+              <span style={{ display: 'inline-flex', color: white.accentText, transform: 'rotate(90deg)', margin: '0 10px' }}>
                 <Icon name="plane-flight" className="h-7 w-7" />
               </span>
-              <div style={{ flex: 1, borderTop: `3px dotted ${s.accent}`, opacity: 0.6 }} />
+              <div style={{ flex: 1, borderTop: `3px dotted ${alpha(s.accent, 0.55)}` }} />
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>TO</p>
-              <p style={{ margin: '2px 0 0', fontSize: 40, fontWeight: 700, letterSpacing: '0.02em', color: s.accent, lineHeight: 1 }}>TRYP</p>
+              <Label s={white}>To</Label>
+              <p style={{ margin: '4px 0 0', fontSize: 38, fontWeight: 700, letterSpacing: '0.02em', color: white.accentText, lineHeight: 1 }}>TRYP</p>
             </div>
           </div>
 
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: faint }}>PASSENGER</p>
-            <Name s={{ ...s, accentText: ink }} size={46}>{c.name}</Name>
+            <Label s={white}>Passenger</Label>
+            <div style={{ height: 4 }} />
+            <Name s={white} size={46} color={ink}>{c.name}</Name>
             <div style={{ height: 12 }} />
-            <Title s={{ ...s, ink: s.accent }} size={24}>{c.title}</Title>
-            <div style={{ height: 8 }} />
-            <Body s={{ ...s, muted }} width={520} size={14}>{c.body}</Body>
+            <Title s={white} size={22} color={white.accentText}>{c.title}</Title>
+            <div style={{ height: 6 }} />
+            <Body s={white} width={500} size={14}>{c.body}</Body>
           </div>
 
-          <div style={{ display: 'flex', gap: 34 }}>
-            <Fact s={{ ...s, ink, faint }} label="Gate" value="Creator Community" />
-            <Fact s={{ ...s, ink, faint }} label="Class" value={c.tier} />
-            <Fact s={{ ...s, ink, faint }} label="Seat" value="1A" />
-            {c.signature && <Fact s={{ ...s, ink, faint }} label={c.signatureRole || 'Signed'} value={c.signature} />}
+          <div style={{ display: 'flex', gap: 30, borderTop: '1px solid rgba(26,26,26,0.08)', paddingTop: 16 }}>
+            <Fact s={white} label="Gate" value={c.market || 'Worldwide'} />
+            <Fact s={white} label="Class" value={c.kind.label} />
+            <Fact s={white} label="Seat" value={c.place ? `${c.place}A` : '1A'} />
+            {c.signature && <Fact s={white} label={c.signatureRole || 'Signed'} value={c.signature} />}
           </div>
         </div>
 
         {/* The perforation, with the two notches a real pass has. */}
-        <div style={{ position: 'absolute', top: 74, bottom: 0, right: STUB, borderLeft: '2px dashed #E4E4E8' }} />
-        <div style={{ position: 'absolute', right: STUB - 16, top: 58, width: 32, height: 32, borderRadius: '50%', background: '#EFEFF2' }} />
-        <div style={{ position: 'absolute', right: STUB - 16, bottom: -16, width: 32, height: 32, borderRadius: '50%', background: '#EFEFF2' }} />
+        <div style={{ position: 'absolute', top: BAND, bottom: 0, right: STUB, borderLeft: '2px dashed #E4E4E8' }} />
+        <div style={{ position: 'absolute', right: STUB - 15, top: BAND - 15, width: 30, height: 30, borderRadius: '50%', background: s.light ? '#F1F1F3' : 'rgba(0,0,0,0.12)' }} />
+        <div style={{ position: 'absolute', right: STUB - 15, bottom: -15, width: 30, height: 30, borderRadius: '50%', background: s.light ? '#F1F1F3' : 'rgba(0,0,0,0.12)' }} />
 
         {/* The stub */}
-        <div style={{ position: 'absolute', right: 0, top: 74, bottom: 0, width: STUB, padding: '30px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <Fact s={{ ...s, ink, faint }} label="Awarded" value={c.date} />
-          <Credential s={{ ...s, ink, faint }} serial={c.serial} />
-          <div style={{ marginTop: 'auto', display: 'flex', gap: 3, height: 46, alignItems: 'stretch' }}>
-            {/* A barcode, drawn - no library, no network, photographs cleanly. */}
+        <div style={{ position: 'absolute', right: 0, top: BAND, bottom: 0, width: STUB, padding: '26px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {o.medal && (
+            <div style={{ position: 'relative', height: 96 }}>
+              <Badge s={s} c={c} size={96} style={{ left: 0, top: 0 }} />
+            </div>
+          )}
+          <Fact s={white} label="Awarded" value={c.date} />
+          <Fact s={white} label="Certificate ID" value={c.serial} mono />
+          <div style={{ marginTop: 'auto', display: 'flex', gap: 3, height: 40, alignItems: 'stretch' }}>
             {Array.from({ length: 34 }).map((_, i) => (
               <span key={i} style={{ flex: [2, 1, 3, 1, 1, 2, 1, 3][i % 8], background: ink, opacity: i % 5 === 0 ? 0.35 : 0.9 }} />
             ))}
           </div>
         </div>
       </div>
+      {/* The verify address under the pass, on the paper. */}
+      <div style={{ position: 'absolute', left: L, right: L, bottom: 26 }}>
+        <Verify s={s} serial={c.serial} align="center" />
+      </div>
+      {/* A route along the top margin, above the pass, never on it. */}
+      {o.route && (
+        <Route d={`M -20 40 C 180 14, 360 50, 540 30 S 860 12, 1020 36`} color={s.light ? s.accent : s.ink} opacity={s.light ? 0.3 : 0.45} />
+      )}
     </>
   )
 }
 
 /**
  * POSTCARD - the message on the left, a stamp and a postmark top right, and
- * the creator on the address lines. The dotted divider down the middle is the
- * same dotted line as the routes.
+ * the creator on the address lines. The dotted divider is the same dotted line
+ * as the routes.
  */
-function Postcard({ s, c }) {
-  const MID = 560
-  const line = s.light ? 'rgba(26,26,26,0.14)' : 'rgba(255,255,255,0.35)'
+function Postcard({ s, c, o }) {
+  const MID = 548
+  const line = s.light ? 'rgba(26,26,26,0.14)' : s.hair
   return (
     <>
-      <div style={{ position: 'absolute', left: 60, top: 60, width: MID - 110, bottom: 56, display: 'flex', flexDirection: 'column' }}>
-        <Wordmark white={!s.light} height={28} />
+      <div style={{ position: 'absolute', left: M + 4, top: M + 4, width: MID - M - 60, bottom: M, display: 'flex', flexDirection: 'column' }}>
+        <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Kicker s={s}>{c.subtitle || `Greetings from Tryp.com`}</Kicker>
+          <Kicker s={s}>{c.subtitle || 'Greetings from Tryp.com'}</Kicker>
           <div style={{ height: 14 }} />
-          <Title s={s} size={42}>{c.title}</Title>
-          <div style={{ height: 18 }} />
-          <Body s={s} width={430} size={16}>{c.body}</Body>
+          <Title s={s} size={38}>{c.title}</Title>
+          <div style={{ height: 16 }} />
+          <Body s={s} width={420} size={16}>{c.body}</Body>
         </div>
-        <Signature s={s} name={c.signature} role={c.signatureRole} />
-        {!c.signature && (
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: s.ink }}>
-            The Tryp.com team
-          </p>
-        )}
+        {c.signature
+          ? <Signature s={s} name={c.signature} role={c.signatureRole} />
+          : <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: s.ink }}>The Tryp.com team</p>}
       </div>
 
-      <div style={{ position: 'absolute', left: MID, top: 64, bottom: 64, borderLeft: `3px dotted ${line}` }} />
+      <div style={{ position: 'absolute', left: MID, top: M + 8, bottom: M + 8, borderLeft: `3px dotted ${line}` }} />
 
-      {/* The stamp: perforated edge, the gradient, the plane. */}
+      {/* The stamp: a white perforated frame, the gradient, the plane. */}
       <div style={{
-        position: 'absolute', right: 62, top: 58, width: 150, height: 184, padding: 7, background: '#ffffff',
+        position: 'absolute', right: M + 4, top: M, width: 144, height: 176, padding: 7, background: '#ffffff',
         borderRadius: 6, boxShadow: '0 10px 26px rgba(26,26,26,0.14)',
         outline: '3px dotted rgba(26,26,26,0.12)', outlineOffset: -2,
       }}>
@@ -482,164 +565,163 @@ function Postcard({ s, c }) {
             position: 'absolute', right: -60, top: -60, width: 180, height: 180, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%)',
           }} />
-          <Plane width={170} style={{ left: -16, top: 70, transform: 'rotate(-10deg)' }} />
-          <span style={{ position: 'absolute', left: 10, top: 10, fontSize: 18, fontWeight: 700, color: '#ffffff' }}>€0</span>
-          <span style={{ position: 'absolute', left: 10, bottom: 8, fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: '#ffffff' }}>TRYP.COM</span>
+          {o.plane && <Plane width={150} left={-10} top={64} rotate={-10} />}
+          <span style={{ position: 'absolute', left: 9, top: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: s.onAccent }}>TRYP.COM</span>
+          <span style={{ position: 'absolute', left: 9, bottom: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: s.onAccent, textTransform: 'uppercase' }}>{c.kind.label}</span>
         </div>
       </div>
 
       {/* The postmark: a ring with the date, and the wavy cancel lines. */}
       <div style={{
-        position: 'absolute', right: 186, top: 150, width: 124, height: 124, borderRadius: '50%',
-        border: `2.5px solid ${s.light ? s.accent : '#ffffff'}`, opacity: 0.7, transform: 'rotate(-14deg)',
+        position: 'absolute', right: M + 176, top: M + 70, width: 118, height: 118, borderRadius: '50%',
+        border: `2.5px solid ${s.light ? s.accentText : s.ink}`, opacity: 0.7, transform: 'rotate(-14deg)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        color: s.light ? s.accent : '#ffffff',
+        color: s.light ? s.accentText : s.ink,
       }}>
-        <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em' }}>CREATOR POST</span>
-        <span style={{ fontSize: 15, fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
-        <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.16em', marginTop: 4 }}>{c.tier.toUpperCase()}</span>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em' }}>CREATOR POST</span>
+        <span style={{ fontSize: 14, fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em', marginTop: 4 }}>{(c.market || 'WORLDWIDE').toUpperCase()}</span>
       </div>
-      <svg style={{ position: 'absolute', right: 214, top: 118, width: 150, height: 60, opacity: 0.45 }} aria-hidden="true">
-        {[0, 1, 2].map((i) => (
-          <path key={i} d={`M 0 ${12 + i * 16} q 18 -10 36 0 t 36 0 t 36 0 t 36 0`} fill="none" stroke={s.light ? s.accent : '#ffffff'} strokeWidth="2.5" />
-        ))}
-      </svg>
+      {o.route && (
+        <svg style={{ position: 'absolute', right: M + 200, top: M + 20, width: 150, height: 54, opacity: 0.4 }} aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <path key={i} d={`M 0 ${10 + i * 15} q 18 -9 36 0 t 36 0 t 36 0 t 36 0`} fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.5" />
+          ))}
+        </svg>
+      )}
 
       {/* To: the address lines. */}
-      <div style={{ position: 'absolute', left: MID + 50, right: 62, bottom: 60 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: s.faint }}>AWARDED TO</p>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '8px 0 10px' }}>
-          <Name s={s} size={40}>{c.name}</Name>
+      <div style={{ position: 'absolute', left: MID + 44, right: M + 4, bottom: M - 4 }}>
+        {o.medal && c.place && (
+          <div style={{ position: 'relative', height: 84, marginBottom: 12 }}>
+            <Badge s={s} c={c} size={84} style={{ left: 0, top: 0 }} />
+          </div>
+        )}
+        <Label s={s}>Awarded to</Label>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '6px 0 10px' }}>
+          <Name s={s} size={38}>{c.name}</Name>
         </div>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '12px 0 8px', fontSize: 13, fontWeight: 700, color: s.ink }}>
-          Tryp.com Content Creator Community
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '11px 0 8px', fontSize: 13, fontWeight: 700, color: s.ink, whiteSpace: 'nowrap' }}>
+          {c.date || 'Tryp.com Content Creator Community'}
         </div>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '12px 0 8px' }}>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '11px 0 8px' }}>
           <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: s.ink, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
-            {c.serial ? `ID ${c.serial}` : (c.date || ' ')}
+            {c.serial ? `ID ${c.serial}` : 'Tryp.com Content Creator Community'}
           </span>
-          {c.serial && <span style={{ display: 'block', marginTop: 2, fontSize: 10.5, color: s.faint }}>Verify at {VERIFY_HOST}/verify</span>}
         </div>
-        {c.footnote && <p style={{ margin: '10px 0 0', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
+        <div style={{ marginTop: 8 }}><Verify s={s} serial={c.serial} /></div>
+        {c.footnote && <p style={{ margin: '8px 0 0', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
       </div>
     </>
   )
 }
 
 /**
- * SKY BANNER - a gradient band across the top with the plane flying through
- * it on its route, the title in white on the band, and the name centred and
- * large beneath. The boldest of the six.
+ * SKY BANNER - a gradient band across the top with the title on it and the
+ * plane at its right, trailing its route off the edge; the badge hangs from
+ * the band's lower edge; the name centred and large beneath.
  */
-function Banner({ s, c }) {
-  const BAND = 262
+function Banner({ s, c, o }) {
+  const BAND = 250
+  const ink = s.onBlock
+  const white = isWhite(ink)
   return (
     <>
       <GradientBlock s={s} radius={0} style={{ left: 0, right: 0, top: 0, height: BAND }}>
-        <Route d={`M -20 210 C 180 250, 300 120, 470 150 S 760 230, 1020 60`} />
-        <Plane width={250} style={{ right: 70, top: 26, transform: 'rotate(6deg)' }} />
-        <div style={{ position: 'absolute', left: 64, top: 44 }}>
-          <Wordmark white height={30} />
+        {/* The trail runs from the plane's tail off the top right edge only. */}
+        {o.route && <Route d="M 905 104 C 940 96, 965 70, 1010 30" color={ink} opacity={0.6} />}
+        {o.plane && <Plane width={270} left={1000 - M - 290} top={70} rotate={-6} />}
+        <div style={{ position: 'absolute', left: M + 8, top: 44 }}>
+          <Wordmark white={white} height={28} />
         </div>
-        <div style={{ position: 'absolute', left: 64, right: 360, bottom: 40 }}>
-          <Kicker s={s} color="#ffffff">{c.subtitle}</Kicker>
+        <div style={{ position: 'absolute', left: M + 8, right: 380, bottom: 42 }}>
+          <Kicker s={s} color={ink}>{c.subtitle}</Kicker>
           <div style={{ height: c.subtitle ? 10 : 0 }} />
-          <Title s={s} size={44} color="#ffffff">{c.title}</Title>
+          <Title s={s} size={40} color={ink}>{c.title}</Title>
         </div>
       </GradientBlock>
+      {/* The badge hangs from the band's lower edge on the right, under the
+          plane, clear of the title. */}
+      {o.medal && <Badge s={s} c={c} size={116} style={{ right: M + 20, top: BAND - 58 }} />}
 
       <div style={{
-        position: 'absolute', left: 80, right: 80, top: BAND, bottom: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 46px',
+        position: 'absolute', left: 150, right: 150, top: BAND + 20, bottom: 150,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
       }}>
-        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <Preamble s={s} align="center" />
-          <div style={{ height: 6 }} />
-          <Name s={s} size={60} align="center">{c.name}</Name>
-          <div style={{ height: 14 }} />
-          <Body s={s} align="center" width={640} size={16}>{c.body}</Body>
-        </div>
-        {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint, textAlign: 'center' }}>{c.footnote}</p>}
-        <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-          {c.signature ? <Signature s={s} name={c.signature} role={c.signatureRole} /> : <Fact s={s} label="Tier" value={c.tier} />}
-          <Fact s={s} label="Awarded" value={c.date} align="center" />
-          <Credential s={s} serial={c.serial} align="right" />
-        </div>
+        <Preamble s={s} align="center">{c.preamble}</Preamble>
+        <div style={{ height: 6 }} />
+        <Name s={s} size={58} align="center">{c.name}</Name>
+        <div style={{ height: 12 }} />
+        <Body s={s} align="center" width={640} size={16}>{c.body}</Body>
       </div>
+      <Footer s={s} c={c} align="center" style={{ left: M + 24, right: M + 24, bottom: M - 20 }} />
     </>
   )
 }
 
 /**
- * FLIGHT PATH - a dotted route arcing across the whole page from the bottom
- * left to the top right, where the seal sits; the certificate centred in
- * front of it. The formal one.
+ * FLIGHT PATH - a dotted route climbing the left margin and crossing the top
+ * margin to the badge at the top right; the certificate centred inside it. The
+ * route never enters the text box, which is what made the old one look messy.
  */
-function FlightPath({ s, c }) {
-  const routeColor = s.light ? s.accent : '#ffffff'
+function FlightPath({ s, c, o }) {
+  const routeColor = s.light ? s.accent : s.ink
   return (
     <>
-      <Route d="M -30 640 C 180 700, 240 470, 420 520 S 700 560, 760 330 S 820 120, 900 118"
-        color={routeColor} opacity={s.light ? 0.28 : 0.5} width={3.5} gap={12} />
-      <Seal s={s} tier={c.tier} size={112} style={{ right: 56, top: 60 }} />
+      {o.route && (
+        <Route d="M 30 720 C 34 600, 40 420, 60 300 C 80 190, 140 96, 300 66 C 460 38, 700 40, 818 88"
+          color={routeColor} opacity={s.light ? 0.32 : 0.5} width={3.5} gap={12} />
+      )}
+      {o.medal && <Badge s={s} c={c} size={112} style={{ right: M, top: M - 8 }} />}
 
       <div style={{
-        position: 'absolute', inset: 0, padding: '58px 170px 112px', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', textAlign: 'center',
+        position: 'absolute', left: 150, right: 150, top: 118, bottom: 176,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
       }}>
-        <Wordmark white={!s.light} height={34} style={{ alignSelf: 'center' }} />
-        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <Kicker s={s} align="center">{c.subtitle}</Kicker>
-          <div style={{ height: c.subtitle ? 12 : 0 }} />
-          <Title s={s} size={44} align="center">{c.title}</Title>
-          <div style={{ height: 28 }} />
-          <Preamble s={s} align="center" />
-          <div style={{ height: 6 }} />
-          <Name s={s} size={58} align="center">{c.name}</Name>
-          <div style={{ height: 14 }} />
-          <Body s={s} align="center" width={600} size={16}>{c.body}</Body>
-        </div>
-        {c.footnote && <p style={{ margin: '0 0 12px', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
+        <Wordmark white={!s.light && isWhite(s.ink)} height={30} style={{ alignSelf: 'center' }} />
+        <div style={{ height: 26 }} />
+        <Kicker s={s} align="center">{c.subtitle}</Kicker>
+        <div style={{ height: c.subtitle ? 10 : 0 }} />
+        <Title s={s} size={38} align="center">{c.title}</Title>
+        <div style={{ height: 26 }} />
+        <Preamble s={s} align="center">{c.preamble}</Preamble>
+        <div style={{ height: 6 }} />
+        <Name s={s} size={56} align="center">{c.name}</Name>
+        <div style={{ height: 12 }} />
+        <Body s={s} align="center" width={580} size={16}>{c.body}</Body>
       </div>
-      <div style={{ position: 'absolute', left: 64, right: 64, bottom: 44, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-        {c.signature ? <Signature s={s} name={c.signature} role={c.signatureRole} /> : <Fact s={s} label="Awarded" value={c.date} />}
-        {c.signature && <Fact s={s} label="Awarded" value={c.date} align="center" />}
-        <Credential s={s} serial={c.serial} align="right" />
-      </div>
+      <Footer s={s} c={c} align="center" style={{ left: 120, right: M + 8, bottom: M - 20 }} />
     </>
   )
 }
 
 /**
- * MINIMAL - the name is the headline, the title a line under it, and one small
- * Tryp seal. For when the certificate should look like it was not trying.
+ * MINIMAL - the name is the headline, the title a line under it, the badge in
+ * the corner. For when the certificate should look like it was not trying.
  */
-function Minimal({ s, c }) {
+function Minimal({ s, c, o }) {
   return (
     <>
-      <div style={{ position: 'absolute', left: 80, top: 70 }}>
-        <Wordmark white={!s.light} height={28} />
+      <div style={{ position: 'absolute', left: M + 24, top: M + 12 }}>
+        <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
       </div>
-      <Seal s={s} tier={c.tier} size={92} style={{ right: 80, top: 56 }} />
+      {o.medal && <Badge s={s} c={c} size={100} style={{ right: M + 24, top: M }} />}
+      {/* One accent stroke down the left edge: the only decoration. */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 10, background: s.light ? s.grad : s.hair }} />
 
-      <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <Preamble s={s}>{c.subtitle || 'Awarded to'}</Preamble>
+      <div style={{ position: 'absolute', left: M + 24, right: M + 24, top: 150, bottom: 170, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <Preamble s={s}>{c.subtitle || c.preamble || 'Awarded to'}</Preamble>
         <div style={{ height: 8 }} />
-        <Name s={s} size={84} color={s.ink}>{c.name}</Name>
+        <Name s={s} size={80} color={s.ink}>{c.name}</Name>
         <div style={{ height: 18 }} />
         <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ width: 34, height: 4, borderRadius: 4, background: s.light ? s.grad : '#ffffff' }} />
+          <span style={{ width: 34, height: 4, borderRadius: 4, background: s.light ? s.grad : s.ink }} />
           <span style={{ fontSize: 24, fontWeight: 700, color: s.accentText, letterSpacing: '-0.01em' }}>{c.title}</span>
         </p>
-        <div style={{ height: 14 }} />
-        <Body s={s} width={620} size={15}>{c.body}</Body>
+        <div style={{ height: 12 }} />
+        <Body s={s} width={640} size={15}>{c.body}</Body>
       </div>
-
-      <div style={{ position: 'absolute', left: 80, right: 80, bottom: 56, display: 'flex', alignItems: 'flex-end', gap: 40 }}>
-        <Signature s={s} name={c.signature} role={c.signatureRole} />
-        <Fact s={s} label="Awarded" value={c.date} />
-        <div style={{ marginLeft: 'auto' }}><Credential s={s} serial={c.serial} align="right" /></div>
-      </div>
+      <Footer s={s} c={c} style={{ left: M + 24, right: M + 24, bottom: M - 20 }} />
     </>
   )
 }

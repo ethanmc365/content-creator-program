@@ -10,9 +10,9 @@ import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
-  ACCENTS, DEFAULT_ACCENT, LAYOUTS, PAPERS, PLACEHOLDERS, TIERS,
-  bodyProblem, designStyle, ruleProblem, sampleFacts, tierOf,
-  paletteFor,
+  ACCENTS, DEFAULT_ACCENT, LAYOUTS, PAPERS, PLACEHOLDERS,
+  bodyProblem, designStyle, ruleProblem, sampleFacts, awardKind,
+  paletteFor, optionsOf, tierForAward, ordinal,
 } from '../../../lib/certificates'
 import { STARTERS } from './certificateStarters'
 
@@ -63,6 +63,7 @@ const BLANK = {
   emblem: 'trophy', pattern: 'plain',
   signature: 'Tryp.com', signature_role: 'Creator Community',
   award_on: 'manual', ranks: [], community_ids: [], milestone_id: null,
+  all_prize_places: false, options: {},
   is_active: true,
 }
 
@@ -96,7 +97,13 @@ export default function CertificateStudio() {
   useEffect(() => { load() }, [load])
 
   async function save(design) {
-    const row = { ...design, created_by: design.created_by || profile?.id, updated_at: new Date().toISOString() }
+    // THE TIER FOLLOWS THE TRIGGER (28 Sep 2026) - see `tierForAward`.
+    const row = {
+      ...design,
+      tier: tierForAward(design.award_on),
+      created_by: design.created_by || profile?.id,
+      updated_at: new Date().toISOString(),
+    }
     delete row.__isNew
     const { error } = row.id
       ? await supabase.from('certificate_designs').update(row).eq('id', row.id)
@@ -237,7 +244,6 @@ export default function CertificateStudio() {
 // press is swallowed by the outer one about a third of the time. The card is a
 // div; the preview and the name are the button that opens it.
 function DesignRow({ row, markets, onOpen, onDuplicate }) {
-  const tier = tierOf(row.tier)
   const problem = ruleProblem(row)
   const [holder, width] = useFluidWidth(240)
   return (
@@ -252,7 +258,7 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
           simply not on screen. A preview that cannot show the whole thing is
           not a preview. Same measurement the editor uses. */}
       <button ref={holder} type="button" onClick={onOpen} className="block w-full text-left">
-        <Preview design={row} width={width} />
+        <Preview design={row} width={width} markets={markets} />
       </button>
       <div className="flex items-center gap-3 border-t border-gray-100 p-4">
         {/* THE SWATCH IS THE ACCENT, NOT AN ICON IN THE ACCENT. It used to be
@@ -274,7 +280,7 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <p className="truncate text-sm font-bold text-ink">{row.name}</p>
           <p className="truncate text-[11px] text-smoke">
-            {layoutName(row)} · {tier.label} · {triggerText(row, markets)}
+            {layoutName(row)} · {triggerText(row, markets)}
           </p>
         </button>
         {/* A RULE THAT CANNOT FIRE SAYS SO ON THE CARD. It is the one fault this
@@ -411,6 +417,7 @@ export function triggerText(row, markets = []) {
     ? row.community_ids.map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean).join(', ')
     : 'every market'
   if (row.award_on === 'challenge_rank') {
+    if (row.all_prize_places) return `Every prize place, in ${where}`
     const places = (row.ranks || []).slice().sort((a, b) => a - b)
     if (!places.length) return 'No places chosen yet, so nobody gets it'
     return `Finishing ${places.map((p) => `#${p}`).join(', ')} in ${where}`
@@ -428,11 +435,14 @@ export function triggerText(row, markets = []) {
  * card drawn at 368 and every row on this page has a third of a screen of white
  * under it.
  */
-export function Preview({ design, facts, width = 520, cardRef }) {
-  const shown = facts || sampleFacts(design)
+export function Preview({ design, facts, width = 520, cardRef, markets = [], place, rounded = false }) {
+  // THE EXAMPLE NAMES THE MARKET YOU PICKED (28 Sep 2026), and the place you
+  // are looking at - not "UK & Ireland" and 1st whatever the design is for.
+  const market = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
+  const shown = facts || sampleFacts(design, { market, place })
   const scale = width / CERT_W
   return (
-    <div style={{ width, height: CERT_H * scale, overflow: 'hidden' }}>
+    <div style={{ width, height: CERT_H * scale, overflow: 'hidden', borderRadius: rounded ? Math.max(8, 22 * scale * 2) : 0 }}>
       <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         <CertificateCard design={design} facts={shown} cardRef={cardRef} />
       </div>
@@ -448,8 +458,16 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
   // note on `useFluidWidth` describes.
   const [holder, width] = useFluidWidth(260)
 
-  const tier = tierOf(design.tier)
   const canSave = design.name.trim() && design.title.trim()
+  const opts = optionsOf(design)
+  const setOpt = (patch) => set({ options: { ...(design.options || {}), ...patch } })
+  // WHICH PLACE THE PREVIEW SHOWS, for a place certificate: 1st, 2nd, 3rd
+  // and 4th+ are drawn differently, so you can look at each.
+  const placeChoices = design.award_on === 'challenge_rank'
+    ? (design.all_prize_places ? [1, 2, 3, 4, 5, 10] : (design.ranks || []).slice().sort((a, b) => a - b))
+    : []
+  const [previewPlace, setPreviewPlace] = useState(null)
+  const shownPlace = placeChoices.includes(previewPlace) ? previewPlace : placeChoices[0]
   const problem = ruleProblem(design)
   const wording = bodyProblem(design)
   const [card, setCard] = useState(null)
@@ -480,15 +498,37 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
             screen it is what you see when you arrive, and on a wide one it
             stays put while the form under your thumb scrolls. */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div ref={holder} className="overflow-hidden rounded-card border border-gray-100 bg-white p-3 shadow-card">
-            <Preview design={design} width={width - 24} cardRef={setCard} />
+          {/* THE PREVIEW IS THE CERTIFICATE, NOTHING AROUND IT (28 Sep 2026).
+              Ethan: "ensure you show it how it will actually look. You can
+              round the corners just for the design of the platform, but
+              obviously it'll be square when you download it." It used to sit
+              in a white frame, which read as a white border on the picture. */}
+          <div ref={holder} className="w-full">
+            <div className="overflow-hidden rounded-2xl shadow-lift ring-1 ring-black/5">
+              <Preview design={design} width={width} cardRef={setCard} markets={markets} place={shownPlace} />
+            </div>
           </div>
+          {placeChoices.length > 1 && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold text-smoke">Preview</span>
+              {placeChoices.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPreviewPlace(p)}
+                  className={pickClass(shownPlace === p, 'rounded-full border px-2.5 py-1 text-[11px] font-bold')}
+                >
+                  {ordinal(p)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
             <p className="text-[11px] text-gray-400">
               {/* THE EXAMPLE MATCHES THE TRIGGER. A milestone design previews
                   against a milestone, not against a challenge win it can never
                   print. See `sampleFacts`. */}
-              Filled in with an example. A real one carries the creator's own name and result.
+              Filled in with an example. A real one carries the creator's own name and result. Downloads are square-cornered.
             </p>
             <button type="button" onClick={sample} disabled={saving || !card}
               className="text-[11px] font-semibold text-brand hover:underline disabled:opacity-40">
@@ -504,17 +544,6 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
                 placeholder="e.g. Challenge winner" className="input" />
             </Field>
 
-            <Field label="Tier" hint={tier.hint}>
-              <div className="flex flex-wrap gap-2">
-                {TIERS.map((t) => (
-                  <button key={t.key} type="button"
-                    onClick={() => set({ tier: t.key })}
-                    className={pickClass(design.tier === t.key, 'rounded-xl border px-3 py-1.5 text-xs font-semibold')}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
           </Section>
 
           <Section title="What it says">
@@ -669,6 +698,32 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
                 })}
               </div>
             </Field>
+            {/* THE SWITCHES (28 Sep 2026, `options`). Each piece of
+                decoration can come off, and the line above the name can say
+                something else. The badge is chosen by the trigger: a medal for
+                a place, a seal naming the award otherwise. */}
+            <Field label="On the certificate" hint={`The badge reads "${awardKind(design, { place: shownPlace }).label}" for this trigger.`}>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { key: 'medal', label: 'Badge' },
+                  { key: 'plane', label: 'Tryp plane' },
+                  { key: 'route', label: 'Dotted route' },
+                ].map((t) => (
+                  <div key={t.key} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 px-3 py-2">
+                    <span className="text-xs font-semibold text-ink">{t.label}</span>
+                    <Toggle on={opts[t.key] !== false} onChange={(on) => setOpt({ [t.key]: on })} label={t.label} />
+                  </div>
+                ))}
+              </div>
+            </Field>
+            <Field label="Line above the name" hint="Leave empty to go straight to the name.">
+              <input
+                value={opts.preamble ?? ''}
+                onChange={(e) => setOpt({ preamble: e.target.value })}
+                placeholder="This certifies that"
+                className="input"
+              />
+            </Field>
           </Section>
 
           <AwardRules design={design} set={set} markets={markets} milestones={milestones} />
@@ -812,19 +867,39 @@ function AwardRules({ design, set, markets, milestones }) {
       </div>
 
       {design.award_on === 'challenge_rank' && (
-        <Field label="Which places" hint="A podium is 1, 2 and 3. Winner only is just 1.">
-          <div className="flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5].map((n) => {
-              const on = (design.ranks || []).includes(n)
-              return (
-                <button key={n} type="button"
-                  onClick={() => set({ ranks: on ? design.ranks.filter((r) => r !== n) : [...(design.ranks || []), n].sort((a, b) => a - b) })}
-                  className={pickClass(on, 'h-10 w-10 rounded-xl border text-sm font-bold')}>
-                  {n}
-                </button>
-              )
-            })}
-          </div>
+        <Field
+          label="Which places"
+          hint={design.all_prize_places
+            ? 'Every place the challenge pays gets one, each with its own medal: ten on a ten-place challenge, three on a three-place one.'
+            : 'A podium is 1, 2 and 3. Winner only is just 1. Each place gets its own medal.'}
+        >
+          {/* EVERY PRIZE PLACE (28 Sep 2026, migration 269). Ethan: "it should
+              only go to how many places are on it. So there's 10 for the
+              worldwide challenge ... for the previous UK challenge there was
+              only three." */}
+          <button
+            type="button"
+            onClick={() => set({ all_prize_places: !design.all_prize_places })}
+            aria-pressed={!!design.all_prize_places}
+            className={pickClass(!!design.all_prize_places, 'mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left')}
+          >
+            <span className="text-sm font-semibold">Every prize place</span>
+            {design.all_prize_places && <Icon name="check" className="h-4 w-4 shrink-0" />}
+          </button>
+          {!design.all_prize_places && (
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
+                const on = (design.ranks || []).includes(n)
+                return (
+                  <button key={n} type="button"
+                    onClick={() => set({ ranks: on ? design.ranks.filter((r) => r !== n) : [...(design.ranks || []), n].sort((a, b) => a - b) })}
+                    className={pickClass(on, 'h-10 w-10 rounded-xl border text-sm font-bold')}>
+                    {n}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </Field>
       )}
 

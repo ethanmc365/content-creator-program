@@ -28,12 +28,14 @@
 // only the admin knows which one - the studio says so in the panel.
 export const STARTERS = [
   {
-    name: 'Challenge winner',
+    // ONE DESIGN FOR EVERY PAID PLACE (28 Sep 2026): each place gets its own
+    // medal, and a 3-place challenge makes three while a 10-place one makes ten.
+    name: 'Prize winner',
     tier: 'achievement',
     title: 'Certificate of Achievement',
     subtitle: 'Tryp.com Creator Community',
     body: 'for finishing {place} in {challenge}\n{market}',
-    footnote: 'Issued by the Tryp.com Content Creator Community.',
+    footnote: '',
     accent: '#D94407',
     layout: 'banner',
     paper: 'paper',
@@ -42,7 +44,8 @@ export const STARTERS = [
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
     award_on: 'challenge_rank',
-    ranks: [1],
+    ranks: [],
+    all_prize_places: true,
     community_ids: [],
     is_active: true,
   },
@@ -70,8 +73,8 @@ export const STARTERS = [
     tier: 'honour',
     title: 'Official Tryp.com Content Creator',
     subtitle: 'Tryp.com Creator Community',
-    body: 'is an official Tryp.com Content Creator',
-    footnote: 'Issued by the Tryp.com Content Creator Community.',
+    body: 'for joining the Tryp.com Content Creator Community\nand creating travel content with us',
+    footnote: '',
     accent: '#D94407',
     layout: 'route',
     paper: 'glow',

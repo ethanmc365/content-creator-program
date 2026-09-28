@@ -160,3 +160,36 @@ describe('bodyProblem', () => {
     expect(bodyProblem({})).toBe(null)
   })
 })
+
+describe('28 Sep 2026 redesign', () => {
+  it('names the award from the trigger and the place', async () => {
+    const { awardKind } = await import('./certificates')
+    expect(awardKind({ award_on: 'challenge_rank' }, { place: 2 }).label).toBe('2nd place')
+    expect(awardKind({ award_on: 'challenge_rank' }, {}).label).toBe('Prize winner')
+    expect(awardKind({ award_on: 'challenge_entry' }).label).toBe('Participant')
+    expect(awardKind({ award_on: 'milestone' }).label).toBe('Milestone')
+    expect(awardKind({ tier: 'participation' }).label).toBe('Participant')
+  })
+  it('derives the tier from the trigger', async () => {
+    const { tierForAward } = await import('./certificates')
+    expect(tierForAward('challenge_rank')).toBe('achievement')
+    expect(tierForAward('challenge_entry')).toBe('participation')
+    expect(tierForAward('manual')).toBe('honour')
+  })
+  it('previews the market that was picked, and Worldwide when none was', async () => {
+    const { sampleFacts } = await import('./certificates')
+    expect(sampleFacts({ award_on: 'challenge_rank' }, { market: 'Nordics' }).market).toBe('Nordics')
+    expect(sampleFacts({ award_on: 'challenge_rank' }).market).toBe('Worldwide')
+    expect(sampleFacts({ award_on: 'challenge_rank', ranks: [2, 3] }, { place: 3 }).place).toBe(3)
+  })
+  it('puts dark type on the yellow accent and white on the rest', async () => {
+    const { paletteFor } = await import('./certificates')
+    expect(paletteFor({ paper: 'sunset', accent: '#F2B705' }).ink).toBe('#1A1A1A')
+    expect(paletteFor({ paper: 'sunset', accent: '#D94407' }).ink).toBe('#FFFFFF')
+    expect(paletteFor({ paper: 'paper', accent: '#F2B705' }).onBlock).toBe('#141414')
+  })
+  it('an every-prize-place design is not a rule that cannot fire', async () => {
+    const { ruleProblem } = await import('./certificates')
+    expect(ruleProblem({ award_on: 'challenge_rank', ranks: [], all_prize_places: true, is_active: true })).toBe(null)
+  })
+})

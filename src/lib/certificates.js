@@ -1,18 +1,15 @@
 // ============================================================================
-// PENDING: ETHAN IS DESIGNING THE CERTIFICATES HIMSELF (21 Sep 2026).
+// REDESIGNED 28 SEP 2026, AND STILL HIDDEN UNTIL ETHAN SAYS GO.
 //
-// "I'm also going to be working on designing the certificates. Ensure there's
-// a note just in the file that I will give them at some point, and you know
-// what to do then."
-//
-// When his designs arrive (likely made in Canva): rebuild each one as a layout
-// in `components/certificate/CertificateCard.jsx` so it renders from the
-// creator's own data (name, date, the certificate number and the /verify
-// link) rather than as a flat image, keep Poppins 400/700 (the only weights
-// `domSnapshot` embeds, so the download matches the screen), check the export
-// at full size, and only then flip `app_settings.certificates_live` - they are
-// hidden from creators until he approves them (migration 237). Every award made
-// meanwhile appears the moment that flag goes on.
+// Ethan asked for a proper redesign rather than doing it himself: "you
+// actually have the right idea. You just need better design skills." The six
+// layouts were rebuilt on one grid and one type scale, decoration was moved
+// out of the text's way, a place medal was added so 1st, 2nd, 3rd... each
+// look different, and the tier gave way to the award trigger. Poppins 400/700
+// only (the two weights `domSnapshot` embeds, so the download matches the
+// screen). Creators still cannot see certificates until
+// `app_settings.certificates_live` is switched on (migration 237); every award
+// made meanwhile appears the moment it is.
 // ============================================================================
 
 // WHAT A CERTIFICATE SAYS, AND WHO GETS ONE.
@@ -193,12 +190,22 @@ export function readableOn(hex) {
 // white type, neon is not this brand, and gold is the colour that made the old
 // ones look like a template - it is also what Ethan was describing as the
 // "goldeny, orangey glow" he did not like.
+//
+// FOURTEEN NOW, AND ONE OF THEM IS YELLOW (28 Sep 2026). Ethan: "for those
+// accent colors as well, adding some new ones like we don't have a yellow".
+// A yellow cannot carry white type, so every layout now sets the words on an
+// accent block in `readableOn(accent)` rather than always white - which is
+// what makes a pale accent safe to offer at all.
 export const ACCENTS = [
   { key: 'tryp', label: 'Tryp orange', hex: '#D94407' },
-  { key: 'ember', label: 'Ember', hex: '#A8320C' },
+  { key: 'tangerine', label: 'Tangerine', hex: '#F07C1B' },
+  { key: 'sunshine', label: 'Sunshine yellow', hex: '#F2B705' },
+  { key: 'coral', label: 'Coral', hex: '#E5484D' },
   { key: 'crimson', label: 'Crimson', hex: '#A81F44' },
+  { key: 'rose', label: 'Rose', hex: '#C2306E' },
   { key: 'plum', label: 'Plum', hex: '#6B3A8C' },
   { key: 'indigo', label: 'Indigo', hex: '#37409B' },
+  { key: 'sky', label: 'Sky blue', hex: '#1D7FD8' },
   { key: 'ocean', label: 'Ocean', hex: '#0F5E88' },
   { key: 'teal', label: 'Teal', hex: '#0B6B62' },
   { key: 'forest', label: 'Forest', hex: '#2A6840' },
@@ -254,6 +261,13 @@ export function paletteFor({ paper, accent } = {}) {
     gradient: grad,
   }[p.kind]
   const dark = !p.light
+  // WHAT CAN BE READ ON THE ACCENT: white on almost all of them, near-black on
+  // the yellow. On the gradient paper the WHOLE page is the accent, so the
+  // page's own ink follows the same rule.
+  const onAccent = readableOn(ac)
+  const onDark = onAccent === '#ffffff'
+  const inkOnGrad = onDark ? '#FFFFFF' : '#1A1A1A'
+  const soft = (a) => (onDark ? `rgba(255,255,255,${a})` : `rgba(26,26,26,${a})`)
   return {
     ...p,
     accent: ac,
@@ -262,16 +276,23 @@ export function paletteFor({ paper, accent } = {}) {
     lightTone: light,
     grad,
     bg,
-    onAccent: readableOn(ac),
-    ink: dark ? '#FFFFFF' : '#1A1A1A',
-    muted: dark ? 'rgba(255,255,255,0.88)' : '#5E6068',
-    faint: dark ? 'rgba(255,255,255,0.72)' : '#9A9CA4',
-    hair: dark ? 'rgba(255,255,255,0.28)' : 'rgba(26,26,26,0.10)',
-    accentText: dark ? '#FFFFFF' : ac,
-    rule: dark ? 'rgba(255,255,255,0.5)' : alpha(ac, 0.28),
+    onAccent,
+    ink: dark ? inkOnGrad : '#1A1A1A',
+    muted: dark ? soft(0.86) : '#5E6068',
+    faint: dark ? soft(0.7) : '#8E9099',
+    hair: dark ? soft(0.28) : 'rgba(26,26,26,0.10)',
+    // The accent as TYPE. On white a pale accent (the yellow) is too faint to
+    // read, so it is darkened for text while blocks keep the real colour.
+    accentText: dark ? inkOnGrad : (onDark ? ac : shift(ac, -0.38)),
+    // The accent as type on WHITE whatever the paper: the badges and the
+    // boarding pass are white objects even on the gradient page.
+    accentDeep: onDark ? ac : shift(ac, -0.38),
+    rule: dark ? soft(0.5) : alpha(ac, 0.28),
     // A block of the accent on this paper: the gradient on a light page, a
-    // frosted white panel on the gradient page (gradient on gradient is mud).
-    block: dark ? 'rgba(255,255,255,0.16)' : grad,
+    // frosted panel on the gradient page (gradient on gradient is mud).
+    block: dark ? soft(0.14) : grad,
+    // What sits ON that block.
+    onBlock: dark ? inkOnGrad : onAccent,
   }
 }
 
@@ -365,6 +386,52 @@ export const TIERS = [
 
 export const tierOf = (key) => TIERS.find((t) => t.key === key) || TIERS[0]
 
+// THE TIER IS NOW DERIVED FROM WHEN IT IS GIVEN (28 Sep 2026).
+//
+// Ethan: "I noticed that achievement tier and milestone of participation
+// doesn't really change anything ... I think the tier is not necessary because
+// we have the when is it given, which I think is what we need." He is right:
+// the tier only changed one word on the card, and it could contradict the
+// trigger (a "Participation" tier on a podium award). The studio no longer
+// asks. The tier column is still written - it sorts a creator's wall, rarest
+// first - but from the trigger, so the two can never disagree.
+export const TIER_FOR_AWARD = {
+  challenge_rank: 'achievement',
+  manual: 'honour',
+  milestone: 'milestone',
+  challenge_entry: 'participation',
+}
+export const tierForAward = (awardOn) => TIER_FOR_AWARD[awardOn] || 'honour'
+
+/**
+ * The word a certificate carries for WHAT KIND of award it is, from the
+ * trigger and the facts: "1st place" for a place, and a plain word otherwise.
+ * Old designs with no trigger on the row (the verify page before 269) fall
+ * back to their stored tier.
+ */
+export function awardKind(design = {}, facts = {}) {
+  const place = Number(facts?.place)
+  if (Number.isFinite(place) && place > 0) return { key: 'place', label: `${ordinal(place)} place`, place, icon: 'trophy' }
+  const on = design.award_on || ({ achievement: 'challenge_rank', honour: 'manual', milestone: 'milestone', participation: 'challenge_entry' })[design.tier]
+  if (on === 'challenge_rank') return { key: 'winner', label: 'Prize winner', icon: 'trophy' }
+  if (on === 'challenge_entry') return { key: 'entry', label: 'Participant', icon: 'check' }
+  if (on === 'milestone') return { key: 'milestone', label: 'Milestone', icon: 'flag' }
+  return { key: 'honour', label: 'Honour', icon: 'star' }
+}
+
+// PER-DESIGN SWITCHES (migration 269, `certificate_designs.options`). Every
+// one defaults to on, so a design saved before they existed looks as it did.
+export const OPTION_DEFAULTS = {
+  plane: true, // the Tryp livery plane, where the layout has one
+  route: true, // the dotted flight route
+  medal: true, // the place medal (or the award seal when there is no place)
+  preamble: 'This certifies that', // the line above the name
+}
+export function optionsOf(design = {}) {
+  const o = design?.options && typeof design.options === 'object' ? design.options : {}
+  return { ...OPTION_DEFAULTS, ...o }
+}
+
 /** Newest first within a tier, rarest tier first. */
 export function sortCertificates(rows = []) {
   return [...rows].sort((a, b) => {
@@ -391,12 +458,22 @@ const SAMPLE_BASE = {
   serial: 'TRYP-2026-K4M9PX',
 }
 
-export function sampleFacts(design = {}) {
+/**
+ * @param {object} design
+ * @param {object} [ctx]
+ * @param {string} [ctx.market]  the market the admin has picked, by name. The
+ *   preview used to say "UK & Ireland" whatever was chosen - Ethan: "it says UK
+ *   and Ireland, but then I'm choosing Nordics ... I don't get how it all
+ *   works." No market chosen means every market, which previews as Worldwide.
+ * @param {number} [ctx.place]   which place to preview on a place certificate
+ */
+export function sampleFacts(design = {}, ctx = {}) {
+  const market = ctx.market || 'Worldwide'
   if (design.award_on === 'milestone') {
     return { ...SAMPLE_BASE, milestone: 'Ten videos made' }
   }
   if (design.award_on === 'challenge_entry') {
-    return { ...SAMPLE_BASE, challenge: 'Hidden Gems of Your City', market: 'UK & Ireland' }
+    return { ...SAMPLE_BASE, challenge: 'Hidden Gems of Your City', market }
   }
   if (design.award_on === 'manual') {
     // A hand-given certificate usually has no challenge behind it, so the
@@ -404,11 +481,13 @@ export function sampleFacts(design = {}) {
     // a body line that falls apart without a challenge to name.
     return { ...SAMPLE_BASE }
   }
+  const firstRank = Array.isArray(design.ranks) && design.ranks.length ? Math.min(...design.ranks) : 1
   return {
     ...SAMPLE_BASE,
     challenge: 'Hidden Gems of Your City',
-    market: 'UK & Ireland',
-    place: Array.isArray(design.ranks) && design.ranks.length ? Math.min(...design.ranks) : 1,
+    market,
+    place: ctx.place || firstRank,
+    places: design.all_prize_places ? 10 : undefined,
     views: 124500,
   }
 }
@@ -422,7 +501,7 @@ export function sampleFacts(design = {}) {
  * finds out weeks later when a winner asks where their certificate is.
  */
 export function ruleProblem(design = {}) {
-  if (design.award_on === 'challenge_rank' && !(design.ranks || []).length) {
+  if (design.award_on === 'challenge_rank' && !(design.ranks || []).length && !design.all_prize_places) {
     return 'No places are chosen, so nobody can win this. Pick at least one.'
   }
   if (design.award_on === 'milestone' && !design.milestone_id) {
@@ -462,6 +541,7 @@ export const PLACEHOLDERS = [
   { key: 'challenge', example: 'Hidden Gems', what: 'the challenge title' },
   { key: 'market', example: 'UK & Ireland', what: 'the market it ran in' },
   { key: 'place', example: '1st', what: 'where they finished' },
+  { key: 'places', example: '10', what: 'how many places the challenge paid' },
   { key: 'views', example: '124,500', what: 'their final view count' },
   { key: 'milestone', example: 'Ten videos', what: 'the milestone reached' },
   { key: 'date', example: '30 September 2026', what: 'when it was awarded' },

@@ -204,9 +204,16 @@ async function inlineImages(clone) {
  */
 export async function snapshotNode(node, { scale = 2, background = '#ffffff', type = 'png', quality = 0.92 } = {}) {
   if (!node) return null
+  // THE NODE'S OWN SIZE, NOT ITS SIZE ON SCREEN (28 Sep 2026). Every caller
+  // photographs a certificate or a card that is drawn at full size and SCALED
+  // DOWN by a transform on a parent to fit the page - and
+  // `getBoundingClientRect` reports the scaled box. A 1000x707 certificate in a
+  // 400px preview came out as a 400x283 picture of its top-left corner, with
+  // the rest missing ("it seems like there's still a white border around
+  // that"). `offsetWidth` is the layout size, which transforms do not touch.
   const rect = node.getBoundingClientRect()
-  const width = Math.ceil(rect.width)
-  const height = Math.ceil(rect.height)
+  const width = Math.ceil(node.offsetWidth || rect.width)
+  const height = Math.ceil(node.offsetHeight || rect.height)
   if (!width || !height) return null
 
   try {
