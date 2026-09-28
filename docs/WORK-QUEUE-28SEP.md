@@ -1,246 +1,211 @@
-# Work queue captured 28 Sep 2026
+# Work queue, 28 Sep 2026 — status
 
-Every decision from Ethan's brief, transcribed so none of it is lost. Nothing in
-here has been built yet: the session it was captured in had no shell access
-(see "Why nothing shipped" at the foot).
+Every item from Ethan's briefs, with what actually happened to each.
+Live on production at `86535c0`. Migration 273 applied.
 
-Ordering is by cost, not by the order it was dictated. Group 1 is a single
-afternoon; groups 5 to 9 are each a feature in their own right.
+`[x]` done and deployed · `[ ]` not started · `[~]` partly done
 
 ---
 
-## 1. Copy and small UI (cheap, do first)
+## 1. Copy and small UI — DONE
 
-1. **"Read your brief to view all details" -> "View all details"**, everywhere
-   that button appears (worldwide page, challenges page, any other caller).
-   Ethan's words: it is not just the brief behind it any more.
-2. **Mobile: add a "View all details" button above "Submit your video"**, so it
-   is reachable without hunting.
-3. **"Find a deal" capture card**: make it a SMALL card matching the others.
-   Delete "prices move" and "catch the price, dates and airport the moment you
-   find them" - that instruction is not wanted at all. No bullet points. One
-   plain sentence covering the three ways to record: screenshot the trip, screen
-   record while scrolling it, or film the laptop screen with a phone, so viewers
-   see the website, the prices and the dates.
-4. **Trip-ideas icons**: drop the orange background circle; a bold Tryp.com
-   orange icon on its own.
-5. **Leaderboard**: remove "Reach 18 points for a EUR 10 Tryp.com voucher" from
-   the very top - wrong placement. KEEP the voucher line where it already shows
-   when somebody earns one.
+- [x] **"Read the brief" → "View all details"** in all three places it appears:
+      the worldwide strip and both live challenge cards.
+- [x] **The details button is back on mobile**, directly above "Submit your
+      video". It had been hidden below `sm` on the reasoning that submitting is
+      the one you came for.
+- [x] **Find a deal / Capture the trip**: one sentence, one card the size of its
+      neighbours. No "prices move", no bullet list.
+- [x] **Trip-idea icons**: the tinted disc is gone, the glyph grew into it.
+- [x] **Leaderboard**: the voucher terms no longer head the board. The per-row
+      badge and the "N points to the voucher" hint stay.
+- [x] **Bonus**: Find a deal had shipped with NO Spanish at all. The whole
+      feature, its six tips and the eight trip kinds, is now in `es.js`.
 
-## 2. KPI tracker
+## 2. KPI tracker — MOSTLY DONE
 
-6. **Recruiters graph moves ABOVE the main overview graph.** (Ethan asked as a
-   question - "or am I wrong?" - he is not wrong, put it above.)
-7. **"Landed" and "Target" labels do not make sense** - relabel, and improve the
-   panel's design generally.
-8. **Country list must take more countries without breaking**: fixed height,
-   smooth scroll. Today's short list is fine as-is.
-9. **Target-met progress bar reads as EMPTY when it is 100%** because the fill is
-   pure white on white. Redesign it, and give completion a proper animation.
+- [ ] **Recruiters graph above the overview.** Not done.
+- [x] **"Landed" / "Target" → "Achieved" / "Goal"**, in the legend and the
+      tooltip, so the chart says one thing in both places.
+- [x] **Room for more markets**: the pills scroll past about three rows instead
+      of pushing the KPIs down the page, with the scroll contained. Nothing
+      changes at seven markets, which is what was asked for.
+- [x] **The target-met progress bar.** It was a white fill on a `bg-white/25`
+      track, both on the orange header, so 100% read as empty. The track is dark
+      now, and reaching the target sweeps a shine across the bar once.
 
-## 3. Calendar
+## 3. Calendar — DONE
 
-10. **Two-finger swipe only fires once.** It moves one page, then will not fire
-    again until the mouse is physically moved. It must repeat immediately.
-    (Note from the last pass: the wheel gesture state is module-level,
-    `wheelGesture`, because the grid remounts per month - the reset is likely
-    there.)
-11. **The "you are in Oslo" cell** draws a stray orange border along its TOP edge
-    only, not around the cell. Fix, and keep the animations clean.
+- [x] **The second two-finger swipe lands immediately.** macOS momentum kept
+      refreshing the gap timer for up to a second, so the gesture never
+      released; moving the mouse only ever meant waiting for the tail to die.
+      Momentum only decays, so a delta bigger than the one before it is fingers
+      back on the glass. `lib/wheelGesture.js`, nine rehearsals, one of which
+      walks a real decaying tail event by event.
+- [x] **The stray orange rule on a travelling day** is gone. It was a 2px bar
+      meant to tie a run of days together, held 8px clear of both edges, so it
+      stopped short at every cell.
 
-## 4. Challenge recap
+## 4. Challenge recap — MOSTLY DONE
 
-12. **Delete the "Your Challenge and Numbers" page entirely** - redundant, the
-    same things are said elsewhere.
-13. **Final page: delete the "First of 28 creators, overall 4.8x average video"
-    line.** The other stats on that page are enough.
-14. Recap must be **live at the end of a challenge for every creator who took
-    part**. "Everybody together" and the final page are both approved as they are.
-15. **"Your Recap Is Ready" card on the challenges page**: it must sit LEVEL with
-    the bonuses card (the slot where "Current Leaderboard" appears when the
-    leaderboard tab is open). When a bonus is active, the bonus shows there; when
-    no bonus is active, show "your recap card is coming" so creators know it is
-    on the way. Works for every challenge, not just this one.
+- [x] **"Your challenge in numbers" deleted.** Every figure on it had been said
+      by an earlier card. The card and the figures it alone computed are gone.
+- [x] **The final card's "1st of 28 creators, 4.8× average video" line removed.**
+      It was the third time the placing appeared on one card.
+- [ ] **The "Your Recap Is Ready" card on the challenges page**, level with the
+      bonuses slot, showing "your recap is coming" when no bonus is active. Not
+      done.
 
-## 5. Certificates (largest UI group; gated behind `certificates_live`, still FALSE)
+## 5. Certificates — MOSTLY DONE
 
-Horizon is the favourite and the reference for quality.
+- [x] **One first place, everywhere.** It was the orange gradient on Sky Banner
+      and the Passport and WHITE on Horizon, because Horizon's badge sits on the
+      orange panel. It is the gradient on every layout now; on the panel it gets
+      a solid white halo instead of the inset ring. Verified: all thirty
+      first-place badges in the bench are the gradient, none white.
+- [x] **Third place is solid.** It was `alpha(accent, 0.12)`, so the Sky Banner
+      band showed through it. The tint is painted over opaque white.
+- [x] **Fourth and beyond** keep white with the ordinal.
+- [x] **No "of 10" and no "PLACE".** The disc said one fact three times; it is
+      the ordinal alone now.
+- [x] **No category on the badge** — no PARTICIPANT, MILESTONE or HONOUR. The
+      certificate's own sentence already says what it is for.
+- [x] **Milestone icon is a trophy**, not a flag.
+- [x] **The date block**: "Awarded" in bold with the date under it in smaller
+      grey. The Passport is untouched, as agreed.
+- [x] **Paper is white, full stop.** Five grounds became one. Every old key
+      resolves to white rather than breaking. Accents untouched.
+- [x] **The Badge / Tryp plane / Dotted route switches are gone** with the paper
+      picker. All three simply draw.
+- [x] **A certificate with no place** is supported (it always was; the badge
+      shape for it is what changed).
+- [x] **The wording bug is fixed.** Switching the trigger now brings its own
+      sentence when the one already written could not fill under it, and leaves
+      wording that can. That is `bodyForTrigger`.
+- [x] **The milestone picker is pills**, like every other choice on that form,
+      instead of the native menu.
+- [x] **Horizon**: the dotted route no longer loops round the portrait, where it
+      read as a ring drawn on the photo.
+- [x] **Horizon / the studio preview** shows the admin's own name with their own
+      photo, rather than their face over "Roxanna Travels".
+- [x] **Passport prints the name forwards.** The machine-readable strip keeps
+      passport ordering, because that is a barcode, not a way of addressing
+      somebody.
+- [x] **Boarding pass**: a much larger QR with a small caption under it, instead
+      of a SCAN TO VERIFY column taking a third of the stub. The destination
+      sits on its own centre.
+- [x] **The verify page** walks down its answer a beat at a time rather than
+      appearing all at once, and lost two em dashes.
+- [x] **Postcard**: the postmark was 300px wide, pinned outside the right margin,
+      so its cancel lines ran across the stamp and its ring clipped the corner.
+      It sits to the left of the stamp now and clears it by twenty pixels.
+      Measured on all three postcards: no overlap.
+- [x] **Minimal**: the badge is 124px, up from 100px.
+- [x] **The "Took part" heading**: the bar printed the design's internal name in
+      bold beside a Live chip, above a certificate that also carries words. It
+      says "Editing" in front of it now.
+- [x] **The page says what it is** — each card is a design plus the rule that
+      hands it out, not a certificate somebody has been given — and explains
+      Live against Draft.
+- [x] **A draft is marked, not dimmed.** `opacity-60` washed out the certificate
+      the card exists to show; it is a dashed border now.
+- [x] **The Instagram story size was always there**: `/rewards`, on each
+      certificate, "Share to your story", 1080 x 1920 on a Tryp.com ground. It
+      could not be found because certificates are not live yet. The studio now
+      says where it is.
+- [ ] **Cut the list back to one example certificate.** NOT done deliberately —
+      those are real rows in the database, and deleting an admin's saved designs
+      is his call, not mine. The page explains them instead.
+- [ ] **`certificates_live` is still FALSE.** NOT flipped deliberately: "then I
+      can get it live", "I'll give you the go ahead for the creators". One
+      switch when you are ready.
 
-**Applies to every template:**
+## 6. The duplicate-entry investigation — DONE
 
-16. **Place styling is inconsistent.** Horizon's first place is WHITE and is
-    wrong; use the orange treatment Sky Banner and Passport already have.
-17. **Never "1st of 10".** Just the ordinal word: "First", "Second", "Third".
-    Not even the word "place".
-18. **Third place must not be transparent** (Sky Banner) - light orange
-    background. Fourth and beyond sit on white with their ordinal ("Tenth").
-19. **The date block**: "Awarded" in BOLD, the date under it in smaller grey.
-    Currently inverted. Passport is already correct because both lines are bold -
-    leave Passport's alone.
-20. **A certificate may have NO place at all** (a milestone award). That must be
-    a supported shape.
+- [x] **Investigated.** All eight of Natalia's surviving links resolve 1:1 to
+      distinct video ids matching what is stored, and the sync writes each row
+      from its own resolution. The removals were correct. The mechanism is that
+      TikTok mints a NEW share code every time Share is pressed, so one video
+      submitted twice arrives as two links with nothing in common.
+- [x] **Caught at submit now.** `thumb-cache` was already following the short
+      link for the cover and never said where it landed; it returns the
+      canonical URL and video id, the submit form writes it with the entry, and
+      the guard fires immediately. No points are given to a repeat, so none are
+      taken back. Deployed as v6 and verified against production.
+- [x] **Migration 273 applied**: a late-caught duplicate is archived to
+      `submission_duplicates` before deleting, the creator is notified, and
+      `reinstate_duplicate` puts it back with its video id cleared.
+- [x] **Never across creators.** The old trigger matched on (challenge, video)
+      with no creator test, so a collab or duet would have handed one creator's
+      entry to another. That case raises an admin alert instead.
+- [x] **Rehearsed**: `supabase/tests/duplicate_entries.sql`, six checks.
+- [x] **Nothing to revert.** The removals were genuine; the three rows are
+      unrecoverable either way, which is the fault 273 fixes for next time.
 
-**Per template:**
+## 7. Invoices — DONE
 
-21. **Horizon**: remove the dotted ring around the profile photo. The NAME must
-    be the recipient's - it printed "Roxana travels" over Ethan's photo. Design
-    otherwise approved.
-22. **Sky Banner**: general UI polish. The incoming plane is liked, keep it.
-23. **Passport**: the stamp-as-date idea is liked, keep it. **Print the name
-    forwards**, not reversed.
-24. **Boarding pass**: strongly liked. QR code WORKS and should be BIGGER.
-    Remove the "Scanned"/"Verify" chip beside it; put small verify text UNDER the
-    QR instead. Centre "First Place" vertically in the right column.
-25. **Boarding pass -> the /verify check page needs rebuilding**: it does not
-    match the platform's style and has no clean animations.
-26. **Postcard: redesign it.** The current style is not liked. Make it read as an
-    actual postcard: ONE stamp, top right. The extra stamps overlapping it look
-    wrong - remove them. The rest is acceptable.
-27. **Minimal**: decent already. Make the first-place icon slightly BIGGER.
-    Fix the date as above. **Remove the paper-style options entirely** - no soft
-    glow wash, no Tryp gradient, white only. KEEP the accent colours.
+- [x] **No em dash**: "Someone not on the platform".
+- [x] **No € in the heading.** The switch says it and the box says it again.
+- [x] **The date box aligns with the amount box**, to the pixel, measured live.
+- [x] Notes already followed the currency; left as they were.
 
-**Builder / options:**
+## 8. Admin-sent notifications — NOT DONE
 
-28. **Remove the "Badge / Tryp Plane / Root" options** - not needed.
-29. **Milestone icon**: the flag is not liked. Use a trophy or similar.
-30. **Badges must not print their kind**: no "Participant" on a participation
-    badge, no "Milestone" on a milestone one, no "Honour" on a by-hand one - a
-    star is enough there. The badge renders GREY when the accent colour is
-    changed; fix so it follows the accent.
-31. **The milestone picker is a native Apple dropdown** - replace with the
-    platform's own select styling.
-32. **Bug**: switching award kind (milestone / by hand / entering a challenge)
-    raises "none of the wording can be filled in for this kind of award, so it
-    falls back to the default sentences". Every kind must fill its own wording.
-33. **The Instagram story size cannot be found.** It was reported as built in an
-    earlier session. Either surface it somewhere obvious, or build it. Ethan must
-    be able to see and reach it clearly.
-34. **Top of the builder**: the "Took part" wording looks like it is addressed to
-    the recipient. Improve that UI.
-35. **The certificates page is confusing.** The other certificates on it are
-    unexplained; some are faded (draft?) and some are not (live?). Cut it back to
-    ONE example certificate that can be viewed and edited, and make draft vs live
-    legible.
-36. **Then take certificates live** (flip `certificates_live`) once the above is
-    done and reviewed.
+- [ ] A button beside Edit on a challenge to compose and send a push.
+- [ ] The mid-challenge "you are 3 points from a voucher" nudge.
 
-## 6. Admin-sent notifications (new build)
+## 9. Rewards and referrals — NOT DONE
 
-37. **An admin can compose and send a push notification to creators.**
-    Placement, decided: a button on the CHALLENGE, to the LEFT of Edit. It is a
-    notification about that challenge, so it belongs there. Not limited to one
-    purpose - any custom message about the challenge.
-38. **Mid-challenge nudges** are the motivating case: "you are 3 points from a
-    voucher", "you are 5 points away". Those should be sendable, and worth
-    considering as automatic.
-39. Ethan raised the admin email page as an alternative home (it is barely used -
-    only address copying). Decision landed on the challenge button; the email
-    page is the fallback if a general-purpose sender is wanted later.
+- [ ] Voucher wallet improvements.
+- [ ] All-time referrals leaderboard for creators.
 
-## 7. Rewards and referrals
+## 10. Spanish and the languages page — BARELY STARTED
 
-40. **Voucher wallet**: already exists in effect; improve it on the rewards page.
-41. **Referrals page: an ALL-TIME referrals leaderboard**, visible to creators -
-    who is bringing creators in, and how many.
+- [~] Find a deal was translated (see group 1). That is one feature of many.
+- [ ] The full sweep of recently-added strings.
+- [ ] Worldwide cards growing in Spanish.
+- [ ] The top nav misaligned in Spanish.
+- [ ] A Translate button on a brief.
+- [ ] Making German trivial to add.
+- [ ] **Rebuilding the admin languages page.** Not started.
 
-## 8. Invoices (from the second brief)
+## 11. Creator network map — DONE
 
-Context: another session fixed the amount field, which had been showing pence.
+- [x] **Bounded by country.** Europe collapsed into one pin of 130 on the UK
+      because single linkage is transitive and Europe is a dense chain of towns:
+      at world zoom the reach is ~30 units and no two neighbouring countries are
+      further apart, so Dublin chained to Manchester to Amsterdam to Madrid.
+      No edge is built between towns in different countries now.
+- [x] **Measured against the live community**, 142 located creators: 25 pins at
+      world zoom, biggest 47, one per market; 45 pins by zoom 27, biggest 17.
+      The total is 142 at every zoom, so nobody is dropped or double-counted.
+- [x] **Quicker**: the regroup waited 160ms after the zoom settled on top of a
+      420ms fly. 60ms and 240ms now.
+- [x] **The arithmetic moved to `lib/pinCluster.js`** with sixteen rehearsals.
+      One erases the countries and asserts the single blob returns, so the chain
+      reaction is proven rather than assumed.
+- [x] **The dotted threads** joined the RAW towns, so lines outlived the pins
+      they connected. They thread the grouped pins now: 44 threads for 45 pins.
+      This is also the fix for the same fault on the public programme page.
 
-42. **"Other - someone not on the platform"**: remove the em dash. Make it read
-    "Someone not on the platform" or similar. (House rule: no em dashes anywhere
-    in user-facing copy.)
-43. **Remove the euro sign next to the price label/title.** With the EUR/GBP
-    toggle in place it is wrong there; the symbol inside the box is correct.
-44. **Align the invoice-date boxes.** The layout went crooked when the currency
-    toggle was added.
-45. Notes should say paid in pounds or paid in euros to match the toggle, and the
-    invoice@ details need checking alongside it.
+## 12. Public programme page — PARTLY DONE
 
-## 9. Spanish and the i18n system (large)
+- [x] **The dotted lines** are fixed by group 11 (same component).
+- [ ] **The Wall of Fame.** Not done.
+- [ ] **The privacy toggle** that would go with it. Not done.
 
-46. **Spanish must be complete and correct everywhere.** Rigorous sweep.
-    Recently-added strings are the known gap: "most points at the deadline wins",
-    "find a deal", and anything else added in the last few passes.
-    (Known trap from an earlier pass: neither i18n script could see a `pl()`
-    string, so script-driven coverage reports have under-reported before.)
-47. **Worldwide page cards grow in Spanish.** They must keep their normal size -
-    reduce the text size slightly if that is what it takes.
-48. **The top nav is misaligned in Spanish** ("global / challenges / messages /
-    calendario" spacing is wrong).
-49. **A "Translate" button on a brief**, so a Spanish creator can flip an English
-    brief to Spanish on demand. Build it if it is feasible; skip if not.
-50. **Adding a language must be trivial.** German is the next one Ethan will ask
-    for; all the plumbing should already be there when he does.
-51. **Rebuild the admin languages page.** Today it is endless scrolling and it is
-    hard to tell the English from the translation. It needs: sections per page
-    (worldwide, challenges, and everything inside them), English and translation
-    side by side, easy inline correcting so a native Spanish speaker can make it
-    sound natural, clean animations.
+## 13. Admin invite link — NOT DONE
 
-## 10. Creator network map (rework, over-corrected last pass)
-
-52. **The clustering went much too far.** Fully zoomed out, the whole of Europe
-    collapses into a single "130" pin on the UK. That is wrong: creators should
-    still sit in THEIR OWN countries, grouped within each country. Zooming in
-    should spread them further.
-53. **The regroup animation is too slow and too delayed.** Much smoother, much
-    quicker. The goal is neither one giant blob nor jumbled overlapping pins.
-    Worth real time: plan it, build it, test it at several zoom levels.
-
-## 11. Public programme page (`/programme`, the signup page)
-
-54. **The dotted connection lines are still drawn between pins that have been
-    clustered away**, so lines run to curves that no longer exist. Likely fixed
-    by fixing group 10, but verify on this page specifically - it is a duplicate
-    of the creator map.
-55. **A Wall of Fame.** Placement suggested: under "recently active creators" or
-    below "Why creators join". Shows the top creators from EVERY challenge - the
-    winners, e.g. the three from the Tryp.com challenge. Per creator: profile
-    photo or card, a little about them, some of their numbers, their links,
-    accumulated views, and possibly their best video's thumbnail. **Clicking
-    prompts signup or login** to see the full creator. Think of it as an alumni
-    wall / public winners page: real public credit, with a link to the video.
-56. **Privacy**: a Settings toggle under privacy to opt OUT, **on by default**.
-
-## 12. Admin invite link (new build)
-
-57. **A shareable link that lets a Tryp.com team member apply for ADMIN access**,
-    so Ethan can hand it to the team instead of onboarding each person by hand.
-58. **Ethan still approves every one.** That is the deliberate safeguard if the
-    link is forwarded to somebody it was not meant for - and with approval in
-    place, a leaked link is not a serious exposure.
-59. **On approval they get admin access**, and Ethan can set their role title to
-    whatever they should be called.
-60. **A shortened signup**: keep name, profile photo, bio, and the tutorial and
-    the other main features. SKIP bank details and social links - they do not
-    apply. It should feel like the normal signup, just faster.
+- [ ] A shareable link for the Tryp.com team to apply for admin access, with
+      your approval still required, a shortened signup (name, photo, bio,
+      tutorial; no bank details or socials) and a settable role title.
 
 ---
 
-## Why nothing shipped in the session that captured this
+## What needs you
 
-Every command-running tool in that session (Bash, and the Terminal panel tool)
-returned the same fault: the auto-mode safety classifier gave no verdict, which
-blocks execution without saying anything about the commands themselves. File
-reads and writes were unaffected, which is why this document exists.
-
-That meant no `git`, no `npm run test`, no `npm run lint`, no `npm run build`, no
-push, and therefore no Vercel deploy - and also no `grep`, so the strings and
-components named above were never located in the tree.
-
-This is the wrong codebase to change blind. The platform's own notes record a
-run of faults that were invisible until something was measured: a CSS rule with
-equal specificity parking every revealed item 32px low, a cache that tested
-`!obj[key]` and re-geocoded for ever at 28 renders a second, PostgREST quietly
-returning 1000 rows of a larger table, an `exception when others` swallowing a
-type error for months. Editing roughly sixty items across a 460-file tree with
-no test run and no build would have added to that list rather than shortening it.
-
-**To pick this up:** confirm the shell works (`git -C ~/tryp-creator-platform
-status`), `git fetch` first because other sessions push to `origin/main`, then
-work down from group 1. Groups 1 to 4 and 8 are small and safe to batch. Group 5
-is a long grind but low-risk. Groups 6, 9, 10, 11 and 12 each deserve their own
-plan before any code.
+1. **`certificates_live`** is one switch away. Everything behind it is built.
+2. **The certificate list**: say the word and I will cut it back to one example,
+   but that means deleting saved designs, so it is your call.
+3. **Groups 8, 9, 10, 12 and 13** are still open. Group 10 (Spanish and the
+   languages console) is the largest single piece left.
