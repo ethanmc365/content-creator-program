@@ -590,6 +590,44 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 const NO_TRIPS = {}
 const NO_CREATORS = []
 
+// THE PIN HIERARCHY (28 Sep 2026). Single-linkage clustering over the towns'
+// projected points: two pins that would touch at a zoom are one group, and so
+// is anything touching either of them. The merge distances are the edges of
+// the minimum spanning tree, in order (Kruskal), so replaying them below a
+// reach gives the groups for any zoom - and because they are nested, a change
+// of zoom only ever splits or joins groups, nothing is reshuffled. It also
+// guarantees what the reader actually cares about: no two pins left on the map
+// are closer than a pin's width. Done once per set of towns, never per frame.
+function clusterMerges(pts) {
+  const n = pts.length
+  if (n < 2) return []
+  const edges = []
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      edges.push({ a: i, b: j, h: Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) })
+    }
+  }
+  edges.sort((x, y) => x.h - y.h)
+  const parent = pts.map((_, i) => i)
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
+  const merges = []
+  for (const e of edges) {
+    const ra = find(e.a)
+    const rb = find(e.b)
+    if (ra === rb) continue
+    parent[rb] = ra
+    merges.push(e)
+    if (merges.length === n - 1) break
+  }
+  return merges
+}
+
+// The zoom a regroup is worked out at: half-octave steps (x1.41), so a group
+// splits or merges at a handful of zoom levels rather than at every nudge.
+function clusterStep(zoom) {
+  return Math.pow(2, Math.round(Math.log2(Math.max(1, zoom || 1)) * 2) / 2)
+}
+
 function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
   // FULL SCREEN IS NOT ONE OF "THE CONTROLS".
   //
@@ -1307,45 +1345,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     return segs
   }, [towns])
 
-  // THE ZOOM EVERY FLIGHT TIME IS MEASURED AT.
-  //
-  // Every path in this file is drawn in projection units and then scaled by
-  // `ZoomableGroup`, so a screen length is a projection length times the zoom.
-  // The SETTLED zoom, never the live one: re-timing a plane on every frame of a
-  // pinch restarts its animation sixty times a second, which is the cost the
-  // tracking-loop note elsewhere in this file is about. Once per finished
-  // gesture is the right granularity, and it is a moment the view is already
-  // changing under the reader anyway.
-  const planeZoom = Math.max(1, position.zoom || 1)
-
-  // Which threads actually carry a plane: the longest ones, capped, so short
-  // hops in dense areas don't turn into a swarm. Every thread is still drawn.
-  //
-  // BOTH THE THRESHOLD AND THE DURATION ARE IN SCREEN UNITS, so a market map
-  // zoomed to 22 and a world map at 1.01 fly at the same visible speed and
-  // apply the same "is this hop worth an aircraft" rule. See MIN_PLANE_LEN.
-  //
-  // It reads the SETTLED zoom, not the live one: re-timing the planes on every
-  // frame of a pinch would restart the animation sixty times a second, which is
-  // the cost the tracking-loop note elsewhere in this file warns about. Once
-  // per finished gesture is the right granularity.
-  const planeSegments = useMemo(() => {
-    const scaled = segments.map((s) => {
-      const screen = s.curve * planeZoom
-      return { ...s, screen, dur: flightDur(screen) }
-    })
-    const long = scaled.filter((s) => s.screen >= MIN_PLANE_LEN)
-    // Nothing long enough? Fly ONE anyway, so the "we're all connected" idea
-    // still reads for a community that is merely clustered - but only if the
-    // longest hop is within reach of the threshold. A market whose creators all
-    // live in one city gets NO aircraft, which is what Ethan asked for and what
-    // the old fallback made impossible: with every hop below the bar, `long`
-    // was empty and the pool became the whole list.
-    const pool = long.length
-      ? long
-      : scaled.filter((s) => s.screen >= MIN_PLANE_LEN * 0.5)
-    return [...pool].sort((a, b) => b.screen - a.screen).slice(0, MAX_PLANES)
-  }, [segments, planeZoom])
 
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
@@ -1526,34 +1525,66 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // zoom, which only moves when the gesture ends. It reads the live one now,
   // rounded to quarter-octave steps (about 19% of zoom each), so pins split
   // and merge while you scroll without re-grouping on every frame.
-  const clusterZoom = Math.pow(2, Math.round(Math.log2(Math.max(1, liveZoom)) * 4) / 4)
-  const clusteredTowns = useMemo(() => {
-    const zoom = clusterZoom
-    const reach = 30 * Math.pow(zoom, -0.7)
+  //
+  // AND IT IS CALM (28 Sep 2026, evening). Ethan: "whenever zooming in and out
+  // ... this seems to be happening rapidly so many times ... everything's
+  // flying all over." Measured: ONE press of the zoom button fired 16 to 64 pin
+  // animations. Two causes, both fixed here:
+  //   1. The grouping was GREEDY ("join the first group within reach"), so at
+  //      each new zoom step the groups were rebuilt from scratch and pins
+  //      swapped between them wholesale. It is a HIERARCHY now (single
+  //      linkage, built once per set of towns - see clusterMerges): zooming in
+  //      only ever SPLITS a group and zooming out only ever MERGES two, the
+  //      fewest pins that can move, and no two pins are left overlapping.
+  //   2. It regrouped at every quarter-octave of a live gesture. The steps are
+  //      half-octaves now, and taken from the zoom once it has paused for a
+  //      beat (`settledCluster`), so a scroll is one regroup, not five.
+  const hierarchy = useMemo(() => {
     const pts = visibleTowns
       .map((t) => {
         const p = projection(t.coords)
         return p ? { t, x: p[0], y: p[1] } : null
       })
       .filter(Boolean)
-      .sort((a, b) => b.t.creators.length - a.t.creators.length)
-    const groups = []
-    for (const p of pts) {
-      const g = groups.find((c) => Math.hypot(c.x - p.x, c.y - p.y) < reach)
-      if (g) g.members.push(p.t)
-      else groups.push({ x: p.x, y: p.y, members: [p.t] })
+      .sort((a, b) => (b.t.creators.length - a.t.creators.length) || (a.t.key < b.t.key ? -1 : 1))
+    return { pts, merges: clusterMerges(pts) }
+  }, [visibleTowns])
+  const [settledCluster, setSettledCluster] = useState(() => clusterStep(liveZoom))
+  useEffect(() => {
+    const step = clusterStep(liveZoom)
+    if (step === settledCluster) return undefined
+    const t = setTimeout(() => setSettledCluster(step), 160)
+    return () => clearTimeout(t)
+  }, [liveZoom, settledCluster])
+  const clusterZoom = settledCluster
+  const clusteredTowns = useMemo(() => {
+    const reach = 30 * Math.pow(clusterZoom, -0.7)
+    const { pts, merges } = hierarchy
+    const parent = pts.map((_, i) => i)
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
+    for (const m of merges) {
+      if (m.h >= reach) break
+      const a = find(m.a)
+      const b = find(m.b)
+      if (a !== b) parent[Math.max(a, b)] = Math.min(a, b)
     }
-    return groups.map((g) => {
-      if (g.members.length === 1) return g.members[0]
-      const creators = g.members.flatMap((t) => t.creators).sort(byPinPriority)
+    const groups = new Map()
+    pts.forEach((p, i) => {
+      const r = find(i)
+      if (!groups.has(r)) groups.set(r, [])
+      groups.get(r).push(p.t)
+    })
+    return [...groups.values()].map((members) => {
+      if (members.length === 1) return members[0]
+      const creators = members.flatMap((t) => t.creators).sort(byPinPriority)
       return {
-        key: `cluster:${g.members.map((t) => t.key).sort().join('+')}`,
-        coords: g.members[0].coords,
+        key: `cluster:${members.map((t) => t.key).sort().join('+')}`,
+        coords: members[0].coords,
         creators,
-        towns: g.members,
+        towns: members,
       }
     })
-  }, [visibleTowns, clusterZoom])
+  }, [hierarchy, clusterZoom])
 
   // PINS MOVE WHEN THEY SPLIT AND MERGE (28 Sep 2026). Ethan: "I would like
   // some animations for this rather than just flashing, appearing, and
@@ -1680,6 +1711,55 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     const zoom = Math.min(maxFitZoom, Math.max(1, Math.min(360 / (lngSpan * 1.5), 180 / (latSpan * 1.8))))
     return { coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }
   }, [fitPoints, maxFitZoom])
+
+  // THE ZOOM EVERY FLIGHT TIME IS MEASURED AT.
+  //
+  // Every path in this file is drawn in projection units and then scaled by
+  // `ZoomableGroup`, so a screen length is a projection length times the zoom.
+  // The SETTLED zoom, never the live one: re-timing a plane on every frame of a
+  // pinch restarts its animation sixty times a second, which is the cost the
+  // tracking-loop note elsewhere in this file is about. Once per finished
+  // gesture is the right granularity, and it is a moment the view is already
+  // changing under the reader anyway.
+  // THE FITTED ZOOM, NOT THE CURRENT ONE (28 Sep 2026, evening). Ethan: "the
+  // aeroplane animations ... keep lagging, freezing, and going again." One of
+  // the causes was here: re-timing every flight at the end of every zoom
+  // changes each plane's animation-duration, and a running animation whose
+  // duration changes jumps to a new point on its path - so every scroll ended
+  // with the whole fleet lurching. The fitted zoom only changes when the
+  // community on the map changes, so the planes keep their clocks through any
+  // amount of zooming (they simply look a little faster zoomed in, as a real
+  // one would from closer).
+  const planeZoom = Math.max(1, fitView.zoom || 1)
+
+  // Which threads actually carry a plane: the longest ones, capped, so short
+  // hops in dense areas don't turn into a swarm. Every thread is still drawn.
+  //
+  // BOTH THE THRESHOLD AND THE DURATION ARE IN SCREEN UNITS, so a market map
+  // zoomed to 22 and a world map at 1.01 fly at the same visible speed and
+  // apply the same "is this hop worth an aircraft" rule. See MIN_PLANE_LEN.
+  //
+  // It reads the SETTLED zoom, not the live one: re-timing the planes on every
+  // frame of a pinch would restart the animation sixty times a second, which is
+  // the cost the tracking-loop note elsewhere in this file warns about. Once
+  // per finished gesture is the right granularity.
+  const planeSegments = useMemo(() => {
+    const scaled = segments.map((s) => {
+      const screen = s.curve * planeZoom
+      return { ...s, screen, dur: flightDur(screen) }
+    })
+    const long = scaled.filter((s) => s.screen >= MIN_PLANE_LEN)
+    // Nothing long enough? Fly ONE anyway, so the "we're all connected" idea
+    // still reads for a community that is merely clustered - but only if the
+    // longest hop is within reach of the threshold. A market whose creators all
+    // live in one city gets NO aircraft, which is what Ethan asked for and what
+    // the old fallback made impossible: with every hop below the bar, `long`
+    // was empty and the pool became the whole list.
+    const pool = long.length
+      ? long
+      : scaled.filter((s) => s.screen >= MIN_PLANE_LEN * 0.5)
+    return [...pool].sort((a, b) => b.screen - a.screen).slice(0, MAX_PLANES)
+  }, [segments, planeZoom])
 
   // FIT TO EVERYONE - AND KEEP FITTING UNTIL SOMEBODY TAKES THE CAMERA.
   //
