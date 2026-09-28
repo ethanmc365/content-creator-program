@@ -202,9 +202,22 @@ export default function CertificateStudio() {
           to the database until Save. The button that had one use now has one
           per starter, and the gallery doubles as the demonstration that the
           studio can make six different-looking things. */}
-      <button type="button" onClick={() => setPicking(true)} className="btn-primary">
-        <Icon name="plus" className="h-4 w-4" /> New certificate
-      </button>
+      {/* SAY WHAT THIS PAGE IS (28 Sep 2026). Ethan: "the whole certificates
+          page seems a bit confusing, and I don't know what these other
+          certificates actually are." Each card is a DESIGN plus the rule that
+          hands it out - not a certificate somebody has been given - and nothing
+          on the page said so. One sentence, above the list it describes. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-xl text-sm leading-relaxed text-smoke">
+          Each of these is a certificate design and the rule that gives it out. A
+          <strong className="font-semibold text-ink"> Live</strong> one is awarded automatically
+          whenever somebody meets its rule; a <strong className="font-semibold text-ink">Draft</strong> is
+          never awarded and creators cannot see it. Open one to change its words, its look or its rule.
+        </p>
+        <button type="button" onClick={() => setPicking(true)} className="btn-primary shrink-0">
+          <Icon name="plus" className="h-4 w-4" /> New certificate
+        </button>
+      </div>
 
       {picking && (
         <StarterGallery
@@ -246,11 +259,18 @@ export default function CertificateStudio() {
 function DesignRow({ row, markets, onOpen, onDuplicate }) {
   const problem = ruleProblem(row)
   const [holder, width] = useFluidWidth(240)
+  // A DRAFT IS MARKED, NOT DIMMED (28 Sep 2026). A draft card was rendered at
+  // `opacity-60`, which washes out the certificate itself - so the one thing the
+  // card exists to show became hard to look at, and the reason was not on
+  // screen. Ethan: "some of them seem faded out because it's a draft."
+  // The chip on the right already says Draft in words; the card now says it
+  // again with a dashed border, and the preview is drawn at full strength
+  // whatever state it is in.
   return (
     <div className={cx(
-      'group overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200',
+      'group overflow-hidden rounded-card bg-white shadow-card transition-all duration-200',
       'hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift',
-      !row.is_active && 'opacity-60',
+      row.is_active ? 'border border-gray-100' : 'border-2 border-dashed border-gray-200',
     )}>
       {/* FLUID, NOT 520px. This was a hard-coded width and the card it sits in
           is 335px on a phone, so every certificate in the list was cropped at
@@ -521,7 +541,18 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
           is live, the sections to jump to, a download, and Save. */}
       <div className="sticky top-16 z-30 -mx-1 flex flex-wrap items-center gap-2 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-card backdrop-blur sm:top-20">
         <button type="button" onClick={onCancel} className="btn-ghost !px-2.5 !py-1.5 text-xs">← All certificates</button>
-        <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
+        {/* SAY THAT THIS IS A FILE NAME (28 Sep 2026). The bar printed the
+            design's internal name - "Took part" - in bold ink, beside a Live
+            chip, directly above a certificate that also carries words. Ethan
+            read it as part of the award: "we have the 'Took part' words look
+            like it's given to whoever gets it. I don't like that."
+            The field below already says "only admins see this"; the bar did
+            not, so the one place the name appears big said nothing about what
+            it was. A muted "Editing" in front of it settles it in two words. */}
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">Editing</span>
+          <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
+        </span>
         <span className={cx(
           'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
           design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
@@ -583,7 +614,17 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               {/* THE EXAMPLE MATCHES THE TRIGGER. A milestone design previews
                   against a milestone, not against a challenge win it can never
                   print. See `sampleFacts`. */}
-              Filled in with an example and your own photo. A real one carries the creator's name, photo and result. Downloads are 3000px and square-cornered.
+              {/* WHERE THE STORY SIZE ACTUALLY IS (28 Sep 2026). Ethan: "you
+                  said that you added a shared story size for Instagram stories,
+                  but I don't see this at all... please show me where to actually
+                  get that." It was built and it works - it is just on the other
+                  side of the product, on the creator's own rewards page, so
+                  there was nowhere in the place he was looking that said so. */}
+              Filled in with an example and your own photo. A real one carries the creator&rsquo;s name, photo and result. Downloads are 3000px and square-cornered.
+              {' '}
+              Creators get their own copy on <strong className="font-semibold text-ink">My rewards</strong>, with
+              {' '}<strong className="font-semibold text-ink">Share to your story</strong> beside it, which saves the
+              certificate on a Tryp.com background at 1080 x 1920 for Instagram.
             </p>
           </div>
         </div>

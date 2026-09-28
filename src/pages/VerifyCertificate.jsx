@@ -222,7 +222,7 @@ function Missing({ code }) {
         <p className="mt-2 font-mono text-[13px] uppercase tracking-[0.12em] text-gray-400">{code}</p>
       )}
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-smoke">
-        Check it again — it is six characters after the year, and the letters
+        Check it again. It is six characters after the year, and the letters
         O and I are never used, so a nought is a zero and a one is a one.
         If it still does not come up, this was not issued by Tryp.com.
       </p>
@@ -246,11 +246,29 @@ function Found({ data, holder, scale }) {
   const forWhat = fillTemplate(data.body, facts).split('\n').filter(Boolean).join(' · ')
   const link = typeof window !== 'undefined' ? `${window.location.origin}/verify/${data.serial}` : ''
 
+  // THE ANSWER ARRIVES IN THE ORDER IT IS READ (28 Sep 2026). Ethan: "I would
+  // improve the certificate check page. Currently it doesn't seem to match the
+  // style of the platform, where there are no clean animations."
+  //
+  // The whole panel faded up as one block, so the verdict, the certificate and
+  // the facts all landed on the same frame - which is not an animation, it is a
+  // page appearing. Each part now rises a beat after the one above it, the same
+  // 90ms step the rest of the platform uses, so the eye is walked down the
+  // answer: is it real, is it the one I am holding, what does it say. The global
+  // `prefers-reduced-motion` rule still turns all of it off.
+  const step = (n) => ({ animationDelay: `${n * 90}ms` })
+
   return (
     <div className="space-y-5">
-      <Verdict name={facts.name} date={awarded} accent={s.accent} />
+      <div className="animate-fade-up [animation-fill-mode:both]" style={step(0)}>
+        <Verdict name={facts.name} date={awarded} accent={s.accent} />
+      </div>
 
-      <div ref={holder} className="overflow-hidden rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
+      <div
+        ref={holder}
+        style={step(1)}
+        className="animate-fade-up overflow-hidden rounded-card border border-gray-100 bg-white p-2.5 shadow-card [animation-fill-mode:both] sm:p-3"
+      >
         {/* The card is drawn at its true 1000x707 and scaled to fit, so what is
             on screen is the same pixels as the file the creator downloaded. */}
         <div style={{ width: '100%', height: CERT_H * scale, overflow: 'hidden' }}>
@@ -260,7 +278,7 @@ function Found({ data, holder, scale }) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="animate-fade-up grid gap-4 [animation-fill-mode:both] sm:grid-cols-2" style={step(2)}>
         <Panel title="What it is for">
           <p className="text-sm leading-relaxed text-ink">{forWhat || data.title}</p>
           {facts.challenge && (
@@ -273,7 +291,7 @@ function Found({ data, holder, scale }) {
 
         <Panel title="The record">
           <Line label="Awarded to" value={facts.name || 'A Tryp.com creator'} />
-          <Line label="Awarded" value={awarded ? formatAwardDate(awarded) : '—'} />
+          <Line label="Awarded" value={awarded ? formatAwardDate(awarded) : 'Not recorded'} />
           <Line label="Certificate ID" value={data.serial} mono />
           {/* A CHECKED CERTIFICATE SHOULD BE SENDABLE. The reason the lookup
               goes through the URL at all is so this link exists; leaving the

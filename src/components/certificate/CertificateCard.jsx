@@ -717,13 +717,22 @@ function Postcard({ s, c, o }) {
         </div>
       </div>
 
-      {/* THE POSTMARK (28 Sep 2026): "that stamp seems a bit off. I would
-          improve it." A real one: two rings, the words running round the ring,
-          the date across the middle, and the cancel lines running out of it
-          across the stamp's corner. */}
+      {/* THE POSTMARK SITS BESIDE THE STAMP, NOT ON IT (28 Sep 2026, later).
+          It was 300px wide, pinned 24px OUTSIDE the right margin and 96px down -
+          so its cancel lines ran straight across the stamp and its outer ring
+          clipped the stamp's corner. From a foot away that is not a franking
+          mark, it is a second stamp landing on the first, which is exactly what
+          Ethan saw: "it should be just the stamp in the right corner, and then
+          there are other stamps that are going over the top of it, which looks
+          weird."
+          Moved to the left of the stamp and narrowed to 220, it clears the
+          stamp's left edge by twenty pixels, and the cancel lines run out to the
+          right INSIDE its own box - the franking gesture, with nothing under it.
+          The stamp now has the corner to itself, which is what a postcard looks
+          like. */}
       <svg
-        viewBox="0 0 300 130"
-        style={{ position: 'absolute', right: M - 24, top: M + 96, width: 300, height: 130, opacity: 0.78, transform: 'rotate(-10deg)' }}
+        viewBox="0 0 220 130"
+        style={{ position: 'absolute', left: MID + 8, top: M + 4, width: 220, height: 130, opacity: 0.78, transform: 'rotate(-10deg)' }}
         aria-hidden="true"
       >
         <defs>
@@ -744,8 +753,9 @@ function Postcard({ s, c, o }) {
         <text x="65" y="78" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 11, fontWeight: 700, fontFamily: SANS }}>
           {(shortDate(c.date) || '').split(' ')[2] || ''}
         </text>
+        {/* Three waves, ending well inside the 220 box. */}
         {o.route && [0, 1, 2, 3].map((i) => (
-          <path key={i} d={`M 128 ${44 + i * 14} q 14 -7 28 0 t 28 0 t 28 0 t 28 0 t 28 0`} fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.2" strokeLinecap="round" />
+          <path key={i} d={`M 128 ${44 + i * 14} q 14 -7 28 0 t 28 0 t 28 0`} fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.2" strokeLinecap="round" />
         ))}
       </svg>
 
