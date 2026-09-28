@@ -10,6 +10,7 @@ import { thumbUrl } from '../lib/avatarUrl'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
 import { clusterMerges, clusterStep, groupsAtReach, reachAtZoom } from '../lib/pinCluster'
+import { homeCountryNames } from '../lib/homeCountries'
 import CountryPanel, { TownPanel } from './CountryPanel'
 import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
@@ -1096,12 +1097,33 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       (c) => c.city_lat == null && !(c.id in extraCoords) && (c.city || c.country)
     )
     if (missing.length === 0) return
+    // ONE WRITE PER BEAT, NOT ONE PER LOOKUP (28 Sep 2026). Each answer used to
+    // set state on its own, and every one of those rebuilt `located`, which
+    // re-ran the country sweep below. That sweep was a second and a quarter of
+    // frozen main thread before it was rewritten, so a handful of slow lookups
+    // dropped a handful of freezes into whatever the reader was doing - which,
+    // as Ethan found, is usually zooming. The sweep is cheap now and this is no
+    // longer the difference between working and not; it is still fewer renders
+    // for the same pins, and the pins still fill in as the answers arrive
+    // rather than all at the end.
     ;(async () => {
+      let pending = null
+      let timer = null
+      const flush = () => {
+        timer = null
+        if (!pending || cancelled) return
+        const batch = pending
+        pending = null
+        setExtraCoords((prev) => ({ ...prev, ...batch }))
+      }
       for (const c of missing) {
         const coords = await geocodeCity(c.city, c.country)
         if (cancelled) return
-        setExtraCoords((prev) => ({ ...prev, [c.id]: coords || null }))
+        pending = { ...(pending || {}), [c.id]: coords || null }
+        if (!timer) timer = setTimeout(flush, 300)
       }
+      if (timer) clearTimeout(timer)
+      flush()
     })()
     return () => { cancelled = true }
   }, [creators, extraCoords])
@@ -1302,22 +1324,21 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
+  //
+  // THE ARITHMETIC MOVED OUT (28 Sep 2026), because it was the map's freeze.
+  // It ran every country against every creator - 240 x 158 full polygon streams
+  // - and `some` only short-circuits on a hit, so the two hundred countries
+  // nobody lives in ran all 158 tests each. Measured on the production build:
+  // 1,240ms of main thread, twice, in the middle of a zoom. `lib/homeCountries`
+  // rejects on a bounding box first and stops at the country that contains the
+  // point; see its header for the numbers and eleven rehearsals.
   useEffect(() => {
     let cancelled = false
     if (located.length === 0) { setHomeNames(new Set()); return }
     loadMapFeatures()
       .then((fc) => {
         if (cancelled) return
-        const names = new Set()
-        for (const f of fc.features) {
-          const gname = f.properties.name
-          // Tint if a creator's point falls inside OR their typed country matches.
-          const hit = located.some((c) =>
-            geoContains(f, [c._lng, c._lat]) || countryNameMatches(c.country, gname)
-          )
-          if (hit) names.add(gname)
-        }
-        setHomeNames(names)
+        setHomeNames(homeCountryNames(fc.features, located, countryNameMatches, geoContains))
       })
       .catch(() => {})
     return () => { cancelled = true }
