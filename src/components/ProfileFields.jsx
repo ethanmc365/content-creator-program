@@ -62,7 +62,7 @@ export const LANGUAGE_OPTIONS = [
  *   and needs more: it draws at 316px on a 1280px slide and the PDF photographs
  *   that at 2x, so 512 would be upscaled in a document somebody sends a brand.
  */
-export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 512 }) {
+export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
   const tr = useT()
   const { user } = useAuth()
   const inputRef = useRef(null)
@@ -107,8 +107,11 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 512 }) {
 
     let compressed
     try {
-      // Avatars only ever render small, so the 512px default keeps them tiny in
-      // storage. Callers that print the image ask for more - see `maxDim`.
+      // 1080px WebP (26 Sep 2026), not 512: the profile header, the photo viewer
+      // and a 3x phone screen all draw the ORIGINAL bigger than 512, which is
+      // why avatars looked soft beside the 1280px travel photos. Small places
+      // are served resized by thumbUrl, so the bigger original costs storage
+      // (~100 kB) and never bandwidth in a list.
       compressed = await compressImage(file, { maxDim, quality: 0.85 })
     } catch (err) {
       setError(err.message); setBusy(''); dropPreview(); setPreview('')

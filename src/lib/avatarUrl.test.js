@@ -16,9 +16,9 @@ describe('thumbUrl', () => {
     expect(out).toContain('resize=cover')
   })
 
-  it('doubles for retina, because the sharp version is still tiny', () => {
-    expect(thumbUrl(OURS, 32)).toContain('width=64')
-    expect(thumbUrl(OURS, 64)).toContain('width=128')
+  it('triples for 3x phone screens, because the sharp version is still tiny', () => {
+    expect(thumbUrl(OURS, 32)).toContain('width=96')
+    expect(thumbUrl(OURS, 64)).toContain('width=192')
   })
 
   it('never goes below a floor, so a decorative avatar is still a face', () => {

@@ -46,9 +46,14 @@ export function thumbUrl(url, px) {
   // A URL that already carries a query is not one of ours to rewrite; appending
   // to it would be guesswork about what the existing parameters mean.
   if (url.includes('?')) return url
-  const size = Math.max(16, Math.round(px * 2))
+  // THREE TIMES THE DRAWN SIZE, AT QUALITY 85 (26 Sep 2026). Ethan: "the
+  // profile pictures seem to be really low quality, but the travel photos are
+  // much higher quality." Every iPhone since the X is a 3x screen, and this
+  // asked for 2x at quality 75 - a 48px avatar arrived as a 96px, 3.5 kB
+  // image stretched to 144 device pixels. 3x at 85 is ~8 kB and sharp.
+  const size = Math.max(16, Math.round(px * 3))
   // `cover` rather than `contain`: every avatar in this app is drawn in a
   // circle, so the crop is what the reader sees anyway and letterboxing would
   // put bars inside the ring.
-  return `${url.slice(0, at)}${RENDER}${url.slice(at + OBJECT.length)}?width=${size}&height=${size}&resize=cover&quality=75`
+  return `${url.slice(0, at)}${RENDER}${url.slice(at + OBJECT.length)}?width=${size}&height=${size}&resize=cover&quality=85`
 }
