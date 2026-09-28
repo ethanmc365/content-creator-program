@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
-import { formatDate, formatMoney } from '../lib/utils'
+import { cx, formatDate, formatMoney } from '../lib/utils'
 import { referralProgress, referralStage, referralTerms } from '../lib/referrals'
 import { useT } from '../lib/i18n'
 
@@ -38,6 +38,11 @@ export default function Refer() {
   // is minted from, so the promise on this page and the payout cannot drift.
   const [terms, setTerms] = useState(() => referralTerms(null))
   const [vouchers, setVouchers] = useState([])
+  // WHO HAS BROUGHT THE MOST PEOPLE IN, ALL TIME. An RPC rather than a query,
+  // because a creator cannot read `referred_by` across the community and should
+  // not be able to - who recruited whom is somebody else's business. The RPC
+  // returns counts per referrer and nothing about who was referred.
+  const [board, setBoard] = useState(null)
 
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }, { data: me }, { data: cfg }, { data: mine }] = await Promise.all([
@@ -51,6 +56,7 @@ export default function Refer() {
     setLinkClicks(me?.referral_clicks ?? 0)
     setTerms(referralTerms(cfg?.value))
     setVouchers(mine ?? [])
+    supabase.rpc('referral_leaderboard', { p_limit: 10 }).then(({ data }) => setBoard(data ?? []))
 
     // Which referred creators have actually submitted a challenge video? That is
     // what counts towards the voucher. Tag each person with their
@@ -178,6 +184,64 @@ export default function Refer() {
           </div>
         )}
       </section>
+
+      {/* ALL-TIME, AND IT COUNTS WHAT THE VOUCHER COUNTS (28 Sep 2026).
+          Outstanding from the brief. This page told a creator how they were
+          doing and nothing about anybody else, which is the one thing a
+          referral scheme can usually make interesting.
+
+          It ranks on COUNTED referrals - somebody who signed up AND posted -
+          because that is the rule the voucher has been paid on since July, and
+          a board that ranked signups instead would disagree with the voucher
+          on the same page. Anybody with nobody counted yet is simply not on
+          it; a leaderboard of zeroes is not a leaderboard. */}
+      {board && board.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">{tr('Top referrers')}</h2>
+          <p className="mb-4 text-xs text-smoke">
+            {tr('All time, across the whole community. Counted the same way your own are: they signed up and posted in a challenge.')}
+          </p>
+          <ol className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+            {board.map((r, i) => {
+              const mine = r.creator_id === user.id
+              return (
+                <li
+                  key={r.creator_id}
+                  className={cx(
+                    'flex items-center gap-3 border-b border-gray-50 px-5 py-3.5 last:border-0 sm:px-7',
+                    mine && 'bg-brand-tint/40',
+                  )}
+                >
+                  <span className={cx(
+                    'w-6 shrink-0 text-center text-sm font-bold tabular-nums',
+                    i === 0 ? 'text-brand' : 'text-gray-300',
+                  )}>
+                    {i + 1}
+                  </span>
+                  <Avatar src={r.photo_url} name={r.name} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-ink">
+                      {r.name}
+                      {mine && <span className="ml-1.5 text-xs font-medium text-brand">{tr('(you)')}</span>}
+                    </span>
+                    {/* The second number is the honest one beside it: how many
+                        arrived at all. Four brought in and one filming is a
+                        different story from one brought in and one filming. */}
+                    {Number(r.joined_total) > Number(r.counted) && (
+                      <span className="block text-[11px] text-smoke">
+                        {tr('{n} joined in total', { n: Number(r.joined_total) })}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">
+                    {Number(r.counted)}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      )}
 
       {/* History */}
       <section>
