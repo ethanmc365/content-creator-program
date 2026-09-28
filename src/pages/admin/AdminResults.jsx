@@ -687,7 +687,7 @@ export default function AdminResults() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by name"
                   aria-label="Search entries by creator name"
-                  className="input no-ios-zoom h-10 !py-0 !pl-9 !pr-9 text-sm"
+                  className={cx('input no-ios-zoom h-10 !py-0 !pl-9 text-sm', query ? '!pr-9' : '!pr-3')}
                 />
                 {query && (
                   <button
@@ -704,7 +704,7 @@ export default function AdminResults() {
                 value={viewSort}
                 onChange={setViewSort}
                 variant="field"
-                className="w-[10.5rem] shrink-0"
+                className="w-[10rem] shrink-0 sm:w-[10.5rem]"
                 ariaLabel="Order entries by"
                 options={[
                   { value: 'submitted', label: 'Newest first' },

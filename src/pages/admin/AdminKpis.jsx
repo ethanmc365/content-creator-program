@@ -258,7 +258,7 @@ export default function AdminKpis() {
                   <p className="text-2xl font-bold tabular-nums">{metCount + onTrackCount}<span className="text-white/70">/{merged.length}</span></p>
                   <p className="text-xs font-medium uppercase tracking-wide text-white/80">{tr('On track or met')}</p>
                 </div>
-                <div className="h-8 w-px bg-white/25" aria-hidden />
+                <div className="hidden h-8 w-px bg-white/25 sm:block" aria-hidden />
                 <p className="max-w-md text-sm text-white/90">
                   {metCount === merged.length
                     ? tr('Every target for {scope} is met for {p}.', { scope: community?.name, p: periodLabel(period) })

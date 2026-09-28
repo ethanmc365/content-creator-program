@@ -605,7 +605,7 @@ export default function Events() {
                     column beside them. */}
                 <div className="mb-3">{viewSwitch}</div>
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <h2 key={monthKey} className="cal-label-in text-2xl font-bold tracking-tight tabular-nums sm:text-[28px]">
+                  <h2 key={monthKey} className="cal-label-in whitespace-nowrap text-[22px] font-bold tracking-tight tabular-nums sm:text-[28px]">
                     {format(month, 'MMMM')} <span className="font-semibold text-smoke">{format(month, 'yyyy')}</span>
                   </h2>
                   <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-white p-1 shadow-card">
