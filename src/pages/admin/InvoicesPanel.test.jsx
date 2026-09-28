@@ -94,3 +94,59 @@ describe('the invoice composer', () => {
     expect(await screen.findAllByText('£100.00')).not.toHaveLength(0)
   })
 })
+
+// THE CONVERSION NOTE, both halves of it.
+//
+// Ethan: "when I click on GBP, it shows £20 in the invoice, which is correct,
+// but then it shows 'converted from €23 at today's European Central Bank rate'.
+// That doesn't really make sense. It shouldn't be showing up." And then: "if a
+// creator with UK details wins a euro prize, it should be converted to pounds."
+describe('converting a prize', () => {
+  const NOTE = /Converted from/
+
+  async function openReward({ amount, sourceCurrency }) {
+    render(<InvoicesPanel prefill={{ key: `r-${amount}-${sourceCurrency}`, creatorId: 'c1', amount, sourceCurrency }} onClose={() => {}} />)
+    await screen.findByLabelText('Creator')
+    return screen.getByLabelText('Prize amount')
+  }
+
+  it('converts a sterling prize into euros and says where the figure came from', async () => {
+    const box = await openReward({ amount: 20, sourceCurrency: 'GBP' })
+    await waitFor(() => expect(box.value).toBe('24.00'))  // 20 x 1.2
+    expect(screen.getByText(NOTE).textContent).toContain('£20.00')
+    expect(screen.getByText(NOTE).textContent).toContain('£1 = €1.2')
+  })
+
+  // The bug: back in the prize's own currency there is nothing to explain.
+  it('says nothing at all once it is back in the currency the prize was awarded in', async () => {
+    const box = await openReward({ amount: 20, sourceCurrency: 'GBP' })
+    await waitFor(() => expect(box.value).toBe('24.00'))
+    fireEvent.click(screen.getByRole('button', { name: '£ GBP' }))
+    await waitFor(() => expect(box.value).toBe('20.00'))
+    expect(screen.queryByText(NOTE)).toBeNull()
+  })
+
+  // The half that did not exist: a euro prize, a creator who banks in pounds.
+  it('converts a euro prize into pounds and quotes the rate that way round', async () => {
+    const box = await openReward({ amount: 60, sourceCurrency: 'EUR' })
+    await waitFor(() => expect(box.value).toBe('60.00'))
+    expect(screen.queryByText(NOTE)).toBeNull()   // euro prize, euro invoice
+    fireEvent.click(screen.getByRole('button', { name: '£ GBP' }))
+    await waitFor(() => expect(box.value).toBe('50.00'))  // 60 / 1.2
+    expect(screen.getByText(NOTE).textContent).toContain('€60.00')
+    expect(screen.getByText(NOTE).textContent).toContain('€1 = £0.8333')
+  })
+
+  // Going back must give the prize, not the prize divided and multiplied.
+  it('returns the exact prize on a round trip', async () => {
+    const box = await openReward({ amount: 20, sourceCurrency: 'GBP' })
+    await waitFor(() => expect(box.value).toBe('24.00'))
+    fireEvent.click(screen.getByRole('button', { name: '£ GBP' }))
+    await waitFor(() => expect(box.value).toBe('20.00'))
+    fireEvent.click(screen.getByRole('button', { name: '€ EUR' }))
+    await waitFor(() => expect(box.value).toBe('24.00'))
+    fireEvent.click(screen.getByRole('button', { name: '£ GBP' }))
+    await waitFor(() => expect(box.value).toBe('20.00'))
+  })
+})
+

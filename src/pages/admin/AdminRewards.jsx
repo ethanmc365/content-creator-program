@@ -571,6 +571,11 @@ export default function AdminRewards() {
       key: `${r.id}-${prefillSeq.current}`,
       creatorId: r.creator_id,
       amount: r.amount,
+      // THE CURRENCY THE PRIZE WAS AWARDED IN, which `rewards.currency` has
+      // always held and nothing ever passed on. Without it the composer took
+      // every prize for sterling, so a euro prize won by a creator banking in
+      // pounds could not be converted at all - it just changed sign.
+      sourceCurrency: r.currency || 'GBP',
       description: r.challenges?.title ? `Cash prize for ${r.challenges.title}` : 'Challenge cash prize',
     })
     setTab('invoices')

@@ -7,6 +7,7 @@ import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import { notice } from '../../lib/confirm'
 import { cx, formatMoney, isoToDateInput } from '../../lib/utils'
+import { conversionNote, convertForInvoice } from '../../lib/invoiceFx'
 import {
   DEFAULT_BILL_TO,
   EMPTY_PAYEE,
@@ -102,8 +103,12 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // (see `switchCurrency` and the reward prefill below); it is just no longer
   // the only way to type an amount.
   const [amount, setAmount] = useState('')
-  const [convertedFrom, setConvertedFrom] = useState(null) // {amount, currency} once we converted it
-  const [gbpToConvert, setGbpToConvert] = useState(null)   // a pound prize waiting on the rate
+  // THE PRIZE AS AWARDED - `{ amount, currency }` - which is the fact every
+  // other figure on this form is derived from. It replaced a `convertedFrom`
+  // that recorded what the box said a moment ago and a `gbpToConvert` that
+  // assumed every prize was sterling; see lib/invoiceFx for what each of those
+  // got wrong. Null on a blank invoice, where the typed figure IS the prize.
+  const [source, setSource] = useState(null)
   const [description, setDescription] = useState('')
   const [issueDate, setIssueDate] = useState(isoToDateInput(new Date().toISOString()))
   const [billTo, setBillTo] = useState(DEFAULT_BILL_TO)
@@ -173,30 +178,49 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // A reward row hands this composer a sterling figure, and the rate arrives
   // asynchronously, so the conversion waits for it here rather than being done
   // inline with whatever `fxRate` happened to be at the time (null, usually).
+  // BOTH DIRECTIONS, and only when there is a direction. A prize is decided in
+  // the challenge's currency and paid in the creator's; when those differ the
+  // figure converts, and when they do not it is left exactly as awarded.
+  const settledSource = useRef(null)
   useEffect(() => {
-    if (gbpToConvert == null || fxRate === null) return
-    if (currency === 'EUR' && fxRate > 0) {
-      setAmount((Number(gbpToConvert) * fxRate).toFixed(2))
-      setConvertedFrom({ amount: Number(gbpToConvert), currency: 'GBP' })
-    }
-    setGbpToConvert(null)
-  }, [gbpToConvert, fxRate, currency])
+    if (!source || fxRate === null) return
+    const key = `${source.amount}|${source.currency}|${currency}`
+    if (settledSource.current === key) return
+    settledSource.current = key
+    // Two decimals, because this box is a money field and an invoice figure
+    // is written with its pennies. The library returns a number; the form is
+    // where it becomes a figure somebody reads.
+    const next = convertForInvoice(source.amount, source.currency, currency, fxRate)
+    if (next != null) setAmount(next.toFixed(2))
+  }, [source, fxRate, currency])
 
   // What goes on the document is what was typed, in the currency shown beside
   // it. No second figure derived from a first one.
   const invoiceAmount = amount
 
+  // THE NOTE DESCRIBES THE DOCUMENT, NOT THE LAST BUTTON PRESS. Ethan: "when I
+  // click on GBP, it shows £20 in the invoice, which is correct, but then it
+  // shows 'converted from €23' ... It shouldn't be showing up." It only shows
+  // when the invoice is in a different currency from the prize.
+  const fxNote = conversionNote(source, currency, fxRate)
+
   // Changing the currency converts what is already there instead of clearing
-  // it - it is the same prize either way - and says so underneath, because a
-  // number that changes itself when you press a button should explain itself.
+  // it - it is the same prize either way - and says so underneath only when
+  // the result is no longer the prize as awarded.
+  //
+  // EVERY CONVERSION IS FROM THE SOURCE, never from the box. Converting the box
+  // means £20 -> €23.08 -> £20.00 is three roundings deep by the second press,
+  // and pressing GBP on a sterling prize has to give back exactly the prize.
+  // An invoice typed from scratch has no source, so the typed figure becomes
+  // one at the moment the currency is switched - it is what was decided.
   function switchCurrency(next) {
     if (next === currency) return
-    const n = Number(amount)
-    if (n > 0 && fxRate > 0) {
-      setAmount(next === 'EUR' ? (n * fxRate).toFixed(2) : (n / fxRate).toFixed(2))
-      setConvertedFrom({ amount: n, currency })
+    const src = source || (amount !== '' && Number(amount) > 0 ? { amount: Number(amount), currency } : null)
+    if (src) {
+      if (!source) setSource(src)
+      const converted = convertForInvoice(src.amount, src.currency, next, fxRate)
+      if (converted != null) setAmount(converted.toFixed(2))
     }
-    setGbpToConvert(null)
     setPayee((p) => ({ ...p, currency: next }))
   }
 
@@ -219,8 +243,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     setCreatorName('')
     setPayee(EMPTY_PAYEE)
     setAmount('')
-    setConvertedFrom(null)
-    setGbpToConvert(null)
+    setSource(null)
     setDescription('')
     setIssueDate(isoToDateInput(new Date().toISOString()))
     setGmailPending(false)
@@ -232,7 +255,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // creator_private). Everything stays editable for this invoice only.
   async function selectCreator(id) {
     setCreatorId(id)
-    setConvertedFrom(null)
     // NOBODY TO LOOK UP. An off-platform payee has no account and therefore no
     // saved bank details: the name is typed above and the IBAN and billing
     // address are typed into the same block every other invoice uses. Euros by
@@ -302,9 +324,13 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       // A REWARD IS HELD IN POUNDS. If the invoice is going out in euros (which
       // it usually is) the effect above converts it the moment the ECB rate
       // lands, and says on screen that it did.
+      // A REWARD CARRIES THE CURRENCY IT WAS AWARDED IN. It used to be assumed
+      // to be sterling, which is why a euro prize could not be invoiced in
+      // pounds at all. `rewards.currency` has always held it.
       setAmount(prefill.amount != null ? String(prefill.amount) : '')
-      setConvertedFrom(null)
-      setGbpToConvert(prefill.amount != null ? prefill.amount : null)
+      setSource(prefill.amount != null
+        ? { amount: Number(prefill.amount), currency: prefill.sourceCurrency || 'GBP' }
+        : null)
       if (prefill.description) setDescription(prefill.description)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -652,12 +678,12 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                     id="inv-amount" type="number" min="0" step="0.01" inputMode="decimal"
                     className="input !pl-9" placeholder="50"
                     value={amount}
-                    onChange={(e) => { setAmount(e.target.value); setConvertedFrom(null); setGbpToConvert(null) }}
+                    onChange={(e) => { setAmount(e.target.value); setSource(null) }}
                   />
                 </div>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
-                  {convertedFrom
-                    ? `Converted from ${formatMoney(convertedFrom.amount, convertedFrom.currency)} at today’s European Central Bank rate (£1 = €${fxRate}). Overtype it if you need a different figure.`
+                  {fxNote
+                    ? fxNote.text
                     : fxRate === null ? 'Fetching today’s exchange rate…'
                     : fxRate === 0 ? 'Couldn’t load today’s exchange rate, so switching currency won’t convert the figure. Type it yourself.'
                     : `The invoice, the total and the transfer are all in ${currency === 'EUR' ? 'euros' : 'pounds'}. Today’s rate: £1 = €${fxRate}.`}
