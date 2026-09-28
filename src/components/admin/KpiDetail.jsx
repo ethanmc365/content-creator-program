@@ -125,8 +125,24 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card">{tr(st.label)}</span>
             </div>
-            <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-white/25">
-              <div className="kpi-fill h-full rounded-full bg-white" style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }} />
+            {/* A FULL BAR HAS TO LOOK FULL (28 Sep 2026). This was a white fill
+                on a `bg-white/25` track, both on the orange header, so at 100%
+                it read as an empty white bar. Ethan: "it shows the progress bar,
+                which is pure white, but it's kind of hard to understand because
+                normally the progress bar wouldn't be white. It appears like it's
+                not filled at all, even though it's 100%."
+                The track is now dark against the orange, so the white fill is
+                the bright thing rather than the whole thing, and reaching the
+                target sweeps a shine across it once instead of arriving with no
+                event at all. */}
+            <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-black/25">
+              <div
+                className={cx(
+                  'kpi-fill relative h-full overflow-hidden rounded-full bg-white',
+                  status === 'met' && 'kpi-complete',
+                )}
+                style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }}
+              />
             </div>
             <p className="relative mt-3 text-sm text-white/90">
               {status === 'met'

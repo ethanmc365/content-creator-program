@@ -2921,8 +2921,26 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   to { transform: scaleX(1); }
 }
 .kpi-fill { transform-origin: left center; animation: kpi-fill-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* AND A TARGET THAT IS MET SAYS SO (28 Sep 2026). A bar that arrives full looks
+   the same as a bar that was always full, so reaching the target sweeps a shine
+   across it once, after the grow has finished. Ethan: "maybe improve the design
+   of it or have a nice animation showing everything being complete." */
+@keyframes kpi-complete-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(220%); }
+}
+.kpi-complete::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 179, 122, 0.95), transparent);
+  animation: kpi-complete-sweep 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.75s 1 both;
+}
 @media (prefers-reduced-motion: reduce) {
   .kpi-fill { animation: none; }
+  .kpi-complete::after { animation: none; content: none; }
 }
 
 /* THE INTRO BUTTON'S DRIFTING GRADIENT (28 Sep 2026). Orange and light orange

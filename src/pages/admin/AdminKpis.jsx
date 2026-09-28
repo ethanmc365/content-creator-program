@@ -178,7 +178,20 @@ export default function AdminKpis() {
           under them) is gone with it; and the period sits on the same centre
           line at the right. */}
       <div className="mb-5 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up lg:flex-row lg:items-center lg:gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" role="tablist" aria-label={tr('Market')}>
+        {/* ROOM FOR MORE MARKETS, WITHOUT THE ROW TAKING OVER THE PAGE
+            (28 Sep 2026). Ethan: "ensure that whenever we add in more countries,
+            there's space for it, but it will scroll smoothly. For now,
+            obviously, it can stay like that."
+            The pills wrap, so each new market makes this taller; at seven they
+            are one or two rows and nothing here does anything. Past about three
+            rows it scrolls instead of pushing the KPIs down the page, and
+            `overscroll-contain` stops that scroll running on into the page once
+            it reaches the end. */}
+        <div
+          className="flex max-h-[6.5rem] min-w-0 flex-1 flex-wrap items-center gap-1 overflow-y-auto overscroll-contain scroll-smooth"
+          role="tablist"
+          aria-label={tr('Market')}
+        >
           {!communities ? (
             <Skeleton className="h-8 w-64" />
           ) : (
@@ -543,9 +556,15 @@ function YearChart({ metrics, periods }) {
           ))}
         </div>
       )}
+      {/* "ACHIEVED" AND "GOAL" (28 Sep 2026). The pair was "Landed" and
+          "Target". Ethan: "I don't like where it says 'Landed' and 'Target'. It
+          doesn't really make sense." He is right that "Landed" is our own
+          jargon, and next to it "Target" then had to carry the contrast on its
+          own. Achieved against Goal needs no explaining, and the same pair is
+          used in the tooltip so the chart says one thing in both places. */}
       <div className="mb-2 flex items-center gap-4 text-[11px] font-semibold text-smoke">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Landed')}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#fde3d1]" />{tr('Target')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Achieved')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#fde3d1]" />{tr('Goal')}</span>
       </div>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
@@ -553,7 +572,7 @@ function YearChart({ metrics, periods }) {
             <CartesianGrid vertical={false} stroke="#F1F1F2" />
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={fmt} axisLine={false} tickLine={false} allowDecimals={false} width={48} />
-            <Tooltip contentStyle={tipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v, k) => [fmt(v), k === 'actual' ? tr('Landed') : tr('Target')]} />
+            <Tooltip contentStyle={tipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v, k) => [fmt(v), k === 'actual' ? tr('Achieved') : tr('Goal')]} />
             {/* Target first, pale; what landed beside it in orange. */}
             <Bar dataKey="target" fill="#fde3d1" radius={[6, 6, 0, 0]} maxBarSize={52} animationDuration={500} />
             <Bar dataKey="actual" fill="#d94407" radius={[6, 6, 0, 0]} maxBarSize={52} animationDuration={800} />
