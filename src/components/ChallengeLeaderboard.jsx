@@ -112,6 +112,7 @@ export default function ChallengeLeaderboard({
   const reachedCount = participation?.threshold ? rows.filter((r) => voucherFor(r, Number(r.rank))).length : 0
   const unitWord = participation?.basis === 'points' ? tr('points') : tr('videos')
 
+  const hasPrizes = paidPlaces.length > 0
   const fmtScore = (v) => (scoreLabel === 'points' ? `${Number(v || 0).toLocaleString()}` : formatViews(v))
 
   return (
@@ -134,86 +135,116 @@ export default function ChallengeLeaderboard({
           </span>
         </div>
       ) : null}
+      {/* THE COLUMNS SAY WHAT THEY ARE (28 Sep 2026, evening). Ethan: "the UI
+          of these still seems very crowded and hard to read or understand ...
+          the way the cash, the streak, the video icons, points, and views show
+          up, I think you can really work on improving that, making everything
+          stand out better. We have some space there."
+          Each fact has one column and one header, and they line up down the
+          whole board: WHO (and under the name: where they post, how many
+          videos, the streak, the voucher), the PRIZE, the POINTS, the VIEWS.
+          On a phone the prize moves under the name and the numbers stack. */}
+      <div className={cx(
+        'items-center gap-4 border-b border-gray-100 bg-cloud/40 py-2 text-[10px] font-bold uppercase tracking-wider text-smoke',
+        wide ? 'flex px-8' : 'hidden px-8 sm:flex',
+      )}>
+        <span className="w-9 shrink-0 text-center">#</span>
+        <span className="min-w-0 flex-1">{tr('Creator')}</span>
+        {hasPrizes && <span className="w-32 shrink-0 text-right">{tr('Prize')}</span>}
+        <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
+        {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
+      </div>
       {slots.map(({ rank, row, prize }) => {
         const mine = meId && row?.creator_id === meId
         const tier = podiumTier(rank)
         const podium = rank <= 3
-        // ON A PHONE THE PRIZE RIDES UNDER THE NAME (21 Sep 2026). The prize
-        // column is a desktop column, so a phone showed ten rows of "This spot
-        // is up fo..." with nothing saying what any of them was worth.
-        const phonePrize = prize && (
-          <span className={cx('block truncate text-xs font-semibold text-brand', wide ? 'hidden' : 'sm:hidden')}>{prize}</span>
-        )
         const hasVoucher = row && voucherFor(row, rank)
         const togo = row && participation?.threshold && !reached(row) && partScore(row) > 0
           && !(participation.scope === 'outside_prizes' && prizeAt.has(rank))
           ? participation.threshold - partScore(row) : null
         const vids = subCountByCreator[row?.creator_id] || 0
+        const plats = row ? platformsFor(row.creator_id) : []
         const st = showStreaks && row ? streaks?.get(row.creator_id) : null
-        const streakChip = (small) => st?.weeks > 0 && (
+        const streakChip = st?.weeks > 0 && (
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAboutStreaks(true) }}
             title={tr('{n}-week posting streak. What is this?', { n: st.weeks })}
             className={cx(
-              'inline-flex shrink-0 items-center gap-0.5 rounded-full font-bold tabular-nums transition-transform duration-200 hover:-translate-y-0.5',
+              'inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums transition-transform duration-200 hover:-translate-y-0.5',
               st.live ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
-              small ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]',
             )}
           >
-            <Flame className={small ? 'h-3.5 w-3.5' : 'h-4 w-4'} state={st.live ? 'lit' : 'ember'} />
-            {st.weeks}{small ? tr('w') : ` ${st.weeks === 1 ? tr('week') : tr('weeks')}`}
+            <Flame className="h-3.5 w-3.5" state={st.live ? 'lit' : 'ember'} />
+            {st.weeks} {st.weeks === 1 ? tr('week') : tr('weeks')}
           </button>
+        )
+        const prizePill = prize && (
+          <span
+            title={tr('Prize for this place')}
+            className={cx(
+              'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums',
+              row ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
+            )}
+          >
+            <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> {prize}
+          </span>
         )
         const who = row && (
           <>
-            <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="sm" />
+            <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="md" className="!h-10 !w-10 sm:!h-11 sm:!w-11" />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold hover:text-brand">
+              <span className="block truncate text-sm font-semibold leading-tight hover:text-brand sm:text-[15px]">
                 {row.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">{tr('(you)')}</span>}
               </span>
-              {phonePrize}
-              {(showVideos || st?.weeks > 0) && (
-                <span className={cx('mt-0.5 flex items-center gap-1.5 text-[11px] text-smoke', wide ? 'hidden' : 'sm:hidden')}>
-                  {showVideos && vids > 0 && <span className="tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>}
-                  {streakChip(true)}
-                </span>
-              )}
-              {hasVoucher && (
-                <span className={cx('mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700', wide ? 'hidden' : 'sm:hidden')}>
-                  <Icon name="ticket" className="h-3 w-3 shrink-0" /> {participation.prize}
-                </span>
-              )}
-              {togo != null && (
-                <span className="block truncate text-[11px] font-medium text-smoke">
-                  {tr('{n} {unit} to the voucher', { n: togo, unit: togo === 1 && participation.basis === 'points' ? tr('point') : unitWord })}
-                </span>
-              )}
+              {/* THE SECOND LINE: where they post, how much, the streak, the voucher. */}
+              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-smoke">
+                {plats.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    {plats.map((p) => (
+                      <SocialMark key={p} brand={SOCIAL_BRAND[p] || 'link'} tile className="h-3.5 w-3.5" />
+                    ))}
+                  </span>
+                )}
+                {(showVideos || plats.length > 0) && vids > 0 && (
+                  <span className="font-medium tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>
+                )}
+                {streakChip}
+                {hasVoucher && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-1.5 py-0.5 font-semibold text-green-700">
+                    <Icon name="ticket" className="h-3 w-3 shrink-0" /> {participation.prize}
+                  </span>
+                )}
+                {togo != null && (
+                  <span className="font-medium">
+                    {tr('{n} {unit} to the voucher', { n: togo, unit: togo === 1 && participation.basis === 'points' ? tr('point') : unitWord })}
+                  </span>
+                )}
+              </span>
+              {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
             </span>
           </>
         )
         return (
           <div
             key={rank}
-            // ROW BY ROW (22 Sep 2026): the board arrives down the page rather
-            // than all at once, capped so a long board is not a slow one.
-            // `.snapshot-still` finishes it for the shared picture.
-            style={{ animationDelay: `${Math.min(rank - startAt, 11) * 40}ms` }}
+            style={{
+              animationDelay: `${Math.min(rank - startAt, 11) * 40}ms`,
+              ...(podium && row && !mine ? { background: `linear-gradient(90deg, ${tier.disc}14, transparent 55%)` } : {}),
+            }}
             className={cx(
-              'animate-fade-up flex items-center gap-3 border-b border-gray-50 py-3.5 last:border-0 sm:gap-4 sm:py-4',
+              'animate-fade-up flex items-center gap-3 border-b border-gray-50 py-3 last:border-0 sm:gap-4 sm:py-3.5',
               wide ? 'px-8' : 'px-4 sm:px-8',
               mine && 'bg-brand-tint/60',
               !row && 'bg-cloud/25',
             )}
           >
-            {/* THE PLACE, AS A CHIP RATHER THAN A MEDAL EMOJI. The top three
-                carry the brand ladder podiumTiers defines; everything below is
-                a plain number, which is what stops a fifteen-place board from
-                looking like fifteen awards. */}
+            {/* THE PLACE, AS A CHIP. The top three carry the brand ladder
+                podiumTiers defines; everything below is a plain number. */}
             <span
               className={cx(
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums sm:h-9 sm:w-9 sm:text-sm',
-                podium ? '' : 'bg-cloud text-smoke',
+                podium ? 'shadow-sm' : 'bg-cloud text-smoke',
                 !row && 'opacity-60',
               )}
               style={podium ? { background: tier.disc, color: tier.ink } : undefined}
@@ -228,107 +259,56 @@ export default function ChallengeLeaderboard({
                 <span className="flex min-w-0 flex-1 items-center gap-3">{who}</span>
               )
             ) : (
-              // AN OPEN PLACE, DRAWN AS AN OPEN PLACE. A dashed ring where the
-              // face goes says "nobody is standing here" faster than any
-              // sentence, and it is the same shape the live challenge card uses
-              // for the identical idea.
               <span className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/30">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/30">
                   <Icon name="plus" className="h-4 w-4 text-brand/50" />
                 </span>
                 <span className="min-w-0">
-                  <span className={cx('block truncate text-sm font-semibold text-smoke', !wide && 'sm:hidden')}>{tr('Up for grabs')}</span>
-                  <span className={cx('truncate text-sm font-semibold text-smoke', wide ? 'block' : 'hidden sm:block')}>{tr('This spot is up for grabs')}</span>
-                  {phonePrize}
+                  <span className="block truncate text-sm font-semibold text-smoke">{tr('This spot is up for grabs')}</span>
+                  {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
                 </span>
               </span>
             )}
 
-            {/* WHAT THIS PLACE IS WORTH, AND WHAT THIS CREATOR ALSO EARNED,
-                in ONE right-aligned column of a fixed width. On a taken row the
-                prize is what that creator has won; on an open one it is what
-                the reader is playing for. Same pill either way, because it is
-                the same fact - and it starts at the same x on every row. */}
-            <span className={cx(
-              'w-40 shrink-0 flex-col items-end gap-1',
-              wide ? 'flex' : 'hidden sm:flex',
-            )}>
-              {prize && (
-                <span
-                  title={tr('Prize for this place')}
-                  className={cx(
-                    'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                    row ? 'bg-brand text-white' : 'bg-brand-tint/70 text-brand',
-                  )}
-                >
-                  <Icon name="trophy" className="h-3.5 w-3.5 shrink-0" /> {prize}
-                </span>
-              )}
-              {/* Voucher badge: this creator posted enough videos to earn the
-                  participation prize. */}
-              {hasVoucher && (
-                <span
-                  title={participation.basis === 'points'
-                    ? tr('Reached {n} points', { n: participation.threshold })
-                    : tr('Posted {n}+ videos', { n: participation.threshold })}
-                  className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700"
-                >
-                  <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> {participation.prize}
-                </span>
-              )}
-            </span>
-
-            {/* VIDEOS POSTED AND THE STREAK, a column of their own from a
-                tablet up. Ethan: "we have a lot of space here on that
-                leaderboard". */}
-            {(showVideos || showStreaks) && (
-              <span className={cx('w-24 shrink-0 flex-col items-end gap-1', wide ? 'flex' : 'hidden sm:flex')}>
-                {row && showVideos && (
-                  <span className="text-xs font-semibold tabular-nums text-ink">
-                    {vids} <span className="font-normal text-smoke">{vids === 1 ? tr('video') : tr('videos')}</span>
-                  </span>
-                )}
-                {row && streakChip(false)}
+            {hasPrizes && (
+              <span className={cx('w-32 shrink-0 justify-end', wide ? 'flex' : 'hidden sm:flex')}>
+                {prizePill}
               </span>
             )}
 
-            {/* Only the platforms this creator actually submitted on, in the
-                platform's own colour - the grey set read as "unavailable". */}
-            <span className={cx(
-              'w-[4.5rem] shrink-0 items-center justify-end gap-1.5',
-              wide ? 'flex' : 'hidden sm:flex',
-            )}>
-              {row && platformsFor(row.creator_id).map((p) => (
-                <SocialMark key={p} brand={SOCIAL_BRAND[p] || 'link'} colored className="h-[18px] w-[18px]" />
-              ))}
-            </span>
-
-            <span className="w-16 shrink-0 text-right sm:w-24">
+            {/* THE SCORE. On a phone the views sit under the points; from sm
+                they have a column of their own. */}
+            <span className="w-16 shrink-0 text-right sm:w-20">
               {row ? (
                 <>
-                  <span className="block text-sm font-bold tabular-nums">{fmtScore(row.final_views)}</span>
-                  {/* "1 POINTS" was on the live Spanish board. A unit under a
-                      number has to agree with it - it is the one place the
-                      number is read aloud in the reader's head. */}
-                  <span className="block text-[10px] uppercase tracking-wide text-smoke">
+                  <span className={cx('block font-bold tabular-nums leading-tight', podium ? 'text-lg text-brand' : 'text-base text-ink')}>
+                    {fmtScore(row.final_views)}
+                  </span>
+                  {/* "1 POINTS" was on the live Spanish board: the unit agrees. */}
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-smoke">
                     {scoreLabel === 'points'
                       ? (Number(row.final_views) === 1 ? tr('point') : tr('points'))
                       : tr('views')}
                   </span>
-                  {/* ON A POINTS BOARD, THE VIEWS TOO (3 Sep 2026). The points
-                      say who is winning; the views say whether the challenge
-                      worked. `total_views` is written by the same rebuild that
-                      writes the score, so the two can never disagree. */}
                   {scoreLabel === 'points' && row.total_views > 0 && (
-                    <span className="block text-[10px] font-medium tabular-nums text-smoke/70">
-                      {formatViews(row.total_views)} {tr('views')}
+                    <span className={cx('mt-0.5 items-center justify-end gap-1 text-[11px] font-medium tabular-nums text-smoke', wide ? 'hidden' : 'flex sm:hidden')}>
+                      <Icon name="eye" className="h-3 w-3" /> {formatViews(row.total_views)}
                     </span>
                   )}
                 </>
               ) : (
-                <span className="block text-sm font-bold tabular-nums text-gray-300">—</span>
+                <span className="block text-sm font-bold tabular-nums text-gray-300">-</span>
               )}
             </span>
+            {/* ON A POINTS BOARD, THE VIEWS TOO (3 Sep 2026): the points say who
+                is winning, the views say whether the challenge worked. */}
+            {scoreLabel === 'points' && (
+              <span className={cx('w-20 shrink-0 items-center justify-end gap-1.5 text-sm font-semibold tabular-nums text-ink/70', wide ? 'flex' : 'hidden sm:flex')}>
+                {row && row.total_views > 0
+                  ? <><Icon name="eye" className="h-3.5 w-3.5 text-smoke" /> {formatViews(row.total_views)}</>
+                  : <span className="text-gray-300">-</span>}
+              </span>
+            )}
           </div>
         )
       })}
