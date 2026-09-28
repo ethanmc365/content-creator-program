@@ -31,8 +31,12 @@ function Flags({ list, max = 14 }) {
 function Row({ icon, label, children }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-        <Icon name={icon} className="h-3.5 w-3.5" />
+      {/* THE ICON, IN THE BRAND, ON NOTHING (28 Sep 2026). Ethan: "I don't
+          like how the icons are in a weird-coloured background. Just have the
+          icons be a Tryp.com orange, like the worldwide icon and the heart
+          icon." */}
+      <span className="mt-[3px] flex w-5 shrink-0 justify-center text-brand">
+        <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-wider text-smoke">{label}</p>
