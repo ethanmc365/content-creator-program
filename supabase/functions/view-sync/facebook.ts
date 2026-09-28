@@ -136,3 +136,57 @@ export function regionOrder(good: string[], all: string[] = FB_REGIONS, rand: ()
   }
   return [...good.filter((r) => all.includes(r)), ...rest]
 }
+
+// A COVER FRAME, FROM THE PAGE WE ALREADY FETCHED (28 Sep 2026).
+//
+// Ethan: "whenever it pulls up the thumbnail for the entry screenshots or
+// thumbnail for the entries, it also shows the circle play button."
+//
+// It did, and the play button was Facebook's rather than ours. A Facebook entry
+// had no cover to store - the note above says Facebook shows every server its
+// login page - so the card fell back to drawing Facebook's own embeddable
+// PLAYER where the picture goes, and a player draws a play button in the
+// middle of itself. There was no way to reach into it and take that off: it is
+// a cross-origin iframe.
+//
+// The premise turned out to be wrong, and measured rather than assumed: the
+// reel page THIS FILE ALREADY READS FOR THE VIEW COUNT carries the cover in its
+// `og:image`, and it is the clean frame - 1000x1200, no overlay, no chrome.
+// Checked on two live entries on 28 Sep 2026. So the cover costs no extra
+// request at all; it was in the response the whole time and nobody read it.
+//
+// TWO SOURCES, BEST FIRST. `preferred_thumbnail` is the video's own cover and
+// comes at the reel's aspect (mx720x1280), which is what a 4:5 card wants;
+// `og:image` is the share card's picture, letterboxed to 1000x1200 but always
+// present. Both land on `fbcdn.net`, which `thumb-cache` already trusts as an
+// image host - so whatever comes back here goes straight into our own bucket
+// and every later viewer gets one URL from our own origin.
+//
+// THE HOST IS CHECKED HERE and not only at the far end. This function reads
+// attacker-shaped input - a page fetched from the internet - and hands back a
+// URL something else will fetch, which is the exact shape of an SSRF. A cover
+// that is not on Facebook's CDN is not Facebook's cover.
+function onFbCdn(u: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(u)
+    return protocol === 'https:' && (hostname === 'fbcdn.net' || hostname.endsWith('.fbcdn.net'))
+  } catch {
+    return false
+  }
+}
+
+export function facebookCoverFrom(html: string): string | null {
+  // The video's own cover, inside a JSON blob, so `\/` for every slash.
+  const preferred = html.match(/"preferred_thumbnail":\{"image":\{"uri":"([^"]+)"/)?.[1]
+  if (preferred) {
+    const url = decodeEntities(preferred.replace(/\\\//g, '/'))
+    if (onFbCdn(url)) return url
+  }
+  // The share card's picture. Always there, HTML-entity encoded.
+  const og = html.match(/property="og:image"\s+content="([^"]*)"/)?.[1]
+  if (og) {
+    const url = decodeEntities(og)
+    if (onFbCdn(url)) return url
+  }
+  return null
+}

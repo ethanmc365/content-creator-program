@@ -28,8 +28,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
 import {
-  FB_CRAWLER_UAS, facebookCountFor, facebookIdCandidates, facebookIdFrom, facebookTitleCount,
-  isFacebookWall, pluginVideoId, regionOrder,
+  FB_CRAWLER_UAS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
+  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder,
 } from './facebook.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -512,14 +512,21 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
 }
 
 // One id, every agent. `walled` when nothing answered but a login page.
-async function facebookReadId(id: string): Promise<{ views: number; approx: boolean } | { walled: boolean }> {
+//
+// THE COVER RIDES ALONG, and it costs nothing (28 Sep 2026). The reel page read
+// here for the view count carries the video's own cover frame in it. A Facebook
+// entry had no picture at all before this - the card drew Facebook's embedded
+// PLAYER where the picture goes, which is where the circle play button Ethan
+// could not get rid of came from - and the answer was in this response all
+// along. See `facebookCoverFrom` for what is taken and why the host is checked.
+async function facebookReadId(id: string): Promise<{ views: number; approx: boolean; thumbnail: string | null } | { walled: boolean }> {
   let walled = false
   for (const ua of FB_CRAWLER_UAS) {
     const page = await fbFetch(`https://www.facebook.com/reel/${id}/`, ua)
     if (!page) continue
     if (isFacebookWall(page.url, page.html)) { walled = true; continue }
     const n = facebookCountFor(page.html, id)
-    if (n != null) return { views: n, approx: false }
+    if (n != null) return { views: n, approx: false, thumbnail: facebookCoverFrom(page.html) }
   }
   // A classic video states its count in the watch page's title.
   const watch = await fbFetch(`https://www.facebook.com/watch/?v=${id}`, UA)
@@ -527,7 +534,7 @@ async function facebookReadId(id: string): Promise<{ views: number; approx: bool
     if (isFacebookWall(watch.url, watch.html)) walled = true
     else {
       const t = facebookTitleCount(watch.html)
-      if (t) return t
+      if (t) return { ...t, thumbnail: facebookCoverFrom(watch.html) }
     }
   }
   return { walled }
@@ -546,7 +553,15 @@ async function facebookReadHere(url: string, knownId: string | null): Promise<Fb
       tried.add(id)
       const r = await facebookReadId(id)
       if ('views' in r) {
-        return { ...base, videoId: id, canonicalUrl: `https://www.facebook.com/reel/${id}/`, views: r.views, approx: r.approx, error: null }
+        return {
+          ...base,
+          videoId: id,
+          canonicalUrl: `https://www.facebook.com/reel/${id}/`,
+          views: r.views,
+          approx: r.approx,
+          thumbnail: r.thumbnail,
+          error: null,
+        }
       }
       if (r.walled) walled = true
     }

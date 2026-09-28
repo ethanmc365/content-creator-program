@@ -104,13 +104,17 @@ function enqueue(fn) {
  * @param {string} [src] a frame already resolved by the caller. Required for
  *        Instagram, whose covers only the admin probe can find; TikTok and
  *        YouTube the function can resolve for itself.
+ * @param {string} [videoId] the row's `platform_video_id`. Facebook only, and
+ *        worth passing: most Facebook entries are `/share/` links with no id in
+ *        them, so without it the cover costs a redirect through the page
+ *        Facebook is most willing to answer with a login wall.
  * @returns {Promise<string|null>} the permanent URL, or null
  */
-export async function storeThumbnail(videoUrl, src) {
+export async function storeThumbnail(videoUrl, src, videoId) {
   if (!videoUrl) return null
   try {
     const { data, error } = await supabase.functions.invoke('thumb-cache', {
-      body: src ? { url: videoUrl, src } : { url: videoUrl },
+      body: { url: videoUrl, ...(src ? { src } : null), ...(videoId ? { videoId } : null) },
     })
     if (error) return null
     return typeof data?.url === 'string' && data.url ? data.url : null
@@ -182,7 +186,7 @@ async function fromProbe(url) {
  *        Off by default so a non-admin surface can use this safely.
  * @returns {Promise<string|null>}
  */
-export function resolveThumbnail(url, { probe = false } = {}) {
+export function resolveThumbnail(url, { probe = false, videoId = null } = {}) {
   if (!url) return Promise.resolve(null)
   const key = `${probe ? 'p' : 'o'}:${url}`
   if (inFlight.has(key)) return inFlight.get(key)
@@ -201,7 +205,7 @@ export function resolveThumbnail(url, { probe = false } = {}) {
     // Asking it first also makes the answer PERMANENT for everybody rather than
     // for whoever happened to look: what it finds it stores, so the next reader
     // gets a URL from our own origin and no lookup at all.
-    const kept = await storeThumbnail(url)
+    const kept = await storeThumbnail(url, undefined, videoId)
     if (kept) return kept
 
     // AND AN ADMIN HAS ONE MORE DOOR. `view-sync` holds the Instagram session
@@ -213,7 +217,7 @@ export function resolveThumbnail(url, { probe = false } = {}) {
     let found
     try { found = await fromProbe(url) } catch { /* the probe is best effort */ }
     if (!found) return null
-    return (await storeThumbnail(url, found)) || found
+    return (await storeThumbnail(url, found, videoId)) || found
   })
 
   inFlight.set(key, run)

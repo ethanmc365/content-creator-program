@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FB_REGIONS, facebookCountFor, facebookIdCandidates, facebookIdFrom, facebookTitleCount,
-  isFacebookWall, pluginVideoId, regionOrder,
+  FB_REGIONS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
+  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder,
 } from './facebook.ts'
 
 const ID = '1445672320874711'
@@ -83,5 +83,35 @@ describe('regionOrder', () => {
     const order = regionOrder(['us-east-1', 'eu-west-2'])
     expect(order.slice(0, 2)).toEqual(['us-east-1', 'eu-west-2'])
     expect(new Set(order).size).toBe(FB_REGIONS.length)
+  })
+})
+
+// The cover that was always in the page nobody read it from. The entry card
+// drew Facebook's own player instead, and a player has a play button on it.
+describe('facebookCoverFrom', () => {
+  const COVER = 'https://scontent-lhr11-1.xx.fbcdn.net/v/t51.82787-10/819927362_18116985323284709_n.jpg?stp=dst-jpg_tt6&cstp=mx720x1280'
+
+  it("prefers the video's own cover over the share card's picture", () => {
+    const html =
+      `<meta property="og:image" content="https://scontent.xx.fbcdn.net/share-card.jpg" />` +
+      `"preferred_thumbnail":{"image":{"uri":"${COVER.replace(/\//g, '\\/')}"},"width":720}`
+    expect(facebookCoverFrom(html)).toBe(COVER)
+  })
+
+  it('falls back to og:image, entity-decoded', () => {
+    const html = '<meta property="og:image" content="https://scontent.xx.fbcdn.net/v/a.jpg?a=1&amp;b=2" />'
+    expect(facebookCoverFrom(html)).toBe('https://scontent.xx.fbcdn.net/v/a.jpg?a=1&b=2')
+  })
+
+  // This function reads a page off the internet and hands back a URL something
+  // else will fetch. A cover that is not on Facebook's CDN is not the cover.
+  it('refuses a cover that is not on fbcdn', () => {
+    expect(facebookCoverFrom('<meta property="og:image" content="https://evil.example/x.jpg" />')).toBeNull()
+    expect(facebookCoverFrom('<meta property="og:image" content="http://scontent.xx.fbcdn.net/x.jpg" />')).toBeNull()
+    expect(facebookCoverFrom('<meta property="og:image" content="https://fbcdn.net.evil.example/x.jpg" />')).toBeNull()
+  })
+
+  it('says nothing when the page carries no picture', () => {
+    expect(facebookCoverFrom('<html><title>Log in to Facebook</title></html>')).toBeNull()
   })
 })

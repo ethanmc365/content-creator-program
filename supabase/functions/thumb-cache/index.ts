@@ -92,7 +92,11 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 // THE PLATFORM PAGES WE ARE WILLING TO ASK, as opposed to the CDNs we are
 // willing to download from. Two lists, because they are two different
 // permissions: this one is "may be followed", `IMAGE_HOSTS` is "may be read".
-const PAGE_HOSTS = ['instagram.com', 'tiktok.com']
+//
+// FACEBOOK IS ON THIS LIST SINCE 28 Sep 2026, and only on this one: a page we
+// are willing to ASK. Its covers arrive on `fbcdn.net`, which was already a
+// host we are willing to READ, because Instagram and Facebook share a CDN.
+const PAGE_HOSTS = ['instagram.com', 'tiktok.com', 'facebook.com', 'fb.watch', 'fb.me']
 function pageAllowed(u: string): boolean {
   try {
     const { hostname, protocol } = new URL(u)
@@ -285,13 +289,124 @@ async function youtubeMeta(url: string): Promise<Meta> {
 // holds session cookies and is admin-only, and it is swept hourly regardless,
 // so asking for it at paste time would be a slow request for a number that is
 // about to be fetched properly.
-async function metaFor(videoUrl: string): Promise<Meta> {
+async function metaFor(videoUrl: string, fbId: string | null = null): Promise<Meta> {
   if (/tiktok\.com/i.test(videoUrl)) return await tiktokMeta(videoUrl)
   if (/instagram\.com/i.test(videoUrl)) {
     return { ...NOTHING, thumbnail: await instagramCover(videoUrl) }
   }
   if (/youtu\.?be/i.test(videoUrl)) return await youtubeMeta(videoUrl)
+  if (/(?:^|\.)(?:facebook\.com|fb\.watch|fb\.me)/i.test(videoUrl)) {
+    return { ...NOTHING, thumbnail: await facebookCover(videoUrl, fbId) }
+  }
   return NOTHING
+}
+
+// FACEBOOK: A COVER, RATHER THAN FACEBOOK'S OWN PLAYER (28 Sep 2026).
+//
+// Ethan: "whenever it pulls up the thumbnail for the entry screenshots or
+// thumbnail for the entries, it also shows the circle play button."
+//
+// It did, and the button was Facebook's. A Facebook entry had no cover, so the
+// card fell back to drawing Facebook's embeddable PLAYER where the picture
+// goes - and a player draws a play button on itself. Nothing could be done to
+// that from here: it is a cross-origin iframe.
+//
+// The premise it rested on - "Facebook shows every server its login page, so
+// there is no frame to fetch" - is not true of a CRAWLER. Measured on two live
+// entries: `/share/r/<code>/` fetched as Google-InspectionTool redirects to the
+// reel and the page carries the clean cover, 1000x1200, no overlay and no
+// chrome. So the picture was always available and was simply never asked for.
+//
+// THE WALL IS REAL, THOUGH, and it is per server IP - which is why `view-sync`
+// fails a Facebook read over across sixteen Supabase regions. This function
+// lives in one region and cannot do that, so it tries both crawler agents and
+// then gives up. Giving up is now a BRAND FACE rather than a player, and an
+// admin opening the page runs the probe, which does have the failover and
+// hands what it finds straight back here to be stored for everyone.
+const FB_CRAWLER_UAS = [
+  'Mozilla/5.0 (compatible; Google-InspectionTool/1.0)',
+  'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+]
+
+/** The same parse as `view-sync/facebook.ts`, which is where it is tested. */
+function coverFrom(html: string): string | null {
+  const preferred = html.match(/"preferred_thumbnail":\{"image":\{"uri":"([^"]+)"/)?.[1]
+  const og = html.match(/property="og:image"\s+content="([^"]*)"/)?.[1]
+  for (const raw of [preferred?.replace(/\\\//g, '/'), og]) {
+    if (!raw) continue
+    const url = raw
+      .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    // `hostAllowed` is the same check the download path makes, and it is made
+    // here too because this reads a page off the internet and hands back a URL
+    // something else will fetch - the exact shape of an SSRF.
+    if (hostAllowed(url)) return url
+  }
+  return null
+}
+
+/** True for the login page Facebook shows a server it has had enough of. */
+function walled(finalUrl: string, html: string): boolean {
+  if (/facebook\.com\/(?:login|cookie\/consent_prompt|checkpoint)/.test(finalUrl)) return true
+  const title = html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? html.match(/<title>([^<]*)</)?.[1] ?? ''
+  return /log in or sign up|log in to facebook/i.test(title)
+}
+
+// Walk the redirects by hand, checking every hop, exactly as `followTo` does -
+// then read the body of the page we landed on. A cap, because a reel page is
+// 780KB and there is no reason to hold more than the head of it in memory.
+const FB_MAX_HTML = 1_200_000
+async function fbPage(start: string, ua: string): Promise<{ html: string; url: string } | null> {
+  let u = start
+  for (let i = 0; i < 5; i++) {
+    if (!pageAllowed(u)) return null
+    let res: Response
+    try {
+      res = await fetch(u, {
+        redirect: 'manual',
+        headers: { 'user-agent': ua, accept: 'text/html', 'accept-language': 'en-GB,en;q=0.9' },
+        signal: AbortSignal.timeout(12_000),
+      })
+    } catch {
+      return null
+    }
+    const loc = res.headers.get('location')
+    if (res.status >= 300 && res.status < 400 && loc) {
+      await res.body?.cancel()
+      try { u = new URL(loc, u).toString() } catch { return null }
+      continue
+    }
+    const text = await res.text()
+    return { html: text.slice(0, FB_MAX_HTML), url: u }
+  }
+  return null
+}
+
+function facebookIdFrom(url: string): string | null {
+  return url.match(/\/(?:videos|reel|reels|video)\/(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
+}
+
+// `knownId` is the entry's stored `platform_video_id`, and it matters more than
+// it looks: most Facebook entries are `/share/r/<code>/` links with no id in
+// them at all, so without it every cover costs a redirect through the one page
+// Facebook is most willing to wall. `view-sync` resolved that id once, weeks
+// ago; using it means going straight to the reel.
+async function facebookCover(url: string, knownId: string | null = null): Promise<string | null> {
+  // A link that already names the reel goes straight to the reel page; anything
+  // else (a /share/ code, a story.php link) is followed as a crawler, which is
+  // the redirect Facebook gives one.
+  const id = knownId ?? facebookIdFrom(url)
+  const targets = id ? [`https://www.facebook.com/reel/${id}/`, url] : [url]
+  for (const target of targets) {
+    for (const ua of FB_CRAWLER_UAS) {
+      const page = await fbPage(target, ua)
+      if (!page || walled(page.url, page.html)) continue
+      const cover = coverFrom(page.html)
+      if (cover) return cover
+    }
+  }
+  return null
 }
 
 // INSTAGRAM, WITHOUT A TOKEN AND WITHOUT AN ADMIN (10 Sep 2026).
@@ -377,7 +492,13 @@ Deno.serve(async (req) => {
   const uid = await verifyUser(jwt)
   if (!uid) return json(req, { error: 'invalid token' }, 401)
 
-  const body = (await req.json().catch(() => ({}))) as { url?: string; src?: string; force?: boolean; preview?: boolean }
+  const body = (await req.json().catch(() => ({}))) as {
+    url?: string; src?: string; force?: boolean; preview?: boolean; videoId?: string
+  }
+  // Only ever used to BUILD a facebook.com/reel/<id>/ URL, so digits and
+  // nothing else: it arrives from a client and must not be able to steer a
+  // request anywhere but where the path template puts it.
+  const fbId = typeof body.videoId === 'string' && /^\d{6,}$/.test(body.videoId) ? body.videoId : null
   const videoUrl = typeof body.url === 'string' ? body.url.trim() : ''
   if (!videoUrl) return json(req, { error: 'bad request' }, 400)
 
@@ -396,7 +517,7 @@ Deno.serve(async (req) => {
   // stored, so a preview cannot put a byte in our bucket. The row check stays
   // exactly where it matters: on the path that WRITES.
   if (body.preview === true) {
-    const meta = await metaFor(videoUrl)
+    const meta = await metaFor(videoUrl, fbId)
     return json(req, meta)
   }
 
@@ -417,7 +538,7 @@ Deno.serve(async (req) => {
 
   let src = typeof body.src === 'string' ? body.src.trim() : ''
   if (src && !hostAllowed(src)) return json(req, { error: 'source host not allowed' }, 400)
-  if (!src) src = (await metaFor(videoUrl)).thumbnail ?? ''
+  if (!src) src = (await metaFor(videoUrl, fbId)).thumbnail ?? ''
   if (!src) return json(req, { error: 'no source' }, 422)
   if (!hostAllowed(src)) return json(req, { error: 'source host not allowed' }, 400)
 

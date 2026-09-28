@@ -112,17 +112,22 @@ export const PLATFORMS = {
  * @param {string} [thumbnailUrl] the row's stored frame, if it has one
  * @param {string} [className]
  */
-// FACEBOOK'S OWN PLAYER AS THE COVER (28 Sep 2026). Ethan: "for Facebook, on
-// the scraper, it's not actually pulling the thumbnail for the card." Facebook
-// now shows every server its login page, so there is no frame to fetch and
-// cache. A viewer's own browser IS shown the video, and the embeddable player
-// is the one route Facebook offers other sites on purpose - so a Facebook entry
-// with no stored frame draws that player, still and untouchable, where the
-// picture goes. The card around it stays the button.
-function facebookEmbedSrc(url, videoId) {
-  const href = videoId ? `https://www.facebook.com/reel/${videoId}/` : url
-  return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=320&autoplay=false&mute=true`
-}
+// AND FACEBOOK STOPPED BORROWING FACEBOOK'S PLAYER (28 Sep 2026).
+//
+// Ethan: "whenever it pulls up the thumbnail for the entry screenshots or
+// thumbnail for the entries, it also shows the circle play button."
+//
+// This component used to draw Facebook's own embeddable player where the
+// picture goes, for want of a cover to draw - and a player puts a play button
+// in the middle of itself. That could not be styled away from here; it is a
+// cross-origin iframe.
+//
+// It does not need to be. The premise the iframe rested on - "Facebook shows
+// every server its login page, so there is no frame to fetch" - is not true of
+// a crawler agent, which is handed the reel and its clean cover. `thumb-cache`
+// asks for it and stores it like every other platform's, so a Facebook entry
+// now takes route 1 or 2 above with everything else, and the rare one that
+// cannot be read falls back to the same brand face as a private TikTok.
 
 export default function VideoThumb({ url, platform, thumbnailUrl, videoId, className, mark = true }) {
   const plat = platform || detectPlatformFromUrl(url)
@@ -141,11 +146,11 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
     // before this bucket existed and is re-resolved like anything else.
     if (thumbnailUrl && isStored(thumbnailUrl) && !retried) { setThumb(thumbnailUrl); return undefined }
     let alive = true
-    resolveThumbnail(url, { probe: !!isAdmin }).then((found) => {
+    resolveThumbnail(url, { probe: !!isAdmin, videoId }).then((found) => {
       if (alive && found) setThumb(found)
     })
     return () => { alive = false }
-  }, [url, thumbnailUrl, isAdmin, retried])
+  }, [url, thumbnailUrl, isAdmin, retried, videoId])
 
   // ONE RETRY, AND ONLY ONE. An expired URL resolves to a new one; a URL that
   // is simply wrong would otherwise loop against an endpoint that keeps saying
@@ -213,18 +218,6 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
                 links, TikTok photo posts and Instagram carousels, which were
                 all six of the ones Ethan could see. What is left is a private
                 post, a deleted one, or a platform none of the routes know. */}
-            {plat === 'Facebook' && url && (
-              <iframe
-                src={facebookEmbedSrc(url, videoId)}
-                title="Facebook video"
-                loading="lazy"
-                tabIndex={-1}
-                aria-hidden
-                scrolling="no"
-                allow="encrypted-media"
-                className="pointer-events-none absolute inset-0 z-[1] h-full w-full border-0 bg-black"
-              />
-            )}
             <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
             <div className="absolute inset-0 flex items-center justify-center">
