@@ -215,7 +215,7 @@ export default function AdminVideoTracker() {
           count going from "3 videos" to "13 videos" moves nothing but its own
           left edge. Below `lg` it wraps by itself, which is the right answer on
           a phone and needs no second rule to say so. */}
-      <div className="mb-6 rounded-card border border-gray-100 bg-white p-2 shadow-card sm:p-2.5">
+      <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2 shadow-card [animation-delay:80ms] sm:p-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <Select
             value={filter.challenge}
@@ -343,7 +343,7 @@ export default function AdminVideoTracker() {
           )}
 
           {rows && shown.length === 0 && (
-            <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
+            <div className="animate-fade-up rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
               <Icon name="video" className="mx-auto h-8 w-8 text-gray-300" />
               <p className="mt-3 text-sm font-semibold text-ink">
                 {rows.length === 0 ? tr('Nothing tracked yet') : tr('Nothing matches that')}
@@ -368,7 +368,7 @@ export default function AdminVideoTracker() {
               somebody arrives with - so the answer deserves a heading rather
               than a filter chip. */}
           {rows && shown.length > 0 && filter.challenge && chosenChallenge && (
-            <div className="mb-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
+            <div key={chosenChallenge.label} className="mb-4 flex animate-fade-up flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
               <h2 className="text-lg font-bold tracking-tight text-ink">{chosenChallenge.label}</h2>
               {chosenChallenge.market && (
                 <span className="rounded-full bg-brand-tint/60 px-2.5 py-0.5 text-xs font-semibold text-brand">
@@ -406,7 +406,7 @@ export default function AdminVideoTracker() {
         </div>
 
         {months.length > 0 && (
-          <aside className="order-first mb-5 lg:order-none lg:mb-0 lg:w-44 lg:shrink-0">
+          <aside className="order-first mb-5 animate-fade-up [animation-delay:160ms] lg:order-none lg:mb-0 lg:w-44 lg:shrink-0">
             <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">
               {tr('By month')}
             </p>
