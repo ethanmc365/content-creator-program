@@ -286,24 +286,27 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
         {/* A RULE THAT CANNOT FIRE SAYS SO ON THE CARD. It is the one fault this
             builder can ship silently: "nobody matches" looks exactly like
             "nobody has qualified yet" until a winner asks where theirs is. */}
-        {problem && !row.is_active && (
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">Draft</span>
-        )}
-        {problem && row.is_active && (
-          <span title={problem} className="shrink-0 text-amber-500"><Icon name="alert" className="h-4 w-4" /></span>
-        )}
+        {/* SAYS WHAT IT IS AND WHAT YOU CAN DO, IN WORDS (28 Sep 2026). Ethan:
+            the tool is "a little bit confusing". Two grey icons with no labels
+            were the whole of the actions; now the state is a chip and the
+            actions are named. */}
+        <span className={cx(
+          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+          row.is_active ? (problem ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700') : 'bg-cloud text-gray-500',
+        )} title={problem || undefined}>
+          {row.is_active ? (problem ? 'Check rule' : 'Live') : 'Draft'}
+        </span>
         <button
           type="button"
           onClick={onDuplicate}
-          title="Duplicate"
           aria-label={`Duplicate ${row.name}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-brand"
+          className="hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke transition-colors hover:bg-cloud hover:text-brand sm:inline-flex"
         >
-          <Icon name="copy" className="h-4 w-4" />
+          <Icon name="copy" className="h-3.5 w-3.5" /> Duplicate
         </button>
         <button type="button" onClick={onOpen} aria-label={`Edit ${row.name}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-brand">
-          <Icon name="pencil" className="h-4 w-4" />
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-brand-tint px-2.5 py-1.5 text-xs font-semibold text-brand transition-transform hoverable:hover:-translate-y-0.5">
+          <Icon name="pencil" className="h-3.5 w-3.5" /> Edit
         </button>
       </div>
     </div>
@@ -439,7 +442,10 @@ export function Preview({ design, facts, width = 520, cardRef, markets = [], pla
   // THE EXAMPLE NAMES THE MARKET YOU PICKED (28 Sep 2026), and the place you
   // are looking at - not "UK & Ireland" and 1st whatever the design is for.
   const market = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
-  const shown = facts || sampleFacts(design, { market, place })
+  // The sample wears the admin's own photo, so a layout with a face on it
+  // (Horizon, Passport) is previewed with one.
+  const { profile } = useAuth()
+  const shown = facts || { ...sampleFacts(design, { market, place }), photo: profile?.photo_url || '' }
   const scale = width / CERT_W
   return (
     <div style={{ width, height: CERT_H * scale, overflow: 'hidden', borderRadius: rounded ? Math.max(8, 22 * scale * 2) : 0 }}>
@@ -475,13 +481,13 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
 
   // A SAMPLE, DOWNLOADED, BEFORE ANYBODY IS AWARDED ONE. The preview is
   // accurate but it is 380 pixels wide inside a browser; what a creator
-  // actually posts is a 2000px PNG, and the only way to know the type holds up
+  // actually posts is a 3000px PNG, and the only way to know the type holds up
   // at that size is to look at one.
   async function sample() {
     if (!card) return
     setSaving(true)
     try {
-      const blob = await snapshotNode(card, { scale: 2 })
+      const blob = await snapshotNode(card, { scale: 3 })
       if (!blob) throw new Error('empty')
       await downloadBlob(blob, `sample-${(design.name || 'certificate').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`)
     } catch {
@@ -490,14 +496,51 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
     setSaving(false)
   }
 
+  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   return (
     <div className="space-y-6">
+      {/* ONE BAR THAT ALWAYS SAYS WHERE YOU ARE AND WHAT YOU CAN DO (28 Sep
+          2026). Ethan: "Improve the admin tool for how they create them,
+          download them, and view them, because currently it's a little bit
+          confusing, even the edit page." Save sat at the foot of a long form
+          and the download was a small link under the preview. The bar is
+          pinned under the header: back, which design this is and whether it
+          is live, the sections to jump to, a download, and Save. */}
+      <div className="sticky top-16 z-30 -mx-1 flex flex-wrap items-center gap-2 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-card backdrop-blur sm:top-20">
+        <button type="button" onClick={onCancel} className="btn-ghost !px-2.5 !py-1.5 text-xs">← All certificates</button>
+        <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
+        <span className={cx(
+          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+          design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
+        )}>
+          {design.is_active ? 'Live' : 'Draft'}
+        </span>
+        <div className="hidden items-center gap-1 lg:flex">
+          {[['cert-words', 'Words'], ['cert-look', 'Look'], ['cert-when', 'When it is given'], ['cert-who', 'Who gets it']].map(([id, label]) => (
+            (id !== 'cert-who' || design.id) && (
+              <button key={id} type="button" onClick={() => jump(id)} className="rounded-full px-2.5 py-1 text-xs font-semibold text-smoke hover:bg-cloud hover:text-ink">
+                {label}
+              </button>
+            )
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={sample} disabled={saving || !card} className="btn-secondary !py-1.5 text-xs disabled:opacity-40">
+            {saving ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />} Download
+          </button>
+          <button type="button" onClick={onSave} disabled={!canSave} className="btn-primary !py-1.5 text-xs disabled:opacity-40">
+            Save
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         {/* THE PREVIEW IS FIRST IN THE DOM AND STICKY ON A DESKTOP. What this
             screen is for is watching the certificate change, so on a narrow
             screen it is what you see when you arrive, and on a wide one it
             stays put while the form under your thumb scrolls. */}
-        <div className="lg:sticky lg:top-24 lg:self-start">
+        <div className="lg:sticky lg:top-40 lg:self-start">
           {/* THE PREVIEW IS THE CERTIFICATE, NOTHING AROUND IT (28 Sep 2026).
               Ethan: "ensure you show it how it will actually look. You can
               round the corners just for the design of the platform, but
@@ -528,12 +571,8 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               {/* THE EXAMPLE MATCHES THE TRIGGER. A milestone design previews
                   against a milestone, not against a challenge win it can never
                   print. See `sampleFacts`. */}
-              Filled in with an example. A real one carries the creator's own name and result. Downloads are square-cornered.
+              Filled in with an example and your own photo. A real one carries the creator's name, photo and result. Downloads are 3000px and square-cornered.
             </p>
-            <button type="button" onClick={sample} disabled={saving || !card}
-              className="text-[11px] font-semibold text-brand hover:underline disabled:opacity-40">
-              {saving ? 'Rendering…' : 'Download a sample'}
-            </button>
           </div>
         </div>
 
@@ -546,7 +585,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
 
           </Section>
 
-          <Section title="What it says">
+          <Section title="What it says" id="cert-words">
             <Field label="Title">
               <input value={design.title} onChange={(e) => set({ title: e.target.value })} className="input" />
             </Field>
@@ -563,7 +602,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
             </Field>
             <Field label="Small print (optional)">
               <input value={design.footnote || ''} onChange={(e) => set({ footnote: e.target.value })}
-                placeholder="e.g. Verify at tryp.com" className="input" />
+                placeholder="Optional line under the text. The verify address prints by itself." className="input" />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Signed by (optional)">
@@ -583,7 +622,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               then the paper, which is the quietest. Each control shows its
               answer rather than naming it - a row of words reading "Rail,
               Columns, Crest" tells an admin nothing they can act on. */}
-          <Section title="How it looks">
+          <Section title="How it looks" id="cert-look">
             <Field
               label="Layout"
               hint={designStyle(design).layout.hint}
@@ -706,6 +745,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               <div className="grid gap-2 sm:grid-cols-3">
                 {[
                   { key: 'medal', label: 'Badge' },
+                  // Horizon shows the creator's photo instead when there is one.
                   { key: 'plane', label: 'Tryp plane' },
                   { key: 'route', label: 'Dotted route' },
                 ].map((t) => (
@@ -728,7 +768,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
 
           <AwardRules design={design} set={set} markets={markets} milestones={milestones} />
 
-          {design.id && <WhoGetsThis design={design} />}
+          {design.id && <div id="cert-who" className="scroll-mt-40"><WhoGetsThis design={design} /></div>}
 
           {[wording, problem].filter(Boolean).map((msg) => (
             <p key={msg} className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-[12px] leading-relaxed text-amber-700">
@@ -851,7 +891,7 @@ function AwardRules({ design, set, markets, milestones }) {
     { key: 'manual', label: 'By hand', hint: 'You award it from the Awarded tab' },
   ]
   return (
-    <Section title="When it is given">
+    <Section title="When it is given" id="cert-when">
       <div className="space-y-2">
         {OPTIONS.map((o) => (
           <button key={o.key} type="button" onClick={() => set({ award_on: o.key })}
@@ -962,9 +1002,9 @@ function Placeholders({ onInsert }) {
   )
 }
 
-function Section({ title, children }) {
+function Section({ title, children, id }) {
   return (
-    <section className="space-y-4 rounded-card border border-gray-100 bg-white p-5 shadow-card">
+    <section id={id} className="scroll-mt-40 space-y-4 rounded-card border border-gray-100 bg-white p-5 shadow-card">
       <h3 className="text-sm font-bold text-ink">{title}</h3>
       {children}
     </section>

@@ -27,6 +27,8 @@ const FACTS = {
   market: 'UK & Ireland',
   place: 1,
   views: 124500,
+  // No photo on the bench: Horizon and Passport fall back to the plane and
+  // to initials, which is the case worth seeing here.
 }
 
 const BASE = {
@@ -34,7 +36,7 @@ const BASE = {
   title: 'Certificate of Achievement',
   subtitle: 'Tryp.com Creator Community',
   body: 'for finishing {place} in {challenge}\n{market}',
-  footnote: 'Issued by the Tryp.com Content Creator Community.',
+  footnote: '',
   signature: 'Ethan Mc Candless',
   signature_role: 'Creator Community',
   accent: '#D94407',

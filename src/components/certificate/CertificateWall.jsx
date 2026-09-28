@@ -32,7 +32,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
   const load = useCallback(async () => {
     if (!profileId) return
     const { data } = await supabase.from('certificate_awards')
-      .select('*, design:certificate_designs(*)')
+      .select('*, design:certificate_designs(*), person:profiles!certificate_awards_profile_id_fkey(photo_url)')
       .eq('profile_id', profileId)
       .order('awarded_at', { ascending: false })
     setRows(sortCertificates(data || []))
@@ -73,8 +73,12 @@ export default function CertificateWall({ profileId, className, readOnly = false
               onClick={() => openOne(row)}
               className="group relative flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: accent }}>
-                <Icon name={row.design?.emblem || tier.emblem} className="h-5 w-5" />
+              {/* THE CERTIFICATE ITSELF, SMALL (28 Sep 2026), rather than an icon
+                  standing in for it: the thing you are about to open. */}
+              <span className="relative block h-[62px] w-[88px] shrink-0 overflow-hidden rounded-lg border border-gray-100 shadow-sm" style={{ background: accent }}>
+                <span className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${88 / CERT_W})` }}>
+                  <CertificateCard design={row.design} facts={{ ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }} />
+                </span>
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold text-ink">{row.design?.title || tr('Certificate')}</span>
@@ -122,7 +126,9 @@ function CertificateViewer({ row, onClose, tr }) {
     if (!node) return
     setBusy(true)
     try {
-      const blob = await snapshotNode(node, { scale: 2 })
+      // THREE TIMES THE SIZE (28 Sep 2026): 3000 x 2121, sharp enough to print
+      // at A4 ("surely it can be downloaded in high quality").
+      const blob = await snapshotNode(node, { scale: 3 })
       if (!blob) throw new Error('empty')
       const name = `tryp-certificate-${(row.serial || 'award').toLowerCase()}.png`
       await downloadBlob(blob, name)
@@ -132,8 +138,37 @@ function CertificateViewer({ row, onClose, tr }) {
     setBusy(false)
   }
 
+  // SHARE TO A STORY (28 Sep 2026). Ethan: certificates should "be shared on
+  // their story too." A 1080 x 1920 picture - the certificate on the Tryp.com
+  // gradient with a line above it - drawn off screen and handed to the phone's
+  // share sheet (Instagram and TikTok are on it), or downloaded on a laptop.
+  const [storyNode, setStoryNode] = useState(null)
+  const [sharing, setSharing] = useState(false)
+  async function shareStory() {
+    if (!storyNode) return
+    setSharing(true)
+    try {
+      const blob = await snapshotNode(storyNode, { scale: 1, background: '#d94407' })
+      if (!blob) throw new Error('empty')
+      const name = `tryp-certificate-story-${(row.serial || 'award').toLowerCase()}.png`
+      const file = new File([blob], name, { type: 'image/png' })
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] })
+        } catch (err) {
+          if (err?.name !== 'AbortError') await downloadBlob(blob, name)
+        }
+      } else {
+        await downloadBlob(blob, name)
+      }
+    } catch {
+      notice(tr('That did not save. Try again in a moment.'), { title: tr('Could not save it') })
+    }
+    setSharing(false)
+  }
+
   if (!row) return null
-  const facts = { ...(row.facts || {}), serial: row.serial }
+  const facts = { ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }
   const scale = width / CERT_W
 
   return (
@@ -153,11 +188,46 @@ function CertificateViewer({ row, onClose, tr }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-[11px] tracking-wider text-gray-400">{row.serial}</span>
           <button type="button" onClick={onClose} className="btn-ghost ml-auto">{tr('Close')}</button>
+          <button type="button" onClick={shareStory} disabled={sharing} className="btn-secondary">
+            {sharing ? <Spinner /> : <><Icon name="share" className="h-4 w-4" /> {tr('Share to your story')}</>}
+          </button>
           <button type="button" onClick={save} disabled={busy} className="btn-primary">
             {busy ? <Spinner /> : <><Icon name="download" className="h-4 w-4" /> {tr('Save the picture')}</>}
           </button>
         </div>
+        {/* The story picture, drawn at full size where nobody can see it. */}
+        <div aria-hidden style={{ position: 'fixed', left: -12000, top: 0, pointerEvents: 'none' }}>
+          <StoryFrame refCb={setStoryNode} design={row.design} facts={facts} />
+        </div>
       </div>
     </Modal>
+  )
+}
+
+/** 1080 x 1920: the certificate on the brand gradient, for a story. */
+function StoryFrame({ refCb, design, facts }) {
+  const W = 1080
+  const inner = 960
+  return (
+    <div
+      ref={refCb}
+      style={{
+        width: W, height: 1920, position: 'relative', overflow: 'hidden', fontFamily: 'Poppins, system-ui, sans-serif',
+        background: 'linear-gradient(160deg,#d94407 0%,#f5853f 60%,#ffb37a 100%)', color: '#ffffff',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 56,
+      }}
+    >
+      <div style={{ position: 'absolute', right: -220, top: -220, width: 720, height: 720, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 68%)' }} />
+      <div style={{ textAlign: 'center', padding: '0 80px' }}>
+        <p style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85 }}>Just earned</p>
+        <p style={{ margin: '18px 0 0', fontSize: 64, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.02em' }}>{design?.title || 'A certificate'}</p>
+      </div>
+      <div style={{ width: inner, height: CERT_H * (inner / CERT_W), borderRadius: 28, overflow: 'hidden', boxShadow: '0 40px 90px rgba(0,0,0,0.28)' }}>
+        <div style={{ transform: `scale(${inner / CERT_W})`, transformOrigin: 'top left' }}>
+          <CertificateCard design={design} facts={facts} />
+        </div>
+      </div>
+      <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" crossOrigin="anonymous" style={{ height: 56, width: 'auto' }} />
+    </div>
   )
 }

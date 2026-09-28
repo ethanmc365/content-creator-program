@@ -179,7 +179,7 @@ export default function AwardedList() {
       <Modal open={!!open} onClose={() => setOpen(null)} title={open?.creator?.name || ''} wide>
         {open && (
           <div className="space-y-4">
-            <Preview design={open.design} facts={{ ...open.facts, serial: open.serial }} width={640} />
+            <Preview design={open.design} facts={{ ...open.facts, serial: open.serial, photo: open.creator?.photo_url || '' }} width={640} />
             <dl className="grid grid-cols-2 gap-3 rounded-xl bg-cloud/60 p-4 sm:grid-cols-4">
               <Fact label="Certificate" value={open.design?.name} />
               <Fact label="Serial" value={open.serial} />
@@ -188,6 +188,13 @@ export default function AwardedList() {
             </dl>
             <div className="flex items-center gap-3 border-t border-gray-100 pt-4">
               <button type="button" onClick={() => setOpen(null)} className="btn-ghost">← Back</button>
+              {/* SEE IT WHERE THEY SEE IT (28 Sep 2026). Ethan: "as an admin, I
+                  can go on their My Rewards page and view how it looks." */}
+              {open.creator?.id && (
+                <a href={`/rewards?as=${open.creator.id}`} className="btn-secondary !py-2 text-xs">
+                  <Icon name="eye" className="h-4 w-4" /> Their Rewards page
+                </a>
+              )}
               <button type="button" onClick={() => revoke(open)} className="btn-danger !py-2 text-xs">
                 <Icon name="trash" className="h-4 w-4" /> Take it back
               </button>

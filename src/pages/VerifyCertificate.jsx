@@ -64,7 +64,7 @@ export default function VerifyCertificate() {
     if (error || !row) { setData(null); setState('missing'); return }
     setData(row)
     setState('found')
-    document.title = `${row.facts?.name || 'Certificate'} — verified by Tryp.com`
+    document.title = `${row.facts?.name || 'Certificate'} · verified by Tryp.com`
   }, [])
 
   useEffect(() => { if (serial) look(serial) }, [serial, look])
@@ -255,7 +255,7 @@ function Found({ data, holder, scale }) {
             on screen is the same pixels as the file the creator downloaded. */}
         <div style={{ width: '100%', height: CERT_H * scale, overflow: 'hidden' }}>
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: CERT_W }}>
-            <CertificateCard design={data} facts={{ ...facts, serial: data.serial }} />
+            <CertificateCard design={data} facts={{ ...facts, serial: data.serial, photo: data.photo || '' }} />
           </div>
         </div>
       </div>

@@ -309,7 +309,7 @@ export const LAYOUTS = [
   { key: 'boarding', label: 'Boarding pass', hint: 'A real pass: passenger, route, gate and seat, with a perforated stub.' },
   { key: 'postcard', label: 'Postcard', hint: 'A message on the left, a stamp and a postmark on the right, addressed to the creator.' },
   { key: 'banner', label: 'Sky banner', hint: 'A gradient band across the top with the plane flying through it. Centred and bold.' },
-  { key: 'route', label: 'Flight path', hint: 'A dotted route arcing across the whole page behind a centred certificate.' },
+  { key: 'route', label: 'Passport', hint: 'A passport data page: their photo, the award as passport fields, an entry stamp and the machine-readable lines.' },
   { key: 'minimal', label: 'Minimal', hint: 'The name as the headline, a lot of white, and a small Tryp seal.' },
 ]
 

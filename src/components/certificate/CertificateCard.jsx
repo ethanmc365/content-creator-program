@@ -1,4 +1,5 @@
 import Icon from '../Icon'
+import { qrPath, useQrMatrix } from '../../lib/qr'
 import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf, ordinal } from '../../lib/certificates'
 
 // A CERTIFICATE, AS A PICTURE.
@@ -91,6 +92,9 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
     place: kind.place || null,
     places: Number(facts.places) || null,
     preamble: o.preamble ?? 'This certifies that',
+    // The creator's own photo, for the layouts that put a face on it (Horizon,
+    // Passport). Optional: every layout still draws without one.
+    photo: facts.photo || '',
   }
 
   const Layout = LAYOUTS[s.layout.key] || LAYOUTS.horizon
@@ -219,12 +223,15 @@ function Signature({ s, name, role, align = 'left', color }) {
   )
 }
 
-/** The code and where to check it, as one line anyone can type. */
+/** Where to check it (28 Sep 2026, evening). Ethan: "For the Verify at I
+ *  would not have in the code in that link and just say verify at the link and
+ *  then have it actually below the certificate ID." The ID is printed right
+ *  above it, and /verify asks for it. */
 function Verify({ s, serial, align = 'left', color }) {
   if (!serial) return null
   return (
-    <p style={{ margin: 0, fontSize: 10, fontWeight: 400, color: color || s.faint, textAlign: align, whiteSpace: 'nowrap' }}>
-      Verify at <span style={{ fontWeight: 700 }}>{VERIFY_HOST}/verify/{serial}</span>
+    <p style={{ margin: 0, fontSize: 9.5, fontWeight: 400, color: color || s.faint, textAlign: align, whiteSpace: 'nowrap' }}>
+      Verify at <span style={{ fontWeight: 700 }}>{VERIFY_HOST}/verify</span>
     </p>
   )
 }
@@ -290,7 +297,8 @@ function Plane({ width = 240, left, top, rotate = -8 }) {
 
 /**
  * THE BADGE. A place gets a medal that is visibly its own place:
- *   1st  the full gradient, a white ring and a star
+ *   1st  the full gradient and a white ring (no star: Ethan, 28 Sep, "not
+ *        necessary. Keep it simple.")
  *   2nd  white with a heavy accent ring
  *   3rd  a soft accent tint with a lighter ring
  *   4th+ white with a dashed ring
@@ -317,9 +325,6 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
     const suffix = ordinal(p).slice(n.length)
     return (
       <div style={{ ...base, ...look }}>
-        {p === 1 && (
-          <span style={{ display: 'inline-flex', marginBottom: 2, opacity: 0.95 }}><Icon name="star" className="h-4 w-4" /></span>
-        )}
         <span style={{ display: 'flex', alignItems: 'flex-start', lineHeight: 1 }}>
           <span style={{ fontSize: size * (n.length > 1 ? 0.36 : 0.42), fontWeight: 700, letterSpacing: '-0.03em' }}>{n}</span>
           <span style={{ fontSize: size * 0.14, fontWeight: 700, marginTop: size * 0.04, marginLeft: 1 }}>{suffix}</span>
@@ -357,15 +362,26 @@ function Footer({ s, c, style, align = 'split', colors = {} }) {
         <p style={{ margin: '0 0 12px', fontSize: 11, color: colors.faint || s.faint, textAlign: align === 'center' ? 'center' : 'left' }}>{c.footnote}</p>
       )}
       <div style={{ height: 1, background: colors.hair || s.hair, marginBottom: 18 }} />
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 28 }}>
-        {c.signature
-          ? <Signature s={s} name={c.signature} role={c.signatureRole} color={colors.ink} />
-          : <Fact s={s} label="Issued by" value="Tryp.com" color={colors.ink} labelColor={colors.faint} />}
-        <Fact s={s} label="Awarded" value={c.date} align={align === 'split' ? 'center' : 'left'} color={colors.ink} labelColor={colors.faint} />
-        <Fact s={s} label="Certificate ID" value={c.serial} align="right" mono color={colors.ink} labelColor={colors.faint} />
-      </div>
-      <div style={{ marginTop: 10 }}>
-        <Verify s={s} serial={c.serial} align={align === 'center' ? 'center' : 'right'} color={colors.faint} />
+      {/* THREE EQUAL COLUMNS (28 Sep 2026). "Awarded looks like it should be
+          centred and it's not really centred." Spread with space-between, the
+          middle fact sat wherever the widths of its neighbours put it; in a
+          1fr/auto/1fr grid it is on the page's true centre line. The verify
+          address sits under the ID it verifies. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'end', gap: 28 }}>
+        <div style={{ justifySelf: 'start', minWidth: 0 }}>
+          {c.signature
+            ? <Signature s={s} name={c.signature} role={c.signatureRole} color={colors.ink} />
+            : <Fact s={s} label="Issued by" value="Tryp.com" color={colors.ink} labelColor={colors.faint} />}
+        </div>
+        <div style={{ justifySelf: 'center' }}>
+          <Fact s={s} label="Awarded" value={c.date} align="center" color={colors.ink} labelColor={colors.faint} />
+        </div>
+        <div style={{ justifySelf: 'end', textAlign: 'right' }}>
+          <Fact s={s} label="Certificate ID" value={c.serial} align="right" mono color={colors.ink} labelColor={colors.faint} />
+          <div style={{ marginTop: 6 }}>
+            <Verify s={s} serial={c.serial} align="right" color={colors.faint} />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -390,8 +406,23 @@ function Horizon({ s, c, o }) {
         {/* The route climbs from the panel's lower left to the plane's tail
             and on up and out of the top right corner - through the middle of
             the panel, where nothing else is. */}
-        {o.route && <Route d="M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110" color={ink} opacity={0.55} />}
-        {o.plane && <Plane width={230} left={48} top={262} rotate={-14} />}
+        {/* THEIR FACE, NOT THE PLANE (28 Sep 2026). Ethan: "make it a bit more
+            personal here and maybe also include the profile photo ... rather
+            than having the Tryp.com plane on the left side, I would have their
+            profile photo there." A large portrait in a white ring, with the
+            dotted route looping round it; the plane only when there is no
+            photo to show. */}
+        {o.route && <Route d={c.photo
+          ? 'M -10 300 C 40 250, 70 150, 166 132 C 262 114, 318 190, 360 150'
+          : 'M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110'} color={ink} opacity={0.5} />}
+        {c.photo ? (
+          <div style={{
+            position: 'absolute', left: (PANEL - 196) / 2, top: 142, width: 196, height: 196, borderRadius: '50%',
+            padding: 6, background: 'rgba(255,255,255,0.95)', boxShadow: '0 18px 40px rgba(0,0,0,0.22)',
+          }}>
+            <img src={c.photo} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+          </div>
+        ) : o.plane && <Plane width={230} left={48} top={262} rotate={-14} />}
         {o.medal && <Badge s={s} c={c} size={104} onGradient style={{ left: 30, bottom: 30 }} />}
         <div style={{ position: 'absolute', left: o.medal ? 150 : 32, right: 28, bottom: 42 }}>
           <p style={{ margin: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ink, opacity: 0.8 }}>
@@ -423,23 +454,34 @@ function Horizon({ s, c, o }) {
 }
 
 /**
- * BOARDING PASS - a real one: passenger, route from you to Tryp, gate, class
- * and seat, and a stub with the badge and a barcode. The pass is always a white
- * card; the paper is what it lies on.
+ * BOARDING PASS - a real one: where you flew from and to, the passenger, class
+ * and seat, and a stub with the badge and a QR code that opens this very
+ * certificate on /verify. The pass is always a white card; the paper is what
+ * it lies on.
+ *
+ * 28 Sep 2026, evening (Ethan): the dotted line ABOVE the pass is gone; the
+ * perforation and its two notches are redrawn as a real tear line; the barcode
+ * is a QR code "that could actually take you to the certificate ID website";
+ * and the route no longer reads "from RT to TRYP" - it runs from the market to
+ * what was won ("Worldwide to 1st place"), and names Tryp.com in full.
  */
 function Boarding({ s, c, o }) {
   const L = M
   const T = 62
   const W = CERT_W - L * 2
   const H = CERT_H - T * 2
-  const STUB = 250
+  const STUB = 252
   const BAND = 72
-  const initials = (c.name || 'You').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || 'YOU'
   const ink = '#1A1A1A'
   const faint = '#8E9099'
   const muted = '#5E6068'
   const onBand = s.onAccent
   const white = { ...s, ink, faint, hair: 'rgba(26,26,26,0.10)', accentText: s.accentDeep, muted }
+  const from = c.market || 'Worldwide'
+  const to = c.place ? `${ordinal(c.place)} place` : 'Tryp.com'
+  // The notches are holes in the pass, so they are the colour of the paper.
+  const notch = s.kind === 'ivory' ? '#FBF8F4' : s.light ? '#FFFFFF' : s.accent
+  const verifyUrl = c.serial ? `https://${VERIFY_HOST}/verify/${c.serial}` : ''
   return (
     <>
       <div style={{
@@ -458,22 +500,22 @@ function Boarding({ s, c, o }) {
         </div>
 
         {/* Main part */}
-        <div style={{ position: 'absolute', left: 36, top: BAND + 30, right: STUB + 36, bottom: 30, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <div>
+        <div style={{ position: 'absolute', left: 36, top: BAND + 28, right: STUB + 36, bottom: 30, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+            <div style={{ minWidth: 0 }}>
               <Label s={white}>From</Label>
-              <p style={{ margin: '4px 0 0', fontSize: 38, fontWeight: 700, letterSpacing: '0.02em', color: ink, lineHeight: 1 }}>{initials}</p>
+              <p style={{ margin: '5px 0 0', fontSize: fit(from, 30), fontWeight: 700, color: ink, lineHeight: 1, whiteSpace: 'nowrap' }}>{from}</p>
             </div>
-            <div style={{ flex: 1, position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
-              <div style={{ flex: 1, borderTop: `3px dotted ${alpha(s.accent, 0.55)}` }} />
-              <span style={{ display: 'inline-flex', color: white.accentText, transform: 'rotate(90deg)', margin: '0 10px' }}>
-                <Icon name="plane-flight" className="h-7 w-7" />
+            <div style={{ flex: 1, minWidth: 60, position: 'relative', height: 30, display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1, height: 3, backgroundImage: `radial-gradient(circle, ${alpha(s.accent, 0.6)} 1.4px, transparent 1.6px)`, backgroundSize: '9px 3px', backgroundRepeat: 'repeat-x' }} />
+              <span style={{ display: 'inline-flex', color: white.accentText, transform: 'rotate(90deg)', margin: '0 8px' }}>
+                <Icon name="plane-flight" className="h-6 w-6" />
               </span>
-              <div style={{ flex: 1, borderTop: `3px dotted ${alpha(s.accent, 0.55)}` }} />
+              <div style={{ flex: 1, height: 3, backgroundImage: `radial-gradient(circle, ${alpha(s.accent, 0.6)} 1.4px, transparent 1.6px)`, backgroundSize: '9px 3px', backgroundRepeat: 'repeat-x' }} />
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', minWidth: 0 }}>
               <Label s={white}>To</Label>
-              <p style={{ margin: '4px 0 0', fontSize: 38, fontWeight: 700, letterSpacing: '0.02em', color: white.accentText, lineHeight: 1 }}>TRYP</p>
+              <p style={{ margin: '5px 0 0', fontSize: fit(to, 30), fontWeight: 700, color: white.accentText, lineHeight: 1, whiteSpace: 'nowrap' }}>{to}</p>
             </div>
           </div>
 
@@ -488,43 +530,61 @@ function Boarding({ s, c, o }) {
           </div>
 
           <div style={{ display: 'flex', gap: 30, borderTop: '1px solid rgba(26,26,26,0.08)', paddingTop: 16 }}>
-            <Fact s={white} label="Gate" value={c.market || 'Worldwide'} />
             <Fact s={white} label="Class" value={c.kind.label} />
             <Fact s={white} label="Seat" value={c.place ? `${c.place}A` : '1A'} />
+            {c.challenge
+              ? <Fact s={white} label="Challenge" value={String(c.challenge).length > 26 ? `${String(c.challenge).slice(0, 25)}…` : c.challenge} />
+              : <Fact s={white} label="Gate" value={c.market || 'Worldwide'} />}
             {c.signature && <Fact s={white} label={c.signatureRole || 'Signed'} value={c.signature} />}
           </div>
         </div>
 
-        {/* The perforation, with the two notches a real pass has. */}
-        <div style={{ position: 'absolute', top: BAND, bottom: 0, right: STUB, borderLeft: '2px dashed #E4E4E8' }} />
-        <div style={{ position: 'absolute', right: STUB - 15, top: BAND - 15, width: 30, height: 30, borderRadius: '50%', background: s.light ? '#F1F1F3' : 'rgba(0,0,0,0.12)' }} />
-        <div style={{ position: 'absolute', right: STUB - 15, bottom: -15, width: 30, height: 30, borderRadius: '50%', background: s.light ? '#F1F1F3' : 'rgba(0,0,0,0.12)' }} />
+        {/* THE TEAR LINE: a column of round perforations, and a notch at each
+            end cut the colour of the paper, the way a real stub tears. */}
+        <div style={{
+          position: 'absolute', top: BAND + 18, bottom: 18, right: STUB - 2, width: 4,
+          backgroundImage: 'radial-gradient(circle, #D9D9DE 1.6px, transparent 1.9px)',
+          backgroundSize: '4px 11px', backgroundRepeat: 'repeat-y',
+        }} />
+        <div style={{ position: 'absolute', right: STUB - 13, top: BAND - 13, width: 26, height: 26, borderRadius: '50%', background: notch, boxShadow: 'inset 0 -2px 3px rgba(26,26,26,0.06)' }} />
+        <div style={{ position: 'absolute', right: STUB - 13, bottom: -13, width: 26, height: 26, borderRadius: '50%', background: notch, boxShadow: 'inset 0 2px 3px rgba(26,26,26,0.06)' }} />
 
         {/* The stub */}
-        <div style={{ position: 'absolute', right: 0, top: BAND, bottom: 0, width: STUB, padding: '26px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ position: 'absolute', right: 0, top: BAND, bottom: 0, width: STUB, padding: '24px 28px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* A block, not a flex item: the snapshot renderer stretched the
+              badge to the stub's width when it was one. */}
           {o.medal && (
-            <div style={{ position: 'relative', height: 96 }}>
-              <Badge s={s} c={c} size={96} style={{ left: 0, top: 0 }} />
+            <div style={{ display: 'block', flex: '0 0 84px', alignSelf: 'flex-start', minWidth: 84, maxWidth: 84, height: 84, position: 'relative' }}>
+              <Badge s={s} c={c} size={84} style={{ left: 0, top: 0, maxWidth: 84, maxHeight: 84 }} />
             </div>
           )}
           <Fact s={white} label="Awarded" value={c.date} />
           <Fact s={white} label="Certificate ID" value={c.serial} mono />
-          <div style={{ marginTop: 'auto', display: 'flex', gap: 3, height: 40, alignItems: 'stretch' }}>
-            {Array.from({ length: 34 }).map((_, i) => (
-              <span key={i} style={{ flex: [2, 1, 3, 1, 1, 2, 1, 3][i % 8], background: ink, opacity: i % 5 === 0 ? 0.35 : 0.9 }} />
-            ))}
+          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+            <QrCode text={verifyUrl} size={112} color={ink} />
+            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: faint, lineHeight: 1.5 }}>
+              Scan to<br />verify
+            </p>
           </div>
         </div>
       </div>
-      {/* The verify address under the pass, on the paper. */}
-      <div style={{ position: 'absolute', left: L, right: L, bottom: 26 }}>
-        <Verify s={s} serial={c.serial} align="center" />
-      </div>
-      {/* A route along the top margin, above the pass, never on it. */}
-      {o.route && (
-        <Route d={`M -20 40 C 180 14, 360 50, 540 30 S 860 12, 1020 36`} color={s.light ? s.accent : s.ink} opacity={s.light ? 0.3 : 0.45} />
-      )}
     </>
+  )
+}
+
+/** A QR code drawn as one SVG path (lib/qr). Blank space of the same size
+ *  while it is being made, so nothing shifts when it arrives. */
+function QrCode({ text, size = 100, color = '#1A1A1A' }) {
+  const m = useQrMatrix(text)
+  if (!text) return null
+  return (
+    <div style={{ width: size, height: size, flexShrink: 0, padding: 6, background: '#ffffff', borderRadius: 10, boxShadow: '0 0 0 1px rgba(26,26,26,0.08)' }}>
+      {m && (
+        <svg viewBox={`0 0 ${m.size} ${m.size}`} width={size - 12} height={size - 12} shapeRendering="crispEdges" aria-label="QR code to verify this certificate">
+          <path d={qrPath(m)} fill={color} />
+        </svg>
+      )}
+    </div>
   )
 }
 
@@ -565,51 +625,75 @@ function Postcard({ s, c, o }) {
             position: 'absolute', right: -60, top: -60, width: 180, height: 180, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%)',
           }} />
-          {o.plane && <Plane width={150} left={-10} top={64} rotate={-10} />}
+          {/* A PLACE ON THE STAMP, NOT THE PLANE (28 Sep 2026). Ethan: "I don't
+              like the Tryp.com plane being on the stamp. I would put something
+              else on the stamp instead." A sun going down over hills and the
+              sea, drawn in the stamp's own two colours - the thing a postcard
+              stamp is always of. */}
+          <svg viewBox="0 0 130 162" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
+            <circle cx="84" cy="70" r="24" fill="#ffffff" fillOpacity="0.92" />
+            <path d="M0 104 C 22 86, 40 84, 58 96 C 76 108, 96 84, 130 92 L130 162 L0 162 Z" fill="#ffffff" fillOpacity="0.28" />
+            <path d="M0 118 C 30 104, 58 110, 80 118 C 100 125, 116 116, 130 112 L130 162 L0 162 Z" fill="#ffffff" fillOpacity="0.42" />
+            {[0, 1, 2].map((i) => (
+              <path key={i} d={`M8 ${134 + i * 9} q 9 -4 18 0 t 18 0 t 18 0 t 18 0 t 18 0 t 18 0`} fill="none" stroke="#ffffff" strokeOpacity={0.75 - i * 0.18} strokeWidth="2" strokeLinecap="round" />
+            ))}
+          </svg>
           <span style={{ position: 'absolute', left: 9, top: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: s.onAccent }}>TRYP.COM</span>
-          <span style={{ position: 'absolute', left: 9, bottom: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: s.onAccent, textTransform: 'uppercase' }}>{c.kind.label}</span>
+          <span style={{ position: 'absolute', right: 9, top: 7, fontSize: 13, fontWeight: 700, color: s.onAccent }}>{c.place ? ordinal(c.place) : ''}</span>
         </div>
       </div>
 
-      {/* The postmark: a ring with the date, and the wavy cancel lines. */}
-      <div style={{
-        position: 'absolute', right: M + 176, top: M + 70, width: 118, height: 118, borderRadius: '50%',
-        border: `2.5px solid ${s.light ? s.accentText : s.ink}`, opacity: 0.7, transform: 'rotate(-14deg)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        color: s.light ? s.accentText : s.ink,
-      }}>
-        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em' }}>CREATOR POST</span>
-        <span style={{ fontSize: 14, fontWeight: 700, marginTop: 4, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
-        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em', marginTop: 4 }}>{(c.market || 'WORLDWIDE').toUpperCase()}</span>
-      </div>
-      {o.route && (
-        <svg style={{ position: 'absolute', right: M + 200, top: M + 20, width: 150, height: 54, opacity: 0.4 }} aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <path key={i} d={`M 0 ${10 + i * 15} q 18 -9 36 0 t 36 0 t 36 0 t 36 0`} fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.5" />
-          ))}
-        </svg>
-      )}
+      {/* THE POSTMARK (28 Sep 2026): "that stamp seems a bit off. I would
+          improve it." A real one: two rings, the words running round the ring,
+          the date across the middle, and the cancel lines running out of it
+          across the stamp's corner. */}
+      <svg
+        viewBox="0 0 300 130"
+        style={{ position: 'absolute', right: M - 24, top: M + 96, width: 300, height: 130, opacity: 0.78, transform: 'rotate(-10deg)' }}
+        aria-hidden="true"
+      >
+        <defs>
+          <path id="pm-top" d="M 20 65 A 45 45 0 0 1 110 65" />
+          <path id="pm-bottom" d="M 16 65 A 49 49 0 0 0 114 65" />
+        </defs>
+        <circle cx="65" cy="65" r="58" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.5" />
+        <circle cx="65" cy="65" r="40" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="1.5" />
+        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
+          <textPath href="#pm-top" startOffset="50%" textAnchor="middle">CREATOR POST</textPath>
+        </text>
+        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
+          <textPath href="#pm-bottom" startOffset="50%" textAnchor="middle">{(c.market || 'Worldwide').toUpperCase()}</textPath>
+        </text>
+        <text x="65" y="62" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 13, fontWeight: 700, fontFamily: SANS }}>
+          {(shortDate(c.date) || 'TRYP.COM').split(' ').slice(0, 2).join(' ')}
+        </text>
+        <text x="65" y="78" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 11, fontWeight: 700, fontFamily: SANS }}>
+          {(shortDate(c.date) || '').split(' ')[2] || ''}
+        </text>
+        {o.route && [0, 1, 2, 3].map((i) => (
+          <path key={i} d={`M 128 ${44 + i * 14} q 14 -7 28 0 t 28 0 t 28 0 t 28 0 t 28 0`} fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.2" strokeLinecap="round" />
+        ))}
+      </svg>
 
-      {/* To: the address lines. */}
+      {/* THE ADDRESS, REDESIGNED (28 Sep 2026): "those three lines: just
+          improve the overall design of this card". The name on its own ruled
+          line in large type; the date and the ID as a pair of labelled
+          fields on the line under it; how to check it, last. */}
       <div style={{ position: 'absolute', left: MID + 44, right: M + 4, bottom: M - 4 }}>
         {o.medal && c.place && (
-          <div style={{ position: 'relative', height: 84, marginBottom: 12 }}>
+          <div style={{ position: 'relative', height: 84, marginBottom: 14 }}>
             <Badge s={s} c={c} size={84} style={{ left: 0, top: 0 }} />
           </div>
         )}
         <Label s={s}>Awarded to</Label>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '6px 0 10px' }}>
+        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '6px 0 12px' }}>
           <Name s={s} size={38}>{c.name}</Name>
         </div>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '11px 0 8px', fontSize: 13, fontWeight: 700, color: s.ink, whiteSpace: 'nowrap' }}>
-          {c.date || 'Tryp.com Content Creator Community'}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, borderBottom: `1.5px solid ${line}`, padding: '12px 0 10px' }}>
+          <Fact s={s} label="Date" value={c.date || '-'} />
+          <Fact s={s} label="Certificate ID" value={c.serial || '-'} mono />
         </div>
-        <div style={{ borderBottom: `1.5px solid ${line}`, padding: '11px 0 8px' }}>
-          <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: s.ink, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
-            {c.serial ? `ID ${c.serial}` : 'Tryp.com Content Creator Community'}
-          </span>
-        </div>
-        <div style={{ marginTop: 8 }}><Verify s={s} serial={c.serial} /></div>
+        <div style={{ marginTop: 9 }}><Verify s={s} serial={c.serial} /></div>
         {c.footnote && <p style={{ margin: '8px 0 0', fontSize: 11, color: s.faint }}>{c.footnote}</p>}
       </div>
     </>
@@ -660,37 +744,109 @@ function Banner({ s, c, o }) {
 }
 
 /**
- * FLIGHT PATH - a dotted route climbing the left margin and crossing the top
- * margin to the badge at the top right; the certificate centred inside it. The
- * route never enters the text box, which is what made the old one look messy.
+ * PASSPORT (the `route` layout key, kept so saved designs still open) - a
+ * passport's data page: the creator's photo, the award written as passport
+ * fields, an entry stamp, and the machine-readable lines along the foot.
+ *
+ * 28 Sep 2026, evening. Ethan, of the old dotted-route design: "Flight path
+ * card: don't like it at all. I would completely redesign it again ... Maybe go
+ * on a different travel theme style." The one travel document every creator
+ * has in their bag, with them on it.
  */
-function FlightPath({ s, c, o }) {
-  const routeColor = s.light ? s.accent : s.ink
+function mrzLine(text, len = 44) {
+  const clean = String(text || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '<')
+  return (clean + '<'.repeat(len)).slice(0, len)
+}
+
+function Passport({ s, c, o }) {
+  const onPaper = s.light ? '#1A1A1A' : s.ink
+  const faint = s.light ? '#8E9099' : s.faint
+  const accent = s.light ? s.accentDeep : s.ink
+  const [first, ...rest] = String(c.name || 'Creator').split(/\s+/)
+  const surname = rest.join(' ') || first
+  const given = rest.length ? first : ''
+  const initials = String(c.name || 'You').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const PHOTO_W = 220
+  const PHOTO_H = 286
+  const TOP = 132
   return (
     <>
-      {o.route && (
-        <Route d="M 30 720 C 34 600, 40 420, 60 300 C 80 190, 140 96, 300 66 C 460 38, 700 40, 818 88"
-          color={routeColor} opacity={s.light ? 0.32 : 0.5} width={3.5} gap={12} />
-      )}
-      {o.medal && <Badge s={s} c={c} size={112} style={{ right: M, top: M - 8 }} />}
+      {/* The security print: fine waves across the page, in the accent. */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
+        {Array.from({ length: 16 }).map((_, i) => (
+          <path key={i} d={`M -20 ${120 + i * 30} C 180 ${90 + i * 30}, 320 ${160 + i * 30}, 520 ${120 + i * 30} S 860 ${90 + i * 30}, 1020 ${130 + i * 30}`}
+            fill="none" stroke={s.accent} strokeOpacity={s.light ? 0.06 : 0.12} strokeWidth="1.2" />
+        ))}
+      </svg>
 
-      <div style={{
-        position: 'absolute', left: 150, right: 150, top: 118, bottom: 176,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-      }}>
-        <Wordmark white={!s.light && isWhite(s.ink)} height={30} style={{ alignSelf: 'center' }} />
-        <div style={{ height: 26 }} />
-        <Kicker s={s} align="center">{c.subtitle}</Kicker>
-        <div style={{ height: c.subtitle ? 10 : 0 }} />
-        <Title s={s} size={38} align="center">{c.title}</Title>
-        <div style={{ height: 26 }} />
-        <Preamble s={s} align="center">{c.preamble}</Preamble>
-        <div style={{ height: 6 }} />
-        <Name s={s} size={56} align="center">{c.name}</Name>
-        <div style={{ height: 12 }} />
-        <Body s={s} align="center" width={580} size={16}>{c.body}</Body>
+      {/* The header band. */}
+      <div style={{ position: 'absolute', left: M, right: M, top: M - 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.3em', color: accent }}>PASSPORT · PASSEPORT · PASAPORTE</p>
+          <p style={{ margin: '6px 0 0', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: onPaper }}>{c.title}</p>
+        </div>
+        <Wordmark white={!s.light && isWhite(s.ink)} height={28} style={{ alignSelf: 'center' }} />
       </div>
-      <Footer s={s} c={c} align="center" style={{ left: 120, right: M + 8, bottom: M - 20 }} />
+
+      {/* The photo, or their initials where there is none. */}
+      <div style={{
+        position: 'absolute', left: M, top: TOP, width: PHOTO_W, height: PHOTO_H, borderRadius: 18, overflow: 'hidden',
+        background: c.photo ? '#EDEDF0' : s.grad, boxShadow: '0 14px 30px rgba(26,26,26,0.16), 0 0 0 5px #ffffff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {c.photo
+          ? <img src={c.photo} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          : <span style={{ fontSize: 72, fontWeight: 700, color: s.onAccent, letterSpacing: '-0.02em' }}>{initials}</span>}
+      </div>
+      {o.medal && <Badge s={s} c={c} size={96} style={{ left: M + PHOTO_W - 60, top: TOP + PHOTO_H - 56 }} />}
+
+      {/* The data. */}
+      <div style={{ position: 'absolute', left: M + PHOTO_W + 48, right: M, top: TOP - 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px 24px' }}>
+          <Fact s={s} label="Type" value="Creator" color={onPaper} labelColor={faint} />
+          <Fact s={s} label="Issued by" value="Tryp.com" color={onPaper} labelColor={faint} />
+          <Fact s={s} label="Community" value={c.market || 'Worldwide'} color={onPaper} labelColor={faint} />
+        </div>
+        <div style={{ marginTop: 30 }}>
+          <Label s={s} color={faint}>{given ? 'Surname / Given names' : 'Name'}</Label>
+          <p style={{ margin: '6px 0 0', fontSize: fit(c.name, 44), fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em', color: accent }}>
+            {given ? <>{surname}<span style={{ color: onPaper, fontWeight: 400 }}>, {given}</span></> : surname}
+          </p>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <Body s={s} width={430} size={15} color={s.light ? '#5E6068' : s.muted}>{c.body}</Body>
+        </div>
+        <div style={{ marginTop: 34, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+          <Fact s={s} label="Award" value={c.kind.label} color={onPaper} labelColor={faint} />
+          <Fact s={s} label="Date of issue" value={c.date} color={onPaper} labelColor={faint} />
+          <div>
+            <Fact s={s} label="Certificate ID" value={c.serial} mono color={onPaper} labelColor={faint} />
+            <div style={{ marginTop: 5 }}><Verify s={s} serial={c.serial} color={faint} /></div>
+          </div>
+        </div>
+      </div>
+
+      {/* The entry stamp, pressed on at an angle. */}
+      {o.route && (
+        <div style={{
+          position: 'absolute', right: M + 20, top: 452, width: 158, height: 100, borderRadius: 16,
+          border: `3px solid ${alpha(s.accent, 0.7)}`, color: alpha(s.accent, 0.85), transform: 'rotate(-9deg)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+        }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.24em' }}>ADMITTED</span>
+          <span style={{ fontSize: 17, fontWeight: 700, marginTop: 3, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', marginTop: 3 }}>{(c.market || 'WORLDWIDE').toUpperCase()}</span>
+        </div>
+      )}
+
+      {/* The machine-readable zone. */}
+      <div style={{
+        position: 'absolute', left: M, right: M, bottom: M - 20, paddingTop: 14, borderTop: `1px solid ${s.light ? 'rgba(26,26,26,0.10)' : s.hair}`,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 19, letterSpacing: '0.2em', lineHeight: 1.45, color: onPaper, opacity: 0.8,
+      }}>
+        <div>{mrzLine(`P<TRYP${surname}<<${given}`, 44)}</div>
+        <div>{mrzLine(`${c.serial || 'TRYP'}<<${c.kind.label}<<${c.market || 'WORLDWIDE'}`, 44)}</div>
+      </div>
     </>
   )
 }
@@ -702,26 +858,25 @@ function FlightPath({ s, c, o }) {
 function Minimal({ s, c, o }) {
   return (
     <>
-      <div style={{ position: 'absolute', left: M + 24, top: M + 12 }}>
+      <div style={{ position: 'absolute', left: M + 40, top: M + 12 }}>
         <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
       </div>
       {o.medal && <Badge s={s} c={c} size={100} style={{ right: M + 24, top: M }} />}
-      {/* One accent stroke down the left edge: the only decoration. */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 10, background: s.light ? s.grad : s.hair }} />
+      {/* One accent band down the left edge: the only decoration. Wider since
+          28 Sep ("the orange bit on the left side, I think, should be bigger"). */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 30, background: s.light ? s.grad : s.hair }} />
 
-      <div style={{ position: 'absolute', left: M + 24, right: M + 24, top: 150, bottom: 170, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', left: M + 40, right: M + 24, top: 150, bottom: 170, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <Preamble s={s}>{c.subtitle || c.preamble || 'Awarded to'}</Preamble>
         <div style={{ height: 8 }} />
         <Name s={s} size={80} color={s.ink}>{c.name}</Name>
         <div style={{ height: 18 }} />
-        <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ width: 34, height: 4, borderRadius: 4, background: s.light ? s.grad : s.ink }} />
-          <span style={{ fontSize: 24, fontWeight: 700, color: s.accentText, letterSpacing: '-0.01em' }}>{c.title}</span>
-        </p>
+        {/* No dash before the title (28 Sep): "I don't like the em dash." */}
+        <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: s.accentText, letterSpacing: '-0.01em' }}>{c.title}</p>
         <div style={{ height: 12 }} />
         <Body s={s} width={640} size={15}>{c.body}</Body>
       </div>
-      <Footer s={s} c={c} style={{ left: M + 24, right: M + 24, bottom: M - 20 }} />
+      <Footer s={s} c={c} style={{ left: M + 40, right: M + 24, bottom: M - 20 }} />
     </>
   )
 }
@@ -731,6 +886,6 @@ const LAYOUTS = {
   boarding: Boarding,
   postcard: Postcard,
   banner: Banner,
-  route: FlightPath,
+  route: Passport,
   minimal: Minimal,
 }
