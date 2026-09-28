@@ -9,6 +9,7 @@ import { cx, formatDate } from '../lib/utils'
 import { thumbUrl } from '../lib/avatarUrl'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
+import { clusterMerges, clusterStep, groupsAtReach, reachAtZoom } from '../lib/pinCluster'
 import CountryPanel, { TownPanel } from './CountryPanel'
 import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
@@ -256,7 +257,13 @@ function PinMorph({ x, y, dx = 0, dy = 0, pop = false, arriving = false, leaving
           { transform: `translate(${dx}px, ${dy}px) scale(0.8)`, opacity: 0.4 },
           { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
         ]
-    const a = el.animate(frames, { duration: leaving ? 380 : 420, easing: MORPH_EASE, fill: leaving ? 'forwards' : 'none' })
+    // QUICKER (28 Sep 2026, later). 420/380ms was a deliberate, readable move
+    // when a regroup was a rare event; with the regroup now following the
+    // gesture it is the thing the reader is waiting on, so it is roughly halved.
+    // Still long enough to read as a move rather than a cut, which was the whole
+    // point of animating it ("rather than just flashing, appearing, and
+    // disappearing").
+    const a = el.animate(frames, { duration: leaving ? 200 : 240, easing: MORPH_EASE, fill: leaving ? 'forwards' : 'none' })
     return () => a.cancel()
     // Mount only: the move is from where the pin WAS to where it is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -590,43 +597,11 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 const NO_TRIPS = {}
 const NO_CREATORS = []
 
-// THE PIN HIERARCHY (28 Sep 2026). Single-linkage clustering over the towns'
-// projected points: two pins that would touch at a zoom are one group, and so
-// is anything touching either of them. The merge distances are the edges of
-// the minimum spanning tree, in order (Kruskal), so replaying them below a
-// reach gives the groups for any zoom - and because they are nested, a change
-// of zoom only ever splits or joins groups, nothing is reshuffled. It also
-// guarantees what the reader actually cares about: no two pins left on the map
-// are closer than a pin's width. Done once per set of towns, never per frame.
-function clusterMerges(pts) {
-  const n = pts.length
-  if (n < 2) return []
-  const edges = []
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      edges.push({ a: i, b: j, h: Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) })
-    }
-  }
-  edges.sort((x, y) => x.h - y.h)
-  const parent = pts.map((_, i) => i)
-  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
-  const merges = []
-  for (const e of edges) {
-    const ra = find(e.a)
-    const rb = find(e.b)
-    if (ra === rb) continue
-    parent[rb] = ra
-    merges.push(e)
-    if (merges.length === n - 1) break
-  }
-  return merges
-}
-
-// The zoom a regroup is worked out at: half-octave steps (x1.41), so a group
-// splits or merges at a handful of zoom levels rather than at every nudge.
-function clusterStep(zoom) {
-  return Math.pow(2, Math.round(Math.log2(Math.max(1, zoom || 1)) * 2) / 2)
-}
+// The pin grouping lives in lib/pinCluster.js: single-linkage clustering over
+// the towns' projected points, BOUNDED BY COUNTRY, with the reach and the
+// half-octave regroup step. It is pure arithmetic and rehearsed there, because
+// the fault it was carrying (the whole of Europe as one pin on the UK) was
+// invisible from in here.
 
 function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
   // FULL SCREEN IS NOT ONE OF "THE CONTROLS".
@@ -1238,7 +1213,22 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       if (!map.has(key)) map.set(key, { key, coords: [c._lng, c._lat], creators: [] })
       map.get(key).creators.push(c)
     }
-    for (const t of map.values()) t.creators.sort(byPinPriority)
+    for (const t of map.values()) {
+      t.creators.sort(byPinPriority)
+      // WHICH COUNTRY THIS TOWN IS IN, which is what bounds the pin grouping
+      // (see clusterMerges). Taken from the creators standing on it - a town is
+      // keyed by its rounded coordinates, so they are all in the same place -
+      // and normalised through the app's one alias table, so "England" and
+      // "United Kingdom" are the same country here as everywhere else.
+      //
+      // A TOWN WHOSE CREATORS TYPED NO COUNTRY GETS ITS OWN KEY, not a shared
+      // "unknown" bucket: lumping the unknowns together would merge a pin in
+      // Chile with a pin in Japan, which is the bug this bounding exists to
+      // stop. It leaves those towns as single pins, which is the safe way to be
+      // wrong.
+      const named = t.creators.find((c) => c.country && countryKey(c.country))
+      t.country = named ? countryKey(named.country) : `?${t.key}`
+    }
     return [...map.values()]
   }, [located])
 
@@ -1309,42 +1299,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlCountry, urlTown, located.length, towns])
-
-  // Thread all the towns into one flowing path (nearest-neighbour from the
-  // westmost), so the dashed connection line visits everyone once.
-  const segments = useMemo(() => {
-    if (towns.length < 2) return []
-    const remaining = towns.map((t) => t.coords).sort((a, b) => a[0] - b[0])
-    const order = [remaining.shift()]
-    while (remaining.length) {
-      const last = order[order.length - 1]
-      let bi = 0, bd = Infinity
-      remaining.forEach((p, i) => { const d = geoDistance(last, p); if (d < bd) { bd = d; bi = i } })
-      order.push(remaining.splice(bi, 1)[0])
-    }
-    const segs = []
-    for (let i = 0; i < order.length - 1; i++) {
-      const a = order[i], b = order[i + 1]
-      const [ax, ay] = projection(a)
-      const [bx, by] = projection(b)
-      const mx = (ax + bx) / 2, my = (ay + by) / 2
-      const dx = bx - ax, dy = by - ay
-      const chord = Math.hypot(dx, dy) || 1
-      const bulge = Math.min(chord * 0.22, 70)
-      const cx = mx + (-dy / chord) * bulge, cyc = my + (dx / chord) * bulge
-      const curve = quadLength(ax, ay, cx, cyc, bx, by)
-      // NO `dur` HERE. The duration depends on the zoom and this list does not,
-      // so computing it in the same memo would rebuild every path string every
-      // time somebody finished a pinch. See `planeSegments`.
-      segs.push({
-        key: `${i}-${Math.round(ax)},${Math.round(ay)}`,
-        d: `M${ax} ${ay} Q ${cx} ${cyc} ${bx} ${by}`,
-        curve,
-      })
-    }
-    return segs
-  }, [towns])
-
 
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
@@ -1549,32 +1503,29 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       .sort((a, b) => (b.t.creators.length - a.t.creators.length) || (a.t.key < b.t.key ? -1 : 1))
     return { pts, merges: clusterMerges(pts) }
   }, [visibleTowns])
+  // THE REGROUP FOLLOWS THE GESTURE CLOSELY (28 Sep 2026, later). Ethan:
+  // "whenever I zoom in, they start to spread out a bit, and the animation is
+  // quite delayed, which I don't really like. The animation should be much
+  // smoother and much quicker."
+  //
+  // This waited 160ms after the zoom stopped changing before regrouping, ON TOP
+  // of a 420ms fly - so the pins started moving well over a fifth of a second
+  // after the reader's finger did, which reads as the map lagging behind them.
+  // The half-octave step is already coarse enough to stop a pinch thrashing
+  // (one regroup per 41% of zoom), so the wait only has to swallow the frames
+  // WITHIN a single wheel tick or pinch, not the gesture. 60ms does that and is
+  // under the ~100ms that reads as instant.
   const [settledCluster, setSettledCluster] = useState(() => clusterStep(liveZoom))
   useEffect(() => {
     const step = clusterStep(liveZoom)
     if (step === settledCluster) return undefined
-    const t = setTimeout(() => setSettledCluster(step), 160)
+    const t = setTimeout(() => setSettledCluster(step), 60)
     return () => clearTimeout(t)
   }, [liveZoom, settledCluster])
   const clusterZoom = settledCluster
   const clusteredTowns = useMemo(() => {
-    const reach = 30 * Math.pow(clusterZoom, -0.7)
     const { pts, merges } = hierarchy
-    const parent = pts.map((_, i) => i)
-    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
-    for (const m of merges) {
-      if (m.h >= reach) break
-      const a = find(m.a)
-      const b = find(m.b)
-      if (a !== b) parent[Math.max(a, b)] = Math.min(a, b)
-    }
-    const groups = new Map()
-    pts.forEach((p, i) => {
-      const r = find(i)
-      if (!groups.has(r)) groups.set(r, [])
-      groups.get(r).push(p.t)
-    })
-    return [...groups.values()].map((members) => {
+    return groupsAtReach(pts, merges, reachAtZoom(clusterZoom)).map((members) => {
       if (members.length === 1) return members[0]
       const creators = members.flatMap((t) => t.creators).sort(byPinPriority)
       return {
@@ -1585,6 +1536,53 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       }
     })
   }, [hierarchy, clusterZoom])
+
+  // Thread the pins into one flowing path (nearest-neighbour from the westmost),
+  // so the dashed connection line visits everyone once.
+  //
+  // IT THREADS THE PINS THAT ARE ACTUALLY THERE (28 Sep 2026, later). This ran
+  // over the raw `towns`, which is every town before grouping, so the threads
+  // stayed where the ungrouped towns were while the pins merged away from them.
+  // Ethan, on the public programme page: "it shows the dotted lines everywhere,
+  // even though when the creators are grouped there are actually no curves there
+  // any more. It still shows those dotted lines all connected."
+  //
+  // Threading `clusteredTowns` instead means a line can only ever run between
+  // two pins a reader can see, at every zoom, and the web re-threads as pins
+  // merge and split. It costs a rebuild per regroup, which is the same event
+  // the pins are already animating on.
+  const segments = useMemo(() => {
+    if (clusteredTowns.length < 2) return []
+    const remaining = clusteredTowns.map((t) => t.coords).sort((a, b) => a[0] - b[0])
+    const order = [remaining.shift()]
+    while (remaining.length) {
+      const last = order[order.length - 1]
+      let bi = 0, bd = Infinity
+      remaining.forEach((p, i) => { const d = geoDistance(last, p); if (d < bd) { bd = d; bi = i } })
+      order.push(remaining.splice(bi, 1)[0])
+    }
+    const segs = []
+    for (let i = 0; i < order.length - 1; i++) {
+      const a = order[i], b = order[i + 1]
+      const [ax, ay] = projection(a)
+      const [bx, by] = projection(b)
+      const mx = (ax + bx) / 2, my = (ay + by) / 2
+      const dx = bx - ax, dy = by - ay
+      const chord = Math.hypot(dx, dy) || 1
+      const bulge = Math.min(chord * 0.22, 70)
+      const cx = mx + (-dy / chord) * bulge, cyc = my + (dx / chord) * bulge
+      const curve = quadLength(ax, ay, cx, cyc, bx, by)
+      // NO `dur` HERE. The duration depends on the zoom and this list does not,
+      // so computing it in the same memo would rebuild every path string every
+      // time somebody finished a pinch. See `planeSegments`.
+      segs.push({
+        key: `${i}-${Math.round(ax)},${Math.round(ay)}`,
+        d: `M${ax} ${ay} Q ${cx} ${cyc} ${bx} ${by}`,
+        curve,
+      })
+    }
+    return segs
+  }, [clusteredTowns])
 
   // PINS MOVE WHEN THEY SPLIT AND MERGE (28 Sep 2026). Ethan: "I would like
   // some animations for this rather than just flashing, appearing, and
@@ -1626,7 +1624,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   }
   useEffect(() => {
     if (!morph.ghosts.length) return undefined
-    const t = setTimeout(() => setMorph((m) => (m.ghosts.length ? { ...m, ghosts: [] } : m)), 520)
+    // Must outlive the 200ms leaving animation, with a frame in hand.
+    const t = setTimeout(() => setMorph((m) => (m.ghosts.length ? { ...m, ghosts: [] } : m)), 280)
     return () => clearTimeout(t)
   }, [morph.id, morph.ghosts.length])
 
