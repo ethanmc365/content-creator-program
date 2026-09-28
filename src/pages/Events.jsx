@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
-  isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek,
+  isSameDay, isSameMonth, isToday, isWeekend, startOfMonth, startOfWeek,
 } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -461,6 +461,36 @@ export default function Events() {
     onDeadlinePrefs: () => setDeadlinePrefsOpen(true),
   }
 
+  // The Month / Week / Agenda switch. In the month view it sits at the head of
+  // the calendar's own column (see below); in the others, on the controls row.
+  const viewSwitch = (
+    <div className="relative flex w-full rounded-full bg-cloud p-1 sm:w-auto">
+      <span
+        className="absolute inset-y-1 rounded-full bg-white shadow-card transition-transform duration-300 ease-out"
+        style={{
+          width: `calc((100% - 0.5rem) / ${VIEWS.length})`,
+          transform: `translateX(calc(${VIEWS.findIndex((v) => v.key === view)} * 100%))`,
+          left: '0.25rem',
+        }}
+        aria-hidden
+      />
+      {VIEWS.map((v) => (
+        <button
+          key={v.key}
+          onClick={() => pickView(v.key)}
+          aria-pressed={view === v.key}
+          className={cx(
+            'relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors duration-200 sm:py-1.5',
+            view === v.key ? 'text-ink' : 'text-smoke hover:text-ink',
+          )}
+        >
+          <Icon name={v.icon} className="h-3.5 w-3.5" />
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="page">
       <PageHeader
@@ -550,59 +580,12 @@ export default function Events() {
               above." It is a real segmented control with a sliding highlight,
               not three buttons that change colour; the slide is what tells you
               the three are one thing. */}
+          {view !== 'month' && (
           <Reveal className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" delay={0.12} row>
-            <div className="relative flex w-full rounded-full bg-cloud p-1 sm:w-auto">
-              <span
-                className="absolute inset-y-1 rounded-full bg-white shadow-card transition-transform duration-300 ease-out"
-                style={{
-                  width: `calc((100% - 0.5rem) / ${VIEWS.length})`,
-                  transform: `translateX(calc(${VIEWS.findIndex((v) => v.key === view)} * 100%))`,
-                  left: '0.25rem',
-                }}
-                aria-hidden
-              />
-              {VIEWS.map((v) => (
-                <button
-                  key={v.key}
-                  onClick={() => pickView(v.key)}
-                  aria-pressed={view === v.key}
-                  className={cx(
-                    'relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors duration-200 sm:py-1.5',
-                    view === v.key ? 'text-ink' : 'text-smoke hover:text-ink',
-                  )}
-                >
-                  <Icon name={v.icon} className="h-3.5 w-3.5" />
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            {viewSwitch}
 
-            {view === 'month' && (
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                {/* KEYED ON THE MONTH, so React replaces the element and the
-                    entrance keyframe runs again. Re-rendering the same node
-                    with different text would not restart an animation - a
-                    keyframe only plays when the element is created or the class
-                    changes, and that is the trap that makes "it animates the
-                    first time and never again" so common. */}
-                <h2 key={monthKey} className="cal-label-in text-lg font-bold tabular-nums sm:min-w-[9.5rem]">{format(month, 'MMMM yyyy')}</h2>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => goToMonth(addMonths(month, -1))} aria-label={tr("Previous month")}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
-                    <Icon name="chevronLeft" className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => { goToMonth(new Date()); setSelectedDay(null) }}
-                    className="rounded-full px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-95">
-                    {tr("Today")}
-                  </button>
-                  <button onClick={() => goToMonth(addMonths(month, 1))} aria-label={tr("Next month")}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
-                    <Icon name="chevronRight" className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
           </Reveal>
+          )}
 
           {view === 'month' && (
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -611,8 +594,35 @@ export default function Events() {
                   the house pattern for a two-column page (see the `from` prop
                   in Reveal) and is what makes a layout read as composed rather
                   than merely animated. */}
-              <Reveal className="lg:col-span-2" delay={0.18}>
+              <Reveal className="lg:col-span-2" delay={0.12}>
               <div>
+                {/* THE MONTH SITS ON THE CALENDAR (28 Sep 2026, evening). Ethan:
+                    "the month is hard to see because the month is over on the
+                    right. Maybe it should be directly above it ... and then
+                    coming up can just be up on the right there." So the switch
+                    and the month head the calendar's own column, the month in
+                    large type, and Coming up rises to the top of the right
+                    column beside them. */}
+                <div className="mb-3">{viewSwitch}</div>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 key={monthKey} className="cal-label-in text-2xl font-bold tracking-tight tabular-nums sm:text-[28px]">
+                    {format(month, 'MMMM')} <span className="font-semibold text-smoke">{format(month, 'yyyy')}</span>
+                  </h2>
+                  <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-white p-1 shadow-card">
+                    <button onClick={() => goToMonth(addMonths(month, -1))} aria-label={tr("Previous month")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
+                      <Icon name="chevronLeft" className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => { goToMonth(new Date()); setSelectedDay(null) }}
+                      className="rounded-full px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-95">
+                      {tr("Today")}
+                    </button>
+                    <button onClick={() => goToMonth(addMonths(month, 1))} aria-label={tr("Next month")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
+                      <Icon name="chevronRight" className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
                 {/* A MONTH IS A PLACE YOU MOVE ALONG, AND THE GRID SAYS WHICH
                     WAY. Pressing "next" and pressing "previous" used to look
                     identical - the numbers in the cells simply became different
@@ -679,9 +689,9 @@ export default function Events() {
 
               </Reveal>
 
-              <Reveal as="aside" from="right" delay={0.24}>
+              <Reveal as="aside" from="right" delay={0.18}>
                 <div>
-                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold lg:mt-1.5">
                     <Icon name="clock" className="h-5 w-5 text-brand" />
                     {tr("Coming up")}
                   </h2>
@@ -855,34 +865,59 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // spent until the fingers stop (a quiet gap), so one swipe is one month however
 // long the momentum tail runs. `overscroll-behavior-x` stops Safari reading the
 // same swipe as "go back a page".
+// ONE SWIPE, ONE MONTH - MEASURED ACROSS THE REMOUNT (28 Sep 2026, evening).
+// Ethan: "the scrolling with two fingers ... should only be able to do one page
+// at a time, but currently, if I do it, it starts scrolling a bunch of pages and
+// is a bit glitchy." The grid is KEYED ON THE MONTH (so the new month slides
+// in), which means turning a month unmounts this component - and the gesture
+// state lived inside it. The fresh grid attached a fresh listener with
+// `spent = false` while the trackpad's momentum was still arriving, so it
+// turned again, remounted again, and cascaded. The state lives out here now,
+// where a remount cannot reset it: a gesture is spent until the wheel has been
+// silent for a beat, whichever grid is on screen.
+const wheelGesture = { sum: 0, spent: false, last: 0 }
+const WHEEL_GAP_MS = 240
+
 function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, liveIds, onSwipe }) {
   const startRef = useRef(null)
-  const [drag, setDrag] = useState(0)
   const boxRef = useRef(null)
   const swipeRef = useRef(onSwipe)
   useEffect(() => { swipeRef.current = onSwipe }, [onSwipe])
+
+  // THE FINGER MOVES THE GRID DIRECTLY, NOT THROUGH STATE. Every touchmove used
+  // to set React state and re-render all 42 day buttons, sixty times a second,
+  // which is the lag Ethan felt swiping on a phone. The offset is written to
+  // the element's own style; React never hears about it.
+  const setOffset = (px, animate = false) => {
+    const el = boxRef.current
+    if (!el) return
+    el.style.transition = animate ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
+    el.style.transform = px ? `translate3d(${px}px, 0, 0)` : ''
+  }
+
   useEffect(() => {
     const el = boxRef.current
     if (!el) return undefined
-    let sum = 0
-    let spent = false
-    let quiet = null
+    let settle = null
     const onWheel = (e) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) return
       e.preventDefault()
-      clearTimeout(quiet)
-      quiet = setTimeout(() => { sum = 0; spent = false; setDrag(0) }, 180)
-      if (spent) return
-      sum += e.deltaX
-      setDrag(Math.max(-60, Math.min(60, -sum * 0.6)))
-      if (Math.abs(sum) > 70) {
-        spent = true
-        setDrag(0)
-        swipeRef.current(sum > 0 ? 1 : -1)
+      const now = performance.now()
+      if (now - wheelGesture.last > WHEEL_GAP_MS) { wheelGesture.sum = 0; wheelGesture.spent = false }
+      wheelGesture.last = now
+      clearTimeout(settle)
+      settle = setTimeout(() => setOffset(0, true), 120)
+      if (wheelGesture.spent) return
+      wheelGesture.sum += e.deltaX
+      setOffset(Math.max(-40, Math.min(40, -wheelGesture.sum * 0.35)))
+      if (Math.abs(wheelGesture.sum) > 70) {
+        wheelGesture.spent = true
+        setOffset(0)
+        swipeRef.current(wheelGesture.sum > 0 ? 1 : -1)
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(quiet) }
+    return () => { el.removeEventListener('wheel', onWheel); clearTimeout(settle) }
   }, [])
 
   const onTouchStart = (e) => {
@@ -896,46 +931,39 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
     const dx = t.clientX - s.x
     const dy = t.clientY - s.y
     // Decide ONCE, on the first move that is big enough to mean anything.
-    // Re-deciding every frame is what makes a swipe feel like it is fighting
-    // the page: a mostly-horizontal drag with a bit of wobble in it would flip
-    // between "this is a scroll" and "this is a swipe" several times.
-    if (s.decided === null && Math.abs(dx) + Math.abs(dy) > 12) {
+    if (s.decided === null && Math.abs(dx) + Math.abs(dy) > 10) {
       s.decided = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'x' : 'y'
     }
     if (s.decided === 'x') {
       s.dx = dx
-      setDrag(Math.max(-60, Math.min(60, dx)))
+      // Follows the finger with resistance, so it reads as elastic.
+      setOffset(dx * 0.45)
     }
   }
   const onTouchEnd = () => {
     const s = startRef.current
     startRef.current = null
-    setDrag(0)
-    // THE DISTANCE IS READ OFF THE REF, NOT OFF `drag`.
-    // `drag` is state, and state does not have to have committed by the time
-    // touchend runs - React batches, and a fast flick can deliver its last
-    // touchmove and its touchend inside one task, so the handler would see the
-    // offset from two moves ago (or zero, on the first flick). The ref is
-    // written synchronously in touchmove and is always current. `drag` stays as
-    // state because it only drives the transform, where a frame late is
-    // invisible.
-    if (s?.decided === 'x' && Math.abs(s.dx) > 45) onSwipe(s.dx < 0 ? 1 : -1)
+    if (s?.decided === 'x' && Math.abs(s.dx) > 45) {
+      // The new month mounts and slides in from the side; this one is replaced
+      // on the same frame, so it does not need to travel back first.
+      setOffset(0)
+      onSwipe(s.dx < 0 ? 1 : -1)
+    } else {
+      setOffset(0, true)
+    }
   }
 
   return (
     <div
-      ref={boxRef}
       // `touch-action: pan-y`: a vertical drag still scrolls the page, and a
-      // sideways one is handed to the swipe below instead of to the browser.
-      className="overflow-hidden rounded-card border border-gray-100 bg-white p-1 shadow-card [overscroll-behavior-x:contain] [touch-action:pan-y] sm:p-1.5"
+      // sideways one is handed to the swipe instead of to the browser.
+      className="overflow-hidden rounded-card border border-gray-200/80 bg-white p-1.5 shadow-card [overscroll-behavior-x:contain] [touch-action:pan-y] sm:p-2"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
-      // The grid follows the finger a little and springs back, which is what
-      // makes the gesture discoverable: the page answers before you commit.
-      style={drag ? { transform: `translateX(${drag * 0.35}px)` } : undefined}
     >
+      <div ref={boxRef} className="will-change-transform">
       <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
           <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-widest text-smoke">
@@ -950,7 +978,13 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
           squared". Each day is its own rounded tile with a small gap, so a
           busy day is an orange rounded tile and the month reads as a set of
           days rather than a table. */}
-      <div className={cx('grid grid-cols-7 gap-1 sm:gap-1.5', !drag && 'transition-transform duration-300 ease-out')}>
+      {/* MORE CONTRAST (28 Sep 2026, evening). Ethan: "maybe the rounded boxes
+          are actually okay. You just need to make it more contrasting or make it
+          stand out better." The empty days were cloud on white - two near-whites
+          - so the month read as a pale haze. Each day is now a white tile with
+          a real edge on a light grey card, the weekend a shade deeper, and
+          today ringed in the brand. */}
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {days.map((day) => {
           const list = eventsOn(day)
           const selected = selectedDay && isSameDay(day, selectedDay)
@@ -976,7 +1010,13 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
                 'hover:z-10 active:scale-[0.96] hoverable:hover:-translate-y-0.5',
                 busy
                   ? cx('bg-gradient-to-br text-white shadow-[0_6px_16px_-8px_rgba(217,68,7,0.7)] hover:brightness-105', outside ? 'from-brand/55 to-brand-light/55' : 'from-brand to-brand-light')
-                  : cx('hover:bg-brand-tint/50', away ? 'bg-brand-tint/60' : outside ? 'bg-transparent' : 'bg-cloud/70'),
+                  : cx(
+                    'hover:border-brand/40 hover:bg-brand-tint/40',
+                    away ? 'border border-brand-light/40 bg-brand-tint/70'
+                      : outside ? 'border border-transparent bg-transparent'
+                        : today ? 'border-2 border-brand/70 bg-white'
+                          : isWeekend(day) ? 'border border-gray-200 bg-gray-50' : 'border border-gray-200 bg-white',
+                  ),
                 selected && 'z-10',
               )}
             >
@@ -1042,6 +1082,7 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
             </button>
           )
         })}
+      </div>
       </div>
     </div>
   )
