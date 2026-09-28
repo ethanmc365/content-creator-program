@@ -5,10 +5,9 @@
 //
 //   TikTok     Exact, nothing needed.
 //   YouTube    Exact, needs a free Data API v3 key: YouTube bot-blocks servers.
-//   Facebook   Exact below a thousand, rounded to two figures above it. A
-//              /share/ link does not redirect - it JS-bounces to itself with
-//              ?hpir=1 - and Facebook randomly serves a cookie-consent page
-//              instead of the video, so resolution RETRIES.
+//   Facebook   Exact, nothing needed. Read as a search crawler off
+//              /reel/<id>/, and HOPPED ACROSS SUPABASE REGIONS when one of them
+//              meets Facebook's login wall (see ./facebook.ts).
 //   Instagram  Exact, NOTHING needed. Read off the creator's public reels tab,
 //              which states a view count to anybody signed out. The session
 //              cookie this used to carry got the Tryp.com UK account warned for
@@ -19,6 +18,7 @@
 //   itself                      x-webhook-secret, { continuation } -> next chunk
 //   admin "Sync now"            admin JWT, { challenge_id, force } -> read now
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
+//   itself, in another region   x-webhook-secret, { facebook_read } -> one FB read
 //
 // SCALE. Staleness belongs to the ENTRY, not the run: each invocation takes the
 // oldest-read chunk it can finish, then hands the rest to a fresh one.
@@ -27,6 +27,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
+import {
+  FB_CRAWLER_UAS, facebookCountFor, facebookIdCandidates, facebookIdFrom, facebookTitleCount,
+  isFacebookWall, pluginVideoId, regionOrder,
+} from './facebook.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -89,6 +93,8 @@ const MAX_CHUNKS_PER_CHAIN = 40 // 4,800 entries before a chain stops itself
 const LANE_PUBLIC = 8
 const LANE_INSTAGRAM = 3
 const IG_GAP_MS = 120
+const LANE_FACEBOOK = 2
+const FB_GAP_MS = 600
 
 export type Platform = 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook'
 const SOURCE: Record<Platform, string> = {
@@ -416,171 +422,24 @@ async function youtubeViews(url: string, meta = false): Promise<Resolved> {
 }
 
 // ----------------------------------------------------------------- facebook
-export function facebookIdFrom(url: string): string | null {
-  return url.match(/\/(?:videos|reel|video)\/(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
-}
-
-// "5.7K" -> 5700, "8.9M" -> 8900000, "1,234" -> 1234.
-export function parseCompactCount(raw: string): number | null {
-  const m = raw.replace(/,/g, '').match(/^([\d.]+)\s*([KMB]?)$/i)
-  if (!m) return null
-  const n = parseFloat(m[1])
-  if (!isFinite(n)) return null
-  return Math.round(n * { '': 1, k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase() as '' | 'k' | 'm' | 'b'])
-}
-
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-}
-
-// A /share/ link does not redirect. It answers a desktop agent with a 400, and a
-// phone with an 836-byte shell whose only content is a JavaScript bounce back to
-// ITSELF carrying `?hpir=1`. Fetching that second URL finally returns the real
-// page. Nothing in the chain is an HTTP redirect, so `redirect: follow` never
-// helped and the link looked like it pointed at nothing.
-async function resolveFacebookShareOnce(url: string): Promise<{ html: string; url: string } | null> {
-  let current = url
-  for (let hop = 0; hop < 3; hop++) {
-    let html: string
-    try {
-      html = await getText(current, { 'User-Agent': MOBILE_UA }, 'follow')
-    } catch {
-      return null
-    }
-    // A bounce page is tiny and does nothing but set location. A real page is
-    // tens of kilobytes, so size is the honest way to tell them apart.
-    const jump = html.match(/location\.replace\("([^"]+)"\)/)?.[1]
-    if (jump && html.length < 4000) {
-      current = jump.replace(/\\\//g, '/')
-      continue
-    }
-    return { html, url: current }
-  }
-  return null
-}
-
-// The id is not in the URL and not in an og tag; it is in the page's own
-// bootstrap JSON. `pageID` is the one that holds it for a share link. The
-// seventeen-digit number that appears six times is a LOGGING id (WebLiteLid) and
-// resolves to Facebook's generic video page, so candidates are TRIED rather than
-// trusted.
-export function facebookIdCandidates(html: string): string[] {
-  const found: string[] = []
-  const push = (v?: string | null) => {
-    if (v && !found.includes(v)) found.push(v)
-  }
-  // Authoritative first: canonical and og:url describe THIS page. A bare path
-  // match anywhere in 400 kB could belong to a recommended video.
-  push(html.match(/rel="canonical"\s+href="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
-  push(html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
-  push(html.match(/"pageID"\s*:\s*"?(\d{6,})"?/)?.[1])
-  push(html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1])
-  push(html.match(/"videoID"\s*:\s*"(\d{6,})"/)?.[1])
-  push(html.match(/\/(?:videos|reel)\/(\d{6,})/)?.[1])
-  return found
-}
-
-// WHY THIS RETRIES, measured 24 Aug 2026.
 //
-// Facebook serves the same share link as one of THREE pages at random: a 65 kB
-// one and a 400 kB one, both of which carry the video, and a 48 kB COOKIE
-// CONSENT interstitial that carries nothing at all. Over ten attempts the
-// consent page came back once or twice - which is exactly the "fails three
-// times then works on the fourth" that made this look broken.
+// REBUILT 28 Sep 2026. The parsing lives in ./facebook.ts (pure, tested); this
+// half does the fetching. See the header of facebook.ts for what was measured.
 //
-// It is not a rate limit and there is nothing to back off from: asking again
-// simply gets a different page. Four attempts took a measured 9/10 to 15/15.
-async function facebookCandidatesFor(url: string): Promise<string[]> {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const page = await resolveFacebookShareOnce(url)
-    if (page) {
-      const found = facebookIdCandidates(page.html)
-      if (found.length) return found
-    }
-    await sleep(250 * (attempt + 1))
-  }
-  return []
-}
+// The shape, and why:
+//   1. RESOLVE the link to a video id. Straight off the URL when it says so;
+//      otherwise Facebook's own embed plugin (the one route that resolves
+//      story.php/pfbid links signed out), then the crawler's redirect, then the
+//      old phone bounce for /share/ links. The id is stored on the entry, so
+//      this happens once per video.
+//   2. READ `/reel/<id>/` as a crawler and take the count bound to our id.
+//      Classic videos fall back to the watch page's og:title.
+//   3. FAIL OVER ACROSS REGIONS. Facebook walls crawler traffic per server IP,
+//      so a read that meets the login wall is handed to this same function in
+//      another Supabase region (the `x-region` header) until one answers.
+//      Measured: with one region walled, eight of ten others read the count.
 
-type FbRead = { views: number; approx: boolean } | { blocked: true } | null
-
-// Reads one candidate id. `null` means "that was not the video" - the generic
-// "Discover popular videos" page, which is what a wrong id lands on.
-async function readFacebookCount(id: string): Promise<FbRead> {
-  for (const target of [`https://www.facebook.com/watch/?v=${id}`, `https://www.facebook.com/video.php?v=${id}`]) {
-    let title: string
-    try {
-      const html = await getText(target)
-      title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
-    } catch {
-      continue
-    }
-
-    // ROUNDED FIRST, then exact: Facebook states a plain number below a thousand
-    // ("847 views") and only rounds above it ("5.7K views").
-    const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
-    if (rounded) {
-      const n = parseCompactCount(rounded)
-      if (n != null) return { views: n, approx: true }
-    }
-    const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
-    if (exact) {
-      const n = parseCompactCount(exact)
-      if (n != null) return { views: n, approx: false }
-    }
-    if (/log in/i.test(title)) return { blocked: true }
-  }
-  return null
-}
-
-async function looksLikeFacebookReel(id: string): Promise<boolean> {
-  try {
-    const html = await getText(`https://www.facebook.com/watch/?v=${id}`)
-    return /property="og:url"\s+content="[^"]*\/reel\//.test(html)
-  } catch {
-    return false
-  }
-}
-
-// THE CRAWLER VIEW, measured 26 Sep 2026.
-//
-// Signed out, a browser gets a reel page with no count in it anywhere - which
-// is why reels used to come back "count hidden" and share links "goes nowhere".
-// The SAME url asked for as a search crawler is answered with the full page
-// data, and in it every video carries a `video_view_count_renderer` whose
-// `associated_video.id` names the video it belongs to, followed by
-// `play_count` (the plays figure the creator sees on their own reels tab) and
-// `video_view_count`. The page also holds a dozen RECOMMENDED reels with counts
-// of their own, so the count is only ever taken from the block bound to OUR id.
-//
-// Share links (/share/r/..., story.php?story_fbid=pfbid...) redirect over plain
-// HTTP for this agent, straight to /reel/<id>/, so the real video id falls out
-// of the final URL. The id stored from the old resolver could be a PAGE id
-// (122125890357428229 on 26 Sep), so the link is always re-resolved here.
-// Several agents, tried in order: a platform that checks one crawler's address
-// range may not check another's.
-const CRAWLER_UAS = [
-  'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
-  'Mozilla/5.0 (compatible; Google-InspectionTool/1.0)',
-  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-]
-
-export function facebookCountFor(html: string, id: string): { views: number; approx: boolean } | null {
-  const esc = id.replace(/\D/g, '')
-  const block = new RegExp(`"associated_video":\\{[^{}]*"id":"${esc}"\\}([^{}]{0,1200})`).exec(html)?.[1]
-  if (!block) return null
-  const play = block.match(/"play_count":(\d+)/)?.[1]
-  const views = block.match(/"video_view_count":(\d+)/)?.[1]
-  const n = Math.max(Number(play ?? 0), Number(views ?? 0))
-  if (!play && !views) return null
-  return { views: n, approx: false }
-}
-
-async function crawlerFetch(url: string, ua = CRAWLER_UAS[0]): Promise<{ html: string; url: string } | null> {
+async function fbFetch(url: string, ua: string): Promise<{ html: string; url: string; status: number } | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS * 2)
   try {
@@ -589,8 +448,7 @@ async function crawlerFetch(url: string, ua = CRAWLER_UAS[0]): Promise<{ html: s
       redirect: 'follow',
       signal: ctrl.signal,
     })
-    if (!res.ok) { await res.body?.cancel(); return null }
-    return { html: await res.text(), url: res.url || url }
+    return { html: await res.text(), url: res.url || url, status: res.status }
   } catch {
     return null
   } finally {
@@ -598,87 +456,170 @@ async function crawlerFetch(url: string, ua = CRAWLER_UAS[0]): Promise<{ html: s
   }
 }
 
-async function facebookViewsAsCrawler(url: string, knownId: string | null): Promise<Resolved | null> {
-  const base = { platform: 'Facebook' as const }
-  for (const ua of CRAWLER_UAS) {
-    const page = await crawlerFetch(url, ua)
-    if (!page) { await sleep(300); continue }
-    const canonicalHref = page.html.match(/rel="canonical"\s+href="([^"]+)"/)?.[1] ?? null
-    const ids = [
-      facebookIdFrom(page.url),
-      canonicalHref ? facebookIdFrom(canonicalHref) : null,
-      ...facebookIdCandidates(page.html),
-      knownId,
-    ].filter((v, i, a): v is string => !!v && a.indexOf(v) === i)
-    for (const id of ids.slice(0, 4)) {
-      let found = facebookCountFor(page.html, id)
-      // A /watch or /videos page sometimes carries only the player. The reel
-      // route serves the renderer for any video id.
-      if (!found) {
-        const reel = await crawlerFetch(`https://www.facebook.com/reel/${id}/`, ua)
-        if (reel) found = facebookCountFor(reel.html, id)
-      }
-      if (found) {
-        return { ...base, videoId: id, canonicalUrl: canonicalHref ?? page.url, views: found.views, approx: found.approx, error: null }
-      }
+// A /share/ link answers a phone with an 836-byte shell whose only content is
+// a JavaScript bounce back to ITSELF carrying `?hpir=1`. Fetching that second
+// URL returns the real page, whose og:url names the reel.
+async function resolveFacebookShareOnce(url: string): Promise<{ html: string; url: string } | null> {
+  let current = url
+  for (let hop = 0; hop < 3; hop++) {
+    const page = await fbFetch(current, MOBILE_UA)
+    if (!page) return null
+    const jump = page.html.match(/location\.replace\("([^"]+)"\)/)?.[1]
+    if (jump && page.html.length < 4000) {
+      current = jump.replace(/\\\//g, '/')
+      continue
     }
+    return { html: page.html, url: page.url }
   }
   return null
 }
 
-async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
-  const viaCrawler = await facebookViewsAsCrawler(url, knownId)
-  if (viaCrawler) return viaCrawler
+type FbLocal = Resolved & { walled?: boolean; region?: string | null }
 
-  const base = { platform: 'Facebook' as const }
-  let canonical: string | null = url
-  let candidates: string[] = []
+// Every route that can turn a link into a video id, cheapest first. Returns as
+// soon as one names an id; `walled` says a login page got in the way.
+async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled: boolean }> {
+  let walled = false
+  const ids: string[] = []
+  const add = (v: string | null | undefined) => { if (v && !ids.includes(v)) ids.push(v) }
 
-  const direct = knownId ?? facebookIdFrom(url)
-  if (direct) {
-    candidates = [direct]
-  } else {
-    // fb.watch and friends DO redirect over HTTP; /share/ links do not.
-    const followed = await followRedirects(url, MOBILE_UA)
-    if (followed && followed !== url) {
-      canonical = followed
-      const fromUrl = facebookIdFrom(followed)
-      if (fromUrl) candidates = [fromUrl]
+  // The embed plugin: resolves story.php/pfbid, /share/, /watch and /videos.
+  const plugin = await fbFetch(
+    `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=500`, UA)
+  if (plugin) add(pluginVideoId(plugin.html))
+  if (ids.length) return { ids, walled }
+
+  // A crawler is REDIRECTED from a share link straight to /reel/<id>/.
+  for (const ua of FB_CRAWLER_UAS) {
+    const page = await fbFetch(url, ua)
+    if (!page) continue
+    if (isFacebookWall(page.url, page.html)) { walled = true; continue }
+    add(facebookIdFrom(page.url))
+    for (const c of facebookIdCandidates(page.html).slice(0, 2)) add(c)
+    if (ids.length) return { ids, walled }
+  }
+
+  // The phone bounce, for /share/ links.
+  const bounced = await resolveFacebookShareOnce(url)
+  if (bounced) {
+    if (isFacebookWall(bounced.url, bounced.html)) walled = true
+    else {
+      add(facebookIdFrom(bounced.url))
+      for (const c of facebookIdCandidates(bounced.html).slice(0, 3)) add(c)
     }
-    if (!candidates.length) {
-      candidates = await facebookCandidatesFor(canonical ?? url)
+  }
+  return { ids, walled }
+}
+
+// One id, every agent. `walled` when nothing answered but a login page.
+async function facebookReadId(id: string): Promise<{ views: number; approx: boolean } | { walled: boolean }> {
+  let walled = false
+  for (const ua of FB_CRAWLER_UAS) {
+    const page = await fbFetch(`https://www.facebook.com/reel/${id}/`, ua)
+    if (!page) continue
+    if (isFacebookWall(page.url, page.html)) { walled = true; continue }
+    const n = facebookCountFor(page.html, id)
+    if (n != null) return { views: n, approx: false }
+  }
+  // A classic video states its count in the watch page's title.
+  const watch = await fbFetch(`https://www.facebook.com/watch/?v=${id}`, UA)
+  if (watch) {
+    if (isFacebookWall(watch.url, watch.html)) walled = true
+    else {
+      const t = facebookTitleCount(watch.html)
+      if (t) return t
     }
   }
+  return { walled }
+}
 
-  if (!candidates.length) {
-    return fail({ ...base, canonicalUrl: canonical }, 'no_video_id',
-      'That Facebook link does not resolve to a video. A post that is not public cannot be read.')
-  }
+// The whole read, in THIS region. Called directly when there is nowhere else to
+// go, and by the region hop below.
+async function facebookReadHere(url: string, knownId: string | null): Promise<FbLocal> {
+  const base = { platform: 'Facebook' as const, region: Deno.env.get('SB_REGION') ?? null }
+  let walled = false
+  const tried = new Set<string>()
 
-  let sawBlocked = false
-  for (const id of candidates.slice(0, 4)) {
-    const read = await readFacebookCount(id)
-    if (read && 'views' in read) {
-      return { ...base, videoId: id, canonicalUrl: canonical, views: read.views, approx: read.approx, error: null }
+  const attempt = async (ids: string[]): Promise<FbLocal | null> => {
+    for (const id of ids) {
+      if (tried.has(id) || tried.size >= 5) continue
+      tried.add(id)
+      const r = await facebookReadId(id)
+      if ('views' in r) {
+        return { ...base, videoId: id, canonicalUrl: `https://www.facebook.com/reel/${id}/`, views: r.views, approx: r.approx, error: null }
+      }
+      if (r.walled) walled = true
     }
-    if (read && 'blocked' in read) sawBlocked = true
+    return null
   }
 
-  if (sawBlocked) {
-    return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'blocked',
-      'Facebook asked for a login instead of showing the video, which it does for posts that are not public.')
+  // What we already know first: a stored id, or one in the link itself.
+  const quick = await attempt([knownId, facebookIdFrom(url)].filter((v): v is string => !!v))
+  if (quick) return quick
+
+  // A stored id can be wrong (an old resolver once kept a PAGE id), so an id
+  // that reads nothing sends us back to the link.
+  const resolved = await facebookResolveIds(url)
+  if (resolved.walled) walled = true
+  const found = await attempt(resolved.ids)
+  if (found) return found
+
+  const videoId = resolved.ids[0] ?? knownId ?? facebookIdFrom(url)
+  if (walled) {
+    return { ...fail({ ...base, videoId, canonicalUrl: url }, 'blocked',
+      'Facebook showed a login page instead of the video from every place we asked. It will be read again on the next sync.'), walled: true }
   }
-  // A REEL IS A VIDEO WITH NO PUBLIC COUNT. Facebook states a reel's plays
-  // only to a signed-in viewer; signed out, the watch page's title is the
-  // caption and nothing anywhere in 470 kB carries the number (measured 24 Sep
-  // 2026). That needs a person to type it in, and the panel should say so
-  // rather than call it a photo post.
-  if (/\/reel\//.test(canonical ?? url) || (await looksLikeFacebookReel(candidates[0]))) {
-    return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'count_hidden',
-      'Facebook does not show a reel\'s view count to anyone signed out.')
+  if (!videoId) {
+    return fail({ ...base, canonicalUrl: url }, 'no_video_id',
+      'That Facebook link does not lead to a video. It may be a photo or text post, or not public.')
   }
-  return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'no_count_in_page',
+  return fail({ ...base, videoId, canonicalUrl: url }, 'no_count_in_page',
     'Facebook served the post but stated no view count. Photo and text posts have none.')
+}
+
+// Regions that answered recently, most recent first. Module scope, so it lasts
+// as long as the isolate - a sweep keeps using the region that is working.
+const fbGoodRegions: string[] = []
+const FB_MAX_HOPS = 6
+
+async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
+  // No secret, no hop: read here and say what happened.
+  if (!WEBHOOK_SECRET) return facebookReadHere(url, knownId)
+
+  let last: FbLocal | null = null
+  const order = regionOrder(fbGoodRegions).slice(0, FB_MAX_HOPS)
+  for (const region of order) {
+    let r: FbLocal | null = null
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 45_000)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET, 'x-region': region },
+        body: JSON.stringify({ facebook_read: { url, knownId } }),
+        signal: ctrl.signal,
+      }).finally(() => clearTimeout(timer))
+      if (res.ok) r = (await res.json()) as FbLocal
+      else await res.body?.cancel()
+    } catch {
+      r = null
+    }
+    if (!r) continue
+    last = r
+    if (r.views != null) {
+      const at = fbGoodRegions.indexOf(region)
+      if (at >= 0) fbGoodRegions.splice(at, 1)
+      fbGoodRegions.unshift(region)
+      return r
+    }
+    // A wall is this region's problem; anything else is the video's answer and
+    // asking elsewhere would only get the same one.
+    if (!r.walled) return r
+    const bad = fbGoodRegions.indexOf(region)
+    if (bad >= 0) fbGoodRegions.splice(bad, 1)
+  }
+  // Every hop failed at the transport, so try once from here before giving up.
+  return last ?? facebookReadHere(url, knownId)
 }
 
 // ---------------------------------------------------------------- instagram
@@ -1183,12 +1124,17 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     }
   }
 
+  const isFacebook = (r: Row) => r.platform === 'Facebook' || /(^|\/\/|\.)(facebook\.com|fb\.watch|fb\.com|fb\.me)\//i.test(r.video_url)
   const instagram = rows.filter((r) => r.platform === 'Instagram')
-  const publicRows = rows.filter((r) => r.platform !== 'Instagram')
+  const facebook = rows.filter((r) => r.platform !== 'Instagram' && isFacebook(r))
+  const publicRows = rows.filter((r) => r.platform !== 'Instagram' && !isFacebook(r))
 
+  // FACEBOOK GOES SLOWLY ON PURPOSE. It walls a server IP that asks too fast,
+  // and a burst is exactly what got one region walled while measuring this.
   await Promise.all([
     pool(publicRows, LANE_PUBLIC, one),
     pool(instagram, LANE_INSTAGRAM, async (row) => { await one(row); await sleep(IG_GAP_MS) }),
+    pool(facebook, LANE_FACEBOOK, async (row) => { await one(row); await sleep(FB_GAP_MS) }),
   ])
 
   await publishRun({ running: true, ...p })
@@ -1320,6 +1266,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
   const body = (await req.json().catch(() => ({}))) as {
+    facebook_read?: { url: string; knownId: string | null }
     probe?: string
     challenge_id?: string
     submission_ids?: string[]
@@ -1329,6 +1276,14 @@ Deno.serve(async (req) => {
 
   const secret = req.headers.get('x-webhook-secret') ?? ''
   const fromCron = WEBHOOK_SECRET !== '' && secret === WEBHOOK_SECRET
+
+  // ONE FACEBOOK READ, in whatever region this invocation landed in. Only this
+  // function asks for it (it carries the webhook secret); see facebookViews.
+  if (body.facebook_read) {
+    if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
+    const { url, knownId } = body.facebook_read
+    return json(req, await facebookReadHere(String(url), knownId ? String(knownId) : null))
+  }
 
   if (!fromCron) {
     const uid = await callerId(req)

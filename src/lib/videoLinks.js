@@ -146,7 +146,7 @@ export function describeLink(url) {
       platform,
       id,
       ready: true,
-      note: 'Facebook only states a rounded figure, so the count is saved as approximate.',
+      note: 'Facebook link found. The exact play count is read off the public reel.',
     }
   }
 

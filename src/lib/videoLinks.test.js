@@ -172,8 +172,8 @@ describe('what the UI is told before fetching', () => {
     })
   })
 
-  it('warns that a Facebook number is rounded', () => {
-    expect(describeLink('https://www.facebook.com/reel/1041137542129999').note).toMatch(/rounded|approximate/i)
+  it('says a Facebook number is read exactly', () => {
+    expect(describeLink('https://www.facebook.com/reel/1041137542129999').note).toMatch(/exact play count/i)
   })
 
   it('turns away what it cannot read, with a reason', () => {

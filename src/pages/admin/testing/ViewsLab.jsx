@@ -42,9 +42,9 @@ const PLATFORMS = [
   },
   {
     name: 'Facebook',
-    how: 'The page title is the only place Facebook states a count, so that is what is read.',
-    exact: 'Exact below 1,000; rounded above it',
-    cost: 'One request per entry. Above a thousand Facebook rounds to two figures - "5.7K" is somewhere between 5,650 and 5,749 - so it is within about 1%, and the row says it is rounded.',
+    how: 'The public reel page, read as a search crawler, states the play count. Any link shape works: share links, story links, reels and videos. If Facebook shows one server a login page, the read moves to another region.',
+    exact: 'Exact',
+    cost: 'Two or three requests per entry, one video at a time, so Facebook never sees a burst.',
   },
 ]
 
@@ -160,7 +160,7 @@ export default function ViewsLab() {
                   result.views == null
                     ? null
                     : result.approx
-                      ? 'Facebook rounds above a thousand, so this is within about 1%'
+                      ? 'The platform rounds this figure, so it is within about 1%'
                       : null,
                 ],
                 result.canonicalUrl

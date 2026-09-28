@@ -36,19 +36,19 @@ export const SYNC_ERRORS = {
   },
   no_count_in_page: {
     label: 'No view count on the post',
-    hint: 'The post opened but shows no number to a visitor (Facebook does this for most reels and for photo posts). Type the views in from the post.',
+    hint: 'The post opened but states no view count. Photo and text posts have none. If it is a video, type the views in from the post.',
   },
   removed: {
     label: 'Video deleted',
     hint: 'The platform says this video has been deleted or made private, so it cannot gain views. It keeps its last reading until you disqualify it.',
   },
   count_hidden: {
-    label: 'Facebook hides the count',
-    hint: 'Facebook shows reel plays only to the account that posted it, never to a visitor or a server. Type the plays in from the creator\'s screenshot.',
+    label: 'Count not shown',
+    hint: 'The platform would not state a count for this video. Type the plays in from the creator\'s screenshot.',
   },
   blocked: {
     label: 'Platform refused',
-    hint: 'The platform served a login or check page instead of the video. On TikTok and YouTube it usually clears on the next run. Facebook now does it every time, so type Facebook views in by hand.',
+    hint: 'The platform served a login or check page instead of the video, from every place we asked. The last reading is kept and it is read again on the next run.',
   },
   fetch_failed: {
     label: 'Could not reach it',

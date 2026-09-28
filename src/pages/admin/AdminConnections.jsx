@@ -38,7 +38,7 @@ const NO_CREDENTIAL = [
     text: 'Reads the exact count off the creator\'s public reels tab, the same number a signed-out visitor sees, including for creators who have hidden their counts on the post itself. No account, no cookie, nothing to connect - and nothing that can get a Tryp.com account flagged.',
   },
   { platform: 'TikTok', text: 'Reads the exact count off the public embed endpoint. Nothing to connect.' },
-  { platform: 'Facebook', text: 'Reads the count off the public page. Exact below a thousand views, rounded above it. Nothing to connect.' },
+  { platform: 'Facebook', text: 'Reads the exact play count off the public reel, from whichever region Facebook answers. Nothing to connect.' },
 ]
 
 // Meta gives each of its saved queries a numeric id and rotates them. The reader
