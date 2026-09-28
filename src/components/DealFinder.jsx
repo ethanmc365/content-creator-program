@@ -33,7 +33,18 @@ const TIPS = [
   { icon: 'refresh', title: 'Not finding a good one? Create more trips', body: 'Scroll to the bottom of the results and press "Create more trips". Tryp.com keeps looking for more deals and puts the best ones at the top.' },
   { icon: 'plane', title: 'Flight and hotel together', body: 'Booking both in one trip usually comes out cheaper than booking them separately. Show the total per person.' },
   { icon: 'pin', title: 'Try a multi-city trip', body: 'Two or three cities in one booking. It is the kind of trip people do not know they can get this cheaply.' },
-  { icon: 'device', title: 'Capture the trip', body: 'Screenshot the trip, or screen-record your phone or laptop as you scroll through it, so viewers see the real website, the price and the dates.' },
+  {
+    icon: 'device',
+    title: 'Capture the trip',
+    body: 'Prices move, so catch the price, dates and airport the moment you find them. Any of these works:',
+    // Ethan, 28 Sep 2026 (evening): the three, as a list, the last "so
+    // viewers will actually see the website, the prices, and the dates."
+    ways: [
+      'Screenshot the trip',
+      'Screen record your screen as you scroll through it',
+      'Film your laptop screen with your phone, so viewers see the website, the prices and the dates',
+    ],
+  },
 ]
 
 export default function DealFinder({ className, variant = 'button' }) {
@@ -64,13 +75,12 @@ export default function DealFinder({ className, variant = 'button' }) {
             href={trypHome(loc)}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative flex items-center gap-4 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5"
+            // TEXT ONLY, AND THE SURFACE MOVES RATHER THAN A LINE CROSSING IT
+            // (28 Sep 2026). Ethan: "I don't like the icon there with the
+            // plane. Remove that and just have the text there instead."
+            className="brand-drift animate-fade-up group relative flex items-center gap-4 overflow-hidden rounded-card px-5 py-4 text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5"
           >
-            <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand shadow-card">
-              <Icon name="plane-tryp" className="h-6 w-6" />
-            </span>
             <span className="relative min-w-0 flex-1">
               <span className="block text-lg font-bold leading-tight">{tr('Open Tryp.com')}</span>
               <span className="block text-xs text-white/85">{tr('Search flights and hotels, in your language')}</span>
@@ -103,25 +113,41 @@ export default function DealFinder({ className, variant = 'button' }) {
             </div>
           </section>
 
-          {/* THE STEPS AS A PATH (28 Sep 2026): numbered stops on a line that
-              draws itself down the list as they arrive, one after another. */}
+          {/* THE STEPS ARRIVE ONE AFTER ANOTHER (28 Sep 2026). There was a line
+              drawing itself down behind the numbers; Ethan: "the animation of
+              the line, I don't like so much." No line: each step rises in turn
+              and its number pops as it lands. */}
           <section>
             <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-smoke">{tr('How to find the best deal')}</h3>
             <ol className="relative space-y-2.5">
-              <span aria-hidden className="deal-path pointer-events-none absolute bottom-6 left-[1.3rem] top-6 w-0.5 origin-top rounded-full bg-gradient-to-b from-brand via-brand-light to-brand/20" />
               {TIPS.map((t, i) => (
                 <li
                   key={t.title}
                   style={{ animationDelay: `${300 + i * 90}ms` }}
                   className="animate-fade-up relative flex gap-3 rounded-2xl border border-gray-100 bg-white px-3.5 py-3 shadow-card [animation-fill-mode:both]"
                 >
-                  <span className="relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white shadow-[0_0_0_4px_#fff]">{i + 1}</span>
+                  <span
+                    style={{ animationDelay: `${380 + i * 90}ms` }}
+                    className="animate-pop-in relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white [animation-fill-mode:both]"
+                  >
+                    {i + 1}
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                       <Icon name={t.icon} className="h-3.5 w-3.5 shrink-0 text-brand" />
                       {tr(t.title)}
                     </span>
                     <span className="mt-0.5 block text-xs leading-relaxed text-smoke">{tr(t.body)}</span>
+                    {t.ways && (
+                      <ul className="mt-2 space-y-1.5">
+                        {t.ways.map((w) => (
+                          <li key={w} className="flex items-start gap-2 text-xs leading-relaxed text-ink/85">
+                            <span aria-hidden className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                            <span>{tr(w)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </span>
                 </li>
               ))}

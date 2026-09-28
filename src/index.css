@@ -2915,17 +2915,6 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .board-status-out > * { animation: none; }
 }
 
-/* THE DEAL STEPS' PATH (28 Sep 2026): the line behind the numbered steps in
-   "Find a deal" draws itself top to bottom while the steps arrive. */
-@keyframes deal-path-draw {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
-}
-.deal-path { animation: deal-path-draw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
-@media (prefers-reduced-motion: reduce) {
-  .deal-path { animation: none; }
-}
-
 /* KPI BARS GROW IN (28 Sep 2026) rather than appearing full. */
 @keyframes kpi-fill-grow {
   from { transform: scaleX(0); }
@@ -2963,4 +2952,22 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pin-flash { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   BRAND DRIFT (28 Sep 2026). A slow drift through Tryp.com orange and light
+   orange - nothing else. Ethan, on the animated buttons: "I don't like the pink
+   in the animated gradient. I would just keep it the Tryp.com orange and light
+   orange." Find a deal's hero uses it too, in place of the sweeping sheen. */
+.brand-drift {
+  background-image: linear-gradient(115deg, #d94407 0%, #f5853f 30%, #e8601c 55%, #f5853f 78%, #d94407 100%);
+  background-size: 260% 260%;
+  animation: brand-drift 10s ease-in-out infinite alternate;
+}
+@keyframes brand-drift {
+  0% { background-position: 0% 40%; }
+  100% { background-position: 100% 60%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-drift { animation: none; background-position: 30% 50%; }
 }

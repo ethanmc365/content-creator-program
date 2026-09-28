@@ -74,6 +74,31 @@ const compact = (n) => {
   return String(v)
 }
 
+// A SOLID LADDER, NOT A FADING ONE (28 Sep 2026). Ethan: "improve the colour
+// grading ... always ensure there's a more solid gradient." The steps used to
+// be the brand orange at rising OPACITY from 7%, so the first few were
+// near-white on white, and how pale they started depended on how many rules
+// the challenge had. Every step is now an opaque colour on one ramp: pale
+// peach -> Tryp.com light orange -> Tryp.com orange. The count only decides
+// how finely the ramp is sliced, never how washed out the bottom looks.
+const LADDER_STOPS = [
+  [0, [253, 221, 199]], // #fdddc7
+  [0.5, [245, 133, 63]], // #f5853f BRAND_LIGHT
+  [1, [217, 68, 7]], // #d94407 BRAND
+]
+export function ladderColor(heat) {
+  const t = Math.max(0, Math.min(1, heat))
+  for (let k = 1; k < LADDER_STOPS.length; k++) {
+    const [t1, c1] = LADDER_STOPS[k]
+    if (t <= t1) {
+      const [t0, c0] = LADDER_STOPS[k - 1]
+      const f = (t - t0) / (t1 - t0 || 1)
+      return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * f)).join(', ')})`
+    }
+  }
+  return 'rgb(217, 68, 7)'
+}
+
 const ladderCols = (n) => (n <= 1 ? 'grid-cols-1'
   : n === 2 ? 'grid-cols-2'
     : n === 3 ? 'grid-cols-3'
@@ -129,11 +154,11 @@ export default function ScoringPanel({ challenge, rules: given }) {
               <ul className={cx('grid gap-2', ladderCols(perVideo.length))}>
                 {perVideo.map((r, i) => {
                   const heat = perVideo.length > 1 ? i / (perVideo.length - 1) : 1
-                  const hot = heat > 0.55
+                  const hot = heat >= 0.45
                   return (
                     <li
                       key={r.id}
-                      style={{ backgroundColor: `rgba(217, 68, 7, ${(0.07 + heat * 0.93).toFixed(3)})`, animationDelay: `${i * 30}ms` }}
+                      style={{ backgroundColor: ladderColor(heat), animationDelay: `${i * 30}ms` }}
                       className={cx(
                         'animate-fade-up relative flex flex-col items-center justify-center overflow-hidden rounded-2xl px-2 pb-2.5 pt-3 text-center transition-transform duration-200 hoverable:hover:-translate-y-0.5',
                         hot ? 'text-white shadow-card' : 'text-ink',
@@ -141,7 +166,7 @@ export default function ScoringPanel({ challenge, rules: given }) {
                     >
                       <span className={cx('absolute left-2 top-1.5 text-[9px] font-bold tabular-nums', hot ? 'text-white/60' : 'text-brand/50')}>{i + 1}</span>
                       <span className="text-base font-bold tabular-nums leading-none">{compact(r.threshold)}</span>
-                      <span className={cx('mt-1 text-[10px] font-medium uppercase tracking-wide', hot ? 'text-white/80' : 'text-smoke')}>{tr("views")}</span>
+                      <span className={cx('mt-1 text-[10px] font-medium uppercase tracking-wide', hot ? 'text-white/85' : 'text-ink/60')}>{tr("views")}</span>
                       <span className={cx(
                         'mt-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
                         hot ? 'bg-white text-brand' : 'bg-brand text-white',
