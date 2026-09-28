@@ -204,8 +204,17 @@ function CertificateViewer({ row, onClose, tr }) {
   )
 }
 
-/** 1080 x 1920: the certificate on the brand gradient, for a story. */
-function StoryFrame({ refCb, design, facts }) {
+/**
+ * 1080 x 1920: the certificate on the brand gradient, for a story.
+ *
+ * EXPORTED SINCE 28 Sep 2026, so the studio can show an admin what they are
+ * actually giving out. Ethan: "you said you have the Instagram saveable
+ * versions of each, I don't see the design for this though. I should see it
+ * alongside the certificate somewhere when I'm editing it so I see how it
+ * looks." It was real and it was drawn twelve thousand pixels off the left of
+ * the screen, where only the creator downloading it ever saw the result.
+ */
+export function StoryFrame({ refCb, design, facts }) {
   const W = 1080
   const inner = 960
   return (

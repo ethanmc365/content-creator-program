@@ -8,6 +8,7 @@ import { pickClass } from '../../../lib/pick'
 import { confirm, notice, promptText } from '../../../lib/confirm'
 import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
+import { StoryFrame } from '../../certificate/CertificateWall'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
   ACCENTS, DEFAULT_ACCENT, LAYOUTS, PLACEHOLDERS,
@@ -66,6 +67,19 @@ const BLANK = {
   all_prize_places: false, options: {},
   is_active: true,
 }
+
+// The form's sections, in the order they appear. Module scope so the scroll spy
+// and the control it feeds can never disagree about the list.
+// How wide the story preview is drawn. 1080 x 1920 scaled to 118px is tall
+// enough to judge the crop and the type without taking the preview column over.
+const STORY_W = 118
+
+const SECTIONS = [
+  ['cert-words', 'Words'],
+  ['cert-look', 'Look'],
+  ['cert-when', 'When it is given'],
+  ['cert-who', 'Who gets it'],
+]
 
 export default function CertificateStudio() {
   const { profile } = useAuth()
@@ -508,6 +522,15 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
   const shownPlace = placeChoices.includes(previewPlace) ? previewPlace : placeChoices[0]
   const problem = ruleProblem(design)
   const wording = bodyProblem(design)
+  // THE SAME EXAMPLE THE CERTIFICATE PREVIEW USES, so the two pictures beside
+  // each other are of the same award rather than of two different ones.
+  const { profile: me } = useAuth()
+  const storyMarket = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
+  const storySample = sampleFacts(design, { market: storyMarket, place: shownPlace })
+  const storyFacts = {
+    ...storySample,
+    ...(me?.photo_url || me?.name ? { photo: me.photo_url || '', name: me.name || storySample.name } : null),
+  }
   const [card, setCard] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -530,6 +553,25 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
 
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
+  // WHICH SECTION YOU ARE LOOKING AT. Four identical links tell you where you
+  // can go and nothing about where you are; that is most of why the bar read as
+  // clutter. The topmost section still under the bar wins, so the control moves
+  // with the form rather than only when something is clicked.
+  const [here, setHere] = useState('cert-words')
+  useEffect(() => {
+    const onScroll = () => {
+      let current = SECTIONS[0][0]
+      for (const [id] of SECTIONS) {
+        const el = document.getElementById(id)
+        if (el && el.getBoundingClientRect().top <= 180) current = id
+      }
+      setHere(current)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* ONE BAR THAT ALWAYS SAYS WHERE YOU ARE AND WHAT YOU CAN DO (28 Sep
@@ -539,42 +581,77 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
           and the download was a small link under the preview. The bar is
           pinned under the header: back, which design this is and whether it
           is live, the sections to jump to, a download, and Save. */}
-      <div className="sticky top-16 z-30 -mx-1 flex flex-wrap items-center gap-2 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-card backdrop-blur sm:top-20">
-        <button type="button" onClick={onCancel} className="btn-ghost !px-2.5 !py-1.5 text-xs">← All certificates</button>
-        {/* SAY THAT THIS IS A FILE NAME (28 Sep 2026). The bar printed the
-            design's internal name - "Took part" - in bold ink, beside a Live
-            chip, directly above a certificate that also carries words. Ethan
-            read it as part of the award: "we have the 'Took part' words look
-            like it's given to whoever gets it. I don't like that."
-            The field below already says "only admins see this"; the bar did
-            not, so the one place the name appears big said nothing about what
-            it was. A muted "Editing" in front of it settles it in two words. */}
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">Editing</span>
-          <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
-        </span>
-        <span className={cx(
-          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-          design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
-        )}>
-          {design.is_active ? 'Live' : 'Draft'}
-        </span>
-        <div className="hidden items-center gap-1 lg:flex">
-          {[['cert-words', 'Words'], ['cert-look', 'Look'], ['cert-when', 'When it is given'], ['cert-who', 'Who gets it']].map(([id, label]) => (
-            (id !== 'cert-who' || design.id) && (
-              <button key={id} type="button" onClick={() => jump(id)} className="rounded-full px-2.5 py-1 text-xs font-semibold text-smoke hover:bg-cloud hover:text-ink">
-                {label}
+      {/* TWO ROWS, AND NOTHING SHOWS THROUGH IT (28 Sep 2026). Ethan: "scrolling
+          on the right 'edit' column, the content scrolls above the tab at the
+          top which it shouldn't. Also that tab on that top, I don't really
+          [like] the UI of it, like where it says 'took part' 'words' etc."
+
+          Both faults were in one element. It was `bg-white/95` with a blur, so
+          the form genuinely did scroll INTO it - you could read the fields
+          through the bar - and `-mx-1` left a sliver either side with nothing
+          behind it at all. It is opaque now, and it sits in its own sticky
+          wrapper with a solid background that runs the full width, so there is
+          no gap for anything to appear in.
+
+          And it was one row of eight unrelated things: a back link, a name, a
+          state chip, four section jumps and two buttons, all the same size and
+          all the same weight, so "Took part" and "Words" read as the same kind
+          of word. They are not: one is which design this is, the other is where
+          you are in the form. Identity and actions on the top row, the sections
+          as a segmented control underneath - and the control now shows which
+          section you are actually in rather than being four links that all look
+          alike. */}
+      {/* THE SHIELD ABOVE IT IS NOT DECORATION. The app header ends at 65px and
+          this bar sticks at 80, so there is a fifteen-pixel window between them
+          that the form scrolls through - which is most of what "the content
+          scrolls above the tab" actually was. `before` paints that window white
+          and sticks with the bar. Measured, not guessed. */}
+      <div className="sticky top-16 z-30 -mx-1 bg-white px-1 pb-2 pt-1 before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-white before:content-[''] sm:top-20">
+        <div className="rounded-card border border-gray-100 bg-white shadow-card">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+            <button type="button" onClick={onCancel} className="btn-ghost !px-2.5 !py-1.5 text-xs">← All certificates</button>
+            {/* SAY THAT THIS IS A FILE NAME (28 Sep 2026). The bar printed the
+                design's internal name - "Took part" - in bold ink, beside a
+                Live chip, directly above a certificate that also carries words.
+                Ethan read it as part of the award: "we have the 'Took part'
+                words look like it's given to whoever gets it." */}
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">Editing</span>
+              <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
+            </span>
+            <span className={cx(
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+              design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
+            )}>
+              {design.is_active ? 'Live' : 'Draft'}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" onClick={sample} disabled={saving || !card} className="btn-secondary !py-1.5 text-xs disabled:opacity-40">
+                {saving ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />} Download
               </button>
-            )
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={sample} disabled={saving || !card} className="btn-secondary !py-1.5 text-xs disabled:opacity-40">
-            {saving ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />} Download
-          </button>
-          <button type="button" onClick={onSave} disabled={!canSave} className="btn-primary !py-1.5 text-xs disabled:opacity-40">
-            Save
-          </button>
+              <button type="button" onClick={onSave} disabled={!canSave} className="btn-primary !py-1.5 text-xs disabled:opacity-40">
+                Save
+              </button>
+            </div>
+          </div>
+          <div className="hidden items-center gap-1 border-t border-gray-100 px-2 py-1.5 lg:flex">
+            {SECTIONS.map(([id, label]) => (
+              (id !== 'cert-who' || design.id) && (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => jump(id)}
+                  aria-current={here === id ? 'true' : undefined}
+                  className={cx(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                    here === id ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            ))}
+          </div>
         </div>
       </div>
 
@@ -609,6 +686,38 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               ))}
             </div>
           )}
+          {/* THE INSTAGRAM STORY, BESIDE THE CERTIFICATE (28 Sep 2026). Ethan:
+              "you said you have the Instagram saveable versions of each, I
+              don't see the design for this though. I should see it alongside
+              the certificate somewhere when I'm editing it so I see how it
+              looks."
+              It existed and it was invisible: `StoryFrame` is rendered twelve
+              thousand pixels off the left of the creator's rewards page, purely
+              so it can be photographed into a PNG. The words below used to
+              DESCRIBE it, which is not the same as showing it - a description
+              cannot tell you that a long title wraps badly at 1080 wide.
+              It is the same component the creator's download is taken from, so
+              this is the picture rather than an impression of it. */}
+          <div className="mt-4 rounded-card border border-gray-100 bg-cloud/50 p-3">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-black/5" style={{ width: STORY_W, height: STORY_W * (1920 / 1080) }}>
+                <div style={{ transform: `scale(${STORY_W / 1080})`, transformOrigin: 'top left' }}>
+                  <StoryFrame design={design} facts={storyFacts} />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story</p>
+                <p className="mt-1 text-sm font-semibold text-ink">1080 &times; 1920</p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
+                  Every certificate has one. The creator gets it on
+                  {' '}<strong className="font-semibold text-ink">My rewards</strong>, under
+                  {' '}<strong className="font-semibold text-ink">Share to your story</strong>, and it is built from this
+                  design - so whatever you change here changes it too.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
             <p className="text-[11px] text-gray-400">
               {/* THE EXAMPLE MATCHES THE TRIGGER. A milestone design previews

@@ -789,38 +789,99 @@ function Postcard({ s, c, o }) {
  * plane at its right, trailing its route off the edge; the badge hangs from
  * the band's lower edge; the name centred and large beneath.
  */
+/**
+ * SKY BANNER, REDRAWN (28 Sep 2026). Ethan: "please improve the design of the
+ * sky banner one, it's the only one I don't like, the rest should remain as
+ * they are."
+ *
+ * What was wrong with it, and every one of these is visible in a screenshot of
+ * the old one rather than a matter of taste:
+ *
+ *   * IT WAS TOP-HEAVY AND EMPTY UNDERNEATH. A flat 250px slab across the top
+ *     third, then a centred name floating in a large white nothing, then the
+ *     footer. The two halves did not belong to the same document.
+ *   * THE TITLE SAT IN THE BOTTOM-LEFT CORNER OF THE SLAB while the name below
+ *     it was centred, so the eye went left, then centre, then left again. The
+ *     layout's own description has always said "centred and bold".
+ *   * THE PLANE WAS CLIPPED BY THE SLAB'S EDGE and its trail was a stub in the
+ *     top-right corner going nowhere - four dots, off the page.
+ *   * THE BADGE COLLIDED WITH THE SLAB'S CORNER, hanging half off the right
+ *     edge under the plane, which is the busiest part of the whole design.
+ *
+ * So: the band keeps its gradient and gets a HORIZON - its lower edge is an arc
+ * rather than a rule, which is the one shape that makes a band of colour read
+ * as sky. The wordmark stays top-left; the kicker and title are centred in the
+ * band, which is what the layout always claimed to be. The plane flies ACROSS
+ * the band from the left with its trail behind it, entering rather than being
+ * cut in half by a corner. And the medal is centred on the horizon's lowest
+ * point, on a white disc that separates it from the gradient - the one place on
+ * a banner where a seal has always belonged.
+ */
 function Banner({ s, c, o }) {
   const BAND = 250
+  // The bottom corners curve UP by this much, so the centre of the band is its
+  // lowest point and the edge reads as a horizon rather than a cut.
+  const ARC = 64
+  const MEDAL = 120
   const ink = s.onBlock
   const white = isWhite(ink)
   return (
     <>
-      <GradientBlock s={s} radius={0} style={{ left: 0, right: 0, top: 0, height: BAND }}>
-        {/* The trail runs from the plane's tail off the top right edge only. */}
-        {o.route && <Route d="M 905 104 C 940 96, 965 70, 1010 30" color={ink} opacity={0.6} />}
-        {o.plane && <Plane width={270} left={1000 - M - 290} top={70} rotate={-6} />}
-        <div style={{ position: 'absolute', left: M + 8, top: 44 }}>
+      <GradientBlock
+        s={s}
+        radius={0}
+        style={{ left: 0, right: 0, top: 0, height: BAND, borderRadius: `0 0 50% 50% / 0 0 ${ARC}px ${ARC}px` }}
+      >
+        {/* THE AIRCRAFT FLIES ABOVE THE TITLE, NOT THROUGH IT. It is in the
+            top right with the trail coming in from the left at the same
+            height, so the whole flight sits in the band's upper third and the
+            centred title below has the full width to itself. Measured: the
+            plane's box ends at y=104 and the title starts at y=118. */}
+        {o.route && <Route d="M 150 98 C 340 88, 520 66, 700 48" color={ink} opacity={0.55} />}
+        {o.plane && <Plane width={200} left={690} top={26} rotate={-7} />}
+        <div style={{ position: 'absolute', left: M + 8, top: 42 }}>
           <Wordmark white={white} height={28} />
         </div>
-        <div style={{ position: 'absolute', left: M + 8, right: 380, bottom: 42 }}>
-          <Kicker s={s} color={ink}>{c.subtitle}</Kicker>
+        {/* Centred, and high enough in the band that the arc below it stays
+            empty - the medal is what sits on the horizon. */}
+        <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 118, textAlign: 'center' }}>
+          <Kicker s={s} color={ink} align="center">{c.subtitle}</Kicker>
           <div style={{ height: c.subtitle ? 10 : 0 }} />
-          <Title s={s} size={40} color={ink}>{c.title}</Title>
+          <Title s={s} size={40} align="center" color={ink}>{c.title}</Title>
         </div>
       </GradientBlock>
-      {/* The badge hangs from the band's lower edge on the right, under the
-          plane, clear of the title. */}
-      {o.medal && <Badge s={s} c={c} size={116} style={{ right: M + 20, top: BAND - 58 }} />}
 
+      {/* THE MEDAL SITS ON THE HORIZON, centred, half on the sky and half on
+          the paper. The white disc behind it is what keeps it readable across
+          both - without it a white badge disappears into the paper below and a
+          gradient one disappears into the band above. */}
+      {o.medal && (
+        <>
+          <div style={{
+            position: 'absolute', left: (CERT_W - MEDAL - 16) / 2, top: BAND - (MEDAL + 16) / 2,
+            width: MEDAL + 16, height: MEDAL + 16, borderRadius: '50%', background: '#ffffff',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+          }} />
+          <Badge s={s} c={c} size={MEDAL} style={{ left: (CERT_W - MEDAL) / 2, top: BAND - MEDAL / 2 }} />
+        </>
+      )}
+
+      {/* The words start below the medal rather than below the band, so the
+          block is one column down the middle and the white space is around it
+          instead of inside it. */}
       <div style={{
-        position: 'absolute', left: 150, right: 150, top: BAND + 20, bottom: 150,
+        position: 'absolute', left: 140, right: 140, top: BAND + MEDAL / 2 + 34, bottom: 132,
         display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
       }}>
         <Preamble s={s} align="center">{c.preamble}</Preamble>
         <div style={{ height: 6 }} />
-        <Name s={s} size={58} align="center">{c.name}</Name>
-        <div style={{ height: 12 }} />
-        <Body s={s} align="center" width={640} size={16}>{c.body}</Body>
+        <Name s={s} size={54} align="center">{c.name}</Name>
+        <div style={{ height: 14 }} />
+        {/* A short rule under the name, in the accent: it closes the centred
+            column and gives the body text something to sit under. */}
+        <div style={{ width: 72, height: 3, borderRadius: 2, background: s.accent, opacity: 0.85 }} />
+        <div style={{ height: 14 }} />
+        <Body s={s} align="center" width={620} size={16}>{c.body}</Body>
       </div>
       <Footer s={s} c={c} align="center" style={{ left: M + 24, right: M + 24, bottom: M - 20 }} />
     </>

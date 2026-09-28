@@ -102,7 +102,17 @@ export default function AwardedList() {
               key={s.label}
               className={cx(
                 'rounded-card border p-4',
-                s.lead ? 'border-transparent bg-brand text-white' : 'border-gray-100 bg-white shadow-card',
+                // NOT BRAND ORANGE (28 Sep 2026). Ethan: "on the awarded tab I
+                // don't like how Awarded is Tryp.com orange, change the colour
+                // of it." Orange is the platform's own colour and it is on
+                // every button and chip around this tile, so the one number
+                // that is meant to stand out was the same colour as the
+                // furniture. Green is the colour this app now uses for
+                // something reached rather than something clickable - the same
+                // choice as the KPI progress bar.
+                s.lead
+                  ? 'border-transparent bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-card'
+                  : 'border-gray-100 bg-white shadow-card',
               )}
             >
               <p className={cx('text-2xl font-extrabold leading-none tabular-nums', !s.lead && 'text-ink')}>{s.value}</p>
