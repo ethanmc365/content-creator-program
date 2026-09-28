@@ -741,7 +741,7 @@ function AllEntries({ subs, challenge }) {
     .sort((a, b) => (order === 'views'
       ? (b.logged_views ?? -1) - (a.logged_views ?? -1)
       : order === 'points'
-        ? (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0)
+        ? (points.get(b.id)?.total ?? 0) - (points.get(a.id)?.total ?? 0)
         : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)))
   const orders = [
     { value: 'views', label: 'Most views' },

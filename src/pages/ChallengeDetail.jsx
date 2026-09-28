@@ -9,7 +9,7 @@ import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
-import EntryPreview from '../components/challenge/EntryPreview'
+import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
 import { streaksByCreator } from '../lib/postingStreak'
 import SwapIn from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
@@ -656,12 +656,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // offers only the ones open right now; an entry can claim one only if it was
   // submitted inside that bonus's dates, which is also what the database checks.
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
-  // Bonus points that have actually LANDED on an entry: claimed, and past any
-  // view gate. A claim still waiting on its views is shown in the body, amber.
-  const landedBonus = (s) => [...(claimsBySubmission.get(s.id) || [])]
-    .map((rid) => bonusById.get(rid))
-    .filter((r) => r && !(r.min_views > 0 && (s.logged_views ?? 0) < r.min_views))
-    .reduce((sum, r) => sum + Number(r.points || 0), 0)
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
   // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
@@ -1336,7 +1330,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr("Submit your video")}</button>}
           />
         ) : (
-          <div key={`${entryScope}:${entryQuery}`} className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+          // FOUR ACROSS ON A DESKTOP (28 Sep 2026). Ethan: "these cards on
+          // desktop ... seem to be too big. Maybe you could have 4 on each
+          // line rather than 3." Two on a phone, three on a tablet, four from lg.
+          <div key={`${entryScope}:${entryQuery}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {shownEntries.map((s, i) => (
               <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
                 'animate-fade-up',
@@ -1345,11 +1342,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               )}>
                 <EntryPreview
                   submission={s}
-                  points={challenge.scoring === 'points' ? (entryPoints.get(s.id) ?? 0) : null}
-                  bonus={landedBonus(s)}
+                  points={challenge.scoring === 'points' ? (entryPoints.get(s.id) ?? { total: 0 }) : null}
                   onPlay={() => setPlaying(s)}
                 />
-                <div className="flex flex-1 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
+                <div className="flex flex-1 flex-col gap-2.5 p-3">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <Link to={`/profile/${s.profiles?.id}`} className="shrink-0">
                       <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
@@ -1369,6 +1365,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       <p className="truncate text-[11px] text-smoke sm:text-xs">{formatDateTimeTz(s.submitted_at)}</p>
                     </div>
                   </div>
+                  {/* WHAT THE POINTS WERE FOR (28 Sep 2026): "+1 views · +5 bonus". */}
+                  {challenge.scoring === 'points' && <PointParts points={entryPoints.get(s.id)} />}
                   {s.caption && <p className="line-clamp-2 text-xs text-smoke [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm">{s.caption}</p>}
 
                   {/* ---- WHAT THIS ENTRY CLAIMED ----

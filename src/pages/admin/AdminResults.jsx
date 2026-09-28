@@ -15,7 +15,9 @@ import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGro
 import { pickClass } from '../../lib/pick'
 import Reveal from '../../components/network/Reveal'
 import { ruleOpenAt } from '../../lib/scoring'
-import EntryPreview from '../../components/challenge/EntryPreview'
+import EntryPreview, { PointParts } from '../../components/challenge/EntryPreview'
+import SocialMark from '../../components/SocialMark'
+import { scrollToElement } from '../../lib/scrollTo'
 import { useEntryPoints } from '../../lib/entryPoints'
 
 // Results entry for one challenge:
@@ -61,6 +63,21 @@ export default function AdminResults() {
   // SEARCH BY NAME (28 Sep 2026). Ethan: "Type in Tara, and it would show all
   // her entries."
   const [query, setQuery] = useState('')
+
+  // THE SCROLL RUNS AFTER THE LIST HAS RE-SORTED, NOT 40MS AFTER THE CLICK
+  // (28 Sep 2026). Ethan: "it shows at the top, but it's a little bit laggy in
+  // the way it scrolls down." Three things were fighting: a smooth scroll
+  // started while the list was still re-rendering; the list itself was keyed on
+  // the pin, so all two hundred cards unmounted and mounted again mid-scroll;
+  // and the global `scroll-behavior: smooth` smoothed the browser's own smooth
+  // scroll a second time. Now the list keeps its cards (the pinned ones flash
+  // instead), and once the commit has painted our own eased scroll runs
+  // (lib/scrollTo).
+  useEffect(() => {
+    if (!pinned) return undefined
+    const raf = requestAnimationFrame(() => scrollToElement(document.getElementById('entries-top'), { offset: 88 }))
+    return () => cancelAnimationFrame(raf)
+  }, [pinned])
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
@@ -457,6 +474,20 @@ export default function AdminResults() {
         : Date.parse(b.submitted_at) - Date.parse(a.submitted_at)
     })
 
+  // Where each video stands (rank by views across the challenge) and which of
+  // its creator's entries it is, in the order they were entered.
+  const entryFacts = new Map()
+  submissions.filter((x) => x.logged_views != null)
+    .slice().sort((a, b) => b.logged_views - a.logged_views)
+    .forEach((x, i) => entryFacts.set(x.id, { rank: i + 1 }))
+  const perCreator = new Map()
+  for (const x of submissions.slice().sort((a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at))) {
+    perCreator.set(x.creator_id, [...(perCreator.get(x.creator_id) || []), x.id])
+  }
+  for (const list of perCreator.values()) {
+    list.forEach((sid, i) => entryFacts.set(sid, { ...(entryFacts.get(sid) || {}), nth: i + 1, of: list.length }))
+  }
+
   if (loading) {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
   }
@@ -600,8 +631,8 @@ export default function AdminResults() {
           onSaveViews={saveViews}
           onShowEntries={(ids, label) => {
             setOnlyEarly(false)
-            setPinned({ ids, label })
-            setTimeout(() => document.getElementById('entries-top')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 40)
+            setQuery('')
+            setPinned({ ids, label, at: Date.now() })
           }}
         />
       ) : null}
@@ -640,44 +671,50 @@ export default function AdminResults() {
             )}
           </div>
         )}
-        <div id="entries-top" className="mb-3 scroll-mt-24 space-y-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Entries <span className="text-smoke">({submissions.length})</span></h2>
-            <Select
-              value={viewSort}
-              onChange={setViewSort}
-              variant="field"
-              className="w-[11.5rem] shrink-0"
-              ariaLabel="Order entries by"
-              options={[
-                { value: 'submitted', label: 'Newest first' },
-                { value: 'views', label: 'Highest views' },
-              ]}
-            />
-          </div>
-          <div className="relative">
-            <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by creator name"
-              aria-label="Search entries by creator name"
-              className="input no-ios-zoom !pl-10 !pr-10"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-cloud text-smoke hover:text-ink"
-                aria-label="Clear search"
-              >
-                <Icon name="close" className="h-3 w-3" />
-              </button>
-            )}
+        {/* HEADING, SEARCH AND ORDER ON ONE LINE (28 Sep 2026). Ethan: "make
+            the search ... less wide, and then you can move newest first so
+            everything is on one line there to search and filter." On a phone
+            the two controls share the second line. */}
+        <div id="entries-top" className="mb-3 scroll-mt-24">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h2 className="mr-auto text-base font-semibold">Entries <span className="text-smoke">({submissions.length})</span></h2>
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <div className="relative min-w-0 flex-1 sm:w-60 sm:flex-none">
+                <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-smoke" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name"
+                  aria-label="Search entries by creator name"
+                  className="input no-ios-zoom h-10 !py-0 !pl-9 !pr-9 text-sm"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-cloud text-smoke hover:text-ink"
+                    aria-label="Clear search"
+                  >
+                    <Icon name="close" className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <Select
+                value={viewSort}
+                onChange={setViewSort}
+                variant="field"
+                className="w-[10.5rem] shrink-0"
+                ariaLabel="Order entries by"
+                options={[
+                  { value: 'submitted', label: 'Newest first' },
+                  { value: 'views', label: 'Highest views' },
+                ]}
+              />
+            </div>
           </div>
           {matchQuery && (
-            <p className="text-xs text-smoke animate-fade-up">
+            <p className="mt-2 text-xs text-smoke animate-fade-up">
               {visibleEntries.length === 0
                 ? <>No entries from anyone called &ldquo;{query.trim()}&rdquo;.</>
                 : <><span className="font-semibold text-ink">{visibleEntries.length} {visibleEntries.length === 1 ? 'entry' : 'entries'}</span> from {new Set(visibleEntries.map((x) => x.creator_id)).size === 1 ? visibleEntries[0].profiles?.name : `${new Set(visibleEntries.map((x) => x.creator_id)).size} creators`}</>}
@@ -696,11 +733,14 @@ export default function AdminResults() {
             </button>
           </div>
         )}
-        {/* Keyed on the order and the filter so a pin or a search replays the
-            entrance rather than leaving rows standing where they were. */}
-        <Reveal key={`${pinned?.label ?? ''}:${query}:${viewSort}`} as="div" className="space-y-3" stagger={0.03} maxStagger={10}>
+        {/* NOT KEYED ON THE PIN OR THE SEARCH ANY MORE (28 Sep 2026). Keying
+            it re-mounted every card - two hundred covers, each resolving its
+            thumbnail - on the same frames the page was scrolling, which is the
+            lag Ethan saw. The cards stay; a pinned one flashes where it lands. */}
+        <Reveal as="div" className="space-y-3" stagger={0.03} maxStagger={10} dense>
           {visibleEntries.map((s) => {
-            const pts = challenge?.scoring === 'points' ? (entryPoints.get(s.id) ?? 0) : null
+            const pts = challenge?.scoring === 'points' ? (entryPoints.get(s.id) ?? { total: 0 }) : null
+            const facts = entryFacts.get(s.id) || {}
             const flaggedOut = isEarly(s) || s.views_sync_error === 'removed'
             return (
             <div
@@ -708,12 +748,16 @@ export default function AdminResults() {
               id={`entry-${s.id}`}
               className={cx(
                 'flex scroll-mt-24 gap-3 rounded-2xl border bg-white p-3 shadow-card transition-all duration-300 sm:gap-4 sm:p-4',
-                isEarly(s) ? 'border-red-200 bg-red-50/40' : pinned?.ids.includes(s.id) ? 'border-brand/40 ring-2 ring-brand/15' : 'border-gray-100',
+                isEarly(s) ? 'border-red-200 bg-red-50/40' : pinned?.ids.includes(s.id) ? 'pin-flash border-brand/40 ring-2 ring-brand/15' : 'border-gray-100',
               )}
             >
-              {/* THE ENTRY ITSELF: cover, points and views on the picture. */}
+              {/* THE COVER, AND NOTHING ON IT (28 Sep 2026). Ethan: "you don't
+                  need the views over the video here or the points over the
+                  video ... because you have that all on the right side." The
+                  platform logo moved off the picture too, into the meta line in
+                  its own colours. */}
               <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="w-[5.5rem] shrink-0 self-start overflow-hidden rounded-xl sm:w-28">
-                <EntryPreview compact submission={s} points={pts} />
+                <EntryPreview compact bare submission={s} />
               </a>
               {/* TWO COLUMNS FROM A TABLET UP (28 Sep 2026). Ethan: "too much
                   white space on the right side". Who and what on the left; the
@@ -734,19 +778,41 @@ export default function AdminResults() {
                           </span>
                         )}
                       </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-smoke sm:text-xs">
+                      {/* MORE THAN "TIKTOK · ENTERED 23 SEP" (28 Sep 2026). Ethan:
+                          "rather than just having TikTok entered 23rd of
+                          September, you can have a little bit more there." The
+                          platform in its own colours, where this video stands
+                          in the challenge, which of the creator's entries it
+                          is, and when the number was last read. */}
+                      <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-snug text-smoke sm:text-xs">
                         {groups.length > 0 && (
                           <span className="font-semibold text-brand">
                             {groups.find((g) => g.id === byCreator.get(s.creator_id))?.name || 'Not in a group'}
-                            {' · '}
                           </span>
                         )}
-                        {s.platform} · entered {formatDateTimeTz(s.submitted_at)}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cloud py-0.5 pl-0.5 pr-2 font-semibold text-ink">
+                          <SocialMark brand={(s.platform || 'link').toLowerCase()} tile className="h-4 w-4 shrink-0" />
+                          {s.platform}
+                        </span>
+                        {facts.rank && (
+                          <span className="rounded-full bg-cloud px-2 py-0.5 font-semibold tabular-nums text-ink/75">
+                            #{facts.rank} of {submissions.length} by views
+                          </span>
+                        )}
+                        {facts.of > 1 && (
+                          <span className="rounded-full bg-cloud px-2 py-0.5 font-semibold text-ink/75">
+                            Entry {facts.nth} of {facts.of}
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-1 text-[11px] leading-snug text-smoke sm:text-xs">
+                        Entered {formatDateTimeTz(s.submitted_at)}
                         {s.posted_at && (
                           <span className={isEarly(s) ? 'font-semibold text-red-700' : undefined}>
                             {' '}· posted {formatDateTimeTz(s.posted_at)}
                           </span>
                         )}
+                        {s.views_synced_at && <> · read {timeAgo(s.views_synced_at)}</>}
                       </p>
                     </div>
                   </div>
@@ -853,9 +919,13 @@ export default function AdminResults() {
                 </div>
                 <div className="flex flex-col gap-2 sm:w-48 sm:shrink-0 sm:border-l sm:border-gray-100 sm:pl-4">
                   {pts != null && (
-                    <div className="flex items-baseline justify-between rounded-xl bg-brand-tint/60 px-3 py-1.5">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-brand/80">Points</span>
-                      <span className="text-lg font-extrabold tabular-nums text-brand">{pts}</span>
+                    <div className="rounded-xl bg-brand-tint/60 px-3 py-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-brand/80">Points</span>
+                        <span className="text-lg font-extrabold tabular-nums text-brand">{pts.total}</span>
+                      </div>
+                      {/* WHAT THEY WERE FOR: "+1 views, +5 bonus". */}
+                      <PointParts points={pts} className="mt-1 pb-0.5" />
                     </div>
                   )}
                   <ViewCountField

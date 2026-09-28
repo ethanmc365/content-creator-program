@@ -194,6 +194,15 @@ export default function SocialMark({ brand, className, colored = false, tile = f
         {/* The glyph, knocked out in white and inset so it does not touch the
             tile's edge. `currentColor` on the paths becomes white here, which
             is the whole reason they were written to bind to it. */}
+        {/* TikTok's note is not white on black: it carries a cyan and a red
+            ghost either side of it, and without them it reads as a generic
+            music glyph. Same path, offset, painted under the white one. */}
+        {key === 'tiktok' && (
+          <>
+            <g transform="translate(3.1 3.2) scale(0.7)" style={{ color: '#25F4EE' }}>{PATHS.tiktok}</g>
+            <g transform="translate(4.1 4.0) scale(0.7)" style={{ color: '#FE2C55' }}>{PATHS.tiktok}</g>
+          </>
+        )}
         <g transform="translate(3.6 3.6) scale(0.7)" style={{ color: '#ffffff' }}>
           {PATHS[key]}
         </g>

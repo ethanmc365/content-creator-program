@@ -2950,3 +2950,17 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 @media (prefers-reduced-motion: reduce) {
   .intro-cta { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   A PINNED ENTRY SAYS WHERE IT LANDED (28 Sep 2026). The results list no longer
+   re-mounts two hundred cards when an entry is pinned (that was the scroll
+   lag); the pinned card glows once instead. */
+.pin-flash { animation: pin-flash 1.4s ease-out 0.25s both; }
+@keyframes pin-flash {
+  0% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0.45); }
+  45% { box-shadow: 0 0 0 10px rgba(217, 68, 7, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-flash { animation: none; }
+}

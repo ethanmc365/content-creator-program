@@ -124,7 +124,7 @@ function facebookEmbedSrc(url, videoId) {
   return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=320&autoplay=false&mute=true`
 }
 
-export default function VideoThumb({ url, platform, thumbnailUrl, videoId, className }) {
+export default function VideoThumb({ url, platform, thumbnailUrl, videoId, className, mark = true }) {
   const plat = platform || detectPlatformFromUrl(url)
   const p = PLATFORMS[plat] || PLATFORMS.Other
   // An admin is the only caller who can reach the Instagram probe. Read here
@@ -188,9 +188,11 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
                 these platforms by. `text-ink` rather than each brand's own
                 colour - four different accent colours on one grid is a wall of
                 confetti, and the disc is what makes it legible on any frame. */}
-            <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
-              <span className="h-4 w-4">{p.icon}</span>
-            </span>
+            {mark && (
+              <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
+                <span className="h-4 w-4">{p.icon}</span>
+              </span>
+            )}
           </>
         )
         : (
