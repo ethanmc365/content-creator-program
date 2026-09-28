@@ -63,7 +63,7 @@ export const LANGUAGE_OPTIONS = [
  *   and needs more: it draws at 316px on a 1280px slide and the PDF photographs
  *   that at 2x, so 512 would be upscaled in a document somebody sends a brand.
  */
-export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
+export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim = 1080 }) {
   const tr = useT()
   const { user } = useAuth()
   const inputRef = useRef(null)
@@ -121,7 +121,20 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
     })
   }
 
-  async function uploadCropped(blob) {
+  // THE PAGE IS HANDED THE UPLOAD ITSELF (28 Sep 2026). Ethan: "I clicked 'Use
+  // this photo,' and it uploaded. I clicked 'Save,' and then it didn't seem to
+  // work. I've tried it a second time, and it has worked." The preview shows
+  // the new photo the instant it is chosen, so the page LOOKS ready while the
+  // upload is still running - and a Save pressed in that window wrote the old
+  // photo_url, the new one arriving a moment later into a form nobody saved
+  // again. `onUploadStart` gives the page the promise so its Save can wait.
+  function uploadCropped(blob) {
+    const job = doUpload(blob)
+    onUploadStart?.(job)
+    return job
+  }
+
+  async function doUpload(blob) {
     // SHOW IT NOW: the square they chose, before the upload finishes.
     dropPreview()
     const localUrl = URL.createObjectURL(blob)
@@ -137,12 +150,15 @@ export function AvatarUpload({ photoUrl, name, onUploaded, maxDim = 1080 }) {
       // The remote URL is now the source of truth. The preview is kept for one
       // more beat and dropped by the effect below once the real image has
       // decoded, so there is no flicker between the two.
+      setBusy('')
+      return url
     } catch (err) {
       setError(err.message)
       dropPreview()
       setPreview('')
+      setBusy('')
+      return null
     }
-    setBusy('')
   }
 
   // Once the saved photo matches what we uploaded, the local copy has done its

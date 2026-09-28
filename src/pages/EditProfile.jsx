@@ -165,12 +165,27 @@ export default function EditProfile() {
   }
   // Data export & account deletion moved to the Settings page (Account section).
 
+  // A PHOTO STILL UPLOADING IS WAITED FOR, NOT RACED (28 Sep 2026). See
+  // AvatarUpload's `onUploadStart`: Save used to write the old photo if it was
+  // pressed while the new one was still on its way up.
+  const photoJob = useRef(null)
+  const uploadedPhoto = useRef('')
+  const [photoPending, setPhotoPending] = useState(false)
+  const trackPhoto = (job) => {
+    photoJob.current = job
+    setPhotoPending(true)
+    job.finally(() => {
+      if (photoJob.current === job) { photoJob.current = null; setPhotoPending(false) }
+    })
+  }
+
   async function save(e) {
     e.preventDefault()
     setBusy(true)
+    if (photoJob.current) await photoJob.current.catch(() => null)
     // Geocode the town so this creator lands on the creator map. Best-effort:
     // if it changed (or was never geocoded) look it up, else keep old coords.
-    const payload = { ...form }
+    const payload = { ...form, photo_url: uploadedPhoto.current || form.photo_url }
     // Drop half-empty bucket-list rows (a destination needs at least a country).
     payload.bucket_list = form.bucket_list
       .map((b) => ({ country: (b.country || '').trim(), city: (b.city || '').trim() }))
@@ -255,7 +270,12 @@ export default function EditProfile() {
           <div className={tab === 'you' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-6">
             <h2 className="text-lg font-semibold">{tr("Photo & basics")}</h2>
-            <AvatarUpload photoUrl={form.photo_url} name={form.name} onUploaded={(url) => set({ photo_url: url })} />
+            <AvatarUpload
+              photoUrl={form.photo_url}
+              name={form.name}
+              onUploaded={(url) => { uploadedPhoto.current = url; set({ photo_url: url }) }}
+              onUploadStart={trackPhoto}
+            />
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="label">{tr("Display name")}</label>
@@ -490,7 +510,9 @@ export default function EditProfile() {
               disabled={busy || saved}
               className={cx('btn-primary !py-2 text-sm', saved && '!bg-green-600')}
             >
-              {busy ? <Spinner /> : saved ? 'Saved' : 'Save profile'}
+              {busy
+                ? (photoPending ? <span className="inline-flex items-center gap-2"><Spinner /> {tr('Uploading photo…')}</span> : <Spinner />)
+                : saved ? 'Saved' : 'Save profile'}
             </button>
           </div>
         </div>
