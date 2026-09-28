@@ -268,9 +268,9 @@ const FILLED_PATHS = {
 // CLIPPED TO THE RING, so no matter how the shapes are tweaked a coastline can
 // never poke out through the edge of the planet. The clip id is fixed and every
 // instance draws the same geometry, so repeated ids resolve identically.
-function WorldIcon({ className }) {
+function WorldIcon({ className, style }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <defs>
         <clipPath id="tryp-world-clip">
           <circle cx="12" cy="12" r="8.9" />
@@ -308,12 +308,17 @@ function WorldIcon({ className }) {
   )
 }
 
-export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 }) {
-  if (name === 'globe') return <WorldIcon className={className} />
+// `style` IS TAKEN, FOR THE ONE CALLER THAT CANNOT USE A CLASS (28 Sep 2026).
+// A certificate renders at whatever size it is being drawn at - a preview card,
+// a 3000px download, a 1080x1920 story - so its glyphs are sized in pixels
+// computed from the page, not from a Tailwind step. Everywhere else should
+// still reach for `className`.
+export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7, style }) {
+  if (name === 'globe') return <WorldIcon className={className} style={style} />
   const layered = LAYERED_PATHS[name]
   if (layered) {
     return (
-      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         {layered.map((p, i) => (
           // `transform` is optional and per PATH: the wave scales and leans its
           // hand while leaving its motion arcs exactly where they were drawn.
@@ -332,7 +337,7 @@ export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 })
   const filled = FILLED_PATHS[name]
   if (filled) {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <svg className={className} style={style} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path strokeLinejoin="round" d={filled} />
       </svg>
     )
@@ -340,7 +345,7 @@ export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 })
   const d = PATHS[name]
   if (!d) return null
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={strokeWidth} aria-hidden="true">
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={strokeWidth} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d={d} />
     </svg>
   )

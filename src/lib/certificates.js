@@ -230,15 +230,28 @@ export const DEFAULT_ACCENT = ACCENTS[0].hex
 // Saved designs keep working: `mist` reads as White, `ink` as the Tryp
 // gradient (the other "different character" option), and `tint` is still a
 // key - it is now the wash.
+// ONE PAPER: WHITE (28 Sep 2026).
+//
+// There were five - white, warm white, soft glow, wash and the full Tryp
+// gradient. Ethan, reviewing the set: "I think I would remove the paper style
+// and just always have it as white. I think the soft glow wash and Tryp gradient
+// isn't necessary. Just have white as the only option and remove those options.
+// Still keep the accent colours."
+//
+// Which is the right call for a certificate: the ground is not where a
+// certificate gets its character - the layout and the accent are - and four of
+// the five grounds were quietly fighting whatever the layout drew on top of
+// them. The accent picker is untouched.
+//
+// THE OLD KEYS STILL RESOLVE. `paperOf` falls through to PAPERS[0] for anything
+// it does not recognise, so every design saved on ivory, glow, tint or sunset
+// renders on white from now on rather than breaking. That IS the intended
+// outcome, not a fallback: white is the only paper now.
 export const PAPERS = [
   { key: 'paper', label: 'White', hint: 'Plain white. Prints best, posts best.', light: true, kind: 'white' },
-  { key: 'ivory', label: 'Warm white', hint: 'A warm off-white, like a printed programme.', light: true, kind: 'ivory' },
-  { key: 'glow', label: 'Soft glow', hint: 'White, warming into the accent in one corner.', light: true, kind: 'glow' },
-  { key: 'tint', label: 'Wash', hint: 'A light gradient of the accent across the page.', light: true, kind: 'wash' },
-  { key: 'sunset', label: 'Tryp gradient', hint: 'The full brand gradient, like the card on the hub. White type.', light: false, kind: 'gradient' },
 ]
 
-const LEGACY_PAPER = { mist: 'paper', ink: 'sunset' }
+const LEGACY_PAPER = { mist: 'paper', ink: 'paper', ivory: 'paper', glow: 'paper', tint: 'paper', sunset: 'paper' }
 
 export const paperOf = (key) => PAPERS.find((p) => p.key === (LEGACY_PAPER[key] || key)) || PAPERS[0]
 
@@ -409,14 +422,35 @@ export const tierForAward = (awardOn) => TIER_FOR_AWARD[awardOn] || 'honour'
  * Old designs with no trigger on the row (the verify page before 269) fall
  * back to their stored tier.
  */
+// THE BADGE DOES NOT NAME ITS OWN CATEGORY (28 Sep 2026). Ethan, going through
+// the set: "I don't think you need to say participant on the actual badge. Same
+// with milestone shouldn't show that, and also by hand it shouldn't show honour,
+// just a star."
+//
+// He is right, and it generalises. The certificate already SAYS what it is, in
+// the sentence the whole page is built around ("for taking part in...", "for
+// reaching..."). A disc in the corner stamped PARTICIPANT is the page labelling
+// itself, and it reads as a category filed against the person rather than a
+// thing they were given. `badgeLabel` is what the badge prints, and it is empty
+// for those three; `label` stays the plain English name of the kind, because the
+// studio, the passport's "Class" field and the machine-readable line all need a
+// word for it.
 export function awardKind(design = {}, facts = {}) {
   const place = Number(facts?.place)
-  if (Number.isFinite(place) && place > 0) return { key: 'place', label: `${ordinal(place)} place`, place, icon: 'trophy' }
+  // JUST THE ORDINAL. It was "1st place", under a badge that also printed the
+  // word PLACE and "of 10" beneath it - the same fact three times on one disc.
+  // Ethan: "don't say 'of 10'. Just say 'first', and you don't even need to say
+  // 'place'."
+  if (Number.isFinite(place) && place > 0) {
+    return { key: 'place', label: ordinal(place), badgeLabel: '', place, icon: 'trophy' }
+  }
   const on = design.award_on || ({ achievement: 'challenge_rank', honour: 'manual', milestone: 'milestone', participation: 'challenge_entry' })[design.tier]
-  if (on === 'challenge_rank') return { key: 'winner', label: 'Prize winner', icon: 'trophy' }
-  if (on === 'challenge_entry') return { key: 'entry', label: 'Participant', icon: 'check' }
-  if (on === 'milestone') return { key: 'milestone', label: 'Milestone', icon: 'flag' }
-  return { key: 'honour', label: 'Honour', icon: 'star' }
+  if (on === 'challenge_rank') return { key: 'winner', label: 'Prize winner', badgeLabel: '', icon: 'trophy' }
+  if (on === 'challenge_entry') return { key: 'entry', label: 'Participant', badgeLabel: '', icon: 'check' }
+  // A FLAG IS NOT A MILESTONE. Ethan: "I don't like the current milestone icon.
+  // Maybe change it to something else, like a trophy."
+  if (on === 'milestone') return { key: 'milestone', label: 'Milestone', badgeLabel: '', icon: 'trophy' }
+  return { key: 'honour', label: 'Honour', badgeLabel: '', icon: 'star' }
 }
 
 // PER-DESIGN SWITCHES (migration 269, `certificate_designs.options`). Every
@@ -531,6 +565,41 @@ export function bodyProblem(design = {}) {
   if (!written) return null
   if (fillTemplate(written, sampleFacts(design)).trim()) return null
   return 'None of your wording can be filled in for this kind of award, so the certificate falls back to a default sentence. Check the {placeholders} against what this award actually knows.'
+}
+
+// THE SENTENCE EACH TRIGGER IS BORN WITH.
+const BODY_FOR_AWARD = {
+  challenge_rank: 'for finishing {place} in {challenge}',
+  challenge_entry: 'for taking part in {challenge}',
+  milestone: 'for reaching {milestone}',
+  manual: 'for outstanding work in the Tryp.com\nContent Creator Community',
+}
+
+/**
+ * The body a design should carry once its trigger changes to `next`, or null to
+ * leave the wording alone.
+ *
+ * THE WARNING WAS RIGHT AND STILL USELESS (28 Sep 2026). `bodyProblem` correctly
+ * reported that a body written for a challenge ("for finishing {place} in
+ * {challenge}") fills nothing on a milestone certificate - but it reported it
+ * AFTER the admin had switched the trigger and left them to fix it by hand.
+ * Ethan: "if I click from reaching a milestone, by hand, entering a challenge,
+ * everything updates correctly."
+ *
+ * So the switch brings its own sentence. The test is not "was this the default
+ * before" - which would need us to remember every starter - but the honest one:
+ * CAN THIS WORDING STILL FILL under the new trigger? If it can, it is left
+ * exactly as written, however it got there. If it cannot, it was about to print
+ * nothing, so it is replaced by the sentence that trigger is born with.
+ * `bodyProblem` stays, for the case where somebody writes an unfillable body by
+ * hand after the switch.
+ */
+export function bodyForTrigger(design = {}, next) {
+  const written = String(design.body || '').trim()
+  const fits = written
+    && fillTemplate(written, sampleFacts({ ...design, award_on: next, tier: tierForAward(next) })).trim()
+  if (fits) return null
+  return BODY_FOR_AWARD[next] || BODY_FOR_AWARD.manual
 }
 
 // The placeholders a design may use, for the builder's own help text. Keeping

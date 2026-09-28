@@ -10,9 +10,9 @@ import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
-  ACCENTS, DEFAULT_ACCENT, LAYOUTS, PAPERS, PLACEHOLDERS,
-  bodyProblem, designStyle, ruleProblem, sampleFacts, awardKind,
-  paletteFor, optionsOf, tierForAward, ordinal,
+  ACCENTS, DEFAULT_ACCENT, LAYOUTS, PLACEHOLDERS,
+  bodyProblem, bodyForTrigger, designStyle, ruleProblem, sampleFacts,
+  optionsOf, tierForAward, ordinal,
 } from '../../../lib/certificates'
 import { STARTERS } from './certificateStarters'
 
@@ -442,10 +442,22 @@ export function Preview({ design, facts, width = 520, cardRef, markets = [], pla
   // THE EXAMPLE NAMES THE MARKET YOU PICKED (28 Sep 2026), and the place you
   // are looking at - not "UK & Ireland" and 1st whatever the design is for.
   const market = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
-  // The sample wears the admin's own photo, so a layout with a face on it
-  // (Horizon, Passport) is previewed with one.
+  // THE EXAMPLE IS ONE PERSON (28 Sep 2026). It wore the admin's own photo so
+  // that a layout with a face on it (Horizon, Passport) previewed with one, but
+  // kept the sample's NAME - so Ethan was looking at his own photograph over
+  // "Roxanna Travels": "it says Roxana travels but shows my profile picture, so
+  // it should show my name there." A preview of a certificate is a preview of
+  // somebody getting it, and half of one person over half of another is the one
+  // thing it must not be. Name and face now come from the same place, and fall
+  // back to the sample together.
   const { profile } = useAuth()
-  const shown = facts || { ...sampleFacts(design, { market, place }), photo: profile?.photo_url || '' }
+  const sample = sampleFacts(design, { market, place })
+  const shown = facts || {
+    ...sample,
+    ...(profile?.photo_url || profile?.name
+      ? { photo: profile.photo_url || '', name: profile.name || sample.name }
+      : null),
+  }
   const scale = width / CERT_W
   return (
     <div style={{ width, height: CERT_H * scale, overflow: 'hidden', borderRadius: rounded ? Math.max(8, 22 * scale * 2) : 0 }}>
@@ -700,62 +712,20 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               </div>
             </Field>
 
-            {/* THE GROUND, AND THE GLOW IS GONE. Ethan: "I still don't like the
-                background color, is that like weirdly goldeny, orangey glow. I
-                just don't like that color."
-
-                It was the accent at 14% bled into two corners, which on orange
-                is a goldeny glow and on nothing is paper. These are papers: two
-                neutrals, a warm one, ONE flat 5% accent tint for somebody who
-                does want colour, and near-black. */}
-            <Field label="Paper" hint={PAPERS.find((p) => p.key === (design.paper || 'paper'))?.hint}>
-              <div className="flex flex-wrap gap-2">
-                {PAPERS.map((p) => {
-                  const on = (design.paper || 'paper') === p.key
-                  // The paper's REAL ground (gradients included), from the same
-                  // resolver the certificate uses - so the dot is the paper.
-                  const swatch = paletteFor({ paper: p.key, accent: design.accent }).bg
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => set({ paper: p.key })}
-                      aria-pressed={on}
-                      title={p.hint}
-                      className={pickClass(on, 'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold')}
-                    >
-                      <span
-                        className="h-3.5 w-3.5 shrink-0 rounded-full"
-                        style={{
-                          background: swatch,
-                          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.12)',
-                        }}
-                      />
-                      {p.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </Field>
-            {/* THE SWITCHES (28 Sep 2026, `options`). Each piece of
-                decoration can come off, and the line above the name can say
-                something else. The badge is chosen by the trigger: a medal for
-                a place, a seal naming the award otherwise. */}
-            <Field label="On the certificate" hint={`The badge reads "${awardKind(design, { place: shownPlace }).label}" for this trigger.`}>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {[
-                  { key: 'medal', label: 'Badge' },
-                  // Horizon shows the creator's photo instead when there is one.
-                  { key: 'plane', label: 'Tryp plane' },
-                  { key: 'route', label: 'Dotted route' },
-                ].map((t) => (
-                  <div key={t.key} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 px-3 py-2">
-                    <span className="text-xs font-semibold text-ink">{t.label}</span>
-                    <Toggle on={opts[t.key] !== false} onChange={(on) => setOpt({ [t.key]: on })} label={t.label} />
-                  </div>
-                ))}
-              </div>
-            </Field>
+            {/* NO PAPER PICKER, AND NO DECORATION SWITCHES (28 Sep 2026).
+                Ethan, going through the finished set: "I would remove the paper
+                style and just always have it as white. I think the soft glow
+                wash and Tryp gradient isn't necessary... still keep the accent
+                colours." And: "on the certificate, you should remove the thing
+                that says 'Badge, Tryp plane, Root'. We don't need those options
+                any more."
+                PAPERS is down to White, so a picker with one button in it is
+                furniture; the Badge / Tryp plane / Dotted route toggles are
+                gone and all three simply draw, which is what every design was
+                set to anyway. `options` still holds them, so a design that
+                turned one off keeps its choice until it is edited - nothing is
+                rewritten behind the admin's back. The preamble stays: it is the
+                one switch here that changes WORDS rather than decoration. */}
             <Field label="Line above the name" hint="Leave empty to go straight to the name.">
               <input
                 value={opts.preamble ?? ''}
@@ -894,7 +864,16 @@ function AwardRules({ design, set, markets, milestones }) {
     <Section title="When it is given" id="cert-when">
       <div className="space-y-2">
         {OPTIONS.map((o) => (
-          <button key={o.key} type="button" onClick={() => set({ award_on: o.key })}
+          <button
+            key={o.key}
+            type="button"
+            // The trigger brings its own sentence when the one already written
+            // could not fill under it - see bodyForTrigger. Wording that still
+            // works is never touched.
+            onClick={() => {
+              const body = bodyForTrigger(design, o.key)
+              set({ award_on: o.key, ...(body ? { body } : null) })
+            }}
             aria-pressed={design.award_on === o.key}
             className={pickClass(design.award_on === o.key, 'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left')}>
             <span className="min-w-0">
@@ -943,12 +922,31 @@ function AwardRules({ design, set, markets, milestones }) {
         </Field>
       )}
 
+      {/* PILLS, NOT THE OS MENU (28 Sep 2026). This was a native `<select>`.
+          Ethan: "it gives me the option to choose which milestone, but it's in
+          that weird Apple drop-down menu." It was also the only native menu on
+          a form where every other choice - the trigger above, the markets
+          below, the places, the accent - is a pill you can see the options of
+          without opening anything. Same `pickClass` as its neighbours, so the
+          section now reads as one control repeated rather than four kinds. */}
       {design.award_on === 'milestone' && (
-        <Field label="Which milestone">
-          <select value={design.milestone_id || ''} onChange={(e) => set({ milestone_id: e.target.value || null })} className="input">
-            <option value="">Choose one…</option>
-            {milestones.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-          </select>
+        <Field label="Which milestone" hint={milestones.length ? undefined : 'No milestones exist yet. Create one first and it appears here.'}>
+          <div className="flex flex-wrap gap-2">
+            {milestones.map((m) => {
+              const on = design.milestone_id === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => set({ milestone_id: on ? null : m.id })}
+                  aria-pressed={on}
+                  className={pickClass(on, 'rounded-xl border px-3 py-1.5 text-xs font-semibold')}
+                >
+                  {m.title}
+                </button>
+              )
+            })}
+          </div>
         </Field>
       )}
 

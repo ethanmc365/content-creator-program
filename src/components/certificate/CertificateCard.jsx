@@ -193,8 +193,30 @@ function Label({ s, children, color }) {
   )
 }
 
-function Fact({ s, label, value, align = 'left', mono = false, color, labelColor }) {
+/**
+ * A small label with a fact under it.
+ *
+ * `lead` PUTS THE WEIGHT ON THE LABEL INSTEAD (28 Sep 2026). The Awarded block
+ * read as a faint grey "AWARDED" over a bold date, which puts the emphasis on
+ * the number rather than on what happened. Ethan: "maybe 'awarded' should be
+ * bold, and then below, the date should be in the smaller grey writing."
+ * Used for the date; "Certificate ID" and "Issued by" keep the normal order,
+ * because there the value IS the fact and the label is just naming a field.
+ */
+function Fact({ s, label, value, align = 'left', mono = false, color, labelColor, lead = false }) {
   if (!value) return null
+  if (lead) {
+    return (
+      <div style={{ textAlign: align, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: color || s.ink, whiteSpace: 'nowrap' }}>
+          {label}
+        </p>
+        <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 500, color: labelColor || s.faint, whiteSpace: 'nowrap' }}>
+          {value}
+        </p>
+      </div>
+    )
+  }
   return (
     <div style={{ textAlign: align, minWidth: 0 }}>
       <Label s={s} color={labelColor}>{label}</Label>
@@ -313,14 +335,40 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
   }
   if (c.place) {
     const p = c.place
+    // ONE FIRST PLACE, EVERYWHERE (28 Sep 2026). Horizon's badge sits on the
+    // orange panel, so `onGradient` turned it WHITE while Sky Banner's and the
+    // Passport's - which sit on paper - were the orange gradient. Ethan, on
+    // Horizon: "the first place in this one is white. I don't like that colour.
+    // I prefer the one that's on Sky Banner and Passport, that first place with
+    // the orange and that same style."
+    //
+    // So first place is the orange gradient on every layout. On the panel it
+    // would be orange on orange, so there it gets a solid white halo instead of
+    // the inset ring: same disc, still the brightest thing on the page.
     const look = p === 1
-      ? { background: onGradient ? '#ffffff' : s.grad, color: onGradient ? s.accentDeep : s.onAccent,
-        boxShadow: `0 14px 30px ${alpha(s.accent, 0.35)}, inset 0 0 0 5px ${onGradient ? alpha(s.accent, 0.18) : 'rgba(255,255,255,0.4)'}` }
+      ? {
+        background: s.grad,
+        color: s.onAccent,
+        boxShadow: onGradient
+          ? `0 0 0 7px #ffffff, 0 16px 32px rgba(0,0,0,0.28)`
+          : `0 14px 30px ${alpha(s.accent, 0.35)}, inset 0 0 0 5px rgba(255,255,255,0.4)`,
+      }
       : p === 2
         ? { background: '#ffffff', color: s.accentDeep, boxShadow: `0 10px 24px rgba(26,26,26,0.12), inset 0 0 0 5px ${s.accent}` }
+        // THIRD IS A SOLID TINT, NOT A TRANSPARENT ONE. It was `alpha(accent,
+        // 0.12)`, which let whatever sat behind it show through - on Sky Banner
+        // that is the gradient band, and Ethan: "I noticed an issue with third
+        // place: it's transparent, and it doesn't look good. Third place should
+        // be a light-coloured orange background." Painting the tint over an
+        // opaque white makes the same colour solid on any ground.
         : p === 3
-          ? { background: onGradient ? '#ffffff' : alpha(s.accent, 0.12), color: s.accentDeep, boxShadow: `inset 0 0 0 3px ${alpha(s.accent, 0.55)}` }
-          : { background: '#ffffff', color: s.accentDeep, border: `2px dashed ${alpha(s.accent, 0.55)}` }
+          ? {
+            background: `linear-gradient(${alpha(s.accent, 0.18)}, ${alpha(s.accent, 0.18)}), #ffffff`,
+            color: s.accentDeep,
+            boxShadow: `0 10px 24px rgba(26,26,26,0.10), inset 0 0 0 4px ${alpha(s.accent, 0.5)}`,
+          }
+          // Fourth and beyond: white, with the ordinal doing the work.
+          : { background: '#ffffff', color: s.accentDeep, boxShadow: `0 8px 20px rgba(26,26,26,0.10), inset 0 0 0 2px ${alpha(s.accent, 0.45)}` }
     const n = String(p)
     const suffix = ordinal(p).slice(n.length)
     return (
@@ -329,12 +377,11 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
           <span style={{ fontSize: size * (n.length > 1 ? 0.36 : 0.42), fontWeight: 700, letterSpacing: '-0.03em' }}>{n}</span>
           <span style={{ fontSize: size * 0.14, fontWeight: 700, marginTop: size * 0.04, marginLeft: 1 }}>{suffix}</span>
         </span>
-        <span style={{ fontSize: Math.max(8, size * 0.078), fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4 }}>
-          Place
-        </span>
-        {c.places && (
-          <span style={{ fontSize: Math.max(7.5, size * 0.07), fontWeight: 400, marginTop: 2, opacity: 0.8 }}>of {c.places}</span>
-        )}
+        {/* NOTHING UNDER THE NUMBER (28 Sep 2026). The disc printed "1st", then
+            the word PLACE, then "of 10" - one fact said three times in a circle
+            112px across. Ethan: "don't say 'of 10'. Just say 'first', and you
+            don't even need to say 'place'." The ordinal on its own is bigger,
+            calmer, and says everything the other two lines did. */}
       </div>
     )
   }
@@ -346,10 +393,18 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
       boxShadow: `0 12px 26px ${alpha(s.accent, 0.3)}, inset 0 0 0 5px ${onGradient ? alpha(s.accent, 0.15) : 'rgba(255,255,255,0.35)'}`,
       gap: 5,
     }}>
-      <span style={{ display: 'inline-flex' }}><Icon name={c.kind.icon} className="h-6 w-6" /></span>
-      <span style={{ fontSize: Math.max(8, size * 0.08), fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', lineHeight: 1.2, maxWidth: size - 24 }}>
-        {c.kind.label}
+      {/* THE MARK, NOT THE CATEGORY. This used to print PARTICIPANT / MILESTONE
+          / HONOUR under the glyph. The certificate's own sentence already says
+          what it is for, so the word was the page filing the person under a
+          heading. The glyph grows into the space it leaves. */}
+      <span style={{ display: 'inline-flex' }}>
+        <Icon name={c.kind.icon} className="h-6 w-6" style={{ width: size * 0.4, height: size * 0.4 }} strokeWidth={1.6} />
       </span>
+      {c.kind.badgeLabel ? (
+        <span style={{ fontSize: Math.max(8, size * 0.08), fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', lineHeight: 1.2, maxWidth: size - 24 }}>
+          {c.kind.badgeLabel}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -374,7 +429,7 @@ function Footer({ s, c, style, align = 'split', colors = {} }) {
             : <Fact s={s} label="Issued by" value="Tryp.com" color={colors.ink} labelColor={colors.faint} />}
         </div>
         <div style={{ justifySelf: 'center' }}>
-          <Fact s={s} label="Awarded" value={c.date} align="center" color={colors.ink} labelColor={colors.faint} />
+          <Fact s={s} label="Awarded" value={c.date} align="center" color={colors.ink} labelColor={colors.faint} lead />
         </div>
         <div style={{ justifySelf: 'end', textAlign: 'right' }}>
           <Fact s={s} label="Certificate ID" value={c.serial} align="right" mono color={colors.ink} labelColor={colors.faint} />
@@ -412,9 +467,15 @@ function Horizon({ s, c, o }) {
             profile photo there." A large portrait in a white ring, with the
             dotted route looping round it; the plane only when there is no
             photo to show. */}
-        {o.route && <Route d={c.photo
-          ? 'M -10 300 C 40 250, 70 150, 166 132 C 262 114, 318 190, 360 150'
-          : 'M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110'} color={ink} opacity={0.5} />}
+        {/* NO ROUTE BEHIND THE FACE (28 Sep 2026). The dotted line looped round
+            the portrait, which from a foot away reads as a dotted ring drawn on
+            the photo rather than a flight path passing behind it. Ethan: "remove
+            the dot line that goes around near my profile picture." The route
+            stays on the version with the plane, where it is the plane's path and
+            has nothing to collide with. */}
+        {o.route && !c.photo && (
+          <Route d="M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110" color={ink} opacity={0.5} />
+        )}
         {c.photo ? (
           <div style={{
             position: 'absolute', left: (PANEL - 196) / 2, top: 142, width: 196, height: 196, borderRadius: '50%',
@@ -513,7 +574,12 @@ function Boarding({ s, c, o }) {
               </span>
               <div style={{ flex: 1, height: 3, backgroundImage: `radial-gradient(circle, ${alpha(s.accent, 0.6)} 1.4px, transparent 1.6px)`, backgroundSize: '9px 3px', backgroundRepeat: 'repeat-x' }} />
             </div>
-            <div style={{ textAlign: 'right', minWidth: 0 }}>
+            {/* THE DESTINATION SITS ON ITS OWN CENTRE (28 Sep 2026). Ethan
+                likes this line - "From Worldwide to First Place. I think that's
+                cool" - and asked for the arrival centred rather than shoved
+                against the edge: "maybe 'First Place' should be centred, in the
+                middle of that right column." */}
+            <div style={{ textAlign: 'center', minWidth: 0 }}>
               <Label s={white}>To</Label>
               <p style={{ margin: '5px 0 0', fontSize: fit(to, 30), fontWeight: 700, color: white.accentText, lineHeight: 1, whiteSpace: 'nowrap' }}>{to}</p>
             </div>
@@ -560,10 +626,18 @@ function Boarding({ s, c, o }) {
           )}
           <Fact s={white} label="Awarded" value={c.date} />
           <Fact s={white} label="Certificate ID" value={c.serial} mono />
-          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
-            <QrCode text={verifyUrl} size={112} color={ink} />
-            <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: faint, lineHeight: 1.5 }}>
-              Scan to<br />verify
+          {/* A BIGGER CODE, AND THE WORDS UNDER IT (28 Sep 2026). "SCAN TO
+              VERIFY" sat in a column beside the code, taking a third of the
+              stub's width to say something the code already implies - and Ethan
+              read it as a status: "I was a bit scared of 'Verify', not as in a
+              big thing to the side of it, but just really small text below the
+              QR code. The QR code can be bigger on that side."
+              Stacked, the code gets the whole width of the stub and the line
+              under it is a caption rather than a label. */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+            <QrCode text={verifyUrl} size={STUB - 56} color={ink} />
+            <p style={{ margin: 0, fontSize: 8.5, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: faint, lineHeight: 1.4, textAlign: 'center' }}>
+              Scan to verify
             </p>
           </div>
         </div>
@@ -807,10 +881,18 @@ function Passport({ s, c, o }) {
           <Fact s={s} label="Issued by" value="Tryp.com" color={onPaper} labelColor={faint} />
           <Fact s={s} label="Community" value={c.market || 'Worldwide'} color={onPaper} labelColor={faint} />
         </div>
+        {/* THEIR NAME THE WAY THEY WRITE IT (28 Sep 2026). This printed
+            "SURNAME, Given" - correct for a real passport data page, and the
+            reason the layout felt authentic - but it is a certificate with
+            somebody's name on it before it is a pastiche. Ethan: "this one
+            shows their name backwards. I still want to do this: still put their
+            name forwards, just their normal name."
+            The machine-readable strip at the foot keeps the passport ordering,
+            because that is a barcode rather than a way of addressing somebody. */}
         <div style={{ marginTop: 30 }}>
-          <Label s={s} color={faint}>{given ? 'Surname / Given names' : 'Name'}</Label>
+          <Label s={s} color={faint}>Name</Label>
           <p style={{ margin: '6px 0 0', fontSize: fit(c.name, 44), fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em', color: accent }}>
-            {given ? <>{surname}<span style={{ color: onPaper, fontWeight: 400 }}>, {given}</span></> : surname}
+            {c.name}
           </p>
         </div>
         <div style={{ marginTop: 16 }}>
@@ -861,7 +943,12 @@ function Minimal({ s, c, o }) {
       <div style={{ position: 'absolute', left: M + 40, top: M + 12 }}>
         <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
       </div>
-      {o.medal && <Badge s={s} c={c} size={100} style={{ right: M + 24, top: M }} />}
+      {/* BIGGER, BECAUSE IT IS THE ONLY ORNAMENT HERE (28 Sep 2026). Ethan:
+          "the minimal one looks pretty decent too... maybe make that first place
+          icon there slightly bigger." On a layout that is deliberately mostly
+          white, the badge is carrying the whole page, and at 100px it read as an
+          afterthought in the corner. */}
+      {o.medal && <Badge s={s} c={c} size={124} style={{ right: M + 24, top: M }} />}
       {/* One accent band down the left edge: the only decoration. Wider since
           28 Sep ("the orange bit on the left side, I think, should be bigger"). */}
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 30, background: s.light ? s.grad : s.hair }} />

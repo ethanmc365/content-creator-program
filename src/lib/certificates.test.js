@@ -164,11 +164,40 @@ describe('bodyProblem', () => {
 describe('28 Sep 2026 redesign', () => {
   it('names the award from the trigger and the place', async () => {
     const { awardKind } = await import('./certificates')
-    expect(awardKind({ award_on: 'challenge_rank' }, { place: 2 }).label).toBe('2nd place')
+    // JUST THE ORDINAL (28 Sep 2026). It was "2nd place", on a badge that also
+    // printed PLACE and "of 10" underneath. Ethan: "don't say 'of 10'. Just say
+    // 'first', and you don't even need to say 'place'."
+    expect(awardKind({ award_on: 'challenge_rank' }, { place: 2 }).label).toBe('2nd')
     expect(awardKind({ award_on: 'challenge_rank' }, {}).label).toBe('Prize winner')
     expect(awardKind({ award_on: 'challenge_entry' }).label).toBe('Participant')
     expect(awardKind({ award_on: 'milestone' }).label).toBe('Milestone')
     expect(awardKind({ tier: 'participation' }).label).toBe('Participant')
+  })
+  it('never prints the category on the badge itself', async () => {
+    const { awardKind } = await import('./certificates')
+    // The page's own sentence says what the award is for; a disc stamped
+    // PARTICIPANT reads as the person being filed under a heading.
+    for (const on of ['challenge_rank', 'challenge_entry', 'milestone', 'manual']) {
+      expect(awardKind({ award_on: on }).badgeLabel).toBe('')
+    }
+    expect(awardKind({ award_on: 'challenge_rank' }, { place: 1 }).badgeLabel).toBe('')
+  })
+  it('gives a milestone a trophy rather than a flag', async () => {
+    const { awardKind } = await import('./certificates')
+    expect(awardKind({ award_on: 'milestone' }).icon).toBe('trophy')
+    expect(awardKind({ award_on: 'manual' }).icon).toBe('star')
+  })
+  it('changing the trigger brings wording that can actually fill', async () => {
+    const { bodyForTrigger, bodyProblem } = await import('./certificates')
+    // A challenge body cannot fill on a milestone, so the switch replaces it.
+    const challengeBody = { award_on: 'challenge_rank', body: 'for finishing {place} in {challenge}' }
+    const swapped = bodyForTrigger(challengeBody, 'milestone')
+    expect(swapped).toBe('for reaching {milestone}')
+    expect(bodyProblem({ award_on: 'milestone', body: swapped })).toBe(null)
+    // Wording that still fills is left exactly as written, however it got there.
+    expect(bodyForTrigger({ award_on: 'challenge_rank', body: 'for taking part in {challenge}' }, 'challenge_entry')).toBe(null)
+    // And an empty body gets the new trigger's sentence rather than staying empty.
+    expect(bodyForTrigger({ award_on: 'manual', body: '' }, 'challenge_entry')).toBe('for taking part in {challenge}')
   })
   it('derives the tier from the trigger', async () => {
     const { tierForAward } = await import('./certificates')
@@ -184,9 +213,21 @@ describe('28 Sep 2026 redesign', () => {
   })
   it('puts dark type on the yellow accent and white on the rest', async () => {
     const { paletteFor } = await import('./certificates')
-    expect(paletteFor({ paper: 'sunset', accent: '#F2B705' }).ink).toBe('#1A1A1A')
-    expect(paletteFor({ paper: 'sunset', accent: '#D94407' }).ink).toBe('#FFFFFF')
     expect(paletteFor({ paper: 'paper', accent: '#F2B705' }).onBlock).toBe('#141414')
+  })
+  it('every paper is white now, including the ones designs were saved on', async () => {
+    const { PAPERS, paperOf, paletteFor } = await import('./certificates')
+    // Ethan: "just have white as the only option and remove those options.
+    // Still keep the accent colours." An old design's paper key has to resolve
+    // rather than break, and it resolves to white, which is the point.
+    expect(PAPERS).toHaveLength(1)
+    for (const legacy of ['sunset', 'glow', 'tint', 'ivory', 'mist', 'ink']) {
+      expect(paperOf(legacy).kind).toBe('white')
+      // Ink stays dark, because the page underneath is now always light.
+      expect(paletteFor({ paper: legacy, accent: '#D94407' }).ink).toBe('#1A1A1A')
+    }
+    // The accent still does what it always did.
+    expect(paletteFor({ paper: 'paper', accent: '#F2B705' }).accent).toBe('#F2B705')
   })
   it('an every-prize-place design is not a rule that cannot fire', async () => {
     const { ruleProblem } = await import('./certificates')
