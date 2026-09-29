@@ -78,18 +78,28 @@ self.addEventListener('fetch', (event) => {
 
 // Background push from a server (signed with our VAPID key). Payload is JSON:
 // { title, body, link }.
+// PUSH ANALYTICS (migration 283): the phone reports two facts the server cannot know - that the
+// notification was SHOWN and that it was TAPPED. `tag` is the notification's id. A beacon must
+// never hold up or break the notification, so every failure is swallowed.
+const TRACK_URL = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/push-track'
+function track(id, e) {
+  if (!id) return Promise.resolve()
+  return fetch(TRACK_URL, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ n: id, e }) }).catch(() => {})
+}
+
 self.addEventListener('push', (event) => {
   let data
   try { data = event.data ? event.data.json() : {} } catch { data = { body: event.data && event.data.text() } }
-  event.waitUntil(
+  event.waitUntil(Promise.all([
     self.registration.showNotification(data.title || 'Tryp.com', {
       body: data.body || '',
       icon: '/icon-192-v4.png',
       badge: '/icon-192-v4.png',
-      data: { link: data.link || '/' },
+      data: { link: data.link || '/', id: data.tag || '' },
       tag: data.tag,
-    })
-  )
+    }),
+    track(data.tag, 'delivered'),
+  ]))
 })
 
 // The page can ask us to show a notification (used for realtime events while
@@ -111,7 +121,9 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const link = (event.notification.data && event.notification.data.link) || '/'
+  const nid = event.notification.data && event.notification.data.id
   event.waitUntil((async () => {
+    await track(nid, 'clicked')
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of all) {
       if ('focus' in client) {

@@ -6,10 +6,11 @@ import { Avatar, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
 import KpiDetail from '../../components/admin/KpiDetail'
+import KpiProgress from '../../components/admin/KpiProgress'
 import { confirm, promptText } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import {
-  METRIC_GROUPS, STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, formatKpiValue, mergeKpiRows,
+  STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, formatKpiValue, mergeKpiRows,
   metricDef, metricLabel, periodLabel, rollUpTargets, rowStatus, withDerivedTargets,
 } from '../../lib/kpiTracker'
 import Segmented from '../../components/network/Segmented'
@@ -143,34 +144,58 @@ export default function AdminKpis() {
   // they finish in any order; without this the slowest one (an OLD period) landed
   // last and the page showed one quarter's goals under another's name.
   const loadSeq = useRef(0)
-  const load = useCallback(async () => {
-    if (!scope) return
-    const mine = ++loadSeq.current
-    setFetching(true)
-    // WHO SET IT (26 Sep 2026). Ethan: "show the profile of the admin that
-    // actually created the KPI ... so we can see who created it, and then I can
-    // follow up if I need to."
+  // A CACHE OF WHAT WAS ALREADY FETCHED (30 Sep 2026). Ethan: "there's lag when switching
+  // between them ... the whole page is a bit laggy when loading." Each step was three round
+  // trips before anything moved. Now a period that has been seen paints at once from here while
+  // the fresh numbers are fetched behind it (the request always still happens, so nothing shown
+  // can be stale for more than a moment), and the periods either side are fetched in advance.
+  const cacheRef = useRef(new Map())
+  const fetchSet = useCallback(async (sc, bs, y, q, m) => {
+    const bm = m != null
     const base = () => supabase.from('kpi_targets').select('*, creator:created_by(id, name, photo_url)')
-      .eq('community_id', scope).eq('basis', basis).eq('year', year).eq('quarter', quarter)
+      .eq('community_id', sc).eq('basis', bs).eq('year', y).eq('quarter', q)
     let tq = base()
-    tq = byMonth ? tq.eq('month', month) : tq.is('month', null)
-    // THE OTHER GRANULARITY, for the derived rows (29 Sep 2026): a quarter reads
-    // its months, a month reads its quarter.
-    const other = byMonth ? base().is('month', null) : base().not('month', 'is', null)
+    tq = bm ? tq.eq('month', m) : tq.is('month', null)
+    const other = bm ? base().is('month', null) : base().not('month', 'is', null)
     const [t, o, a] = await Promise.all([
       tq.order('created_at'),
       other.order('created_at'),
-      supabase.rpc('kpi_actuals', { p_community_id: scope, p_year: year, p_quarter: quarter, p_basis: basis, ...(byMonth ? { p_month: month } : {}) }),
+      supabase.rpc('kpi_actuals', { p_community_id: sc, p_year: y, p_quarter: q, p_basis: bs, ...(bm ? { p_month: m } : {}) }),
     ])
-    if (mine !== loadSeq.current) return
-    setFetching(false)
+    return { t, o, a, bm }
+  }, [])
+  const apply = useCallback((res, key) => {
+    const { t, o, a, bm } = res
     if (t.error) { setErr(t.error.message); setTargets([]); return }
     setErr(a.error ? a.error.message : '')
     setTargets(t.data || [])
-    if (byMonth) { setQuarterTargets(o.data || []); setMonthTargets([]) } else { setMonthTargets(o.data || []); setQuarterTargets([]) }
+    if (bm) { setQuarterTargets(o.data || []); setMonthTargets([]) } else { setMonthTargets(o.data || []); setQuarterTargets([]) }
     setActuals(a.data || [])
-    setShownKey(`${scope}:${basis}:${year}:${quarter}:${month ?? ''}`)
-  }, [scope, basis, year, quarter, month, byMonth])
+    setShownKey(key)
+  }, [])
+  const load = useCallback(async () => {
+    if (!scope) return
+    const mine = ++loadSeq.current
+    const key = `${scope}:${basis}:${year}:${quarter}:${month ?? ''}`
+    const hit = cacheRef.current.get(key)
+    if (hit) apply(hit, key); else setFetching(true)
+    const res = await fetchSet(scope, basis, year, quarter, month)
+    if (mine !== loadSeq.current) return
+    if (!res.t.error) cacheRef.current.set(key, res)
+    setFetching(false)
+    apply(res, key)
+    // the neighbours, when the browser has a spare moment
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 250))
+    ric(() => {
+      const nb = [-1, 1].map((d) => (byMonth ? adjacentMonth(year, month, d) : { ...adjacentQuarter(year, quarter, d), month: null }))
+      nb.forEach(async (p) => {
+        const k = `${scope}:${basis}:${p.year}:${p.quarter}:${p.month ?? ''}`
+        if (cacheRef.current.has(k)) return
+        const r = await fetchSet(scope, basis, p.year, p.quarter, p.month ?? null)
+        if (!r.t.error) cacheRef.current.set(k, r)
+      })
+    })
+  }, [scope, basis, year, quarter, month, byMonth, fetchSet, apply])
   useEffect(() => { load() }, [load])
 
   // WHAT THE PAGE SHOWS: what somebody set for exactly this period, plus a
@@ -197,6 +222,14 @@ export default function AdminKpis() {
   const scopeName = current ? (current.basis === 'global' ? tr('Global challenges') : current.basis === 'all' && community?.kind === 'network' ? tr('Total') : community?.name) : ''
   const currency = current?.currency || 'EUR'
   const ready = !!communities && managedIds !== null && merged !== null
+  // THE YEAR SECTION WAITS ITS TURN (30 Sep 2026): it fires up to twelve requests, and doing that in
+  // the same breath as the cards was a large part of the lag. The cards paint first.
+  const [yearOn, setYearOn] = useState(false)
+  useEffect(() => {
+    if (!ready || yearOn) return undefined
+    const id = setTimeout(() => setYearOn(true), 600)
+    return () => clearTimeout(id)
+  }, [ready, yearOn])
 
   const statuses = useMemo(
     () => (merged || []).map((r) => rowStatus(r, period)),
@@ -205,17 +238,17 @@ export default function AdminKpis() {
   const metCount = statuses.filter((s) => s.status === 'met').length
   const onTrackCount = statuses.filter((s) => s.status === 'on_track').length
   const derivedRows = (merged || []).filter((r) => r.derived)
-  // GROUPED BY WHAT THEY MEASURE. Twenty-odd KPIs in one grid is a wall; under
-  // Output / Reach / Participation / Recruitment / Community, and the team's own
-  // at the end, it is five short lists that each answer one question.
-  const groupedRows = useMemo(() => {
-    const groups = [...METRIC_GROUPS.map((g) => ({ ...g, rows: [] })), { key: 'custom', label: 'Your own KPIs', rows: [] }]
-    ;(merged || []).forEach((r, order) => {
-      const key = metricDef(r).group || 'custom'
-      groups.find((g) => g.key === key).rows.push({ ...r, order })
-    })
-    return groups.filter((g) => g.rows.length)
-  }, [merged])
+  // ONE FLAT GRID (30 Sep 2026). Ethan: "I don't think we necessarily need it to be divided into
+  // these groups, it will take up too much space and it's better for everything to just be
+  // arranged nicely." Anything behind or missed comes first (that is what you open this page to
+  // find), then the rest in their usual order.
+  const ordered = useMemo(() => {
+    const rank = { missed: 0, behind: 1, on_track: 2, met: 3 }
+    return (merged || [])
+      .map((r, order) => ({ r: { ...r, order }, s: rowStatus(r, period).status }))
+      .sort((x, y) => (rank[x.s] - rank[y.s]) || (x.r.order - y.r.order))
+      .map((x) => x.r)
+  }, [merged, period])
   const actualsMap = useMemo(() => Object.fromEntries((actuals || []).map((a) => [a.metric, Number(a.value)])), [actuals])
 
   // SAVE THE WORKED-OUT ROWS AS REAL GOALS. One press turns the months
@@ -287,6 +320,26 @@ export default function AdminKpis() {
           is ever clipped; the scroller's hidden scrollbar gutter (the space
           under them) is gone with it; and the period sits on the same centre
           line at the right. */}
+      {/* BACK TO TODAY, ABOVE THE PERIOD IT LEAVES (30 Sep 2026). Ethan: the "back to" button should
+          "appear above, rather than below the card ... directly above where it shows Q2 2026",
+          match the design, and not lag. It has a row of its own that is ALWAYS there (so nothing
+          below it moves when it appears), the button sits right-aligned over the period control,
+          and it is driven by the same state as the period so it cannot arrive late. */}
+      <div className="mb-1.5 flex h-8 items-end justify-end">
+        <button
+          type="button"
+          tabIndex={isCurrent ? -1 : 0}
+          aria-hidden={isCurrent}
+          onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
+          className={cx(
+            'inline-flex items-center gap-1.5 rounded-full border border-brand/25 bg-brand-tint px-3 py-1.5 text-xs font-semibold text-brand transition-all duration-200 hoverable:hover:bg-brand hoverable:hover:text-white',
+            isCurrent ? 'pointer-events-none translate-y-1 opacity-0' : 'translate-y-0 opacity-100',
+          )}
+        >
+          <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+          {tr('Back to {p}', { p: periodLabel(byMonth ? now : { ...currentQuarter(), month: null }) })}
+        </button>
+      </div>
       <div className="mb-5 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up lg:flex-row lg:items-center lg:gap-3">
         {/* ONE LINE, SCROLLING SIDEWAYS (28 Sep 2026, later). Ethan, on what
             happens when you step to another quarter: "the market selection goes
@@ -362,32 +415,6 @@ export default function AdminKpis() {
         </div>
       </div>
 
-      {/* BACK TO TODAY, OUTSIDE THE CARD AND SAYING WHERE IT GOES (28 Sep
-          2026). Ethan: "it shows up a 'this quarter' button which then makes
-          that card expand ... also the UI of the 'this quarter' button doesn't
-          really make sense as it seems as if I'm viewing the current quarter,
-          the UI should be improved and maybe a separate button outside the
-          card."
-          Two faults, both fixed by moving it out and renaming it. Inside the
-          bar it changed the bar's height, which reflowed the markets; and
-          "This quarter" is what a LABEL for the period you are on would say,
-          so as a button it read as a statement rather than a way back. It
-          names the period it returns to now - "Back to Q4 2026" - which can
-          only be an action, and it sits under the bar where appearing and
-          disappearing moves nothing but itself. */}
-      {!isCurrent && (
-        <div className="-mt-3 mb-4 flex justify-end animate-fade-up">
-          <button
-            type="button"
-            onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-brand/25 bg-brand-tint px-3 py-1.5 text-xs font-semibold text-brand transition-colors hoverable:hover:bg-brand hoverable:hover:text-white"
-          >
-            <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-            {tr('Back to {p}', { p: periodLabel(byMonth ? now : { ...currentQuarter(), month: null }) })}
-          </button>
-        </div>
-      )}
-
       {!ready && !merged ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-card" />)}
@@ -404,20 +431,20 @@ export default function AdminKpis() {
                     <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-white/80">{tr('On track or met')}</p>
                   </div>
                   <div className="min-w-[14rem] flex-1">
-                    {/* THE WHOLE SPREAD IN ONE STRIP: green met, white on track, amber
-                        behind, red missed. Each segment grows in from the left. */}
-                    <div className="flex h-2.5 overflow-hidden rounded-full bg-black/20" role="img" aria-label={tr('How the goals are doing')}>
-                      {['met', 'on_track', 'behind', 'missed'].map((k) => {
-                        const n = statuses.filter((x) => x.status === k).length
-                        return n ? <span key={k} className={cx('kpi-fill h-full', SUMMARY_TONE[k])} style={{ width: `${(n / merged.length) * 100}%` }} /> : null
-                      })}
+                    {/* THE WHOLE SPREAD IN ONE SMOOTH STRIP (30 Sep 2026). Ethan: the combined bar
+                        "should be a smooth gradient combining, not solid colour clashing", and the
+                        red "really doesn't look good on the orange background". So it is ONE
+                        gradient whose stops blend from each status into the next, and it sits on
+                        a white track, where red and amber read properly. */}
+                    <div className="rounded-full bg-white/95 p-[3px] shadow-inner" role="img" aria-label={tr('How the goals are doing')}>
+                      <div className="kpi-fill h-2.5 rounded-full" style={{ background: spreadGradient(statuses) }} />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/85">
                       {['met', 'on_track', 'behind', 'missed'].map((k) => {
                         const n = statuses.filter((x) => x.status === k).length
                         return n ? (
                           <span key={k} className="inline-flex items-center gap-1.5">
-                            <span className={cx('h-2 w-2 rounded-full', SUMMARY_TONE[k])} />
+                            <span className={cx('h-2 w-2 rounded-full ring-2 ring-white/90', SUMMARY_TONE[k])} />
                             {n} {tr(STATUS_STYLE[k].label)}
                           </span>
                         ) : null
@@ -472,34 +499,23 @@ export default function AdminKpis() {
               )}
             </div>
           ) : (
-            <div className="space-y-7">
-              {groupedRows.map((g) => (
-                <section key={g.key}>
-                  {groupedRows.length > 1 && (
-                    <div className="mb-3 flex items-center gap-2.5 animate-fade-up">
-                      <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr(g.label)}</h2>
-                      <span className="h-px flex-1 bg-gray-100" aria-hidden />
-                      <span className="text-[11px] font-semibold tabular-nums text-gray-300">{g.rows.length}</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {g.rows.map((row) => (
-                      <KpiCard
-                        style={{ animationDelay: `${60 + Math.min(row.order, 12) * 45}ms` }}
-                        key={row.id || `${row.derived}:${row.metric}:${row.label}`}
-                        row={row}
-                        period={period}
-                        currency={currency}
-                        canEdit={canEdit}
-                        onQuickUpdate={() => quickUpdate(row)}
-                        onEdit={() => setEditing(row)}
-                        onDelete={() => (row.id ? removeTarget(row) : null)}
-                        onOpen={() => setDetail(row)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {ordered.map((row, i) => (
+                  <KpiCard
+                    style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}
+                    key={row.id || `${row.derived}:${row.metric}:${row.label}`}
+                    row={row}
+                    period={period}
+                    currency={currency}
+                    canEdit={canEdit}
+                    onQuickUpdate={() => quickUpdate(row)}
+                    onEdit={() => setEditing(row)}
+                    onDelete={() => (row.id ? removeTarget(row) : null)}
+                    onOpen={() => setDetail(row)}
+                  />
+                ))}
+              </div>
               {canEdit && (
                 /* ONE ADD BAR AT THE END (29 Sep 2026): with the goals grouped by what
                    they measure, a dashed card in the last grid would sit under one
@@ -530,7 +546,7 @@ export default function AdminKpis() {
               number; this is the chart that says where that number came from,
               and it belongs between "are we on track this quarter" and "is this
               market going anywhere". */}
-          <YearOverview scope={scope} basis={basis} year={year} byMonth={byMonth} currency={currency} />
+          {yearOn ? <YearOverview scope={scope} basis={basis} year={year} byMonth={byMonth} currency={currency} /> : <Skeleton className="mt-8 h-40 w-full rounded-card" />}
         </div>
       )}
 
@@ -551,14 +567,19 @@ export default function AdminKpis() {
           currency={currency}
           basis={basis}
           isGlobalScope={basis === 'global'}
-          takenKeys={(merged || []).filter((r) => !r.derived && r.metric !== 'custom').map((r) => r.metric)}
           actuals={actualsMap}
           year={year}
           quarter={quarter}
           month={month}
           profileId={profile?.id}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); load() }}
+          onEditExisting={(r) => setEditing(r)}
+          onSaved={(p) => {
+            setEditing(null)
+            // Land on the period the goal was set for, so it is right there.
+            if (p && (p.year !== year || p.quarter !== quarter || (p.month ?? null) !== (month ?? null))) setPeriod(p)
+            else load()
+          }}
         />
       )}
     </div>
@@ -648,7 +669,27 @@ function YearOverview({ scope, basis, year, byMonth, currency }) {
   )
 }
 
-const SUMMARY_TONE = { met: 'bg-emerald-400', on_track: 'bg-white', behind: 'bg-amber-300', missed: 'bg-red-400' }
+const SUMMARY_TONE = { met: 'bg-emerald-500', on_track: 'bg-brand', behind: 'bg-amber-400', missed: 'bg-red-500' }
+const SUMMARY_HEX = { met: '#10b981', on_track: '#f5853f', behind: '#fbbf24', missed: '#ef4444' }
+
+// ONE GRADIENT FOR THE WHOLE SPREAD: each status owns a share of the strip in proportion to how
+// many goals are in it, and the colour eases into its neighbour across the seam instead of
+// stopping dead. Best first (met, on track, behind, missed), so it reads green to red.
+function spreadGradient(statuses) {
+  const order = ['met', 'on_track', 'behind', 'missed']
+  const total = statuses.length || 1
+  const parts = order.map((k) => ({ k, n: statuses.filter((x) => x.status === k).length })).filter((x) => x.n)
+  if (parts.length === 1) return SUMMARY_HEX[parts[0].k]
+  let at = 0
+  const stops = []
+  for (const { k, n } of parts) {
+    const w = (n / total) * 100
+    const mid = at + w / 2
+    stops.push(`${SUMMARY_HEX[k]} ${mid.toFixed(1)}%`)
+    at += w
+  }
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+}
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function YearRow({ metric, periods, currency, last }) {
@@ -812,7 +853,6 @@ function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, onQ
   const def = metricDef(row)
   const { status, pct, progress } = rowStatus(row, period)
   const style = STATUS_STYLE[status]
-  const fillPct = Math.min(100, Math.round(pct * 100))
   const fmt = (v) => formatKpiValue(row, v, currency)
 
   return (
@@ -864,22 +904,9 @@ function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, onQ
             {def.higherIsBetter ? tr('of') : tr('aim for under')} <strong className="font-semibold text-ink">{fmt(row.target_value)}</strong>
           </span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-cloud">
-          <div
-            className={cx('kpi-fill h-full rounded-full', style.bar)}
-            style={{ width: `${Math.max(fillPct > 0 ? 3 : 0, fillPct)}%` }}
-          />
-        </div>
-        {def.kind === 'sum' && progress > 0 && progress < 1 && status !== 'met' && (
-          <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400">
-            {tr('{p}% through · a steady pace would be at {n} today', {
-              p: Math.round(progress * 100),
-              n: fmt(Math.round(row.target_value * progress)),
-            })}
-          </p>
-        )}
+        <KpiProgress className="mt-2.5" status={status} pct={pct} progress={progress} isLevel={def.kind === 'level'} />
         {def.kind === 'level' && (
-          <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400">{tr('An average, so it is held against the goal all the way through.')}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{tr('An average, so it is held against the goal all the way through.')}</p>
         )}
         {row.monthsSum != null && Math.abs(row.monthsSum - row.target_value) > 1e-9 && (
           <p className="mt-1 text-[11px] font-medium leading-relaxed text-amber-600">

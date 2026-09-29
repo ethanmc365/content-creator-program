@@ -8,7 +8,7 @@ import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
 import Reveal from '../components/network/Reveal'
 import { useBootCleared } from '../lib/bootLoader'
-import { cx } from '../lib/utils'
+import { cx, formatViews } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 // Public landing page - bright, spacious, one clear focal point per section.
@@ -115,7 +115,7 @@ export default function Landing() {
     })
     // THE WALL OF FAME: the people who have actually won something. Everything
     // else on this page is a promise; this is a result with a name on it.
-    supabase.rpc('public_wall_of_fame', { p_limit: 12 }).then(({ data }) => {
+    supabase.rpc('public_wall_of_fame', { p_limit: 30 }).then(({ data }) => {
       if (data) setWall(data)
     })
   }, [])
@@ -843,34 +843,40 @@ export default function Landing() {
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Wall of fame")}</h2>
             <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
-              {tr("Creators who have won a Tryp.com challenge. Every one of them started where you are now.")}
+              {tr("The creators whose videos have earned the most views on Tryp.com. Every one of them started where you are now.")}
             </p>
-            <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {/* ONE ROW THAT SCROLLS, MOST VIEWS ON THE LEFT (30 Sep 2026). Ethan: same
+                horizontal scroll as the rest of the page, "so it only takes up one
+                line", each card showing the creator's ACCUMULATED VIEWS, no 1st/2nd/3rd,
+                and the top thirty always there. The RPC returns them already sorted by
+                views; a small trophy count marks the ones who have won a challenge. */}
+            <Rail
+              className="mt-8 sm:mt-12"
+              itemClassName="w-[46%] sm:w-[28%] md:w-[22%] lg:w-[calc((100%-4rem)/5)]"
+              gap="gap-3 sm:gap-4"
+              stagger={0.05}
+              label={tr("Wall of fame")}
+            >
               {wall.map((w, i) => (
-                <li
-                  key={`${w.name}-${w.challenge}-${w.place}`}
-                  style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
-                  className="animate-fade-up group relative overflow-hidden rounded-card bg-white p-4 text-center shadow-card ring-1 ring-black/5 transition-transform duration-200 hoverable:hover:-translate-y-1"
+                <div
+                  key={`${w.name}-${i}`}
+                  className="landing-lift group relative flex h-full flex-col items-center overflow-hidden rounded-card bg-white p-4 pt-5 text-center shadow-card ring-1 ring-black/5 sm:p-5 sm:pt-6"
                 >
-                  {/* The place is the point of the card, so it is the thing
-                      with the colour on it. First gets the gradient the
-                      certificates use; second and third are quieter, because
-                      three identical gold discs say nothing. */}
-                  <span className={cx(
-                    'mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold',
-                    w.place === 1 ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card'
-                      : w.place === 2 ? 'bg-brand-tint text-brand'
-                        : 'bg-cloud text-smoke',
-                  )}>
-                    {w.place === 1 ? '1st' : w.place === 2 ? '2nd' : '3rd'}
-                  </span>
-                  <Avatar src={w.photo_url} name={w.name} size="lg" className="mx-auto" />
-                  <p className="mt-3 truncate text-sm font-bold text-ink">{w.name}</p>
-                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-smoke">{w.challenge}</p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{w.market}</p>
-                </li>
+                  {i === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-brand-light" />}
+                  <div className="relative">
+                    <Avatar src={w.photo_url} name={w.name} size="lg" className="mx-auto" />
+                    {w.wins > 0 && (
+                      <span className="absolute -bottom-1 -right-2 flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-full bg-gradient-to-br from-brand to-brand-light px-1.5 text-[10px] font-bold text-white shadow-card ring-2 ring-white" title={tr("Challenge wins")}>
+                        <Icon name="trophy" className="h-3 w-3" />{w.wins > 1 ? w.wins : ''}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-3 w-full truncate text-sm font-bold text-ink">{w.name}</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-brand sm:text-[26px]">{formatViews(Number(w.total_views) || 0)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{tr("views so far")}</p>
+                </div>
               ))}
-            </ul>
+            </Rail>
           </div>
         </section>
       )}

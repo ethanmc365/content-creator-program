@@ -64,6 +64,27 @@ async function sha256(s: string): Promise<string> {
 
 type Result = { value: string; src: string | null }
 
+// {placeholders} (a certificate says "{challenge}") must come back exactly as they went in. They are
+// swapped for inert tokens before the engine sees the text and swapped back after; if the engine
+// ate one, the translation is refused and the original is shown, because "for winning {challenge}"
+// with a hole in it is worse than English.
+function protect(text: string): { text: string; back: (t: string) => string | null } {
+  const found: string[] = []
+  const masked = text.replace(/\{(\w+)\}/g, (m) => { found.push(m); return `QX${found.length - 1}XQ` })
+  return {
+    text: masked,
+    back: (t) => {
+      let out = t
+      for (let i = 0; i < found.length; i++) {
+        const re = new RegExp(`QX\\s?${i}\\s?XQ`, 'i')
+        if (!re.test(out)) return null
+        out = out.replace(re, found[i])
+      }
+      return out
+    },
+  }
+}
+
 // ---- engine 1: Claude, when a key is configured ---------------------------------
 async function withClaude(text: string, target: string): Promise<Result> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -94,9 +115,13 @@ async function withClaude(text: string, target: string): Promise<Result> {
 // refuses: Supabase's shared egress addresses are rate-limited by Google (429), and a second free
 // door keeps the feature working. MyMemory takes at most 500 characters, so a long chunk is
 // re-cut small for it.
+// PORTUGAL, NOT BRAZIL (30 Sep 2026). Google and MyMemory both answer plain "pt" in Brazilian
+// Portuguese; the platform speaks European Portuguese, so the engines are asked for pt-PT.
+const engineLang = (target: string) => (target === 'pt' ? 'pt-PT' : target)
+
 async function freeChunk(chunk: string, target: string): Promise<{ text: string; src: string | null }> {
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(chunk)}`
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${engineLang(target)}&dt=t&q=${encodeURIComponent(chunk)}`
     const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { 'user-agent': 'Mozilla/5.0' } })
     if (!res.ok) throw new Error(`mt ${res.status}`)
     const data = await res.json()
@@ -109,7 +134,7 @@ async function freeChunk(chunk: string, target: string): Promise<{ text: string;
     let src: string | null = null
     const texts: string[] = []
     for (const part of parts) {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(part)}&langpair=${encodeURIComponent(`Autodetect|${target}`)}`
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(part)}&langpair=${encodeURIComponent(`Autodetect|${engineLang(target)}`)}`
       const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
       if (!res.ok) throw new Error(`mm ${res.status}`)
       const data = await res.json()
@@ -175,8 +200,11 @@ Deno.serve(async (req) => {
     // suggestions never appear among the translated briefs.
     if (body.ephemeral) {
       try {
-        const r = ANTHROPIC_KEY ? await withClaude(text, target) : await withFree(text, target)
-        results.push({ text, value: r.value, same: false, src_lang: r.src, auto: true })
+        const g = protect(text)
+        const r = ANTHROPIC_KEY ? await withClaude(text, target) : await withFree(g.text, target)
+        const v = ANTHROPIC_KEY ? r.value : g.back(r.value)
+        if (v == null) throw new Error('placeholder lost')
+        results.push({ text, value: v, same: false, src_lang: r.src, auto: true })
       } catch (e) {
         console.error('draft failed', String(e))
         results.push({ text, value: '', same: true, src_lang: null, auto: true })
@@ -187,7 +215,11 @@ Deno.serve(async (req) => {
     const { data: existing } = await admin.from('content_translations').select('value, same, src_lang, auto').eq('source_hash', hash).eq('locale', target).maybeSingle()
     if (existing) { results.push({ text, value: existing.value, same: existing.same, src_lang: existing.src_lang, auto: existing.auto }); continue }
     try {
-      const r = ANTHROPIC_KEY ? await withClaude(text, target) : await withFree(text, target)
+      const g = protect(text)
+      const r0 = ANTHROPIC_KEY ? await withClaude(text, target) : await withFree(g.text, target)
+      const restored = ANTHROPIC_KEY ? r0.value : g.back(r0.value)
+      if (restored == null) throw new Error('placeholder lost')
+      const r = { ...r0, value: restored }
       const same = r.src === target || r.value.trim() === text.trim()
       await admin.from('content_translations').upsert({
         source_hash: hash, locale: target, source: text, value: same ? text : r.value, src_lang: r.src, same, auto: true,

@@ -30,6 +30,25 @@ import { notice } from '../../lib/confirm'
 //     the truth and "sent to everyone" is not.
 //
 // It cannot be undone, so it asks once with the real numbers in the sentence.
+// THE BUTTON OWNS ITS OWN OPEN STATE (30 Sep 2026). Ethan: "when I press the push button the
+// screen lags a bit." The open flag lived in ChallengeDetail - a 1,900-line page with the
+// leaderboard, countdown and every entry - so pressing the button re-rendered ALL of it
+// during the very frame the sheet was meant to animate in. Now only this button and the
+// sheet re-render, and the audience count is fetched after the sheet has finished
+// arriving rather than in the same frame.
+export function SendPushButton({ challenge, label }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-secondary inline-flex items-center gap-1.5 !py-2 text-xs">
+        <Icon name="bell" className="h-3.5 w-3.5" />
+        {label}
+      </button>
+      <ChallengePush challenge={challenge} open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
 export default function ChallengePush({ challenge, open, onClose }) {
   const { user } = useAuth()
   const [title, setTitle] = useState('')
@@ -67,7 +86,8 @@ export default function ChallengePush({ challenge, open, onClose }) {
   useEffect(() => {
     if (!open) return undefined
     let alive = true
-    ;(async () => {
+    let timer = null
+    const run = async () => {
       setReach(null)
       // `admin_push_adoption` RATHER THAN THE TABLE. `push_subscriptions` is
       // readable only by its owner - "push: manage own" - so an admin counting
@@ -84,8 +104,9 @@ export default function ChallengePush({ challenge, open, onClose }) {
       const inMarket = members ? new Set(members.map((m) => m.profile_id)) : null
       const rows = (adoption || []).filter((r) => !r.is_admin && (!inMarket || inMarket.has(r.creator_id)))
       if (alive) setReach({ people: rows.length, push: rows.filter((r) => Number(r.devices) > 0).length })
-    })()
-    return () => { alive = false }
+    }
+    timer = setTimeout(run, 320)
+    return () => { alive = false; clearTimeout(timer) }
   }, [open, toMarket, marketId])
 
   async function send() {

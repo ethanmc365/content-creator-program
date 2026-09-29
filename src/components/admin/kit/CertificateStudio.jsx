@@ -9,6 +9,9 @@ import { confirm, notice, promptText } from '../../../lib/confirm'
 import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
 import { StoryFrame } from '../../certificate/CertificateWall'
+import { Link } from 'react-router-dom'
+import { LOCALES } from '../../../lib/i18n'
+import { useCertificateDesign } from '../../../lib/certificateLang'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
   ACCENTS, DEFAULT_ACCENT, LAYOUTS, PLACEHOLDERS,
@@ -472,7 +475,7 @@ export function triggerText(row, markets = []) {
  * card drawn at 368 and every row on this page has a third of a screen of white
  * under it.
  */
-export function Preview({ design, facts, width = 520, cardRef, markets = [], place, rounded = false }) {
+export function Preview({ design, facts, width = 520, cardRef, markets = [], place, rounded = false, lang = 'en' }) {
   // THE EXAMPLE NAMES THE MARKET YOU PICKED (28 Sep 2026), and the place you
   // are looking at - not "UK & Ireland" and 1st whatever the design is for.
   const market = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
@@ -496,7 +499,7 @@ export function Preview({ design, facts, width = 520, cardRef, markets = [], pla
   return (
     <div style={{ width, height: CERT_H * scale, overflow: 'hidden', borderRadius: rounded ? Math.max(8, 22 * scale * 2) : 0 }}>
       <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-        <CertificateCard design={design} facts={shown} cardRef={cardRef} />
+        <CertificateCard design={design} facts={shown} cardRef={cardRef} lang={lang} />
       </div>
     </div>
   )
@@ -519,6 +522,12 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
     ? (design.all_prize_places ? [1, 2, 3, 4, 5, 10] : (design.ranks || []).slice().sort((a, b) => a - b))
     : []
   const [previewPlace, setPreviewPlace] = useState(null)
+  // EVERY LANGUAGE, FOR REVIEW (30 Sep 2026). A creator who speaks Spanish can save the
+  // certificate in Spanish; before any go out an admin should read each version. The words
+  // shown are the cached translations (Languages > Briefs and content, where they can be
+  // corrected) and the card's fixed words (Languages > Interface).
+  const [previewLang, setPreviewLang] = useState('en')
+  const { design: langDesign, ready: langReady } = useCertificateDesign(design, previewLang)
   const shownPlace = placeChoices.includes(previewPlace) ? previewPlace : placeChoices[0]
   const problem = ruleProblem(design)
   const wording = bodyProblem(design)
@@ -668,8 +677,26 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               in a white frame, which read as a white border on the picture. */}
           <div ref={holder} className="w-full">
             <div className="overflow-hidden rounded-2xl shadow-lift ring-1 ring-black/5">
-              <Preview design={design} width={width} cardRef={setCard} markets={markets} place={shownPlace} />
+              <Preview design={langDesign} width={width} cardRef={setCard} markets={markets} place={shownPlace} lang={previewLang} />
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+            <span className="mr-1 text-[11px] font-semibold text-smoke">Language</span>
+            {LOCALES.map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => setPreviewLang(l.code)}
+                className={pickClass(previewLang === l.code, 'rounded-full border px-2.5 py-1 text-[11px] font-bold')}
+              >
+                {l.flag} {l.native}
+              </button>
+            ))}
+            {previewLang !== 'en' && (
+              <Link to="/admin/languages" className="ml-1 text-[11px] font-semibold text-brand hover:underline">
+                {langReady ? 'Correct the wording in Languages' : 'Translating…'}
+              </Link>
+            )}
           </div>
           {placeChoices.length > 1 && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
@@ -702,7 +729,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
             <div className="flex items-start gap-3">
               <div className="shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-black/5" style={{ width: STORY_W, height: STORY_W * (1920 / 1080) }}>
                 <div style={{ transform: `scale(${STORY_W / 1080})`, transformOrigin: 'top left' }}>
-                  <StoryFrame design={design} facts={storyFacts} />
+                  <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
                 </div>
               </div>
               <div className="min-w-0 flex-1">

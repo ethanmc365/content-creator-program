@@ -305,9 +305,9 @@ function Row({ rule, onChange, onRemove, weeks }) {
           ))}
         </div>
       </div>
-      <div className={cx('grid gap-3', rule.prompt != null ? 'sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]' : 'sm:grid-cols-2 sm:max-w-md')}>
+      <div className={cx('grid grid-cols-2 gap-3', rule.prompt != null ? 'sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]' : 'sm:max-w-md')}>
         {rule.prompt != null && (
-          <label className="block min-w-0">
+          <label className="col-span-2 block min-w-0 sm:col-span-1">
             <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr("The question on the submit form")}</span>
             <input
               className="input !h-[38px] !py-0 !no-ios-zoom sm:text-sm"
@@ -349,6 +349,17 @@ function Row({ rule, onChange, onRemove, weeks }) {
           <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: no limit")}</span>
         </label>
       </div>
+      {/* WHAT THE CREATOR WILL READ, in the words they will read it in (30 Sep 2026). */}
+      {Number(rule.max_points) > 0 && Number(rule.points) > 0 && (
+        <p className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-xs leading-relaxed text-ink ring-1 ring-brand/15">
+          <Icon name="star" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+          <span>
+            {tr('Creators can claim this bonus on {n} videos for a maximum of {p} points', {
+              n: Math.max(1, Math.floor(Number(rule.max_points) / Number(rule.points))), p: Number(rule.max_points),
+            })}
+          </span>
+        </p>
+      )}
       <BonusWindow rule={rule} onChange={onChange} weeks={weeks} />
       </div>
     )}
@@ -623,7 +634,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
         </div>
       )}
 
-      <section className="rounded-2xl border border-brand/15 bg-brand-tint/20 p-3 sm:p-4">
+      <section className="rounded-2xl border border-brand/15 bg-brand-tint/20 p-3 max-sm:!rounded-none max-sm:!border-0 max-sm:!border-t max-sm:!bg-transparent max-sm:!px-0 max-sm:!pb-0 max-sm:pt-5 sm:p-4">
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <Icon name="star" className="h-4 w-4 text-brand" />

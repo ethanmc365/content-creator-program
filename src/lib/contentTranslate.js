@@ -89,3 +89,29 @@ export function useContentTranslation(text) {
     loading: !!text && text.trim() !== '' && row === null,
   }
 }
+
+/**
+ * The same, for a LIST of short texts that share one switch (the bonus points on a challenge:
+ * every label and question, one Translated | Original control). `pick(text)` returns what to draw.
+ */
+export function useContentTranslations(texts) {
+  const locale = useLocale()
+  const [map, setMap] = useState({})
+  const [showOriginal, setShowOriginal] = useState(false)
+  const key = (texts || []).filter((t) => t && t.trim()).join('\u0001')
+  useEffect(() => {
+    let alive = true
+    if (!key) { setMap({}); return undefined }
+    translateTexts(key.split('\u0001'), getLocale()).then((res) => { if (alive) setMap(res) })
+    return () => { alive = false }
+  }, [key, locale])
+  const differs = (t) => { const r = map[t]; return !!r && !r.same && r.value && r.value !== t }
+  const rows = Object.values(map)
+  return {
+    pick: (t) => (!showOriginal && differs(t) ? map[t].value : t),
+    translated: (texts || []).some((t) => t && differs(t)),
+    srcLang: rows.find((r) => r?.src_lang)?.src_lang || null,
+    showOriginal,
+    toggle: () => setShowOriginal((v) => !v),
+  }
+}

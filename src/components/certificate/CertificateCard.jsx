@@ -1,4 +1,7 @@
+import { createContext, useContext } from 'react'
 import Icon from '../Icon'
+import { tIn } from '../../lib/i18n'
+import { dateIn, ordinalIn } from '../../lib/certificateLang'
 import { qrPath, useQrMatrix } from '../../lib/qr'
 import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf, ordinal } from '../../lib/certificates'
 
@@ -70,7 +73,12 @@ function fit(text, max) {
   return Math.round(max * 0.5)
 }
 
-export default function CertificateCard({ design, facts = {}, cardRef, className }) {
+// THE LANGUAGE THE CARD IS DRAWN IN (30 Sep 2026). Every fixed word on the card goes
+// through `L`, so a layout does not have to know a second language exists.
+const LangContext = createContext('en')
+const useL = () => { const lang = useContext(LangContext); return (en) => tIn(lang, en) }
+
+export default function CertificateCard({ design, facts = {}, cardRef, className, lang = 'en' }) {
   const d = design || {}
   const s = designStyle(d)
   const o = optionsOf(d)
@@ -79,19 +87,20 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
   const c = {
     subtitle: fillTemplate(d.subtitle, facts),
     title: fillTemplate(d.title, facts) || 'Certificate',
-    body: fillTemplate(d.body, facts) || 'for taking part in the Tryp.com Content Creator Community',
+    body: fillTemplate(d.body, facts) || tIn(lang, 'for taking part in the Tryp.com Content Creator Community'),
     footnote: fillTemplate(d.footnote, facts),
     name: facts.name || '',
-    date: facts.date ? formatAwardDate(facts.date) : '',
+    date: facts.date ? (lang === 'en' ? formatAwardDate(facts.date) : dateIn(lang, facts.date)) : '',
     serial: facts.serial || '',
     signature: d.signature || '',
     signatureRole: d.signature_role || '',
     market: facts.market || '',
     challenge: facts.challenge || '',
-    kind,
+    kind: { ...kind, label: kind.place ? ordinalIn(lang, kind.place, kind.label) : tIn(lang, kind.label) },
+    lang,
     place: kind.place || null,
     places: Number(facts.places) || null,
-    preamble: o.preamble ?? 'This certifies that',
+    preamble: o.preamble == null ? tIn(lang, 'This certifies that') : (o.preamble === 'This certifies that' ? tIn(lang, o.preamble) : o.preamble),
     // The creator's own photo, for the layouts that put a face on it (Horizon,
     // Passport). Optional: every layout still draws without one.
     photo: facts.photo || '',
@@ -108,7 +117,9 @@ export default function CertificateCard({ design, facts = {}, cardRef, className
         background: s.bg, color: s.ink, fontFamily: SANS, WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <Layout s={s} c={c} o={o} />
+      <LangContext.Provider value={lang}>
+        <Layout s={s} c={c} o={o} />
+      </LangContext.Provider>
     </div>
   )
 }
@@ -183,12 +194,13 @@ function Body({ s, children, align = 'left', width = 540, size = 16, color }) {
 }
 
 function Label({ s, children, color }) {
+  const L = useL()
   return (
     <p style={{
       margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em',
       textTransform: 'uppercase', color: color || s.faint,
     }}>
-      {children}
+      {typeof children === 'string' ? L(children) : children}
     </p>
   )
 }
@@ -203,7 +215,9 @@ function Label({ s, children, color }) {
  * Used for the date; "Certificate ID" and "Issued by" keep the normal order,
  * because there the value IS the fact and the label is just naming a field.
  */
-function Fact({ s, label, value, align = 'left', mono = false, color, labelColor, lead = false }) {
+function Fact({ s, label: labelEn, value, align = 'left', mono = false, color, labelColor, lead = false }) {
+  const L = useL()
+  const label = L(labelEn)
   if (!value) return null
   if (lead) {
     return (
@@ -250,10 +264,11 @@ function Signature({ s, name, role, align = 'left', color }) {
  *  then have it actually below the certificate ID." The ID is printed right
  *  above it, and /verify asks for it. */
 function Verify({ s, serial, align = 'left', color }) {
+  const L = useL()
   if (!serial) return null
   return (
     <p style={{ margin: 0, fontSize: 9.5, fontWeight: 400, color: color || s.faint, textAlign: align, whiteSpace: 'nowrap' }}>
-      Verify at <span style={{ fontWeight: 700 }}>{VERIFY_HOST}/verify</span>
+      {L('Verify at')} <span style={{ fontWeight: 700 }}>{VERIFY_HOST}/verify</span>
     </p>
   )
 }
@@ -363,14 +378,18 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
         // opaque white makes the same colour solid on any ground.
         : p === 3
           ? {
-            background: `linear-gradient(${alpha(s.accent, 0.18)}, ${alpha(s.accent, 0.18)}), #ffffff`,
-            color: s.accentDeep,
-            boxShadow: `0 10px 24px rgba(26,26,26,0.10), inset 0 0 0 4px ${alpha(s.accent, 0.5)}`,
+            // A REAL LIGHT ORANGE (30 Sep 2026): Ethan wanted third place "a better
+            // background colour, maybe light orange" - the 18% tint of the accent
+            // read as a washed-out beige on the paper. Fixed rather than derived,
+            // because the accent varies per design and third place should not.
+            background: 'linear-gradient(150deg, #ffe9d6 0%, #ffcb9c 100%)',
+            color: '#a83204',
+            boxShadow: `0 10px 24px rgba(217,68,7,0.22), inset 0 0 0 4px rgba(245,133,63,0.75)`,
           }
           // Fourth and beyond: white, with the ordinal doing the work.
           : { background: '#ffffff', color: s.accentDeep, boxShadow: `0 8px 20px rgba(26,26,26,0.10), inset 0 0 0 2px ${alpha(s.accent, 0.45)}` }
     const n = String(p)
-    const suffix = ordinal(p).slice(n.length)
+    const suffix = c.lang && c.lang !== 'en' ? ordinalIn(c.lang, p, '').slice(n.length) : ordinal(p).slice(n.length)
     return (
       <div style={{ ...base, ...look }}>
         <span style={{ display: 'flex', alignItems: 'flex-start', lineHeight: 1 }}>
@@ -538,8 +557,8 @@ function Boarding({ s, c, o }) {
   const muted = '#5E6068'
   const onBand = s.onAccent
   const white = { ...s, ink, faint, hair: 'rgba(26,26,26,0.10)', accentText: s.accentDeep, muted }
-  const from = c.market || 'Worldwide'
-  const to = c.place ? `${ordinal(c.place)} place` : 'Tryp.com'
+  const from = c.market || tIn(c.lang, 'Worldwide')
+  const to = c.place ? tIn(c.lang, '{ordinal} place', { ordinal: c.kind.label }) : 'Tryp.com'
   // The notches are holes in the pass, so they are the colour of the paper.
   const notch = s.kind === 'ivory' ? '#FBF8F4' : s.light ? '#FFFFFF' : s.accent
   const verifyUrl = c.serial ? `https://${VERIFY_HOST}/verify/${c.serial}` : ''
@@ -600,7 +619,7 @@ function Boarding({ s, c, o }) {
             <Fact s={white} label="Seat" value={c.place ? `${c.place}A` : '1A'} />
             {c.challenge
               ? <Fact s={white} label="Challenge" value={String(c.challenge).length > 26 ? `${String(c.challenge).slice(0, 25)}…` : c.challenge} />
-              : <Fact s={white} label="Gate" value={c.market || 'Worldwide'} />}
+              : <Fact s={white} label="Gate" value={c.market || tIn(c.lang, 'Worldwide')} />}
             {c.signature && <Fact s={white} label={c.signatureRole || 'Signed'} value={c.signature} />}
           </div>
         </div>
@@ -713,7 +732,7 @@ function Postcard({ s, c, o }) {
             ))}
           </svg>
           <span style={{ position: 'absolute', left: 9, top: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', color: s.onAccent }}>TRYP.COM</span>
-          <span style={{ position: 'absolute', right: 9, top: 7, fontSize: 13, fontWeight: 700, color: s.onAccent }}>{c.place ? ordinal(c.place) : ''}</span>
+          <span style={{ position: 'absolute', right: 9, top: 7, fontSize: 13, fontWeight: 700, color: s.onAccent }}>{c.place ? c.kind.label : ''}</span>
         </div>
       </div>
 
@@ -742,10 +761,10 @@ function Postcard({ s, c, o }) {
         <circle cx="65" cy="65" r="58" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.5" />
         <circle cx="65" cy="65" r="40" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="1.5" />
         <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
-          <textPath href="#pm-top" startOffset="50%" textAnchor="middle">CREATOR POST</textPath>
+          <textPath href="#pm-top" startOffset="50%" textAnchor="middle">{tIn(c.lang, 'Creator post').toUpperCase()}</textPath>
         </text>
         <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
-          <textPath href="#pm-bottom" startOffset="50%" textAnchor="middle">{(c.market || 'Worldwide').toUpperCase()}</textPath>
+          <textPath href="#pm-bottom" startOffset="50%" textAnchor="middle">{(c.market || tIn(c.lang, 'Worldwide')).toUpperCase()}</textPath>
         </text>
         <text x="65" y="62" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 13, fontWeight: 700, fontFamily: SANS }}>
           {(shortDate(c.date) || 'TRYP.COM').split(' ').slice(0, 2).join(' ')}
@@ -818,7 +837,7 @@ function Postcard({ s, c, o }) {
  * a banner where a seal has always belonged.
  */
 function Banner({ s, c, o }) {
-  const BAND = 250
+  const BAND = 268
   // The bottom corners curve UP by this much, so the centre of the band is its
   // lowest point and the edge reads as a horizon rather than a cut.
   const ARC = 64
@@ -832,19 +851,16 @@ function Banner({ s, c, o }) {
         radius={0}
         style={{ left: 0, right: 0, top: 0, height: BAND, borderRadius: `0 0 50% 50% / 0 0 ${ARC}px ${ARC}px` }}
       >
-        {/* THE AIRCRAFT FLIES ABOVE THE TITLE, NOT THROUGH IT. It is in the
-            top right with the trail coming in from the left at the same
-            height, so the whole flight sits in the band's upper third and the
-            centred title below has the full width to itself. Measured: the
-            plane's box ends at y=104 and the title starts at y=118. */}
-        {o.route && <Route d="M 150 98 C 340 88, 520 66, 700 48" color={ink} opacity={0.55} />}
-        {o.plane && <Plane width={200} left={690} top={26} rotate={-7} />}
-        <div style={{ position: 'absolute', left: M + 8, top: 42 }}>
-          <Wordmark white={white} height={28} />
+        {/* SKY BANNER, SIMPLIFIED (30 Sep 2026). Ethan: "remove the tryp.com plane
+            and the dotted line ... fix any spacing issues as I noticed the logo
+            is too far up the top." The plane and its route are gone (this layout
+            ignores the `plane` / `route` options now), and what was a wordmark
+            jammed into the top-left corner is a centred stack with even air:
+            logo, kicker, title, then the medal on the horizon. */}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 44, display: 'flex', justifyContent: 'center' }}>
+          <Wordmark white={white} height={30} style={{ alignSelf: 'center' }} />
         </div>
-        {/* Centred, and high enough in the band that the arc below it stays
-            empty - the medal is what sits on the horizon. */}
-        <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 118, textAlign: 'center' }}>
+        <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 102, textAlign: 'center' }}>
           <Kicker s={s} color={ink} align="center">{c.subtitle}</Kicker>
           <div style={{ height: c.subtitle ? 10 : 0 }} />
           <Title s={s} size={40} align="center" color={ink}>{c.title}</Title>
@@ -876,11 +892,7 @@ function Banner({ s, c, o }) {
         <Preamble s={s} align="center">{c.preamble}</Preamble>
         <div style={{ height: 6 }} />
         <Name s={s} size={54} align="center">{c.name}</Name>
-        <div style={{ height: 14 }} />
-        {/* A short rule under the name, in the accent: it closes the centred
-            column and gives the body text something to sit under. */}
-        <div style={{ width: 72, height: 3, borderRadius: 2, background: s.accent, opacity: 0.85 }} />
-        <div style={{ height: 14 }} />
+        <div style={{ height: 20 }} />
         <Body s={s} align="center" width={620} size={16}>{c.body}</Body>
       </div>
       <Footer s={s} c={c} align="center" style={{ left: M + 24, right: M + 24, bottom: M - 20 }} />
@@ -950,7 +962,7 @@ function Passport({ s, c, o }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px 24px' }}>
           <Fact s={s} label="Type" value="Creator" color={onPaper} labelColor={faint} />
           <Fact s={s} label="Issued by" value="Tryp.com" color={onPaper} labelColor={faint} />
-          <Fact s={s} label="Community" value={c.market || 'Worldwide'} color={onPaper} labelColor={faint} />
+          <Fact s={s} label="Community" value={c.market || tIn(c.lang, 'Worldwide')} color={onPaper} labelColor={faint} />
         </div>
         {/* THEIR NAME THE WAY THEY WRITE IT (28 Sep 2026). This printed
             "SURNAME, Given" - correct for a real passport data page, and the
@@ -986,7 +998,7 @@ function Passport({ s, c, o }) {
           border: `3px solid ${alpha(s.accent, 0.7)}`, color: alpha(s.accent, 0.85), transform: 'rotate(-9deg)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
         }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.24em' }}>ADMITTED</span>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.24em' }}>{tIn(c.lang, 'Admitted').toUpperCase()}</span>
           <span style={{ fontSize: 17, fontWeight: 700, marginTop: 3, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
           <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', marginTop: 3 }}>{(c.market || 'WORLDWIDE').toUpperCase()}</span>
         </div>

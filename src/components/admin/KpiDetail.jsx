@@ -6,6 +6,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
+import KpiProgress from './KpiProgress'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { formatKpiValue, metricDef, metricLabel, periodLabel, rowStatus } from '../../lib/kpiTracker'
 import { useT } from '../../lib/i18n'
@@ -147,33 +148,14 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card">{tr(st.label)}</span>
             </div>
-            {/* A FULL BAR HAS TO LOOK FULL (28 Sep 2026). This was a white fill
-                on a `bg-white/25` track, both on the orange header, so at 100%
-                it read as an empty white bar. Ethan: "it shows the progress bar,
-                which is pure white, but it's kind of hard to understand because
-                normally the progress bar wouldn't be white. It appears like it's
-                not filled at all, even though it's 100%."
-                The track is now dark against the orange, so the fill is the
-                bright thing rather than the whole thing, and reaching the
-                target sweeps a shine across it once instead of arriving with no
-                event at all.
-
-                AND THE FILL IS GREEN (28 Sep 2026, later). Ethan: "for the
-                progress bar, whenever I click on anything, can the progress bar
-                be a gradient green rather than white?" White was still the same
-                colour as the type around it, so the bar read as part of the
-                panel; green is the one colour on this header that means
-                progress and cannot be confused with anything else on it. A
-                gradient rather than a flat fill so the leading edge is the
-                brightest part, which is where the eye goes. */}
-            <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-black/25">
-              <div
-                className={cx(
-                  'kpi-fill relative h-full overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-300',
-                  status === 'met' && 'kpi-complete',
-                )}
-                style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }}
-              />
+            {/* THE SAME BAR AS THE CARD (30 Sep 2026). This header used to draw
+                its own flat green bar on the orange, so a card that read orange
+                opened into a green one. Ethan: "ensure the colours match and
+                show the same way." The bar now sits on a white inset - which
+                also keeps red and amber readable, neither of which survives on
+                an orange background - and is the very component the card uses. */}
+            <div className="relative mt-4 rounded-2xl bg-white px-4 py-3 text-ink shadow-card">
+              <KpiProgress status={status} pct={pct} progress={progress} isLevel={isLevel} size="lg" />
             </div>
             <p className="relative mt-3 text-sm text-white/90">
               {status === 'met'
@@ -200,7 +182,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
           ) : (
             <>
               {/* ---- 2. How it got there ---- */}
-              <section className="animate-fade-up rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+              <section className="animate-fade-up border-t border-gray-100 pt-5">
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
@@ -239,7 +221,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
 
               {/* Per day, as bars: when things actually happened. */}
               {def.kind === 'sum' && series.some((p) => p.landed) && (
-                <section className="animate-fade-up rounded-card border border-gray-100 bg-white p-4 shadow-card [animation-delay:80ms] sm:p-5">
+                <section className="animate-fade-up border-t border-gray-100 pt-5 [animation-delay:80ms]">
                   <h3 className="mb-3 text-sm font-semibold">{tr('Day by day')}</h3>
                   <div className="h-40">
                     <ResponsiveContainer>
@@ -264,10 +246,10 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                     other empty. */}
                 {row.metric !== 'challenges_run' && (
                   <section className={cx(
-                    'animate-fade-up rounded-card border border-gray-100 bg-white shadow-card [animation-delay:140ms]',
+                    'animate-fade-up border-t border-gray-100 pt-5 [animation-delay:140ms]',
                     !(data.challenges || []).length && 'lg:col-span-2',
                   )}>
-                    <h3 className="flex items-center justify-between border-b border-gray-100 px-4 py-3 text-sm font-semibold">
+                    <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
                       {peopleTitle}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{(data.people || []).length}</span>
                     </h3>
@@ -299,8 +281,8 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   </section>
                 )}
                 {(data.challenges || []).length > 0 && (
-                  <section className={cx('animate-fade-up rounded-card border border-gray-100 bg-white shadow-card [animation-delay:200ms]', row.metric === 'challenges_run' && 'lg:col-span-2')}>
-                    <h3 className="flex items-center justify-between border-b border-gray-100 px-4 py-3 text-sm font-semibold">
+                  <section className={cx('animate-fade-up border-t border-gray-100 pt-5 [animation-delay:200ms]', row.metric === 'challenges_run' && 'lg:col-span-2')}>
+                    <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
                       {row.metric === 'challenges_run' ? tr('The challenges') : tr('By challenge')}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{data.challenges.length}</span>
                     </h3>

@@ -368,7 +368,7 @@ export default function AdminApplications() {
       {
         title: 'Add to the Tryp.com team',
         defaultValue: suggested,
-        placeholder: 'Market manager, Spain',
+        placeholder: 'e.g. Community lead, Spain',
         confirmLabel: 'Add them to the team',
       },
     )

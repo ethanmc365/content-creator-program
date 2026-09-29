@@ -631,30 +631,31 @@ export default function AppLayout() {
           <nav className="hidden items-center gap-2 lg:flex" aria-label={tr("Main")}>
             {tabs.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass(item.to)} data-tour={tourAnchor(item.to)}>
-                <Icon name={item.icon} className="h-5 w-5" />
+                {/* THE BADGE HANGS FROM THE ICON, NOT FROM THE LINK (30 Sep 2026). It was positioned
+                    against the whole link (`right-2`), so it sat at a fixed distance from the RIGHT
+                    EDGE - and a longer label in another language ("Mensajes", "Nachrichten")
+                    pushed that edge away from the icon. Ethan: the orange dot shows "up away from
+                    the icons because the different languages' UI are slightly different." */}
+                <span className="relative inline-flex">
+                  <Icon name={item.icon} className="h-5 w-5" />
+                  {item.to === '/messages' && dmUnread > 0 && (
+                    <span className="absolute -right-2.5 -top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white ring-2 ring-white">
+                      {dmUnread > 9 ? '9+' : dmUnread}
+                    </span>
+                  )}
+                  {item.to === '/rooms' && roomsUnread > 0 && (
+                    <span className="absolute -right-1.5 -top-1 flex h-2.5 w-2.5 items-center justify-center" role="status" aria-label={tr('New messages')}>
+                      <span className="absolute inset-0 rounded-full bg-brand/60 animate-ping-slow" aria-hidden />
+                      <span className="relative h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-white" aria-hidden />
+                    </span>
+                  )}
+                </span>
                 {/* `tabs` and `menuLinks` are module-level tables, so the
                     translation happens where the label is DRAWN. Translating
                     the table would fix its language at module load - whichever
                     one the app happened to open in - and it would never change
                     when somebody switched. */}
                 {tr(item.label)}
-                {item.to === '/messages' && dmUnread > 0 && (
-                  <span className="absolute right-2 top-0 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
-                    {dmUnread > 9 ? '9+' : dmUnread}
-                  </span>
-                )}
-                {/* ROOMS GETS A DOT, NOT A COUNT. The number of DMs waiting is
-                    a useful figure - each one is somebody addressing you. The
-                    number of ROOMS that have moved is not; what you want to
-                    know is whether any of them has, and the sidebar inside says
-                    which. A count here would also fight the Messages badge for
-                    the same corner at the same weight. */}
-                {item.to === '/rooms' && roomsUnread > 0 && (
-                  <span className="absolute right-3.5 top-1 flex h-2 w-2 items-center justify-center" role="status" aria-label={tr('New messages')}>
-                    <span className="absolute inset-0 rounded-full bg-brand/60 animate-ping-slow" aria-hidden />
-                    <span className="relative h-2 w-2 rounded-full bg-brand" aria-hidden />
-                  </span>
-                )}
               </NavLink>
             ))}
           </nav>

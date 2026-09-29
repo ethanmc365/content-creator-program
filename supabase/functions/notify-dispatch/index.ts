@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await supabase
       .from('profiles').select('notif_prefs').eq('id', n.recipient_id).single()
     if (!LOCKED_TYPES.includes(n.type) && profile?.notif_prefs?.[n.type] === false) {
+      await supabase.from('push_events').insert({ notification_id: n.id ?? null, recipient_id: n.recipient_id, type: n.type, event: 'muted' })
       return new Response('push off', { status: 200 })
     }
 
@@ -88,6 +89,17 @@ Deno.serve(async (req) => {
     // push service's own status and reason, and the host rather than the
     // endpoint, which is a capability URL.
     const tally = { sent: 0, failed: 0, removed: 0 }
+    // THE LEDGER (migration 283): every outcome is a row, so "was it sent to everyone with push
+    // on" is a query. A ledger write can never fail the push itself.
+    const ledger = async (event: string, host?: string, e?: any) => {
+      try {
+        await supabase.from('push_events').insert({
+          notification_id: n.id ?? null, recipient_id: n.recipient_id, type: n.type, event,
+          host: host ?? null, status_code: e?.statusCode ?? null,
+          detail: e ? String(e?.body ?? e?.message ?? e).slice(0, 300) : null,
+        })
+      } catch (_e) { /* the push matters more than its receipt */ }
+    }
     await Promise.all((subs ?? []).map(async (s) => {
       const host = (() => { try { return new URL(s.endpoint).host } catch { return '?' } })()
       try {
@@ -98,6 +110,7 @@ Deno.serve(async (req) => {
           { urgency: 'high', TTL: 60 * 60 * 24 * 3 },
         )
         tally.sent += 1
+        await ledger('sent', host)
       } catch (e) {
         // 404/410 mean the browser threw the subscription away (uninstalled the
         // PWA, cleared site data). Drop it so we stop retrying forever. The app
@@ -105,8 +118,10 @@ Deno.serve(async (req) => {
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
           tally.removed += 1
+          await ledger('removed', host, e)
         } else {
           tally.failed += 1
+          await ledger('failed', host, e)
         }
         console.error('push failed', JSON.stringify({
           host, status: e?.statusCode ?? null, reason: String(e?.body ?? e?.message ?? e).slice(0, 300),
@@ -115,6 +130,7 @@ Deno.serve(async (req) => {
       }
     }))
 
+    if (!subs?.length) await ledger('no_device')
     if (!subs?.length) console.log('push skipped: no devices', JSON.stringify({ type: n.type, recipient: n.recipient_id }))
     return new Response(JSON.stringify(tally), { status: 200, headers: { 'content-type': 'application/json' } })
   } catch (e) {

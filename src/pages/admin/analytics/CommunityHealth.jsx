@@ -9,6 +9,7 @@ import { supabase } from '../../../lib/supabase'
 import { Avatar, Skeleton, StatCard } from '../../../components/ui'
 import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
 import ConnectionsSection from './ConnectionsSection'
+import PushDelivery from './PushDelivery'
 
 // Community health: is the place actually being used, and by whom.
 //
@@ -296,6 +297,8 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </div>
         </details>
       </div>
+
+      <PushDelivery />
 
       {/* ---- Connections (was its own tab until 24 Sep 2026) ---- */}
       <ConnectionsSection market={market} memberRows={memberRows} />

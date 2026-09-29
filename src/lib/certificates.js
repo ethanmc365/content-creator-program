@@ -321,7 +321,7 @@ export const LAYOUTS = [
   { key: 'horizon', label: 'Horizon', hint: 'The hub card down the left with the Tryp plane on its route; your words beside it.' },
   { key: 'boarding', label: 'Boarding pass', hint: 'A real pass: passenger, route, gate and seat, with a perforated stub.' },
   { key: 'postcard', label: 'Postcard', hint: 'A message on the left, a stamp and a postmark on the right, addressed to the creator.' },
-  { key: 'banner', label: 'Sky banner', hint: 'A gradient band across the top with the plane flying through it. Centred and bold.' },
+  { key: 'banner', label: 'Sky banner', hint: 'A gradient band across the top with the logo, the title and the place medal on the horizon. Centred and bold.' },
   { key: 'route', label: 'Passport', hint: 'A passport data page: their photo, the award as passport fields, an entry stamp and the machine-readable lines.' },
   { key: 'minimal', label: 'Minimal', hint: 'The name as the headline, a lot of white, and a small Tryp seal.' },
 ]

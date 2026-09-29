@@ -56,6 +56,7 @@ const PATHS = {
   chevronDown: 'M19.5 8.25 12 15.75 4.5 8.25',
   chevronUp: 'M4.5 15.75 12 8.25l7.5 7.5',
   'arrow-down': 'M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3',
+  'arrow-up': 'M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18',
   // SAVING A PHOTO IS NOT "SCROLL DOWN" (2 Sep 2026).
   //
   // Ethan, of the photo bar: "I don't really like the download icon, I think

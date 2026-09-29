@@ -253,6 +253,23 @@ export function t(en, vars) {
 }
 
 /**
+ * `t`, for a language that is NOT the one the app is showing (30 Sep 2026).
+ * A certificate can be saved in a creator's other language, and an admin
+ * reviews every version, so its fixed words ("Awarded", "Certificate ID")
+ * have to be read out of another dictionary without switching the whole app.
+ * The same three-step lookup as `t`: override, bundled, English. Call
+ * `loadLocale(code)` (and `loadOverrides`) first, or you get English.
+ */
+export function tIn(code, en, vars) {
+  if (!code || code === DEFAULT_LOCALE) return vars ? en.replace(/\{(\w+)\}/g, (m, k) => String(vars[k] ?? m)) : en
+  const over = OVERRIDES[code]
+  const dict = DICTS[code]
+  let out = (over && over[en]) || (dict && dict[en]) || en
+  if (vars) for (const k of Object.keys(vars)) out = out.split(`{${k}}`).join(String(vars[k] ?? ''))
+  return out
+}
+
+/**
  * ONE OR MANY, WHICH IS TWO SENTENCES AND NOT A SUFFIX.
  *
  * English gets away with `${n} photo${n === 1 ? '' : 's'}`; nothing else does,

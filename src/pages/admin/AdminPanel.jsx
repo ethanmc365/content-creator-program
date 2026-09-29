@@ -100,7 +100,7 @@ const TOOLS = [
   // The bank behind "Hook me up" on every challenge (24 Sep 2026).
   { id: 'hooks', to: '/admin/hooks', icon: 'quote', title: 'Hooks' },
 
-  { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
+  { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Money' },
   { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },
   // BESIDE ANALYTICS, NOT INSIDE IT. Both read the same challenges and both are
   // about performance, and they answer opposite questions: analytics says how
@@ -685,6 +685,14 @@ export default function AdminPanel() {
             ONE grid, one heading, every card the same size, phone and desktop
             alike. Two columns on a phone and four on a wide screen, which keeps
             a card roughly the same physical size on both. */}
+        {!ready ? (
+          <div>
+            <Skeleton className="mb-3 h-6 w-32" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" />
+            </div>
+          </div>
+        ) : (
         <Reveal from="down" delay={0.07}>
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -731,6 +739,7 @@ export default function AdminPanel() {
             {enterError && <p className="mt-3 text-xs font-medium text-red-500">{enterError}</p>}
           </section>
         </Reveal>
+        )}
 
         {/* ---------- Your markets ----------
             One heading, no hint line. What a market card is for is obvious from

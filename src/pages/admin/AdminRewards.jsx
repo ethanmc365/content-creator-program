@@ -271,6 +271,103 @@ function RewardGroupCard({ group, ...rowProps }) {
   )
 }
 
+// A STRIP THAT CANNOT BE MISSED (30 Sep 2026): whatever still needs paying or handing over,
+// pinned above everything else on its tab, in the warm colour of "your move". Empty, it is one
+// quiet green line so a clear desk is also visible.
+function StillToPay({ title, hint, rows, loading, ...rowProps }) {
+  if (loading) return <Skeleton className="mb-8 h-24 w-full" />
+  if (rows.length === 0) {
+    return (
+      <div className="mb-8 flex items-center gap-2.5 rounded-card border border-emerald-100 bg-emerald-50/60 px-5 py-3.5 text-sm font-medium text-emerald-700">
+        <Icon name="check" className="h-4 w-4" /> Nothing waiting - all paid up.
+      </div>
+    )
+  }
+  const total = rewardsTotal(rows)
+  return (
+    <section className="mb-8 overflow-hidden rounded-card border border-brand/25 bg-white shadow-card animate-fade-up">
+      <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-brand to-brand-light px-5 py-3.5 text-white sm:px-7">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20"><Icon name="alert" className="h-4 w-4" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold">{title}</p>
+          <p className="text-xs text-white/85">{hint}</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold tabular-nums text-brand shadow-card">{rows.length} · {money(total)}</span>
+      </div>
+      <div>{rows.map((r) => <RewardRow key={r.id} r={r} {...rowProps} />)}</div>
+    </section>
+  )
+}
+
+// THE FIRST PAGE (30 Sep 2026): the money at a glance and whatever needs following up.
+function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vouchersToHand, awaitingCode, referralPending, rewards, go }) {
+  const count = (st) => invoiceStages.filter((i) => i.stage === st).length
+  const jobs = [
+    { n: count('awaiting_approval'), icon: 'check', label: 'invoices to approve', to: 'cash' },
+    { n: count('approved'), icon: 'money', label: 'approved invoices to send', to: 'cash' },
+    { n: cashToPay.length, icon: 'wallet', label: 'cash prizes still to pay', to: 'cash' },
+    { n: vouchersToHand.length, icon: 'ticket', label: 'vouchers to hand over', to: 'vouchers' },
+    { n: awaitingCode.length, icon: 'alert', label: 'vouchers handed over with no code', to: 'vouchers' },
+    { n: referralPending.length, icon: 'share', label: 'referral vouchers owed', to: 'vouchers' },
+  ].filter((j) => j.n > 0)
+  const recent = rewards.filter((r) => r.status === 'distributed' && r.distributed_at).sort((a, b) => new Date(b.distributed_at) - new Date(a.distributed_at)).slice(0, 5)
+  const cashOut = rewardsTotal(rewards.filter((r) => r.reward_type === 'cash' && r.status === 'distributed'))
+  const voucherOut = rewardsTotal(rewards.filter((r) => r.reward_type === 'voucher' && r.status === 'distributed'))
+  if (loading) return <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-48 w-full" /></div>
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Total community spend" value={money(spend)} />
+        <StatCard label="Distributed" value={money(paid)} accent />
+        <StatCard label="Pending payout" value={money(pending)} hint={pending.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
+      </div>
+
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">To follow up</h2>
+        {jobs.length === 0 ? (
+          <div className="flex items-center gap-2.5 rounded-card border border-emerald-100 bg-emerald-50/60 px-5 py-4 text-sm font-medium text-emerald-700">
+            <Icon name="check" className="h-4 w-4" /> Nothing to chase - every prize is paid and every voucher handed over.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {jobs.map((j) => (
+              <button key={j.label} type="button" onClick={() => go(j.to)} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={j.icon} className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1"><span className="block text-xl font-bold tabular-nums leading-none">{j.n}</span><span className="mt-1 block truncate text-xs text-smoke">{j.label}</span></span>
+                <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="card">
+          <h2 className="mb-3 text-base font-semibold">Paid out so far</h2>
+          <dl className="divide-y divide-gray-50 text-sm">
+            <div className="flex justify-between py-2.5"><dt className="text-smoke">Cash</dt><dd className="font-bold tabular-nums">{money(cashOut)}</dd></div>
+            <div className="flex justify-between py-2.5"><dt className="text-smoke">Vouchers</dt><dd className="font-bold tabular-nums">{money(voucherOut)}</dd></div>
+          </dl>
+        </section>
+        <section className="card">
+          <h2 className="mb-3 text-base font-semibold">Recently paid</h2>
+          {recent.length === 0 ? <p className="text-sm text-smoke">Nothing yet.</p> : (
+            <ul className="divide-y divide-gray-50">
+              {recent.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 py-2.5">
+                  <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
+                  <span className="min-w-0 flex-1 truncate text-sm">{r.profiles?.name}<span className="text-smoke"> · {r.reward_type === 'cash' ? 'cash' : 'voucher'}</span></span>
+                  <span className="text-sm font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
 // The community's money hub: rewards (payouts) and prize invoices live
 // together. A reward row's Invoice button jumps straight into the invoice
 // composer with the creator, amount and challenge prefilled.
@@ -284,12 +381,17 @@ export default function AdminRewards() {
   // The old five tabs collapse to three. `queue`, `invoices` and `referrals`
   // were three views of one question - what money is going out - so they are
   // one page now, and every link anybody has bookmarked still lands on it.
-  const TABS = ['invoices', 'payouts', 'vouchers', 'details']
-  const LEGACY_TAB = { queue: 'invoices', referrals: 'invoices' }
+  // REORGANISED 30 Sep 2026. Ethan: everything about vouchers on the Vouchers tab, "payouts
+  // could be renamed cash and just have cash stuff", the invoices page "combined with this
+  // and called cash invoices", and the first page "an overview ... of anything important to
+  // follow up with". Old links (?tab=queue / invoices / payouts / referrals) still land.
+  const TABS = ['overview', 'cash', 'vouchers', 'details']
+  const LEGACY_TAB = { queue: 'cash', invoices: 'cash', payouts: 'cash', referrals: 'vouchers' }
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab')
-    return TABS.includes(t) ? t : (LEGACY_TAB[t] || 'invoices')
+    return TABS.includes(t) ? t : (LEGACY_TAB[t] || 'overview')
   })
+  const [invoiceStages, setInvoiceStages] = useState([])
   // Non-null while somebody is writing an invoice. The composer takes the whole
   // page while it is up: it has a live preview beside it and no room to share.
   const [invoicePrefill, setInvoicePrefill] = useState(null)
@@ -313,7 +415,6 @@ export default function AdminRewards() {
   // invoice somebody has to approve and send; a voucher is a code somebody
   // hands over. Reading them in one list means reading past the ones you are
   // not doing today, which is Ethan's "clear view of what we need to do".
-  const [kindFilter, setKindFilter] = useState('')
   const [busyId, setBusyId] = useState(null)
 
   // "Add reward" modal
@@ -444,14 +545,16 @@ export default function AdminRewards() {
   )
 
   const load = useCallback(async function load() {
-    const [{ data: r }, { data: c }, { data: ch }, { data: inv }] = await Promise.all([
+    const [{ data: r }, { data: c }, { data: ch }, { data: inv }, { data: allInv }] = await Promise.all([
       supabase.from('rewards')
         .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name').order('name'),
       supabase.from('challenges').select('id, title, status, end_date').order('created_at', { ascending: false }),
       supabase.from('invoices').select('*').not('reward_id', 'is', null),
+      supabase.from('invoices').select('id, stage'),
     ])
+    setInvoiceStages(allInv ?? [])
     // WHICH PRIZES ARE ALREADY SOMEBODY ELSE'S JOB.
     //
     // A cash prize is paid by its invoice. Offering "Mark distributed" on the
@@ -558,8 +661,8 @@ export default function AdminRewards() {
   const filtered = useMemo(
     () => rewards.filter((r) => (
       statusFilter === 'needs-code' ? needsCode(r) : (!statusFilter || r.status === statusFilter)
-    ) && (!kindFilter || r.reward_type === kindFilter)),
-    [rewards, statusFilter, kindFilter]
+    )),
+    [rewards, statusFilter]
   )
 
   const awaitingCode = useMemo(() => rewards.filter(needsCode), [rewards])
@@ -572,7 +675,24 @@ export default function AdminRewards() {
   // each other, this could be confusing when we have multiple challenges going
   // on at once." One card per challenge (running first), then milestones, then
   // anything left over - referrals keep their own `ReferralSection` above.
-  const rewardGroups = useMemo(() => groupRewards(filtered, challengesById), [filtered, challengesById])
+  // ANYTHING THAT NEEDS PAYING IS ALWAYS AT THE TOP (30 Sep 2026). Ethan: the list "is grouped
+  // by challenge etc which is good but anything that needs paid should always appear at the top
+  // so you can't miss it". Two things do it: a "Still to pay" strip above everything, and inside
+  // the groups the unpaid rows come first and a group with money owed comes before one without.
+  const cashFiltered = useMemo(() => filtered.filter((r) => r.reward_type === 'cash'), [filtered])
+  const cashGroups = useMemo(() => {
+    const groups = groupRewards(cashFiltered, challengesById).map((g) => ({
+      ...g,
+      rows: [...g.rows].sort((a, b) => (b.status === 'pending') - (a.status === 'pending')),
+    }))
+    return groups
+      .map((g, i) => ({ g, i, owed: g.rows.some((r) => r.status === 'pending') }))
+      .sort((a, b) => (b.owed - a.owed) || (a.i - b.i))
+      .map((x) => x.g)
+  }, [cashFiltered, challengesById])
+  const cashToPay = useMemo(() => rewards.filter((r) => r.reward_type === 'cash' && r.status === 'pending'), [rewards])
+  const vouchersToHand = useMemo(() => rewards.filter((r) => r.reward_type === 'voucher' && r.status === 'pending' && r.source !== 'referral'), [rewards])
+  const rewardGroups = cashGroups
 
   // EUROS, AND ADDED UP THE WAY THE CREATOR'S OWN PAGE ADDS THEM UP.
   //
@@ -612,7 +732,7 @@ export default function AdminRewards() {
       sourceCurrency: r.currency || 'GBP',
       description: r.challenges?.title ? `Cash prize for ${r.challenges.title}` : 'Challenge cash prize',
     })
-    setTab('invoices')
+    setTab('cash')
   }
 
   // OPENING A QUEUED INVOICE LOADS THE ROW, NOT A BLANK FORM. The draft already
@@ -636,7 +756,7 @@ export default function AdminRewards() {
       payee: inv.payment,
       stage: inv.stage,
     })
-    setTab('invoices')
+    setTab('cash')
   }
 
   // WRITING AN INVOICE TAKES THE PAGE. The composer carries a live preview of
@@ -648,15 +768,14 @@ export default function AdminRewards() {
     <div className="page">
       <PageHeader
         back="/admin"
-        title="Rewards & Invoices"
+        title="Money"
         action={!composing && (
-          tab === 'payouts' ? (
-            <div className="flex gap-2">
+          tab === 'cash' ? (
+            <div className="flex flex-wrap gap-2">
               <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
-              <button onClick={() => setShowAdd(true)} className="btn-primary">+ Add reward</button>
+              <button onClick={() => setShowAdd(true)} className="btn-secondary">+ Add reward</button>
+              <button onClick={newInvoice} className="btn-primary">+ New invoice</button>
             </div>
-          ) : tab === 'invoices' ? (
-            <button onClick={newInvoice} className="btn-primary">+ New invoice</button>
           ) : null
         )}
       />
@@ -674,7 +793,7 @@ export default function AdminRewards() {
           rather than filled buttons competing to look like the action on the
           page. A tab is navigation; a button does something. */}
       <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
-        {[['invoices', 'Invoices'], ['payouts', 'Payouts'], ['vouchers', 'Vouchers'], ['details', 'Payment Details']].map(([key, label]) => (
+        {[['overview', 'Overview'], ['cash', 'Cash & invoices'], ['vouchers', 'Vouchers'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -689,89 +808,89 @@ export default function AdminRewards() {
         ))}
       </div>
 
-      {/* ---------- Invoices ----------
-          INVOICES LEFT, REFERRALS RIGHT, which is what Ethan asked for and also
-          what the two things are worth. The invoice pipeline is where money
-          leaves the company and needs reading in order; a referral voucher is a
-          ten-pound tick-off that only ever needs a glance and a button. Giving
-          them a tab each meant the glance cost a page load. */}
-      <div className={tab === 'invoices' ? '' : 'hidden'}>
-        {/* REFERRALS ARE NOT INVOICED, so they are not on the invoices page.
-            A referral pays a Tryp.com voucher - there is no document, no
-            approval and no bank transfer - and putting it beside the invoice
-            pipeline implied it went through the same machinery. It lives on
-            Payouts now, next to the other vouchers, where it is actually due. */}
-        <MarketScope markets={markets} value={market} onChange={setMarket} />
-        <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
-      </div>
-
-      <div className={tab === 'payouts' ? '' : 'hidden'}>
-      <MarketScope
-        markets={markets}
-        value={market}
-        onChange={setMarket}
-      />
-      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total community spend" value={money(spendTotal)} />
-        <StatCard label="Distributed" value={money(paidTotal)} accent />
-        <StatCard label="Pending payout" value={money(pendingTotal)} hint={pendingTotal.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
-      </div>
-
-      {/* Two questions, two controls, and no words explaining what a row of
-          buttons above a list of rewards is for. The totals live in the stat
-          cards directly above; repeating them here said the same thing twice. */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Segmented
-          value={kindFilter}
-          onChange={setKindFilter}
-          options={[['', 'Everything'], ['cash', 'Cash'], ['voucher', 'Vouchers']]}
+      {/* ---------- Overview ---------- */}
+      {tab === 'overview' && (
+        <Overview
+          loading={loading}
+          spend={spendTotal} paid={paidTotal} pending={pendingTotal}
+          invoiceStages={invoiceStages}
+          cashToPay={cashToPay}
+          vouchersToHand={vouchersToHand}
+          awaitingCode={awaitingCode}
+          referralPending={referralPending}
+          rewards={rewards}
+          go={setTab}
         />
-        <Segmented
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            ['', 'All'],
-            ['pending', 'Still to pay'],
-            ['distributed', 'Paid'],
-            ...(awaitingCode.length ? [['needs-code', `Needs a code (${awaitingCode.length})`]] : []),
-          ]}
-        />
-      </div>
-
-      <ReferralSection
-        loading={loading}
-        rewards={referralRewards}
-        owed={referralOwed}
-        paid={referralPaid}
-        pendingCount={referralPending.length}
-        busyId={busyId}
-        onPay={openDistribute}
-      />
-
-      {loading ? (
-        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={<Icon name="wallet" className="h-7 w-7" />} title="No rewards here" hint="Add rewards after a challenge closes. Winners first!" />
-      ) : rewardGroups.length === 0 ? null : (
-        <Reveal stagger={0.06}>
-          {rewardGroups.map((group) => (
-            <RewardGroupCard
-              key={group.key}
-              group={group}
-              invoiceOf={invoiceOf}
-              viewer={viewer}
-              busyId={busyId}
-              onInvoice={invoiceReward}
-              onDistribute={openDistribute}
-            />
-          ))}
-        </Reveal>
       )}
-      </div>{/* /payouts tab */}
 
-      {/* ---------- Vouchers tab: every voucher, combine / recode / mark used ---------- */}
+      {/* ---------- Cash & invoices ----------
+          ONE PAGE FOR ALL THE MONEY THAT LEAVES BY BANK TRANSFER: what is still to pay
+          first, then the invoice pipeline, then every cash prize by challenge. */}
+      <div className={tab === 'cash' ? '' : 'hidden'}>
+        <MarketScope markets={markets} value={market} onChange={setMarket} />
+        <StillToPay
+          title="Still to pay"
+          hint="Cash prizes nobody has paid yet"
+          rows={cashToPay}
+          loading={loading}
+          invoiceOf={invoiceOf} viewer={viewer} busyId={busyId} onInvoice={invoiceReward} onDistribute={openDistribute}
+        />
+        <h2 className="mb-3 mt-2 text-lg font-semibold">Invoices</h2>
+        <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
+
+        <h2 className="mb-3 mt-10 text-lg font-semibold">Cash prizes by challenge</h2>
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Total community spend" value={money(spendTotal)} />
+          <StatCard label="Distributed" value={money(paidTotal)} accent />
+          <StatCard label="Pending payout" value={money(pendingTotal)} hint={pendingTotal.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
+        </div>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <Segmented
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[['', 'All'], ['pending', 'Still to pay'], ['distributed', 'Paid']]}
+          />
+        </div>
+        {loading ? (
+          <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : rewardGroups.length === 0 ? (
+          <EmptyState icon={<Icon name="wallet" className="h-7 w-7" />} title="No cash rewards here" hint="Add rewards after a challenge closes. Winners first!" />
+        ) : (
+          <Reveal stagger={0.06}>
+            {rewardGroups.map((group) => (
+              <RewardGroupCard
+                key={group.key}
+                group={group}
+                invoiceOf={invoiceOf}
+                viewer={viewer}
+                busyId={busyId}
+                onInvoice={invoiceReward}
+                onDistribute={openDistribute}
+              />
+            ))}
+          </Reveal>
+        )}
+      </div>{/* /cash tab */}
+
+      {/* ---------- Vouchers tab: everything voucher-shaped ---------- */}
       <div className={tab === 'vouchers' ? '' : 'hidden'}>
         <MarketScope markets={markets} value={market} onChange={setMarket} />
+        <StillToPay
+          title="Vouchers to hand over"
+          hint="Add the code and the creator receives it straight away"
+          rows={vouchersToHand}
+          loading={loading}
+          invoiceOf={invoiceOf} viewer={viewer} busyId={busyId} onInvoice={invoiceReward} onDistribute={openDistribute}
+        />
+        <ReferralSection
+          loading={loading}
+          rewards={referralRewards}
+          owed={referralOwed}
+          paid={referralPaid}
+          pendingCount={referralPending.length}
+          busyId={busyId}
+          onPay={openDistribute}
+        />
         <VouchersPanel
           rewards={rewards}
           loading={loading}

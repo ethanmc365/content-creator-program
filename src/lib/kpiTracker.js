@@ -57,35 +57,17 @@ export const STANDARD_METRICS = [
     how: 'Views divided by entries.' },
   { key: 'avg_views_per_creator', label: 'Average views per creator', icon: 'eye', group: 'reach', unit: 'views', kind: 'level',
     how: 'Views divided by the creators who entered.' },
-  { key: 'top_video_views', label: 'Best single video', icon: 'trophy', group: 'reach', unit: 'views', kind: 'level',
-    how: 'The most views on any one entry submitted in the period.' },
-
   { key: 'creators_participated', label: 'Creators participated', icon: 'check', group: 'participation', unit: 'number', kind: 'sum',
     how: 'Distinct creators with at least one entry in the period.' },
   { key: 'participation_rate', label: 'Participation rate', icon: 'check', group: 'participation', unit: 'percent', kind: 'level', people: true,
     how: 'Creators who entered, as a share of every active creator in the scope.' },
   { key: 'avg_creators_per_challenge', label: 'Average creators per challenge', icon: 'users', group: 'participation', unit: 'decimal', kind: 'level',
     how: 'Distinct creators per challenge that received entries.' },
-  { key: 'first_time_creators', label: 'First-time entrants', icon: 'sparkles', group: 'participation', unit: 'number', kind: 'sum',
-    how: 'Creators whose very first entry falls in the period.' },
-  { key: 'return_rate', label: 'Repeat entrants', icon: 'refresh', group: 'participation', unit: 'percent', kind: 'level',
-    how: 'Of the creators who entered, the share who had entered before the period began.' },
-
   { key: 'creators_recruited', label: 'Creators recruited', icon: 'users', group: 'recruitment', unit: 'number', kind: 'sum', people: true,
     how: 'People who joined the scope in the period.' },
-  { key: 'creators_total', label: 'Creators on the platform', icon: 'users', group: 'recruitment', unit: 'number', kind: 'level', people: true,
-    how: 'Active creators in the scope at the end of the period (or today, while it is running).' },
-  { key: 'activation_rate', label: 'New creators who entered', icon: 'check', group: 'recruitment', unit: 'percent', kind: 'level', people: true,
-    how: 'Of the people recruited in the period, the share who have entered a challenge since.' },
   { key: 'referrals', label: 'Referred creators', icon: 'share', group: 'recruitment', unit: 'number', kind: 'sum', people: true,
     how: 'Recruits in the period who came in through a creator\'s referral link.' },
 
-  { key: 'chat_messages', label: 'Community messages', icon: 'chat', group: 'community', unit: 'number', kind: 'sum',
-    how: 'Messages creators posted in the rooms. Team messages are left out.' },
-  { key: 'game_players', label: 'Puzzle players', icon: 'gamepad', group: 'community', unit: 'number', kind: 'sum', people: true,
-    how: 'Distinct creators who played a daily puzzle.' },
-  { key: 'connections_made', label: 'Connections made', icon: 'link', group: 'community', unit: 'number', kind: 'sum', people: true,
-    how: 'Connection requests accepted in the period.' },
 ]
 
 export const CUSTOM_UNITS = [
@@ -95,6 +77,16 @@ export const CUSTOM_UNITS = [
   { value: 'views', label: 'Views' },
   { value: 'currency', label: 'Money' },
 ]
+
+// KPIs THAT WERE OFFERED AND ARE NOT ANY MORE (30 Sep 2026). Ethan: best single video, first-time
+// entrants, repeat entrants, creators on the platform, new creators who entered, community
+// messages, puzzle players and connections made are "not needed". The SQL still computes them
+// (harmless), but a goal somebody already saved for one is hidden rather than left orphaned
+// on the page with no definition.
+export const REMOVED_METRICS = new Set([
+  'top_video_views', 'first_time_creators', 'return_rate', 'creators_total',
+  'activation_rate', 'chat_messages', 'game_players', 'connections_made',
+])
 
 const STANDARD_ORDER = new Map(STANDARD_METRICS.map((m, i) => [m.key, i]))
 const STANDARD_BY_KEY = new Map(STANDARD_METRICS.map((m) => [m.key, m]))
@@ -279,6 +271,7 @@ export function rowStatus(row, period, now = new Date()) {
 export function mergeKpiRows(targets, actuals) {
   const actualByMetric = new Map((actuals || []).map((a) => [a.metric, Number(a.value) || 0]))
   return [...(targets || [])]
+    .filter((t) => !REMOVED_METRICS.has(t.metric))
     .map((t) => ({
       ...t,
       actual: t.metric === 'custom' ? (Number(t.current_value) || 0) : (actualByMetric.get(t.metric) ?? 0),

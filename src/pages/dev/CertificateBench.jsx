@@ -18,6 +18,8 @@
 // Mounted only under `import.meta.env.DEV`.
 import CertificateCard, { CERT_W, CERT_H } from '../../components/certificate/CertificateCard'
 import { ACCENTS, LAYOUTS, PAPERS } from '../../lib/certificates'
+import { useEffect, useState } from 'react'
+import { LOCALES, loadLocale } from '../../lib/i18n'
 
 const FACTS = {
   name: 'Roxanna Travels',
@@ -45,7 +47,7 @@ const BASE = {
 }
 
 /** One card, drawn at true size and scaled to fit the sheet. */
-function Card({ design, facts = FACTS, label, scale = 0.46 }) {
+function Card({ design, facts = FACTS, label, scale = 0.46, lang = 'en' }) {
   return (
     <div>
       <div style={{ font: '600 11px ui-monospace', color: '#666', marginBottom: 6 }}>{label}</div>
@@ -54,7 +56,7 @@ function Card({ design, facts = FACTS, label, scale = 0.46 }) {
         border: '1px solid #eee', borderRadius: 10,
       }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <CertificateCard design={design} facts={facts} />
+          <CertificateCard design={design} facts={facts} lang={lang} />
         </div>
       </div>
     </div>
@@ -72,8 +74,17 @@ function Row({ title, note, children }) {
 }
 
 export default function CertificateBench() {
+  // Every language's dictionary, so the sheet below can draw the card's fixed words in each.
+  const [, setReady] = useState(0)
+  useEffect(() => { Promise.all(LOCALES.map((l) => loadLocale(l.code))).then(() => setReady(1)) }, [])
   return (
     <div>
+      <Row title="Sky banner, in every language (30 Sep 2026)" note="No plane, no dotted line, no rule under the name, the logo centred. Third place is light orange.">
+        {LOCALES.map((l) => (
+          <Card key={l.code} label={l.native} lang={l.code} design={{ ...BASE, layout: 'banner' }} facts={{ ...FACTS, place: 3 }} />
+        ))}
+      </Row>
+
       <Row title="Layouts" note="All six, one accent, one paper. What is being compared here is SHAPE.">
         {LAYOUTS.map((l) => (
           <Card key={l.key} label={l.label} design={{ ...BASE, layout: l.key }} />

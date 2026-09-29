@@ -869,13 +869,13 @@ export default function AdminChallengeForm() {
         />
       )}
 
-      <form onSubmit={save} className="space-y-10">
+      <form onSubmit={save} className="space-y-8 sm:space-y-10">
         {/* ---------------- Where it runs ---------------- */}
         {/* First, deliberately. Everything below reads differently depending on
             the answer (currency, who gets notified, whose board it lands on),
             and a challenge saved without one is readable by every creator on
             the platform. */}
-        <section className="card space-y-5">
+        <section className="card space-y-5 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
           {/* NO STANDING EXPLANATION. It read "a market challenge reaches that
               market only, a global challenge reaches everybody", which is the
               two cards underneath saying themselves. Removed at Ethan's
@@ -955,7 +955,7 @@ export default function AdminChallengeForm() {
         </section>
 
         {/* ---------------- How it is won ---------------- */}
-        <section className="card space-y-5">
+        <section className="card space-y-5 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
           <h2 className="text-lg font-semibold">How it is won</h2>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -996,7 +996,7 @@ export default function AdminChallengeForm() {
             // thing on the panel worth spotting - had nothing to stand out
             // against. The panel is plain now and the points are the only
             // orange thing on it.
-            <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
+            <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4 max-sm:!rounded-none max-sm:!border-0 max-sm:!bg-transparent max-sm:!p-0">
               <p className="label">Scoring rules for this challenge</p>
               <p className="mb-4 text-xs text-smoke">
                 Creators see these on the brief. Editing them after the challenge is live rescores it.
@@ -1049,7 +1049,7 @@ export default function AdminChallengeForm() {
           </div>
         </section>
 
-        <section className="card space-y-6">
+        <section className="card space-y-6 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
           <h2 className="text-lg font-semibold">The basics</h2>
           <div>
             <label htmlFor="title" className="label">Title</label>
@@ -1060,21 +1060,32 @@ export default function AdminChallengeForm() {
               Dates were three sections further down, past scoring and prizes,
               which is a strange place for the second thing anybody decides. */}
           <div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <DateField id="start_date" label="Starts"
-                value={ddmmToIso(form.startDateStr)}
-                onChange={(iso) => set({ startDateStr: isoToDdmm(iso) })} />
-              <TimeField id="start_time" label="at"
-                value={form.startTimeStr}
-                onChange={(v) => set({ startTimeStr: v })} />
-              <DateField id="end_date" label="Ends"
-                value={ddmmToIso(form.endDateStr)}
-                onChange={(iso) => set({ endDateStr: isoToDdmm(iso) })}
-                min={ddmmToIso(form.startDateStr) || undefined}
-                futureError="The challenge would end before it starts." />
-              <TimeField id="end_time" label="at"
-                value={form.endTimeStr}
-                onChange={(v) => set({ endTimeStr: v })} />
+            {/* STARTS AND ENDS ARE TWO BOXES, EACH HOLDING ITS OWN DATE AND TIME (30 Sep 2026).
+                Ethan, on the phone: "dates are outside boxes, some weird inconsistent jumbled
+                UI." It was four loose fields in a two-column grid, so a date sat under a time
+                that belonged to another date. Now "Starts" is one box with its date and its
+                time side by side, "Ends" is the next, and they stack on a phone. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { key: 'start', title: 'Starts', dateStr: form.startDateStr, timeStr: form.startTimeStr, dKey: 'startDateStr', tKey: 'startTimeStr' },
+                { key: 'end', title: 'Ends', dateStr: form.endDateStr, timeStr: form.endTimeStr, dKey: 'endDateStr', tKey: 'endTimeStr' },
+              ].map((b) => (
+                <div key={b.key} className="rounded-xl border border-gray-200 bg-cloud/40 p-3 sm:p-4">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-smoke">
+                    <Icon name="calendar" className="h-3.5 w-3.5 text-brand" />{b.title}
+                  </p>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
+                    <DateField id={`${b.key}_date`} label="Date"
+                      value={ddmmToIso(b.dateStr)}
+                      onChange={(iso) => set({ [b.dKey]: isoToDdmm(iso) })}
+                      min={b.key === 'end' ? (ddmmToIso(form.startDateStr) || undefined) : undefined}
+                      futureError={b.key === 'end' ? 'The challenge would end before it starts.' : undefined} />
+                    <TimeField id={`${b.key}_time`} label="Time"
+                      value={b.timeStr}
+                      onChange={(v) => set({ [b.tKey]: v })} />
+                  </div>
+                </div>
+              ))}
             </div>
             {/* The market's own clock, guessed and changeable. A UK challenge
                 closing "at midnight" means midnight in London; the same brief in
@@ -1134,7 +1145,7 @@ export default function AdminChallengeForm() {
                 initialMd={form.description || ''}
                 onChangeMd={(md) => set({ description: md })}
                 placeholder="What should creators make? What is the angle? What wins?"
-                className="min-h-[12rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[15px] leading-relaxed focus:border-brand/40"
+                className="min-h-[12rem] rounded-card border border-gray-200 bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-[15px] leading-relaxed focus:border-brand/40"
               />
             </div>
 
@@ -1146,7 +1157,7 @@ export default function AdminChallengeForm() {
                 initialMd={form.rules || ''}
                 onChangeMd={(md) => set({ rules: md })}
                 placeholder="One entry per platform. Tag Tryp.com in the caption."
-                className="min-h-[9rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[15px] leading-relaxed focus:border-brand/40"
+                className="min-h-[9rem] rounded-card border border-gray-200 bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-[15px] leading-relaxed focus:border-brand/40"
               />
             </div>
           </div>
@@ -1207,7 +1218,7 @@ export default function AdminChallengeForm() {
         </section>
 
 
-        <section className="card space-y-5">
+        <section className="card space-y-5 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* NO STANDING EXPLANATION - see the note in "Who it is for". */}
             <h2 className="text-lg font-semibold">Prize breakdown</h2>

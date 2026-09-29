@@ -2,6 +2,8 @@ import { useState } from 'react'
 import Icon from '../Icon'
 import { Modal } from '../ui'
 import { useT } from '../../lib/i18n'
+import { useContentTranslations } from '../../lib/contentTranslate'
+import { TranslateSwitch } from '../TranslatedText'
 import { cx } from '../../lib/utils'
 import { ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
@@ -42,6 +44,20 @@ const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calend
 
 const dm = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
+// HOW MANY TIMES, AND THE CEILING, IN ONE SENTENCE (30 Sep 2026). Ethan disliked "The most it
+// can pay: 25 points in total, however many times you do it". A cap of 25 on a +5 bonus IS
+// five claims, so say that: "You can claim this bonus on 5 videos for a maximum of 25 points".
+function claimLine(r, tr) {
+  const pts = Number(r.points) || 0
+  const max = r.max_points != null ? Number(r.max_points) : null
+  if (max == null || pts <= 0) return null
+  const n = Math.max(1, Math.floor(max / pts))
+  const total = max
+  if (r.kind === 'platform_spread') return { n, text: tr('You can claim this bonus on {n} platforms for a maximum of {p} points', { n, p: total }) }
+  if (r.kind === 'consistency') return { n, text: tr('You can claim this bonus {n} times for a maximum of {p} points', { n, p: total }) }
+  return { n, text: tr('You can claim this bonus on {n} videos for a maximum of {p} points', { n, p: total }) }
+}
+
 function howToEarn(r, tr) {
   if (r.kind === 'per_post') return tr('For every video you post')
   if (r.kind === 'platform_spread') return tr('For each platform you post on')
@@ -61,6 +77,9 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
   // component returns nothing at all when a challenge has no bonuses.
   const [open, setOpen] = useState(null)
   const bonuses = (rules || []).filter(isBonusKind)
+  // The labels and questions are what an admin typed, so a reader in another language gets them
+  // translated, with ONE Translated | Original switch for the whole card (30 Sep 2026).
+  const tx = useContentTranslations(bonuses.flatMap((r) => [r.label?.trim(), r.prompt?.trim()]))
   const stateOf = (r) => ruleWindowState(r, now || undefined)
   if (bonuses.length === 0) return null
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
@@ -72,10 +91,11 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
           <Icon name="star" className="h-4 w-4" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-sm font-bold uppercase tracking-wider">{tr('Bonus points')}</h2>
           <p className="text-xs text-white/80">{tr('On top of your view points')}</p>
         </div>
+        <TranslateSwitch t={tx} className="shrink-0" />
       </div>
       <ul className="space-y-1.5 px-3 pb-3">
         {[...current, ...ended].map((r) => {
@@ -94,7 +114,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{r.label.trim()}</span>
+                  <span className="block text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{tx.pick(r.label.trim())}</span>
                   {state !== 'always' && (
                     <span className={cx(
                       'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
@@ -119,7 +139,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
           )
         })}
       </ul>
-      <BonusDetail rule={open} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} />
+      <BonusDetail rule={open} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} pick={tx.pick} />
     </section>
   )
 }
@@ -131,15 +151,13 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
 // is its own line with its own icon, because they are different KINDS of fact -
 // "post on four platforms" is an instruction and "the video has to pass 500
 // views" is a condition on whether that instruction counted.
-function BonusDetail({ rule, state, onClose }) {
+function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   const tr = useT()
   if (!rule) return null
+  const claim = claimLine(rule, tr)
   const min = rule.kind === 'bonus' ? Number(rule.min_views) || 0 : 0
   const facts = [
     { icon: 'check', label: tr('How you earn it'), value: howToEarn(rule, tr) },
-    rule.max_points != null
-      ? { icon: 'trophy', label: tr('The most it can pay'), value: tr('{n} points in total, however many times you do it', { n: Number(rule.max_points) }) }
-      : null,
     min > 0
       ? { icon: 'eye', label: tr('Before it counts'), value: tr('The video has to pass {n} views. It is added as soon as it does.', { n: min.toLocaleString() }) }
       : null,
@@ -168,7 +186,7 @@ function BonusDetail({ rule, state, onClose }) {
               <Icon name={ICON[rule.kind] || 'star'} className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{rule.label.trim()}</p>
+              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{pick(rule.label.trim())}</p>
               <p className="mt-0.5 text-xs text-white/80">{tr('On top of your view points')}</p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold tabular-nums text-brand shadow-card">
@@ -176,6 +194,19 @@ function BonusDetail({ rule, state, onClose }) {
             </span>
           </div>
         </div>
+
+        {claim && (
+          <div className="rounded-card border border-brand/15 bg-brand-tint/50 p-4">
+            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 text-center">
+              <div><p className="text-lg font-bold tabular-nums text-ink">+{Number(rule.points)}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('each')}</p></div>
+              <span className="text-gray-300">&times;</span>
+              <div><p className="text-lg font-bold tabular-nums text-ink">{claim.n}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{rule.kind === 'platform_spread' ? tr('platforms') : rule.kind === 'consistency' ? tr('times') : tr('videos')}</p></div>
+              <span className="text-gray-300">=</span>
+              <div><p className="text-lg font-bold tabular-nums text-brand">{Number(rule.max_points)}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('max points')}</p></div>
+            </div>
+            <p className="mt-3 text-center text-sm leading-relaxed text-ink">{claim.text}</p>
+          </div>
+        )}
 
         <ul className="space-y-3">
           {facts.map((f) => (

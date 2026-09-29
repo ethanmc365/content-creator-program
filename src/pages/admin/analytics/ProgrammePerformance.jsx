@@ -935,15 +935,22 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
             ) : (
               <p className="mt-3 text-[11px] text-smoke">Imported from the challenge log, so only the sheet&rsquo;s figures are known.</p>
             )}
-            <button
-              type="button"
-              onClick={remove}
-              disabled={deleting}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-red-200 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
-            >
-              <Icon name="trash" className="h-3.5 w-3.5" />
-              {deleting ? 'Deleting…' : 'Delete this challenge'}
-            </button>
+            {/* ONLY WHAT WAS LOGGED BY HAND CAN BE DELETED HERE (30 Sep 2026). Ethan: "challenges
+                that were run on the platform ... shouldn't be able to be easily deleted, only
+                the ones that were manually logged ... we don't want challenges and data run on
+                the platform to get accidentally deleted." A platform challenge is deleted from
+                its own edit screen, on purpose, not from a list of figures. */}
+            {!onPlatform && (
+              <button
+                type="button"
+                onClick={remove}
+                disabled={deleting}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-red-200 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+              >
+                <Icon name="trash" className="h-3.5 w-3.5" />
+                {deleting ? 'Deleting…' : 'Delete this log entry'}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
@@ -85,7 +85,8 @@ export default function AdminLanguages() {
   const [error, setError] = useState('')
   const [savingKey, setSavingKey] = useState(null)
   const [drafts, setDrafts] = useState({}) // source -> unsaved text (typed or suggested)
-  const [bulk, setBulk] = useState(null) // 'suggesting' | 'saving' | null
+  const [bulk, setBulk] = useState(null) // 'saving' | null
+  const [limit, setLimit] = useState(40)
 
   useEffect(() => { loadCatalogue().then((m) => setCatalogue(m.default)) }, [])
   useEffect(() => {
@@ -159,6 +160,17 @@ export default function AdminLanguages() {
     () => (filter === 'all' ? pool : pool.filter((s) => statusOf(s) === filter)),
     [pool, filter, statusOf],
   )
+  // The ones somebody changed here come first: they are what you come back to review.
+  const ordered = useMemo(
+    () => [...shown].sort((a, b) => (overrides[b] ? 1 : 0) - (overrides[a] ? 1 : 0)),
+    [shown, overrides],
+  )
+  useEffect(() => { setLimit(40) }, [screen, search, filter, locale])
+  const visible = useMemo(() => ordered.slice(0, limit), [ordered, limit])
+  const setDraft = useCallback((source, v) => setDrafts((d) => {
+    if (v == null) { const n = { ...d }; delete n[source]; return n }
+    return { ...d, [source]: v }
+  }), [])
   const counts = useMemo(() => {
     const c = { all: pool.length, todo: 0, edited: 0, shipped: 0 }
     for (const s of pool) c[statusOf(s)] += 1
@@ -168,7 +180,7 @@ export default function AdminLanguages() {
   const draftList = Object.entries(drafts).filter(([s, v]) => (v ?? '').trim() && (v.trim() !== (overrides[s] || dict[s] || '')))
   const draftProblems = draftList.filter(([s, v]) => holesProblem(s, v))
 
-  async function write(source, value) {
+  const write = useCallback(async (source, value) => {
     setSavingKey(source)
     const { error: err } = await saveOverride(locale, source, value, user?.id)
     setSavingKey(null)
@@ -183,18 +195,8 @@ export default function AdminLanguages() {
     })
     setDrafts((d) => { const n = { ...d }; delete n[source]; return n })
     return true
-  }
+  }, [locale, user?.id])
 
-  // A machine draft for the ones on this screen with nothing yet. NEVER SAVED: it lands in
-  // the boxes as drafts, marked, for a person who speaks the language to read and keep.
-  async function suggestMissing() {
-    const todo = shown.filter((s) => statusOf(s) === 'todo' && !drafts[s]).slice(0, 24)
-    if (!todo.length) return
-    setBulk('suggesting')
-    const got = await suggest(todo, locale)
-    setDrafts((d) => ({ ...d, ...got }))
-    setBulk(null)
-  }
   async function saveDrafts() {
     setBulk('saving')
     let n = 0
@@ -364,29 +366,30 @@ export default function AdminLanguages() {
                       the drafts are kept or dropped one at a time. */}
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <p className="text-xs text-smoke">{shown.length === 1 ? tr('1 sentence') : tr('{n} sentences', { n: shown.length })}</p>
-                    {counts.todo > 0 && (
-                      <button type="button" onClick={suggestMissing} disabled={bulk !== null} className="btn-secondary !ml-auto !py-1.5 text-xs">
-                        {bulk === 'suggesting' ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="sparkles" className="h-3.5 w-3.5" />}
-                        {tr('Draft the missing ones')}
-                      </button>
-                    )}
                   </div>
                   <ul className="space-y-2.5">
-                    {shown.map((source) => (
+                    {visible.map((source) => (
                       <StringRow
                         key={source}
                         source={source}
-                        locale={locale}
                         bundled={dict[source] || ''}
                         override={overrides[source] || ''}
                         meta={rows?.[source]}
                         draft={drafts[source]}
-                        onDraft={(v) => setDrafts((d) => (v == null ? (() => { const n = { ...d }; delete n[source]; return n })() : { ...d, [source]: v }))}
+                        onDraft={setDraft}
                         busy={savingKey === source}
-                        onSave={(v) => write(source, v)}
+                        onSave={write}
                       />
                     ))}
                   </ul>
+                  {/* 40 AT A TIME (30 Sep 2026). Ethan: the editor "is a bit laggy". A screen can
+                      hold several hundred sentences, each a self-measuring text box; drawing all of
+                      them at once was the lag. The rest are one press away. */}
+                  {ordered.length > visible.length && (
+                    <button type="button" onClick={() => setLimit((n) => n + 40)} className="btn-secondary mx-auto mt-4 !py-2 text-sm">
+                      {tr('Show {n} more', { n: Math.min(40, ordered.length - visible.length) })}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -414,60 +417,44 @@ export default function AdminLanguages() {
   )
 }
 
-// A MACHINE DRAFT, through the same function that translates briefs. Ephemeral: nothing
-// is cached, so these never show up among the translated content.
-async function suggest(sentences, locale) {
-  const out = {}
-  try {
-    const { data } = await supabase.functions.invoke('translate-text', {
-      body: { target: locale, ephemeral: true, items: sentences.slice(0, 8).map((text) => ({ text })) },
-    })
-    for (const r of data?.results || []) if (r.value && !r.same) out[r.text] = r.value
-    if (sentences.length > 8) Object.assign(out, await suggest(sentences.slice(8), locale))
-  } catch { /* no draft is the honest answer when it fails */ }
-  return out
-}
-
 // ONE STRING. The English above, the translation beneath it, and a plain statement of where
 // the current word came from - "shipped" and "somebody typed this here" are the two states a
 // translator has to tell apart before deciding whether to touch it.
-function StringRow({ source, locale, bundled, override, meta, draft, onDraft, busy, onSave }) {
+const StringRow = memo(function StringRow({ source, bundled, override, meta, draft, onDraft, busy, onSave }) {
   const tr = useT()
   const current = override || bundled
   const dirty = draft != null
   const text = dirty ? draft : current
   const problem = dirty ? holesProblem(source, text) : null
   const changed = dirty && text.trim() !== current
-  const [suggesting, setSuggesting] = useState(false)
 
   const commit = () => {
     if (!dirty || problem) return
-    if (text.trim() === current) { onDraft(null); return }
+    if (text.trim() === current) { onDraft(source, null); return }
     // Typing the shipped word back is not an override - it is agreeing with it.
-    onSave(text.trim() === bundled ? '' : text)
-  }
-  async function draftIt() {
-    setSuggesting(true)
-    const got = await suggest([source], locale)
-    setSuggesting(false)
-    if (got[source]) onDraft(got[source])
+    onSave(source, text.trim() === bundled ? '' : text)
   }
 
+  // ONLY WHAT SOMEBODY CHANGED IS COLOURED (30 Sep 2026). Ethan: "it doesn't make sense that
+  // they're all green, of course they should all have translations, the ones admins edit should be
+  // highlighted." A shipped translation is the ordinary state and looks ordinary; an edit made
+  // here is tinted and tagged; only a missing one is amber.
   const status = override ? 'edited' : current ? 'shipped' : 'todo'
   return (
     <li className={cx(
-      'rounded-card border bg-white p-4 shadow-card transition-colors',
-      problem ? 'border-red-300' : changed ? 'border-brand/50' : status === 'edited' ? 'border-brand/25' : status === 'todo' ? 'border-dashed border-amber-300' : 'border-gray-100',
+      'rounded-card border p-4 shadow-card transition-colors',
+      problem ? 'border-red-300 bg-white' : changed ? 'border-brand/50 bg-white' : status === 'edited' ? 'border-brand/30 bg-brand-tint/40' : status === 'todo' ? 'border-dashed border-amber-300 bg-white' : 'border-gray-100 bg-white',
     )}>
       <div className="flex items-start gap-2.5">
-        <span className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', status === 'todo' ? 'bg-amber-400' : status === 'edited' ? 'bg-brand' : 'bg-emerald-400')} aria-hidden />
         <p className="min-w-0 flex-1 text-[14px] leading-snug text-ink [overflow-wrap:anywhere]">{source}</p>
+        {status === 'edited' && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('Edited')}</span>}
+        {status === 'todo' && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">{tr('Missing')}</span>}
       </div>
 
       <AutoTextarea
         minRows={1}
         value={text}
-        onChange={(e) => onDraft(e.target.value)}
+        onChange={(e) => onDraft(source, e.target.value)}
         onBlur={commit}
         placeholder={tr('Not translated yet')}
         aria-label={`Translation of: ${source}`}
@@ -475,30 +462,26 @@ function StringRow({ source, locale, bundled, override, meta, draft, onDraft, bu
       />
       {problem && <p className="mt-1.5 text-xs font-medium text-red-600">{problem}</p>}
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-smoke">
-        {busy ? <span className="inline-flex items-center gap-1.5 font-semibold text-brand"><Spinner className="h-3 w-3" />{tr('Saving…')}</span>
-          : changed && !problem ? <span className="font-semibold text-brand">{tr('Not saved yet. Click away to save, or press Save all.')}</span>
-            : status === 'edited' ? <span><span className="font-semibold text-brand">{tr('Edited here')}</span>{meta?.at ? ` · ${timeAgo(meta.at)}` : ''}{meta?.by ? ` · ${meta.by}` : ''}</span>
-              : status === 'shipped' ? <span>{tr('The shipped translation')}</span>
-                : <span className="font-semibold text-amber-600">{tr('Still shows in English')}</span>}
-        <span className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={draftIt} disabled={suggesting} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
-            {suggesting ? <Spinner className="h-3 w-3" /> : <Icon name="sparkles" className="h-3 w-3" />}
-            {tr('Suggest')}
-          </button>
-          {dirty && (
-            <button type="button" onClick={() => onDraft(null)} className="rounded-full px-2.5 py-1 font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Undo')}</button>
-          )}
-          {override && bundled && !dirty && (
-            <button type="button" onClick={() => onSave('')} className="rounded-full px-2.5 py-1 font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
-              {tr('Back to the shipped wording')}
-            </button>
-          )}
-        </span>
-      </div>
+      {(busy || (changed && !problem) || status === 'edited' || dirty || (override && bundled)) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-smoke">
+          {busy ? <span className="inline-flex items-center gap-1.5 font-semibold text-brand"><Spinner className="h-3 w-3" />{tr('Saving…')}</span>
+            : changed && !problem ? <span className="font-semibold text-brand">{tr('Not saved yet. Click away to save, or press Save all.')}</span>
+              : status === 'edited' ? <span>{meta?.at ? timeAgo(meta.at) : ''}{meta?.by ? ` · ${meta.by}` : ''}</span> : null}
+          <span className="ml-auto flex items-center gap-1">
+            {dirty && (
+              <button type="button" onClick={() => onDraft(source, null)} className="rounded-full px-2.5 py-1 font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Undo')}</button>
+            )}
+            {override && bundled && !dirty && (
+              <button type="button" onClick={() => onSave(source, '')} className="rounded-full px-2.5 py-1 font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
+                {tr('Back to the shipped wording')}
+              </button>
+            )}
+          </span>
+        </div>
+      )}
     </li>
   )
-}
+})
 
 // BRIEFS AND CONTENT: what people wrote, translated for readers automatically, reviewed here.
 //
