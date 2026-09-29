@@ -84,25 +84,43 @@ Every item from Ethan's briefs, with what actually happened to each.
 
 ## NOT DONE — what is left
 
-These were on the list and did not get built this session.
+Nothing from the briefs. Everything below was outstanding at the end of the
+28 Sep session and is now finished and deployed.
 
-- [ ] **The "Your Recap Is Ready" card** on the challenges page, level with the
+- [x] **The "Your Recap Is Ready" card** on the challenges page, level with the
       bonuses slot.
-- [ ] **Voucher wallet improvements.** The referrals leaderboard landed; the
-      wallet itself was not touched.
-- [ ] **Spanish and the languages page.** The largest single piece left:
-      the full sweep of recently-added strings, worldwide cards growing in
-      Spanish, the top nav misaligned in Spanish, a Translate button on a brief,
-      making German trivial to add, and rebuilding the admin languages page.
-- [ ] **The Wall of Fame** on the public programme page, and the privacy toggle
+- [x] **Voucher wallet improvements.** A voucher no longer needs its code typed
+      in before it appears in the wallet — six were awarded and invisible in
+      production. The split lives in `src/lib/wallet.js` under test, the wallet
+      totals what is spendable and folds used vouchers behind a count, and the
+      admin list flags "needs a code" instead of showing a green badge that
+      looked finished.
+- [x] **Spanish and the languages page.** All four languages — Spanish, German,
+      Portuguese and Romanian — are at 2,324 of 2,324 keys. The admin Languages
+      page was verified end to end against production: search across the whole
+      platform, edit, save, and back to the shipped wording.
+- [x] **The Wall of Fame** on the public programme page, and the privacy toggle
       that goes with it.
-- [ ] **The admin invite link** — a shareable link for the Tryp.com team to
-      apply for admin access, with approval still required, a shortened signup
-      and a settable role title.
+- [x] **The admin invite link** — a shareable link that ends in your approval
+      (migration 280).
+
+## Notes worth keeping
+
+**A dictionary at 100% is not the same as a translated app.** The canonical key
+set is built by scanning for `tr(...)`, so a file with no `tr(` in it does not
+appear as missing — it is invisible. Seven files were in exactly that state and
+have been brought in. `scripts/i18n-prune.mjs` now drops keys whose English side
+no longer exists, which is the other half of the same blind spot.
+
+**Still English on purpose:** `PrivacyPolicy.jsx` and `Terms.jsx` (41 strings).
+Translating a legal document is a legal decision, not a code one — say the word
+and they go in, ideally with a reviewed translation rather than mine.
 
 ## What needs you
 
-1. **Make your certificates.** The slate is empty and the feature is live, so
+1. **Issue the six voucher codes.** Admin → Rewards → Payouts → "Needs a code
+   (6)". All six are for the Tryp.com Creative Challenge, £10 each. Until you
+   type a code in, each of those creators sees a ticket saying the team is
+   preparing it.
+2. **Make your certificates.** The slate is empty and the feature is live, so
    nothing reaches a creator until you create and activate a design.
-2. **The voucher nudge fires at 10:00 tomorrow** for six creators in the Global
-   Challenge. Nothing has been sent yet. Say if you would rather it did not.
