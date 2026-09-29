@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
-import { tIn } from '../../lib/i18n'
-import { certificateLocales, prefetchCertificateDesign, useCertificateDesign } from '../../lib/certificateLang'
+import { certificateLocales, dateIn, prefetchCertificateDesign, useCertificateDesign } from '../../lib/certificateLang'
 import { supabase } from '../../lib/supabase'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
-import { useT } from '../../lib/i18n'
+import { getLocale, tIn, useT } from '../../lib/i18n'
 import { downloadBlob, snapshotNode } from '../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
 import { fillTemplate, formatAwardDate, sortCertificates, tierOf } from '../../lib/certificates'
@@ -34,6 +33,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
   const speaks = certificateLocales(profile, { all: isAdmin }).filter((l) => l.code !== 'en')
   const [rows, setRows] = useState(null)
   const [open, setOpen] = useState(null)
+  const listLang = speaks.some((l) => l.code === getLocale()) ? getLocale() : 'en'
 
   const load = useCallback(async () => {
     if (!profileId) return
@@ -81,26 +81,38 @@ export default function CertificateWall({ profileId, className, readOnly = false
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {rows.map((row) => {
-          const tier = tierOf(row.design?.tier)
-          const accent = row.design?.accent || tier.accent
-          const line = fillTemplate(row.design?.body, row.facts).split('\n')[0]
-          return (
+        {rows.map((row) => (
+          <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} />
+        ))}
+      </div>
+
+      <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
+    </section>
+  )
+}
+
+// ONE CERTIFICATE IN THE LIST, in the reader's language when they speak it.
+function CertificateRow({ row, lang, readOnly, onOpen }) {
+  const tr = useT()
+  const { design } = useCertificateDesign(row.design, lang)
+  const tier = tierOf(design?.tier)
+  const accent = design?.accent || tier.accent
+  const line = fillTemplate(design?.body, row.facts).split('\n')[0]
+  return (
             <button
-              key={row.id}
-              type="button"
-              onClick={() => openOne(row)}
+                            type="button"
+              onClick={onOpen}
               className="group relative flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"
             >
               {/* THE CERTIFICATE ITSELF, SMALL (28 Sep 2026), rather than an icon
                   standing in for it: the thing you are about to open. */}
               <span className="relative block h-[62px] w-[88px] shrink-0 overflow-hidden rounded-lg border border-gray-100 shadow-sm" style={{ background: accent }}>
                 <span className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${88 / CERT_W})` }}>
-                  <CertificateCard design={row.design} facts={{ ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }} />
+                  <CertificateCard design={design} lang={lang} facts={{ ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }} />
                 </span>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-ink">{row.design?.title || tr('Certificate')}</span>
+                <span className="block truncate text-sm font-bold text-ink">{design?.title || tr('Certificate')}</span>
                 {line && <span className="block truncate text-[11px] text-smoke">{line}</span>}
                 {/* THE SAME DATE THE CERTIFICATE ITSELF PRINTS. `facts.date`
                     is the frozen one - the day the challenge ended - and
@@ -109,7 +121,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
                     challenge is today. Showing one here and the other on the
                     card is two answers to one question. */}
                 <span className="mt-0.5 block text-[10px] text-gray-400">
-                  {formatAwardDate(row.facts?.date || row.awarded_at)}
+                  {lang === 'en' ? formatAwardDate(row.facts?.date || row.awarded_at) : dateIn(lang, row.facts?.date || row.awarded_at)}
                 </span>
               </span>
               {!row.seen_at && !readOnly && (
@@ -117,12 +129,6 @@ export default function CertificateWall({ profileId, className, readOnly = false
               )}
               <Icon name="expand" className="h-4 w-4 shrink-0 text-gray-300 group-hover:text-brand" />
             </button>
-          )
-        })}
-      </div>
-
-      <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
-    </section>
   )
 }
 
@@ -140,12 +146,16 @@ function CertificateViewer({ row, onClose, tr }) {
   const [width, setWidth] = useState(560)
   const [holder, setHolder] = useState(null)
   const [view, setView] = useState('certificate')
-  const [lang, setLang] = useState('en')
-  const [full, setFull] = useState(false)
   const langs = certificateLocales(profile, { all: isAdmin })
+  // OPENS IN THE READER'S LANGUAGE WHEN THEY SPEAK IT (2 Oct 2026). A creator on the Portuguese
+  // platform who speaks Portuguese opened every certificate in English and had to find the chip.
+  const reading = getLocale()
+  const startLang = langs.some((l) => l.code === reading) ? reading : 'en'
+  const [lang, setLang] = useState(startLang)
+  const [full, setFull] = useState(false)
   const { design, ready } = useCertificateDesign(row?.design, lang)
 
-  useEffect(() => { setView('certificate'); setLang('en'); setFull(false) }, [row?.id])
+  useEffect(() => { setView('certificate'); setLang(startLang); setFull(false) }, [row?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!holder) return undefined
     const measure = () => setWidth(Math.max(260, holder.clientWidth))
@@ -170,7 +180,10 @@ function CertificateViewer({ row, onClose, tr }) {
       if (!blob) throw new Error('empty')
       const name = kind === 'story' ? `tryp-certificate-story-${serial}${suffix}.png` : `tryp-certificate-${serial}${suffix}.png`
       const file = new File([blob], name, { type: 'image/png' })
-      if (kind === 'story' && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // The share sheet is for PHONES (straight into Instagram). A laptop's Chrome also offers
+      // navigator.share, and there it opened a system sheet instead of saving the file.
+      const phone = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+      if (kind === 'story' && phone && navigator.canShare && navigator.canShare({ files: [file] })) {
         try { await navigator.share({ files: [file] }) } catch (err) { if (err?.name !== 'AbortError') await downloadBlob(blob, name) }
       } else {
         await downloadBlob(blob, name)
@@ -239,7 +252,9 @@ function CertificateViewer({ row, onClose, tr }) {
 
         {/* THE STORY. One StoryFrame, always mounted so it can be photographed: on the
             story tab it is scaled into view, otherwise it sits off screen at full size. */}
-        <div className={cx(!story && 'hidden', 'flex justify-center')}>
+        {/* Off screen rather than display:none when on the certificate tab, so the story can be
+            photographed from either tab (a node that is not laid out photographs as nothing). */}
+        <div className={cx('flex justify-center', !story && 'pointer-events-none fixed -left-[12000px] top-0')} aria-hidden={!story}>
           <button
             type="button"
             onClick={() => setFull(true)}

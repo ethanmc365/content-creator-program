@@ -78,7 +78,10 @@ function fit(text, max) {
 const LangContext = createContext('en')
 const useL = () => { const lang = useContext(LangContext); return (en) => tIn(lang, en) }
 
-export default function CertificateCard({ design, facts = {}, cardRef, className, lang = 'en' }) {
+export default function CertificateCard({ design, facts: rawFacts = {}, cardRef, className, lang = 'en' }) {
+  // A market's name is ours, not the author's, so it is said in the certificate's language
+  // ("em Worldwide" read wrong on a Portuguese certificate, 2 Oct 2026).
+  const facts = lang !== 'en' && rawFacts.market ? { ...rawFacts, market: tIn(lang, rawFacts.market) } : rawFacts
   const d = design || {}
   const s = designStyle(d)
   const o = optionsOf(d)
