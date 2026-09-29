@@ -1,40 +1,25 @@
 -- WHO HAS BROUGHT THE MOST PEOPLE IN, ALL TIME.
 --
 -- Outstanding from the 28 Sep brief. The Refer page told a creator how they
--- were doing and said nothing about anybody else, which is the one thing a
--- referral scheme can usually make interesting - "Jacob has brought in four" is
--- a fact that makes somebody share their link.
+-- were doing and nothing about anybody else, which is the one thing a referral
+-- scheme can usually make interesting - "Jacob has brought in four" is the fact
+-- that makes somebody share their link.
 --
 -- WHY THIS IS AN RPC AND NOT A QUERY. A creator cannot read `profiles.
 -- referred_by` across the community, and should not be able to: who recruited
--- whom is somebody else's business, and the raw column would let anybody
--- reconstruct the whole recruitment tree. This returns a COUNT per referrer and
--- nothing about who was referred - the aggregate is shareable, the edges are
--- not.
+-- whom is somebody else's business, and the raw column would let anybody build
+-- the whole recruitment tree. This returns a COUNT per referrer and nothing
+-- about who was referred - the aggregate is shareable, the edges are not.
 --
 -- THE COUNTING RULE IS THE VOUCHER'S RULE, deliberately. `lib/referrals` has
 -- said since July that a referral counts once the referred creator has posted
 -- to a challenge, because that is what the reward is paid for. A board that
 -- counted signups instead would rank people by how many links they sent, and
 -- would disagree with the voucher on the same page.
---
--- Admins and test accounts are left out on both sides: they are not competing,
--- and a QA account on a real leaderboard is how fixtures leak into production.
---
--- `having counted > 0`: a leaderboard of zeroes is not a leaderboard.
 
 create or replace function public.referral_leaderboard(p_limit integer default 10)
-returns table (
-  creator_id uuid,
-  name text,
-  photo_url text,
-  counted bigint,
-  joined_total bigint
-)
-language sql
-stable
-security definer
-set search_path to 'public'
+returns table (creator_id uuid, name text, photo_url text, counted bigint, joined_total bigint)
+language sql stable security definer set search_path to 'public'
 as $function$
   select r.id, r.name, r.photo_url,
          count(*) filter (where exists (

@@ -576,17 +576,25 @@ export default function Settings() {
         <h2 className="mb-4 text-base font-semibold">{tr('Privacy')}</h2>
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">{tr('Show my profile on the community map')}</p>
+            {/* ONE FLAG, ONE MEANING (29 Sep 2026). This toggle was written
+                when the public page had one thing on it - the map - and it has
+                since grown a featured strip and a wall of fame. `show_on_map`
+                governs all three now (see migration 278; the strip never
+                honoured it at all, which meant somebody who had switched
+                themselves off the map was still on the front page beside it).
+                So the toggle says what it actually does rather than naming one
+                of the three places it acts on. */}
+            <p className="text-sm font-semibold">{tr('Show me on the public Tryp.com pages')}</p>
             <p className="text-xs text-smoke">
-              {tr("Your city and profile appear on the public map on the Tryp.com sign-up and login pages. Turn this off to hide yourself from that public map. You'll still show on the community map inside the app.")}
+              {tr("Your city, your photo and any challenge you have won can appear on the public sign-up and login pages: the community map, the creators strip and the wall of fame. Turn this off to be left out of all three. Fellow creators can still find you inside the app.")}
             </p>
           </div>
-          <Toggle on={showOnMap} onChange={toggleMap} label={tr("Show my profile on the community map")} disabled={savingMap} />
+          <Toggle on={showOnMap} onChange={toggleMap} label={tr('Show me on the public Tryp.com pages')} disabled={savingMap} />
         </div>
         {!showOnMap && (
           <p className="mt-3 flex items-center gap-2 rounded-xl bg-cloud px-4 py-2.5 text-xs text-smoke">
             <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
-            {tr("You're hidden from the public landing-page map. Fellow creators can still find you in the app.")}
+            {tr("You are left out of the public map, the creators strip and the wall of fame. Fellow creators can still find you in the app.")}
           </p>
         )}
       </Panel>

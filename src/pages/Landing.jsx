@@ -100,6 +100,8 @@ export default function Landing() {
     return () => clearTimeout(t)
   }, [bootCleared])
 
+  const [wall, setWall] = useState([])
+
   useEffect(() => {
     supabase.rpc('landing_stats').then(({ data }) => {
       if (data) setStats(data)
@@ -110,6 +112,11 @@ export default function Landing() {
     // Public community map: where creators are based and where they're headed.
     supabase.rpc('public_creator_map').then(({ data }) => {
       if (data) setMapData({ creators: data.creators || [], trips: data.trips || {}, visited: data.visited || [] })
+    })
+    // THE WALL OF FAME: the people who have actually won something. Everything
+    // else on this page is a promise; this is a result with a name on it.
+    supabase.rpc('public_wall_of_fame', { p_limit: 12 }).then(({ data }) => {
+      if (data) setWall(data)
     })
   }, [])
 
@@ -818,6 +825,56 @@ export default function Landing() {
           left below the fold and read as a different page. The cards keep a
           hairline ring so they still have an edge on white rather than relying
           on the shadow alone at low brightness. */}
+      {/* ---------- The wall of fame ----------
+          Outstanding from the brief. Everything else on this page is a promise
+          - prizes you could win, a community you could join. This is the only
+          section that is a RESULT: a name, a place and the challenge it was
+          won in. It is drawn from `public_wall_of_fame`, which shows FINAL
+          results only (an interim leaderboard is a work in progress, and
+          putting somebody on a public wall as a winner and then moving them is
+          not a mistake anybody can take back) and which honours the same
+          `show_on_map` flag as the map above it. One flag, one meaning: "do
+          not put me on the public page."
+
+          It draws nothing at all until a challenge has been settled, which is
+          right - an empty Wall of Fame is worse than no wall. */}
+      {wall.length > 0 && (
+        <section className="bg-cloud/40 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-5 sm:px-8">
+            <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Wall of fame")}</h2>
+            <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
+              {tr("Creators who have won a Tryp.com challenge. Every one of them started where you are now.")}
+            </p>
+            <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {wall.map((w, i) => (
+                <li
+                  key={`${w.name}-${w.challenge}-${w.place}`}
+                  style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+                  className="animate-fade-up group relative overflow-hidden rounded-card bg-white p-4 text-center shadow-card ring-1 ring-black/5 transition-transform duration-200 hoverable:hover:-translate-y-1"
+                >
+                  {/* The place is the point of the card, so it is the thing
+                      with the colour on it. First gets the gradient the
+                      certificates use; second and third are quieter, because
+                      three identical gold discs say nothing. */}
+                  <span className={cx(
+                    'mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold',
+                    w.place === 1 ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card'
+                      : w.place === 2 ? 'bg-brand-tint text-brand'
+                        : 'bg-cloud text-smoke',
+                  )}>
+                    {w.place === 1 ? '1st' : w.place === 2 ? '2nd' : '3rd'}
+                  </span>
+                  <Avatar src={w.photo_url} name={w.name} size="lg" className="mx-auto" />
+                  <p className="mt-3 truncate text-sm font-bold text-ink">{w.name}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-smoke">{w.challenge}</p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{w.market}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       <section className="py-16 sm:py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
           <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Why creators join")}</h2>
