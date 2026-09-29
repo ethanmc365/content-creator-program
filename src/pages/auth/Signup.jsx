@@ -27,6 +27,14 @@ export default function Signup() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const ref = searchParams.get('ref') // referral code from a creator's invite link
+  // A TEAM INVITE, WHICH IS A DIFFERENT KIND OF LINK ENTIRELY. `ref` credits a
+  // creator for bringing somebody in; `team` says the person following it is
+  // applying to work on the programme rather than to create for it. It grants
+  // nothing - see migration 280 - so the only thing it changes here is what the
+  // page says, and the fact that the token is kept for `claim_team_invite` once
+  // there is a session to claim it with.
+  const teamToken = searchParams.get('team')
+  const [teamInvite, setTeamInvite] = useState(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,6 +43,26 @@ export default function Signup() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
   const [agreed, setAgreed] = useState(false)
+
+  // Is the team token real, and what does it say it is for? Answered by an
+  // RPC that tells a stranger only those two things.
+  useEffect(() => {
+    if (!teamToken) return undefined
+    let alive = true
+    supabase.rpc('team_invite_check', { p_token: teamToken }).then(({ data }) => {
+      const row = Array.isArray(data) ? data[0] : data
+      if (alive) setTeamInvite(row?.valid ? row : { valid: false })
+    })
+    return () => { alive = false }
+  }, [teamToken])
+
+  // KEEP IT UNTIL THERE IS A SESSION TO SPEND IT ON. `claim_team_invite` runs as
+  // the person who just signed up, and there is no session at the moment the
+  // link is opened. Onboarding reads this back.
+  useEffect(() => {
+    if (!teamToken || !teamInvite?.valid) return
+    try { localStorage.setItem('tryp_team_invite', teamToken) } catch { /* private mode */ }
+  }, [teamToken, teamInvite])
 
   // Count one click per browser per referral code, so referrers can see their
   // invite-link funnel (clicks → signed up → approved) on the Refer page.
@@ -118,10 +146,27 @@ export default function Signup() {
       subtitle="Create your creator account. It takes a minute."
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
-      {ref && (
+      {ref && !teamToken && (
         <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
           {tr("You were invited by a Tryp.com creator. Welcome aboard!")}
         </p>
+      )}
+
+      {/* THE PAGE SAYS WHAT YOU ARE APPLYING FOR. Somebody sent this link by a
+          colleague should not have to work out from a form headed "Join the
+          community" that they are applying to run part of it. */}
+      {teamToken && teamInvite && (
+        teamInvite.valid ? (
+          <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
+            {teamInvite.role_title
+              ? tr('You are applying to join the Tryp.com team as {role}. Somebody on the team still has to approve you.', { role: teamInvite.role_title })
+              : tr('You are applying to join the Tryp.com team. Somebody on the team still has to approve you.')}
+          </p>
+        ) : (
+          <p className="mb-5 rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
+            {tr('That team invite link has expired or been withdrawn. You can still sign up as a creator below.')}
+          </p>
+        )
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">

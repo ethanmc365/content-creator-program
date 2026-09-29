@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
@@ -344,6 +344,37 @@ export default function AdminApplications() {
     setBusyId(null)
     if (error) { flash(`Something went wrong: ${error.message}`); return }
     flash(`${app.name} approved into ${data?.summary ?? where}.`)
+    setApps((prev) => prev.filter((a) => a.id !== app.id))
+  }
+
+  // APPROVING SOMEBODY ONTO THE TEAM IS A DIFFERENT DECISION (29 Sep 2026).
+  //
+  // A team application arrived through an invite link, which grants nothing -
+  // see migration 280. This is the one door in, and it is `approve_team_member`
+  // rather than `admin_approve_application`: the second puts somebody in a
+  // market as a creator, and this person is not one. The role title is offered
+  // rather than assumed, because the invite's title is a suggestion made when
+  // the link was created and this is the moment somebody decides.
+  async function approveTeam(app) {
+    const suggested = app.requested_role_title || ''
+    const title = await promptText(
+      `${app.name} applied through a team invite link. Approving gives them the admin panel; you can change their title any time on the Team page.`,
+      {
+        title: 'Add to the Tryp.com team',
+        defaultValue: suggested,
+        placeholder: 'Market manager, Spain',
+        confirmLabel: 'Add them to the team',
+      },
+    )
+    if (title === null) return
+    setBusyId(app.id)
+    const { error } = await supabase.rpc('approve_team_member', {
+      p_profile: app.id,
+      p_role_title: title || suggested || null,
+    })
+    setBusyId(null)
+    if (error) { flash(`Something went wrong: ${error.message}`); return }
+    flash(`${app.name} is on the Tryp.com team.`)
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
@@ -760,6 +791,7 @@ export default function AdminApplications() {
                 onToggle={() => setOpenId((v) => (v === a.id ? null : a.id))}
                 busy={busyId === a.id}
                 onApprove={() => approve(a)}
+                onApproveTeam={() => approveTeam(a)}
                 onDecline={() => decline(a)}
                 onZoom={(e) => { if (!a.photo_url) return; zoomFrom.current = e?.currentTarget ?? null; setZoom({ src: a.photo_url, alt: a.name }) }}
                 onZoomPhoto={(e, i) => { zoomFrom.current = e?.currentTarget ?? null; setZoom({ list: photos[a.id] ?? [], index: i, alt: a.name }) }}
@@ -875,7 +907,7 @@ function EmailRow({ email }) {
 export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
   marketsSpeaking,
-  placeIn, onPlaceIn, open, onToggle, busy, onApprove, onDecline, onZoom, onZoomPhoto,
+  placeIn, onPlaceIn, open, onToggle, busy, onApprove, onApproveTeam, onDecline, onZoom, onZoomPhoto,
   selected, onSelect,
 }) {
   // `profiles.dob` IS NULL ON EVERY ROW AND ALWAYS WILL BE - a BEFORE trigger
@@ -1200,9 +1232,18 @@ export function ApplicationCard({
         <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
           <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Decline</button>
-          <button onClick={onApprove} disabled={busy} className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs">
-            {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" />}
-            Approve
+          {/* A TEAM APPLICATION IS APPROVED ONTO THE TEAM, NOT INTO A MARKET
+              (29 Sep 2026). They came through an invite link, which grants
+              nothing; the ordinary Approve puts somebody into a market as a
+              creator, and this person is not one. Different button, different
+              function. */}
+          <button
+            onClick={app.team_application ? onApproveTeam : onApprove}
+            disabled={busy}
+            className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs"
+          >
+            {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={app.team_application ? 'shield' : 'check'} className="h-3.5 w-3.5" />}
+            {app.team_application ? 'Add to the team' : 'Approve'}
           </button>
         </div>
       </div>

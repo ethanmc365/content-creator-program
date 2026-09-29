@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { confirm, notice, promptText } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
+import TeamInvites from '../../components/admin/TeamInvites'
 import Icon from '../../components/Icon'
 import PeoplePicker from '../../components/network/PeoplePicker'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
@@ -330,6 +331,9 @@ export default function AdminTeam() {
         </div>
       ) : (
         <div className="space-y-10">
+          {/* ---- A link that lets somebody APPLY to be on this page ---- */}
+          <TeamInvites />
+
           {/* ---- Worldwide: the lead and the Tryp.com team ---- */}
           <section>
             <div className="mb-4 flex items-center gap-2.5">

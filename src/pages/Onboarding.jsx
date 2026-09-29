@@ -95,7 +95,22 @@ export const STEPS = [
   { key: 'review', title: 'Review', part: 'Finish', need: false },
 ]
 
-const stepIndex = (key) => STEPS.findIndex((s) => s.key === key)
+// THE SHORT VERSION, FOR SOMEBODY APPLYING TO WORK ON THE PROGRAMME RATHER
+// THAN TO CREATE FOR IT (29 Sep 2026).
+//
+// Ethan: "a shortened signup (name, photo, bio, tutorial; no bank details or
+// socials)". Four of the nine steps only make sense for a creator: where you
+// post, the languages you film in, your travel map and your travel photos. A
+// market manager has no channels to link and is not entering challenges, and
+// asking them to tap countries on a map before they can run one is the kind of
+// thing that makes a tool feel like it was built for somebody else.
+//
+// The steps are a LIST now rather than the module constant, so the progress
+// bar, "step 3 of 5", the Back button and the resume-where-you-left-off logic
+// all keep working off the same array without any of them knowing why it is
+// shorter.
+const TEAM_SKIP = new Set(['socials', 'languages', 'map', 'extras'])
+export const stepsFor = (team) => (team ? STEPS.filter((s) => !TEAM_SKIP.has(s.key)) : STEPS)
 
 const EMPTY = {
   name: '', photo_url: '', dob: null, city: '', country: '', country_code: '',
@@ -166,7 +181,7 @@ function draftColumns(draft) {
 }
 
 /** Every problem with the draft, as a list a person can act on. */
-export function draftProblems(draft, contact) {
+export function draftProblems(draft, contact, { team = false } = {}) {
   const p = []
   if (!draft.name?.trim()) p.push({ step: 'identity', text: 'Add your name' })
   if (!draft.photo_url) p.push({ step: 'identity', text: 'Add a profile photo' })
@@ -193,13 +208,16 @@ export function draftProblems(draft, contact) {
     p.push({ step: 'based', text: `You need to be at least ${MIN_AGE} to join` })
   }
   if (!contact.phone?.trim() || !contact.phone_country) p.push({ step: 'based', text: 'Add a phone number with its country code' })
-  if (!draft.instagram_url?.trim() && !draft.tiktok_url?.trim() && !draft.youtube_url?.trim() && !draft.facebook_url?.trim()) {
+  // A team application is not asked for channels, languages or a travel map -
+  // those are a creator's work, and this person is applying to run the
+  // programme. See `stepsFor`.
+  if (!team && !draft.instagram_url?.trim() && !draft.tiktok_url?.trim() && !draft.youtube_url?.trim() && !draft.facebook_url?.trim()) {
     p.push({ step: 'socials', text: 'Link at least one account you post on' })
   }
   if (!draft.bio?.trim()) p.push({ step: 'story', text: 'Write your one-line bio' })
   if (!draft.about?.trim()) p.push({ step: 'story', text: 'Write a few lines about you' })
-  if (!draft.languages?.length) p.push({ step: 'languages', text: 'Pick at least one language' })
-  if (!draft.countries_visited?.length) p.push({ step: 'map', text: 'Tap at least one country on your map' })
+  if (!team && !draft.languages?.length) p.push({ step: 'languages', text: 'Pick at least one language' })
+  if (!team && !draft.countries_visited?.length) p.push({ step: 'map', text: 'Tap at least one country on your map' })
   return p
 }
 
@@ -419,15 +437,41 @@ export default function Onboarding() {
   const set = useCallback((patch) => { setError(''); setDraft((d) => ({ ...d, ...patch })) }, [])
 
   const pending = demo ? demoPending : profile?.status === 'pending'
-  const problems = draftProblems(draft, contact)
+  // IS THIS SOMEBODY APPLYING TO THE TEAM? Two sources, because the answer has
+  // to survive a refresh: the profile once the claim has landed, and the token
+  // the signup page put aside before there was a session to claim it with.
+  const [teamApplication, setTeamApplication] = useState(() => {
+    try { return !!localStorage.getItem('tryp_team_invite') } catch { return false }
+  })
+  useEffect(() => {
+    if (auth.profile?.team_application) setTeamApplication(true)
+  }, [auth.profile?.team_application])
+
+  // CLAIM IT ONCE THERE IS A SESSION. `claim_team_invite` runs as the caller and
+  // can only touch their own row, so there is no id to get wrong. The token is
+  // dropped whatever the answer: a second attempt with a dead token would only
+  // ever fail again.
+  useEffect(() => {
+    if (!user?.id) return
+    let token = null
+    try { token = localStorage.getItem('tryp_team_invite') } catch { /* private mode */ }
+    if (!token) return
+    supabase.rpc('claim_team_invite', { p_token: token }).then(({ data }) => {
+      if (data === true) { setTeamApplication(true); refreshProfile?.() }
+      try { localStorage.removeItem('tryp_team_invite') } catch { /* nothing to do */ }
+    })
+  }, [user?.id, refreshProfile])
+
+  const steps = useMemo(() => stepsFor(teamApplication), [teamApplication])
+  const problems = draftProblems(draft, contact, { team: teamApplication })
   const problemsFor = (key) => problems.filter((p) => p.step === key)
   const complete = problems.length === 0
 
   // Endowed progress: the bar starts at 15 rather than empty, because a goal
   // that already looks underway is one people finish far more often than one
   // that starts at nothing. It reaches 100 on the review screen.
-  const barPct = Math.round(15 + (step / (STEPS.length - 1)) * 85)
-  const current = STEPS[step]
+  const barPct = Math.round(15 + (step / (steps.length - 1)) * 85)
+  const current = steps[step]
 
   // --------------------------------------------------------------- demo ----
   // Inside the Testing Centre this runs in a same-origin iframe, so the lab
@@ -438,7 +482,7 @@ export default function Onboarding() {
     postDemoState({
       type: 'onboarding-state',
       step,
-      total: STEPS.length,
+      total: steps.length,
       stepKey: current.key,
       stepTitle: current.title,
       part: current.part,
@@ -450,7 +494,7 @@ export default function Onboarding() {
         : { slug: null, name: null, outcome: market.outcome },
       draft: { name: draft.name, city: draft.city, country: draft.country, country_code: draft.country_code },
     })
-  }, [demo, step, current, problems.length, complete, done, market, draft.name, draft.city, draft.country, draft.country_code])
+  }, [demo, step, steps.length, current, problems.length, complete, done, market, draft.name, draft.city, draft.country, draft.country_code])
 
   useEffect(() => { stepRef.current = step }, [step])
 
@@ -466,13 +510,13 @@ export default function Onboarding() {
       // undefined behaviour, not a shortcut. Same fault as the DM reaction
       // subscription. A ref holds the current step so the comparison can
       // happen out here where it is allowed to.
-      const to = Math.max(0, Math.min(STEPS.length - 1, msg.step))
+      const to = Math.max(0, Math.min(steps.length - 1, msg.step))
       setDir(to < stepRef.current ? 'back' : 'fwd')
       setStep(to)
       setDone(false)
     }
     if (msg.type === 'reset') { setStep(0); setDone(false); setError('') }
-  }, [])
+  }, [steps.length])
   useDemoMessages(onCommand, { enabled: demo })
 
   // ------------------------------------------------------------ movement ----
@@ -546,7 +590,7 @@ export default function Onboarding() {
     const mine = problemsFor(current.key)
     if (mine.length) { setError(mine.map((m) => m.text).join(' · ')); return }
     setError(''); setDir('fwd')
-    setStep((s) => Math.min(STEPS.length - 1, s + 1))
+    setStep((s) => Math.min(steps.length - 1, s + 1))
   }
   function back() { setError(''); setDir('back'); setStep((s) => Math.max(0, s - 1)) }
 
@@ -576,12 +620,12 @@ export default function Onboarding() {
     window.location.href = '/'
   }
   function goTo(key) {
-    const to = stepIndex(key)
+    const to = steps.findIndex((s) => s.key === key)
     setError(''); setDir(to < step ? 'back' : 'fwd'); setStep(to)
   }
 
   async function finish(sayHello) {
-    if (!complete) { setError('There are still a few things to fill in.'); setStep(stepIndex('review')); return }
+    if (!complete) { setError('There are still a few things to fill in.'); setStep(steps.findIndex((s) => s.key === 'review')); return }
     // THE LAST GATE BEFORE THE WRITE, AND IT SAYS SO IN WORDS.
     //
     // `problemsFor` already blocks the date-of-birth step, so reaching here
@@ -591,7 +635,7 @@ export default function Onboarding() {
     // than a red line under a field, which is exactly what Ethan asked for.
     const age = ageFromDob(draft.dob)
     if (age != null && age < MIN_AGE) {
-      setStep(stepIndex('based'))
+      setStep(steps.findIndex((s) => s.key === 'based'))
       await notice(
         `The Tryp.com Content Creator Community is for people aged ${MIN_AGE} and over, and the date of birth you have entered makes you ${age}. `
         + `Nothing has been sent. You are very welcome to apply again once you turn ${MIN_AGE} - we will still be here.`,
@@ -656,7 +700,7 @@ export default function Onboarding() {
     // draft is still in state, so pressing Submit again retries everything.
     if (profileErr || privateErr) {
       setBusy(false)
-      setStep(stepIndex('review'))
+      setStep(steps.findIndex((s) => s.key === 'review'))
       setError(
         `Your application could not be saved: ${(profileErr || privateErr).message}. `
         + 'Nothing was sent. Please try again, and tell us if it keeps happening.',
@@ -763,7 +807,7 @@ export default function Onboarding() {
 
             And now leaving really is safe rather than nominally safe: `leave`
             writes the draft before it drops the session. See `saveDraft`. */}
-        <Progress step={step} barPct={barPct} current={current} onLeave={leave} leaving={leaving} />
+        <Progress step={step} total={steps.length} barPct={barPct} current={current} onLeave={leave} leaving={leaving} />
 
         {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).
             Ethan: "going from slide to slide, it's like everything seems very
@@ -933,12 +977,12 @@ export default function Onboarding() {
 
             <div className={cx('mt-8 flex flex-wrap gap-3', step === 0 ? 'justify-center' : 'justify-between')}>
               {step > 0 && <button onClick={back} className="btn-ghost">← {tr("Back")}</button>}
-              {step < STEPS.length - 1 && (
+              {step < steps.length - 1 && (
                 <button onClick={next} className="btn-primary">
                   {step === 0 ? tr("Let's go") : tr("Continue")} →
                 </button>
               )}
-              {step === STEPS.length - 1 && (
+              {step === steps.length - 1 && (
                 pending ? (
                   <button onClick={() => finish(false)} disabled={!complete} className="btn-primary disabled:opacity-40 sm:ml-auto">
                     {busy ? <Spinner /> : `${tr("Submit application")} →`}
@@ -954,7 +998,7 @@ export default function Onboarding() {
           </StepFrame>
         </div>
 
-        {step > 0 && step < STEPS.length - 1 && (
+        {step > 0 && step < steps.length - 1 && (
           <p className="mt-5 text-center text-xs text-smoke">
             {problems.length === 0
               ? tr("Everything required is filled in. You can jump to the end from here.")
@@ -1055,7 +1099,7 @@ function Req() {
   return <span className="text-brand" title={tr("Required")}>*</span>
 }
 
-function Progress({ step, barPct, current, onLeave, leaving }) {
+function Progress({ step, total, barPct, current, onLeave, leaving }) {
   const tr = useT()
   return (
     <div className="mb-8 flex flex-col items-center gap-5">
@@ -1115,7 +1159,7 @@ function Progress({ step, barPct, current, onLeave, leaving }) {
             style={{ width: `${barPct}%` }}
           />
         </div>
-        <p className="mt-2 text-center text-xs text-smoke">Step {step + 1} of {STEPS.length}</p>
+        <p className="mt-2 text-center text-xs text-smoke">Step {step + 1} of {total}</p>
       </div>
     </div>
   )
