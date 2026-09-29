@@ -49,6 +49,10 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
   const [copied, setCopied] = useState(false)
   const code = reward.voucher_code?.trim()
   const used = !!reward.used_at
+  // ISSUED BY CHAT (29 Sep 2026). Vouchers handed over before codes lived on the
+  // platform have none here, and "being prepared" told a creator who already HAD
+  // theirs that they were still waiting. It says what actually happened.
+  const byChat = !code
   const from = reward.challenges?.title
     || (reward.milestones?.title && `${tr('Milestone')}: ${reward.milestones.title}`)
     || (reward.source === 'referral' ? tr('Referral reward') : null)
@@ -88,6 +92,11 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
           <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">
             {code ? tr('Your code') : tr('Your voucher')}
           </p>
+          {reward.parts && (
+            <p className="mt-0.5 text-[11px] text-smoke">
+              {tr('Combined: {parts}', { parts: reward.parts.map((p) => formatMoney(p.amount, p.currency)).join(' + ') })}
+            </p>
+          )}
           {code ? (
             /* WRAPS, NEVER TRUNCATES: a code with its end cut off is useless.
                The whole box is the copy button - the one thing anybody does
@@ -105,8 +114,8 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
             </button>
           ) : (
             <p className="mt-1 flex items-center gap-2 rounded-lg border border-dashed border-gray-200 px-2.5 py-2 text-xs text-smoke">
-              <Icon name="clock" className="h-4 w-4 shrink-0 text-brand" />
-              {tr('Your voucher is being prepared by the team.')}
+              <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
+              {tr('Issued by chat. The code is in your messages with the team.')}
             </p>
           )}
         </div>
@@ -117,7 +126,7 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
               ? tr('Used {date}', { date: formatDate(reward.used_at) })
               : reward.distributed_at ? tr('Issued {date}', { date: formatDate(reward.distributed_at) }) : ''}
           </p>
-          {onToggleUsed && code && (
+          {onToggleUsed && (code || byChat) && (
             <button
               type="button"
               onClick={() => onToggleUsed(!used)}

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/ui'
+import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
@@ -142,8 +143,8 @@ export default function Signup() {
 
   return (
     <AuthShell
-      title={tr("Join the community")}
-      subtitle="Create your creator account. It takes a minute."
+      title={teamInvite?.valid ? tr('Join the Tryp.com team') : tr("Join the community")}
+      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : "Create your creator account. It takes a minute."}
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
       {ref && !teamToken && (
@@ -152,16 +153,33 @@ export default function Signup() {
         </p>
       )}
 
-      {/* THE PAGE SAYS WHAT YOU ARE APPLYING FOR. Somebody sent this link by a
-          colleague should not have to work out from a form headed "Join the
-          community" that they are applying to run part of it. */}
+      {/* THE PAGE SAYS WHAT YOU ARE APPLYING FOR, AND NOT WHICH JOB (29 Sep 2026).
+          Ethan: "don't say sign up as market manager, just say sign up to join the
+          Tryp.com team, as we might have people signing up that are not necessarily
+          on the Tryp.com team." The invite can carry a role title, but that is a
+          note for whoever approves it - the person following the link is told only
+          that they are signing up to join the team, in three plain steps. */}
       {teamToken && teamInvite && (
         teamInvite.valid ? (
-          <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
-            {teamInvite.role_title
-              ? tr('You are applying to join the Tryp.com team as {role}. Somebody on the team still has to approve you.', { role: teamInvite.role_title })
-              : tr('You are applying to join the Tryp.com team. Somebody on the team still has to approve you.')}
-          </p>
+          <div className="mb-6 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-tint to-white p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
+                <Icon name="shield" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold leading-snug text-ink">{tr('Sign up to join the Tryp.com team')}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-smoke">{tr('Somebody on the team will look over your profile and approve you before you get in.')}</p>
+              </div>
+            </div>
+            <ol className="mt-4 grid grid-cols-3 gap-2 text-center">
+              {[tr('Make your account'), tr('Add a short profile'), tr('We approve you')].map((label, i) => (
+                <li key={label} className="rounded-xl bg-white/80 px-2 py-2.5 shadow-sm">
+                  <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">{i + 1}</span>
+                  <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-ink">{label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : (
           <p className="mb-5 rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
             {tr('That team invite link has expired or been withdrawn. You can still sign up as a creator below.')}

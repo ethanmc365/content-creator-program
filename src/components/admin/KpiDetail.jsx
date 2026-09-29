@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDate, formatViews } from '../../lib/utils'
-import { kpiStatus, metricLabel, periodLabel } from '../../lib/kpiTracker'
+import { formatKpiValue, metricDef, metricLabel, periodLabel, rowStatus } from '../../lib/kpiTracker'
 import { useT } from '../../lib/i18n'
 
 // ONE KPI, OPENED UP (28 Sep 2026).
@@ -40,11 +40,12 @@ const STATUS = {
   missed: { label: 'Missed', chip: 'bg-red-50 text-red-600', bar: 'bg-red-500' },
 }
 
-const fmt = (metric, v) => (metric === 'views' ? formatViews(v) : Number(v || 0).toLocaleString())
+const DATE_METRICS = new Set(['creators_recruited', 'referrals', 'activation_rate', 'creators_total'])
+const VIEW_METRICS = new Set(['views', 'avg_views_per_entry', 'avg_views_per_creator', 'top_video_views'])
 const DAY = 86400000
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
 
-export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
+export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR', scopeName, period, onClose }) {
   const tr = useT()
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
@@ -57,18 +58,21 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
     let alive = true
     setData(null)
     supabase.rpc('kpi_detail', {
-      p_community_id: scope, p_year: year, p_quarter: quarter, p_month: month ?? null, p_metric: row.metric,
+      p_community_id: scope, p_year: year, p_quarter: quarter, p_month: month ?? null, p_metric: row.metric, p_basis: basis,
     }).then(({ data: d, error }) => {
       if (!alive) return
       if (error) setErr(error.message)
       else setData(d)
     })
     return () => { alive = false }
-  }, [row, custom, scope, year, quarter, month])
+  }, [row, custom, scope, basis, year, quarter, month])
 
   const { status, pct, progress } = row
-    ? kpiStatus({ target: row.target_value, actual: row.actual, year, quarter, month })
+    ? rowStatus(row, period)
     : { status: 'on_track', pct: 0, progress: 0 }
+  const def = row ? metricDef(row) : { kind: 'sum' }
+  const isLevel = def.kind === 'level'
+  const f = (v) => formatKpiValue(row, v, currency)
   const st = STATUS[status]
 
   // The running total, one point per day from the start of the period to
@@ -79,22 +83,41 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
     const end = Date.parse(data.end)
     const last = Math.min(end - 1, nowMs)
     const byDay = new Map((data.series || []).map((p) => [p.d, Number(p.v) || 0]))
+    const denByDay = data.series_den ? new Map(data.series_den.map((p) => [p.d, Number(p.v) || 0])) : null
+    const denTotal = data.den_total != null ? Number(data.den_total) : null
+    const percent = def.unit === 'percent'
     const out = []
-    let running = 0
+    let num = 0
+    let den = 0
+    let max = 0
+    const stockStart = row.metric === 'creators_total'
+      ? row.actual - (data.series || []).reduce((sum, p) => sum + (Number(p.v) || 0), 0) : 0
     const totalDays = Math.max(1, Math.round((end - start) / DAY))
     for (let t = start, i = 0; t <= end - 1; t += DAY, i += 1) {
       const k = iso(t)
       const landed = byDay.get(k) || 0
-      if (t <= last) running += landed
+      if (t <= last) { num += landed; den += denByDay?.get(k) || 0; max = Math.max(max, landed) }
+      // WHAT THE LINE IS. A running total climbs; a ratio is the running numerator
+      // over the running denominator (so it ends on the card's number); the best
+      // single video is a running maximum; a headcount starts from who was there
+      // before the period.
+      let value
+      if (row.metric === 'top_video_views') value = max
+      else if (row.metric === 'creators_total') value = stockStart + num
+      else if (denByDay) value = den > 0 ? (num / den) * (percent ? 100 : 1) : 0
+      else if (denTotal != null) value = denTotal > 0 ? (num / denTotal) * 100 : 0
+      else value = num
       out.push({
         day: new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
         k,
         landed: t <= last ? landed : null,
-        total: t <= last ? running : null,
-        pace: Math.round((row.target_value * (i + 1)) / totalDays),
+        total: t <= last ? value : null,
+        // a running total is judged against a straight line; a level against the goal itself
+        pace: isLevel ? row.target_value : Math.round((row.target_value * (i + 1)) / totalDays),
       })
     }
     return out
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, row, nowMs])
 
   const busiest = series.reduce((m, p) => ((p.landed ?? 0) > (m?.landed ?? 0) ? p : m), null)
@@ -104,9 +127,8 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
   const left = row ? Math.max(0, row.target_value - row.actual) : 0
   const daysLeft = data ? Math.max(0, Math.ceil((Date.parse(data.end) - nowMs) / DAY)) : null
 
-  const peopleTitle = row?.metric === 'creators_recruited' ? tr('Who joined')
-    : row?.metric === 'creators_participated' ? tr('Who took part')
-      : row?.metric === 'views' ? tr('Whose videos brought the views') : tr('Who took part')
+  const peopleTitle = DATE_METRICS.has(row?.metric) ? tr('Who joined')
+    : VIEW_METRICS.has(row?.metric) ? tr('Whose videos brought the views') : tr('Who took part')
 
   return (
     <Modal open={!!row} onClose={onClose} title={row ? metricLabel(row) : ''} wide>
@@ -119,8 +141,8 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/80">{scopeName} · {periodLabel(period)}</p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight">
-                  {fmt(row.metric, row.actual)}
-                  <span className="ml-2 text-lg font-semibold text-white/75">/ {fmt(row.metric, row.target_value)}</span>
+                  {f(row.actual)}
+                  <span className="ml-2 text-lg font-semibold text-white/75">/ {f(row.target_value)}</span>
                 </p>
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card">{tr(st.label)}</span>
@@ -157,10 +179,12 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
               {status === 'met'
                 ? tr('Target reached, at {p}% of it.', { p: Math.round(pct * 100) })
                 : status === 'missed'
-                  ? tr('Finished {n} short of the target.', { n: fmt(row.metric, left) })
-                  : gap >= 0
-                    ? tr('{n} ahead of where a steady pace would be by today. {left} to go.', { n: fmt(row.metric, gap), left: fmt(row.metric, left) })
-                    : tr('{n} behind a steady pace for today. {left} to go.', { n: fmt(row.metric, -gap), left: fmt(row.metric, left) })}
+                  ? tr('Finished {n} short of the target.', { n: f(left) })
+                  : isLevel
+                    ? tr('{left} to go to reach the goal. It is an average, so it is held against the goal all the way through.', { left: f(left) })
+                    : gap >= 0
+                      ? tr('{n} ahead of where a steady pace would be by today. {left} to go.', { n: f(gap), left: f(left) })
+                      : tr('{n} behind a steady pace for today. {left} to go.', { n: f(-gap), left: f(left) })}
               {daysLeft != null && status !== 'met' && status !== 'missed' && ` ${daysLeft === 1 ? tr('1 day left.') : tr('{n} days left.', { n: daysLeft })}`}
             </p>
           </div>
@@ -181,7 +205,7 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
                     <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-brand" />{tr('Actual')}</span>
-                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />{tr('Steady pace to target')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />{isLevel ? tr('The goal') : tr('Steady pace to target')}</span>
                   </span>
                 </div>
                 <div className="h-60">
@@ -195,10 +219,10 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
                       <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={28} />
-                      <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => fmt(row.metric, v)} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
                       <Tooltip
                         contentStyle={tooltipStyle}
-                        formatter={(v, name) => [fmt(row.metric, v), name === 'total' ? tr('So far') : tr('Steady pace')]}
+                        formatter={(v, name) => [f(v), name === 'total' ? tr('So far') : isLevel ? tr('The goal') : tr('Steady pace')]}
                       />
                       <Line type="monotone" dataKey="pace" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
                       <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill="url(#kpiFill)" connectNulls={false} animationDuration={900} />
@@ -207,14 +231,14 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                 </div>
                 <p className="mt-2 text-xs text-smoke">
                   {busiest?.landed
-                    ? tr('Biggest day: {d}, {n}.', { d: busiest.day, n: fmt(row.metric, busiest.landed) })
+                    ? tr('Biggest day: {d}, {n}.', { d: busiest.day, n: f(busiest.landed) })
                     : tr('Nothing has landed in this period yet.')}
                   {series.some((p) => p.k === todayKey) ? ` ${tr('The line stops at today.')}` : ''}
                 </p>
               </section>
 
               {/* Per day, as bars: when things actually happened. */}
-              {series.some((p) => p.landed) && (
+              {def.kind === 'sum' && series.some((p) => p.landed) && (
                 <section className="animate-fade-up rounded-card border border-gray-100 bg-white p-4 shadow-card [animation-delay:80ms] sm:p-5">
                   <h3 className="mb-3 text-sm font-semibold">{tr('Day by day')}</h3>
                   <div className="h-40">
@@ -222,8 +246,8 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                       <BarChart data={series} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
                         <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={28} />
-                        <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v) => fmt(row.metric, v)} allowDecimals={false} />
-                        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [fmt(row.metric, v), tr('That day')]} />
+                        <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
+                        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [f(v), tr('That day')]} />
                         <Bar dataKey="landed" fill={BRAND_LIGHT} radius={[4, 4, 0, 0]} maxBarSize={14} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -257,13 +281,13 @@ export default function KpiDetail({ row, scope, scopeName, period, onClose }) {
                         {data.people.map((p, i) => (
                           <li key={p.id}>
                             <Link to={`/profile/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-cloud/60">
-                              {row.metric === 'views' && <span className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-smoke">{i + 1}</span>}
+                              {VIEW_METRICS.has(row.metric) && <span className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-smoke">{i + 1}</span>}
                               <Avatar src={p.photo_url} name={p.name} size="xs" />
                               <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
                               <span className="shrink-0 text-right text-xs text-smoke">
-                                {row.metric === 'creators_recruited'
+                                {DATE_METRICS.has(row.metric)
                                   ? formatDate(p.at)
-                                  : row.metric === 'views'
+                                  : VIEW_METRICS.has(row.metric)
                                     ? <span className="font-semibold tabular-nums text-ink">{formatViews(p.views)}</span>
                                     : `${p.entries} ${p.entries === 1 ? tr('entry') : tr('entries')}`}
                               </span>

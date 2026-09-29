@@ -163,3 +163,93 @@ describe('monthly KPI periods (24 Sep 2026)', () => {
     expect(kpiStatus({ target: 100, actual: 50, year: 2026, quarter: 3, month: 9, now: mid }).status).toBe('on_track')
   })
 })
+
+import {
+  MONTH_RAMP, formatKpiValue, metricDef, rollUpTargets, rowStatus, splitQuarterTarget, withDerivedTargets,
+} from './kpiTracker'
+
+describe('splitQuarterTarget', () => {
+  it('splits a running total on a gentle ramp that adds back to the goal exactly', () => {
+    for (const goal of [100, 24, 7, 1000, 31, 5]) {
+      const parts = splitQuarterTarget({ metric: 'entries' }, goal)
+      expect(parts).toHaveLength(3)
+      expect(parts.reduce((a, b) => a + b, 0)).toBe(goal)
+      // rising, but never drastically
+      expect(parts[0]).toBeLessThanOrEqual(parts[2])
+      expect(parts[2] - parts[0]).toBeLessThanOrEqual(goal * 0.1 + 1)
+    }
+  })
+  it('ramp weights sum to one', () => {
+    expect(MONTH_RAMP.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10)
+  })
+  it('lets a level rise around its goal, averaging back to it', () => {
+    const parts = splitQuarterTarget({ metric: 'avg_entries_per_creator' }, 8)
+    expect(parts[0]).toBeLessThan(8)
+    expect(parts[2]).toBeGreaterThan(8)
+    expect(parts.reduce((a, b) => a + b, 0) / 3).toBeCloseTo(8, 1)
+  })
+  it('never lets a percentage go over 100', () => {
+    expect(Math.max(...splitQuarterTarget({ metric: 'participation_rate' }, 99))).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('rollUpTargets', () => {
+  it('adds a running total and averages a level', () => {
+    expect(rollUpTargets({ metric: 'entries' }, [100, 120, 150])).toBe(370)
+    expect(rollUpTargets({ metric: 'avg_entries_per_creator' }, [7, 8, 9])).toBe(8)
+  })
+})
+
+describe('withDerivedTargets', () => {
+  const q = { year: 2026, quarter: 4, month: null }
+  const mk = (metric, month, v) => ({ id: `${metric}${month}`, metric, label: metric, month, target_value: v })
+  it('shows the months combined for a quarter with no goal of its own', () => {
+    const rows = withDerivedTargets({ period: q, own: [], monthsOfQuarter: [mk('entries', 10, 100), mk('entries', 11, 120), mk('entries', 12, 150)] })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ derived: 'rollup', target_value: 370, id: null })
+    expect(rows[0].from).toBe('Oct, Nov, Dec')
+  })
+  it('never overrides a goal somebody set', () => {
+    const own = [mk('entries', null, 500)]
+    const rows = withDerivedTargets({ period: q, own, monthsOfQuarter: [mk('entries', 10, 100)] })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].target_value).toBe(500)
+    expect(rows[0].derived).toBeUndefined()
+  })
+  it('gives each month its share of the quarter goal', () => {
+    const goal = mk('entries', null, 100)
+    const shares = [10, 11, 12].map((m) => withDerivedTargets({ period: { year: 2026, quarter: 4, month: m }, own: [], quarterTargets: [goal] })[0])
+    expect(shares.every((r) => r.derived === 'split')).toBe(true)
+    expect(shares.reduce((a, r) => a + r.target_value, 0)).toBe(100)
+    expect(shares[0].target_value).toBeLessThan(shares[2].target_value)
+  })
+  it('leaves a month that has its own goal alone', () => {
+    const rows = withDerivedTargets({ period: { year: 2026, quarter: 4, month: 11 }, own: [mk('entries', 11, 40)], quarterTargets: [mk('entries', null, 100)] })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].target_value).toBe(40)
+  })
+})
+
+describe('rowStatus for levels and lower-is-better', () => {
+  const now = new Date(2026, 10, 15)
+  const p = { year: 2026, quarter: 4, month: null }
+  it('holds an average against its goal, not a straight-line pace', () => {
+    expect(rowStatus({ metric: 'avg_entries_per_creator', target_value: 8, actual: 7.5 }, p, now).status).toBe('on_track')
+    expect(rowStatus({ metric: 'avg_entries_per_creator', target_value: 8, actual: 3 }, p, now).status).toBe('behind')
+    expect(rowStatus({ metric: 'avg_entries_per_creator', target_value: 8, actual: 8.2 }, p, now).status).toBe('met')
+  })
+  it('a lower-is-better custom KPI is met at or under the goal', () => {
+    const row = { metric: 'custom', label: 'Cost per view', unit: 'decimal', higher_is_better: false, cumulative: false }
+    expect(rowStatus({ ...row, target_value: 5, actual: 4 }, p, now).status).toBe('met')
+    expect(rowStatus({ ...row, target_value: 5, actual: 9 }, p, now).status).toBe('behind')
+  })
+})
+
+describe('formatKpiValue', () => {
+  it('prints each unit its own way', () => {
+    expect(formatKpiValue({ metric: 'participation_rate' }, 19.04)).toBe('19%')
+    expect(formatKpiValue({ metric: 'avg_entries_per_creator' }, 8.03)).toBe('8.03')
+    expect(formatKpiValue({ metric: 'views' }, 1302588)).toBe('1.3M')
+    expect(metricDef({ metric: 'entries' }).kind).toBe('sum')
+  })
+})

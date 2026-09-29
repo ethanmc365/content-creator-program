@@ -182,6 +182,7 @@ export default function AdminApplications() {
   // only list worth looking at is the people who have not had one.
   const [onlyUnfollowed, setOnlyUnfollowed] = useState(false)
   const markets = useMarkets()
+  const [inviteLabels, setInviteLabels] = useState({})
 
   async function load() {
     // BOTH BUCKETS IN ONE QUERY. `status = 'pending'` is the whole queue;
@@ -196,7 +197,12 @@ export default function AdminApplications() {
       supabase.rpc('admin_list_emails'),
     ])
     const list = profiles ?? []
+    // Team applicants first: they are the ones whose approval hands over the admin panel.
+    list.sort((a, b) => Number(!!b.team_application) - Number(!!a.team_application))
     setApps(list)
+    if (list.some((a) => a.team_invite_id)) {
+      supabase.from('team_invites').select('id, label').then(({ data }) => setInviteLabels(Object.fromEntries((data ?? []).map((r) => [r.id, r.label]))))
+    }
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
 
     // The two extra reads, batched over the whole queue rather than fired per
@@ -516,7 +522,7 @@ export default function AdminApplications() {
   const inThisBucket = useMemo(() => {
     const list = (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded))
     if (bucket !== 'applied') return onlyUnfollowed ? list.filter((a) => !a.followed_up_at) : list
-    return [...list].sort((a, b) => new Date(appliedAt(b)) - new Date(appliedAt(a)))
+    return [...list].sort((a, b) => Number(!!b.team_application) - Number(!!a.team_application) || new Date(appliedAt(b)) - new Date(appliedAt(a)))
   }, [apps, bucket, onlyUnfollowed])
 
   const tabs = useMemo(() => {
@@ -792,6 +798,7 @@ export default function AdminApplications() {
                 busy={busyId === a.id}
                 onApprove={() => approve(a)}
                 onApproveTeam={() => approveTeam(a)}
+                inviteLabel={inviteLabels[a.team_invite_id]}
                 onDecline={() => decline(a)}
                 onZoom={(e) => { if (!a.photo_url) return; zoomFrom.current = e?.currentTarget ?? null; setZoom({ src: a.photo_url, alt: a.name }) }}
                 onZoomPhoto={(e, i) => { zoomFrom.current = e?.currentTarget ?? null; setZoom({ list: photos[a.id] ?? [], index: i, alt: a.name }) }}
@@ -908,7 +915,7 @@ export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
   marketsSpeaking,
   placeIn, onPlaceIn, open, onToggle, busy, onApprove, onApproveTeam, onDecline, onZoom, onZoomPhoto,
-  selected, onSelect,
+  selected, onSelect, inviteLabel,
 }) {
   // `profiles.dob` IS NULL ON EVERY ROW AND ALWAYS WILL BE - a BEFORE trigger
   // (mirror_dob_to_private) moves it into creator_private and derives
@@ -929,8 +936,23 @@ export function ApplicationCard({
   return (
     <div className={cx(
       'card !p-0 overflow-hidden transition-all duration-200 hover:shadow-lift',
+      app.team_application && '!border-brand/50 shadow-lift',
       selected && 'ring-2 ring-brand/40',
     )}>
+      {/* A TEAM APPLICATION LOOKS LIKE ONE (29 Sep 2026). Ethan: on the applications page
+          they "just appear as a normal creator", but approving them gives them admin
+          access. So the card says it in solid brand colour before anything else does. */}
+      {app.team_application && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gradient-to-r from-brand to-brand-light px-4 py-2.5 text-white sm:px-6">
+          <Icon name="shield" className="h-4 w-4 shrink-0" />
+          <span className="text-sm font-bold">Applied to join the Tryp.com team</span>
+          <span className="text-xs text-white/85">
+            {app.requested_role_title ? `Invite note: ${app.requested_role_title}` : 'Approving gives admin access'}
+            {inviteLabel ? ` · via “${inviteLabel}”` : ''}
+          </span>
+        </div>
+      )}
+
       {/* ------------------------------------------------------- the summary */}
       {/* A GRID, SO THE WORDS GET THE WIDTH (22 Sep 2026).
           Ethan, on a phone: "each card is taking up so much space, this is
@@ -1148,6 +1170,15 @@ export function ApplicationCard({
             The first one picked is the creator's HOME market; the rest are
             ordinary memberships. That is said on screen rather than implied,
             because it decides which hub they land on. */}
+        {app.team_application ? (
+          <div className="rounded-xl border border-brand/25 bg-brand-tint/50 px-4 py-3 text-sm text-ink">
+            <p className="flex items-center gap-2 font-semibold text-brand"><Icon name="shield" className="h-4 w-4" /> Adding them to the team gives them admin access</p>
+            <p className="mt-1 text-xs leading-relaxed text-smoke">
+              They will be able to open the admin panel. They are not placed in a market as a creator. Check who they are before you approve, and change their title any time on the Team page.
+            </p>
+          </div>
+        ) : (
+          <>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Approve into</p>
         {/* THE SUGGESTED ONE IS ALWAYS FIRST (4 Sep 2026). Ethan: "it should
             always show the very first one as whatever the suggested one is, on
@@ -1216,6 +1247,9 @@ export function ApplicationCard({
             <> They also speak {languageHints.flatMap((h) => h.langs).join(' and ')}, so {languageHints.map((h) => h.market.name).join(' or ')} would work too.</>
           )}
         </p>
+
+          </>
+        )}
 
         {/* EVERY CONTROL LOOKS LIKE A CONTROL, AND THE ONE THAT IS NOT USEFUL
             IS GONE. Ethan: "the Full profile button looks like it's not even a

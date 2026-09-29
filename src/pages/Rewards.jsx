@@ -81,7 +81,9 @@ export default function Rewards() {
     const { data, error } = await supabase.rpc('set_reward_used', { p_reward: reward.id, p_used: used })
     setTicking(null)
     if (error) { notice(error.message); return }
-    setRewards((rs) => rs.map((r) => (r.id === reward.id ? { ...r, used_at: data ?? null } : r)))
+    // A combined voucher is several rows and the database ticks them together.
+    const ids = reward.rewardIds || [reward.id]
+    setRewards((rs) => rs.map((r) => (ids.includes(r.id) ? { ...r, used_at: data ?? null } : r)))
   }
 
   // Totals go through rewardsTotal: one figure, in euros, whole. The old sum

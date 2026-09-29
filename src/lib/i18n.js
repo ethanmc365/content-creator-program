@@ -164,7 +164,7 @@ function read() {
 let locale = typeof window === 'undefined' ? DEFAULT_LOCALE : read()
 const subs = new Set()
 
-if (typeof document !== 'undefined') document.documentElement.lang = locale
+if (typeof document !== 'undefined') { document.documentElement.lang = locale; document.documentElement.dataset.lng = locale }
 
 export function getLocale() {
   return locale
@@ -187,7 +187,7 @@ export function setLocale(code) {
   try { localStorage.setItem(KEY, next) } catch { /* nothing to do if storage is blocked */ }
   // `lang` is not decoration: it is what tells a screen reader which voice to
   // use, and what makes the browser hyphenate and quote correctly.
-  if (typeof document !== 'undefined') document.documentElement.lang = next
+  if (typeof document !== 'undefined') { document.documentElement.lang = next; document.documentElement.dataset.lng = next }
   for (const fn of [...subs]) fn()
   return next
 }

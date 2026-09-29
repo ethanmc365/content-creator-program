@@ -91,7 +91,7 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
       aria-label={ariaLabel}
       placeholder={placeholder}
       className={cx(
-        'border-0 bg-transparent p-0 text-center text-sm outline-none focus:ring-0',
+        'no-ios-zoom border-0 bg-transparent p-0 text-center outline-none focus:ring-0 sm:text-sm',
         width,
         dark ? 'font-bold text-white placeholder:text-white/50' : 'font-medium tabular-nums placeholder:font-normal placeholder:text-gray-300',
       )}
@@ -137,14 +137,21 @@ function Row({ rule, onChange, onRemove, weeks }) {
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
-    <div className={cx('flex flex-wrap items-center gap-2.5', ROW_GRID)}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke" title={meta.label}>
+    {/* ON A PHONE IT IS TWO LINES, NOT A WRAPPING HEAP (29 Sep 2026). Ethan: editing
+        the points on mobile was fiddly. The row used to be a wrapping flex, so the
+        name, the points box, the condition and the bin fell wherever the width let
+        them. Now line one is always [icon] [name] [remove] and line two is always
+        [points] [what earns them], each with its little label, at a 44px touch height.
+        From `sm` up it is the five-column grid it always was (`contents` lets the
+        second line's two boxes become grid cells again). */}
+    <div className={cx('grid grid-cols-[2.25rem_minmax(0,1fr)_2.5rem] items-center gap-x-2 gap-y-2.5', ROW_GRID)}>
+      <span className="order-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke sm:order-1" title={meta.label}>
         <Icon name={meta.icon} className="h-4 w-4" />
       </span>
 
       {/* The only column that flexes. */}
       <input
-        className="input !w-auto min-w-[8rem] flex-1 !py-1.5 !no-ios-zoom sm:text-sm sm:!w-full sm:flex-none"
+        className="input order-2 !w-full min-w-0 !py-2 !no-ios-zoom sm:order-2 sm:!py-1.5 sm:text-sm"
         value={rule.label}
         onChange={(e) => onChange({ ...rule, label: e.target.value })}
         aria-label={tr("Rule name")}
@@ -158,11 +165,12 @@ function Row({ rule, onChange, onRemove, weeks }) {
           count. The two numbers on a milestone row (5 and 10,000) mean
           completely different things and now look completely different:
           white on orange is the score, ink on white is the condition. */}
-      <label className="flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 py-1.5 shadow-sm sm:w-full">
+      <div className="order-4 col-span-3 flex items-stretch gap-2 sm:contents">
+      <label className="flex min-h-[2.75rem] w-[5rem] shrink-0 items-center justify-center gap-1 rounded-lg bg-brand px-2 py-1.5 shadow-sm sm:order-3 sm:min-h-0 sm:w-full">
         <NumberBox
           value={rule.points}
           onChange={(v) => onChange({ ...rule, points: v })}
-          width="w-10"
+          width="w-8 sm:w-10"
           decimal
           dark
           ariaLabel="Points"
@@ -175,10 +183,10 @@ function Row({ rule, onChange, onRemove, weeks }) {
           rendered - an empty one still has to hold the column open, or the
           delete button on a bonus row would slide left past every other row's.
           Plain white, so it can never be read as a points box. */}
-      <div className="flex min-w-0 items-center">
+      <div className="flex min-w-0 flex-1 items-center sm:order-4 [&>label]:min-h-[2.75rem] sm:[&>label]:min-h-0 [&>div]:min-h-[2.75rem] sm:[&>div]:min-h-0 [&>span]:flex [&>span]:min-h-[2.75rem] [&>span]:items-center sm:[&>span]:min-h-0">
         {rule.kind === 'views_threshold' && (
-          <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
-            <span className="shrink-0 text-xs text-smoke">at</span>
+          <label className="flex w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 sm:px-2.5">
+            <span className="hidden shrink-0 text-xs text-smoke sm:inline">at</span>
             <NumberBox
               value={rule.threshold}
               onChange={(v) => onChange({ ...rule, threshold: v })}
@@ -190,8 +198,8 @@ function Row({ rule, onChange, onRemove, weeks }) {
         )}
 
         {rule.kind === 'total_views_threshold' && (
-          <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
-            <span className="shrink-0 text-xs text-smoke">at</span>
+          <label className="flex w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 sm:px-2.5">
+            <span className="hidden shrink-0 text-xs text-smoke sm:inline">at</span>
             <NumberBox
               value={rule.threshold}
               onChange={(v) => onChange({ ...rule, threshold: v })}
@@ -203,7 +211,7 @@ function Row({ rule, onChange, onRemove, weeks }) {
         )}
 
         {(rule.kind === 'platform_spread' || rule.kind === 'per_post') && (
-          <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
+          <label className="flex w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5 sm:px-2.5">
             <span className="shrink-0 whitespace-nowrap text-xs text-smoke">{tr("up to")}</span>
             <NumberBox
               value={rule.max_points}
@@ -225,7 +233,7 @@ function Row({ rule, onChange, onRemove, weeks }) {
              the widest thing in the editor and pushed this row's delete button
              out of line with every other one. */
           <span className={cx(
-            'w-fit truncate rounded-lg border border-dashed px-2.5 py-1.5 text-xs sm:w-full sm:text-center',
+            'w-full truncate rounded-lg border border-dashed px-2.5 py-1.5 text-xs sm:text-center',
             rule.prompt != null
               ? 'border-brand/40 bg-white font-medium text-brand'
               : 'border-gray-200 bg-white text-smoke',
@@ -238,9 +246,11 @@ function Row({ rule, onChange, onRemove, weeks }) {
         )}
       </div>
 
+      </div>
+
       <button
         type="button" onClick={onRemove}
-        className="shrink-0 justify-self-end rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
+        className="order-3 flex h-10 w-10 shrink-0 items-center justify-center justify-self-end rounded-lg text-smoke transition-colors hover:bg-red-50 hover:text-red-600 sm:order-5 sm:h-auto sm:w-auto sm:p-1.5"
         aria-label={`Remove ${rule.label}`}
       >
         <Icon name="trash" className="h-4 w-4" />

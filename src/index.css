@@ -3011,3 +3011,42 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 .kpi-markets[data-overflow='true'] {
   mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
 }
+
+
+/* ---------------------------------------------------------------------------
+   THE SAME CARDS IN EVERY LANGUAGE (29 Sep 2026).
+   Ethan: cards changed size between languages and the layout looked worse; "keep them the
+   same size, maybe adjust the size of the text slightly instead".
+   German runs ~30% longer than English, Portuguese and Spanish ~20%, Romanian ~15%. Rather
+   than let a longer word push a box open, the SMALL, tightly-boxed text (uppercase labels,
+   chips, tab-bar names, buttons) tightens a touch in every language but English, and long
+   words may hyphenate instead of wrapping late. Body copy and headings keep their size:
+   nothing here goes below the platform's 13px floor for reading text.
+   `data-lng` is set with `lang` in lib/i18n. */
+html[data-lng]:not([data-lng="en"]) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+html[data-lng]:not([data-lng="en"]) :is(h1, h2, h3, h4) {
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+html[data-lng]:not([data-lng="en"]) .uppercase {
+  letter-spacing: 0.01em;
+  word-spacing: -0.04em;
+}
+html[data-lng]:not([data-lng="en"]) :is(.btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+}
+/* The bottom tab bar and the top nav: one line each, names shortened by the browser rather than
+   growing the bar. */
+html[data-lng]:not([data-lng="en"]) nav a > span:last-child,
+html[data-lng]:not([data-lng="en"]) nav button > span:last-child {
+  letter-spacing: -0.015em;
+}
+/* Big stat figures and their labels hold a fixed footprint. */
+html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="text-3xl"]):not([class*="text-2xl"]) {
+  text-wrap: balance;
+}

@@ -20,6 +20,7 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import { playsInline } from '../lib/videoPreview'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import CollapsibleRich from '../components/CollapsibleRich'
+import TranslatedText from '../components/TranslatedText'
 import { useMyScopes } from '../lib/scope'
 import ScoringPanel, { usePointRules } from '../components/network/ScoringPanel'
 import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPointsCard'
@@ -1062,7 +1063,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               so the points table below is not a long scroll away. */}
           <section className="card">
             <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("The brief")}</h2>
-            <CollapsibleRich md={challenge.description || ''} />
+            <TranslatedText text={challenge.description || ''}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
           </section>
           </>
         )
@@ -1071,7 +1072,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           {challenge.rules && (
             <section className="card">
               <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("Rules")}</h2>
-              <CollapsibleRich md={challenge.rules} />
+              <TranslatedText text={challenge.rules}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
             </section>
           )}
           </>

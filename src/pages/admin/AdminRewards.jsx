@@ -18,6 +18,7 @@ import { rewardsTotal } from '../../lib/programme'
 import { groupRewards } from '../../lib/rewardsGrouping'
 import Reveal from '../../components/network/Reveal'
 import VoucherTicket from '../../components/VoucherTicket'
+import VouchersPanel from './VouchersPanel'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -181,7 +182,7 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
           while six creators had nothing to redeem. The badge now says which
           of the two it is, and the row sorts into the "Needs a code" filter. */}
       <Badge tone={needsCode(r) ? 'amber' : r.status === 'distributed' ? 'green' : 'amber'}>
-        {needsCode(r) ? 'needs a code' : r.status}
+        {needsCode(r) ? 'needs a code' : r.issued_via === 'chat' && !r.voucher_code ? 'sent by chat' : r.status}
       </Badge>
       {/* ONE BUTTON PER PAYMENT.
           If an invoice is already carrying this prize, that invoice is
@@ -283,7 +284,7 @@ export default function AdminRewards() {
   // The old five tabs collapse to three. `queue`, `invoices` and `referrals`
   // were three views of one question - what money is going out - so they are
   // one page now, and every link anybody has bookmarked still lands on it.
-  const TABS = ['invoices', 'payouts', 'details']
+  const TABS = ['invoices', 'payouts', 'vouchers', 'details']
   const LEGACY_TAB = { queue: 'invoices', referrals: 'invoices' }
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab')
@@ -331,6 +332,7 @@ export default function AdminRewards() {
   const [distributing, setDistributing] = useState(null) // the reward being marked
   const [distNotes, setDistNotes] = useState('')
   const [distCode, setDistCode] = useState('')
+  const [distChat, setDistChat] = useState(false)
 
   const inMarket = useMemo(() => {
     if (!market) return null
@@ -476,24 +478,40 @@ export default function AdminRewards() {
     setDistributing(reward)
     setDistNotes(reward.payment_notes || (reward.reward_type === 'voucher' ? 'Voucher code' : 'Bank transfer'))
     setDistCode(reward.voucher_code || '')
+    setDistChat(false)
   }
 
   // Confirm distribution: set status + notes + timestamp.
   // The DB trigger notifies the creator automatically.
   async function confirmDistribute(e) {
     e.preventDefault()
-    setBusyId(distributing.id)
+    const isVoucher = distributing.reward_type === 'voucher'
     const code = distCode.trim() || null
+    // FUTURE VOUCHERS CARRY THEIR CODE (29 Sep 2026). Ethan: the old ones went out
+    // by chat, but "the codes for all future vouchers should be inputted". So a
+    // voucher cannot be marked handed over without one, unless the team says it
+    // really was sent by chat.
+    if (isVoucher && !code && !distChat) {
+      notice('Enter the voucher code, or tick that you sent it by chat instead.')
+      return
+    }
+    setBusyId(distributing.id)
     const already = distributing.status === 'distributed'
-    const { error } = await supabase
-      .from('rewards')
-      .update(already
-        ? { voucher_code: code }
-        : {
-            status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString(),
-            ...(distributing.reward_type === 'voucher' ? { voucher_code: code } : {}),
-          })
-      .eq('id', distributing.id)
+    let error
+    if (already) {
+      // Group-aware, so recoding a combined voucher recodes every part.
+      ;({ error } = await supabase.rpc('admin_set_voucher_code', {
+        p_reward: distributing.id, p_code: distChat ? '' : code, p_via: distChat ? 'chat' : null,
+      }))
+    } else {
+      ;({ error } = await supabase
+        .from('rewards')
+        .update({
+          status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString(),
+          ...(isVoucher ? { voucher_code: distChat ? null : code, issued_via: distChat ? 'chat' : null } : {}),
+        })
+        .eq('id', distributing.id))
+    }
     setBusyId(null)
     setDistributing(null)
     if (!error) load()
@@ -656,7 +674,7 @@ export default function AdminRewards() {
           rather than filled buttons competing to look like the action on the
           page. A tab is navigation; a button does something. */}
       <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
-        {[['invoices', 'Invoices'], ['payouts', 'Payouts'], ['details', 'Payment Details']].map(([key, label]) => (
+        {[['invoices', 'Invoices'], ['payouts', 'Payouts'], ['vouchers', 'Vouchers'], ['details', 'Payment Details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -750,6 +768,17 @@ export default function AdminRewards() {
         </Reveal>
       )}
       </div>{/* /payouts tab */}
+
+      {/* ---------- Vouchers tab: every voucher, combine / recode / mark used ---------- */}
+      <div className={tab === 'vouchers' ? '' : 'hidden'}>
+        <MarketScope markets={markets} value={market} onChange={setMarket} />
+        <VouchersPanel
+          rewards={rewards}
+          loading={loading}
+          onChanged={load}
+          onHandOver={openDistribute}
+        />
+      </div>{/* /vouchers tab */}
 
       {/* ---------- Payment details tab ---------- */}
       <div className={tab === 'details' ? '' : 'hidden'}>
@@ -911,11 +940,11 @@ export default function AdminRewards() {
             </p>
             {/* THE CODE GOES ON THE REWARD, NOT IN A DM (24 Sep 2026). The
                 creator sees it on /rewards as a ticket they can copy and tick
-                off once used. Optional: a voucher sent some other way can still
-                just be marked distributed. */}
+                off once used. REQUIRED from 29 Sep 2026 unless the team says it was
+                sent by chat, which is what the older ones were. */}
             {distributing.reward_type === 'voucher' && (
               <div>
-                <label htmlFor="dist-code" className="label">Voucher code <span className="font-normal text-smoke">(shown to the creator)</span></label>
+                <label htmlFor="dist-code" className="label">Voucher code <span className="font-normal text-smoke">(required, shown to the creator)</span></label>
                 <input
                   id="dist-code"
                   type="text"
@@ -926,8 +955,13 @@ export default function AdminRewards() {
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
+                  disabled={distChat}
                 />
-                {distCode.trim() && (
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-sm text-ink">
+                  <input type="checkbox" checked={distChat} onChange={(e) => setDistChat(e.target.checked)} className="mt-1 h-4 w-4 accent-[#d94407]" />
+                  <span>I sent it by chat instead. <span className="text-smoke">Their ticket will say it was issued by chat.</span></span>
+                </label>
+                {distCode.trim() && !distChat && (
                   <div className="mt-3">
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
                     <VoucherTicket reward={{ ...distributing, voucher_code: distCode.trim(), distributed_at: distributing.distributed_at || new Date().toISOString(), used_at: null }} />

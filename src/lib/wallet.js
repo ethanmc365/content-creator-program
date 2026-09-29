@@ -14,8 +14,41 @@
 export const isWalletVoucher = (r) =>
   !!r && r.reward_type === 'voucher' && r.status === 'distributed'
 
-/** Handed over, but with nothing on it to redeem yet. */
-export const awaitingCode = (r) => isWalletVoucher(r) && !r.voucher_code?.trim()
+/** Handed over, but with nothing on it to redeem yet - and not one that was sent by chat,
+ *  which never will have a code here and is not a job to do. */
+export const awaitingCode = (r) =>
+  isWalletVoucher(r) && !r.voucher_code?.trim() && r.issued_via !== 'chat'
+
+/**
+ * COMBINED VOUCHERS DRAW AS ONE TICKET (29 Sep 2026).
+ *
+ * Ethan: two EUR 10 vouchers from two challenges become ONE EUR 20 voucher. The
+ * rows keep their own challenge and amount (so what each challenge paid out never
+ * moves) and share a `voucher_group` and a code; the wallet shows the group as a
+ * single ticket worth the sum, with `parts` saying what it is made of.
+ * `rewardIds` is every row behind it, which is what a local state update needs.
+ */
+export function ticketsOf(rewards) {
+  const vouchers = (rewards || []).filter(isWalletVoucher)
+  const byGroup = new Map()
+  const out = []
+  for (const r of vouchers) {
+    if (!r.voucher_group) { out.push({ ...r, rewardIds: [r.id], parts: null }); continue }
+    if (!byGroup.has(r.voucher_group)) byGroup.set(r.voucher_group, [])
+    byGroup.get(r.voucher_group).push(r)
+  }
+  for (const rows of byGroup.values()) {
+    const first = [...rows].sort((a, b) => new Date(a.distributed_at || 0) - new Date(b.distributed_at || 0))[0]
+    out.push({
+      ...first,
+      amount: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+      rewardIds: rows.map((r) => r.id),
+      parts: rows.length > 1 ? rows.map((r) => ({ id: r.id, amount: r.amount, currency: r.currency, title: r.challenges?.title || null })) : null,
+      distributed_at: rows.map((r) => r.distributed_at).sort().pop(),
+    })
+  }
+  return out
+}
 
 /**
  * Split a creator's rewards into the two halves of the wallet.
@@ -24,7 +57,7 @@ export const awaitingCode = (r) => isWalletVoucher(r) && !r.voucher_code?.trim()
 export function walletTickets(rewards) {
   const newestFirst = (a, b) =>
     new Date(b.distributed_at || 0) - new Date(a.distributed_at || 0)
-  const tickets = (rewards || []).filter(isWalletVoucher)
+  const tickets = ticketsOf(rewards)
   return {
     toSpend: tickets.filter((r) => !r.used_at).sort(newestFirst),
     spent: tickets.filter((r) => r.used_at).sort(newestFirst),

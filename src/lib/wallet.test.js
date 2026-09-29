@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { walletTickets, awaitingCode, isWalletVoucher } from './wallet'
+import { walletTickets, awaitingCode, isWalletVoucher, ticketsOf } from './wallet'
 
 const voucher = (over = {}) => ({
   id: Math.random().toString(36).slice(2),
@@ -54,5 +54,31 @@ describe('the voucher wallet', () => {
   it('survives a missing list', () => {
     expect(walletTickets(undefined)).toEqual({ toSpend: [], spent: [] })
     expect(isWalletVoucher(null)).toBe(false)
+  })
+})
+
+describe('combined vouchers', () => {
+  it('draw as one ticket worth the sum, keeping what it is made of', () => {
+    const g = 'group-1'
+    const rows = [
+      voucher({ id: 'a', amount: 10, currency: 'EUR', voucher_group: g, voucher_code: 'TRYP-20' }),
+      voucher({ id: 'b', amount: 10, currency: 'EUR', voucher_group: g, voucher_code: 'TRYP-20' }),
+      voucher({ id: 'c', amount: 5, currency: 'EUR' }),
+    ]
+    const t = ticketsOf(rows)
+    expect(t).toHaveLength(2)
+    const combined = t.find((x) => x.voucher_group === g)
+    expect(combined.amount).toBe(20)
+    expect(combined.rewardIds.sort()).toEqual(['a', 'b'])
+    expect(combined.parts).toHaveLength(2)
+  })
+  it('spends together', () => {
+    const g = 'g'
+    const { toSpend, spent } = walletTickets([
+      voucher({ id: 'a', voucher_group: g, used_at: '2026-09-20T00:00:00Z' }),
+      voucher({ id: 'b', voucher_group: g, used_at: '2026-09-20T00:00:00Z' }),
+    ])
+    expect(toSpend).toHaveLength(0)
+    expect(spent).toHaveLength(1)
   })
 })

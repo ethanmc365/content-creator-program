@@ -109,7 +109,11 @@ export const STEPS = [
 // bar, "step 3 of 5", the Back button and the resume-where-you-left-off logic
 // all keep working off the same array without any of them knowing why it is
 // shorter.
-const TEAM_SKIP = new Set(['socials', 'languages', 'map', 'extras'])
+// TRAVEL PHOTOS STAY, AS AN OPTIONAL STEP (29 Sep 2026). Ethan: "give them the option
+// to add travel photos too, but obviously they can easily skip." The photos are what
+// make a profile feel like a person's on the team page; the channels, languages and
+// map are still a creator's business only.
+const TEAM_SKIP = new Set(['socials', 'languages', 'map'])
 export const stepsFor = (team) => (team ? STEPS.filter((s) => !TEAM_SKIP.has(s.key)) : STEPS)
 
 const EMPTY = {
@@ -822,7 +826,7 @@ export default function Onboarding() {
             box grows into the new screen while the new screen arrives. */}
         <div className="card !p-6 sm:!p-10">
           <StepFrame stepKey={current.key} dir={dir}>
-            <StepHead step={current} pending={pending} />
+            <StepHead step={current} pending={pending} team={teamApplication} />
 
             {current.key === 'welcome' && (
               <Welcome name={draft.name} pending={pending} />
@@ -958,7 +962,7 @@ export default function Onboarding() {
                       is the same component the profile renders. */}
                   {demo ? <DemoGallery /> : <PhotoBoard creatorId={user.id} editable alwaysArranging />}
                 </div>
-                <BucketList rows={draft.bucket_list} onChange={(bucket_list) => set({ bucket_list })} />
+                {!teamApplication && <BucketList rows={draft.bucket_list} onChange={(bucket_list) => set({ bucket_list })} />}
               </div>
             )}
 
@@ -1165,7 +1169,7 @@ function Progress({ step, total, barPct, current, onLeave, leaving }) {
   )
 }
 
-function StepHead({ step, pending }) {
+function StepHead({ step, pending, team = false }) {
   if (step.key === 'welcome') return null
   const chip = step.need ? 'Required' : step.skippable ? 'Optional' : null
   const COPY = {
@@ -1189,7 +1193,9 @@ function StepHead({ step, pending }) {
     // Ethan: "a few extras - I don't really like that name, I would just name
     // it as it is." It holds travel photographs and the places you want to go,
     // so it is called that.
-    extras: ['Your travels', ''],
+    extras: team
+      ? ['Add some travel photos', 'Totally optional. A few photos make your profile feel like yours on the team page. Press Continue to skip.']
+      : ['Your travels', ''],
     review: [pending ? 'Ready to submit' : 'Almost done', 'Check it over. You can change any of it later from your profile.'],
   }
   const [title, sub] = COPY[step.key] || [step.title, '']

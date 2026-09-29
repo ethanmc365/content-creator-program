@@ -15,6 +15,8 @@ import {
   runningChallenges, FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
 import HistoryForm from '../../../components/admin/HistoryForm'
+import { deleteHistory } from '../../../lib/challengeHistory'
+import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
 
 // Programme performance: what the prize money actually bought.
@@ -493,7 +495,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
           </div>
         </>
       ) : (
-        <ChallengeList rows={data.scoped} running={data.running} currency={currency} />
+        <ChallengeList rows={data.scoped} running={data.running} currency={currency} onChanged={() => { setRows(null); setReloadKey((n) => n + 1) }} />
       )}
 
       {logging && (
@@ -586,7 +588,7 @@ const SORTS = [
   { value: 'views', label: 'Most views' },
 ]
 
-function ChallengeList({ rows, running, currency }) {
+function ChallengeList({ rows, running, currency, onChanged }) {
   const [sort, setSort] = useState('recent')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
@@ -707,7 +709,7 @@ function ChallengeList({ rows, running, currency }) {
            edge. Each challenge is a card in a two-up grid now, with its
            headline figures on it; pressing it opens the rest in place. */
         <div className="grid items-start gap-3 lg:grid-cols-2">
-          {shown.map((r, i) => <ChallengeCard key={r.id} r={r} currency={currency} i={i} />)}
+          {shown.map((r, i) => <ChallengeCard key={r.id} r={r} currency={currency} i={i} onChanged={onChanged} />)}
         </div>      )}
 
       <p className="text-[11px] leading-relaxed text-smoke">
@@ -828,8 +830,30 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
 // panel that grows open underneath, the same 0fr -> 1fr motion the rest of the
 // admin uses. A challenge that ran ON the platform also links to its full
 // analytics page; an imported one from the log has only what the sheet held.
-function ChallengeCard({ r, currency, i = 0 }) {
+function ChallengeCard({ r, currency, i = 0, onChanged }) {
   const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  // DELETING A CHALLENGE FROM THE LIST (29 Sep 2026). Ethan: an old Romanian one with
+  // no data was logged a second time WITH data, and "admins should be able to delete
+  // challenge data". The button used to live several screens deep inside the edit form,
+  // so nobody found it. It is here, on the card, and says what goes with it.
+  async function remove() {
+    const platform = r.source !== 'history'
+    const ok = await confirm(
+      platform
+        ? `Permanently delete "${r.title}"? This also deletes ${r.posts ? `its ${r.posts} entries` : 'every entry in it'} and all of its results. Prizes already given stay on the creators' Rewards. There is no undo.`
+        : `Delete "${r.title}" from the challenge log? It is removed from every programme average that counted it. There is no undo.`,
+      { danger: true, confirmLabel: 'Delete it' },
+    )
+    if (!ok) return
+    setDeleting(true)
+    const { error } = platform
+      ? await supabase.rpc('admin_delete_challenge', { target: r.id })
+      : await deleteHistory(r.id)
+    setDeleting(false)
+    if (error) { notice(typeof error === 'string' ? error : error.message); return }
+    onChanged?.()
+  }
   const onPlatform = r.source !== 'history'
   const ratio = r.cpm != null && r.target ? r.cpm / r.target : null
   const cpmVsTarget = ratio != null ? Math.min(2, ratio) : null
@@ -911,6 +935,15 @@ function ChallengeCard({ r, currency, i = 0 }) {
             ) : (
               <p className="mt-3 text-[11px] text-smoke">Imported from the challenge log, so only the sheet&rsquo;s figures are known.</p>
             )}
+            <button
+              type="button"
+              onClick={remove}
+              disabled={deleting}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-red-200 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+              {deleting ? 'Deleting…' : 'Delete this challenge'}
+            </button>
           </div>
         </div>
       </div>
