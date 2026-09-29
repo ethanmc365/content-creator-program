@@ -15,6 +15,7 @@ import { COMMON_ZONES, CURRENCIES, zoneForCountries, currencyForCountries } from
 import { cx, timeAgo } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags } from '../lib/testData'
+import { useT } from '../lib/i18n'
 
 // Manage markets: every market, the door to opening another, and the ones that
 // have been retired.
@@ -142,6 +143,7 @@ export function BigToggle({ on, onChange, title, hint, onLabel = 'On', offLabel 
 }
 
 export default function GlobalSettings() {
+  const tr = useT()
   const navigate = useNavigate()
   const { chapters, network, isGlobalAdmin, reload } = useCommunity()
   const [form, setForm] = useState(BLANK)
@@ -185,9 +187,9 @@ export default function GlobalSettings() {
   if (!isGlobalAdmin) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Global admins only"
-          hint="Opening and closing markets is a platform action. Running one market does not grant it."
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+        <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title={tr("Global admins only")}
+          hint={tr("Opening and closing markets is a platform action. Running one market does not grant it.")}
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -313,12 +315,12 @@ export default function GlobalSettings() {
           announced: "becomes /c/france" is machinery, and a market whose slug
           needs hand-editing is rare enough to earn a link rather than a field
           everybody has to read past. */}
-      <Field label="Market name">
+      <Field label={tr("Market name")}>
         <div className="relative">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg leading-none" aria-hidden>
             {form.codes.map(flagFromIso).join('') || '🏳️'}
           </span>
-          <input className="input !pl-11" value={form.name} placeholder="France"
+          <input className="input !pl-11" value={form.name} placeholder={tr("France")}
             onChange={(e) => set({
               name: e.target.value,
               // Only auto-slug while the slug is still the machine's guess, so
@@ -334,14 +336,14 @@ export default function GlobalSettings() {
         )}
       </Field>
 
-      <Field label="Tagline">
+      <Field label={tr("Tagline")}>
         <input className="input" value={form.tagline} maxLength={120}
-          placeholder="Briefs and challenges for creators across Germany."
+          placeholder={tr("Briefs and challenges for creators across Germany.")}
           onChange={(e) => set({ tagline: e.target.value })} />
       </Field>
 
       <div>
-        <p className="mb-2 text-sm font-medium">Countries</p>
+        <p className="mb-2 text-sm font-medium">{tr("Countries")}</p>
         <div className="mb-2 flex flex-wrap gap-2">
           {form.codes.map((c) => (
             <button key={c} type="button" onClick={() => set({ codes: form.codes.filter((x) => x !== c) })}
@@ -350,9 +352,9 @@ export default function GlobalSettings() {
               <Icon name="close" className="h-3 w-3" />
             </button>
           ))}
-          {form.codes.length === 0 && <span className="text-xs text-smoke">None yet.</span>}
+          {form.codes.length === 0 && <span className="text-xs text-smoke">{tr("None yet.")}</span>}
         </div>
-        <input className="input" value={countryQuery} placeholder="Search a country to add…"
+        <input className="input" value={countryQuery} placeholder={tr("Search a country to add…")}
           onChange={(e) => setCountryQuery(e.target.value)} />
         {countryHits.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
@@ -382,20 +384,20 @@ export default function GlobalSettings() {
     // 1 Locale
     <div key="locale" className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Currency">
+        <Field label={tr("Currency")}>
           <Select variant="field" ariaLabel="Currency" value={form.currency} onChange={(v) => set({ currency: v })}
             options={CURRENCIES} />
         </Field>
         {/* A LIST, NOT A TEXT BOX. "Europe Berlin" - one missing slash - is a
             zone no engine knows, and a market saved with it lands every deadline
             at the wrong hour with nothing on screen to say so. */}
-        <Field label="Timezone">
+        <Field label={tr("Timezone")}>
           <Select variant="field" ariaLabel="Timezone" value={form.tz} onChange={(v) => set({ tz: v })}
-            placeholder="Pick the market's clock" options={COMMON_ZONES} />
+            placeholder={tr("Pick the market's clock")} options={COMMON_ZONES} />
         </Field>
       </div>
 
-      <Field label="CPM target">
+      <Field label={tr("CPM target")}>
         <div className="relative">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-smoke">
             {form.currency === 'GBP' ? '£' : '€'}
@@ -411,7 +413,7 @@ export default function GlobalSettings() {
           somebody has to be made an admin before they can run a market, so
           offering the other forty-nine names is offering a wrong answer. */}
       <div>
-        <p className="mb-2 text-sm font-medium">Market leads</p>
+        <p className="mb-2 text-sm font-medium">{tr("Market leads")}</p>
         <div className="flex flex-wrap gap-2">
           {admins.map((a) => {
             const on = form.leads.includes(a.id)
@@ -433,7 +435,7 @@ export default function GlobalSettings() {
           })}
           {admins.length === 0 && (
             <span className="text-xs text-smoke">
-              Nobody is an admin yet. Promote somebody on the Tryp.com team page first.
+              {tr("Nobody is an admin yet. Promote somebody on the Tryp.com team page first.")}
             </span>
           )}
         </div>
@@ -443,7 +445,7 @@ export default function GlobalSettings() {
     // 2 Access
     <div key="access" className="space-y-5">
       <div>
-        <p className="mb-1.5 text-sm font-medium">Who can join</p>
+        <p className="mb-1.5 text-sm font-medium">{tr("Who can join")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
           {JOIN_POLICIES.map((p) => (
             <button key={p.value} type="button" onClick={() => set({ joinPolicy: p.value })}
@@ -465,7 +467,7 @@ export default function GlobalSettings() {
       <BigToggle
         on={form.openNow}
         onChange={(v) => set({ openNow: v })}
-        title="Open to creators straight away"
+        title={tr("Open to creators straight away")}
         hint={form.openNow
           ? 'It appears in the market list the moment you create it. Make sure the brief and the rooms are ready.'
           : 'Recommended. It is created invisible, so you can set it up properly and turn it on when it is ready.'}
@@ -477,7 +479,7 @@ export default function GlobalSettings() {
     // 3 Rooms
     <div key="rooms" className="space-y-3">
       <p className="text-sm text-smoke">
-        Rooms are this market&rsquo;s own. You can add and rename them later.
+        {tr("Rooms are this market’s own. You can add and rename them later.")}
       </p>
       {ROOM_CHOICES.map((r) => {
         const on = r.locked || form.rooms.includes(r.key)
@@ -514,14 +516,14 @@ export default function GlobalSettings() {
         </p>
         <p className="mt-1 text-sm text-smoke">{form.tagline || `Challenges, briefs and rooms for ${form.name || 'this market'}.`}</p>
         <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          <div className="flex justify-between gap-3"><dt className="text-smoke">Address</dt><dd className="font-medium">/c/{form.slug}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-smoke">Currency</dt><dd className="font-medium">{form.currency}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-smoke">Timezone</dt><dd className="truncate font-medium">{form.tz}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-smoke">CPM target</dt><dd className="font-medium">{form.cpm}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-smoke">Who can join</dt><dd className="font-medium">{JOIN_POLICIES.find((p) => p.value === form.joinPolicy)?.label}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-smoke">Leads</dt><dd className="truncate font-medium">{form.leads.map((id) => admins.find((a) => a.id === id)?.name).filter(Boolean).join(', ') || 'Nobody yet'}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("Address")}</dt><dd className="font-medium">/c/{form.slug}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("Currency")}</dt><dd className="font-medium">{form.currency}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("Timezone")}</dt><dd className="truncate font-medium">{form.tz}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("CPM target")}</dt><dd className="font-medium">{form.cpm}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("Who can join")}</dt><dd className="font-medium">{JOIN_POLICIES.find((p) => p.value === form.joinPolicy)?.label}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-smoke">{tr("Leads")}</dt><dd className="truncate font-medium">{form.leads.map((id) => admins.find((a) => a.id === id)?.name).filter(Boolean).join(', ') || 'Nobody yet'}</dd></div>
           <div className="flex justify-between gap-3 sm:col-span-2">
-            <dt className="text-smoke">Rooms</dt>
+            <dt className="text-smoke">{tr("Rooms")}</dt>
             <dd className="font-medium">
               {[...new Set(['general', 'announcements', ...form.rooms])]
                 .map((k) => ROOM_CHOICES.find((r) => r.key === k)?.label || k).join(', ')}
@@ -530,8 +532,7 @@ export default function GlobalSettings() {
         </dl>
       </div>
       <p className="text-xs text-smoke">
-        Scoring is set per challenge, not here. When you create this market&rsquo;s first challenge you pick how it is
-        won and, for a points challenge, write its rules there.
+        {tr("Scoring is set per challenge, not here. When you create this market’s first challenge you pick how it is won and, for a points challenge, write its rules there.")}
       </p>
     </div>,
   ][step]
@@ -546,8 +547,8 @@ export default function GlobalSettings() {
                 it brings me back to worldwide rather than the admin panel." It
                 was a hard link to /global; this page is opened from the admin
                 panel, so history first and the admin panel as the fallback. */}
-            <BackLink to="/admin" label="Back" />
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Manage markets</h1>
+            <BackLink to="/admin" label={tr("Back")} />
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{tr("Manage markets")}</h1>
           </section>
 
           {/* ---------------- Open a market ---------------- */}
@@ -561,14 +562,13 @@ export default function GlobalSettings() {
                     middle-right rather than the bottom edge. */}
                 <TrypPlane variant="hero" anchor="center" id="new-market" className="right-4" />
                 <div className="relative">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-white/75">New market</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-white/75">{tr("New market")}</p>
                   <p className="mt-2 text-2xl font-bold sm:text-3xl">Open somewhere new</p>
                   <p className="mt-2 max-w-xl text-white/85">
-                    Five short steps. Creates the market, its rooms, its lead and its access rule in one go,
-                    and leaves it closed until you say otherwise.
+                    {tr("Five short steps. Creates the market, its rooms, its lead and its access rule in one go, and leaves it closed until you say otherwise.")}
                   </p>
                   <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand">
-                    Start <Icon name="chevronRight" className="h-4 w-4" />
+                    {tr("Start")} <Icon name="chevronRight" className="h-4 w-4" />
                   </span>
                 </div>
               </button>
@@ -607,7 +607,7 @@ export default function GlobalSettings() {
                   {step < STEPS.length - 1 ? (
                     <button type="button" disabled={!stepValid} onClick={() => setStep(step + 1)}
                       className="btn-primary disabled:opacity-40">
-                      Continue
+                      {tr("Continue")}
                     </button>
                   ) : (
                     <button type="button" disabled={busy} onClick={createMarket} className="btn-primary">
@@ -627,7 +627,7 @@ export default function GlobalSettings() {
             <section>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <Icon name="users" className="h-5 w-5 text-brand" />
-                Asking to join
+                {tr("Asking to join")}
                 <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">{joinRequests.length}</span>
               </h2>
               <div className="space-y-2">
@@ -644,11 +644,11 @@ export default function GlobalSettings() {
                     <div className="flex shrink-0 gap-2">
                       <button type="button" onClick={() => decideRequest(r, false)}
                         className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium transition-colors hover:border-red-300 hover:text-red-600">
-                        Decline
+                        {tr("Decline")}
                       </button>
                       <button type="button" onClick={() => decideRequest(r, true)}
                         className="rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white transition-transform duration-200 hover:scale-105">
-                        Accept
+                        {tr("Accept")}
                       </button>
                     </div>
                   </div>
@@ -664,7 +664,7 @@ export default function GlobalSettings() {
               pill going another, so the obvious target was the wrong one. */}
           <section>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <Icon name="flag" className="h-5 w-5 text-brand" /> Markets
+              <Icon name="flag" className="h-5 w-5 text-brand" /> {tr("Markets")}
             </h2>
             <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-2">
               {live.map((c) => (
@@ -698,7 +698,7 @@ export default function GlobalSettings() {
           {retired.length > 0 && (
             <section>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-smoke">
-                <Icon name="clock" className="h-5 w-5" /> Retired
+                <Icon name="clock" className="h-5 w-5" /> {tr("Retired")}
               </h2>
               <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-2">
                 {retired.map((c) => (
@@ -712,11 +712,11 @@ export default function GlobalSettings() {
                     <div className="ml-auto flex shrink-0 gap-2">
                       <Link to={`/manage/${c.slug}`}
                         className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-colors hover:border-brand hover:text-brand">
-                        Settings
+                        {tr("Settings")}
                       </Link>
                       <button type="button" onClick={() => removeMarket(c)}
                         className="rounded-full border border-red-100 px-3 py-1 text-xs font-medium text-red-500 transition-colors hover:border-red-300 hover:bg-red-50">
-                        Delete
+                        {tr("Delete")}
                       </button>
                     </div>
                   </motion.div>

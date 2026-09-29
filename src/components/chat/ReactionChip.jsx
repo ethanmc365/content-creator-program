@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // A REACTION, AND WHO IS BEHIND IT (22 Sep 2026, third design).
 //
@@ -44,6 +45,7 @@ const canHover = () => typeof window !== 'undefined'
   && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 
 export default function ReactionChip({ emoji, count, mine, names = [], ids = [], myId = null, side = 'left', onClick }) {
+  const tr = useT()
   const chip = useRef(null)
   const card = useRef(null)
   const [open, setOpen] = useState(false)
@@ -208,7 +210,7 @@ export default function ReactionChip({ emoji, count, mine, names = [], ids = [],
             ))}
           </ul>
           {mine && (
-            <p className="border-t border-gray-100 px-3.5 py-2 text-[11px] text-smoke">Tap the reaction to remove yours</p>
+            <p className="border-t border-gray-100 px-3.5 py-2 text-[11px] text-smoke">{tr("Tap the reaction to remove yours")}</p>
           )}
         </div>,
         document.body,

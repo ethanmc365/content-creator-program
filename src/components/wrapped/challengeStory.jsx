@@ -3,6 +3,7 @@ import Icon from '../Icon'
 import SocialMark from '../SocialMark'
 import { ordinalFor, podiumTier } from '../../lib/podiumTiers'
 import { formatDate } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // THE END-OF-CHALLENGE RECAP: THE CARDS (24 Sep 2026, rewritten 28 Sep 2026).
 //
@@ -74,7 +75,10 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
   )
 }
 
-export function buildChallengeCards(data) {
+// `tr` is an ARGUMENT, not a hook, because this is a plain function and not a
+// component. The identity default keeps the tests and the bench calling it
+// with one argument; YearInReview passes the real translator.
+export function buildChallengeCards(data, tr = (s) => s) {
   const { me, challenge, placing, totals, top, won, wonTotal, community, points, prizes } = data
   const cards = []
   const push = (c) => { if (c) cards.push(c) }
@@ -85,7 +89,7 @@ export function buildChallengeCards(data) {
     key: 'open', palette: 'ember', hold: 4200,
     render: () => (
       <>
-        <Eyebrow palette="ember">Challenge recap</Eyebrow>
+        <Eyebrow palette="ember">{tr("Challenge recap")}</Eyebrow>
         <div className="flex min-h-0 flex-1 flex-col justify-center gap-5 py-4">
           <div className="flex items-center gap-3">
             {me?.photo
@@ -96,7 +100,7 @@ export function buildChallengeCards(data) {
                 </span>
               )}
             <p data-anim="rise" className="text-lg font-bold leading-tight">
-              It&rsquo;s a wrap,<br />{firstName}.
+              {tr("It’s a wrap,")}<br />{firstName}.
             </p>
           </div>
           <p data-anim="spot" className="break-words text-[clamp(34px,10vw,46px)] font-extrabold leading-[1.0] tracking-tight">
@@ -117,7 +121,7 @@ export function buildChallengeCards(data) {
               </span>
             </div>
           )}
-          <Line palette="ember">Tap through to see your stats.</Line>
+          <Line palette="ember">{tr("Tap through to see your stats.")}</Line>
         </div>
       </>
     ),
@@ -130,7 +134,7 @@ export function buildChallengeCards(data) {
       key: 'place', palette: 'dusk', hold: 4600,
       render: () => (
         <>
-          <Eyebrow palette="dusk">Where you finished</Eyebrow>
+          <Eyebrow palette="dusk">{tr("Where you finished")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
             {podium
               ? <Hero value={ordinalFor(placing.rank)} unit="place" palette="dusk" />
@@ -157,7 +161,7 @@ export function buildChallengeCards(data) {
       key: 'totals', palette: 'sky', hold: 4600,
       render: () => (
         <>
-          <Eyebrow palette="sky">What you made</Eyebrow>
+          <Eyebrow palette="sky">{tr("What you made")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
             <Hero value={nf(totals.views)} unit="views" palette="sky" />
             <Facts
@@ -245,7 +249,7 @@ export function buildChallengeCards(data) {
                 </span>
                 <span className="border-l border-white/15 px-3 py-3">
                   <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(totals.avg > 0 ? totals.avg : 0)}</span>
-                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">Per video</span>
+                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{tr("Per video")}</span>
                 </span>
               </div>
             </div>
@@ -272,7 +276,7 @@ export function buildChallengeCards(data) {
       key: 'won', palette: 'mint', hold: 4400,
       render: () => (
         <>
-          <Eyebrow palette="mint">What you won</Eyebrow>
+          <Eyebrow palette="mint">{tr("What you won")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
             <Hero value={wholeMoney(wonTotal, won[0].currency)} palette="mint" />
             <div data-anim="rise" className="flex flex-wrap gap-1.5">
@@ -283,7 +287,7 @@ export function buildChallengeCards(data) {
                 </span>
               ))}
             </div>
-            <Line palette="mint">It lands on your Rewards page.</Line>
+            <Line palette="mint">{tr("It lands on your Rewards page.")}</Line>
           </div>
         </>
       ),
@@ -297,7 +301,7 @@ export function buildChallengeCards(data) {
       key: 'together', palette: 'ember', hold: 5000,
       render: () => (
         <>
-          <Eyebrow palette="ember">Everybody, together</Eyebrow>
+          <Eyebrow palette="ember">{tr("Everybody, together")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
             <Hero value={formatViews(community.views)} unit="views" palette="ember" />
             <Facts
@@ -335,6 +339,7 @@ export function buildChallengeCards(data) {
  * by word, it is never split into letters.
  */
 export function ChallengeShareCard({ data, className = '', style, flush = false }) {
+  const tr = useT()
   const { me, challenge, placing, totals, top, points } = data
   const best = top[0]?.views > 0 ? top[0] : null
   // THE PLACE IS A BADGE BY THE NAME; THE NUMBERS DO NOT REPEAT IT (28 Sep
@@ -365,7 +370,7 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between gap-4" style={style}>
       <div>
-        <p data-anim="rise" className="text-[11px] font-bold uppercase tracking-[0.22em] opacity-85">Challenge recap</p>
+        <p data-anim="rise" className="text-[11px] font-bold uppercase tracking-[0.22em] opacity-85">{tr("Challenge recap")}</p>
         <p data-anim="rise" className="mt-1.5 line-clamp-2 break-words text-[24px] font-extrabold leading-[1.05] tracking-tight">{challenge.title}</p>
         {challenge.start && challenge.end && (
           <p data-anim="fade" className="mt-1 text-[12px] font-semibold opacity-80">{formatDate(challenge.start)} – {formatDate(challenge.end)}</p>

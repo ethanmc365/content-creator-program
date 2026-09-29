@@ -22,6 +22,7 @@ import { clearScopeCache } from '../lib/scope'
 import { cx } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
+import { useT } from '../lib/i18n'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -74,6 +75,7 @@ function Section({ icon, title, hint, children, action }) {
 }
 
 export default function ManageChapter() {
+  const tr = useT()
   const { slug } = useParams()
   const { profile } = useAuth()
   const { bySlug, manages, isGlobalAdmin, chapters, reload, loading: ctxLoading } = useCommunity()
@@ -408,9 +410,9 @@ export default function ManageChapter() {
   if (!chapter) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
+        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title={tr("No such market")}
           hint={`Nothing here is called "${slug}".`}
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -418,9 +420,9 @@ export default function ManageChapter() {
   if (!canManage) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Not your market"
+        <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title={tr("Not your market")}
           hint={`You do not manage ${chapter.name}. Managers are set per market, so running one gives you no access to another.`}
-          action={<Link to={`/c/${slug}`} className="btn-secondary">View the market</Link>} />
+          action={<Link to={`/c/${slug}`} className="btn-secondary">{tr("View the market")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -435,11 +437,11 @@ export default function ManageChapter() {
       <motion.div {...pageFade}>
         {/* History first (the admin panel opens this), the market as the
             fallback on a cold load. See GlobalSettings for the report. */}
-        <BackLink to={`/c/${slug}`} label="Back" />
+        <BackLink to={`/c/${slug}`} label={tr("Back")} />
 
         <PageHeader
           title={`Manage ${chapter.name}`}
-          subtitle="Everything this market owns."
+          subtitle={tr("Everything this market owns.")}
           action={<Badge tone={chapter.is_active ? 'green' : 'grey'}>{chapter.is_active ? 'Open' : 'Closed'}</Badge>}
         />
 
@@ -452,16 +454,16 @@ export default function ManageChapter() {
             {/* First, and its own card, because it is the setting with the
                 largest blast radius and it used to be a 16px checkbox tucked
                 into the corner of a grid. */}
-            <Section icon="eye" title="Visibility"
-              hint="A closed market is invisible to creators: it does not appear in the market list, its challenges are unreadable and nobody can join it.">
+            <Section icon="eye" title={tr("Visibility")}
+              hint={tr("A closed market is invisible to creators: it does not appear in the market list, its challenges are unreadable and nobody can join it.")}>
               {chapter.retired_at && (
                 <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-cloud/60 px-4 py-3">
                   <Icon name="ban" className="h-4 w-4 shrink-0 text-smoke" />
                   <p className="min-w-0 flex-1 text-sm text-smoke">
-                    This market is <span className="font-semibold text-ink">retired</span>. Creators cannot see it;
+                    {tr("This market is")} <span className="font-semibold text-ink">retired</span>. Creators cannot see it;
                     everything it holds is kept.
                   </p>
-                  <button onClick={toggleRetired} className="btn-secondary shrink-0 !py-2 !text-sm">Bring it back</button>
+                  <button onClick={toggleRetired} className="btn-secondary shrink-0 !py-2 !text-sm">{tr("Bring it back")}</button>
                 </div>
               )}
               <BigToggle
@@ -475,7 +477,7 @@ export default function ManageChapter() {
                 offLabel="Closed"
               />
               <div className="mt-4">
-                <p className="mb-2 text-sm font-medium">Who can join</p>
+                <p className="mb-2 text-sm font-medium">{tr("Who can join")}</p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {JOIN_POLICIES.map((p) => (
                     <button key={p.value} type="button"
@@ -504,7 +506,7 @@ export default function ManageChapter() {
             </Section>
 
             {/* ---------------- Identity ---------------- */}
-            <Section icon="pencil" title="Identity" hint="How this market introduces itself."
+            <Section icon="pencil" title={tr("Identity")} hint={tr("How this market introduces itself.")}
               action={
                 <button onClick={saveSettings} disabled={saving === 'settings'} className="btn-primary !py-2 !px-5 !text-sm">
                   {saving === 'settings' ? 'Saving…' : 'Save'}
@@ -512,30 +514,30 @@ export default function ManageChapter() {
               }>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium">Name</span>
+                  <span className="mb-1.5 block text-sm font-medium">{tr("Name")}</span>
                   <input className="input" value={settings.name}
                     onChange={(e) => setSettings({ ...settings, name: e.target.value })} />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium">Tagline</span>
+                  <span className="mb-1.5 block text-sm font-medium">{tr("Tagline")}</span>
                   <input className="input" value={settings.tagline} maxLength={120}
                     placeholder={`Challenges, briefs and rooms for ${chapter.name}.`}
                     onChange={(e) => setSettings({ ...settings, tagline: e.target.value })} />
-                  <span className="mt-1 block text-xs text-smoke">One line, shown under the market name.</span>
+                  <span className="mt-1 block text-xs text-smoke">{tr("One line, shown under the market name.")}</span>
                 </label>
               </div>
 
               <label className="mt-4 block">
-                <span className="mb-1.5 block text-sm font-medium">Welcome message</span>
+                <span className="mb-1.5 block text-sm font-medium">{tr("Welcome message")}</span>
                 <textarea className="input" rows={3} value={settings.welcome} maxLength={600}
-                  placeholder="Shown to a creator the first time they open this market. What is it for, what is expected, what is coming up."
+                  placeholder={tr("Shown to a creator the first time they open this market. What is it for, what is expected, what is coming up.")}
                   onChange={(e) => setSettings({ ...settings, welcome: e.target.value })} />
               </label>
 
               <div className="mt-4">
-                <p className="mb-1.5 text-sm font-medium">Countries</p>
+                <p className="mb-1.5 text-sm font-medium">{tr("Countries")}</p>
                 <p className="mb-2 text-xs text-smoke">
-                  Who is suggested this market at signup, and under the default rule, who may join it.
+                  {tr("Who is suggested this market at signup, and under the default rule, who may join it.")}
                 </p>
                 <div className="mb-2 flex flex-wrap gap-2">
                   {settings.country_codes.map((c) => (
@@ -546,9 +548,9 @@ export default function ManageChapter() {
                       <Icon name="close" className="h-3 w-3" />
                     </button>
                   ))}
-                  {settings.country_codes.length === 0 && <span className="text-xs text-smoke">None.</span>}
+                  {settings.country_codes.length === 0 && <span className="text-xs text-smoke">{tr("None.")}</span>}
                 </div>
-                <input className="input" value={countryQuery} placeholder="Search a country to add…"
+                <input className="input" value={countryQuery} placeholder={tr("Search a country to add…")}
                   onChange={(e) => setCountryQuery(e.target.value)} />
                 {countryHits.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -565,7 +567,7 @@ export default function ManageChapter() {
             </Section>
 
             {/* ---------------- Operating ---------------- */}
-            <Section icon="wallet" title="Money and time" hint="Never shown to a creator."
+            <Section icon="wallet" title={tr("Money and time")} hint={tr("Never shown to a creator.")}
               action={
                 <button onClick={saveSettings} disabled={saving === 'settings'} className="btn-primary !py-2 !px-5 !text-sm">
                   {saving === 'settings' ? 'Saving…' : 'Save'}
@@ -573,23 +575,23 @@ export default function ManageChapter() {
               }>
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium">Currency</span>
+                  <span className="mb-1.5 block text-sm font-medium">{tr("Currency")}</span>
                   <Select variant="field" ariaLabel="Currency" value={settings.currency}
                     onChange={(v) => setSettings({ ...settings, currency: v })}
                     options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium">Timezone</span>
+                  <span className="mb-1.5 block text-sm font-medium">{tr("Timezone")}</span>
                   <input className="input" value={settings.timezone}
                     onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} />
-                  <span className="mt-1 block text-xs text-smoke">Deadlines land at local midnight here.</span>
+                  <span className="mt-1 block text-xs text-smoke">{tr("Deadlines land at local midnight here.")}</span>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium">CPM target</span>
+                  <span className="mb-1.5 block text-sm font-medium">{tr("CPM target")}</span>
                   <input type="number" step="0.01" className="input" value={settings.cpm_target}
                     onChange={(e) => setSettings({ ...settings, cpm_target: Number(e.target.value) })} />
                   <span className="mt-1 block text-xs text-smoke">
-                    Each market sets its own. Cost per 1,000 views to beat.
+                    {tr("Each market sets its own. Cost per 1,000 views to beat.")}
                   </span>
                 </label>
               </div>
@@ -597,8 +599,8 @@ export default function ManageChapter() {
                 <BigToggle
                   on={settings.show_standings}
                   onChange={(v) => setSettings({ ...settings, show_standings: v })}
-                  title="Show a standings table in this market"
-                  hint="Turn off for a market where ranking creators against each other would do more harm than good."
+                  title={tr("Show a standings table in this market")}
+                  hint={tr("Turn off for a market where ranking creators against each other would do more harm than good.")}
                   onLabel="Shown"
                   offLabel="Hidden"
                 />
@@ -606,7 +608,7 @@ export default function ManageChapter() {
             </Section>
 
             {/* ---------------- Rooms ---------------- */}
-            <Section icon="chat" title="Rooms"
+            <Section icon="chat" title={tr("Rooms")}
               hint="This market's own channels. General and Announcements are part of every market; the rest are yours to choose.">
               {/* Each room is a small editor, not a row of same-looking pills.
                   The old version had a button whose LABEL WAS ITS STATE
@@ -619,11 +621,11 @@ export default function ManageChapter() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-brand" />
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{ch.label}</span>
-                      {ch.key === 'general' && <Badge tone="light">Main room</Badge>}
-                      {ch.visibility === 'staff' && <Badge tone="grey">Staff only</Badge>}
+                      {ch.key === 'general' && <Badge tone="light">{tr("Main room")}</Badge>}
+                      {ch.visibility === 'staff' && <Badge tone="grey">{tr("Staff only")}</Badge>}
                       <button onClick={() => renameRoom(ch)}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                        Rename
+                        {tr("Rename")}
                       </button>
                       {ch.key !== 'general' && ch.key !== 'announcements' && (
                         <button onClick={() => removeRoom(ch)} aria-label={`Remove ${ch.label}`}
@@ -633,7 +635,7 @@ export default function ManageChapter() {
                       )}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <span className="text-xs font-medium text-smoke">Who can post</span>
+                      <span className="text-xs font-medium text-smoke">{tr("Who can post")}</span>
                       <Segmented
                         size="sm"
                         id={`post-${ch.id}`}
@@ -647,7 +649,7 @@ export default function ManageChapter() {
                       />
                       {ch.key === 'announcements' && ch.post_policy === 'all' && (
                         <span className="text-xs text-amber-700">
-                          Announcements is usually team only.
+                          {tr("Announcements is usually team only.")}
                         </span>
                       )}
                     </div>
@@ -664,7 +666,7 @@ export default function ManageChapter() {
                   the key the database wants, and refuses the two that already
                   mean something. */}
               <div className="mt-5 border-t border-gray-50 pt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Add a room</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("Add a room")}</p>
                 {roomsToAdd.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {roomsToAdd.map((r) => (
@@ -679,8 +681,8 @@ export default function ManageChapter() {
                     value={newRoom}
                     onChange={(e) => setNewRoom(e.target.value)}
                     maxLength={28}
-                    placeholder="Or name your own, e.g. Barcelona"
-                    aria-label="New room name"
+                    placeholder={tr("Or name your own, e.g. Barcelona")}
+                    aria-label={tr("New room name")}
                     className="input flex-1 !py-2 text-sm"
                   />
                   <button type="submit" disabled={!newRoom.trim() || addingRoom}
@@ -690,7 +692,7 @@ export default function ManageChapter() {
                 </form>
                 {newRoom.trim() && (
                   <p className="mt-2 text-xs text-smoke">
-                    Creators will see it as <span className="font-medium text-ink">{newRoom.trim()}</span>.
+                    {tr("Creators will see it as")} <span className="font-medium text-ink">{newRoom.trim()}</span>.
                     Only {chapter.name} can read it.
                   </p>
                 )}
@@ -698,14 +700,14 @@ export default function ManageChapter() {
             </Section>
 
             {/* ---------------- Challenges ---------------- */}
-            <Section icon="flag" title="Challenges" hint="Everything this market has run. Scoring is set on each challenge."
+            <Section icon="flag" title={tr("Challenges")} hint={tr("Everything this market has run. Scoring is set on each challenge.")}
               action={
                 <Link to={`/admin/challenges/new?market=${chapter.slug}`} className="btn-primary !py-2 !px-5 !text-sm">
                   + New
                 </Link>
               }>
               {d.challenges.length === 0 ? (
-                <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">No challenges yet.</p>
+                <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">{tr("No challenges yet.")}</p>
               ) : (
                 <div className="space-y-2">
                   {d.challenges.map((c) => {
@@ -728,7 +730,7 @@ export default function ManageChapter() {
                             not-found screen. */}
                         <Link to={`/admin/challenges/${c.id}/edit`}
                           className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                          Edit
+                          {tr("Edit")}
                         </Link>
                       </div>
                     )
@@ -739,11 +741,11 @@ export default function ManageChapter() {
 
             {/* ---------------- Roster ---------------- */}
             <Section icon="users" title={`Creators (${realMembers.length})`}
-              hint="Everyone in this market. Points shown are their total here.">
+              hint={tr("Everyone in this market. Points shown are their total here.")}>
               <div className="space-y-1.5">
                 {realMembers.length === 0 && (
                   <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
-                    Nobody has joined this market yet.
+                    {tr("Nobody has joined this market yet.")}
                   </p>
                 )}
                 {realMembers
@@ -755,14 +757,14 @@ export default function ManageChapter() {
                       <Link to={`/profile/${m.profile_id}`} className="min-w-0 truncate text-sm font-medium hover:text-brand">
                         {m.profiles.name}
                       </Link>
-                      {m.role === 'manager' && <Badge tone="light">Manager</Badge>}
-                      {m.profiles.is_admin && <Badge tone="grey">Team</Badge>}
+                      {m.role === 'manager' && <Badge tone="light">{tr("Manager")}</Badge>}
+                      {m.profiles.is_admin && <Badge tone="grey">{tr("Team")}</Badge>}
                       <span className="ml-auto shrink-0 text-sm font-semibold text-brand">
                         {standingsBy.get(m.profile_id) ?? 0} pts
                       </span>
                       <button onClick={() => awardPoints(m)}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                        Award
+                        {tr("Award")}
                       </button>
                       <button onClick={() => setRole(m, m.role === 'manager' ? 'creator' : 'manager')}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
@@ -774,7 +776,7 @@ export default function ManageChapter() {
                           window where they are in no market at all. */}
                       <button onClick={() => moveCreator(m)}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                        Move
+                        {tr("Move")}
                       </button>
                       <button onClick={() => removeMember(m)} aria-label={`Remove ${m.profiles.name}`}
                         className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
@@ -788,10 +790,10 @@ export default function ManageChapter() {
                   and the fix for a creator whose profile country is wrong. */}
               <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-cloud/60 p-4">
                 <button onClick={() => setPickerOpen(true)} className="btn-primary !py-2.5">
-                  <Icon name="users" className="h-4 w-4" /> Add creators
+                  <Icon name="users" className="h-4 w-4" /> {tr("Add creators")}
                 </button>
                 <p className="min-w-0 flex-1 text-xs text-smoke">
-                  Adding someone here bypasses the join rule. It does not change their home market.
+                  {tr("Adding someone here bypasses the join rule. It does not change their home market.")}
                 </p>
               </div>
 
@@ -804,24 +806,23 @@ export default function ManageChapter() {
               {isGlobalAdmin && !chapter.retired_at && (
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-gray-200 p-4">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">Retire {chapter.name}</p>
+                    <p className="text-sm font-semibold">{tr('Retire {name}', { name: chapter.name })}</p>
                     <p className="mt-0.5 text-xs text-smoke">
-                      Closes it and takes it off every creator&rsquo;s list. Challenges, entries, rooms and
-                      standings are all kept and stay readable by the team. Reversible.
+                      {tr("Closes it and takes it off every creator’s list. Challenges, entries, rooms and standings are all kept and stay readable by the team. Reversible.")}
                     </p>
                   </div>
                   <button onClick={toggleRetired}
                     className="shrink-0 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-smoke transition-transform duration-200 hover:scale-105 hover:border-red-300 hover:text-red-600">
-                    Retire this market
+                    {tr("Retire this market")}
                   </button>
                 </div>
               )}
             </Section>
 
             {isGlobalAdmin && (
-              <Section icon="shield" title="Platform" hint="Global admin only.">
+              <Section icon="shield" title={tr("Platform")} hint={tr("Global admin only.")}>
                 <Link to="/global/settings" className="btn-secondary !py-2.5">
-                  <Icon name="globe" className="h-4 w-4" /> Network settings
+                  <Icon name="globe" className="h-4 w-4" /> {tr("Network settings")}
                 </Link>
               </Section>
             )}
@@ -836,13 +837,13 @@ export default function ManageChapter() {
         onConfirm={addMembers}
         busy={adding}
         title={`Add creators to ${chapter.name}`}
-        hint="Search by name or city. Pick as many as you like."
-        confirmLabel="Add"
+        hint={tr("Search by name or city. Pick as many as you like.")}
+        confirmLabel={tr("Add")}
       />
 
       {/* MOVING SOMEBODY BETWEEN MARKETS. A list, not a text box - see the note
           on `moveCreator`. */}
-      <Modal open={!!moving} onClose={() => setMoving(null)} title="Move creator">
+      <Modal open={!!moving} onClose={() => setMoving(null)} title={tr("Move creator")}>
         {moving && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-cloud/40 p-3">
@@ -854,7 +855,7 @@ export default function ManageChapter() {
             </div>
 
             <label className="block">
-              <span className="label">Move them to</span>
+              <span className="label">{tr("Move them to")}</span>
               <Select
                 value={moving.to}
                 onChange={(v) => setMoving((cur) => ({ ...cur, to: v }))}
@@ -873,7 +874,7 @@ export default function ManageChapter() {
               <button type="button" onClick={confirmMove} disabled={saving === 'move'} className="btn-primary">
                 {saving === 'move' ? 'Moving…' : 'Move creator'}
               </button>
-              <button type="button" onClick={() => setMoving(null)} className="btn-ghost">Cancel</button>
+              <button type="button" onClick={() => setMoving(null)} className="btn-ghost">{tr("Cancel")}</button>
             </div>
           </div>
         )}

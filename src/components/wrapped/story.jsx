@@ -3,6 +3,7 @@ import { useId } from 'react'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 
 // EVERY SCREEN OF THE RECAP, IN ORDER, AS DATA.
@@ -84,7 +85,10 @@ export function distanceLine(t) {
   return `That is ${pct >= 10 ? Math.round(pct) : Number(pct.toFixed(1))}% of the way around the world.`
 }
 
-export function buildCards(data) {
+// `tr` is an ARGUMENT, not a hook, because this is a plain function and not a
+// component. The identity default keeps the tests and the bench calling it
+// with one argument; YearInReview passes the real translator.
+export function buildCards(data, tr = (s) => s) {
   const { me, year, travel, content, community, games, ranks, busiest, everyone } = data
   const cards = []
   const push = (c) => { if (c) cards.push(c) }
@@ -123,7 +127,7 @@ export function buildCards(data) {
         <div data-anim="rise" className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">{year}</span>
           <span className="text-[13px] font-bold uppercase leading-none tracking-[0.14em] opacity-80 sm:text-sm">
-            Your year in review
+            {tr("Your year in review")}
           </span>
         </div>
         <div className="flex min-h-0 flex-1 flex-col justify-center gap-4 py-4">
@@ -170,7 +174,7 @@ export function buildCards(data) {
       key: 'distance', palette: 'sky', hold: 4200,
       render: () => (
         <>
-          <Eyebrow palette="sky">You went places</Eyebrow>
+          <Eyebrow palette="sky">{tr("You went places")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={nf(travel.distance)} unit="km flown" palette="sky" />
             <Line palette="sky">{distanceLine(travel)}</Line>
@@ -190,7 +194,7 @@ export function buildCards(data) {
         key: 'countries', palette: 'mint', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="mint">Where you landed</Eyebrow>
+            <Eyebrow palette="mint">{tr("Where you landed")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={travel.countries} unit={travel.countries === 1 ? 'country' : 'countries'} palette="mint" />
               {/* EVERY FLAG, AT A SIZE THAT FITS HOWEVER MANY THERE ARE.
@@ -236,7 +240,7 @@ export function buildCards(data) {
         key: 'fleet', palette: 'night', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="night">Your fleet</Eyebrow>
+            <Eyebrow palette="night">{tr("Your fleet")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={travel.aircraftTypes} unit={travel.aircraftTypes === 1 ? 'aircraft type' : 'aircraft types'} palette="night" />
               <Chips palette="night" items={travel.fleet.map((a) => `${a.name} ×${a.flights}`)} />
@@ -263,11 +267,11 @@ export function buildCards(data) {
       key: 'collab', palette: 'sky', hold: 4000,
       render: () => (
         <>
-          <Eyebrow palette="sky">You put it on the board</Eyebrow>
+          <Eyebrow palette="sky">{tr("You put it on the board")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={travel.collabTrips} unit={travel.collabTrips === 1 ? 'trip shared' : 'trips shared'} palette="sky" />
             <Line palette="sky">
-              You told the community where you were going, so somebody could come with you.
+              {tr("You told the community where you were going, so somebody could come with you.")}
             </Line>
             {/* FLAGS, NOT CHIPS. Ethan: "you show Botswana, Zimbabwe, Istanbul,
                 etc. I would also show the flags here. I think it adds a nice
@@ -322,7 +326,7 @@ export function buildCards(data) {
       key: 'videos', palette: 'dusk', hold: 4000,
       render: () => (
         <>
-          <Eyebrow palette="dusk">You made things</Eyebrow>
+          <Eyebrow palette="dusk">{tr("You made things")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={content.videos} unit={content.videos === 1 ? 'video' : 'videos'} palette="dusk" />
             <Line palette="dusk">
@@ -353,11 +357,11 @@ export function buildCards(data) {
         key: 'views', palette: 'ember', hold: 4600,
         render: () => (
           <>
-            <Eyebrow palette="ember">And people watched</Eyebrow>
+            <Eyebrow palette="ember">{tr("And people watched")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={nf(content.views)} unit="views" palette="ember" />
               <Line palette="ember">
-                Everything you posted for Tryp.com this year, added up.
+                {tr("Everything you posted for Tryp.com this year, added up.")}
               </Line>
               <Standing standing={ranks.views} what="for total views" palette="ember" />
             </div>
@@ -375,7 +379,7 @@ export function buildCards(data) {
         key: 'best-video', palette: 'night', hold: 4600,
         render: () => (
           <>
-            <Eyebrow palette="night">Your biggest video</Eyebrow>
+            <Eyebrow palette="night">{tr("Your biggest video")}</Eyebrow>
             {/* THE FRAME IS THE CARD, NOT A STAMP ON IT. Ethan: "for that
                 preview card that shows the video thing, I would improve the
                 design - it currently looks small and crammed in just above it."
@@ -414,7 +418,7 @@ export function buildCards(data) {
                   />
                   {content.best.challenge && (
                     <span className="absolute inset-x-3 top-3 block">
-                      <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-white/75">Made for</span>
+                      <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-white/75">{tr("Made for")}</span>
                       <span className="mt-0.5 block text-[13px] font-extrabold leading-tight text-white">{content.best.challenge}</span>
                     </span>
                   )}
@@ -448,7 +452,7 @@ export function buildCards(data) {
         key: 'prizes', palette: 'mint', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="mint">It paid off</Eyebrow>
+            <Eyebrow palette="mint">{tr("It paid off")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero
                 value={wholeMoney(content.cash + content.vouchers, content.currency)}
@@ -489,7 +493,7 @@ export function buildCards(data) {
       key: 'community', palette: 'dusk', hold: 4200,
       render: () => (
         <>
-          <Eyebrow palette="dusk">You were around</Eyebrow>
+          <Eyebrow palette="dusk">{tr("You were around")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={nf(community.messages)} unit={community.messages === 1 ? 'message' : 'messages'} palette="dusk" />
             <Line palette="dusk">
@@ -521,7 +525,7 @@ export function buildCards(data) {
         key: 'milestones', palette: 'mint', hold: 4000,
         render: () => (
           <>
-            <Eyebrow palette="mint">You levelled up</Eyebrow>
+            <Eyebrow palette="mint">{tr("You levelled up")}</Eyebrow>
             <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
               <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? 'milestone' : 'milestones'} palette="mint" />
               <MilestoneRoute
@@ -542,7 +546,7 @@ export function buildCards(data) {
       key: 'games', palette: 'night', hold: 4200,
       render: () => (
         <>
-          <Eyebrow palette="night">Every morning, a puzzle</Eyebrow>
+          <Eyebrow palette="night">{tr("Every morning, a puzzle")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             {/* THE STREAK GETS THE FLAME. Ethan: "showing the streak. I would
                 maybe show the streak icon on this card as well, I think it
@@ -591,7 +595,7 @@ export function buildCards(data) {
       key: 'month', palette: 'mint', hold: 3800,
       render: () => (
         <>
-          <Eyebrow palette="mint">Your month</Eyebrow>
+          <Eyebrow palette="mint">{tr("Your month")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={busiest.name} palette="mint" />
             <Line palette="mint">
@@ -612,12 +616,11 @@ export function buildCards(data) {
       key: 'ahead', palette: 'sky', hold: 4600,
       render: () => (
         <>
-          <Eyebrow palette="sky">What is waiting</Eyebrow>
+          <Eyebrow palette="sky">{tr("What is waiting")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={everyone.creators} unit="creators to meet" palette="sky" />
+            <Hero value={everyone.creators} unit={tr("creators to meet")} palette="sky" />
             <Line palette="sky">
-              Every challenge, every flight in the log and every puzzle from here is in next
-              year's. That page is blank and it is yours.
+              {tr("Every challenge, every flight in the log and every puzzle from here is in next year's. That page is blank and it is yours.")}
             </Line>
           </div>
         </>
@@ -633,7 +636,7 @@ export function buildCards(data) {
     key: 'everyone', palette: 'ember', hold: 5000,
     render: () => (
       <>
-        <Eyebrow palette="ember">And you were not alone</Eyebrow>
+        <Eyebrow palette="ember">{tr("And you were not alone")}</Eyebrow>
         <div className="flex flex-1 flex-col justify-center gap-5">
           <Hero value={formatViews(everyone.views)} unit="views, together" palette="ember" />
           <Line palette="ember">
@@ -663,6 +666,7 @@ export function buildCards(data) {
  * times, so what somebody posts is exactly what they were looking at.
  */
 export function ShareCard({ data, className = '', style, flush = false }) {
+  const tr = useT()
   const { me, year, travel, content, community, games } = data
   const stats = [
     content.views > 0 && { label: 'Views', value: formatViews(content.views) },
@@ -780,7 +784,7 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           className="h-7 w-auto shrink-0"
         />
         <span className="min-w-0 text-[12px] font-bold leading-tight">
-          Tryp.com Content<br />Creator Community
+          {tr("Tryp.com Content")}<br />{tr("Creator Community")}
         </span>
       </div>
     </Card>

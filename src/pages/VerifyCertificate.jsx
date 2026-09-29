@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import CertificateCard, { CERT_W, CERT_H } from '../components/certificate/CertificateCard'
 import { designStyle, fillTemplate, formatAwardDate } from '../lib/certificates'
 import { useFluidWidth } from '../components/portfolio/PortfolioDeck'
+import { useT } from '../lib/i18n'
 
 // IS THIS CERTIFICATE REAL?
 //
@@ -50,6 +51,7 @@ import { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 // so a recruiter gets the whole answer without scrolling back to the picture.
 // ---------------------------------------------------------------------------
 export default function VerifyCertificate() {
+  const tr = useT()
   const { serial } = useParams()
   const navigate = useNavigate()
   const [state, setState] = useState(serial ? 'loading' : 'idle')
@@ -104,7 +106,7 @@ export default function VerifyCertificate() {
       <footer className="border-t border-gray-200/70 bg-white">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-6 sm:px-8">
           <p className="text-[12px] text-smoke">
-            Certificates are issued by the Tryp.com Content Creator Community.
+            {tr("Certificates are issued by the Tryp.com Content Creator Community.")}
           </p>
           <a
             href="https://tryp.com"
@@ -127,14 +129,15 @@ export default function VerifyCertificate() {
  * cover and the kit strip all had to be fixed to do as well.
  */
 function Header() {
+  const tr = useT()
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200/70 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-4xl items-center gap-3 px-5 py-3.5 sm:px-8">
         <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-md" />
         <span className="h-5 w-px shrink-0 bg-gray-200" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight text-ink">Certificate check</p>
-          <p className="truncate text-[11px] leading-tight text-smoke">Content Creator Community</p>
+          <p className="truncate text-sm font-bold leading-tight text-ink">{tr("Certificate check")}</p>
+          <p className="truncate text-[11px] leading-tight text-smoke">{tr("Content Creator Community")}</p>
         </div>
       </div>
     </header>
@@ -143,6 +146,7 @@ function Header() {
 
 /** The one control on the page. */
 function Ask({ typed, setTyped, busy, onSubmit }) {
+  const tr = useT()
   return (
     <form
       onSubmit={(e) => {
@@ -152,7 +156,7 @@ function Ask({ typed, setTyped, busy, onSubmit }) {
       }}
       className="mb-8 rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5"
     >
-      <label htmlFor="serial" className="label">The code on the certificate</label>
+      <label htmlFor="serial" className="label">{tr("The code on the certificate")}</label>
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[200px] flex-1">
           <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
@@ -160,7 +164,7 @@ function Ask({ typed, setTyped, busy, onSubmit }) {
             id="serial"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder="TRYP-2026-XXXXXX"
+            placeholder={tr("TRYP-2026-XXXXXX")}
             // Uppercase on screen because that is how it is printed. The lookup
             // is case-insensitive anyway, so nobody is punished for typing it
             // in lower case.
@@ -171,7 +175,7 @@ function Ask({ typed, setTyped, busy, onSubmit }) {
           />
         </div>
         <button type="submit" disabled={busy || !typed.trim()} className="btn-primary shrink-0 disabled:opacity-40">
-          {busy ? 'Checking…' : 'Check it'}
+          {busy ? tr('Checking…') : tr('Check it')}
         </button>
       </div>
     </form>
@@ -179,15 +183,15 @@ function Ask({ typed, setTyped, busy, onSubmit }) {
 }
 
 function Idle() {
+  const tr = useT()
   return (
     <div className="rounded-card border border-dashed border-gray-200 bg-white/60 px-6 py-14 text-center">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
         <Icon name="shield" className="h-7 w-7" />
       </span>
-      <h1 className="mt-5 text-lg font-bold text-ink">Check a Tryp.com certificate</h1>
+      <h1 className="mt-5 text-lg font-bold text-ink">{tr("Check a Tryp.com certificate")}</h1>
       <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">
-        Every certificate this community issues carries a code at its foot.
-        Type it above and the real one appears here, exactly as it was awarded.
+        {tr("Every certificate this community issues carries a code at its foot. Type it above and the real one appears here, exactly as it was awarded.")}
       </p>
     </div>
   )
@@ -203,8 +207,9 @@ function Idle() {
  * page that lurches.
  */
 function Loading() {
+  const tr = useT()
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Checking">
+    <div className="space-y-5" aria-busy="true" aria-label={tr("Checking")}>
       <div className="h-[70px] animate-pulse rounded-card bg-white" />
       <div className="animate-pulse rounded-card bg-white" style={{ aspectRatio: `${CERT_W} / ${CERT_H}` }} />
     </div>
@@ -212,19 +217,18 @@ function Loading() {
 }
 
 function Missing({ code }) {
+  const tr = useT()
   return (
     <div className="rounded-card border border-gray-100 bg-white p-8 text-center shadow-card sm:p-10">
       <span className="mx-auto flex h-14 w-14 animate-pop-in items-center justify-center rounded-full bg-gray-100 text-gray-400">
         <Icon name="close" className="h-7 w-7" />
       </span>
-      <h1 className="mt-5 text-lg font-bold text-ink">No certificate with that code</h1>
+      <h1 className="mt-5 text-lg font-bold text-ink">{tr("No certificate with that code")}</h1>
       {code && (
         <p className="mt-2 font-mono text-[13px] uppercase tracking-[0.12em] text-gray-400">{code}</p>
       )}
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-smoke">
-        Check it again. It is six characters after the year, and the letters
-        O and I are never used, so a nought is a zero and a one is a one.
-        If it still does not come up, this was not issued by Tryp.com.
+        {tr("Check it again. It is six characters after the year, and the letters O and I are never used, so a nought is a zero and a one is a one. If it still does not come up, this was not issued by Tryp.com.")}
       </p>
     </div>
   )
@@ -238,6 +242,7 @@ function Missing({ code }) {
  * the one I am holding, and what does it actually say.
  */
 function Found({ data, holder, scale }) {
+  const tr = useT()
   const facts = data.facts || {}
   const s = designStyle(data)
   const awarded = facts.date || data.awarded_at
@@ -279,20 +284,20 @@ function Found({ data, holder, scale }) {
       </div>
 
       <div className="animate-fade-up grid gap-4 [animation-fill-mode:both] sm:grid-cols-2" style={step(2)}>
-        <Panel title="What it is for">
+        <Panel title={tr("What it is for")}>
           <p className="text-sm leading-relaxed text-ink">{forWhat || data.title}</p>
           {facts.challenge && (
-            <Line label="Challenge" value={facts.challenge} />
+            <Line label={tr("Challenge")} value={facts.challenge} />
           )}
-          {facts.market && <Line label="Market" value={facts.market} />}
-          {facts.views != null && <Line label="Views at the deadline" value={Number(facts.views).toLocaleString()} />}
-          {facts.milestone && <Line label="Milestone" value={facts.milestone} />}
+          {facts.market && <Line label={tr("Market")} value={facts.market} />}
+          {facts.views != null && <Line label={tr("Views at the deadline")} value={Number(facts.views).toLocaleString()} />}
+          {facts.milestone && <Line label={tr("Milestone")} value={facts.milestone} />}
         </Panel>
 
-        <Panel title="The record">
-          <Line label="Awarded to" value={facts.name || 'A Tryp.com creator'} />
-          <Line label="Awarded" value={awarded ? formatAwardDate(awarded) : 'Not recorded'} />
-          <Line label="Certificate ID" value={data.serial} mono />
+        <Panel title={tr("The record")}>
+          <Line label={tr("Awarded to")} value={facts.name || 'A Tryp.com creator'} />
+          <Line label={tr("Awarded")} value={awarded ? formatAwardDate(awarded) : 'Not recorded'} />
+          <Line label={tr("Certificate ID")} value={data.serial} mono />
           {/* A CHECKED CERTIFICATE SHOULD BE SENDABLE. The reason the lookup
               goes through the URL at all is so this link exists; leaving the
               person to select it out of the address bar wastes that.
@@ -316,6 +321,7 @@ function Found({ data, holder, scale }) {
  * and it lands exactly when the answer does.
  */
 function Verdict({ name, date, accent }) {
+  const tr = useT()
   return (
     <div className="flex items-center gap-4 overflow-hidden rounded-card border border-green-200 bg-white px-5 py-4 shadow-card">
       <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
@@ -328,10 +334,10 @@ function Verdict({ name, date, accent }) {
       </span>
       <div className="min-w-0">
         <p className="text-[15px] font-bold leading-snug text-ink">
-          This is a genuine Tryp.com certificate
+          {tr("This is a genuine Tryp.com certificate")}
         </p>
         <p className="mt-0.5 truncate text-[13px] text-smoke">
-          Awarded to <span className="font-semibold text-ink">{name || 'a creator'}</span>
+          {tr("Awarded to")} <span className="font-semibold text-ink">{name || 'a creator'}</span>
           {date ? ` on ${formatAwardDate(date)}` : ''}.
         </p>
       </div>

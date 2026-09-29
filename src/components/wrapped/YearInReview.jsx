@@ -5,6 +5,7 @@ import { snapshotNode, downloadBlob } from '../../lib/domSnapshot'
 import { cx } from '../../lib/utils'
 
 import Icon from '../Icon'
+import { useT } from '../../lib/i18n'
 
 // THE RUNNER.
 //
@@ -30,7 +31,8 @@ import Icon from '../Icon'
 // REUSED BY THE CHALLENGE RECAP (24 Sep 2026): `build` makes the cards and
 // `Share` draws the closing card; both default to the year's.
 export default function YearInReview({ data, onExit, autoplay = true, build = buildCards, Share = ShareCard, fileStem }) {
-  const cards = useMemo(() => build(data), [data, build])
+  const tr = useT()
+  const cards = useMemo(() => build(data, tr), [data, build, tr])
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(!autoplay)
   const [finished, setFinished] = useState(false)

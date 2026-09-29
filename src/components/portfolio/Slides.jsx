@@ -3,6 +3,7 @@ import SocialMark from '../SocialMark'
 import { PAGE_W, PAGE_H, compactViews, contactEmail, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
 import { alpha, fillTemplate, formatAwardDate, readableOn, shift, tierOf } from '../../lib/certificates'
 import { socialHref, linkHref } from '../../lib/socialLinks'
+import { useT } from '../../lib/i18n'
 
 // THE PAGES OF A MEDIA KIT, AT 16:9.
 //
@@ -281,6 +282,7 @@ function nameSize(name) {
 
 // ------------------------------------------------------------------ about ---
 export function About({ creator, copy, videos, extraPlatforms, tools, n, total }) {
+  const tr = useT()
   const stats = statsFrom(videos)
   const t = theme(copy)
   const platforms = socialRows(creator, videos, extraPlatforms)
@@ -297,7 +299,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
   ]
   return (
     <div style={page({ padding: '56px 64px 0' })}>
-      <Kicker color={t.ink}>Who I am</Kicker>
+      <Kicker color={t.ink}>{tr("Who I am")}</Kicker>
       <SlideTitle>{copyFor(copy, 'about_title')}</SlideTitle>
 
       <div style={{ display: 'flex', gap: 56, marginTop: 30 }}>
@@ -307,7 +309,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
           </p>
           {tools?.length > 0 && (
             <div style={{ marginTop: 30 }}>
-              <Label>What I shoot and edit with</Label>
+              <Label>{tr("What I shoot and edit with")}</Label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                 {tools.map((tool) => (
                   <span key={tool} style={{
@@ -360,7 +362,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
 
           {platforms.length > 0 && (
             <div style={{ marginTop: 26 }}>
-              <Label>Where I post</Label>
+              <Label>{tr("Where I post")}</Label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 {platforms.slice(0, 4).map((p) => (
                   <PlatformRow key={p.brand + p.label} row={p} />
@@ -408,6 +410,7 @@ function PlatformRow({ row }) {
 // RANK - "#1" is the first thing a brand wants to know about a list sorted by
 // views - and the header says what the list is instead of a grey chip.
 export function Work({ creator, copy, videos, n, total, offset = 0, totalVideos }) {
+  const tr = useT()
   const t = theme(copy)
   const from = offset + 1
   const to = offset + videos.length
@@ -445,8 +448,8 @@ export function Work({ creator, copy, videos, n, total, offset = 0, totalVideos 
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
             textAlign: 'center',
           }}>
-            <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>Your first video lands here.</p>
-            <p style={{ margin: 0, fontSize: 13.5, color: SMOKE }}>Enter a Tryp.com challenge and your work fills this page.</p>
+            <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>{tr("Your first video lands here.")}</p>
+            <p style={{ margin: 0, fontSize: 13.5, color: SMOKE }}>{tr("Enter a Tryp.com challenge and your work fills this page.")}</p>
           </div>
         )}
       </div>
@@ -526,10 +529,11 @@ function VideoTile({ video, rank, t }) {
 
 // ----------------------------------------------------------------- awards ---
 export function Awards({ creator, copy, certificates, n, total }) {
+  const tr = useT()
   const t = theme(copy)
   return (
     <div style={page({ padding: '56px 64px 0' })}>
-      <Kicker color={t.ink}>Recognised by Tryp.com</Kicker>
+      <Kicker color={t.ink}>{tr("Recognised by Tryp.com")}</Kicker>
       <SlideTitle>{copyFor(copy, 'awards_title')}</SlideTitle>
       <p style={{ margin: '12px 0 0', maxWidth: 700, fontSize: 14.5, lineHeight: 1.65, color: SMOKE }}>
         {copyFor(copy, 'awards_body')}
@@ -586,6 +590,7 @@ export function Awards({ creator, copy, certificates, n, total }) {
 // along the way, and the programme's name at its foot - the page closes on
 // the brand rather than on a 10px line.
 export function Contact({ creator, copy, videos, extraPlatforms }) {
+  const tr = useT()
   const rows = socialRows(creator, videos, extraPlatforms)
   const email = contactEmail(copy, creator)
   const t = theme(copy)
@@ -613,7 +618,7 @@ export function Contact({ creator, copy, videos, extraPlatforms }) {
           ))}
           {cards.length === 0 && (
             <p style={{ margin: 0, fontSize: 14, color: FAINT }}>
-              Add your links on your profile and they appear here.
+              {tr("Add your links on your profile and they appear here.")}
             </p>
           )}
         </div>
@@ -645,10 +650,10 @@ export function Contact({ creator, copy, videos, extraPlatforms }) {
         <div style={{ position: 'absolute', left: 40, right: 40, bottom: 40 }}>
           <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" crossOrigin="anonymous" style={{ height: 30, width: 'auto' }} />
           <p style={{ margin: '14px 0 0', fontSize: 17, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
-            Tryp.com Content Creator Community
+            {tr("Tryp.com Content Creator Community")}
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 12.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)' }}>
-            Creators making travel content across the world
+            {tr("Creators making travel content across the world")}
           </p>
         </div>
       </GradientPanel>
