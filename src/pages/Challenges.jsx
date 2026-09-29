@@ -11,6 +11,7 @@ import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
 import { CountUp } from '../components/network/Motion'
 import LiveChallengeCard from '../components/LiveChallengeCard'
+import RecapBanner from '../components/challenge/RecapBanner'
 import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
@@ -28,7 +29,20 @@ const CACHE_KEY = 'challenges'
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
   const tr = useT()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
+
+  // WHICH CHALLENGES THIS CREATOR HAS ACTUALLY ENTERED. One query for their own
+  // rows - the board already knows every challenge, it just never knew which of
+  // them were theirs - and it is what decides whether the recap slot above the
+  // live card has anything to say.
+  const [enteredIds, setEnteredIds] = useState(() => new Set())
+  useEffect(() => {
+    if (!user?.id) return undefined
+    let alive = true
+    supabase.from('submissions').select('challenge_id').eq('creator_id', user.id)
+      .then(({ data }) => { if (alive) setEnteredIds(new Set((data || []).map((r) => r.challenge_id))) })
+    return () => { alive = false }
+  }, [user?.id])
   const { ids: scopeIds, networkId, loading: scopesLoading } = useMyScopes()
   const cached = useCachedPage(CACHE_KEY)
   const [challenges, setChallenges] = useState(cached?.challenges ?? [])
@@ -259,6 +273,29 @@ export default function Challenges() {
   const drafts = mine.filter((c) => !isLive(c) && c.status === 'draft')
   const past = mine.filter((c) => !isLive(c) && c.status !== 'draft')
 
+  // YOUR RECAP, ON THE PAGE YOU ACTUALLY OPEN (29 Sep 2026).
+  //
+  // Outstanding from the brief. The recap banner has only ever lived on a
+  // challenge's own page, which means a creator finds it by navigating to a
+  // challenge that finished - and the whole reason a recap is worth building is
+  // that it is the thing you want to see WITHOUT going looking. The challenges
+  // board is where everybody lands.
+  //
+  // The most recent challenge you entered that has ended, and only that one: a
+  // stack of recaps going back six months is an archive, and the archive is the
+  // "Past challenges" grid further down this page.
+  const myRecap = useMemo(() => {
+    const entered = past.filter((c) => enteredIds.has(c.id))
+    if (!entered.length) return null
+    const [latest] = [...entered].sort(
+      (a, b) => challengeDeadline(b.end_date).getTime() - challengeDeadline(a.end_date).getTime(),
+    )
+    // READY MEANS THE WINNERS ARE OUT. Before that a recap can tell you what
+    // you posted and what it got, but not where you came - and "your recap is
+    // ready" that opens on a blank placing is worse than saying it is coming.
+    return { challenge: latest, ready: latest.results_status === 'final' }
+  }, [past, enteredIds])
+
   return (
     <div className="page">
       {/* THE PAGE ARRIVES, IT DOES NOT APPEAR. Everything else in the network
@@ -353,6 +390,31 @@ export default function Challenges() {
                 title={tr("No challenge running right now")}
                 hint={tr("The next challenge is landing here soon, and you will get a notification when it does. Past challenges and their winners are below.")}
               />
+            </Reveal>
+          )}
+
+          {/* ---------- Your recap ---------- */}
+          {myRecap && (
+            <Reveal from="down" delay={0.09}>
+              {myRecap.ready ? (
+                <RecapBanner to={`/challenges/${myRecap.challenge.id}/recap`} />
+              ) : (
+                /* NOT READY IS A DIFFERENT CARD, not a disabled one. There is
+                   nowhere to go yet, so it is not a link: a card that looks
+                   like a destination and does nothing when you press it is the
+                   worse of the two states. */
+                <div className="animate-fade-up flex w-full items-center gap-4 rounded-card border border-dashed border-gray-200 bg-cloud/50 px-5 py-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-card">
+                    <Icon name="sparkles" className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold leading-tight text-ink">{tr('Your recap is coming')}</span>
+                    <span className="block text-xs text-smoke">
+                      {tr('{challenge} has closed. Once the winners are published, your own story of it lands here.', { challenge: myRecap.challenge.title })}
+                    </span>
+                  </span>
+                </div>
+              )}
             </Reveal>
           )}
 

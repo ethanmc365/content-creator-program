@@ -12,11 +12,12 @@ import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
 import { streaksByCreator } from '../lib/postingStreak'
-import SwapIn from '../components/challenge/SwapIn'
+import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
 import { useEntryPoints } from '../lib/entryPoints'
 import { previewLink, storeThumbnail } from '../lib/videoThumbs'
 import VideoEmbedModal from '../components/VideoEmbedModal'
+import { playsInline } from '../lib/videoPreview'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import CollapsibleRich from '../components/CollapsibleRich'
 import { useMyScopes } from '../lib/scope'
@@ -128,6 +129,23 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
   const [playing, setPlaying] = useState(null) // submission being watched inline
+
+  // PRESSING AN ENTRY OPENS THE THING, whichever way that has to happen.
+  //
+  // Ethan: "clicking on an entry card that is a carousel should always open the
+  // link rather than trying to play it inline, as carousels seem to never work
+  // inline ... ensure any other videos that don't play inline will just open
+  // the link when clicked."
+  //
+  // The lightbox used to open for everything, and for a carousel that meant a
+  // black rectangle with a Close button - a worse outcome than the link the
+  // reader was expecting. `playsInline` decides, and it decides SYNCHRONOUSLY,
+  // inside the click, which matters: opening a tab from a later callback is
+  // what a popup blocker stops.
+  const openEntry = useCallback((s) => {
+    if (playsInline(s.video_url)) { setPlaying(s); return }
+    window.open(s.video_url, '_blank', 'noopener,noreferrer')
+  }, [])
   const [feedback, setFeedback] = useState({}) // submission id -> the team's note
   // The scoring rules, fetched once: the view ladder (ScoringPanel) and the
   // bonus card in the rail both read them. See usePointRules.
@@ -1387,7 +1405,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 <EntryPreview
                   submission={s}
                   points={challenge.scoring === 'points' ? (entryPoints.get(s.id) ?? { total: 0 }) : null}
-                  onPlay={() => setPlaying(s)}
+                  onPlay={() => openEntry(s)}
                 />
                 <div className="flex flex-1 flex-col gap-2.5 p-3">
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -1941,11 +1959,11 @@ function BoardStatus({ status, points, updatedAt, empty, tr }) {
     <div
       title={long}
       className={cx(
-        'board-status flex w-full items-center gap-2.5 rounded-2xl py-2.5 pl-2.5 pr-4 sm:flex-1',
+        'board-status', SLOT,
         live || final ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-dashed border-brand/30 bg-white text-ink',
       )}
     >
-      <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full', live || final ? 'bg-white/20' : 'bg-brand-tint')}>
+      <span className={cx(SLOT_ICON, live || final ? 'bg-white/20' : 'bg-brand-tint')}>
         {live
           // JUST THE DOT, NO RING (23 Sep 2026). Ethan, of this exact dot:
           // "I like how you have the pulsing thing, but I don't like the way

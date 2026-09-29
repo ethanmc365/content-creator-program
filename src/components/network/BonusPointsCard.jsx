@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 import { ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
+import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
 
 // THE EXTRA POINTS, IN THEIR OWN CARD, IN THE RAIL (24 Sep 2026).
 //
@@ -212,10 +213,14 @@ export function LiveBonusCallout({ rules, now, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="board-status group relative flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] py-2.5 pl-2.5 pr-3.5 text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 sm:flex-1"
+      className={cx(
+        'board-status group relative min-w-0 overflow-hidden text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5',
+        'bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]',
+        SLOT,
+      )}
     >
       <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand">
+      <span className={cx('relative bg-brand', SLOT_ICON)}>
         <Icon name="star" className="hook-sparkles h-4 w-4" />
         <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/40 [animation-duration:2.4s]" />
       </span>

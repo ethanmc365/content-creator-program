@@ -10,6 +10,26 @@ import { useEffect, useRef, useState } from 'react'
 // `board-status-out`, and swaps once they have gone.
 const OUT_MS = 200
 
+// ONE SHAPE FOR WHATEVER IS IN THE SLOT (29 Sep 2026).
+//
+// Ethan: "the bonus on the challenge page shows up as running until a certain
+// date, and then I click on Leaderboard and it shows the card saying 'Current
+// leaderboard' ... they need to all be the same size. Currently the bonus
+// points one is slightly bigger, and it just makes the page move slightly."
+//
+// The two cards had grown their own padding and their own icon sizes - 36px in
+// one, 28px in the other - so the row was four pixels taller on two of the
+// three tabs and everything below it stepped when you switched. A slot that
+// swaps its contents has to be the same height whatever is in it, or the swap
+// is a layout shift with an animation on top.
+//
+// So the SLOT owns the shape and the cards own only their colour and their
+// words. A third card added here later cannot reintroduce the bug.
+export const SLOT = 'flex w-full min-h-[3.25rem] items-center gap-2.5 rounded-2xl py-2 pl-2.5 pr-4 sm:flex-1'
+
+/** The disc every slot card leads with. Same size, so the row cannot move. */
+export const SLOT_ICON = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full'
+
 export default function SwapIn({ swapKey, children }) {
   const [shown, setShown] = useState({ key: swapKey, node: children, leaving: false })
   const latest = useRef(children)

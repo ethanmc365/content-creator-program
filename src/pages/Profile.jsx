@@ -947,17 +947,40 @@ export default function Profile() {
                   at somebody they have not let in yet, so what this row says
                   instead is what that means and where the decision is made. */}
               {creator?.status === 'pending' ? (
-                <div className="flex flex-wrap items-center gap-3 [&>*]:min-w-[10rem]">
-                  {/* ONE HEIGHT FOR EVERYTHING ON THIS ROW (26 Sep 2026). Ethan:
-                      the status and "Go to applications" were different sizes
-                      from the Approve and Decline buttons; all four are the same
-                      40px pill now, the status just is not pressable. */}
-                  <span className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800">
-                    <Icon name="clock" className="h-4 w-4" />
-                    {creator?.onboarded ? tr('Application awaiting review') : tr('Signed up, profile not finished')}
+                // `items-stretch`, so when the pill wraps to two lines the
+                // button beside it grows with it rather than sitting short
+                // against a taller neighbour.
+                <div className="flex flex-wrap items-stretch gap-3 [&>*]:min-w-[10rem]">
+                  {/* THE STATUS PILL OVERFLOWED ITS OWN BACKGROUND (29 Sep
+                      2026). Ethan: "it shows up a waiting application status in
+                      a little button, but the text is too big inside the button,
+                      it's going outside of it."
+
+                      Three things did that together: `whitespace-nowrap`, so
+                      the words could not break; `flex-1` inside a row, so the
+                      pill was sized by the row rather than by its contents; and
+                      a fixed `h-10`, so even if it had wrapped the second line
+                      would have fallen out of the bottom. Any two of those are
+                      survivable and all three are the bug.
+
+                      So the words are shorter - this row already sits under a
+                      heading that says whose profile it is, and "Application"
+                      was the one word in it carrying no information - and the
+                      pill can now grow: it wraps, and its height follows. That
+                      also stops it breaking again in a language where the same
+                      phrase is longer, which German and Portuguese both are.
+
+                      AND IT IS NOT AMBER ANY MORE. Ethan: "maybe change the
+                      colour of the button too." Amber reads as a warning, and
+                      the two controls beside it are a real decision somebody
+                      has to make; a neutral pill says "this is the state" and
+                      leaves the colour on the page to the actions. */}
+                  <span className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-cloud px-4 py-2 text-center text-sm font-semibold leading-tight text-smoke ring-1 ring-black/5">
+                    <Icon name="clock" className="h-4 w-4 shrink-0 text-gray-400" />
+                    {creator?.onboarded ? tr('Awaiting review') : tr('Profile not finished')}
                   </span>
                   {isAdmin && (
-                    <Link to="/admin/applications" className="btn-secondary inline-flex h-10 flex-1 items-center justify-center whitespace-nowrap !py-0 text-sm">{tr('Go to applications')}</Link>
+                    <Link to="/admin/applications" className="btn-secondary inline-flex min-h-10 flex-1 items-center justify-center whitespace-nowrap !py-0 text-sm">{tr('Go to applications')}</Link>
                   )}
                 </div>
               ) : (

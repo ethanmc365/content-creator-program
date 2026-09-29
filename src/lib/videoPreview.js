@@ -79,6 +79,46 @@ export function videoEmbed(url = '') {
   return null
 }
 
+// CAN THIS LINK ACTUALLY PLAY INSIDE THE APP?
+//
+// Ethan: "clicking on an entry card that is a carousel should always open the
+// link rather than trying to play it inline, as carousels seem to never work
+// inline ... ensure any other videos that don't play inline will just open the
+// link when clicked."
+//
+// `videoEmbed` answers "can I build an embed URL for this", which is not the
+// same question and is the reason the lightbox could open on something that
+// never played. An Instagram CAROUSEL has a perfectly good `/embed/` URL - it
+// simply shows a post you cannot play, so the reader gets a black rectangle and
+// a Close button. That is worse than the link they were expecting.
+//
+// WHAT IS RULED OUT, and why each one:
+//
+//   * INSTAGRAM `/p/`. This is the "post" shape, which is where carousels and
+//     photo sets live; a video that is meant to be watched is a `/reel/`. A
+//     single-video `/p/` does exist and will now open on Instagram instead of
+//     playing here, which is the right way round to be wrong: opening the real
+//     post always works, and a dead player never does.
+//   * TIKTOK `/photo/`. A photo carousel. TikTok's player takes a video id and
+//     there is not one.
+//   * FACEBOOK, which has no tokenless player at all.
+//   * ANYTHING ELSE `videoEmbed` cannot build a URL for.
+//
+// A shortened TikTok link is the one "maybe": there is no id in it, so the
+// answer needs a network call. It reports TRUE here and the lightbox resolves
+// it, falling back to its own "Open on TikTok" card if the resolve comes back
+// empty - which is the one case where a modal is still the honest answer,
+// because we genuinely did not know until we asked.
+export function playsInline(url = '') {
+  if (!url) return false
+  if (/instagram\.com\/(?:[^/]+\/)?p\//i.test(url)) return false
+  if (/tiktok\.com\/[^?]*\/photo\//i.test(url)) return false
+  if (detectPlatformFromUrl(url) === 'Facebook') return false
+  if (videoEmbed(url)) return true
+  // No embed today, but a shortened TikTok link can still resolve into one.
+  return /(?:vm|vt)\.tiktok\.com/i.test(url)
+}
+
 // Like videoEmbed(), but for a shortened TikTok link (vm.tiktok.com/...) with no
 // id in the URL it falls back to the oEmbed lookup to resolve the numeric video
 // id, so those entries can still play inline. Async; resolves to null when we
