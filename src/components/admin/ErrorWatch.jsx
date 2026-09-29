@@ -224,7 +224,7 @@ export default function ErrorWatch() {
           will find when you arrive. */}
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card border border-gray-100 bg-cloud/40 px-4 py-3">
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-smoke">
-          {tr('Stack traces in Sentry are minified for the same reason they are here - source maps are not uploaded at build time - so this panel\u2019s context and trail are usually the better read.')}
+          {tr('Stack traces in Sentry are minified for the same reason they are here - source maps are not uploaded at build time - so this panel’s context and trail are usually the better read.')}
         </p>
         <a
           href={sentryIssues()}
