@@ -21,6 +21,34 @@ import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 const memo = new Map() // `${locale}\n${text}` -> { value, src }
 const engineLang = (l) => (l === 'pt' ? 'pt-PT' : l)
 
+// {placeholders} ("for winning {challenge}") must come back exactly as they went in, so they are
+// swapped for inert tokens first and put back after. If the engine ate one, it is a failure.
+function protect(text) {
+  const found = []
+  const masked = text.replace(/\{(\w+)\}/g, (m) => { found.push(m); return `QX${found.length - 1}XQ` })
+  return {
+    text: masked,
+    back: (t) => {
+      let out = t
+      for (let i = 0; i < found.length; i += 1) {
+        const re = new RegExp(`QX\\s?${i}\\s?XQ`, 'i')
+        if (!re.test(out)) return null
+        out = out.replace(re, found[i])
+      }
+      return out
+    },
+  }
+}
+
+/** Google's free endpoint from this browser, placeholders kept. Throws on any failure. */
+export async function translateInBrowser(text, target) {
+  const g = protect(text)
+  const r = await viaBrowser(g.text, target)
+  const value = g.back(r.value)
+  if (value == null) throw new Error('placeholder lost')
+  return { value, src: r.src }
+}
+
 async function viaBrowser(text, target) {
   const paras = text.split('\n')
   const out = []

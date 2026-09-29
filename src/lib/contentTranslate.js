@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { getLocale, useLocale } from './i18n'
+import { translateInBrowser } from './quickTranslate'
 
 // WHAT A PERSON WROTE, IN THE READER'S LANGUAGE, WITHOUT A SECOND COPY OF IT.
 //
@@ -44,9 +45,25 @@ export async function translateTexts(texts, locale) {
       const row = byHash.get(hashes[i])
       if (row) { memo.set(key(locale, t), row); out[t] = row } else missing.push(t)
     })
+    // THE READER'S BROWSER FIRST (2 Oct 2026). The server's calls to the free engines are
+    // rate-limited on Supabase's shared addresses (three in four failed in a day); from here the
+    // same endpoint answers on the reader's own allowance. What it makes is kept in memory and in
+    // the shared cache (`cache_content_translation`, migration 288). Anything it cannot do still
+    // goes to the edge function, which tries its own engines.
+    const viaServer = []
+    await Promise.all(missing.map(async (t) => {
+      try {
+        const r = await translateInBrowser(t, locale)
+        const same = r.src === locale || r.value.trim() === t.trim()
+        const row = { value: same ? t : r.value, same, auto: true, src_lang: r.src }
+        memo.set(key(locale, t), row)
+        out[t] = row
+        supabase.rpc('cache_content_translation', { p_locale: locale, p_source: t, p_value: r.value, p_src: r.src }).then(() => {}, () => {})
+      } catch { viaServer.push(t) }
+    }))
     // The batches go out together rather than one after another.
     const batches = []
-    for (let i = 0; i < missing.length; i += 8) batches.push(missing.slice(i, i + 8))
+    for (let i = 0; i < viaServer.length; i += 8) batches.push(viaServer.slice(i, i + 8))
     await Promise.all(batches.map(async (batch) => {
       const { data: res, error } = await supabase.functions.invoke('translate-text', { body: { target: locale, items: batch.map((text) => ({ text })) } })
       if (error) return
