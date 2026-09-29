@@ -28,11 +28,26 @@ import { cx, formatDate, formatMoney } from '../lib/utils'
 // the dotted line." The orange panel is now its own fully rounded tile, inset
 // in a white card - clean, and it still reads as a voucher.
 //
+// A VOUCHER WITH NO CODE ON IT YET IS STILL A VOUCHER (29 Sep 2026).
+//
+// The ticket used to require a code to exist, and the wallet filtered on the
+// same thing, so an awarded voucher whose code the team had not typed in yet
+// appeared NOWHERE in the wallet - not as a placeholder, not as a line. Six of
+// them were in that state in production when this was written: six creators
+// told they had won a voucher, opening Rewards, and finding the voucher
+// section either absent or without theirs in it.
+//
+// So the code is now the one part that can be missing. The stub still says
+// what it is worth and where it came from, because both of those are already
+// true; the white half says plainly that the code is coming. There is no
+// "mark as used" on it, because there is nothing yet to spend.
+//
 // `onToggleUsed` is optional: an admin viewing a creator's page with `?as=`
 // sees the ticket but cannot tick it for them.
 export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
   const tr = useT()
   const [copied, setCopied] = useState(false)
+  const code = reward.voucher_code?.trim()
   const used = !!reward.used_at
   const from = reward.challenges?.title
     || (reward.milestones?.title && `${tr('Milestone')}: ${reward.milestones.title}`)
@@ -70,21 +85,30 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 rounded-r-card border-y border-r border-gray-100 px-3.5 py-3 sm:px-5 sm:py-4">
         <div className="min-w-0">
           {from && <p className="truncate text-xs text-smoke">{from}</p>}
-          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">{tr('Your code')}</p>
-          {/* WRAPS, NEVER TRUNCATES: a code with its end cut off is useless. */}
-          {/* The whole box is the copy button - the one thing anybody does
-              with a code, and a bigger target than an icon beside it. */}
-          <button
-            type="button"
-            onClick={copy}
-            aria-label={tr('Copy the code')}
-            className="mt-1 flex w-full items-center gap-2 rounded-lg bg-cloud px-2.5 py-2 text-left transition-transform duration-200 hoverable:hover:scale-[1.02]"
-          >
-            <code className="min-w-0 flex-1 [overflow-wrap:anywhere] font-mono text-sm font-bold text-ink sm:text-base sm:tracking-wider">
-              {reward.voucher_code}
-            </code>
-            <Icon name={copied ? 'check' : 'copy'} className="h-5 w-5 shrink-0 text-brand" />
-          </button>
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">
+            {code ? tr('Your code') : tr('Your voucher')}
+          </p>
+          {code ? (
+            /* WRAPS, NEVER TRUNCATES: a code with its end cut off is useless.
+               The whole box is the copy button - the one thing anybody does
+               with a code, and a bigger target than an icon beside it. */
+            <button
+              type="button"
+              onClick={copy}
+              aria-label={tr('Copy the code')}
+              className="mt-1 flex w-full items-center gap-2 rounded-lg bg-cloud px-2.5 py-2 text-left transition-transform duration-200 hoverable:hover:scale-[1.02]"
+            >
+              <code className="min-w-0 flex-1 [overflow-wrap:anywhere] font-mono text-sm font-bold text-ink sm:text-base sm:tracking-wider">
+                {code}
+              </code>
+              <Icon name={copied ? 'check' : 'copy'} className="h-5 w-5 shrink-0 text-brand" />
+            </button>
+          ) : (
+            <p className="mt-1 flex items-center gap-2 rounded-lg border border-dashed border-gray-200 px-2.5 py-2 text-xs text-smoke">
+              <Icon name="clock" className="h-4 w-4 shrink-0 text-brand" />
+              {tr('Your voucher is being prepared by the team.')}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -93,7 +117,7 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
               ? tr('Used {date}', { date: formatDate(reward.used_at) })
               : reward.distributed_at ? tr('Issued {date}', { date: formatDate(reward.distributed_at) }) : ''}
           </p>
-          {onToggleUsed && (
+          {onToggleUsed && code && (
             <button
               type="button"
               onClick={() => onToggleUsed(!used)}

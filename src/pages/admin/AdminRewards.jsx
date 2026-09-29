@@ -13,6 +13,7 @@ import InvoiceQueue from './InvoiceQueue'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import { useInvoiceViewer } from '../../components/admin/InvoiceModal'
 import { isRealMember } from '../../lib/members'
+import { awaitingCode } from '../../lib/wallet'
 import { rewardsTotal } from '../../lib/programme'
 import { groupRewards } from '../../lib/rewardsGrouping'
 import Reveal from '../../components/network/Reveal'
@@ -174,7 +175,14 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
         )}
       </div>
       <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
-      <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
+      {/* A DISTRIBUTED VOUCHER WITH NO CODE IS NOT DONE (29 Sep 2026).
+          It was wearing the same green "distributed" badge as a voucher the
+          creator can actually spend, so six of them sat here looking finished
+          while six creators had nothing to redeem. The badge now says which
+          of the two it is, and the row sorts into the "Needs a code" filter. */}
+      <Badge tone={needsCode(r) ? 'amber' : r.status === 'distributed' ? 'green' : 'amber'}>
+        {needsCode(r) ? 'needs a code' : r.status}
+      </Badge>
       {/* ONE BUTTON PER PAYMENT.
           If an invoice is already carrying this prize, that invoice is
           the truth about whether it has been paid. It used to be a
@@ -265,6 +273,11 @@ function RewardGroupCard({ group, ...rowProps }) {
 // The community's money hub: rewards (payouts) and prize invoices live
 // together. A reward row's Invoice button jumps straight into the invoice
 // composer with the creator, amount and challenge prefilled.
+// A voucher that has been handed over but has no code on it yet. The creator
+// sees a ticket saying the team is preparing it; here it is a job to do. Same
+// predicate the creator's wallet uses, so the two sides cannot drift.
+const needsCode = awaitingCode
+
 export default function AdminRewards() {
   const [searchParams] = useSearchParams()
   // The old five tabs collapse to three. `queue`, `invoices` and `referrals`
@@ -525,10 +538,13 @@ export default function AdminRewards() {
   }
 
   const filtered = useMemo(
-    () => rewards.filter((r) => (!statusFilter || r.status === statusFilter)
-      && (!kindFilter || r.reward_type === kindFilter)),
+    () => rewards.filter((r) => (
+      statusFilter === 'needs-code' ? needsCode(r) : (!statusFilter || r.status === statusFilter)
+    ) && (!kindFilter || r.reward_type === kindFilter)),
     [rewards, statusFilter, kindFilter]
   )
+
+  const awaitingCode = useMemo(() => rewards.filter(needsCode), [rewards])
 
   const challengesById = useMemo(
     () => Object.fromEntries(challenges.map((c) => [c.id, c])),
@@ -695,7 +711,12 @@ export default function AdminRewards() {
         <Segmented
           value={statusFilter}
           onChange={setStatusFilter}
-          options={[['', 'All'], ['pending', 'Still to pay'], ['distributed', 'Paid']]}
+          options={[
+            ['', 'All'],
+            ['pending', 'Still to pay'],
+            ['distributed', 'Paid'],
+            ...(awaitingCode.length ? [['needs-code', `Needs a code (${awaitingCode.length})`]] : []),
+          ]}
         />
       </div>
 
