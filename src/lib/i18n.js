@@ -32,9 +32,22 @@ import { useMemo, useSyncExternalStore } from 'react'
 // version of that which is acceptable. `t()` is only ever called on literals
 // that live in this repository.
 
+// ADDING A LANGUAGE IS ADDING A ROW HERE AND A FILE IN `src/locales`.
+//
+// Ethan asked for German to be "trivial to add" and then for German, Portuguese
+// and Romanian outright. It was nearly trivial already - that is what keying on
+// the English sentence buys - and these two lists are the whole of it. Nothing
+// else in the app knows how many languages there are.
+//
+// ORDER IS ENGLISH FIRST, THEN THE MARKETS IN THE ORDER THEY OPENED. Not
+// alphabetical: the language picker is read by somebody looking for their own,
+// and the markets that exist are the ones most likely to be looked for.
 export const LOCALES = [
   { code: 'en', label: 'English', native: 'English', flag: '🇬🇧' },
   { code: 'es', label: 'Spanish', native: 'Español', flag: '🇪🇸' },
+  { code: 'pt', label: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+  { code: 'de', label: 'German', native: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ro', label: 'Romanian', native: 'Română', flag: '🇷🇴' },
 ]
 
 export const DEFAULT_LOCALE = 'en'
@@ -50,7 +63,12 @@ export const DEFAULT_LOCALE = 'en'
 //
 // English is not a dictionary at all. It is the source, so `t()` returning its
 // argument IS English, and there is nothing to fetch.
-const LOADERS = { es: () => import('../locales/es') }
+const LOADERS = {
+  es: () => import('../locales/es'),
+  pt: () => import('../locales/pt'),
+  de: () => import('../locales/de'),
+  ro: () => import('../locales/ro'),
+}
 const DICTS = {}
 const pending = {}
 
