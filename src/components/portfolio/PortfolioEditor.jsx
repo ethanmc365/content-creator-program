@@ -110,7 +110,6 @@ const WORD_FIELDS = [
   // actually starts to fill up rather than at the halfway mark.
   { key: 'about_body', label: 'About: your paragraph', lines: 10, max: 900 },
   { key: 'work_title', label: 'Work: heading', lines: 1, max: 34 },
-  { key: 'work_body', label: 'Work: one line under it', lines: 3, max: 150 },
   { key: 'awards_title', label: 'Awards: heading', lines: 1, max: 34, needsCerts: true },
   { key: 'awards_body', label: 'Awards: one line under it', lines: 3, max: 150, needsCerts: true },
   { key: 'contact_title', label: 'Contact: heading', lines: 1, max: 34 },

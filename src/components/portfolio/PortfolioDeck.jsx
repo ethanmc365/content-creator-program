@@ -1,3 +1,4 @@
+import { cx } from '../../lib/utils'
 import { forwardRef, useEffect, useState } from 'react'
 import { About, Awards, Contact, Cover, Work } from './Slides'
 import { PAGE_H, PAGE_W, WORK_LIMIT, orderedVideos, workMode } from '../../lib/portfolio'
@@ -76,10 +77,10 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
         : { display: 'flex', flexDirection: 'column', gap, width }}
     >
       {pages.map((p, i) => (
-        <Sheet key={p.key} scale={scale} width={width} snap={horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
+        <Sheet key={p.key} index={i} scale={scale} width={width} snap={horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
           {p.key === 'cover' && <Cover {...common} />}
           {p.key === 'about' && <About {...common} n={i + 1} />}
-          {p.key.startsWith('work') && <Work {...common} videos={p.videos} offset={p.offset} totalVideos={picked.length} n={i + 1} />}
+          {p.key.startsWith('work') && <Work {...common} videos={p.videos} offset={p.offset} n={i + 1} />}
           {p.key === 'awards' && <Awards {...common} certificates={certificates || []} n={i + 1} />}
           {p.key === 'contact' && <Contact {...common} n={i + 1} />}
         </Sheet>
@@ -88,11 +89,15 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
   )
 })
 
-function Sheet({ scale, width, snap, setRef, children }) {
+// EACH PAGE RISES IN, ONE AFTER ANOTHER (2 Oct 2026). Ethan: "there are no animations on that
+// page". The motion is on the outer frame; the ref that gets photographed for the PDF is inside it
+// and never moves.
+function Sheet({ index = 0, scale, width, snap, setRef, children }) {
   return (
     <div
-      className={snap ? 'snap-start' : undefined}
+      className={cx('animate-fade-up', snap && 'snap-start')}
       style={{
+        animationDelay: `${Math.min(index, 5) * 70}ms`,
         width, flex: snap ? `0 0 ${width}px` : undefined,
         height: PAGE_H * scale, overflow: 'hidden',
         borderRadius: 14 * Math.min(1, scale * 1.6),

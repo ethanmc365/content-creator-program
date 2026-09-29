@@ -409,33 +409,21 @@ function PlatformRow({ row }) {
 // finish. The tiles keep their shape (four true 9:16 frames a page) and gain a
 // RANK - "#1" is the first thing a brand wants to know about a list sorted by
 // views - and the header says what the list is instead of a grey chip.
-export function Work({ creator, copy, videos, n, total, offset = 0, totalVideos }) {
+export function Work({ creator, copy, videos, n, total, offset = 0 }) {
   const tr = useT()
   const t = theme(copy)
-  const from = offset + 1
-  const to = offset + videos.length
   return (
     <div style={page({ padding: '48px 64px 0' })}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
-        <div style={{ minWidth: 0 }}>
-          <Kicker color={t.ink}>{offset === 0 ? 'Most viewed first' : 'Continued'}</Kicker>
-          <SlideTitle size={38}>{copyFor(copy, 'work_title')}</SlideTitle>
-          <p style={{ margin: '8px 0 0', maxWidth: 720, fontSize: 13.5, lineHeight: 1.6, color: SMOKE }}>
-            {copyFor(copy, 'work_body')}
-          </p>
-        </div>
-        {videos.length > 0 && (
-          <span style={{
-            flexShrink: 0, borderRadius: 999, background: t.grad, color: '#ffffff',
-            padding: '8px 16px', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
-            boxShadow: `0 8px 20px ${alpha(t.accent, 0.25)}`,
-          }}>
-            {totalVideos && totalVideos > 1 ? `Videos ${from}–${to} of ${totalVideos}` : `${videos.length} video${videos.length === 1 ? '' : 's'}`}
-          </span>
-        )}
+      {/* JUST THE HEADING (2 Oct 2026). Ethan: the line under it ("Most watched videos from Trip.com
+          challenges...") "is not needed", the "Videos 1 to 4 of 12" pill is "unnecessary", and "No
+          need to say at the top, 'Most viewed first'... just 'Videos'". "Continued" stays on the
+          pages after the first. */}
+      <div style={{ minWidth: 0 }}>
+        <Kicker color={t.ink}>{offset === 0 ? tr('Videos') : tr('Continued')}</Kicker>
+        <SlideTitle size={38}>{copyFor(copy, 'work_title')}</SlideTitle>
       </div>
 
-      <div style={{ display: 'flex', gap: 32, marginTop: 22 }}>
+      <div style={{ display: 'flex', gap: 32, marginTop: 30 }}>
         {videos.map((v, i) => <VideoTile key={v.id} video={v} rank={offset + i + 1} t={t} />)}
         {/* NOTHING BUT THE WORDS WHEN THERE IS NO WORK YET (21 Sep 2026).
             This was a peach card with a dotted route and a plane on it. Ethan:

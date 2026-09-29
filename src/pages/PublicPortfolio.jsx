@@ -108,7 +108,7 @@ export default function PublicPortfolio() {
             for the export, where an anchor is a rectangle that does nothing.
             Putting the interactivity beside the paper keeps the paper honest. */}
         {videos?.length > 0 && (
-          <section className="mt-8">
+          <section className="mt-8 animate-fade-up [animation-delay:250ms]">
             <h2 className="mb-3 text-sm font-bold text-ink">Watch them</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {videos.map((v) => (

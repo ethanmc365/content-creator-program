@@ -47,6 +47,14 @@ import { cx, timeAgo } from '../../lib/utils'
 
 const loadCatalogue = () => import('../../locales/catalogue.json')
 
+// A screen's name as a person would say it: "Admin · Admin Kpis" is the file it came from, "KPIs"
+// is the screen. The key is unchanged; only the label is tidied.
+const screenLabel = (name) => name
+  .replace(/^Admin · (Admin )?/, '')
+  .replace(/\bKpis?\b/g, (m) => m.toUpperCase().replace('S', 's'))
+  .replace(/^creator /, 'Creator ')
+const isAdminScreen = (name) => name.startsWith('Admin · ')
+
 // The `{placeholders}` in a sentence, as a sorted list, so "same set" is a string compare.
 const holes = (s) => (String(s).match(/\{[a-zA-Z0-9_]+\}/g) || []).sort().join(',')
 const holesProblem = (source, text) => {
@@ -79,14 +87,14 @@ export default function AdminLanguages() {
   const [catalogue, setCatalogue] = useState(null)
   const [screen, setScreen] = useState(null)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('todo')
+  const [filter, setFilter] = useState('all')
   const [rows, setRows] = useState(null)
   const [dictReady, setDictReady] = useState(false)
   const [error, setError] = useState('')
   const [savingKey, setSavingKey] = useState(null)
   const [drafts, setDrafts] = useState({}) // source -> unsaved text (typed or suggested)
   const [bulk, setBulk] = useState(null) // 'saving' | null
-  const [limit, setLimit] = useState(40)
+  const [limit, setLimit] = useState(30)
 
   useEffect(() => { loadCatalogue().then((m) => setCatalogue(m.default)) }, [])
   useEffect(() => {
@@ -117,7 +125,9 @@ export default function AdminLanguages() {
     // `dictReady` is the dependency the lint cannot see: `bundledDict` reads a module cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogue, locale, dictReady])
-  const screens = useMemo(() => (withExtras ? Object.keys(withExtras) : []), [withExtras])
+  // Creator-facing screens first - they are what creators read - then the admin ones.
+  const screens = useMemo(() => (withExtras ? Object.keys(withExtras) : [])
+    .sort((a, b) => (isAdminScreen(a) - isAdminScreen(b)) || screenLabel(a).localeCompare(screenLabel(b))), [withExtras])
 
   const dict = bundledDict(locale) || {}
   const overrides = useMemo(() => {
@@ -136,10 +146,18 @@ export default function AdminLanguages() {
     return { done, all: all.size }
   }, [withExtras, statusOf])
 
-  const doneOn = (name) => {
-    const list = withExtras?.[name] || []
-    return { n: list.filter((s) => statusOf(s) !== 'todo').length, total: list.length }
-  }
+  // COUNTED ONCE, NOT ON EVERY KEYSTROKE (2 Oct 2026). Ethan: "it can be laggy when clicking".
+  // This walked every sentence of every screen on each render - and typing in one box re-renders
+  // the page - so a keystroke cost a few thousand lookups. Now it only reruns when a translation
+  // actually lands.
+  const screenCounts = useMemo(() => {
+    const out = {}
+    for (const [name, list] of Object.entries(withExtras || {})) {
+      out[name] = { n: list.filter((x) => statusOf(x) !== 'todo').length, total: list.length }
+    }
+    return out
+  }, [withExtras, statusOf])
+  const doneOn = (name) => screenCounts[name] || { n: 0, total: 0 }
 
   // What is in view: one screen, or every string matching a search - across the whole
   // product, which is how somebody fixes a word they saw once and cannot place.
@@ -165,7 +183,7 @@ export default function AdminLanguages() {
     () => [...shown].sort((a, b) => (overrides[b] ? 1 : 0) - (overrides[a] ? 1 : 0)),
     [shown, overrides],
   )
-  useEffect(() => { setLimit(40) }, [screen, search, filter, locale])
+  useEffect(() => { setLimit(30) }, [screen, search, filter, locale])
   const visible = useMemo(() => ordered.slice(0, limit), [ordered, limit])
   const setDraft = useCallback((source, v) => setDrafts((d) => {
     if (v == null) { const n = { ...d }; delete n[source]; return n }
@@ -212,7 +230,6 @@ export default function AdminLanguages() {
   if (!editable.length) return <Navigate to="/home" replace />
 
   const loading = !withExtras || !dictReady || rows === null
-  const pct = totals.all ? Math.round((totals.done / totals.all) * 100) : 0
 
   return (
     <div className="page max-w-6xl">
@@ -244,15 +261,14 @@ export default function AdminLanguages() {
             )
           })}
         </div>
+        {/* A LINE OF TEXT, NOT A BAR (2 Oct 2026). Ethan: "the green progress bar seems unnecessary
+            on every single thing". */}
         {!loading && tab === 'interface' && (
-          <div className="ml-auto flex min-w-[12rem] items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud" role="img" aria-label={`${pct}%`}>
-              <div className="kpi-fill h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-smoke">
-              {tr('{a} of {b} translated', { a: totals.done.toLocaleString(), b: totals.all.toLocaleString() })}
-            </span>
-          </div>
+          <span className="ml-auto whitespace-nowrap text-xs font-semibold tabular-nums text-smoke animate-page-in">
+            {totals.all - totals.done === 0
+              ? tr('Everything is translated')
+              : tr('{n} still in English', { n: (totals.all - totals.done).toLocaleString() })}
+          </span>
         )}
       </div>
 
@@ -295,10 +311,9 @@ export default function AdminLanguages() {
                 onChange={setFilter}
                 label={tr('Which sentences')}
                 options={[
-                  { value: 'todo', label: `${tr('Needs work')} · ${counts.todo}` },
-                  { value: 'edited', label: `${tr('Edited here')} · ${counts.edited}` },
-                  { value: 'shipped', label: `${tr('Shipped')} · ${counts.shipped}` },
                   { value: 'all', label: `${tr('All')} · ${counts.all}` },
+                  { value: 'todo', label: `${tr('Still in English')} · ${counts.todo}` },
+                  { value: 'edited', label: `${tr('Changed by us')} · ${counts.edited}` },
                 ]}
               />
             )}
@@ -316,33 +331,33 @@ export default function AdminLanguages() {
                 <option value="">{tr('Pick a screen')}</option>
                 {screens.map((name) => {
                   const { n, total } = doneOn(name)
-                  return <option key={name} value={name}>{name} ({n}/{total})</option>
+                  return <option key={name} value={name}>{isAdminScreen(name) ? `Admin · ${screenLabel(name)}` : screenLabel(name)}{n < total ? ` (${total - n})` : ''}</option>
                 })}
               </select>
             </div>
             <nav className="hidden max-h-[72vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1.5 shadow-card lg:sticky lg:top-24 lg:block" aria-label={tr('Screens')}>
-              {screens.map((name) => {
+              {screens.map((name, i) => {
                 const { n, total } = doneOn(name)
                 const complete = n === total
                 const on = screen === name && !search
+                const heading = i === 0 ? tr('Creator screens') : isAdminScreen(name) && !isAdminScreen(screens[i - 1]) ? tr('Admin screens') : null
                 return (
+                  <div key={name}>
+                  {heading && <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">{heading}</p>}
                   <button
-                    key={name}
                     type="button"
-                    onClick={() => { setScreen(name); setSearch(''); setFilter(n < total ? 'todo' : 'all') }}
+                    onClick={() => { setScreen(name); setSearch(''); setFilter('all') }}
                     aria-current={on ? 'true' : undefined}
-                    className={cx('group block w-full rounded-lg px-3 py-2 text-left transition-colors', on ? 'bg-brand text-white' : 'hoverable:hover:bg-cloud')}
+                    className={cx('group block w-full rounded-lg px-3 py-2 text-left transition-all duration-150', on ? 'bg-brand text-white shadow-card' : 'hoverable:hover:translate-x-0.5 hoverable:hover:bg-cloud')}
                   >
                     <span className="flex items-center gap-2">
-                      <span className={cx('min-w-0 flex-1 truncate text-[13px] font-medium', on ? 'text-white' : 'text-ink')}>{name}</span>
-                      {complete
-                        ? <Icon name="check" className={cx('h-3.5 w-3.5 shrink-0', on ? 'text-white' : 'text-emerald-500')} />
-                        : <span className={cx('shrink-0 text-[11px] font-semibold tabular-nums', on ? 'text-white/85' : 'text-amber-600')}>{total - n}</span>}
-                    </span>
-                    <span className={cx('mt-1.5 block h-1 overflow-hidden rounded-full', on ? 'bg-white/25' : 'bg-cloud')}>
-                      <span className={cx('block h-full rounded-full', on ? 'bg-white' : complete ? 'bg-emerald-500' : 'bg-brand')} style={{ width: `${total ? (n / total) * 100 : 0}%` }} />
+                      <span className={cx('min-w-0 flex-1 truncate text-[13px] font-medium', on ? 'text-white' : 'text-ink')}>{screenLabel(name)}</span>
+                      {!complete && (
+                        <span title={tr('Still in English')} className={cx('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand')}>{total - n}</span>
+                      )}
                     </span>
                   </button>
+                  </div>
                 )
               })}
             </nav>
@@ -357,7 +372,7 @@ export default function AdminLanguages() {
               ) : shown.length === 0 ? (
                 <EmptyState
                   icon={<Icon name={filter === 'todo' ? 'check' : 'magnifier'} className="h-7 w-7" />}
-                  title={filter === 'todo' ? tr('Nothing left to translate here') : tr('Nothing matches that')}
+                  title={filter === 'todo' ? tr('Everything here is translated') : tr('Nothing matches that')}
                   hint={filter === 'todo' ? tr('Every sentence on this screen has a translation. Switch to All to review them.') : tr('Try a shorter phrase, or another filter.')}
                 />
               ) : (
@@ -367,10 +382,11 @@ export default function AdminLanguages() {
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <p className="text-xs text-smoke">{shown.length === 1 ? tr('1 sentence') : tr('{n} sentences', { n: shown.length })}</p>
                   </div>
-                  <ul className="space-y-2.5">
-                    {visible.map((source) => (
+                  <ul key={`${screen}|${filter}|${search ? 's' : ''}`} className="space-y-2.5">
+                    {visible.map((source, i) => (
                       <StringRow
                         key={source}
+                        index={i}
                         source={source}
                         bundled={dict[source] || ''}
                         override={overrides[source] || ''}
@@ -386,8 +402,8 @@ export default function AdminLanguages() {
                       hold several hundred sentences, each a self-measuring text box; drawing all of
                       them at once was the lag. The rest are one press away. */}
                   {ordered.length > visible.length && (
-                    <button type="button" onClick={() => setLimit((n) => n + 40)} className="btn-secondary mx-auto mt-4 !py-2 text-sm">
-                      {tr('Show {n} more', { n: Math.min(40, ordered.length - visible.length) })}
+                    <button type="button" onClick={() => setLimit((n) => n + 30)} className="btn-secondary mx-auto mt-4 !py-2 text-sm">
+                      {tr('Show {n} more', { n: Math.min(30, ordered.length - visible.length) })}
                     </button>
                   )}
                 </>
@@ -420,7 +436,7 @@ export default function AdminLanguages() {
 // ONE STRING. The English above, the translation beneath it, and a plain statement of where
 // the current word came from - "shipped" and "somebody typed this here" are the two states a
 // translator has to tell apart before deciding whether to touch it.
-const StringRow = memo(function StringRow({ source, bundled, override, meta, draft, onDraft, busy, onSave }) {
+const StringRow = memo(function StringRow({ index = 0, source, bundled, override, meta, draft, onDraft, busy, onSave }) {
   const tr = useT()
   const current = override || bundled
   const dirty = draft != null
@@ -441,14 +457,16 @@ const StringRow = memo(function StringRow({ source, bundled, override, meta, dra
   // here is tinted and tagged; only a missing one is amber.
   const status = override ? 'edited' : current ? 'shipped' : 'todo'
   return (
-    <li className={cx(
-      'rounded-card border p-4 shadow-card transition-colors',
-      problem ? 'border-red-300 bg-white' : changed ? 'border-brand/50 bg-white' : status === 'edited' ? 'border-brand/30 bg-brand-tint/40' : status === 'todo' ? 'border-dashed border-amber-300 bg-white' : 'border-gray-100 bg-white',
+    <li
+      style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
+      className={cx(
+      'animate-board-swap rounded-card border p-4 shadow-card transition-colors [contain-intrinsic-size:auto_120px] [content-visibility:auto]',
+      problem ? 'border-red-300 bg-white' : changed ? 'border-brand/50 bg-white' : status === 'edited' ? 'border-brand/30 bg-brand-tint/40' : status === 'todo' ? 'border-dashed border-brand/40 bg-white' : 'border-gray-100 bg-white',
     )}>
       <div className="flex items-start gap-2.5">
         <p className="min-w-0 flex-1 text-[14px] leading-snug text-ink [overflow-wrap:anywhere]">{source}</p>
         {status === 'edited' && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('Edited')}</span>}
-        {status === 'todo' && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">{tr('Missing')}</span>}
+        {status === 'todo' && <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Still in English')}</span>}
       </div>
 
       <AutoTextarea
@@ -570,7 +588,7 @@ function ContentRow({ row, busy, onSave, onRedo }) {
   const changed = text.trim() !== row.value.trim()
   const from = LOCALES.find((l) => l.code === row.src_lang)?.native
   return (
-    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-board-swap">
       <div className="grid gap-px bg-gray-100 lg:grid-cols-2">
         <div className="bg-cloud/50 p-4">
           <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{from ? tr('Original ({lang})', { lang: from }) : tr('Original')}</p>
@@ -580,8 +598,8 @@ function ContentRow({ row, busy, onSave, onRedo }) {
           <p className="mb-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
             {tr('Translation')}
             {row.auto
-              ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Automatic')}</span>
-              : <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">{tr('Corrected')}{row.reviewer?.name ? ` · ${row.reviewer.name}` : ''}</span>}
+              ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Automatic')}</span>
+              : <span className="rounded-full bg-brand px-2 py-0.5 text-white">{tr('Corrected')}{row.reviewer?.name ? ` · ${row.reviewer.name}` : ''}</span>}
           </p>
           <AutoTextarea value={text} minRows={4} maxHeight={320} onChange={(e) => setText(e.target.value)} className="input w-full resize-none text-[13px] leading-relaxed" />
         </div>

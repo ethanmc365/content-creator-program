@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Skeleton, Modal, Spinner, Select, Avatar } from '../../components/ui'
+import { PageHeader, Skeleton, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
 import Reveal from '../../components/network/Reveal'
@@ -69,7 +69,6 @@ export default function AdminVideoTracker() {
   const [syncing, setSyncing] = useState(false)
   const [syncNote, setSyncNote] = useState('')
   const [editing, setEditing] = useState(null)   // a row, or {} for a new one
-  const [playing, setPlaying] = useState(null)
 
   // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer
   // of it takes the whole thing (`visibleVideos`) and because that makes
@@ -394,7 +393,6 @@ export default function AdminVideoTracker() {
                   v={v}
                   place={filter.sort === 'views' ? i + 1 : null}
                   onOpen={() => setEditing(v)}
-                  onPlay={() => setPlaying(v)}
                   onPin={async () => {
                     await supabase.from('tracked_videos').update({ pinned: !v.pinned }).eq('id', v.id)
                     load()
@@ -446,7 +444,6 @@ export default function AdminVideoTracker() {
         />
       )}
 
-      {playing && <PlayerModal v={playing} onClose={() => setPlaying(null)} />}
     </div>
   )
 }
@@ -457,7 +454,7 @@ export default function AdminVideoTracker() {
 // number beside it, and the caption is the small print. Every other card in
 // this product leads with a person or a title; this one leads with a sentence,
 // because the sentence is what somebody came here to steal.
-function VideoCard({ v, place, onOpen, onPlay, onPin }) {
+function VideoCard({ v, place, onOpen, onPin }) {
   const tr = useT()
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
@@ -544,11 +541,15 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
           top half of a vertical frame, which is why it was faces that went. 4:5
           shows 71% of it and is still a card rather than a poster; 3:4 was
           tried and makes a three-column grid two screens tall. */}
-      <button
-        type="button"
-        onClick={onPlay}
+      {/* STRAIGHT TO THE VIDEO (2 Oct 2026). Ethan: the thumbnail showed "This one cannot be played
+          here. Open it on the platform instead." - "clicking on the thumbnail or the card of any of
+          these should just open the link directly in new tab." So the frame is a link now. */}
+      <a
+        href={v.video_url}
+        target="_blank"
+        rel="noopener noreferrer"
         className="relative block aspect-[4/5] w-full overflow-hidden bg-cloud text-left"
-        aria-label={tr('Play this video')}
+        aria-label={tr('Open on the platform')}
       >
         {thumb
           ? <img src={thumb} alt="" onError={onThumbError} referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
@@ -583,9 +584,16 @@ function VideoCard({ v, place, onOpen, onPlay, onPin }) {
             <span className="h-4 w-4">{PLATFORM_MARKS[v.platform].icon}</span>
           </span>
         )}
-      </button>
+      </a>
 
-      <div className="flex min-w-0 flex-1 flex-col p-4">
+      {/* The card body opens it too; its own links and buttons keep their own jobs. */}
+      <div
+        className="flex min-w-0 flex-1 cursor-pointer flex-col p-4"
+        onClick={(e) => {
+          if (e.target.closest('a,button')) return
+          if (v.video_url) window.open(v.video_url, '_blank', 'noopener,noreferrer')
+        }}
+      >
         {/* THE HOOK, AS THE HEADING. `line-clamp-3` rather than a truncation:
             a hook that stops mid-word teaches nothing, and three lines is the
             longest one anybody has actually written. */}
@@ -721,47 +729,5 @@ function IconButton({ label, onClick, href, name, active = false }) {
     <button type="button" onClick={onClick} title={label} aria-label={label} className={cls}>
       <Icon name={name} className="h-4 w-4" />
     </button>
-  )
-}
-
-// WATCHING IT WITHOUT LEAVING THE PAGE.
-//
-// `videoEmbed` builds a tokenless player for the three platforms that offer one
-// (lib/videoPreview). Where it cannot - a shortened TikTok link whose id has
-// never been resolved, a private post - the honest answer is a link out rather
-// than an empty black box, which is what the profile page already does.
-function PlayerModal({ v, onClose }) {
-  const tr = useT()
-  const [embed, setEmbed] = useState(null)
-  useEffect(() => {
-    let alive = true
-    import('../../lib/videoPreview').then((m) => { if (alive) setEmbed(m.videoEmbed(v.video_url)) })
-    return () => { alive = false }
-  }, [v.video_url])
-
-  return (
-    <Modal open onClose={onClose} title={v.hook || tr('Watch')} wide>
-      {embed
-        ? (
-          <div className={cx('mx-auto overflow-hidden rounded-card bg-ink', embed.vertical ? 'aspect-[9/16] max-w-xs' : 'aspect-video')}>
-            <iframe
-              src={embed.embedUrl}
-              title={v.hook || 'Video'}
-              className="h-full w-full"
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        )
-        : (
-          <p className="rounded-card bg-cloud px-4 py-8 text-center text-sm text-smoke">
-            {tr('This one cannot be played here. Open it on the platform instead.')}
-          </p>
-        )}
-      <a href={v.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary mt-4 w-full justify-center">
-        <Icon name="link" className="h-4 w-4" />
-        {tr('Open on')} {v.platform || tr('the platform')}
-      </a>
-    </Modal>
   )
 }
