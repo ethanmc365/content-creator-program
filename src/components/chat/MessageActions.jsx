@@ -265,7 +265,11 @@ export default function MessageActions({
 // is re-exported for anything that imported it from here.
 export { reactorTitle }
 
-function ActionButton({ icon, label, title, onClick, danger, active }) {
+function ActionButton({ icon, label: rawLabel, title: rawTitle, onClick, danger, active }) {
+  // The labels come in as English from both pages; said in the reader's language here.
+  const tr = useT()
+  const label = rawLabel && tr(rawLabel)
+  const title = rawTitle && tr(rawTitle)
   return (
     <button
       type="button"

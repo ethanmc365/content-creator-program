@@ -218,7 +218,7 @@ function SheetBody({
              "just the icon in the Trip.com orange", no tinted box round it. */
           <section>
             <p className="mb-2 text-sm font-medium text-ink">{tr('What to track')}</p>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {offered.map((m) => {
                 const done = existing[m.key]
                 const on = metric === m.key
@@ -230,7 +230,7 @@ function SheetBody({
                     title={tr(m.how)}
                     onClick={() => (done ? onEditExisting?.(done) : setMetric(m.key))}
                     className={cx(
-                      'group flex min-h-[3rem] items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200',
+                      'group relative flex min-h-[3rem] items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-all duration-200 sm:gap-3 sm:px-3',
                       on
                         ? 'bg-brand text-white shadow-lift'
                         : 'bg-white ring-1 ring-gray-100 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card hoverable:hover:ring-brand/30',
@@ -238,16 +238,16 @@ function SheetBody({
                   >
                     <Icon name={m.icon} className={cx('h-5 w-5 shrink-0', on ? 'text-white' : 'text-brand')} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-semibold leading-snug">{tr(m.label)}</span>
+                      <span className={cx('block text-[12.5px] font-semibold leading-snug sm:text-[13px]', done && 'pr-6 sm:pr-0')}>{tr(m.label)}</span>
                       {done && (
-                        <span className={cx('block text-[11px] leading-snug', on ? 'text-white/85' : 'text-smoke')}>
+                        <span className={cx('hidden text-[11px] leading-snug sm:block', on ? 'text-white/85' : 'text-smoke')}>
                           {tr('Set for {p}. Press to edit.', { p: periodLabel(p) })}
                         </span>
                       )}
                     </span>
                     {done && (
-                      <span className="flex shrink-0 items-center gap-1 rounded-md bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-brand">
-                        <Icon name="pencil" className="h-3 w-3" />
+                      <span className="absolute right-1.5 top-1.5 flex shrink-0 items-center gap-1 rounded-md bg-brand-tint px-1 py-0.5 text-[10px] font-bold tabular-nums text-brand sm:static sm:px-1.5 sm:text-[11px]">
+                        <Icon name="pencil" className="hidden h-3 w-3 sm:block" />
                         {formatKpiValue(m, done.target_value, currency)}
                       </span>
                     )}
