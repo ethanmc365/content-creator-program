@@ -246,6 +246,7 @@ function withTimeout(promise, ms, message) {
 // beat. So we ask the canvas to produce one pixel and check what came out.
 // Computed once and cached; it cannot change mid-session.
 let webpOk = null
+const JPEG_FALLBACK_QUALITY = 0.74
 function canEncodeWebp() {
   if (webpOk !== null) return webpOk
   try {
@@ -415,7 +416,14 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
     // rather than returning one or the other and making this branch.
     canvas.getContext('2d').drawImage(decoded.source, 0, 0, canvas.width, canvas.height)
 
-    const blob = await encodeCanvas(canvas, outType, quality)
+    // THE JPEG FALLBACK GETS ITS OWN QUALITY (1 Oct 2026). A caller's `quality` is tuned for
+    // WebP, and iPhones cannot encode WebP, so most gallery photos were JPEG at 0.8: measured,
+    // ~180 a week at 340 kB, 248 MB of a 1 GB bucket and about eleven weeks from full. JPEG at
+    // 0.74 and the same pixel size is roughly a third smaller and not visibly different at the
+    // sizes the app shows; the resolution is untouched, which is what made the old avatars bad.
+    // A caller asking for 0.9+ (the profile photo's master copy) is left exactly as it asked.
+    const q = useWebp || format !== 'webp' || quality >= 0.9 ? quality : Math.min(quality, JPEG_FALLBACK_QUALITY)
+    const blob = await encodeCanvas(canvas, outType, q)
     if (!blob) throw new Error('encode-failed')
     // If compression made it bigger (tiny images), keep the (web-safe) source.
     if (blob.size >= source.size && WEB_SAFE.includes(source.type)) return source

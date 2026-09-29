@@ -26,6 +26,8 @@
 // EVERY creator who entered, so turning it on is a decision about how common a
 // certificate should be. "Milestone reached" has no milestone chosen, because
 // only the admin knows which one - the studio says so in the panel.
+// THE TWO DRAFTS SWAPPED LOOKS (1 Oct 2026), at Ethan's request before he puts them live:
+// "Milestone reached" is now the minimal one and "Took part" the boarding pass.
 export const STARTERS = [
   {
     // ONE DESIGN FOR EVERY PAID PLACE (28 Sep 2026): each place gets its own
@@ -114,9 +116,9 @@ export const STARTERS = [
     body: 'for reaching {milestone}',
     footnote: '',
     accent: '#D94407',
-    layout: 'boarding',
-    paper: 'tint',
-    emblem: 'flag',
+    layout: 'minimal',
+    paper: 'sunset',
+    emblem: 'check',
     pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
@@ -133,9 +135,9 @@ export const STARTERS = [
     body: 'for taking part in {challenge}',
     footnote: '',
     accent: '#D94407',
-    layout: 'minimal',
-    paper: 'sunset',
-    emblem: 'check',
+    layout: 'boarding',
+    paper: 'tint',
+    emblem: 'flag',
     pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',

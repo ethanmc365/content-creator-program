@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -239,7 +240,9 @@ export function EventRatingPrompt() {
 
   const shown = hover || rating
 
-  return (
+  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
+  // header and the page title painted on top of the dimmed backdrop.
+  return createPortal((
     <div className="fixed inset-0 z-[75] flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label={tr("Rate the event")}>
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-lift animate-pop-in sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("How was it?")}</p>
@@ -295,7 +298,7 @@ export function EventRatingPrompt() {
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 // ---------------------------------------------------------------- admin view

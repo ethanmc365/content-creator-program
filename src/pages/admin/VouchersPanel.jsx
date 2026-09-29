@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import Segmented from '../../components/network/Segmented'
 import VoucherTicket from '../../components/VoucherTicket'
 import { cx, formatDate, formatMoney } from '../../lib/utils'
 import { notice, confirm } from '../../lib/confirm'
@@ -27,50 +26,53 @@ import { rewardsTotal } from '../../lib/programme'
 // own challenge, so what a challenge paid out never moves; they share a group and a
 // code, and every action here reaches the whole group (see migration 281).
 
+// ONE LIST, THE JOBS FIRST (1 Oct 2026). Ethan: "To hand over" does not make sense - "there's a
+// voucher that needs the code. We give the code, and then it's done" - and there should be no
+// Not used / Used filters, just All, with what needs doing at the top and the newest first. The
+// cards were also "taking up a lot of space". So: a voucher that has not been handed over and one
+// handed over with no code are the SAME state, "Needs a code"; the list is one compact card of
+// rows, needs-a-code first, then spendable, then used; and combining is a bar that appears once
+// two of one creator's vouchers are ticked, in any currency (a mix is worth its euro total).
 const STATES = {
-  handover: { label: 'To hand over', tone: 'amber' },
   needs_code: { label: 'Needs a code', tone: 'amber' },
   chat: { label: 'Sent by chat', tone: 'grey' },
   ready: { label: 'Ready to spend', tone: 'green' },
   used: { label: 'Used', tone: 'light' },
 }
+const ORDER = { needs_code: 0, ready: 1, chat: 1, used: 2 }
 
 const stateOf = (t) => {
-  if (t.status === 'pending') return 'handover'
+  if (t.status === 'pending') return 'needs_code'
   if (t.used_at) return 'used'
   if (!t.voucher_code?.trim()) return t.issued_via === 'chat' ? 'chat' : 'needs_code'
   return 'ready'
 }
 
 const money = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
+const sumOf = (list) => {
+  const total = rewardsTotal(list.flatMap((t) => (t.parts ? t.parts : [t])))
+  return `${total.converted ? '≈ ' : ''}${formatMoney(total.amount, total.currency)}`
+}
 
 export default function VouchersPanel({ rewards, loading, onChanged, onHandOver }) {
-  const [filter, setFilter] = useState('active')
   const [search, setSearch] = useState('')
   const [picked, setPicked] = useState(() => new Set())
   const [editing, setEditing] = useState(null) // a ticket, for its code
   const [combining, setCombining] = useState(null) // { creator, tickets }
   const [busy, setBusy] = useState(null)
 
-  // Pending vouchers are not tickets yet - they are jobs - so they sit alongside.
+  // A voucher not yet handed over is a ticket that needs its code, drawn in the same list.
   const tickets = useMemo(() => {
     const vouchers = (rewards || []).filter((r) => r.reward_type === 'voucher' && r.source !== 'referral')
     const pending = vouchers.filter((r) => r.status === 'pending').map((r) => ({ ...r, rewardIds: [r.id], parts: null }))
     const given = ticketsOf(vouchers.filter((r) => r.status === 'distributed'))
-    return [...pending, ...given]
+    const when = (t) => new Date(t.distributed_at || t.created_at || 0).getTime()
+    return [...pending, ...given].sort((a, b) => (ORDER[stateOf(a)] - ORDER[stateOf(b)]) || (when(b) - when(a)))
   }, [rewards])
-  const referralPending = useMemo(
-    () => (rewards || []).filter((r) => r.reward_type === 'voucher' && r.source === 'referral' && r.status === 'pending'),
-    [rewards],
-  )
 
   const counts = useMemo(() => {
-    const c = { active: 0, handover: 0, needs_code: 0, chat: 0, ready: 0, used: 0 }
-    for (const t of tickets) {
-      const s = stateOf(t)
-      c[s] += 1
-      if (s !== 'used') c.active += 1
-    }
+    const c = { needs_code: 0, chat: 0, ready: 0, used: 0 }
+    for (const t of tickets) c[stateOf(t)] += 1
     return c
   }, [tickets])
 
@@ -81,30 +83,23 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return tickets.filter((t) => {
-      const s = stateOf(t)
-      if (filter === 'active' ? s === 'used' : filter !== 'all' && s !== filter) return false
-      return !q || (t.profiles?.name || '').toLowerCase().includes(q)
-    })
-  }, [tickets, filter, search])
+    return q ? tickets.filter((t) => (t.profiles?.name || '').toLowerCase().includes(q)) : tickets
+  }, [tickets, search])
 
-  const byCreator = useMemo(() => {
+  // How many combinable vouchers each creator has: a tick box only appears where there is a pair.
+  const pickableBy = useMemo(() => {
     const m = new Map()
-    for (const t of shown) {
-      if (!m.has(t.creator_id)) m.set(t.creator_id, { id: t.creator_id, profile: t.profiles, tickets: [] })
-      m.get(t.creator_id).tickets.push(t)
-    }
-    return [...m.values()].sort((a, b) => (a.profile?.name || '').localeCompare(b.profile?.name || ''))
-  }, [shown])
+    for (const t of tickets) if (canPick(t)) m.set(t.creator_id, (m.get(t.creator_id) || 0) + 1)
+    return m
+  }, [tickets])
 
-  const canPick = (t) => t.status === 'distributed' && !t.used_at
   function toggle(t) {
     setPicked((prev) => {
       const next = new Set(prev)
       if (next.has(t.id)) { next.delete(t.id); return next }
-      // Only one creator, and one currency, at a time: a combined voucher is one code.
+      // One creator at a time: a combined voucher is one code on one person's wallet.
       const first = [...prev].map((id) => tickets.find((x) => x.id === id)).find(Boolean)
-      if (first && (first.creator_id !== t.creator_id || first.currency !== t.currency)) return new Set([t.id])
+      if (first && first.creator_id !== t.creator_id) return new Set([t.id])
       next.add(t.id)
       return next
     })
@@ -132,92 +127,60 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
 
   return (
     <div>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-3 gap-2.5">
         {[
-          ['To hand over', counts.handover, counts.handover > 0 ? 'amber' : null],
-          ['Need a code', counts.needs_code, counts.needs_code > 0 ? 'amber' : null],
-          ['Unspent', money(stat.toSpend), null],
-          ['Used', money(stat.used), null],
-        ].map(([label, value, tone]) => (
-          <div key={label} className="rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-            <p className={cx('mt-1 text-xl font-bold tabular-nums', tone === 'amber' ? 'text-amber-600' : 'text-ink')}>{value}</p>
+          ['Need a code', counts.needs_code, counts.needs_code > 0],
+          ['Unspent', money(stat.toSpend), false],
+          ['Used', money(stat.used), false],
+        ].map(([label, value, warn]) => (
+          <div key={label} className="rounded-card border border-gray-100 bg-white px-3.5 py-2.5 shadow-card">
+            <p className="truncate text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+            <p className={cx('mt-0.5 text-lg font-bold tabular-nums', warn ? 'text-amber-600' : 'text-ink')}>{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="max-w-full overflow-x-auto overscroll-contain [&>*]:w-max">
-        <Segmented
-          value={filter}
-          onChange={(v) => { setFilter(v); setPicked(new Set()) }}
-          size="sm"
-          label="Which vouchers"
-          options={[
-            { value: 'active', label: `Not used (${counts.active})` },
-            { value: 'handover', label: `To hand over (${counts.handover})` },
-            { value: 'needs_code', label: `Needs a code (${counts.needs_code})` },
-            { value: 'used', label: `Used (${counts.used})` },
-            { value: 'all', label: 'All' },
-          ]}
-        />
-        </div>
-        <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
-          <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
-          <input type="search" className="input !py-2 !pl-9 text-sm" placeholder="Search creators…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+      <div className="relative mb-4">
+        <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+        <input type="search" className="input !py-2 !pl-9 text-sm" placeholder="Search creators…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {referralPending.length > 0 && (
-        <p className="mb-4 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
-          {referralPending.length} referral voucher{referralPending.length === 1 ? ' is' : 's are'} waiting to be handed over. They sit under Payouts, in their own section.
-        </p>
+      {loading ? null : shown.length === 0 ? (
+        <EmptyState icon={<Icon name="ticket" className="h-7 w-7" />} title="No vouchers here" hint={search ? 'Try a different search.' : 'Vouchers appear here once a challenge awards them.'} />
+      ) : (
+        <ul className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          {shown.map((t) => (
+            <TicketRow
+              key={t.id}
+              t={t}
+              picked={picked.has(t.id)}
+              pickable={canPick(t) && (pickableBy.get(t.creator_id) || 0) >= 2}
+              onPick={() => toggle(t)}
+              busy={busy === t.id}
+              onCode={() => (t.status === 'pending' ? onHandOver(t) : setEditing(t))}
+              onUsed={(used) => markUsed(t, used)}
+              onSplit={() => split(t)}
+            />
+          ))}
+        </ul>
       )}
 
-      {loading ? null : byCreator.length === 0 ? (
-        <EmptyState icon={<Icon name="ticket" className="h-7 w-7" />} title="No vouchers here" hint="Try another filter, or a different search." />
-      ) : (
-        <div className="space-y-4">
-          {byCreator.map((c) => {
-            const mine = selected.filter((t) => t.creator_id === c.id)
-            return (
-              <section key={c.id} className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up">
-                <div className="flex flex-wrap items-center gap-3 border-b border-gray-50 px-4 py-3 sm:px-6">
-                  <Avatar src={c.profile?.photo_url} name={c.profile?.name} size="sm" />
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold">{c.profile?.name}</p>
-                  {mine.length >= 2 ? (
-                    <button
-                      type="button"
-                      onClick={() => setCombining({ creator: c.profile, tickets: mine })}
-                      className="btn-primary !py-1.5 text-xs"
-                    >
-                      <Icon name="link" className="h-3.5 w-3.5" />
-                      Combine {mine.length} into one ({formatMoney(mine.reduce((s, t) => s + Number(t.amount), 0), mine[0].currency)})
-                    </button>
-                  ) : (
-                    c.tickets.filter(canPick).length >= 2 && (
-                      <span className="text-[11px] text-gray-400">Tick two or more to combine them</span>
-                    )
-                  )}
-                </div>
-                <ul>
-                  {c.tickets.map((t) => (
-                    <TicketRow
-                      key={t.id}
-                      t={t}
-                      picked={picked.has(t.id)}
-                      pickable={canPick(t) && c.tickets.filter(canPick).length >= 2}
-                      onPick={() => toggle(t)}
-                      busy={busy === t.id}
-                      onCode={() => (t.status === 'pending' ? onHandOver(t) : setEditing(t))}
-                      onUsed={(used) => markUsed(t, used)}
-                      onSplit={() => split(t)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
+      {/* THE COMBINE BAR. Appears once two of one creator's vouchers are ticked. */}
+      {selected.length >= 2 && (
+        <div className="sticky bottom-20 z-20 mt-3 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-lift animate-fade-up sm:bottom-4">
+          <Avatar src={selected[0].profiles?.photo_url} name={selected[0].profiles?.name} size="xs" />
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold">{selected.length} of {selected[0].profiles?.name?.split(' ')[0]}&rsquo;s vouchers</span>
+            <span className="text-white/70"> · {sumOf(selected)} together</span>
+          </p>
+          <button type="button" onClick={() => setPicked(new Set())} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white/80 hover:text-white">Clear</button>
+          <button
+            type="button"
+            onClick={() => setCombining({ creator: selected[0].profiles, tickets: selected })}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition-transform hoverable:hover:-translate-y-0.5"
+          >
+            <Icon name="link" className="h-3.5 w-3.5" /> Combine into one
+          </button>
         </div>
       )}
 
@@ -246,14 +209,16 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
   )
 }
 
+const canPick = (t) => t.status === 'distributed' && !t.used_at
+
 function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed, onSplit }) {
   const state = stateOf(t)
   const meta = STATES[state]
   const source = t.parts
     ? t.parts.map((p) => p.title).filter(Boolean).join(' + ')
-    : t.challenges?.title || (t.source === 'milestone' ? 'Milestone' : t.source === 'referral' ? 'Referral' : 'Not tied to a challenge')
+    : t.challenges?.title || (t.source === 'milestone' ? 'Milestone' : 'Not tied to a challenge')
   return (
-    <li className={cx('flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-50 px-4 py-3.5 last:border-0 sm:px-6', picked && 'bg-brand-tint/40')}>
+    <li className={cx('flex items-center gap-3 border-b border-gray-50 px-3 py-2.5 last:border-0 sm:px-4', picked && 'bg-brand-tint/40', state === 'used' && 'opacity-70')}>
       {pickable ? (
         <button
           type="button"
@@ -265,46 +230,44 @@ function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed, onSplit 
           {picked && <Icon name="check" className="h-3 w-3" />}
         </button>
       ) : <span className="w-5 shrink-0" aria-hidden />}
-
+      <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="xs" />
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-          <span className="tabular-nums">{formatMoney(t.amount, t.currency)}</span>
+        <p className="flex min-w-0 items-center gap-2 text-sm">
+          <span className="truncate font-semibold">{t.profiles?.name}</span>
+          <span className="shrink-0 font-bold tabular-nums">{money(t)}</span>
+          {t.parts && <span className="shrink-0 rounded bg-brand-tint px-1.5 text-[10px] font-bold text-brand">×{t.parts.length}</span>}
+        </p>
+        <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-smoke">
           <Badge tone={meta.tone}>{meta.label}</Badge>
-          {t.parts && <Badge tone="brand">Combined ×{t.parts.length}</Badge>}
+          {t.voucher_code
+            ? <code className="truncate rounded bg-cloud px-1.5 font-mono font-semibold tracking-wider text-ink">{t.voucher_code}</code>
+            : <span className="truncate">{source}</span>}
+          {t.voucher_code && <CopyButton value={t.voucher_code} label="Copy the code" />}
+          {state === 'used' && <span className="shrink-0">· {formatDate(t.used_at)}</span>}
         </p>
-        <p className="truncate text-xs text-smoke">
-          {source}
-          {t.parts && ` · ${t.parts.map((p) => formatMoney(p.amount, p.currency)).join(' + ')}`}
-        </p>
-        {t.voucher_code && (
-          <p className="mt-1 flex items-center gap-1.5 text-xs">
-            <code className="rounded bg-cloud px-1.5 py-0.5 font-mono font-semibold tracking-wider text-ink">{t.voucher_code}</code>
-            <CopyButton value={t.voucher_code} label="Copy the code" />
-          </p>
-        )}
-        {state === 'chat' && <p className="mt-1 flex items-center gap-1 text-xs text-smoke"><Icon name="chat" className="h-3.5 w-3.5" /> Sent to them by chat, before codes lived here.</p>}
-        {state === 'used' && (
-          <p className="mt-1 text-xs text-smoke">
-            Used {formatDate(t.used_at)}{t.used_by && t.used_by !== t.creator_id ? ' · marked by the team' : ' · ticked by the creator'}
-          </p>
-        )}
       </div>
-
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-        {state === 'handover' ? (
-          <button type="button" onClick={onCode} className="btn-primary !py-1.5 text-xs">Hand over</button>
+      <div className="flex shrink-0 items-center gap-1">
+        {state === 'needs_code' ? (
+          <button type="button" onClick={onCode} className="btn-primary !px-3 !py-1.5 text-xs">Add code</button>
         ) : (
           <>
-            {state !== 'used' && <button type="button" onClick={onCode} className="btn-secondary !py-1.5 text-xs">{t.voucher_code ? 'Change code' : 'Add code'}</button>}
-            {t.parts && state !== 'used' && <button type="button" onClick={onSplit} disabled={busy} className="btn-ghost !py-1.5 text-xs">Split</button>}
+            {state !== 'used' && (
+              <button type="button" onClick={onCode} aria-label={t.voucher_code ? 'Change code' : 'Add code'} title={t.voucher_code ? 'Change code' : 'Add code'} className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand">
+                <Icon name="pencil" className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {t.parts && state !== 'used' && (
+              <button type="button" onClick={onSplit} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">Split</button>
+            )}
             <button
               type="button"
               onClick={() => onUsed(state !== 'used')}
               disabled={busy}
-              className={cx('inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', state === 'used' ? 'border-gray-200 text-smoke hoverable:hover:text-ink' : 'border-gray-200 text-ink hoverable:hover:border-brand hoverable:hover:text-brand')}
+              title={state === 'used' ? 'Mark not used' : 'Mark used'}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"
             >
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" />}
-              {state === 'used' ? 'Mark not used' : 'Mark used'}
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={state === 'used' ? 'refresh' : 'check'} className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{state === 'used' ? 'Not used' : 'Used'}</span>
             </button>
           </>
         )}
@@ -360,8 +323,12 @@ function CodeForm({ ticket, onSave }) {
 function CombineModal({ data, onClose, onSave, busy }) {
   const [code, setCode] = useState('')
   const [note, setNote] = useState('')
-  const total = data ? data.tickets.reduce((s, t) => s + Number(t.amount), 0) : 0
-  const currency = data?.tickets[0]?.currency
+  // In one currency the plain sum; across currencies the euro total, like the wallet shows it.
+  const parts = data ? data.tickets.flatMap((t) => (t.parts ? t.parts : [t])) : []
+  const mixed = new Set(parts.map((t) => t.currency || 'EUR')).size > 1
+  const summed = mixed ? rewardsTotal(parts) : null
+  const total = data ? (mixed ? summed.amount : parts.reduce((s, t) => s + Number(t.amount), 0)) : 0
+  const currency = mixed ? 'EUR' : data?.tickets[0]?.currency
   return (
     <Modal open={!!data} onClose={onClose} title="Combine into one voucher">
       {data && (
@@ -387,7 +354,7 @@ function CombineModal({ data, onClose, onSave, busy }) {
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
               <VoucherTicket
                 reward={{
-                  ...data.tickets[0], amount: total, voucher_code: code.trim(), used_at: null,
+                  ...data.tickets[0], amount: total, currency, converted: mixed, voucher_code: code.trim(), used_at: null,
                   parts: data.tickets.map((t) => ({ id: t.id, amount: t.amount, currency: t.currency, title: t.challenges?.title })),
                 }}
               />

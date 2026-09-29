@@ -539,6 +539,7 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
  *  show it too, since "what does the locked state look like" is half of what
  *  a December release has to be signed off on. */
 export function YearInReviewLocked({ year, opensOn }) {
+  const tr = useT()
   return (
     <div className="mx-auto w-full max-w-[400px]">
       {/* TRYP ORANGE, NOT THE PURPLE (21 Sep 2026). Ethan: "improve how it
@@ -551,10 +552,9 @@ export function YearInReviewLocked({ year, opensOn }) {
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
             <Icon name="lock" className="h-7 w-7" />
           </span>
-          <p className="text-[34px] font-extrabold leading-[1.05] tracking-tight">Your year<br />is still happening.</p>
+          <p className="text-[34px] font-extrabold leading-[1.05] tracking-tight">{tr('Your year is still happening.')}</p>
           <Line palette="ember">
-            Your recap unlocks on {opensOn}. Every flight you log, every video you post and every
-            puzzle you play between now and then is in it.
+            {tr('Your recap unlocks on {d}. Every flight you log, every video you post and every puzzle you play between now and then is in it.', { d: opensOn })}
           </Line>
         </div>
         <div className="mt-6">

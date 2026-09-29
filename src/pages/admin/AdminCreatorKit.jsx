@@ -25,7 +25,7 @@ const AwardedList = lazyRoute(() => import('../../components/admin/kit/AwardedLi
 // what can creators download, what certificates exist, and who has got one.
 const TABS = [
   { key: 'graphics', label: 'Graphics', icon: 'image', hint: 'What creators can download and repost' },
-  { key: 'certificates', label: 'Certificates', icon: 'trophy', hint: 'Design them, and decide when they are given' },
+  { key: 'certificates', label: 'Certificates', icon: 'trophy', hint: '' },
   { key: 'awarded', label: 'Awarded', icon: 'check', hint: 'Who has what, and hand one out' },
 ]
 
@@ -61,7 +61,7 @@ export default function AdminCreatorKit() {
           </button>
         ))}
       </div>
-      <p className="mb-6 text-sm text-smoke">{current.hint}</p>
+      {current.hint ? <p className="mb-6 text-sm text-smoke">{current.hint}</p> : <div className="mb-2" />}
 
       <Suspense fallback={<Skeleton className="h-96 w-full rounded-card" />}>
         {tab === 'graphics' && <KitLibrary />}

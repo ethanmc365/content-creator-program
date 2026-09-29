@@ -1,6 +1,6 @@
 // Small shared helpers used across the app.
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { de, es, pt, ro } from 'date-fns/locale'
 import { getLocale, t } from './i18n'
 
 // DATES ARE PART OF THE LANGUAGE, and they were the one part left in English.
@@ -13,9 +13,19 @@ import { getLocale, t } from './i18n'
 //
 // `undefined` and not `enUS` for English: date-fns defaults to English, and
 // naming it would mean importing a second locale bundle to say what it already
-// does. Only the Spanish one costs anything, and only when Spanish is on.
-const DATE_LOCALES = { es }
-function dateLocale() {
+// does.
+//
+// ALL FOUR, NOT JUST SPANISH (1 Oct 2026). Only `es` was listed, so a Portuguese, German or
+// Romanian reader got "September", "Mon" and "4 days ago" in English on every page; Ethan found
+// it on the calendar in Romanian. Exported so a page that calls date-fns itself can pass it too.
+const DATE_LOCALES = { es, pt, de, ro }
+// The BCP 47 tag for `toLocaleDateString` / `Intl.DateTimeFormat`, for code that formats dates
+// without date-fns: month and weekday names in the reader's language.
+const DATE_TAGS = { en: 'en-GB', es: 'es-ES', pt: 'pt-PT', de: 'de-DE', ro: 'ro-RO' }
+export function dateTag() {
+  return DATE_TAGS[getLocale()] || 'en-GB'
+}
+export function dateLocale() {
   return DATE_LOCALES[getLocale()]
 }
 

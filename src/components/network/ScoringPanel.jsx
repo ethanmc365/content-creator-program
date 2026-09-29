@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { cx } from '../../lib/utils'
+import { cx, dateTag } from '../../lib/utils'
 import Icon from '../Icon'
 import { scoringMode, ruleWindowState } from '../../lib/scoring'
 import { useT } from '../../lib/i18n'
@@ -28,7 +28,7 @@ import { useT } from '../../lib/i18n'
 // did none of that, so the two disagreed on a page where they sat two clicks
 // apart. One board, on the tab called Leaderboard.
 
-const dm = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+const dm = (iso) => new Date(iso).toLocaleDateString(dateTag(), { weekday: 'short', day: 'numeric', month: 'short' })
 
 // "Runs Mon 21 Sep to Sun 27 Sep" - the dates a bonus counts for (migration 256).
 export function bonusWindowLine(r, tr) {

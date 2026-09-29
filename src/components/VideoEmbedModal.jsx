@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { videoEmbed, resolveVideoEmbed } from '../lib/videoPreview'
 import { cx } from '../lib/utils'
@@ -38,7 +39,9 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
 
   const label = platform || embed?.type || 'the original post'
 
-  return (
+  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
+  // header and the page title painted on top of the dimmed backdrop.
+  return createPortal((
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || 'Video'}>
       <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex w-full max-w-md flex-col">
@@ -85,5 +88,5 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
         </a>
       </div>
     </div>
-  )
+  ), document.body)
 }

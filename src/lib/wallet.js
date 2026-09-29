@@ -1,3 +1,5 @@
+import { rewardsTotal } from './programme'
+
 // WHAT IS IN A CREATOR'S VOUCHER WALLET.
 //
 // This lived inline on the Rewards page as a filter with four conditions, one
@@ -39,9 +41,14 @@ export function ticketsOf(rewards) {
   }
   for (const rows of byGroup.values()) {
     const first = [...rows].sort((a, b) => new Date(a.distributed_at || 0) - new Date(b.distributed_at || 0))[0]
+    // A GROUP IN TWO CURRENCIES (1 Oct 2026: one of Jacob's vouchers is in pounds and one in
+    // euros) is worth its euro total, marked as converted, never a pounds-plus-euros sum.
+    const mixed = new Set(rows.map((r) => r.currency || 'EUR')).size > 1
+    const total = mixed ? rewardsTotal(rows) : null
     out.push({
       ...first,
-      amount: rows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+      ...(mixed ? { currency: 'EUR', converted: true } : {}),
+      amount: mixed ? total.amount : rows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
       rewardIds: rows.map((r) => r.id),
       parts: rows.length > 1 ? rows.map((r) => ({ id: r.id, amount: r.amount, currency: r.currency, title: r.challenges?.title || null })) : null,
       distributed_at: rows.map((r) => r.distributed_at).sort().pop(),

@@ -4,7 +4,7 @@ import { Modal } from '../ui'
 import { useT } from '../../lib/i18n'
 import { useContentTranslations } from '../../lib/contentTranslate'
 import { TranslateSwitch } from '../TranslatedText'
-import { cx } from '../../lib/utils'
+import { cx, dateTag } from '../../lib/utils'
 import { ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
 import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
@@ -42,7 +42,7 @@ import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
 
 const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calendar', bonus: 'star' }
 
-const dm = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+const dm = (iso) => new Date(iso).toLocaleDateString(dateTag(), { weekday: 'short', day: 'numeric', month: 'short' })
 
 // HOW MANY TIMES, AND THE CEILING, IN ONE SENTENCE (30 Sep 2026). Ethan disliked "The most it
 // can pay: 25 points in total, however many times you do it". A cap of 25 on a +5 bonus IS
@@ -196,15 +196,10 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
         </div>
 
         {claim && (
-          <div className="rounded-card border border-brand/15 bg-brand-tint/50 p-4">
-            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 text-center">
-              <div><p className="text-lg font-bold tabular-nums text-ink">+{Number(rule.points)}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('each')}</p></div>
-              <span className="text-gray-300">&times;</span>
-              <div><p className="text-lg font-bold tabular-nums text-ink">{claim.n}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{rule.kind === 'platform_spread' ? tr('platforms') : rule.kind === 'consistency' ? tr('times') : tr('videos')}</p></div>
-              <span className="text-gray-300">=</span>
-              <div><p className="text-lg font-bold tabular-nums text-brand">{Number(rule.max_points)}</p><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('max points')}</p></div>
-            </div>
-            <p className="mt-3 text-center text-sm leading-relaxed text-ink">{claim.text}</p>
+          <div className="rounded-card border border-brand/15 bg-brand-tint/50 px-4 py-3">
+            {/* THE SENTENCE, NOT THE SUM (1 Oct 2026). Ethan: "You don't need to show the maths,
+                +5 x 5 = 25. It takes up too much space." */}
+            <p className="text-center text-sm font-medium leading-relaxed text-ink">{claim.text}.</p>
           </div>
         )}
 

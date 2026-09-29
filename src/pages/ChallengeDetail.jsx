@@ -31,7 +31,7 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
-import { podiumTier, placeNumber } from '../lib/podiumTiers'
+import { ordinalFor, podiumTier, placeNumber } from '../lib/podiumTiers'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
@@ -730,7 +730,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   return (
     <div className={shellClass}>
       {!embedded && (
-        <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← All challenges</Link>
+        <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← {tr("All challenges")}</Link>
       )}
 
       <PageHeader
@@ -1054,8 +1054,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               all black." And it opens on its first paragraph with Read all,
               so the points table below is not a long scroll away. */}
           <section className="card">
-            <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("The brief")}</h2>
-            <TranslatedText text={challenge.description || ''}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
+            <TranslatedText text={challenge.description || ''} heading={<h2 className="text-2xl font-bold tracking-tight">{tr("The brief")}</h2>}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
           </section>
           </>
         )
@@ -1063,8 +1062,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <>
           {challenge.rules && (
             <section className="card">
-              <h2 className="mb-4 text-2xl font-bold tracking-tight">{tr("Rules")}</h2>
-              <TranslatedText text={challenge.rules}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
+              <TranslatedText text={challenge.rules} heading={<h2 className="text-2xl font-bold tracking-tight">{tr("Rules")}</h2>}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
             </section>
           )}
           </>
@@ -1148,7 +1146,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       >
                         {n}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-smoke">{p.place}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-smoke">{placeNumber(p.place) ? ordinalFor(placeNumber(p.place)) : p.place}</span>
                       <span className="shrink-0 text-sm font-bold text-ink">{p.prize}</span>
                     </li>
                   )

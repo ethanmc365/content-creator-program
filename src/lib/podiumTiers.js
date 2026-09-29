@@ -1,3 +1,4 @@
+import { getLocale } from './i18n'
 // THE PODIUM IS ORANGE, EVERYWHERE, TO ANY DEPTH.
 //
 // Ethan: "for the archived uk challenge it shows the podium colours gold,
@@ -39,6 +40,12 @@ const HEIGHTS = ['h-14', 'h-10', 'h-7', 'h-5']
 export function ordinalFor(place) {
   const n = Number(place)
   if (!Number.isFinite(n)) return String(place ?? '')
+  // IN THE READER'S LANGUAGE (1 Oct 2026): "1st" is English. Spanish and Portuguese write 1.º,
+  // German 1., and Romanian says the place in words it does not abbreviate, so the bare number.
+  const lang = getLocale()
+  if (lang === 'es' || lang === 'pt') return `${n}.º`
+  if (lang === 'de') return `${n}.`
+  if (lang === 'ro') return `${n}`
   const rem100 = n % 100
   if (rem100 >= 11 && rem100 <= 13) return `${n}th`
   return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'}`

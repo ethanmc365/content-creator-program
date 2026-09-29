@@ -81,8 +81,7 @@ export default function ParticipationBar({ participation, pending = false, where
       <div className={cx('rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card animate-fade-up', className)}>
         <p className="text-sm font-semibold text-ink">{tr("Creator participation")}</p>
         <p className="mt-1 text-xs text-smoke">
-          No creators have joined this market yet, so there is nobody to count.
-          {posted > 0 ? ` ${posted} ${posted === 1 ? 'entry has' : 'entries have'} come in anyway.` : ''}
+          {tr('No creators have joined this market yet, so there is nobody to count.')}
         </p>
       </div>
     )
@@ -108,7 +107,7 @@ export default function ParticipationBar({ participation, pending = false, where
         />
       </div>
       <p className={cx('mt-2 text-xs text-smoke transition-opacity duration-500', ready ? 'opacity-100' : 'opacity-0')}>
-        {ready ? `${posted} of ${total} creators ${where} have posted so far.` : '\u00a0'}
+        {ready ? tr('{a} of {b} creators {where} have posted so far.', { a: posted, b: total, where: where ? tr(where) : '' }).replace(/\s+/g, ' ') : '\u00a0'}
       </p>
     </div>
   )

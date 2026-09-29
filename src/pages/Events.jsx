@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
+  addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format as dfFormat,
   isSameDay, isSameMonth, isToday, isWeekend, startOfMonth, startOfWeek,
 } from 'date-fns'
 import { supabase } from '../lib/supabase'
@@ -25,7 +25,7 @@ import { DeadlineReminderModal } from '../components/NotificationPreferences'
 import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
 import Reveal from '../components/network/Reveal'
-import { cx } from '../lib/utils'
+import { cx, dateLocale } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 // THE CALENDAR, THIRD PASS.
@@ -111,6 +111,9 @@ const VIEWS = [
 const VIEW_KEY = 'tryp-calendar-view'
 // See lib/pageCache.
 const CAL_CACHE_KEY = 'calendar'
+// Every date on the calendar in the reader's language (month names, weekdays). `dayKey` is a
+// machine key and is unaffected: digits only.
+const format = (d, f) => dfFormat(d, f, { locale: dateLocale() })
 const dayKey = (d) => format(d, 'yyyy-MM-dd')
 
 // IS THIS ON RIGHT NOW.
@@ -218,7 +221,7 @@ function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, o
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider', TONE_CHIP[meta.tone])}>
             <Icon name={meta.icon} className="h-3 w-3" />
-            {meta.label}
+            {tr(meta.label)}
           </span>
           {e.meetingUrl && (
             <a href={e.meetingUrl} target="_blank" rel="noopener noreferrer"
@@ -486,7 +489,7 @@ export default function Events() {
           )}
         >
           <Icon name={v.icon} className="h-3.5 w-3.5" />
-          {v.label}
+          {tr(v.label)}
         </button>
       ))}
     </div>
@@ -642,10 +645,10 @@ export default function Events() {
                 <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-smoke">
                   <span>
                     <span className="font-semibold text-ink">{monthSummary.n}</span>
-                    {monthSummary.n === 1 ? ' thing' : ' things'} in {format(month, 'MMMM')}
+                    {' '}{monthSummary.n === 1 ? tr('thing in {m}', { m: format(month, 'MMMM') }) : tr('things in {m}', { m: format(month, 'MMMM') })}
                     {monthSummary.deadlines > 0 && (
                       <span className="font-semibold text-brand">
-                        {' · '}{monthSummary.deadlines} {monthSummary.deadlines === 1 ? 'deadline' : 'deadlines'}
+                        {' · '}{monthSummary.deadlines} {monthSummary.deadlines === 1 ? tr('deadline') : tr('deadlines')}
                       </span>
                     )}
                   </span>
@@ -990,7 +993,8 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
     >
       <div ref={boxRef} className="will-change-transform">
       <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+        {/* The weekday names in the reader's language: 5 Jan 2026 is a Monday. */}
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => format(new Date(2026, 0, 5 + i), 'EEE').replace('.', '')).map((d) => (
           <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-widest text-smoke">
             <span className="hidden sm:inline">{d}</span>
             <span className="sm:hidden">{d[0]}</span>
@@ -1230,6 +1234,7 @@ function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onT
 // things a fortnight apart. A sticky date rail on the left is the whole
 // difference, and it costs one grid column.
 function Agenda({ rows, cardProps, liveIds }) {
+  const tr = useT()
   const groups = useMemo(() => {
     const m = new Map()
     for (const e of rows.slice(0, 60)) {
@@ -1250,7 +1255,7 @@ function Agenda({ rows, cardProps, liveIds }) {
           <div key={key} className="grid gap-3 sm:grid-cols-[7rem_1fr] sm:gap-5">
             <div className="sm:sticky sm:top-24 sm:self-start">
               <p className={cx('text-xs font-bold uppercase tracking-widest', isToday(day) ? 'text-brand' : 'text-smoke')}>
-                {isToday(day) ? 'Today' : format(day, 'EEE')}
+                {isToday(day) ? tr('Today') : format(day, 'EEE')}
               </p>
               <p className="text-xl font-bold tabular-nums leading-tight">{format(day, 'd MMM')}</p>
             </div>

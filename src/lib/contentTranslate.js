@@ -44,17 +44,19 @@ export async function translateTexts(texts, locale) {
       const row = byHash.get(hashes[i])
       if (row) { memo.set(key(locale, t), row); out[t] = row } else missing.push(t)
     })
-    for (let i = 0; i < missing.length; i += 8) {
-      const batch = missing.slice(i, i + 8)
+    // The batches go out together rather than one after another.
+    const batches = []
+    for (let i = 0; i < missing.length; i += 8) batches.push(missing.slice(i, i + 8))
+    await Promise.all(batches.map(async (batch) => {
       const { data: res, error } = await supabase.functions.invoke('translate-text', { body: { target: locale, items: batch.map((text) => ({ text })) } })
-      if (error) continue
+      if (error) return
       for (const r of res?.results || []) {
         const row = { value: r.value, same: r.same, auto: r.auto, src_lang: r.src_lang }
         // A failed translation comes back as "same" with no language: do not remember it.
         if (r.src_lang) memo.set(key(locale, r.text), row)
         out[r.text] = row
       }
-    }
+    }))
   } catch { /* the original is a complete answer */ }
   return out
 }

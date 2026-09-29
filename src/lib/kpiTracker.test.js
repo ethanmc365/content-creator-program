@@ -113,21 +113,14 @@ describe('mergeKpiRows', () => {
     { metric: 'challenges_run', value: 1 },
   ]
 
-  it('orders standard metrics first in their canonical order, then customs alphabetically', () => {
+  it('orders standard metrics in their canonical order and drops retired custom KPIs', () => {
     const merged = mergeKpiRows(targets, actuals)
-    expect(merged.map((r) => metricLabel(r))).toEqual([
-      'Challenges run', 'Views', 'Alpha idea', 'Zebra idea',
-    ])
+    expect(merged.map((r) => metricLabel(r))).toEqual(['Challenges run', 'Views'])
   })
 
   it('takes a standard row\'s actual from kpi_actuals, never current_value', () => {
     const merged = mergeKpiRows(targets, actuals)
     expect(merged.find((r) => r.metric === 'views').actual).toBe(76633)
-  })
-
-  it('takes a custom row\'s actual from its own current_value', () => {
-    const merged = mergeKpiRows(targets, actuals)
-    expect(merged.find((r) => r.label === 'Alpha idea').actual).toBe(9)
   })
 
   it('defaults a standard metric missing from actuals to 0, not undefined', () => {

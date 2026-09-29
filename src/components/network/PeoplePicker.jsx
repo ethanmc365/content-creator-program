@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import Icon from '../Icon'
@@ -110,7 +111,9 @@ export default function PeoplePicker({
 
   if (!open) return null
 
-  return (
+  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
+  // header and the page title painted on top of the dimmed backdrop.
+  return createPortal((
     <AnimatePresence>
       <div
         className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center"
@@ -221,5 +224,5 @@ export default function PeoplePicker({
         </motion.div>
       </div>
     </AnimatePresence>
-  )
+  ), document.body)
 }

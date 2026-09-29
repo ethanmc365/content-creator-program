@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
-import { cx } from '../../lib/utils'
+import { cx, dateTag } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import IntroCard from './IntroCard'
 import AutoTextarea from '../AutoTextarea'
@@ -185,7 +185,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
       const trip = up.data?.[0]
       const a = trip && airport(trip.to_iata)
       if (a) {
-        const month = new Date(trip.flown_on).toLocaleDateString('en-GB', { month: 'long' })
+        const month = new Date(trip.flown_on).toLocaleDateString(dateTag(), { month: 'long' })
         const country = COUNTRIES.find((c) => c.iso2 === a.country)?.name
         setForm((cur) => (cur.next ? cur : { ...cur, next: `${a.city}${country ? `, ${country}` : ''} in ${month}` }))
       }

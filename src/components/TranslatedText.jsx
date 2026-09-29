@@ -1,6 +1,5 @@
 import { useContentTranslation } from '../lib/contentTranslate'
 import { LOCALES, useT } from '../lib/i18n'
-import Icon from './Icon'
 import { cx } from '../lib/utils'
 
 // A BRIEF, OR ANYTHING A PERSON WROTE, READ IN THE READER'S LANGUAGE.
@@ -15,21 +14,24 @@ import { cx } from '../lib/utils'
 // small grey type under the text, which for a long brief is a screen away from the words it
 // controls. It is now a two-part control - Translated | Original - above the text and to the
 // right, so the state you are reading is always the highlighted half.
+// SQUARE, NO GLOBE, ON THE TITLE'S LINE (1 Oct 2026). Ethan: the button "has gone to another line
+// rather than just being even with the title, but to the right side ... There's a worldwide icon,
+// which isn't necessary ... make it more squared out rather than curved." It is a small squared
+// segmented control now, and `TranslatedText` can draw the heading itself so the two share a row.
 export function TranslateSwitch({ t, className }) {
   const tr = useT()
   if (!t.translated) return null
   const from = LOCALES.find((l) => l.code === t.srcLang)?.native
   const half = (on) => cx(
-    'px-2.5 py-1 transition-colors duration-200',
-    on ? 'bg-brand text-white' : 'text-smoke hoverable:hover:text-ink',
+    'h-7 rounded-md px-2.5 transition-all duration-200',
+    on ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink',
   )
   return (
     <div className={cx('flex justify-end', className)}>
       <div
-        className="inline-flex items-center overflow-hidden rounded-full border border-brand/20 bg-white text-[11px] font-semibold shadow-sm"
+        className="inline-flex items-center gap-0.5 rounded-lg bg-cloud p-0.5 text-[11px] font-semibold"
         title={from ? tr('Translated automatically (original in {lang}).', { lang: from }) : tr('Translated automatically.')}
       >
-        <span aria-hidden className="pl-2.5 pr-1 text-brand"><Icon name="globe" className="h-3.5 w-3.5" /></span>
         <button type="button" onClick={() => t.showOriginal && t.toggle()} aria-pressed={!t.showOriginal} className={half(!t.showOriginal)}>{tr('Translated')}</button>
         <button type="button" onClick={() => !t.showOriginal && t.toggle()} aria-pressed={t.showOriginal} className={half(t.showOriginal)}>{tr('Original')}</button>
       </div>
@@ -37,8 +39,19 @@ export function TranslateSwitch({ t, className }) {
   )
 }
 
-export default function TranslatedText({ text, children, note = true }) {
+export default function TranslatedText({ text, children, note = true, heading = null }) {
   const t = useContentTranslation(text)
+  if (heading) {
+    return (
+      <>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          {heading}
+          {note && <TranslateSwitch t={t} className="shrink-0" />}
+        </div>
+        {children(t.shown)}
+      </>
+    )
+  }
   return (
     <>
       {note && <TranslateSwitch t={t} className="mb-2" />}

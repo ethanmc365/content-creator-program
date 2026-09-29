@@ -165,8 +165,8 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   : isLevel
                     ? tr('{left} to go to reach the goal. It is an average, so it is held against the goal all the way through.', { left: f(left) })
                     : gap >= 0
-                      ? tr('{n} ahead of where a steady pace would be by today. {left} to go.', { n: f(gap), left: f(left) })
-                      : tr('{n} behind a steady pace for today. {left} to go.', { n: f(-gap), left: f(left) })}
+                      ? tr('{n} ahead of the recommended pace for today. {left} to go.', { n: f(gap), left: f(left) })
+                      : tr('{n} behind the recommended pace for today. {left} to go.', { n: f(-gap), left: f(left) })}
               {daysLeft != null && status !== 'met' && status !== 'missed' && ` ${daysLeft === 1 ? tr('1 day left.') : tr('{n} days left.', { n: daysLeft })}`}
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
                     <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-brand" />{tr('Actual')}</span>
-                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />{isLevel ? tr('The goal') : tr('Steady pace to target')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />{isLevel ? tr('The goal') : tr('Recommended pace')}</span>
                   </span>
                 </div>
                 <div className="h-60">
@@ -204,7 +204,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                       <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
                       <Tooltip
                         contentStyle={tooltipStyle}
-                        formatter={(v, name) => [f(v), name === 'total' ? tr('So far') : isLevel ? tr('The goal') : tr('Steady pace')]}
+                        formatter={(v, name) => [f(v), name === 'total' ? tr('So far') : isLevel ? tr('The goal') : tr('Recommended pace')]}
                       />
                       <Line type="monotone" dataKey="pace" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
                       <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill="url(#kpiFill)" connectNulls={false} animationDuration={900} />

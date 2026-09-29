@@ -49,38 +49,72 @@ export function dateIn(lang, value) {
 
 const FIELDS = ['title', 'subtitle', 'body', 'footnote', 'signature_role']
 
+// EVERY LANGUAGE IS READY BEFORE IT IS ASKED FOR (1 Oct 2026). Ethan: "the translations currently
+// take quite a while. Can you have them all preloaded so they work instantly?" A translated design
+// is kept here by its words and its language, and `prefetchCertificateDesign` fills it for every
+// language in the background the moment a certificate is opened (or listed, for a creator). So
+// pressing a language chip reads from memory instead of starting three round trips.
+const translated = new Map() // designKey -> design
+const inflight = new Map() // designKey -> promise
+const designKey = (design, lang) => (design
+  ? `${design.id || design.title}|${lang}|${FIELDS.map((f) => design[f] || '').join('¦')}|${design.options?.preamble || ''}`
+  : null)
+
+async function translateDesign(design, lang) {
+  const k = designKey(design, lang)
+  if (translated.has(k)) return translated.get(k)
+  if (inflight.has(k)) return inflight.get(k)
+  const job = (async () => {
+    await Promise.all([loadLocale(lang), loadOverrides(lang)])
+    const lines = new Set()
+    const split = {}
+    for (const f of FIELDS) {
+      split[f] = String(design[f] || '').split('\n')
+      split[f].forEach((l) => l.trim() && lines.add(l))
+    }
+    const custom = design.options?.preamble
+    if (custom && custom !== 'This certifies that') lines.add(custom)
+    const map = await translateTexts([...lines], lang)
+    const tx = (l) => (l.trim() ? (map[l]?.value || l) : l)
+    const next = { ...design }
+    for (const f of FIELDS) next[f] = split[f].map(tx).join('\n')
+    if (custom && custom !== 'This certifies that') next.options = { ...(design.options || {}), preamble: tx(custom) }
+    // Only a complete answer is remembered; a line the translator could not reach is retried next time.
+    if ([...lines].every((l) => map[l])) translated.set(k, next)
+    return next
+  })().finally(() => inflight.delete(k))
+  inflight.set(k, job)
+  return job
+}
+
+/** Translate a design into every language in `langs` (codes or LOCALES rows), in the background. */
+export function prefetchCertificateDesign(design, langs = LOCALES) {
+  if (!design) return
+  for (const l of langs) {
+    const code = typeof l === 'string' ? l : l.code
+    if (code && code !== DEFAULT_LOCALE) translateDesign(design, code).catch(() => {})
+  }
+}
+
 /**
  * The design with its words in `lang`, and whether that has finished. Until it has,
  * the original is returned so the card never flashes empty. Any failure is English.
  */
 export function useCertificateDesign(design, lang) {
   const english = !lang || lang === DEFAULT_LOCALE
+  const key = english ? null : designKey(design, lang)
   const [out, setOut] = useState({ key: null, design: null })
-  const key = design ? `${design.id || design.title}|${lang}|${FIELDS.map((f) => design[f] || '').join('¦')}|${design.options?.preamble || ''}` : null
   useEffect(() => {
-    if (english || !design) return undefined
+    if (english || !design || translated.has(key)) return undefined
     let alive = true
-    ;(async () => {
-      await Promise.all([loadLocale(lang), loadOverrides(lang)])
-      const lines = new Set()
-      const split = {}
-      for (const f of FIELDS) {
-        split[f] = String(design[f] || '').split('\n')
-        split[f].forEach((l) => l.trim() && lines.add(l))
-      }
-      const custom = design.options?.preamble
-      if (custom && custom !== 'This certifies that') lines.add(custom)
-      const map = await translateTexts([...lines], lang)
-      if (!alive) return
-      const tx = (l) => (l.trim() ? (map[l]?.value || l) : l)
-      const next = { ...design }
-      for (const f of FIELDS) next[f] = split[f].map(tx).join('\n')
-      if (custom && custom !== 'This certifies that') next.options = { ...(design.options || {}), preamble: tx(custom) }
-      setOut({ key, design: next })
-    })().catch(() => { if (alive) setOut({ key, design }) })
+    translateDesign(design, lang)
+      .then((next) => { if (alive) setOut({ key, design: next }) })
+      .catch(() => { if (alive) setOut({ key, design }) })
     return () => { alive = false }
   }, [key, english, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   if (english) return { design, ready: true }
+  const cached = translated.get(key)
+  if (cached) return { design: cached, ready: true }
   const ready = out.key === key
   return { design: ready ? out.design : design, ready }
 }

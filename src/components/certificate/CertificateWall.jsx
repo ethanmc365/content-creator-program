@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { tIn } from '../../lib/i18n'
-import { certificateLocales, useCertificateDesign } from '../../lib/certificateLang'
+import { certificateLocales, prefetchCertificateDesign, useCertificateDesign } from '../../lib/certificateLang'
 import { supabase } from '../../lib/supabase'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -41,8 +41,12 @@ export default function CertificateWall({ profileId, className, readOnly = false
       .select('*, design:certificate_designs(*), person:profiles!certificate_awards_profile_id_fkey(photo_url)')
       .eq('profile_id', profileId)
       .order('awarded_at', { ascending: false })
-    setRows(sortCertificates(data || []))
-  }, [profileId])
+    const sorted = sortCertificates(data || [])
+    setRows(sorted)
+    // Every language this person can save in, translated before they open one.
+    const langs = certificateLocales(profile, { all: isAdmin })
+    for (const r of sorted) prefetchCertificateDesign(r.design, langs)
+  }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [load])
 
   // SEEN IS MARKED WHEN THEY OPEN IT, not when the page loads. A creator who
@@ -210,7 +214,7 @@ function CertificateViewer({ row, onClose, tr }) {
                     type="button"
                     onClick={() => setLang(l.code)}
                     aria-pressed={lang === l.code}
-                    className={cx('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-all duration-200', lang === l.code ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-ink')}
+                    className={cx('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-all duration-200', lang === l.code ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-ink')}
                   >
                     <span aria-hidden>{l.flag}</span>{l.native}
                   </button>
@@ -276,7 +280,7 @@ function CertificateViewer({ row, onClose, tr }) {
 }
 
 /** A picture at its true size, scaled to the largest it can be on this screen. */
-function FullScreen({ w, h, onClose, label, children }) {
+export function FullScreen({ w, h, onClose, label, children }) {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }))
   useEffect(() => {
     const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight })

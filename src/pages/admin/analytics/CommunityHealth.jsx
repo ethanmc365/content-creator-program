@@ -10,6 +10,7 @@ import { Avatar, Skeleton, StatCard } from '../../../components/ui'
 import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
 import ConnectionsSection from './ConnectionsSection'
 import PushDelivery from './PushDelivery'
+import Icon from '../../../components/Icon'
 
 // Community health: is the place actually being used, and by whom.
 //
@@ -62,6 +63,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
   const [push, setPush] = useState(null)
   const [scorecard, setScorecard] = useState(null)
   const [sort, setSort] = useState('views')
+  const [section, setSection] = useState('reach')
 
   // THE CHART IS SCOPED IN POSTGRES, BECAUSE THAT IS WHERE IT IS AGGREGATED
   // (8 Sep 2026).
@@ -222,7 +224,31 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
   const { reach, funnel } = data
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
+      {/* FOUR SECTIONS, ONE AT A TIME (1 Oct 2026). Ethan: "tidy up that page so it's not too
+          much scrolling involved and it's really good on desktop and mobile." It was reach, push,
+          connections, the funnel, two charts and a 120-row table stacked in one column. */}
+      <div className="-mx-1 flex gap-1 overflow-x-auto overscroll-contain px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Community health sections">
+        {[['reach', 'Reach & push', 'bell'], ['participation', 'Participation', 'chart'], ['connections', 'Connections', 'users'], ['scorecard', 'Scorecard', 'trophy']].map(([k, l, ic]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={section === k}
+            onClick={() => setSection(k)}
+            className={cx(
+              'flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-200',
+              section === k ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke ring-1 ring-gray-100 hoverable:hover:text-ink',
+            )}
+          >
+            <Icon name={ic} className="h-3.5 w-3.5" />
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {section === 'reach' && (
+      <div className="space-y-10 animate-fade-up">
       {/* ---- Reachability ---- */}
       <div>
         <h2 className="mb-1 text-lg font-semibold">Can we reach people?</h2>
@@ -299,10 +325,16 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
       </div>
 
       <PushDelivery />
+      </div>
+      )}
 
       {/* ---- Connections (was its own tab until 24 Sep 2026) ---- */}
-      <ConnectionsSection market={market} memberRows={memberRows} />
+      {section === 'connections' && (
+        <div className="animate-fade-up"><ConnectionsSection market={market} memberRows={memberRows} /></div>
+      )}
 
+      {section === 'participation' && (
+      <div className="space-y-6 animate-fade-up">
       {/* ---- Participation funnel ---- */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="card">
@@ -409,9 +441,12 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </ResponsiveContainer>
         </div>
       </section>
+      </div>
+      )}
 
       {/* ---- Creator scorecard ---- */}
-      <section>
+      {section === 'scorecard' && (
+      <section className="animate-fade-up">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Creator scorecard</h2>
@@ -452,9 +487,9 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-card border border-gray-100 shadow-card">
+        <div className="max-h-[36rem] overflow-auto overscroll-contain rounded-card border border-gray-100 shadow-card">
           <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="border-b border-gray-100 bg-cloud/60">
+            <thead className="sticky top-0 z-10 border-b border-gray-100 bg-[#f7f7f8]">
               <tr>
                 <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">Creator</th>
                 <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-smoke">Challenges</th>
@@ -506,6 +541,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </table>
         </div>
       </section>
+      )}
       {/* THE ERROR WATCH HAS ITS OWN TAB NOW (8 Sep 2026). Ethan: "the only
           thing is you added the errors creators hit at the bottom. I wouldn't
           put that at the bottom of here and would rather have a new tab for it,

@@ -80,7 +80,7 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
           <Icon name="ticket" className="h-3.5 w-3.5" /> {tr('Voucher')}
         </p>
         <p className="relative mt-3 text-2xl font-bold leading-none tabular-nums sm:text-3xl">
-          {formatMoney(reward.amount, reward.currency)}
+          {reward.converted ? '≈ ' : ''}{formatMoney(reward.amount, reward.currency)}
         </p>
         <p className={cx('relative mt-1.5 text-[11px] font-medium text-white/80', used && 'invisible')}>Tryp.com</p>
       </div>

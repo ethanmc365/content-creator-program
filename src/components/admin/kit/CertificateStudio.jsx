@@ -8,10 +8,10 @@ import { pickClass } from '../../../lib/pick'
 import { confirm, notice, promptText } from '../../../lib/confirm'
 import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
-import { StoryFrame } from '../../certificate/CertificateWall'
+import { FullScreen, StoryFrame } from '../../certificate/CertificateWall'
 import { Link } from 'react-router-dom'
 import { LOCALES } from '../../../lib/i18n'
-import { useCertificateDesign } from '../../../lib/certificateLang'
+import { prefetchCertificateDesign, useCertificateDesign } from '../../../lib/certificateLang'
 import { useFluidWidth } from '../../portfolio/PortfolioDeck'
 import {
   ACCENTS, DEFAULT_ACCENT, LAYOUTS, PLACEHOLDERS,
@@ -71,18 +71,10 @@ const BLANK = {
   is_active: true,
 }
 
-// The form's sections, in the order they appear. Module scope so the scroll spy
-// and the control it feeds can never disagree about the list.
 // How wide the story preview is drawn. 1080 x 1920 scaled to 118px is tall
 // enough to judge the crop and the type without taking the preview column over.
 const STORY_W = 118
 
-const SECTIONS = [
-  ['cert-words', 'Words'],
-  ['cert-look', 'Look'],
-  ['cert-when', 'When it is given'],
-  ['cert-who', 'Who gets it'],
-]
 
 export default function CertificateStudio() {
   const { profile } = useAuth()
@@ -224,13 +216,9 @@ export default function CertificateStudio() {
           certificates actually are." Each card is a DESIGN plus the rule that
           hands it out - not a certificate somebody has been given - and nothing
           on the page said so. One sentence, above the list it describes. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm leading-relaxed text-smoke">
-          Each of these is a certificate design and the rule that gives it out. A
-          <strong className="font-semibold text-ink"> Live</strong> one is awarded automatically
-          whenever somebody meets its rule; a <strong className="font-semibold text-ink">Draft</strong> is
-          never awarded and creators cannot see it. Open one to change its words, its look or its rule.
-        </p>
+      {/* NO EXPLANATION ABOVE THE LIST (1 Oct 2026). Ethan: "you can remove all that copy.
+          It's not needed, and we know it." The Live / Draft chip on each card says the rest. */}
+      <div className="flex justify-end">
         <button type="button" onClick={() => setPicking(true)} className="btn-primary shrink-0">
           <Icon name="plus" className="h-4 w-4" /> New certificate
         </button>
@@ -248,7 +236,7 @@ export default function CertificateStudio() {
         <EmptyState
           icon="trophy"
           title="No certificates yet"
-          hint="Press New certificate to see six ready-made designs - one of each layout, with their award triggers already set - or start from a blank one."
+          hint="Press New certificate to start from a ready-made design or a blank one."
         />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
@@ -379,10 +367,6 @@ function StarterGallery({ existingNames, onPick, onClose }) {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-ink">Start from</h3>
-          <p className="mt-1 text-[12px] leading-relaxed text-smoke">
-            Six ready-made designs, one of each layout, with their award triggers already set.
-            Nothing is saved until you press Save on the next screen.
-          </p>
         </div>
         <button type="button" onClick={onClose} className="btn-ghost !py-1.5 text-xs">Cancel</button>
       </div>
@@ -560,106 +544,55 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
     setSaving(false)
   }
 
-  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-  // WHICH SECTION YOU ARE LOOKING AT. Four identical links tell you where you
-  // can go and nothing about where you are; that is most of why the bar read as
-  // clutter. The topmost section still under the bar wins, so the control moves
-  // with the form rather than only when something is clicked.
-  const [here, setHere] = useState('cert-words')
+  // EVERY LANGUAGE, TRANSLATED BEFORE IT IS PRESSED (1 Oct 2026). A second after the words
+  // stop changing, all four versions are fetched in the background, so the language chips
+  // under the preview switch instantly.
+  const wordsKey = [design.title, design.subtitle, design.body, design.footnote, design.signature_role, design.options?.preamble].join('¦')
   useEffect(() => {
-    const onScroll = () => {
-      let current = SECTIONS[0][0]
-      for (const [id] of SECTIONS) {
-        const el = document.getElementById(id)
-        if (el && el.getBoundingClientRect().top <= 180) current = id
-      }
-      setHere(current)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+    const id = setTimeout(() => prefetchCertificateDesign(design, LOCALES), 900)
+    return () => clearTimeout(id)
+  }, [wordsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [storyFull, setStoryFull] = useState(false)
 
   return (
     <div className="space-y-6">
-      {/* ONE BAR THAT ALWAYS SAYS WHERE YOU ARE AND WHAT YOU CAN DO (28 Sep
-          2026). Ethan: "Improve the admin tool for how they create them,
-          download them, and view them, because currently it's a little bit
-          confusing, even the edit page." Save sat at the foot of a long form
-          and the download was a small link under the preview. The bar is
-          pinned under the header: back, which design this is and whether it
-          is live, the sections to jump to, a download, and Save. */}
-      {/* TWO ROWS, AND NOTHING SHOWS THROUGH IT (28 Sep 2026). Ethan: "scrolling
-          on the right 'edit' column, the content scrolls above the tab at the
-          top which it shouldn't. Also that tab on that top, I don't really
-          [like] the UI of it, like where it says 'took part' 'words' etc."
-
-          Both faults were in one element. It was `bg-white/95` with a blur, so
-          the form genuinely did scroll INTO it - you could read the fields
-          through the bar - and `-mx-1` left a sliver either side with nothing
-          behind it at all. It is opaque now, and it sits in its own sticky
-          wrapper with a solid background that runs the full width, so there is
-          no gap for anything to appear in.
-
-          And it was one row of eight unrelated things: a back link, a name, a
-          state chip, four section jumps and two buttons, all the same size and
-          all the same weight, so "Took part" and "Words" read as the same kind
-          of word. They are not: one is which design this is, the other is where
-          you are in the form. Identity and actions on the top row, the sections
-          as a segmented control underneath - and the control now shows which
-          section you are actually in rather than being four links that all look
-          alike. */}
-      {/* THE SHIELD ABOVE IT IS NOT DECORATION. The app header ends at 65px and
-          this bar sticks at 80, so there is a fifteen-pixel window between them
-          that the form scrolls through - which is most of what "the content
-          scrolls above the tab" actually was. `before` paints that window white
-          and sticks with the bar. Measured, not guessed. */}
+      {/* ONE CLEAN BAR (1 Oct 2026). Ethan: the "Editing Creator of the Month" header "just
+          looks a bit weird", and the tabs under it (Words / Look / When it is given) are "not
+          necessary". So: a square back button, the design's name as the heading with its state
+          beside it, and the two actions on the right. The section tabs are gone. It stays
+          opaque and sticky (see the shield note in git history: the form used to scroll
+          through a gap above it). */}
       <div className="sticky top-16 z-30 -mx-1 bg-white px-1 pb-2 pt-1 before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-white before:content-[''] sm:top-20">
-        <div className="rounded-card border border-gray-100 bg-white shadow-card">
-          <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
-            <button type="button" onClick={onCancel} className="btn-ghost !px-2.5 !py-1.5 text-xs">← All certificates</button>
-            {/* SAY THAT THIS IS A FILE NAME (28 Sep 2026). The bar printed the
-                design's internal name - "Took part" - in bold ink, beside a
-                Live chip, directly above a certificate that also carries words.
-                Ethan read it as part of the award: "we have the 'Took part'
-                words look like it's given to whoever gets it." */}
-            <span className="flex min-w-0 items-baseline gap-1.5">
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">Editing</span>
-              <span className="min-w-0 truncate text-sm font-bold text-ink">{design.name || 'New certificate'}</span>
-            </span>
-            <span className={cx(
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-              design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
-            )}>
-              {design.is_active ? 'Live' : 'Draft'}
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <button type="button" onClick={sample} disabled={saving || !card} className="btn-secondary !py-1.5 text-xs disabled:opacity-40">
-                {saving ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />} Download
-              </button>
-              <button type="button" onClick={onSave} disabled={!canSave} className="btn-primary !py-1.5 text-xs disabled:opacity-40">
-                Save
-              </button>
-            </div>
+        <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-3 py-2.5 shadow-card">
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="All certificates"
+            title="All certificates"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke transition-all hoverable:hover:-translate-y-0.5 hoverable:hover:text-brand"
+          >
+            <Icon name="chevronLeft" className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 truncate text-[15px] font-bold leading-tight text-ink">{design.name || 'New certificate'}</span>
+              <span className={cx(
+                'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                design.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500',
+              )}>
+                {design.is_active ? 'Live' : 'Draft'}
+              </span>
+            </p>
+            <p className="mt-0.5 truncate text-[11px] text-smoke">{layoutName(design)} · {triggerText(design, markets)}</p>
           </div>
-          <div className="hidden items-center gap-1 border-t border-gray-100 px-2 py-1.5 lg:flex">
-            {SECTIONS.map(([id, label]) => (
-              (id !== 'cert-who' || design.id) && (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => jump(id)}
-                  aria-current={here === id ? 'true' : undefined}
-                  className={cx(
-                    'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                    here === id ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
-                  )}
-                >
-                  {label}
-                </button>
-              )
-            ))}
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={sample} disabled={saving || !card} aria-label="Download a sample" className="btn-secondary !px-3 !py-2 text-xs disabled:opacity-40">
+              {saving ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">Download</span>
+            </button>
+            <button type="button" onClick={onSave} disabled={!canSave} className="btn-primary !px-4 !py-2 text-xs disabled:opacity-40">
+              Save
+            </button>
           </div>
         </div>
       </div>
@@ -692,12 +625,14 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
                 {l.flag} {l.native}
               </button>
             ))}
-            {previewLang !== 'en' && (
-              <Link to="/admin/languages" className="ml-1 text-[11px] font-semibold text-brand hover:underline">
-                {langReady ? 'Correct the wording in Languages' : 'Translating…'}
-              </Link>
-            )}
           </div>
+          {/* ALWAYS TAKES ITS LINE (1 Oct 2026): it used to appear only for a translated preview,
+              so every language press pushed the story card below it down and back up. */}
+          <p className={cx('mt-1.5 text-center text-[11px]', previewLang === 'en' && 'invisible')} aria-hidden={previewLang === 'en'}>
+            <Link to="/admin/languages" tabIndex={previewLang === 'en' ? -1 : 0} className="font-semibold text-brand hover:underline">
+              {langReady ? 'Correct the wording in Languages' : 'Translating…'}
+            </Link>
+          </p>
           {placeChoices.length > 1 && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
               <span className="mr-1 text-[11px] font-semibold text-smoke">Preview</span>
@@ -725,44 +660,33 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               cannot tell you that a long title wraps badly at 1080 wide.
               It is the same component the creator's download is taken from, so
               this is the picture rather than an impression of it. */}
-          <div className="mt-4 rounded-card border border-gray-100 bg-cloud/50 p-3">
-            <div className="flex items-start gap-3">
-              <div className="shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-black/5" style={{ width: STORY_W, height: STORY_W * (1920 / 1080) }}>
-                <div style={{ transform: `scale(${STORY_W / 1080})`, transformOrigin: 'top left' }}>
-                  <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story</p>
-                <p className="mt-1 text-sm font-semibold text-ink">1080 &times; 1920</p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
-                  Every certificate has one. The creator gets it on
-                  {' '}<strong className="font-semibold text-ink">My rewards</strong>, under
-                  {' '}<strong className="font-semibold text-ink">Share to your story</strong>, and it is built from this
-                  design - so whatever you change here changes it too.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-            <p className="text-[11px] text-gray-400">
-              {/* THE EXAMPLE MATCHES THE TRIGGER. A milestone design previews
-                  against a milestone, not against a challenge win it can never
-                  print. See `sampleFacts`. */}
-              {/* WHERE THE STORY SIZE ACTUALLY IS (28 Sep 2026). Ethan: "you
-                  said that you added a shared story size for Instagram stories,
-                  but I don't see this at all... please show me where to actually
-                  get that." It was built and it works - it is just on the other
-                  side of the product, on the creator's own rewards page, so
-                  there was nowhere in the place he was looking that said so. */}
-              Filled in with an example and your own photo. A real one carries the creator&rsquo;s name, photo and result. Downloads are 3000px and square-cornered.
-              {' '}
-              Creators get their own copy on <strong className="font-semibold text-ink">My rewards</strong>, with
-              {' '}<strong className="font-semibold text-ink">Share to your story</strong> beside it, which saves the
-              certificate on a Tryp.com background at 1080 x 1920 for Instagram.
-            </p>
-          </div>
+          {/* THE STORY OPENS FULL SCREEN (1 Oct 2026). Ethan: "whenever I click on it, it
+              doesn't show the full-screen version of it like it should." The thumbnail is a
+              button now, into the same full-screen viewer creators get. The explanation that
+              sat under the preview is gone ("we know it"). */}
+          <button
+            type="button"
+            onClick={() => setStoryFull(true)}
+            className="group mt-4 flex w-full items-center gap-3 rounded-card border border-gray-100 bg-cloud/50 p-3 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-card"
+          >
+            <span className="relative shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-black/5" style={{ width: STORY_W, height: STORY_W * (1920 / 1080) }}>
+              <span className="block" style={{ transform: `scale(${STORY_W / 1080})`, transformOrigin: 'top left' }}>
+                <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
+              </span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story</span>
+              <span className="mt-1 block text-sm font-semibold text-ink">1080 &times; 1920</span>
+              <span className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-brand shadow-card transition-transform group-hover:scale-105">
+                <Icon name="expand" className="h-3.5 w-3.5" /> View full screen
+              </span>
+            </span>
+          </button>
+          {storyFull && (
+            <FullScreen w={1080} h={1920} onClose={() => setStoryFull(false)} label="Close">
+              <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
+            </FullScreen>
+          )}
         </div>
 
         <div className="space-y-6">

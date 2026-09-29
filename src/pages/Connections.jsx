@@ -12,7 +12,7 @@ import Icon from '../components/Icon'
 import { isOnline, presenceLabel } from '../lib/presence'
 import { flagFromIso } from '../lib/flags'
 import { toast } from '../lib/toast'
-import { cx } from '../lib/utils'
+import { cx, dateTag } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 
@@ -59,7 +59,7 @@ function fmtTripRange(start, end) {
   const d = (s) => new Date(`${s}T12:00:00`)
   const a = d(start), b = d(end)
   const day = (x) => x.getDate()
-  const mon = (x) => x.toLocaleDateString('en-GB', { month: 'short' })
+  const mon = (x) => x.toLocaleDateString(dateTag(), { month: 'short' })
   return a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
     ? `${day(a)} - ${day(b)} ${mon(b)}`
     : `${day(a)} ${mon(a)} - ${day(b)} ${mon(b)}`

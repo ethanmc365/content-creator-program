@@ -24,6 +24,7 @@ import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorPeek from '../components/admin/CreatorPeek'
+import RecapTeaser from '../components/wrapped/RecapTeaser'
 import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
@@ -316,6 +317,10 @@ export default function Profile() {
       &ldquo;{creator.favourite_quote}&rdquo;
     </p>
   ) : null
+
+  // THE YEAR IN REVIEW, ON ITS WAY (1 Oct 2026). Every creator's profile, above everything else in
+  // the body, so it is seen before 3 December. See components/wrapped/RecapTeaser.
+  const recap = creator.is_admin ? null : <RecapTeaser name={creator.name} isMe={isMe} />
 
   const about = (
         <>
@@ -1060,6 +1065,7 @@ export default function Profile() {
          you reach it rather than having finished five screens before you did.
          See the per-item note in components/network/Reveal. */
       <Reveal className="flex flex-col gap-6" stagger={0.05}>
+        {recap}
         {about}
         {/* Right under About, which is the other thing this person wrote about
             themselves - and off the top of the page, where it was squashed. */}
@@ -1085,6 +1091,9 @@ export default function Profile() {
 
       ) : (
       /* ---------------- TWO COLUMNS, FROM `lg` ---------------- */
+      <>
+      {/* ACROSS BOTH COLUMNS, above About and the local time (Ethan, 1 Oct 2026). */}
+      <div className="mb-8">{recap}</div>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* The two columns do not arrive the same way: the article rises and
             the rail slides in from the edge it lives against. Same pattern as
@@ -1107,6 +1116,7 @@ export default function Profile() {
           {puzzles}
         </Reveal>
       </div>
+      </>
       )}
       {/* Mounted at the page root rather than beside the button: Modal portals
           to the body anyway, and keeping it out of the header section means the

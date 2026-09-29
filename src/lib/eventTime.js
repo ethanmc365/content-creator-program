@@ -1,3 +1,4 @@
+import { dateTag } from './utils'
 import { format } from 'date-fns'
 
 // WHOSE CLOCK IS THAT TIME ON.
@@ -56,7 +57,7 @@ export function timeInZone(at, zone) {
 export function dateTimeInZone(at, zone) {
   if (!zone) return null
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(dateTag(), {
       timeZone: zone, weekday: 'short', day: 'numeric', month: 'short',
       hour: '2-digit', minute: '2-digit', hour12: false,
     }).format(new Date(at))

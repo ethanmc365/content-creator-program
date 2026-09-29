@@ -684,8 +684,11 @@ export default function Landing() {
                     onClick={() => setMiniProfile(c)}
                     className="landing-lift card flex h-full w-full flex-col items-center gap-2.5 !p-5 text-center sm:gap-3 sm:!p-7 hoverable:hover:shadow-lift"
                   >
-                    <span className="landing-lift-icon block">
-                      <Avatar src={c.photo_url} name={c.name} size="lg" />
+                    {/* CENTRED BY THE BOX, NOT BY THE TEXT (1 Oct 2026). The photo is an inline
+                        <img>, so it sat on a text baseline inside its wrapper and drifted off
+                        centre; the wrapper is a centring flex box now and the image a block. */}
+                    <span className="landing-lift-icon flex w-full justify-center">
+                      <Avatar src={c.photo_url} name={c.name} size="lg" className="block" />
                     </span>
                     <p className="text-sm font-semibold leading-snug sm:text-base">{c.name}</p>
                     <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
@@ -857,14 +860,20 @@ export default function Landing() {
               stagger={0.05}
               label={tr("Wall of fame")}
             >
+              {/* EVERY CARD OPENS THE CREATOR (1 Oct 2026). Ethan: the first card "shows a weird
+                  orange border on top" and "clicking on it seems to provide no information. It
+                  should just show the information like when you click on Recently Active
+                  Creators." The stripe is gone, and each card is a button into the same
+                  mini profile, with their views, wins and videos on it. */}
               {wall.map((w, i) => (
-                <div
+                <button
+                  type="button"
                   key={`${w.name}-${i}`}
-                  className="landing-lift group relative flex h-full flex-col items-center overflow-hidden rounded-card bg-white p-4 pt-5 text-center shadow-card ring-1 ring-black/5 sm:p-5 sm:pt-6"
+                  onClick={() => setMiniProfile({ ...w, views: Number(w.total_views) || 0 })}
+                  className="landing-lift group relative flex h-full w-full flex-col items-center overflow-hidden rounded-card bg-white p-4 pt-5 text-center shadow-card ring-1 ring-black/5 sm:p-5 sm:pt-6 hoverable:hover:shadow-lift"
                 >
-                  {i === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-brand-light" />}
-                  <div className="relative">
-                    <Avatar src={w.photo_url} name={w.name} size="lg" className="mx-auto" />
+                  <div className="landing-lift-icon relative flex justify-center">
+                    <Avatar src={w.photo_url} name={w.name} size="lg" className="block" />
                     {w.wins > 0 && (
                       <span className="absolute -bottom-1 -right-2 flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-full bg-gradient-to-br from-brand to-brand-light px-1.5 text-[10px] font-bold text-white shadow-card ring-2 ring-white" title={tr("Challenge wins")}>
                         <Icon name="trophy" className="h-3 w-3" />{w.wins > 1 ? w.wins : ''}
@@ -874,7 +883,7 @@ export default function Landing() {
                   <p className="mt-3 w-full truncate text-sm font-bold text-ink">{w.name}</p>
                   <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-brand sm:text-[26px]">{formatViews(Number(w.total_views) || 0)}</p>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{tr("views so far")}</p>
-                </div>
+                </button>
               ))}
             </Rail>
           </div>
@@ -972,8 +981,8 @@ export default function Landing() {
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
-            <div className="mx-auto">
-              <Avatar src={miniProfile.photo_url} name={miniProfile.name} size="xl" />
+            <div className="flex justify-center">
+              <Avatar src={miniProfile.photo_url} name={miniProfile.name} size="xl" className="block" />
             </div>
             <h3 className="mt-4 text-xl font-bold">{miniProfile.name}</h3>
             {(miniProfile.city || miniProfile.country) && (
@@ -983,13 +992,27 @@ export default function Landing() {
               </p>
             )}
             {miniProfile.bio && <p className="mt-3 text-sm leading-relaxed text-smoke line-clamp-4">{miniProfile.bio}</p>}
+            {miniProfile.views != null && (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {[
+                  [formatViews(miniProfile.views), tr('views so far')],
+                  [String(miniProfile.videos ?? 0), tr('videos')],
+                  [String(miniProfile.wins ?? 0), tr('Challenge wins')],
+                ].map(([v, l]) => (
+                  <div key={l} className="rounded-xl bg-brand-tint/60 px-2 py-2.5">
+                    <p className="text-lg font-bold tabular-nums leading-none text-brand">{v}</p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-smoke">{l}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             {miniProfile.countries > 0 && (
               <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-brand-tint px-3 py-1 text-xs font-semibold text-brand">
-                <Icon name="globe" className="h-3.5 w-3.5" /> {miniProfile.countries} countries explored
+                <Icon name="globe" className="h-3.5 w-3.5" /> {tr('{n} countries explored', { n: miniProfile.countries })}
               </p>
             )}
             <div className="mt-6 rounded-card bg-cloud/70 p-4">
-              <p className="text-sm font-medium text-ink">Join the community to connect with {miniProfile.name.split(' ')[0]}.</p>
+              <p className="text-sm font-medium text-ink">{tr('Join the community to connect with {name}.', { name: miniProfile.name.split(' ')[0] })}</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Link to="/signup" className="btn-primary flex-1 !py-2.5 text-sm">{tr("Sign up")}</Link>
                 <Link to="/login" className="btn-secondary flex-1 !py-2.5 text-sm">{tr("Log in")}</Link>

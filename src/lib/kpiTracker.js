@@ -271,7 +271,8 @@ export function rowStatus(row, period, now = new Date()) {
 export function mergeKpiRows(targets, actuals) {
   const actualByMetric = new Map((actuals || []).map((a) => [a.metric, Number(a.value) || 0]))
   return [...(targets || [])]
-    .filter((t) => !REMOVED_METRICS.has(t.metric))
+    // Custom ("my own") KPIs were retired on 1 Oct 2026: every goal is measured by the platform.
+    .filter((t) => !REMOVED_METRICS.has(t.metric) && t.metric !== 'custom')
     .map((t) => ({
       ...t,
       actual: t.metric === 'custom' ? (Number(t.current_value) || 0) : (actualByMetric.get(t.metric) ?? 0),

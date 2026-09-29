@@ -7,14 +7,14 @@ import Icon from '../../components/Icon'
 import KpiTargetSheet from '../../components/admin/KpiTargetSheet'
 import KpiDetail from '../../components/admin/KpiDetail'
 import KpiProgress from '../../components/admin/KpiProgress'
-import { confirm, promptText } from '../../lib/confirm'
+import { confirm } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import {
   STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, formatKpiValue, mergeKpiRows,
-  metricDef, metricLabel, periodLabel, rollUpTargets, rowStatus, withDerivedTargets,
+  metricDef, metricIcon, metricLabel, periodLabel, rollUpTargets, rowStatus, withDerivedTargets,
 } from '../../lib/kpiTracker'
 import Segmented from '../../components/network/Segmented'
-import { Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, CartesianGrid, ComposedChart, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { usePlural, useT } from '../../lib/i18n'
 
 // THE KPI TRACKER.
@@ -63,7 +63,7 @@ export default function AdminKpis() {
   const scopes = useMemo(() => (communities || []).flatMap((c) => (c.kind === 'network'
     ? [
       { key: `${c.id}:all`, id: c.id, basis: 'all', name: tr('Total'), sub: tr('Every market and global'), icon: 'globe', currency: c.currency },
-      { key: `${c.id}:global`, id: c.id, basis: 'global', name: tr('Global challenges'), sub: tr('Global challenges only'), icon: 'globe', currency: c.currency },
+      { key: `${c.id}:global`, id: c.id, basis: 'global', name: tr('Global challenges'), sub: tr('Global challenges only'), currency: c.currency },
     ]
     : [{ key: c.id, id: c.id, basis: 'all', name: c.name, currency: c.currency }])), [communities, tr])
   const current = scopes.find((x) => x.key === scopeKey)
@@ -187,7 +187,12 @@ export default function AdminKpis() {
     // the neighbours, when the browser has a spare moment
     const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 250))
     ric(() => {
+      // Either side, AND the other granularity of where we are, so the Quarter / Month switch
+      // paints from the cache too.
       const nb = [-1, 1].map((d) => (byMonth ? adjacentMonth(year, month, d) : { ...adjacentQuarter(year, quarter, d), month: null }))
+      const cur = currentMonth()
+      nb.push(byMonth ? { year, quarter, month: null }
+        : (year === cur.year && quarter === cur.quarter ? cur : { year, quarter, month: (quarter - 1) * 3 + 1 }))
       nb.forEach(async (p) => {
         const k = `${scope}:${basis}:${p.year}:${p.quarter}:${p.month ?? ''}`
         if (cacheRef.current.has(k)) return
@@ -267,19 +272,6 @@ export default function AdminKpis() {
     load()
   }
 
-  // A HAND-TRACKED KPI'S PROGRESS IN ONE STEP, from the card, without opening the
-  // whole sheet - it is the number somebody changes every few days.
-  async function quickUpdate(row) {
-    const v = await promptText(tr('What is {name} at now?', { name: row.label }), {
-      title: tr('Update progress'), defaultValue: String(row.current_value ?? 0), confirmLabel: tr('Save'),
-    })
-    if (v === null) return
-    const n = Number(v)
-    if (!Number.isFinite(n)) { setErr(tr('That is not a number.')); return }
-    await supabase.from('kpi_targets').update({ current_value: n }).eq('id', row.id)
-    load()
-  }
-
   async function removeTarget(row) {
     const ok = await confirm(
       tr('Delete this KPI target? The numbers behind it are not affected - only the plan is removed.'),
@@ -296,7 +288,6 @@ export default function AdminKpis() {
       <PageHeader
         back="/admin"
         title={tr('KPI tracker')}
-        subtitle={tr('Set a target for a quarter or a month, and watch it against the real numbers as they land.')}
       />
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
@@ -325,14 +316,18 @@ export default function AdminKpis() {
           match the design, and not lag. It has a row of its own that is ALWAYS there (so nothing
           below it moves when it appears), the button sits right-aligned over the period control,
           and it is driven by the same state as the period so it cannot arrive late. */}
-      <div className="mb-1.5 flex h-8 items-end justify-end">
+      {/* SQUARE, LIKE THE PERIOD IT SITS OVER (1 Oct 2026). Ethan: the rounded pill "looks
+          different from the other buttons. Make it square, matching ... the Q4 2026". Same height,
+          radius, tint and weight as the period chip, and it sits on the page's right edge where
+          the period control is. */}
+      <div className="mb-1.5 flex h-8 items-end justify-end lg:pr-2">
         <button
           type="button"
           tabIndex={isCurrent ? -1 : 0}
           aria-hidden={isCurrent}
           onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
           className={cx(
-            'inline-flex items-center gap-1.5 rounded-full border border-brand/25 bg-brand-tint px-3 py-1.5 text-xs font-semibold text-brand transition-all duration-200 hoverable:hover:bg-brand hoverable:hover:text-white',
+            'inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-tint px-3 text-[13px] font-bold text-brand transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand hoverable:hover:text-white',
             isCurrent ? 'pointer-events-none translate-y-1 opacity-0' : 'translate-y-0 opacity-100',
           )}
         >
@@ -431,24 +426,15 @@ export default function AdminKpis() {
                     <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-white/80">{tr('On track or met')}</p>
                   </div>
                   <div className="min-w-[14rem] flex-1">
-                    {/* THE WHOLE SPREAD IN ONE SMOOTH STRIP (30 Sep 2026). Ethan: the combined bar
-                        "should be a smooth gradient combining, not solid colour clashing", and the
-                        red "really doesn't look good on the orange background". So it is ONE
-                        gradient whose stops blend from each status into the next, and it sits on
-                        a white track, where red and amber read properly. */}
-                    <div className="rounded-full bg-white/95 p-[3px] shadow-inner" role="img" aria-label={tr('How the goals are doing')}>
-                      <div className="kpi-fill h-2.5 rounded-full" style={{ background: spreadGradient(statuses) }} />
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/85">
-                      {['met', 'on_track', 'behind', 'missed'].map((k) => {
-                        const n = statuses.filter((x) => x.status === k).length
-                        return n ? (
-                          <span key={k} className="inline-flex items-center gap-1.5">
-                            <span className={cx('h-2 w-2 rounded-full ring-2 ring-white/90', SUMMARY_TONE[k])} />
-                            {n} {tr(STATUS_STYLE[k].label)}
-                          </span>
-                        ) : null
-                      })}
+                    {/* NO WHITE FRAME (1 Oct 2026). Ethan: the bar on the orange card "has a weird white
+                        border around it ... maybe a different shade of red". The white track is gone;
+                        the strip sits on a translucent track like everything else on the card, in
+                        tones picked to read against the orange: white for on track, a pale mint for
+                        met, pale gold for behind and a deep wine for missed, which is the one red
+                        that still contrasts with the light end of the gradient. The chips under it
+                        went too ("not necessary"); the sentence below says the same thing. */}
+                    <div className="h-2.5 overflow-hidden rounded-full bg-white/25" role="img" aria-label={tr('How the goals are doing')}>
+                      <div className="kpi-fill h-full rounded-full" style={{ background: spreadGradient(statuses) }} />
                     </div>
                   </div>
                 </div>
@@ -488,7 +474,7 @@ export default function AdminKpis() {
               <p className="mt-3 text-sm font-semibold text-ink">{tr('No targets set for {q} yet', { q: periodLabel(period) })}</p>
               <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
                 {canEdit
-                  ? tr('Set a target for challenges run, creators recruited, participation, views, or your own KPI.')
+                  ? tr('Set a target for challenges run, creators recruited, participation or views.')
                   : tr('The people leading {scope} have not set any targets for {p} yet.', { scope: scopeName, p: periodLabel(period) })}
               </p>
               {canEdit && (
@@ -509,7 +495,6 @@ export default function AdminKpis() {
                     period={period}
                     currency={currency}
                     canEdit={canEdit}
-                    onQuickUpdate={() => quickUpdate(row)}
                     onEdit={() => setEditing(row)}
                     onDelete={() => (row.id ? removeTarget(row) : null)}
                     onOpen={() => setDetail(row)}
@@ -546,9 +531,12 @@ export default function AdminKpis() {
               number; this is the chart that says where that number came from,
               and it belongs between "are we on track this quarter" and "is this
               market going anywhere". */}
-          {yearOn ? <YearOverview scope={scope} basis={basis} year={year} byMonth={byMonth} currency={currency} /> : <Skeleton className="mt-8 h-40 w-full rounded-card" />}
         </div>
       )}
+      {/* OUTSIDE THE KEYED BLOCK ABOVE (1 Oct 2026). It sat inside it, so every step of the
+          period remounted it and re-ran up to twelve requests - most of the lag Ethan felt switching
+          quarter and month. It depends only on the market, the year and the granularity. */}
+      {ready && (yearOn ? <YearOverview scope={scope} basis={basis} year={year} byMonth={byMonth} currency={currency} /> : <Skeleton className="mt-8 h-40 w-full rounded-card" />)}
 
       <KpiDetail
         row={detail}
@@ -592,9 +580,11 @@ export default function AdminKpis() {
 // numbers only for the periods that actually have a row. A period with nothing to
 // show is blank, not zero: a market that started setting KPIs in Q3 did not
 // "miss" Q1 and Q2 - it was not tracking yet.
+const yearCache = new Map()
 function YearOverview({ scope, basis, year, byMonth, currency }) {
   const tr = useT()
-  const [byPeriod, setByPeriod] = useState(null)
+  const cacheKey = `${scope}:${basis}:${year}:${byMonth ? 'm' : 'q'}`
+  const [byPeriod, setByPeriod] = useState(() => yearCache.get(cacheKey) || null)
   const periods = useMemo(() => (byMonth
     ? Array.from({ length: 12 }, (_, i) => ({ key: i + 1, year, quarter: Math.floor(i / 3) + 1, month: i + 1, short: MONTH_SHORT[i] }))
     : [1, 2, 3, 4].map((q) => ({ key: q, year, quarter: q, month: null, short: `Q${q}` }))), [year, byMonth])
@@ -602,7 +592,8 @@ function YearOverview({ scope, basis, year, byMonth, currency }) {
   useEffect(() => {
     if (!scope) return undefined
     let alive = true
-    setByPeriod(null)
+    // A year already seen paints at once and refreshes behind; a new one shows its skeleton.
+    setByPeriod(yearCache.get(cacheKey) || null)
     ;(async () => {
       const { data: all } = await supabase.from('kpi_targets').select('*').eq('community_id', scope).eq('basis', basis).eq('year', year)
       const results = await Promise.all(periods.map(async (p) => {
@@ -619,10 +610,11 @@ function YearOverview({ scope, basis, year, byMonth, currency }) {
         })
         return { key: p.key, rows: mergeKpiRows(rows, a || []) }
       }))
+      yearCache.set(cacheKey, results)
       if (alive) setByPeriod(results)
     })()
     return () => { alive = false }
-  }, [scope, basis, year, byMonth, periods])
+  }, [scope, basis, year, byMonth, periods, cacheKey])
 
   const metrics = useMemo(() => {
     if (!byPeriod) return null
@@ -669,8 +661,9 @@ function YearOverview({ scope, basis, year, byMonth, currency }) {
   )
 }
 
-const SUMMARY_TONE = { met: 'bg-emerald-500', on_track: 'bg-brand', behind: 'bg-amber-400', missed: 'bg-red-500' }
-const SUMMARY_HEX = { met: '#10b981', on_track: '#f5853f', behind: '#fbbf24', missed: '#ef4444' }
+// Tones for a bar drawn ON the orange card, not on white: each is checked against both ends of
+// the brand gradient (#d94407 to #f5853f).
+const SUMMARY_HEX = { met: '#a7f3d0', on_track: '#ffffff', behind: '#fde68a', missed: '#7f1d1d' }
 
 // ONE GRADIENT FOR THE WHOLE SPREAD: each status owns a share of the strip in proportion to how
 // many goals are in it, and the colour eases into its neighbour across the seam instead of
@@ -798,45 +791,93 @@ function YearChart({ metrics, periods, currency }) {
   const [pick, setPick] = useState(0)
   const m = metrics[Math.min(pick, metrics.length - 1)]
   const sample = Object.values(m.periods)[0]
+  const def = metricDef(sample || m)
+  // ONE BAR PER PERIOD (1 Oct 2026, "just improve the design"). It was two bars side by side,
+  // which at twelve months on a phone became twenty-four slivers. Now each period is a single
+  // column as tall as its goal: the part achieved in the brand gradient, what is still missing in
+  // pale peach, and anything past the goal simply makes the column taller.
   const data = periods.map((p) => {
     const row = m.periods[p.key]
-    return { name: p.short, actual: row ? row.actual : null, target: row ? row.target_value : null }
+    if (!row) return { name: p.short, done: null, rest: null, actual: null, target: null }
+    const actual = Number(row.actual) || 0
+    const target = Number(row.target_value) || 0
+    return { name: p.short, done: actual, rest: Math.max(0, target - actual), actual, target }
   })
+  const withGoal = data.filter((d) => d.target != null)
+  const totalActual = withGoal.reduce((x, d) => x + d.actual, 0)
+  const totalTarget = withGoal.reduce((x, d) => x + d.target, 0)
   const fmt = (v) => (v == null ? '-' : formatKpiValue(sample, v, currency))
   return (
-    <section className="mb-4 rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up sm:p-5">
+    <section className="mb-4 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up">
       {metrics.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-1">
+        <div className="flex gap-1 overflow-x-auto overscroll-contain border-b border-gray-100 p-2 [scrollbar-width:none]">
           {metrics.map((x, i) => (
             <button
               key={`${x.metric}:${x.label}`}
               type="button"
               onClick={() => setPick(i)}
               className={cx(
-                'rounded-full px-3 py-1 text-xs font-semibold transition-all duration-200',
-                i === pick ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink',
+                'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-all duration-200',
+                i === pick ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
               )}
             >
-              {metricLabel(x)}
+              <Icon name={metricIcon(x)} className="h-3.5 w-3.5" />
+              {tr(metricLabel(x))}
             </button>
           ))}
         </div>
       )}
-      <div className="mb-2 flex items-center gap-4 text-[11px] font-semibold text-smoke">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Achieved')}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#fde3d1]" />{tr('Goal')}</span>
-      </div>
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={pick} data={data} barGap={6} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#F1F1F2" />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={fmt} axisLine={false} tickLine={false} allowDecimals width={52} />
-            <Tooltip contentStyle={tipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v, k) => [fmt(v), k === 'actual' ? tr('Achieved') : tr('Goal')]} />
-            <Bar dataKey="target" fill="#fde3d1" radius={[6, 6, 0, 0]} maxBarSize={52} animationDuration={500} />
-            <Bar dataKey="actual" fill="#d94407" radius={[6, 6, 0, 0]} maxBarSize={52} animationDuration={800} />
-          </ComposedChart>
-        </ResponsiveContainer>
+      <div className="p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr(metricLabel(m))}</p>
+            {def.kind === 'sum' ? (
+              <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-ink">
+                {fmt(totalActual)}
+                <span className="ml-1.5 text-sm font-semibold text-smoke">/ {fmt(totalTarget)}</span>
+              </p>
+            ) : (
+              <p className="mt-1 text-sm font-semibold text-smoke">{tr('An average, so each period stands on its own.')}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-4 text-[11px] font-semibold text-smoke">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-brand to-brand-light" />{tr('Achieved')}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#fde3d1]" />{tr('Still to reach the goal')}</span>
+          </div>
+        </div>
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart key={pick} data={data} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="kpiYearBar" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#d94407" />
+                  <stop offset="100%" stopColor="#f5853f" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#F4F4F5" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={fmt} axisLine={false} tickLine={false} width={52} />
+              <Tooltip
+                contentStyle={tipStyle}
+                cursor={{ fill: 'rgba(217,68,7,0.05)', radius: 8 }}
+                content={({ active, payload, label }) => {
+                  const d = active && payload?.[0]?.payload
+                  if (!d || d.target == null) return null
+                  const pct = d.target > 0 ? Math.round((d.actual / d.target) * 100) : 0
+                  return (
+                    <div style={tipStyle} className="bg-white px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+                      <p className="text-sm font-bold text-ink">{fmt(d.actual)} <span className="font-medium text-smoke">/ {fmt(d.target)}</span></p>
+                      <p className="text-[11px] font-semibold text-brand">{pct}%</p>
+                    </div>
+                  )
+                }}
+              />
+              <Bar dataKey="done" stackId="a" fill="url(#kpiYearBar)" maxBarSize={44} animationDuration={700} shape={(pr) => <Rectangle {...pr} radius={pr.payload?.rest ? [0, 0, 0, 0] : [8, 8, 0, 0]} />} />
+              <Bar dataKey="rest" stackId="a" fill="#fde3d1" radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={700} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </section>
   )
@@ -848,7 +889,7 @@ function YearChart({ metrics, periods, currency }) {
 // fill runs to 100% at the target and keeps counting in the LABEL past it -
 // a KPI hit at 140% is worth celebrating, not clipping off at a full bar
 // that looks identical to one hit at exactly 100%.
-function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, onQuickUpdate, style: cardStyle }) {
+function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, style: cardStyle }) {
   const tr = useT()
   const def = metricDef(row)
   const { status, pct, progress } = rowStatus(row, period)
@@ -875,11 +916,6 @@ function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, onQ
             <span className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-brand">
               <Icon name="refresh" className="h-3 w-3" />
               {row.derived === 'rollup' ? tr('Months combined: {m}', { m: row.from }) : tr('Share of the {q} goal', { q: row.from })}
-            </span>
-          ) : !row.is_automated ? (
-            <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
-              <Icon name="pencil" className="h-3 w-3" />
-              {tr('Tracked by hand')}
             </span>
           ) : null}
         </span>
@@ -920,15 +956,6 @@ function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, onQ
           {tr(style.label)}
         </span>
         <span className="flex min-w-0 items-center gap-2">
-          {canEdit && !row.is_automated && !row.derived && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onQuickUpdate?.() }}
-              className="rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-smoke transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"
-            >
-              {tr('Update progress')}
-            </button>
-          )}
           <span className="text-xs font-semibold tabular-nums text-gray-400">{Math.round(pct * 100)}%</span>
           {row.creator && (
             <Link to={`/profile/${row.creator.id}`} onClick={(e) => e.stopPropagation()} title={`${tr('Set by')} ${row.creator.name}`} className="flex min-w-0 items-center gap-1.5 rounded-full bg-cloud py-0.5 pl-0.5 pr-2 transition-colors hover:bg-brand-tint">

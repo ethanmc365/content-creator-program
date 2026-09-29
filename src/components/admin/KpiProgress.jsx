@@ -29,15 +29,21 @@ export function barTone(status, pct) {
   return status === 'behind' ? 'amber' : 'orange'
 }
 
+// THE PACE MARKER, EXPLAINED (1 Oct 2026). Ethan saw "a weird line at the end of the progress
+// bar" on Challenges run and not on Videos entered. It is the recommended pace: where a straight
+// line to the goal would be by today. Late in a quarter it sits at 99%, right on the end of the
+// bar, which is why it read as a glitch; and it was hidden once a goal was met, which is why one
+// card had it and the next did not. Now every running total shows it for as long as its period is
+// running (met or not), it is drawn as a labelled notch rather than a stray hairline, and an
+// average never shows it, because an average has no straight line to be ahead of.
 export default function KpiProgress({ status, pct, progress, isLevel = false, className, size = 'md' }) {
   const tr = useT()
   const tone = BAR_TONES[barTone(status, pct)]
   const cur = Math.round(pct * 100)
   const fill = Math.min(100, cur)
   const steady = Math.round(progress * 100)
-  // A level (an average, a rate) has no straight line to be ahead of.
-  const showPace = !isLevel && status !== 'met' && status !== 'missed' && progress > 0 && progress < 1
-  const diff = cur - steady
+  const showPace = !isLevel && status !== 'missed' && progress > 0 && progress < 1
+  const markAt = Math.min(98.5, Math.max(1.5, steady))
 
   return (
     <div className={className}>
@@ -51,27 +57,21 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
         {showPace && (
           <span
             aria-hidden
-            className="absolute top-1/2 h-[170%] w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink/70"
-            style={{ left: `${steady}%` }}
+            title={tr('Recommended pace')}
+            className="absolute top-1/2 h-[calc(100%+6px)] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white ring-1 ring-ink/40"
+            style={{ left: `${markAt}%` }}
           />
         )}
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2 text-[12px] leading-none">
-        <span className="flex items-center gap-3">
-          <span className="font-semibold text-ink">
-            <span className={cx('mr-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r align-[0px]', tone.fill)} />
-            {tr('Current')} <span className="tabular-nums">{cur}%</span>
-          </span>
-          {showPace && (
-            <span className="font-medium text-smoke">
-              <span className="mr-1 inline-block h-2.5 w-0.5 rounded-full bg-ink/70 align-[-1px]" />
-              {tr('Steady pace')} <span className="tabular-nums">{steady}%</span>
-            </span>
-          )}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-none">
+        <span className="font-semibold text-ink">
+          <span className={cx('mr-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r align-[0px]', tone.fill)} />
+          {tr('Current pace')} <span className="tabular-nums">{cur}%</span>
         </span>
-        {showPace && diff !== 0 && (
-          <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', diff > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
-            {diff > 0 ? tr('{n} pts ahead', { n: diff }) : tr('{n} pts behind', { n: -diff })}
+        {showPace && (
+          <span className="font-medium text-smoke">
+            <span className="mr-1 inline-block h-2.5 w-[3px] rounded-full bg-white align-[-1px] ring-1 ring-ink/40" />
+            {tr('Recommended pace')} <span className="tabular-nums">{steady}%</span>
           </span>
         )}
       </div>
