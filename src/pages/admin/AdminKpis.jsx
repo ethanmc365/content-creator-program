@@ -285,56 +285,33 @@ export default function AdminKpis() {
 
   return (
     <div className="page">
+      {/* BACK TO TODAY SITS ON THE TITLE'S LINE (2 Oct 2026). Ethan: make it "actually Trip.com orange
+          rather than the same light colour, because the light colour seems like it's just showing
+          something", and use the space the removed descriptions left. It was a row of its own that
+          was always there, empty most of the time; now it is a solid button beside the heading. */}
       <PageHeader
         back="/admin"
         title={tr('KPI tracker')}
+        inlineAction
+        action={(
+          <button
+            type="button"
+            tabIndex={isCurrent ? -1 : 0}
+            aria-hidden={isCurrent}
+            onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
+            className={cx(
+              'inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-bold text-white shadow-card transition-all duration-200 hoverable:hover:scale-[1.04] hoverable:hover:shadow-lift active:scale-[0.98]',
+              isCurrent ? 'pointer-events-none scale-95 opacity-0' : 'scale-100 opacity-100',
+            )}
+          >
+            <Icon name="chevronLeft" className="h-3.5 w-3.5" strokeWidth={2.4} />
+            {tr('Back to {p}', { p: periodLabel(byMonth ? now : { ...currentQuarter(), month: null }) })}
+          </button>
+        )}
       />
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
-      {/* ---------- scope + quarter, EACH NAMED AND EACH ITS OWN ROW (23 Sep
-          2026). Ethan: "it should show clearly when the quarter is... I
-          notice that card [the market pills] is worldwide, Germany, etc.,
-          and the Q3 2026 is too big, they're not aligned." Sharing one row
-          meant the quarter control - a bordered box round two 28px buttons -
-          sat at a different height and weight than the market pills next to
-          it, and wrapped onto its own line at most widths anyway. Two
-          labelled rows, both built from the same pill, read as one control
-          panel instead of two controls that happen to be near each other. */}
-      {/* ONE COMPACT BAR (28 Sep 2026). Ethan: "too much white space between
-          them, so just make it more compact." Market and period share one row
-          from a laptop up, each led by a small label rather than a heading. */}
-      {/* NO LABEL, NO SCROLLER, ONE LINE (28 Sep 2026). Ethan: the markets
-          row "cuts it off a bit" when it scrolls, there was "a lot of white
-          space below", it was "not aligned", and "you don't actually need to
-          even say markets". The pills now WRAP instead of scrolling, so none
-          is ever clipped; the scroller's hidden scrollbar gutter (the space
-          under them) is gone with it; and the period sits on the same centre
-          line at the right. */}
-      {/* BACK TO TODAY, ABOVE THE PERIOD IT LEAVES (30 Sep 2026). Ethan: the "back to" button should
-          "appear above, rather than below the card ... directly above where it shows Q2 2026",
-          match the design, and not lag. It has a row of its own that is ALWAYS there (so nothing
-          below it moves when it appears), the button sits right-aligned over the period control,
-          and it is driven by the same state as the period so it cannot arrive late. */}
-      {/* SQUARE, LIKE THE PERIOD IT SITS OVER (1 Oct 2026). Ethan: the rounded pill "looks
-          different from the other buttons. Make it square, matching ... the Q4 2026". Same height,
-          radius, tint and weight as the period chip, and it sits on the page's right edge where
-          the period control is. */}
-      <div className="mb-1.5 flex h-8 items-end justify-end lg:pr-2">
-        <button
-          type="button"
-          tabIndex={isCurrent ? -1 : 0}
-          aria-hidden={isCurrent}
-          onClick={() => setPeriod(byMonth ? now : { ...currentQuarter(), month: null })}
-          className={cx(
-            'inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-tint px-3 text-[13px] font-bold text-brand transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand hoverable:hover:text-white',
-            isCurrent ? 'pointer-events-none translate-y-1 opacity-0' : 'translate-y-0 opacity-100',
-          )}
-        >
-          <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-          {tr('Back to {p}', { p: periodLabel(byMonth ? now : { ...currentQuarter(), month: null }) })}
-        </button>
-      </div>
       <div className="mb-5 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up lg:flex-row lg:items-center lg:gap-3">
         {/* ONE LINE, SCROLLING SIDEWAYS (28 Sep 2026, later). Ethan, on what
             happens when you step to another quarter: "the market selection goes
@@ -378,7 +355,7 @@ export default function AdminKpis() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2 lg:shrink-0 lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0">
+        <div className="flex items-center justify-between gap-1.5 border-t border-gray-100 pt-2 lg:shrink-0 lg:justify-start lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0">
           <Segmented
             value={byMonth ? 'month' : 'quarter'}
             onChange={setMode}
@@ -386,7 +363,7 @@ export default function AdminKpis() {
             label={tr('Quarter or month')}
             options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
           />
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <button
               type="button"
               onClick={() => step(-1)}
@@ -395,7 +372,7 @@ export default function AdminKpis() {
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
             </button>
-            <span key={periodLabel(period)} className="flex h-8 min-w-[8.5rem] animate-pop-in items-center justify-center rounded-lg bg-brand-tint px-3 text-[13px] font-bold tabular-nums text-brand">
+            <span key={periodLabel(period)} className="flex h-8 min-w-[6.5rem] animate-pop-in sm:min-w-[8.5rem] items-center justify-center rounded-lg bg-brand-tint px-3 text-[13px] font-bold tabular-nums text-brand">
               {periodLabel(period)}
             </span>
             <button
@@ -452,15 +429,25 @@ export default function AdminKpis() {
               its share in each month. Worked-out rows are marked, never saved
               behind anybody's back, and one press makes them real. */}
           {derivedRows.length > 0 && (
-            <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-3 animate-fade-up">
-              <Icon name="refresh" className="h-4 w-4 shrink-0 text-brand" />
-              <p className="min-w-0 flex-1 text-sm text-ink">
-                {byMonth
-                  ? plural(derivedRows.length, 'One goal here is {q}\'s goal shared across its months, rising gently as the quarter goes on.', '{n} goals here are {q}\'s goals shared across its months, rising gently as the quarter goes on.', { q: periodLabel({ year, quarter, month: null }) })
-                  : plural(derivedRows.length, 'One goal here is the monthly goals added together. Set a quarter goal to replace it.', '{n} goals here are the monthly goals added together. Set a quarter goal to replace them.')}
-              </p>
+            <div className="mb-5 flex flex-col gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up sm:flex-row sm:items-center">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
+                <Icon name="refresh" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">
+                  {byMonth
+                    ? plural(derivedRows.length, 'One goal comes from {q}', '{n} goals come from {q}', { q: periodLabel({ year, quarter, month: null }) })
+                    : plural(derivedRows.length, 'One goal is the months added up', '{n} goals are the months added up')}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-smoke">
+                  {byMonth
+                    ? tr('Shared across the quarter\'s months, rising gently month by month. Save them to make them this month\'s own.')
+                    : tr('Worked out from the monthly goals. Save them to make them the quarter\'s own.')}
+                </p>
+              </div>
               {canEdit && (
-                <button type="button" onClick={saveDerived} className="btn-secondary !py-1.5 text-xs">
+                <button type="button" onClick={saveDerived} className="btn-primary shrink-0 justify-center !py-2 text-sm transition-transform duration-200 hoverable:hover:scale-[1.03]">
+                  <Icon name="check" className="h-4 w-4" strokeWidth={2.4} />
                   {byMonth ? tr('Save as this month\'s goals') : tr('Save as quarter goals')}
                 </button>
               )}
@@ -663,7 +650,8 @@ function YearOverview({ scope, basis, year, byMonth, currency }) {
 
 // Tones for a bar drawn ON the orange card, not on white: each is checked against both ends of
 // the brand gradient (#d94407 to #f5853f).
-const SUMMARY_HEX = { met: '#a7f3d0', on_track: '#ffffff', behind: '#fde68a', missed: '#7f1d1d' }
+// Met is a deep green (2 Oct 2026, Ethan: "a bit darker green, especially on the left side").
+const SUMMARY_HEX = { met: '#047857', on_track: '#ffffff', behind: '#fde68a', missed: '#7f1d1d' }
 
 // ONE GRADIENT FOR THE WHOLE SPREAD: each status owns a share of the strip in proportion to how
 // many goals are in it, and the colour eases into its neighbour across the seam instead of
@@ -771,7 +759,7 @@ function YearRow({ metric, periods, currency, last }) {
 }
 
 const STATUS_STYLE = {
-  met: { ring: 'stroke-emerald-500', bar: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700', label: 'Target met' },
+  met: { ring: 'stroke-emerald-600', bar: 'bg-emerald-600', chip: 'bg-emerald-50 text-emerald-700', label: 'Target met' },
   on_track: { ring: 'stroke-brand', bar: 'bg-brand', chip: 'bg-brand-tint text-brand', label: 'On track' },
   behind: { ring: 'stroke-amber-500', bar: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700', label: 'Behind pace' },
   missed: { ring: 'stroke-red-500', bar: 'bg-red-500', chip: 'bg-red-50 text-red-600', label: 'Missed' },
@@ -856,7 +844,7 @@ function YearChart({ metrics, periods, currency }) {
               </defs>
               <CartesianGrid vertical={false} stroke="#F4F4F5" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={fmt} axisLine={false} tickLine={false} width={52} />
+              <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={fmt} axisLine={false} tickLine={false} width={52} allowDecimals={def.unit === 'decimal' || def.unit === 'percent'} />
               <Tooltip
                 contentStyle={tipStyle}
                 cursor={{ fill: 'rgba(217,68,7,0.05)', radius: 8 }}
@@ -873,8 +861,8 @@ function YearChart({ metrics, periods, currency }) {
                   )
                 }}
               />
-              <Bar dataKey="done" stackId="a" fill="url(#kpiYearBar)" maxBarSize={44} animationDuration={700} shape={(pr) => <Rectangle {...pr} radius={pr.payload?.rest ? [0, 0, 0, 0] : [8, 8, 0, 0]} />} />
-              <Bar dataKey="rest" stackId="a" fill="#fde3d1" radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={700} />
+              <Bar dataKey="done" stackId="a" fill="url(#kpiYearBar)" maxBarSize={44} animationDuration={550} shape={(pr) => <Rectangle {...pr} radius={pr.payload?.rest ? [0, 0, 0, 0] : [8, 8, 0, 0]} />} />
+              <Bar dataKey="rest" stackId="a" fill="#fde3d1" radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={550} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -941,12 +929,12 @@ function KpiCard({ row, period, currency, canEdit, onEdit, onDelete, onOpen, sty
           </span>
         </div>
         <KpiProgress className="mt-2.5" status={status} pct={pct} progress={progress} isLevel={def.kind === 'level'} />
-        {def.kind === 'level' && (
-          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{tr('An average, so it is held against the goal all the way through.')}</p>
-        )}
         {row.monthsSum != null && Math.abs(row.monthsSum - row.target_value) > 1e-9 && (
-          <p className="mt-1 text-[11px] font-medium leading-relaxed text-amber-600">
-            {tr('The {n} monthly goals you set come to {v}.', { n: row.monthsSet, v: fmt(row.monthsSum) })}
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium leading-relaxed text-smoke">
+            <Icon name="calendar" className="h-3 w-3 text-brand" />
+            {row.monthsSet === 1
+              ? tr('Your monthly goal: {v}', { v: fmt(row.monthsSum) })
+              : tr('Your {n} monthly goals add up to {v}', { n: row.monthsSet, v: fmt(row.monthsSum) })}
           </p>
         )}
       </div>

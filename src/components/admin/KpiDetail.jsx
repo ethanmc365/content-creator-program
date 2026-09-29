@@ -44,6 +44,8 @@ const STATUS = {
 const DATE_METRICS = new Set(['creators_recruited', 'referrals', 'activation_rate', 'creators_total'])
 const VIEW_METRICS = new Set(['views', 'avg_views_per_entry', 'avg_views_per_creator', 'top_video_views'])
 const DAY = 86400000
+// Opened once, it opens instantly the next time (and refreshes behind).
+const detailCache = new Map()
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
 
 export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR', scopeName, period, onClose }) {
@@ -57,13 +59,15 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
   useEffect(() => {
     if (!row || custom) return undefined
     let alive = true
-    setData(null)
+    const ck = `${scope}:${basis}:${year}:${quarter}:${month ?? ''}:${row.metric}`
+    const hit = detailCache.get(ck)
+    setData(hit || null)
+    setErr('')
     supabase.rpc('kpi_detail', {
       p_community_id: scope, p_year: year, p_quarter: quarter, p_month: month ?? null, p_metric: row.metric, p_basis: basis,
     }).then(({ data: d, error }) => {
       if (!alive) return
-      if (error) setErr(error.message)
-      else setData(d)
+      if (error) { if (!hit) setErr(error.message) } else { detailCache.set(ck, d); setData(d) }
     })
     return () => { alive = false }
   }, [row, custom, scope, basis, year, quarter, month])
@@ -163,7 +167,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                 : status === 'missed'
                   ? tr('Finished {n} short of the target.', { n: f(left) })
                   : isLevel
-                    ? tr('{left} to go to reach the goal. It is an average, so it is held against the goal all the way through.', { left: f(left) })
+                    ? tr('{left} to go to reach the goal.', { left: f(left) })
                     : gap >= 0
                       ? tr('{n} ahead of the recommended pace for today. {left} to go.', { n: f(gap), left: f(left) })
                       : tr('{n} behind the recommended pace for today. {left} to go.', { n: f(-gap), left: f(left) })}
@@ -178,11 +182,30 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
           ) : err ? (
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>
           ) : !data ? (
-            <div className="space-y-3"><Skeleton className="h-64 w-full rounded-card" /><Skeleton className="h-40 w-full rounded-card" /></div>
+            /* THE SAME SHAPE AS WHAT ARRIVES (2 Oct 2026). Ethan: "the first stuff loads in, then the
+               second graphs load in, and it makes the card jump." The placeholder is now the exact
+               height of each section it stands in for, so the data lands without moving anything. */
+            <div aria-hidden>
+              <div className="border-t border-gray-100 pt-5">
+                <Skeleton className="mb-3 h-5 w-40" />
+                <Skeleton className="h-60 w-full rounded-xl" />
+                <Skeleton className="mt-2 h-4 w-52" />
+              </div>
+              {def.kind === 'sum' && (
+                <div className="mt-6 border-t border-gray-100 pt-5">
+                  <Skeleton className="mb-3 h-5 w-24" />
+                  <Skeleton className="h-40 w-full rounded-xl" />
+                </div>
+              )}
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <Skeleton className="h-8 w-full rounded-lg" />
+                <Skeleton className="mt-2 h-72 w-full rounded-xl" />
+              </div>
+            </div>
           ) : (
-            <>
+            <div className="space-y-6 animate-page-in">
               {/* ---- 2. How it got there ---- */}
-              <section className="animate-fade-up border-t border-gray-100 pt-5">
+              <section className="border-t border-gray-100 pt-5">
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
@@ -207,7 +230,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                         formatter={(v, name) => [f(v), name === 'total' ? tr('So far') : isLevel ? tr('The goal') : tr('Recommended pace')]}
                       />
                       <Line type="monotone" dataKey="pace" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
-                      <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill="url(#kpiFill)" connectNulls={false} animationDuration={900} />
+                      <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill="url(#kpiFill)" connectNulls={false} animationDuration={600} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -221,7 +244,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
 
               {/* Per day, as bars: when things actually happened. */}
               {def.kind === 'sum' && series.some((p) => p.landed) && (
-                <section className="animate-fade-up border-t border-gray-100 pt-5 [animation-delay:80ms]">
+                <section className="border-t border-gray-100 pt-5">
                   <h3 className="mb-3 text-sm font-semibold">{tr('Day by day')}</h3>
                   <div className="h-40">
                     <ResponsiveContainer>
@@ -246,7 +269,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                     other empty. */}
                 {row.metric !== 'challenges_run' && (
                   <section className={cx(
-                    'animate-fade-up border-t border-gray-100 pt-5 [animation-delay:140ms]',
+                    'border-t border-gray-100 pt-5',
                     !(data.challenges || []).length && 'lg:col-span-2',
                   )}>
                     <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
@@ -281,7 +304,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   </section>
                 )}
                 {(data.challenges || []).length > 0 && (
-                  <section className={cx('animate-fade-up border-t border-gray-100 pt-5 [animation-delay:200ms]', row.metric === 'challenges_run' && 'lg:col-span-2')}>
+                  <section className={cx('border-t border-gray-100 pt-5', row.metric === 'challenges_run' && 'lg:col-span-2')}>
                     <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
                       {row.metric === 'challenges_run' ? tr('The challenges') : tr('By challenge')}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{data.challenges.length}</span>
@@ -310,7 +333,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   </section>
                 )}
               </div>
-            </>
+            </div>
           )}
           <p className="flex items-center gap-1.5 text-[11px] text-gray-400">
             <Icon name="clock" className="h-3 w-3" />

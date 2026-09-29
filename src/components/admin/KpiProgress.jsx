@@ -16,7 +16,7 @@ import { cx } from '../../lib/utils'
 // red only when the period ended short. Every gradient runs light to dark
 // left to right so the leading edge is the brightest part.
 export const BAR_TONES = {
-  green: { fill: 'from-emerald-400 to-emerald-600', text: 'text-emerald-600' },
+  green: { fill: 'from-emerald-700 to-emerald-500', text: 'text-emerald-700' },
   orange: { fill: 'from-brand-light to-brand', text: 'text-brand' },
   amber: { fill: 'from-amber-300 to-amber-500', text: 'text-amber-600' },
   red: { fill: 'from-red-400 to-red-600', text: 'text-red-600' },
@@ -42,7 +42,12 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
   const cur = Math.round(pct * 100)
   const fill = Math.min(100, cur)
   const steady = Math.round(progress * 100)
-  const showPace = !isLevel && status !== 'missed' && progress > 0 && progress < 1
+  // EVERY KPI SHOWS IT (2 Oct 2026). Ethan: "for some things, like average entries per creator, we
+  // don't have the progress bar or the recommended pace bar ... ensure this shows up for all the KPIs".
+  // An average in this tracker is still counted over the period so far, so it builds as the period
+  // runs; the same straight line to the goal applies.
+  void isLevel
+  const showPace = status !== 'missed' && progress > 0 && progress < 1
   const markAt = Math.min(98.5, Math.max(1.5, steady))
 
   return (
@@ -58,7 +63,7 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
           <span
             aria-hidden
             title={tr('Recommended pace')}
-            className="absolute top-1/2 h-[calc(100%+6px)] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white ring-1 ring-ink/40"
+            className="absolute top-1/2 z-10 h-[calc(100%+10px)] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_2px_#fff,0_1px_4px_rgba(0,0,0,0.25)]"
             style={{ left: `${markAt}%` }}
           />
         )}
@@ -70,7 +75,7 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
         </span>
         {showPace && (
           <span className="font-medium text-smoke">
-            <span className="mr-1 inline-block h-2.5 w-[3px] rounded-full bg-white align-[-1px] ring-1 ring-ink/40" />
+            <span className="mr-1 inline-block h-3 w-[5px] rounded-full bg-brand align-[-2px]" />
             {tr('Recommended pace')} <span className="tabular-nums">{steady}%</span>
           </span>
         )}

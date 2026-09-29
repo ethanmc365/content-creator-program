@@ -4,7 +4,7 @@ import { Modal } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import {
-  METRIC_GROUPS, STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, formatKpiValue, metricDef, periodLabel, splitQuarterTarget,
+  STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, formatKpiValue, metricDef, periodLabel, splitQuarterTarget,
 } from '../../lib/kpiTracker'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -24,15 +24,6 @@ import { useT } from '../../lib/i18n'
 // underneath, because that is what the month pages will show.
 const monthShort = (y, m) => new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' })
 
-// Brand-family tones per group, so the tiles are not one flat wall of grey.
-const GROUP_TONE = {
-  output: 'bg-brand-tint text-brand',
-  reach: 'bg-orange-100 text-orange-600',
-  participation: 'bg-amber-100 text-amber-700',
-  recruitment: 'bg-[#fde3d1] text-[#b83a06]',
-  community: 'bg-cloud text-smoke',
-}
-
 // Numbers only: digits and one decimal point. A text field (not type=number) so there are no
 // spinner arrows and a stray letter cannot turn the value into ''.
 const cleanNumber = (v) => {
@@ -41,7 +32,21 @@ const cleanNumber = (v) => {
   return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, '')
 }
 
-export default function KpiTargetSheet({
+// EDITING AN EXISTING GOAL FROM THE PICKER SWAPS THE BODY, NOT THE DIALOG (2 Oct 2026). Ethan: a
+// tile showing "3" opened with the goal at 0. The sheet kept the state of the NEW goal it had been
+// opened as; the body is now keyed on the row, so pressing a set goal loads its own number, notes
+// and period, and the dialog stays put instead of closing and reopening.
+export default function KpiTargetSheet(props) {
+  const tr = useT()
+  const isNew = !props.row?.id
+  return (
+    <Modal open onClose={props.onClose} title={isNew ? tr('Set a KPI goal') : tr('Edit this goal')} wide>
+      <SheetBody key={props.row?.id || 'new'} {...props} />
+    </Modal>
+  )
+}
+
+function SheetBody({
   row, communityName, currency = 'EUR', basis = 'all', isGlobalScope = false,
   year, quarter, month = null, profileId, actuals = {}, onClose, onSaved, onEditExisting,
 }) {
@@ -105,9 +110,6 @@ export default function KpiTargetSheet({
   }, [pickingMetric, row?.community_id, basis, p.year, p.quarter, p.month, byMonth])
 
   const offered = useMemo(() => STANDARD_METRICS.filter((m) => !(isGlobalScope && m.people)), [isGlobalScope])
-  const groups = useMemo(() => METRIC_GROUPS
-    .map((g) => ({ ...g, items: offered.filter((m) => m.group === g.key) }))
-    .filter((g) => g.items.length), [offered])
   const chosen = STANDARD_METRICS.find((m) => m.key === metric)
 
   const targetNum = Number(target)
@@ -152,11 +154,19 @@ export default function KpiTargetSheet({
   const unitSuffix = metricDef({ metric }).unit === 'percent' ? '%' : ''
 
   return (
-    <Modal open onClose={onClose} title={isNew ? tr('Set a KPI goal') : tr('Edit this goal')} wide>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-page-in">
         {/* ---- WHEN ---- */}
         <section>
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+          {/* WHO IT IS FOR, LEFT OF WHEN (2 Oct 2026). Ethan: showing the market "looks good ... but the
+              design and where you placed it isn't very good ... maybe show it to the left of quarter and
+              month. Add a nice card slot there." */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-9 min-w-0 items-center gap-2 rounded-xl border border-gray-100 bg-white pl-1.5 pr-3 shadow-card">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+                <Icon name="globe" className="h-3.5 w-3.5" />
+              </span>
+              <span className="truncate text-[13px] font-bold text-ink">{communityName}</span>
+            </span>
             <Segmented
               value={byMonth ? 'month' : 'quarter'}
               onChange={setMode}
@@ -164,10 +174,6 @@ export default function KpiTargetSheet({
               label={tr('Quarter or month')}
               options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
             />
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-smoke">
-              <Icon name="globe" className="h-3.5 w-3.5" />
-              {communityName}
-            </span>
           </div>
           <div
             ref={railRef}
@@ -207,58 +213,61 @@ export default function KpiTargetSheet({
 
         {/* ---- WHAT ---- */}
         {pickingMetric ? (
-          <section className="space-y-4">
-            {groups.map((g) => (
-              <div key={g.key}>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr(g.label)}</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {g.items.map((m) => {
-                    const done = existing[m.key]
-                    const on = metric === m.key
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => (done ? onEditExisting?.(done) : setMetric(m.key))}
-                        className={cx(
-                          'group flex items-start gap-3 rounded-xl p-3 text-left transition-all duration-200',
-                          on
-                            ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-lift'
-                            : 'bg-white ring-1 ring-gray-100 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card hoverable:hover:ring-brand/30',
-                        )}
-                      >
-                        <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors', on ? 'bg-white/20 text-white' : GROUP_TONE[g.key])}>
-                          <Icon name={m.icon} className="h-[18px] w-[18px]" />
+          /* ONE LIST, NOT FIVE (2 Oct 2026). Ethan: the groups "make it a long list, and there are a lot
+             of gaps ... everything can be together, just labelled clearly with the nice icons", and
+             "just the icon in the Trip.com orange", no tinted box round it. */
+          <section>
+            <p className="mb-2 text-sm font-medium text-ink">{tr('What to track')}</p>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {offered.map((m) => {
+                const done = existing[m.key]
+                const on = metric === m.key
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    aria-pressed={on}
+                    title={tr(m.how)}
+                    onClick={() => (done ? onEditExisting?.(done) : setMetric(m.key))}
+                    className={cx(
+                      'group flex min-h-[3rem] items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200',
+                      on
+                        ? 'bg-brand text-white shadow-lift'
+                        : 'bg-white ring-1 ring-gray-100 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card hoverable:hover:ring-brand/30',
+                    )}
+                  >
+                    <Icon name={m.icon} className={cx('h-5 w-5 shrink-0', on ? 'text-white' : 'text-brand')} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-semibold leading-snug">{tr(m.label)}</span>
+                      {done && (
+                        <span className={cx('block text-[11px] leading-snug', on ? 'text-white/85' : 'text-smoke')}>
+                          {tr('Set for {p}. Press to edit.', { p: periodLabel(p) })}
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="text-[13px] font-semibold leading-snug">{tr(m.label)}</span>
-                            {done && (
-                              <span className="shrink-0 rounded-md bg-brand-tint px-1.5 py-0.5 text-[10px] font-bold text-brand">
-                                {formatKpiValue(m, done.target_value, currency)}
-                              </span>
-                            )}
-                          </span>
-                          <span className={cx('mt-0.5 block text-[11px] leading-snug', on ? 'text-white/85' : 'text-smoke')}>
-                            {done ? tr('Already set for {p}. Press to edit it.', { p: periodLabel(p) }) : tr(m.how)}
-                          </span>
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+                      )}
+                    </span>
+                    {done && (
+                      <span className="flex shrink-0 items-center gap-1 rounded-md bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-brand">
+                        <Icon name="pencil" className="h-3 w-3" />
+                        {formatKpiValue(m, done.target_value, currency)}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {chosen && (
+              <p className="mt-2.5 flex items-start gap-1.5 text-xs leading-relaxed text-smoke animate-fade-up">
+                <Icon name={chosen.icon} className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+                {tr(chosen.how)}
+              </p>
+            )}
           </section>
         ) : chosen ? (
-          <section className="flex items-start gap-3 rounded-xl bg-gradient-to-br from-brand to-brand-light p-3.5 text-white shadow-card">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
-              <Icon name={chosen.icon} className="h-[18px] w-[18px]" />
-            </span>
+          <section className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3.5 shadow-card">
+            <Icon name={chosen.icon} className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
             <span className="min-w-0">
-              <span className="block text-sm font-semibold">{tr(chosen.label)}</span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-white/85">{tr(chosen.how)}</span>
+              <span className="block text-sm font-semibold text-ink">{tr(chosen.label)}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-smoke">{tr(chosen.how)}</span>
             </span>
           </section>
         ) : null}
@@ -315,6 +324,5 @@ export default function KpiTargetSheet({
           </button>
         </div>
       </div>
-    </Modal>
   )
 }

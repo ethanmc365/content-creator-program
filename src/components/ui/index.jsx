@@ -270,7 +270,10 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
   const backTo = typeof back === 'string' ? back : back?.to
   const backLabel = (typeof back === 'object' && back?.label) || 'Admin'
   return (
-    <div className="mb-8 sm:mb-10">
+    // TIGHTER WITHOUT A SUBTITLE (2 Oct 2026). Ethan: "because you've removed descriptions, you now
+    // have more space to move the top up a little bit". A title on its own no longer carries the gap
+    // that was sized for a title plus a paragraph under it.
+    <div className={subtitle ? 'mb-8 sm:mb-10' : 'mb-5 sm:mb-7'}>
       {backTo && (
         <Link
           to={backTo}
