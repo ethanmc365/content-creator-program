@@ -24,7 +24,7 @@ import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorPeek from '../components/admin/CreatorPeek'
-import RecapTeaser from '../components/wrapped/RecapTeaser'
+import RecapTeaser, { recapTeaserWindow } from '../components/wrapped/RecapTeaser'
 import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
@@ -320,7 +320,14 @@ export default function Profile() {
 
   // THE YEAR IN REVIEW, ON ITS WAY (1 Oct 2026). Every creator's profile, above everything else in
   // the body, so it is seen before 3 December. See components/wrapped/RecapTeaser.
-  const recap = creator.is_admin ? null : <RecapTeaser name={creator.name} isMe={isMe} />
+  // ON FROM 18 NOVEMBER, FOR EVERYONE (2 Oct 2026). Ethan: it "should also appear on admins so I can
+  // see how it actually looks", and it must not "show up until the middle of November, so that they
+  // see it for 15 days or whatever before December 3rd". Admins looking at their own profile get it
+  // early, labelled as a preview, so the design can be checked before creators see it.
+  const recapWindow = recapTeaserWindow()
+  const recap = recapWindow === 'on' || (recapWindow === 'before' && isMe && isAdmin)
+    ? <RecapTeaser name={creator.name} isMe={isMe} preview={recapWindow === 'before'} />
+    : null
 
   const about = (
         <>

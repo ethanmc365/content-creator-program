@@ -918,8 +918,8 @@ export default function AdminAnalytics() {
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar dataKey="newCreators" name="New sign-ups" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={32} />
-              <Line type="monotone" dataKey="creators" name="Total creators" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
+              <Bar animationDuration={600} dataKey="newCreators" name="New sign-ups" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={32} />
+              <Line animationDuration={600} type="monotone" dataKey="creators" name="Total creators" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
             </ComposedChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -935,7 +935,7 @@ export default function AdminAnalytics() {
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Line type="monotone" dataKey="submissions" name="Submissions" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
+              <Line animationDuration={600} type="monotone" dataKey="submissions" name="Submissions" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -986,7 +986,7 @@ export default function AdminAnalytics() {
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar dataKey="submissions" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
+              <Bar animationDuration={600} dataKey="submissions" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -1002,8 +1002,8 @@ export default function AdminAnalytics() {
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
-              <Bar dataKey="totalViews" name="Total views" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={40} />
-              <Bar dataKey="avgViews" name="Avg per entry" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={40} />
+              <Bar animationDuration={600} dataKey="totalViews" name="Total views" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={40} />
+              <Bar animationDuration={600} dataKey="avgViews" name="Avg per entry" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -1025,7 +1025,7 @@ export default function AdminAnalytics() {
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => (v == null ? 'No views yet' : formatMoney(v, currency))} />
-              <Bar dataKey="cpm" name="CPM" radius={[8, 8, 0, 0]} maxBarSize={48}
+              <Bar animationDuration={600} dataKey="cpm" name="CPM" radius={[8, 8, 0, 0]} maxBarSize={48}
                 label={{ position: 'top', fontSize: 11, fill: '#6B7280', formatter: (v) => (v == null ? '' : formatMoney(Math.round(v * 100) / 100, currency)) }}>
                 {derived.perChallengeRecent.map((c) => (
                   <Cell key={c.id} fill={c.status === 'active' ? BRAND_LIGHT : BRAND} />
@@ -1049,7 +1049,7 @@ export default function AdminAnalytics() {
                   into the reporting currency. */}
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatMoney(v, currency)} />
-              <Bar dataKey="prizesPaid" name="Paid out" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
+              <Bar animationDuration={600} dataKey="prizesPaid" name="Paid out" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -1069,7 +1069,7 @@ export default function AdminAnalytics() {
               <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={70} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar dataKey="score" name="Activity score" fill={BRAND} radius={[0, 8, 8, 0]} maxBarSize={20} />
+              <Bar animationDuration={600} dataKey="score" name="Activity score" fill={BRAND} radius={[0, 8, 8, 0]} maxBarSize={20} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -1084,7 +1084,7 @@ export default function AdminAnalytics() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar dataKey="messages" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
+              <Bar animationDuration={600} dataKey="messages" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

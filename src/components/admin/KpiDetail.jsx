@@ -253,7 +253,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                         <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={28} />
                         <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
                         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [f(v), tr('That day')]} />
-                        <Bar dataKey="landed" fill={BRAND_LIGHT} radius={[4, 4, 0, 0]} maxBarSize={14} />
+                        <Bar animationDuration={600} dataKey="landed" fill={BRAND_LIGHT} radius={[4, 4, 0, 0]} maxBarSize={14} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

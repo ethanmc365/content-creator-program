@@ -26,8 +26,12 @@ import { timeAgo } from '../../../lib/utils'
 
 const WEEK = 7 * 86400000
 
+const connCache = { data: null }
+
 export default function ConnectionsSection({ market = '', memberRows = [] }) {
-  const [data, setData] = useState(null)
+  // Painted from the last visit at once, refreshed behind (2 Oct 2026: "the connection page is a bit
+  // laggy when it loads in" - every visit paged the whole connections and profiles tables first).
+  const [data, setData] = useState(() => connCache.data)
   const [now] = useState(() => Date.now())
 
   const inMarket = useMemo(() => {
@@ -44,7 +48,9 @@ export default function ConnectionsSection({ market = '', memberRows = [] }) {
         .select('id, name, photo_url, is_test, is_admin, status, created_at')),
     ]).then(([{ data: conns }, { data: profs }]) => {
       if (!alive) return
-      setData({ conns: conns ?? [], profById: Object.fromEntries((profs ?? []).map((p) => [p.id, p])) })
+      const next = { conns: conns ?? [], profById: Object.fromEntries((profs ?? []).map((p) => [p.id, p])) }
+      connCache.data = next
+      setData(next)
     }).catch(() => { if (alive) setData({ conns: [], profById: {}, failed: true }) })
     return () => { alive = false }
   }, [])
@@ -101,7 +107,7 @@ export default function ConnectionsSection({ market = '', memberRows = [] }) {
           {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
         </div>
       ) : (
-        <>
+        <div className="animate-fade-up">
           <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
               label="New this week"
@@ -192,7 +198,7 @@ export default function ConnectionsSection({ market = '', memberRows = [] }) {
               </div>
             </details>
           )}
-        </>
+        </div>
       )}
     </section>
   )

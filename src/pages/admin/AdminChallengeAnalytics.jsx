@@ -346,7 +346,7 @@ export default function AdminChallengeAnalytics() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-                  <Bar dataKey="entries" radius={[8, 8, 0, 0]} maxBarSize={56}>
+                  <Bar animationDuration={600} dataKey="entries" radius={[8, 8, 0, 0]} maxBarSize={56}>
                     {d.platforms.map((p) => <Cell key={p.name} fill={PLATFORM_COLORS[p.name] || BRAND} />)}
                   </Bar>
                 </BarChart>
@@ -368,7 +368,7 @@ export default function AdminChallengeAnalytics() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
-                  <Bar dataKey="views" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={56} />
+                  <Bar animationDuration={600} dataKey="views" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -533,7 +533,7 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
           programme table needs to know within a second why there is no
           leaderboard on it - and "run before this platform" is the answer, not
           "the data is missing". */}
-      <div className="mb-6 flex items-start gap-3 rounded-card border border-gray-100 bg-cloud/50 px-4 py-3">
+      <div className="mb-6 flex items-start gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card">
         <Icon name="bulb" className="mt-0.5 h-4 w-4 shrink-0 text-smoke" />
         <p className="text-xs leading-relaxed text-smoke">
           This challenge was run off the platform, so it is held as a recorded total rather
@@ -610,7 +610,7 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
                       <XAxis type="number" hide />
                       <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={tooltipStyle} formatter={(v) => c.format(v)} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-                      <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={26} label={{ position: 'right', fontSize: 11, fill: '#6B7280', formatter: c.format }}>
+                      <Bar animationDuration={600} dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={26} label={{ position: 'right', fontSize: 11, fill: '#6B7280', formatter: c.format }}>
                         {c.bars.map((b) => (
                           <Cell key={b.name} fill={b.self ? BRAND : BRAND_LIGHT} fillOpacity={b.self ? 1 : 0.45} />
                         ))}
@@ -877,8 +877,8 @@ function EntriesOverTime({ subs, challenge }) {
                 cursor={{ fill: 'rgba(217,68,7,0.06)' }}
                 formatter={(v, name) => (name === 'views' ? [formatViews(v), 'Views so far'] : [v, 'Entries'])}
               />
-              <Area yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />
-              <Bar yAxisId="e" dataKey="entries" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={22} />
+              <Area animationDuration={600} yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />
+              <Bar animationDuration={600} yAxisId="e" dataKey="entries" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={22} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

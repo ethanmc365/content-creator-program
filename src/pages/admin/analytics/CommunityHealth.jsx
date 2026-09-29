@@ -228,7 +228,10 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
       {/* FOUR SECTIONS, ONE AT A TIME (1 Oct 2026). Ethan: "tidy up that page so it's not too
           much scrolling involved and it's really good on desktop and mobile." It was reach, push,
           connections, the funnel, two charts and a 120-row table stacked in one column. */}
-      <div className="-mx-1 flex gap-1 overflow-x-auto overscroll-contain px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Community health sections">
+      {/* ROOM ROUND THE TABS (2 Oct 2026). Ethan: they "seem to be cut off at the top", and should
+          magnify a little on hover. A sideways scroller clips everything outside its box, the ring
+          and the lift included, so the row carries its own padding and gives it back as margin. */}
+      <div className="-mx-2 -my-2 flex gap-1.5 overflow-x-auto overscroll-contain px-2 py-2 [scrollbar-width:none]" role="tablist" aria-label="Community health sections">
         {[['reach', 'Reach & push', 'bell'], ['participation', 'Participation', 'chart'], ['connections', 'Connections', 'users'], ['scorecard', 'Scorecard', 'trophy']].map(([k, l, ic]) => (
           <button
             key={k}
@@ -238,7 +241,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
             onClick={() => setSection(k)}
             className={cx(
               'flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-200',
-              section === k ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke ring-1 ring-gray-100 hoverable:hover:text-ink',
+              section === k ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke shadow-sm ring-1 ring-gray-100 hoverable:hover:scale-[1.04] hoverable:hover:text-ink hoverable:hover:shadow-card',
             )}
           >
             <Icon name={ic} className="h-3.5 w-3.5" />
@@ -406,9 +409,9 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
                 <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} unit="%" />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar yAxisId="l" dataKey="members" name="Members" fill={BRAND_PALE} radius={[8, 8, 0, 0]} maxBarSize={26} />
-                <Bar yAxisId="l" dataKey="active_creators" name="Active" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={26} />
-                <Line yAxisId="r" type="monotone" dataKey="activePct" name="Active %" stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
+                <Bar animationDuration={600} yAxisId="l" dataKey="members" name="Members" fill={BRAND_PALE} radius={[8, 8, 0, 0]} maxBarSize={26} />
+                <Bar animationDuration={600} yAxisId="l" dataKey="active_creators" name="Active" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={26} />
+                <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="activePct" name="Active %" stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -434,9 +437,9 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Area type="monotone" dataKey="chat_messages" name="Chat" stackId="1" stroke={BRAND} fill={BRAND} fillOpacity={0.7} />
-              <Area type="monotone" dataKey="dms" name="DMs" stackId="1" stroke={BRAND_LIGHT} fill={BRAND_LIGHT} fillOpacity={0.7} />
-              <Area type="monotone" dataKey="posts" name="Posts" stackId="1" stroke={BRAND_PALE} fill={BRAND_PALE} fillOpacity={0.9} />
+              <Area animationDuration={600} type="monotone" dataKey="chat_messages" name="Chat" stackId="1" stroke={BRAND} fill={BRAND} fillOpacity={0.7} />
+              <Area animationDuration={600} type="monotone" dataKey="dms" name="DMs" stackId="1" stroke={BRAND_LIGHT} fill={BRAND_LIGHT} fillOpacity={0.7} />
+              <Area animationDuration={600} type="monotone" dataKey="posts" name="Posts" stackId="1" stroke={BRAND_PALE} fill={BRAND_PALE} fillOpacity={0.9} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

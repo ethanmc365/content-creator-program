@@ -187,7 +187,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                   )
                 }}
               />
-              <Scatter data={plot} fill={BRAND} fillOpacity={0.62} />
+              <Scatter animationDuration={600} data={plot} fill={BRAND} fillOpacity={0.62} />
             </ScatterChart>
           </ResponsiveContainer>
         </div>

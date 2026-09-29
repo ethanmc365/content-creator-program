@@ -24,6 +24,7 @@ const pct = (a, b) => (b > 0 ? `${Math.round((a / b) * 100)}%` : null)
 const day = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 const TYPE = { challenge: 'Challenge', announcement: 'Announcement', results: 'Results', reward: 'Reward', deadline: 'Deadline', connection: 'Connection', dm: 'Message', event: 'Event', application: 'Application', chat: 'Chat', mention: 'Mention', reaction: 'Reaction' }
 const PAGE = 50
+const pushCache = new Map()
 
 // WHAT EACH NUMBER MEANS, in the words Ethan asked for (1 Oct 2026): not "land"; a push goes to a
 // DEVICE (a phone or a laptop); "Tapped" is somebody pressing the push itself; "Read in the app"
@@ -36,13 +37,25 @@ export default function PushDelivery() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [err, setErr] = useState('')
 
+  // SWITCHING 7 / 30 / 90 KEEPS THE PAGE (2 Oct 2026). Ethan: "Clicking between 7 days and 30
+  // days causes a weird glitch where it temporarily disappears and then comes back". It blanked to a
+  // skeleton on every press. Now the numbers already on screen stay (dimmed) until the new ones are
+  // in, a window seen once paints at once from memory, and the other two are fetched ahead.
+  const [fetching, setFetching] = useState(false)
   useEffect(() => {
     let alive = true
-    setData(null)
     setMore([])
+    const hit = pushCache.get(days)
+    if (hit) setData(hit); else setFetching(true)
     supabase.rpc('admin_push_analytics', { p_days: days, p_recent: PAGE, p_offset: 0 }).then(({ data: d, error }) => {
       if (!alive) return
-      if (error) setErr(error.message); else { setErr(''); setData(d) }
+      setFetching(false)
+      if (error) setErr(error.message); else { setErr(''); pushCache.set(days, d); setData(d) }
+      for (const other of [7, 30, 90]) {
+        if (other !== days && !pushCache.has(other)) {
+          supabase.rpc('admin_push_analytics', { p_days: other, p_recent: PAGE, p_offset: 0 }).then(({ data: o }) => { if (o) pushCache.set(other, o) })
+        }
+      }
     })
     return () => { alive = false }
   }, [days])
@@ -86,15 +99,15 @@ export default function PushDelivery() {
       ) : !data ? (
         <Skeleton className="h-72 w-full" />
       ) : (
-        <div className="space-y-4">
+        <div className={cx('space-y-4 transition-opacity duration-200', fetching && 'opacity-60')}>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
               <div className="space-y-3.5">
-                {steps.map(([label, n, rate, hint], i) => (
+                {steps.map(([label, n, , hint], i) => (
                   <div key={label}>
                     <div className="mb-1 flex items-baseline justify-between gap-3">
                       <span className="min-w-0 truncate text-sm font-medium text-ink">{label} <span className="hidden text-[11px] font-normal text-smoke sm:inline">· {hint}</span></span>
-                      <span className="shrink-0 text-sm tabular-nums"><strong>{n.toLocaleString()}</strong>{rate && n > 0 && <span className="ml-1.5 text-xs text-smoke">{rate}</span>}</span>
+                      <span className="shrink-0 text-sm font-bold tabular-nums">{n.toLocaleString()}</span>
                     </div>
                     <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
                       <div className="kpi-fill h-full rounded-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${Math.max(n > 0 ? 2 : 0, Math.round((n / max) * 100))}%`, animationDelay: `${i * 70}ms` }} />
@@ -121,9 +134,9 @@ export default function PushDelivery() {
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #F1F1F2', fontSize: 12 }} />
-                    <Bar dataKey="sent" name="Sent" fill="#fde3d1" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                    <Bar dataKey="delivered" name="Shown" fill="#f5853f" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                    <Bar dataKey="clicked" name="Tapped" fill="#d94407" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="sent" name="Sent" fill="#fde3d1" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
+                    <Bar dataKey="delivered" name="Shown" fill="#f5853f" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
+                    <Bar dataKey="clicked" name="Tapped" fill="#d94407" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -166,9 +179,9 @@ export default function PushDelivery() {
           </div>
 
           {data.failures.length > 0 && (
-            <div className="rounded-card border border-amber-200 bg-amber-50/60 p-4">
-              <p className="mb-2 text-sm font-semibold text-amber-800">Refused or removed</p>
-              <ul className="space-y-1.5 text-xs text-amber-900">
+            <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+              <p className="mb-2 text-sm font-semibold text-ink">Refused or removed</p>
+              <ul className="space-y-1.5 text-xs text-smoke">
                 {data.failures.map((f, i) => <li key={i}><strong>{f.n}&times;</strong> {f.host || 'unknown host'} · status {f.status ?? '?'} · {f.detail || 'no reason given'}</li>)}
               </ul>
             </div>

@@ -360,7 +360,9 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
 export function StatCard({ label, value, hint, accent = false, onClick }) {
   const className = cx(
     'card flex h-full flex-col',
-    accent && 'border-brand-tint bg-brand-tint/40',
+    // White like every other card (2 Oct 2026, Ethan: the "push enabled" card "isn't white. It should be
+    // white, matching the other cards"). The accent is the brand-coloured number, not a tinted box.
+    accent && 'border-brand/20',
     onClick && 'w-full cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
   )
   const inner = (
