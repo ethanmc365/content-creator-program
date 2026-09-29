@@ -250,9 +250,10 @@ function StillToPay({ title, hint, rows, loading, openInvoices = 0, ...rowProps 
   // going out, so the desk is not clear while one exists.
   if (rows.length === 0 && openInvoices > 0) {
     return (
-      <div className="mb-8 flex items-center gap-2.5 rounded-card border border-amber-100 bg-amber-50/60 px-5 py-3.5 text-sm font-medium text-amber-800">
-        <Icon name="clock" className="h-4 w-4" />
-        {openInvoices === 1 ? 'One invoice is sent and not marked paid yet, under Invoices below.' : `${openInvoices} invoices are sent and not marked paid yet, under Invoices below.`}
+      // Brand, not yellow (2 Oct 2026), and no "under Invoices below".
+      <div className="mb-8 flex items-center gap-2.5 rounded-card border border-gray-100 bg-white px-5 py-3.5 text-sm font-medium text-ink shadow-card">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name="clock" className="h-4 w-4" /></span>
+        {openInvoices === 1 ? 'One invoice is sent and not marked paid yet.' : `${openInvoices} invoices are sent and not marked paid yet.`}
       </div>
     )
   }

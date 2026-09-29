@@ -59,6 +59,7 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
   const [picked, setPicked] = useState(() => new Set())
   const [editing, setEditing] = useState(null) // a ticket, for its code
   const [combining, setCombining] = useState(null) // { creator, tickets }
+  const [done, setDone] = useState(null) // the voucher a combine just made, to show its code
   const [busy, setBusy] = useState(null)
 
   // A voucher not yet handed over is a ticket that needs its code, drawn in the same list.
@@ -135,7 +136,7 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         ].map(([label, value, warn]) => (
           <div key={label} className="rounded-card border border-gray-100 bg-white px-3.5 py-2.5 shadow-card">
             <p className="truncate text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-            <p className={cx('mt-0.5 text-lg font-bold tabular-nums', warn ? 'text-amber-600' : 'text-ink')}>{value}</p>
+            <p className={cx('mt-0.5 text-lg font-bold tabular-nums', warn ? 'text-brand' : 'text-ink')}>{value}</p>
           </div>
         ))}
       </div>
@@ -144,6 +145,26 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
         <input type="search" className="input !py-2 !pl-9 text-sm" placeholder="Search creators…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
+
+      {/* THE COMBINE BAR, AT THE TOP (2 Oct 2026). Ethan: "I'd rather it show up at the top". It sits
+          over the list, sticky under the header, as soon as two of one creator's vouchers are ticked. */}
+      {selected.length >= 2 && (
+        <div className="sticky top-20 z-20 mb-3 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-lift animate-pop-in">
+          <Avatar src={selected[0].profiles?.photo_url} name={selected[0].profiles?.name} size="xs" />
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold">{selected.length} of {selected[0].profiles?.name?.split(' ')[0]}&rsquo;s vouchers</span>
+            <span className="text-white/70"> · {sumOf(selected)} together</span>
+          </p>
+          <button type="button" onClick={() => setPicked(new Set())} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white/80 hover:text-white">Clear</button>
+          <button
+            type="button"
+            onClick={() => setCombining({ creator: selected[0].profiles, tickets: selected })}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition-transform hoverable:hover:-translate-y-0.5"
+          >
+            <Icon name="link" className="h-3.5 w-3.5" /> Combine into one
+          </button>
+        </div>
+      )}
 
       {loading ? null : shown.length === 0 ? (
         <EmptyState icon={<Icon name="ticket" className="h-7 w-7" />} title="No vouchers here" hint={search ? 'Try a different search.' : 'Vouchers appear here once a challenge awards them.'} />
@@ -165,25 +186,6 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         </ul>
       )}
 
-      {/* THE COMBINE BAR. Appears once two of one creator's vouchers are ticked. */}
-      {selected.length >= 2 && (
-        <div className="sticky bottom-20 z-20 mt-3 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-lift animate-fade-up sm:bottom-4">
-          <Avatar src={selected[0].profiles?.photo_url} name={selected[0].profiles?.name} size="xs" />
-          <p className="min-w-0 flex-1 text-sm">
-            <span className="font-semibold">{selected.length} of {selected[0].profiles?.name?.split(' ')[0]}&rsquo;s vouchers</span>
-            <span className="text-white/70"> · {sumOf(selected)} together</span>
-          </p>
-          <button type="button" onClick={() => setPicked(new Set())} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white/80 hover:text-white">Clear</button>
-          <button
-            type="button"
-            onClick={() => setCombining({ creator: selected[0].profiles, tickets: selected })}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition-transform hoverable:hover:-translate-y-0.5"
-          >
-            <Icon name="link" className="h-3.5 w-3.5" /> Combine into one
-          </button>
-        </div>
-      )}
-
       <CodeModal
         ticket={editing}
         onClose={() => setEditing(null)}
@@ -201,10 +203,38 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
           const ok = await run('combine', () => supabase.rpc('admin_combine_vouchers', {
             p_rewards: combining.tickets.flatMap((t) => t.rewardIds), p_code: code, p_note: note || null,
           }))
-          if (ok) { setCombining(null); setPicked(new Set()) }
+          if (ok) {
+            const parts = combining.tickets.flatMap((t) => (t.parts ? t.parts : [t]))
+            const mixed = new Set(parts.map((t) => t.currency || 'EUR')).size > 1
+            setDone({
+              name: combining.creator?.name,
+              code,
+              total: mixed ? rewardsTotal(parts).amount : parts.reduce((x, t) => x + Number(t.amount), 0),
+              currency: mixed ? 'EUR' : combining.tickets[0]?.currency,
+            })
+            setCombining(null); setPicked(new Set())
+          }
         }}
         busy={busy === 'combine'}
       />
+      {/* AND IT SAYS WHAT IT MADE: the one new code, ready to copy and send. */}
+      <Modal open={!!done} onClose={() => setDone(null)} title="Combined into one voucher">
+        {done && (
+          <div className="space-y-5 text-center animate-pop-in">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand text-white shadow-card">
+              <Icon name="check" className="h-6 w-6" strokeWidth={2.4} />
+            </span>
+            <p className="text-sm text-smoke">
+              {done.name} now holds <span className="font-semibold text-ink">one {formatMoney(done.total, done.currency)} voucher</span>. Their wallet shows this code:
+            </p>
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-gray-100 bg-cloud px-4 py-3">
+              <code className="font-mono text-lg font-bold tracking-wider text-ink">{done.code}</code>
+              <CopyButton value={done.code} label="Copy the code" />
+            </div>
+            <button type="button" onClick={() => setDone(null)} className="btn-primary w-full">Done</button>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

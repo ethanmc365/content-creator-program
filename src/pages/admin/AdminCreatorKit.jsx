@@ -39,7 +39,6 @@ export default function AdminCreatorKit() {
       <PageHeader
         back={{ to: '/admin', label: 'Admin' }}
         title="Creator kit"
-        subtitle="The graphics and certificates creators can put on their stories, their LinkedIn and their portfolio."
       />
 
       {/* `pick-row` is what stops the hover lift, the scale and the glow being

@@ -8,7 +8,7 @@ import { pickClass } from '../../../lib/pick'
 import { confirm, notice, promptText } from '../../../lib/confirm'
 import { downloadBlob, snapshotNode } from '../../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from '../../certificate/CertificateCard'
-import { FullScreen, StoryFrame } from '../../certificate/CertificateWall'
+import { StoryFrame } from '../../certificate/CertificateWall'
 import { Link } from 'react-router-dom'
 import { LOCALES } from '../../../lib/i18n'
 import { prefetchCertificateDesign, useCertificateDesign } from '../../../lib/certificateLang'
@@ -67,14 +67,9 @@ const BLANK = {
   emblem: 'trophy', pattern: 'plain',
   signature: 'Tryp.com', signature_role: 'Creator Community',
   award_on: 'manual', ranks: [], community_ids: [], milestone_id: null,
-  all_prize_places: false, options: {},
+  all_prize_places: true, options: {},
   is_active: true,
 }
-
-// How wide the story preview is drawn. 1080 x 1920 scaled to 118px is tall
-// enough to judge the crop and the type without taking the preview column over.
-const STORY_W = 118
-
 
 export default function CertificateStudio() {
   const { profile } = useAuth()
@@ -552,7 +547,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
     const id = setTimeout(() => prefetchCertificateDesign(design, LOCALES), 900)
     return () => clearTimeout(id)
   }, [wordsKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [storyFull, setStoryFull] = useState(false)
+  const [storyHolder, storyW] = useFluidWidth(200)
 
   return (
     <div className="space-y-6">
@@ -664,29 +659,19 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               doesn't show the full-screen version of it like it should." The thumbnail is a
               button now, into the same full-screen viewer creators get. The explanation that
               sat under the preview is gone ("we know it"). */}
-          <button
-            type="button"
-            onClick={() => setStoryFull(true)}
-            className="group mt-4 flex w-full items-center gap-3 rounded-card border border-gray-100 bg-cloud/50 p-3 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-card"
-          >
-            <span className="relative shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-black/5" style={{ width: STORY_W, height: STORY_W * (1920 / 1080) }}>
-              <span className="block" style={{ transform: `scale(${STORY_W / 1080})`, transformOrigin: 'top left' }}>
-                <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
-              </span>
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story</span>
-              <span className="mt-1 block text-sm font-semibold text-ink">1080 &times; 1920</span>
-              <span className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-brand shadow-card transition-transform group-hover:scale-105">
-                <Icon name="expand" className="h-3.5 w-3.5" /> View full screen
-              </span>
-            </span>
-          </button>
-          {storyFull && (
-            <FullScreen w={1080} h={1920} onClose={() => setStoryFull(false)} label="Close">
-              <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
-            </FullScreen>
-          )}
+          {/* BIG, RIGHT HERE (2 Oct 2026). Ethan: "It could just be big below rather than needing the
+              full screen button at all ... because we have that space". The story is drawn at the
+              width of the column (capped so it stays a phone-shaped picture), with no button. */}
+          <div className="mt-6">
+            <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story · 1080 &times; 1920</p>
+            <div ref={storyHolder} className="mx-auto w-full max-w-[340px]">
+              <div className="relative overflow-hidden rounded-2xl shadow-lift ring-1 ring-black/5" style={{ width: storyW, height: storyW * (1920 / 1080) }}>
+                <div style={{ transform: `scale(${storyW / 1080})`, transformOrigin: 'top left', width: 1080 }}>
+                  <StoryFrame design={langDesign} facts={storyFacts} lang={previewLang} />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -954,6 +939,8 @@ function WhoGetsThis({ design }) {
   )
 }
 
+const PLACES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
 function AwardRules({ design, set, markets, milestones }) {
   const OPTIONS = [
     { key: 'challenge_rank', label: 'Finishing on the podium', hint: 'Given when winners are published' },
@@ -973,7 +960,9 @@ function AwardRules({ design, set, markets, milestones }) {
             // works is never touched.
             onClick={() => {
               const body = bodyForTrigger(design, o.key)
-              set({ award_on: o.key, ...(body ? { body } : null) })
+              // Podium starts with every place on, unless places were already chosen.
+              const places = o.key === 'challenge_rank' && !design.all_prize_places && !(design.ranks || []).length ? { all_prize_places: true } : null
+              set({ award_on: o.key, ...(body ? { body } : null), ...places })
             }}
             aria-pressed={design.award_on === o.key}
             className={pickClass(design.award_on === o.key, 'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left')}>
@@ -989,36 +978,34 @@ function AwardRules({ design, set, markets, milestones }) {
       {design.award_on === 'challenge_rank' && (
         <Field
           label="Which places"
-          hint={design.all_prize_places
-            ? 'Every place the challenge pays gets one, each with its own medal: ten on a ten-place challenge, three on a three-place one.'
-            : 'A podium is 1, 2 and 3. Winner only is just 1. Each place gets its own medal.'}
+          hint="Every place starts switched on. Switch off any that should not get one. A challenge only ever gives them to the places it actually pays: ten on a ten-place challenge, three on a three-place one."
         >
-          {/* EVERY PRIZE PLACE (28 Sep 2026, migration 269). Ethan: "it should
-              only go to how many places are on it. So there's 10 for the
-              worldwide challenge ... for the previous UK challenge there was
-              only three." */}
-          <button
-            type="button"
-            onClick={() => set({ all_prize_places: !design.all_prize_places })}
-            aria-pressed={!!design.all_prize_places}
-            className={pickClass(!!design.all_prize_places, 'mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left')}
-          >
-            <span className="text-sm font-semibold">Every prize place</span>
-            {design.all_prize_places && <Icon name="check" className="h-4 w-4 shrink-0" />}
-          </button>
+          {/* EVERY PLACE SHOWN, SWITCHED OFF RATHER THAN PICKED (2 Oct 2026). Ethan: "it should
+              always be every prize place that shows up as an option ... I should be able to toggle
+              them off rather than just choose them ... it obviously depends on how many prize
+              places are in the actual challenge." All ten on is `all_prize_places`; any off is an
+              explicit `ranks` list, which migration 287 also caps at the challenge's paid places. */}
+          <div className="flex flex-wrap gap-2">
+            {PLACES.map((n) => {
+              const on = design.all_prize_places || (design.ranks || []).includes(n)
+              return (
+                <button key={n} type="button" aria-pressed={on}
+                  onClick={() => {
+                    const current = design.all_prize_places ? PLACES : (design.ranks || [])
+                    const next = on ? current.filter((r) => r !== n) : [...current, n].sort((x, y) => x - y)
+                    if (next.length === PLACES.length) set({ all_prize_places: true, ranks: [] })
+                    else set({ all_prize_places: false, ranks: next })
+                  }}
+                  className={pickClass(on, 'h-10 min-w-[3rem] rounded-xl border px-2 text-sm font-bold')}>
+                  {ordinal(n)}
+                </button>
+              )
+            })}
+          </div>
           {!design.all_prize_places && (
-            <div className="flex flex-wrap gap-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
-                const on = (design.ranks || []).includes(n)
-                return (
-                  <button key={n} type="button"
-                    onClick={() => set({ ranks: on ? design.ranks.filter((r) => r !== n) : [...(design.ranks || []), n].sort((a, b) => a - b) })}
-                    className={pickClass(on, 'h-10 w-10 rounded-xl border text-sm font-bold')}>
-                    {n}
-                  </button>
-                )
-              })}
-            </div>
+            <button type="button" onClick={() => set({ all_prize_places: true, ranks: [] })} className="mt-2 text-xs font-semibold text-brand hover:underline">
+              Switch them all back on
+            </button>
           )}
         </Field>
       )}
