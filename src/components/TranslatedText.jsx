@@ -65,3 +65,26 @@ export function TLine({ text }) {
   const t = useContentTranslation(text)
   return <>{t.shown}</>
 }
+
+// THE SAME SWITCH, BUT IT STARTS ON THE ORIGINAL AND ONLY TRANSLATES WHEN PRESSED (2 Oct 2026).
+// For things that are somebody's own words in the moment - a chat message, a hook - where Ethan
+// wants the original first "and just have the ability to translate". `t` is useTranslateOnDemand.
+// Drawn only for a reader on a language other than English.
+export function OnDemandSwitch({ t, className, compact = false }) {
+  const tr = useT()
+  if (!t.available) return null
+  const half = (active) => cx(
+    'inline-flex items-center gap-1 rounded-md transition-all duration-200',
+    compact ? 'h-6 px-2' : 'h-7 px-2.5',
+    active ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink',
+  )
+  return (
+    <div className={cx('inline-flex items-center gap-0.5 rounded-lg bg-cloud p-0.5 font-semibold', compact ? 'text-[10.5px]' : 'text-[11px]', className)}>
+      <button type="button" onClick={() => t.on && t.toggle()} aria-pressed={!t.on} className={half(!t.on)}>{tr('Original')}</button>
+      <button type="button" onClick={() => !t.on && t.toggle()} aria-pressed={t.on} disabled={t.busy} className={half(t.on)}>
+        {t.busy ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : null}
+        {tr('Translate')}
+      </button>
+    </div>
+  )
+}

@@ -53,6 +53,7 @@ import MessageActions from '../components/chat/MessageActions'
 import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 import { useT } from '../lib/i18n'
+import { useMessageTranslations } from '../lib/quickTranslate'
 import { testFlags } from '../lib/testData'
 import { onResume } from '../lib/resume'
 
@@ -261,6 +262,8 @@ export default function NetworkChat() {
   // Which message has its actions revealed by a TAP. On a phone there is no
   // hover, so `group-hover` alone meant the reaction button was permanently
   // invisible and market rooms simply had no reactions on mobile.
+  // TRANSLATE A MESSAGE (2 Oct 2026): only for a reader on another language, original first.
+  const mt = useMessageTranslations()
   const [actionsFor, setActionsFor] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [reporting, setReporting] = useState(null)
@@ -1533,6 +1536,9 @@ export default function NetworkChat() {
                     // else's. A pending message has no id on the server yet, so
                     // none of them apply to it.
                     actions={m.pending || m.failed ? [] : [
+                      ...(mt.available && m.body && !mine
+                        ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
+                        : []),
                       // MEDIA GETS TWO MORE, AND THEY LEAD. On a message that
                       // is a photograph, "look at it properly" and "keep it"
                       // are what somebody pressed it for; reply and react are
@@ -1662,7 +1668,13 @@ export default function NetworkChat() {
                                    announcements are important text, so they get the same
                                    Translated / Original switch as a brief. */
                                 ? <TranslatedText text={m.body}>{(md) => renderMessageBody(md, { rich: true, members, onDark: mine })}</TranslatedText>
-                                : renderMessageBody(m.body, { rich: true, members, onDark: mine })}
+                                : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: mine })}
+                            {mt.isOn(m) && (
+                                  <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
+                                    <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
+                                  </button>
+                                )}
+                                {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
                           </div>
                         )
                       )}

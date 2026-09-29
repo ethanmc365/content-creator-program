@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PrizeText } from '../lib/prizeText'
 import { Avatar } from './ui'
 import Icon from './Icon'
 import { podiumTier } from '../lib/podiumTiers'
@@ -131,7 +132,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
                 and on an empty board the prize is the ONLY fact there is. */}
             {p.prize && (
               <p className="mt-1 max-w-full truncate text-center text-[11px] font-semibold text-smoke" title={p.prize}>
-                {p.prize}
+                <PrizeText text={p.prize} />
               </p>
             )}
             {p.extra && <div className="mt-1.5">{p.extra}</div>}

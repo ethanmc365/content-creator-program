@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PrizeText } from '../lib/prizeText'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal } from './ui'
 import Flame from './games/Flame'
@@ -175,7 +176,7 @@ export default function ChallengeLeaderboard({
               row ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
             )}
           >
-            <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> {prize}
+            <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> <PrizeText text={prize} />
           </span>
         )
         const who = row && (
@@ -200,7 +201,7 @@ export default function ChallengeLeaderboard({
                 {streakChip}
                 {hasVoucher && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-1.5 py-0.5 font-semibold text-green-700">
-                    <Icon name="ticket" className="h-3 w-3 shrink-0" /> {participation.prize}
+                    <Icon name="ticket" className="h-3 w-3 shrink-0" /> <PrizeText text={participation.prize} />
                   </span>
                 )}
                 {togo != null && (

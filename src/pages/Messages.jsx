@@ -43,6 +43,7 @@ import {
   loadGroupMembers, loadMyInvites, markGroupRead,
 } from '../lib/groups'
 import { useT } from '../lib/i18n'
+import { useMessageTranslations } from '../lib/quickTranslate'
 import { testFlags } from '../lib/testData'
 
 
@@ -261,6 +262,8 @@ export default function Messages() {
     }
   }, [queued])
 
+  // TRANSLATE A MESSAGE (2 Oct 2026): only for a reader on another language, original first.
+  const mt = useMessageTranslations()
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
   const [editingId, setEditingId] = useState(null)   // message being edited in place
   const [reporting, setReporting] = useState(null)   // message being reported, or null
@@ -2498,6 +2501,9 @@ export default function Messages() {
                           </>
                         )}
                         actions={m.pending || m.failed ? [] : [
+                      ...(mt.available && m.body && !mine
+                        ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
+                        : []),
                           // MEDIA GETS TWO MORE, AND THEY LEAD - same bar, same
                           // order as the rooms. `imageSrc` and not
                           // `m.image_url`: a DM attachment is a PRIVATE storage
@@ -2627,7 +2633,13 @@ export default function Messages() {
                           ) : (
                             m.body && (
                               <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
-                                {renderMessageBody(m.body, { rich: true, members: activeMembers, onDark: mine })}
+                                {renderMessageBody(mt.textFor(m), { rich: true, members: activeMembers, onDark: mine })}
+                                {mt.isOn(m) && (
+                                  <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
+                                    <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
+                                  </button>
+                                )}
+                                {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
                               </span>
                             )
                           )}

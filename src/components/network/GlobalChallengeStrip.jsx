@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { localizePrize } from '../../lib/prizeText'
+import { getLocale } from '../../lib/i18n'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import CountdownTimer from '../CountdownTimer'
@@ -133,7 +135,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
               {challenge.title}
             </h3>
           </Link>
-          {firstPrize && <p className="mt-0.5 text-sm text-white/85">{tr('1st place wins {prize}', { prize: firstPrize })}</p>}
+          {firstPrize && <p className="mt-0.5 text-sm text-white/85">{tr('1st place wins {prize}', { prize: localizePrize(firstPrize, getLocale()) })}</p>}
           <div className="mt-3">
             <CountdownTimer endDate={challenge.end_date} compact onDark />
           </div>

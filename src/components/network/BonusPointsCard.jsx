@@ -158,6 +158,10 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   const min = rule.kind === 'bonus' ? Number(rule.min_views) || 0 : 0
   const facts = [
     { icon: 'check', label: tr('How you earn it'), value: howToEarn(rule, tr) },
+    // THE CEILING SITS UNDER HOW YOU EARN IT (2 Oct 2026). Ethan: "rather than actually putting
+    // that as a separate card, I would just put it in the little thing below 'How you earn it' ...
+    // just the icon and then the text".
+    claim ? { icon: 'ticket', label: tr('How many times'), value: `${claim.text}.` } : null,
     min > 0
       ? { icon: 'eye', label: tr('Before it counts'), value: tr('The video has to pass {n} views. It is added as soon as it does.', { n: min.toLocaleString() }) }
       : null,
@@ -195,14 +199,6 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
           </div>
         </div>
 
-        {claim && (
-          <div className="rounded-card border border-brand/15 bg-brand-tint/50 px-4 py-3">
-            {/* THE SENTENCE, NOT THE SUM (1 Oct 2026). Ethan: "You don't need to show the maths,
-                +5 x 5 = 25. It takes up too much space." */}
-            <p className="text-center text-sm font-medium leading-relaxed text-ink">{claim.text}.</p>
-          </div>
-        )}
-
         <ul className="space-y-3">
           {facts.map((f) => (
             <li key={f.label} className="flex items-start gap-3">
@@ -227,6 +223,9 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
 export function LiveBonusCallout({ rules, now, onOpen }) {
   const tr = useT()
   const live = (rules || []).filter((r) => isBonusKind(r) && r.ends_at && ruleWindowState(r, now) === 'live')
+  // What an admin typed, so it is translated for a reader in another language like the card is
+  // (2 Oct 2026: "Bonus points for using the hook" stayed English after translating).
+  const tx = useContentTranslations(live.slice(0, 1).map((x) => x.label?.trim()))
   if (live.length === 0) return null
   const r = live[0]
   // AS WIDE AS THE ROW, AND IT ARRIVES LIKE THE LEADERBOARD BADGE (26 Sep
@@ -254,7 +253,7 @@ export function LiveBonusCallout({ rules, now, onOpen }) {
         <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">
           {tr('Bonus running until {d}', { d: dm(r.ends_at) })}
         </span>
-        <span className="block truncate text-[13px] font-semibold">{r.label.trim()}</span>
+        <span className="block truncate text-[13px] font-semibold">{tx.pick(r.label.trim())}</span>
       </span>
       {live.length > 1 && (
         <span className="relative hidden shrink-0 text-[11px] font-semibold text-white/70 sm:inline">{tr('+{n} more', { n: live.length - 1 })}</span>

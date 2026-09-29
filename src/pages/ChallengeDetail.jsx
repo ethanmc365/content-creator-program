@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { PrizeText } from '../lib/prizeText'
 import { confirm, notice } from '../lib/confirm'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
@@ -1147,7 +1148,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         {n}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-smoke">{placeNumber(p.place) ? ordinalFor(placeNumber(p.place)) : p.place}</span>
-                      <span className="shrink-0 text-sm font-bold text-ink">{p.prize}</span>
+                      <span className="shrink-0 text-sm font-bold text-ink"><PrizeText text={p.prize} /></span>
                     </li>
                   )
                 })}
@@ -1198,7 +1199,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr("Reward for taking part")}</p>
-                      <p className="mt-0.5 text-[15px] font-bold leading-snug text-ink">{participation.prize}</p>
+                      <p className="mt-0.5 text-[15px] font-bold leading-snug text-ink"><PrizeText text={participation.prize} /></p>
                       <p className="mt-0.5 text-xs leading-snug text-ink/70">
                         {byPoints
                           ? tr("Reach {n} points", { n: participation.threshold })
@@ -1230,7 +1231,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr(a.label || 'Most committed')}</p>
-                    <p className="text-sm font-semibold text-ink">{a.prize}</p>
+                    <p className="text-sm font-semibold text-ink"><PrizeText text={a.prize} /></p>
                     <p className="mt-0.5 text-xs text-smoke">
                       {a.scope === 'anyone' ? tr("For whoever enters the most videos.") : tr("For whoever enters the most videos and finishes outside the top {n}.", {
                         n: a.exclude_top || (Array.isArray(challenge.prize_structure) ? challenge.prize_structure.length : 0) || 10,

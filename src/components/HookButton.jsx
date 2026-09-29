@@ -9,6 +9,8 @@ import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
 import DealFinder from './DealFinder'
+import { OnDemandSwitch } from './TranslatedText'
+import { useTranslateOnDemand } from '../lib/quickTranslate'
 
 // "HOOK ME UP" (24 Sep 2026).
 //
@@ -121,9 +123,14 @@ export default function HookButton({ className }) {
     await next()
   }
 
+  // A HOOK ARRIVES IN ENGLISH, WITH A TRANSLATE SWITCH (2 Oct 2026). Ethan: "the hooks aren't
+  // actually translated. Maybe we could also have a translate button at the top ... It should
+  // always load an English version". Copy takes whichever version is on screen.
+  const htx = useTranslateOnDemand(hook?.text || '')
+
   async function copy() {
     if (!hook) return
-    const ok = await copyToClipboard(hook.text)
+    const ok = await copyToClipboard(htx.shown || hook.text)
     if (ok !== false) toastSuccess(tr('Hook copied'))
   }
 
@@ -156,6 +163,11 @@ export default function HookButton({ className }) {
 
       <Modal open={open} onClose={() => setOpen(false)} title={tr('Your hook')}>
         <div className="space-y-5">
+          {htx.available && hook && (
+            <div className="-mt-1 flex justify-end">
+              <OnDemandSwitch t={htx} />
+            </div>
+          )}
           {/* THE QUOTE MARK HAS ITS OWN ROW (26 Sep 2026). It was a huge glyph
               pinned to a corner, and a long hook ran straight over it. Now it
               sits above the words, so no length of hook can touch it. */}
@@ -172,8 +184,8 @@ export default function HookButton({ className }) {
             ) : failed ? (
               <p className="relative text-sm font-medium">{tr('Could not load the hooks. Try again in a moment.')}</p>
             ) : hook ? (
-              <p key={turn} className="animate-fade-up relative -mt-2 text-xl font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] sm:text-2xl">
-                {hook.text}
+              <p key={`${turn}:${htx.on}`} className="animate-fade-up relative -mt-2 text-xl font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] sm:text-2xl">
+                {htx.shown || hook.text}
               </p>
             ) : (
               <p className="relative text-sm font-medium">{tr('No hooks yet.')}</p>

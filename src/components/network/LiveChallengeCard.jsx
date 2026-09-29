@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PrizeText } from '../../lib/prizeText'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../../lib/supabase'
@@ -148,7 +149,7 @@ function LiveBoard({ challenge, className }) {
                     ours. */}
                 {leader ? leader.name?.split(' ')[0] : tr('Up for grabs')}
               </span>
-              {prize && <span className="block truncate text-[11px] text-smoke">{prize}</span>}
+              {prize && <span className="block truncate text-[11px] text-smoke"><PrizeText text={prize} /></span>}
             </span>
             {leader && (
               <span className="shrink-0 text-sm font-bold tabular-nums text-ink">{formatViews(leader.views)}</span>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PrizeText } from '../lib/prizeText'
 import CountdownTimer from './CountdownTimer'
 import Icon from './Icon'
 import { Avatar } from './ui'
@@ -148,7 +149,7 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
                 {leader ? leader.name?.split(' ')[0] : tr('Up for grabs')}
               </span>
               {prize && (
-                <span className="block truncate text-[11px] text-smoke">{prize}</span>
+                <span className="block truncate text-[11px] text-smoke"><PrizeText text={prize} /></span>
               )}
             </span>
             {/* THE SCORE, AND ON A POINTS BOARD THE REACH UNDER IT (3 Sep 2026).
