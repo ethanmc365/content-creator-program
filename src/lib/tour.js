@@ -256,12 +256,27 @@ export const TOUR_STEPS = [
  * percentage is computed off THIS list, never off TOUR_STEPS, or a creator on
  * the legacy shell tops out at sixty per cent.
  */
-export function stepsFor({ network = false } = {}) {
+// A VIP's walk swaps the challenges step for their own page (2 Oct 2026): they are paid by views and never
+// see the challenges, so the tour points at the VIP tab instead.
+const VIP_STEP = {
+  key: 'vip',
+  part: 'start',
+  title: 'This is your page',
+  body: 'Add your videos, watch what this month is earning, and find every payout and your VIP rooms here.',
+  do: 'Tap VIP',
+  anchor: 'nav-challenges',
+  goal: { kind: 'route', to: '/vip' },
+  on: ALL,
+}
+
+export function stepsFor({ network = false, vip = false } = {}) {
   // Every step applies on both shells now. The filter stays because the
   // `on: 'network'` escape hatch is worth keeping for a step that genuinely
   // only exists in one of them, and because the percentage MUST be computed off
   // this list rather than off TOUR_STEPS.
-  return TOUR_STEPS.filter((s) => s.on === ALL || (s.on === 'network' && network))
+  return TOUR_STEPS
+    .map((s) => (vip && s.key === 'challenges' ? VIP_STEP : s))
+    .filter((s) => s.on === ALL || (s.on === 'network' && network))
 }
 
 /** Where a step puts you, which differs by shell for the hub. */

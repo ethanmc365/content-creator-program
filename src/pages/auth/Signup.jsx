@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/ui'
@@ -7,7 +7,8 @@ import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
-import { useT } from '../../lib/i18n'
+import { LOCALES, loadLocale, setLocale, useT } from '../../lib/i18n'
+import { loadOverrides } from '../../lib/translations'
 import GoogleButton from '../../components/GoogleButton'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
@@ -35,6 +36,11 @@ export default function Signup() {
   // page says, and the fact that the token is kept for `claim_team_invite` once
   // there is a session to claim it with.
   const teamToken = searchParams.get('team')
+  // A VIP LINK (2 Oct 2026, migration 294): /vip/join/<token>, sent by the team straight to a creator. It is the
+  // same sign-up and gathers the same profile; the token is kept until there is a session to spend it on, and
+  // makes them a VIP as they finish (Onboarding claims it). Nothing here grants anything by itself.
+  const { token: vipToken } = useParams()
+  const [vipInvite, setVipInvite] = useState(null)
   const [teamInvite, setTeamInvite] = useState(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -44,6 +50,28 @@ export default function Signup() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
   const [agreed, setAgreed] = useState(false)
+
+  // Is the VIP link good, and which programme is it for? Also: open the page in the programme's language
+  // unless this device has already been told otherwise.
+  useEffect(() => {
+    if (!vipToken) return undefined
+    let alive = true
+    supabase.rpc('vip_invite_check', { p_token: vipToken }).then(async ({ data }) => {
+      const row = Array.isArray(data) ? data[0] : data
+      if (!alive) return
+      setVipInvite(row?.valid ? row : { valid: false })
+      if (row?.valid) {
+        try { localStorage.setItem('tryp_vip_invite', vipToken) } catch { /* private mode */ }
+        let chosen = false
+        try { chosen = !!localStorage.getItem('tryp-locale') } catch { /* private mode */ }
+        if (!chosen && row.language && LOCALES.some((l) => l.code === row.language)) {
+          await Promise.all([loadLocale(row.language), loadOverrides(row.language).catch(() => {})])
+          setLocale(row.language)
+        }
+      }
+    })
+    return () => { alive = false }
+  }, [vipToken])
 
   // Is the team token real, and what does it say it is for? Answered by an
   // RPC that tells a stranger only those two things.
@@ -83,8 +111,18 @@ export default function Signup() {
   // `user` exists (email confirmation is off, so a session always follows signup).
   useEffect(() => {
     if (demoAsked) return
-    if (user) navigate('/onboarding', { replace: true })
-  }, [user, navigate, demoAsked])
+    if (!user) return
+    // Somebody who already has an account and follows a VIP link becomes a VIP now, no second sign-up.
+    if (vipToken && vipInvite?.valid) {
+      supabase.rpc('claim_vip_invite', { p_token: vipToken }).then(() => {
+        try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
+        navigate('/vip', { replace: true })
+      })
+      return
+    }
+    if (vipToken && vipInvite === null) return
+    navigate('/onboarding', { replace: true })
+  }, [user, navigate, demoAsked, vipToken, vipInvite])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -143,11 +181,39 @@ export default function Signup() {
 
   return (
     <AuthShell
-      title={teamInvite?.valid ? tr('Join the Tryp.com team') : tr("Join the community")}
-      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : tr("Create your creator account. It takes a minute.")}
+      title={teamInvite?.valid ? tr('Join the Tryp.com team') : vipInvite?.valid ? tr('Join the VIP creators') : tr("Join the community")}
+      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : vipInvite?.valid ? tr('You have been invited to {programme}. Create your account and tell us about you.', { programme: vipInvite.programme }) : tr("Create your creator account. It takes a minute.")}
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
-      {ref && !teamToken && (
+      {vipToken && vipInvite && (
+        vipInvite.valid ? (
+          <div className="mb-6 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-tint to-white p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
+                <Icon name="star" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold leading-snug text-ink">{tr('You are joining the VIP creators')}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-smoke">{tr('Paid by the views you bring, with your own page, your own rooms and a payout every month.')}</p>
+              </div>
+            </div>
+            <ol className="mt-4 grid grid-cols-3 gap-2 text-center">
+              {[tr('Make your account'), tr('Tell us about you'), tr('Your VIP page opens')].map((label, i) => (
+                <li key={label} className="rounded-xl bg-white/80 px-2 py-2.5 shadow-sm">
+                  <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">{i + 1}</span>
+                  <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-ink">{label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <p className="mb-5 rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
+            {tr('That VIP link has expired or been withdrawn. You can still sign up as a creator below, or ask the team for a new one.')}
+          </p>
+        )
+      )}
+
+      {ref && !teamToken && !vipToken && (
         <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
           {tr("You were invited by a Tryp.com creator. Welcome aboard!")}
         </p>

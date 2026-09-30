@@ -1,0 +1,18 @@
+-- 295: what was changed on the LIVE database after 294 went in (2 Oct 2026), written down so the repo matches it.
+-- 294 was applied in pieces (294a..294i) through the SQL runner; these are the pieces that differ from the 294 file:
+--
+--  * vip_approve_statement: the rate in the invoice description is written with
+--      rtrim(rtrim(round(coalesce(s.cpm, p.cpm), 4)::text, '0'), '.')   (to_char's '##' printed literally)
+--  * vip_close_due: the forced final read is asked for again on every ten-minute tick until 20 minutes past the
+--    end of the month, because view-sync answers 409 while another run is going.
+--  * raise_invoice_for_reward: `when 'vip' then coalesce(nullif(btrim(r.payment_notes), ''), 'VIP programme payout')`.
+--  * messages / channels: a VIP room is read and written only by a VIP of THAT market (or the worldwide lounge),
+--    the market's own managers and admins. The write fence is a restrictive INSERT policy built on two definer
+--    helpers (channel_is_vip, channel_community_of) because a subquery on `channels` inside the policy is itself
+--    filtered by RLS and so always said "not a VIP room" to exactly the people it was meant to stop.
+--    vip_room_ok(community) is the one place that decides it.
+--  * GRANT to anon on vip_invite_check and is_active_vip has to be its own statement: the
+--    no_new_function_is_public event trigger strips an anon grant made in the same batch as the function.
+--
+-- Rehearsals: supabase/tests/vip_month.sql (a whole month, rolled back).
+select 1;

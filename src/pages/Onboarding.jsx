@@ -21,6 +21,7 @@ import { notice } from '../lib/confirm'
 import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
 import { useT, usePlural, getLocale } from '../lib/i18n'
 import { usePlaceNames } from '../lib/placeNames'
+import { clearVipCache } from '../lib/vip'
 import LanguagePicker from '../components/LanguagePicker'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
@@ -468,6 +469,25 @@ export default function Onboarding() {
     })
   }, [user?.id, refreshProfile])
 
+  // A VIP SIGN-UP (2 Oct 2026). The same nine screens and the same profile - the team reads the same
+  // application - but the link they came through makes them a VIP as they finish, and the welcome says so.
+  // Same two sources as the team invite: the profile once the claim has landed, the token put aside by the
+  // sign-up page before there was a session.
+  const [vipApplication, setVipApplication] = useState(() => {
+    try { return !!localStorage.getItem('tryp_vip_invite') } catch { return false }
+  })
+  useEffect(() => { if (auth.profile?.is_vip) setVipApplication(true) }, [auth.profile?.is_vip])
+  useEffect(() => {
+    if (!user?.id || demo) return
+    let token = null
+    try { token = localStorage.getItem('tryp_vip_invite') } catch { /* private mode */ }
+    if (!token) return
+    supabase.rpc('claim_vip_invite', { p_token: token }).then(({ data }) => {
+      if (data === true) { setVipApplication(true); clearVipCache(); refreshProfile?.() }
+      try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
+    })
+  }, [user?.id, refreshProfile, demo])
+
   const steps = useMemo(() => stepsFor(teamApplication), [teamApplication])
   const problems = draftProblems(draft, contact, { team: teamApplication })
   const problemsFor = (key) => problems.filter((p) => p.step === key)
@@ -832,7 +852,7 @@ export default function Onboarding() {
             <StepHead step={current} pending={pending} team={teamApplication} />
 
             {current.key === 'welcome' && (
-              <Welcome name={draft.name} pending={pending} />
+              <Welcome name={draft.name} pending={pending} vip={vipApplication} />
             )}
 
             {current.key === 'identity' && (
@@ -1226,7 +1246,7 @@ function StepHead({ step, pending, team = false }) {
   )
 }
 
-function Welcome({ name, pending }) {
+function Welcome({ name, pending, vip }) {
   const tr = useT()
   return (
     <div className="space-y-5 text-center">
@@ -1242,7 +1262,11 @@ function Welcome({ name, pending }) {
 
           "TEAM", NOT "CREW" (3 Sep 2026). Ethan: "I like the welcome to the
           crew - I would say welcome to the team rather than crew." */}
-      <h1 className="text-3xl font-bold">{name ? tr('Welcome to the team, {name}!', { name: name.split(' ')[0] }) : tr('Welcome to the team!')}</h1>
+      <h1 className="text-3xl font-bold">
+        {vip
+          ? (name ? tr('Welcome to the VIP creators, {name}!', { name: name.split(' ')[0] }) : tr('Welcome to the VIP creators!'))
+          : (name ? tr('Welcome to the team, {name}!', { name: name.split(' ')[0] }) : tr('Welcome to the team!'))}
+      </h1>
       {/* THE PLANE, BETWEEN THE GREETING AND THE THREE ROWS (9 Sep 2026).
           Ethan: "below the title and above those three cards, we can add in the
           Tryp.com animated plane with the little contrails coming out the back

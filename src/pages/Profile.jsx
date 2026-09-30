@@ -11,6 +11,7 @@ import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ProfileFlights from '../components/network/ProfileFlights'
 import { ChallengeHistoryCard, PuzzleCard } from '../components/network/ProfileRailCards'
 import ConnectButton from '../components/ConnectButton'
+import { MakeVipButton } from '../components/vip/adminA'
 import ReportCreator from '../components/ReportCreator'
 import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualCreators } from '../lib/connections'
@@ -858,7 +859,9 @@ export default function Profile() {
               {roleBadgeTitle(creator) || tr('Creator')}
             </span>
             {isApplication && <Badge tone="amber">{tr("Pending review")}</Badge>}
+            {creator.is_vip && <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-card"><Icon name="star" className="h-3 w-3" />VIP</span>}
           </p>
+          {isAdmin && !isMe && <MakeVipButton creator={creator} />}
 
           {/* THE AGE AND THE HOME TOWN ARE NOT HERE ANY MORE. Both moved
               into the clock card in the rail, where the town belongs beside the

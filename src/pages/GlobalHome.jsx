@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
+import VipHomeCard from '../components/vip/VipHomeCard'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
@@ -696,6 +697,7 @@ export default function GlobalHome() {
             everything above the fold firing on one frame; 50ms per section does
             that, and 440ms is not a head start, it is a wait. */}
         <div className="space-y-9">
+          <VipHomeCard />
 
           {/* ---------- Greeting ----------
               `-mb-3` against the page's own `space-y-9`. A greeting is a label

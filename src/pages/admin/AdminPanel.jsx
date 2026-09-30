@@ -112,6 +112,10 @@ const TOOLS = [
   // Analytics is a retrospective; a KPI is a plan checked as the quarter
   // runs, which is a different question asked at a different moment.
   { id: 'kpis', to: '/admin/kpis', icon: 'trophy', title: 'KPI tracker' },
+  // THE VIP PROGRAMME, ONE DOOR (2 Oct 2026, migration 294): its members, bonus rules, month-end payouts, its own
+  // KPIs and analytics. Not `globalOnly`: a market's own lead runs their VIPs from here too, and the page shows
+  // each person only the programmes they manage.
+  { id: 'vip', to: '/admin/vip', icon: 'sparkles', title: 'VIP tools' },
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },

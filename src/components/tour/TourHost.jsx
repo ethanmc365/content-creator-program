@@ -90,14 +90,15 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const typing = useVisualViewport().keyboardOpen
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
+  const vip = !!profile?.is_vip && !isAdmin
 
-  const steps = useMemo(() => stepsFor({ network }), [network])
+  const steps = useMemo(() => stepsFor({ network, vip }), [network, vip])
   // RESUME, RATHER THAN RESTART. See `savedStep` in lib/tour: a walkthrough
   // that moves you around the product is one people leave halfway, and coming
   // back to step one is how they stop coming back at all. Clamped to the last
   // real step so a shortened walk can never resume off the end.
-  const [i, setI] = useState(() => Math.min(savedStep(layout), stepsFor({ network }).length - 1))
+  const [i, setI] = useState(() => Math.min(savedStep(layout), stepsFor({ network, vip }).length - 1))
   const [ready, setReady] = useState(false)
   // THE SPOTLIGHT FADES IN ONCE, AT THE START OF THE WALK, AND THEN TRAVELS.
   // See the note where it is rendered: dropping it to invisible on every step

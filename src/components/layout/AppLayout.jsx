@@ -78,12 +78,15 @@ const TOUR_ANCHORS = {
   '/global': 'nav-home',
   '/home': 'nav-home',
   '/challenges': 'nav-challenges',
+  '/vip': 'nav-challenges',
   '/chat': 'nav-chat',
   '/rooms': 'nav-chat',
   '/messages': 'nav-messages',
   '/events': 'nav-calendar',
 }
 const tourAnchor = (to) => TOUR_ANCHORS[to] || undefined
+// What a VIP is not shown: points, ranks and referrals belong to the challenges.
+const VIP_HIDDEN = new Set(['/leaderboard', '/refer'])
 
 // WHICH TAB OWNS THE PAGE YOU ARE ON.
 //
@@ -104,6 +107,7 @@ export function activeTab(pathname) {
   if (/^\/messages(\/|$)/.test(pathname)) return '/messages'
   if (/^\/events(\/|$)/.test(pathname)) return '/events'
   if (/^\/challenges(\/|$)/.test(pathname)) return '/challenges'
+  if (/^\/vip(\/|$)/.test(pathname)) return '/vip'
   if (/^\/(global|c|manage)(\/|$)/.test(pathname)) return '/global'
   return null
 }
@@ -238,7 +242,11 @@ export default function AppLayout() {
   // Pages that put something at the bottom of the viewport: a chat composer, a
   // DM composer. Anything floating there lands on the send button.
   const hasBottomBar = /^\/(chat|messages|rooms)(\/|$)/.test(pathname) || onNetworkChat
-  const tabs = TABS
+  // A VIP HAS A VIP TAB WHERE THE CHALLENGES WERE (2 Oct 2026). They are paid by views, so they neither see nor
+  // enter challenges; the tab that would have been theirs is the page that IS theirs. An admin who is also a
+  // VIP keeps the challenges.
+  const isVip = !!profile?.is_vip && !isAdmin
+  const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
   const navigate = useNavigate()
 
   // NOTHING YOU ARE TYPING IN SITS UNDER THE KEYBOARD. Installed once, here,
@@ -248,7 +256,7 @@ export default function AppLayout() {
   useEffect(() => installKeyboardFollow(), [])
   const [menuOpen, setMenuOpen] = useState(false)
   // Same ten links, and the same order the reader dragged them into on the hub.
-  const menuLinks = orderedLinks(loadLinkOrder())
+  const menuLinks = orderedLinks(loadLinkOrder()).filter((l) => !(isVip && VIP_HIDDEN.has(l.to)))
   const [dmUnread, setDmUnread] = useState(0)
   // How many rooms have something new in them. One shared store, so the tab
   // badge, the rooms index and the chat sidebar can never disagree about it.
@@ -726,7 +734,8 @@ export default function AppLayout() {
                   {/* The Tryp.com team link is gone: the team are creators in
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
-                  <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Milestones")}</Link>
+                  {!isVip && <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Milestones")}</Link>}
+                  {isVip && <Link to="/vip?tab=payouts" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("VIP payouts")}</Link>}
 
                   {/* EVERYWHERE ELSE, ON A PHONE.
                       These ten used to be a grid near the top of the Worldwide

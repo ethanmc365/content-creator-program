@@ -1021,6 +1021,8 @@ type Row = {
   platform_video_id: string | null
   creator_id: string | null
   posted_at?: string | null
+  // A VIP video (table vip_videos), not a challenge entry. Everything else about reading it is the same.
+  vip?: boolean
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -1085,8 +1087,9 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     })
     const now = new Date().toISOString()
 
+    const table = row.vip ? 'vip_videos' : 'submissions'
     if (r.views == null) {
-      await supabase.from('submissions').update({
+      await supabase.from(table).update({
         views_sync_error: r.error,
         views_synced_at: now,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
@@ -1094,7 +1097,8 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
       p.failed += 1
     } else {
       const source = r.platform ? SOURCE[r.platform] : 'manual'
-      await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
+      if (row.vip) await supabase.from('vip_view_readings').insert({ video_id: row.id, views: r.views, source })
+      else await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
 
       // The platform is the source of truth, full stop. An earlier version
       // refused to write a reading that was LOWER than the saved number, on the
@@ -1120,7 +1124,7 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
       // means the platform would not answer.
       let error: unknown = null
       for (let attempt = 0; attempt < 4; attempt++) {
-        ;({ error } = await supabase.from('submissions').update(patch).eq('id', row.id))
+        ;({ error } = await supabase.from(table).update(patch).eq('id', row.id))
         if (!error) break
         await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 300))
       }
@@ -1238,6 +1242,34 @@ async function countStale(challengeId: string | undefined, intervalHours: number
   return count ?? 0
 }
 
+// THE VIP LANE (2 Oct 2026). VIP creators are paid by views gained in a month, so their videos are read
+// on the same machinery but live in `vip_videos` (see migration 294) with every reading kept in
+// `vip_view_readings`. A request with `vip_only` reads only those, on its own interval, and never
+// touches a challenge entry.
+const VIP_COLS = 'id, video_url, platform, logged_views, platform_video_id, profile_id, posted_at'
+
+async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?: string): Promise<Row[]> {
+  let q = supabase.from('vip_videos').select(VIP_COLS).eq('status', 'tracking')
+  if (!force) {
+    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  } else if (runStartedAt) {
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${runStartedAt}`)
+  }
+  const { data } = await q.order('views_synced_at', { ascending: true, nullsFirst: true }).limit(CHUNK)
+  return ((data ?? []) as (Row & { profile_id: string })[]).map((r) => ({ ...r, creator_id: r.profile_id, vip: true }))
+}
+
+async function countVipStale(intervalHours: number, force: boolean): Promise<number> {
+  let q = supabase.from('vip_videos').select('id', { count: 'exact', head: true }).eq('status', 'tracking')
+  if (!force) {
+    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  }
+  const { count } = await q
+  return count ?? 0
+}
+
 async function namedRows(submissionIds: string[]): Promise<Row[]> {
   const { data } = await supabase.from('submissions').select(ROW_COLS).in('id', submissionIds).limit(CHUNK)
   return (data ?? []) as Row[]
@@ -1252,7 +1284,7 @@ async function syncInterval(): Promise<number> {
 // Hand the rest of the work to a fresh invocation rather than trying to finish
 // it here. Each chunk gets its own clock, so a programme of any size drains at a
 // steady rate instead of one run racing a timeout.
-async function continueChain(scope: { challenge_id?: string; force?: boolean }, progress: Progress) {
+async function continueChain(scope: { challenge_id?: string; force?: boolean; vip_only?: boolean; vip_interval_hours?: number }, progress: Progress) {
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
       method: 'POST',
@@ -1287,6 +1319,8 @@ Deno.serve(async (req) => {
     submission_ids?: string[]
     continuation?: Progress
     force?: boolean
+    vip_only?: boolean
+    vip_interval_hours?: number
   }
 
   const secret = req.headers.get('x-webhook-secret') ?? ''
@@ -1353,9 +1387,12 @@ Deno.serve(async (req) => {
     return json(req, { accepted: rows.length }, 202)
   }
 
-  const interval = await syncInterval()
+  const vipOnly = body.vip_only === true
+  const interval = vipOnly ? (Number(body.vip_interval_hours) > 0 ? Number(body.vip_interval_hours) : 12) : await syncInterval()
   const force = body.force === true
-  const rows = await staleRows(body.challenge_id, interval, force, continuation?.started_at)
+  const rows = vipOnly
+    ? await vipStaleRows(interval, force, continuation?.started_at)
+    : await staleRows(body.challenge_id, interval, force, continuation?.started_at)
 
   if (!rows.length) {
     // Nothing stale. If this is the tail of a chain, close the run properly so
@@ -1370,7 +1407,7 @@ Deno.serve(async (req) => {
   const progress: Progress = continuation ?? {
     started_at: new Date().toISOString(),
     trigger: fromCron ? 'scheduled' : 'admin',
-    total: await countStale(body.challenge_id, interval, force),
+    total: vipOnly ? await countVipStale(interval, force) : await countStale(body.challenge_id, interval, force),
     done: 0, updated: 0, failed: 0, chunk: 0,
   }
   progress.chunk += 1
@@ -1387,10 +1424,10 @@ Deno.serve(async (req) => {
     // and would loop until the chunk cap.
     const more = force
       ? after.done < after.total && rows.length >= CHUNK
-      : (await countStale(body.challenge_id, interval)) > 0
+      : (vipOnly ? await countVipStale(interval, false) : await countStale(body.challenge_id, interval)) > 0
 
     if (more && after.chunk < MAX_CHUNKS_PER_CHAIN) {
-      await continueChain({ challenge_id: body.challenge_id, force }, after)
+      await continueChain({ challenge_id: body.challenge_id, force, vip_only: vipOnly, vip_interval_hours: interval }, after)
     } else {
       await finishRun(after)
     }

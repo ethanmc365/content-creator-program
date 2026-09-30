@@ -16,6 +16,7 @@ import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
 import { ChartGradients } from './components/charts/chartTheme'
 import RouteSkeleton from './components/RouteSkeleton'
+import NotForVip from './components/NotForVip'
 
 // Public pages
 import Landing from './pages/Landing'
@@ -88,6 +89,8 @@ const AdminAnalytics = lazyRoute(chunk.AdminAnalytics)
 const AdminChallengeAnalytics = lazyRoute(chunk.AdminChallengeAnalytics)
 const AdminVideoTracker = lazyRoute(chunk.AdminVideoTracker)
 const AdminKpis = lazyRoute(chunk.AdminKpis)
+const AdminVip = lazyRoute(chunk.AdminVip)
+const VipHub = lazyRoute(chunk.VipHub)
 const AdminHooks = lazyRoute(chunk.AdminHooks)
 const ChallengeRecap = lazyRoute(chunk.ChallengeRecap)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
@@ -230,6 +233,8 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      {/* The VIP sign-up link the team sends a creator directly (migration 294). Same sign-up, VIP wording. */}
+      <Route path="/vip/join/:token" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       {/* Where "Continue with Google" comes back to. Eagerly imported, on
@@ -278,9 +283,13 @@ export default function App() {
           <Route path="/chat/:channel" element={<LegacyChatRedirect />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Messages />} />
-          <Route path="/challenges" element={<Challenges />} />
-          <Route path="/challenges/:id" element={<ChallengeDetail />} />
-          <Route path="/challenges/:id/recap" element={<ChallengeRecap />} />
+          <Route path="/vip" element={<VipHub />} />
+          {/* VIPs are paid by views and never see the challenges, milestones, leaderboard or referrals. */}
+          <Route element={<NotForVip />}>
+            <Route path="/challenges" element={<Challenges />} />
+            <Route path="/challenges/:id" element={<ChallengeDetail />} />
+            <Route path="/challenges/:id/recap" element={<ChallengeRecap />} />
+              </Route>
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/events" element={<Events />} />
@@ -325,19 +334,25 @@ export default function App() {
                 the open list it was still reachable by URL, and a UK creator who
                 landed on it got a page of the unreleased build - the reported
                 "UK creators have been able to view My route". */}
-            <Route path="/milestones" element={<Milestones />} />
             <Route path="/flights" element={<Flights />} />
             <Route path="/flights/aircraft" element={<AircraftCollection />} />
             <Route path="/flights/community" element={<FlightCommunity />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />
-            <Route path="/c/:slug/challenges" element={<MarketChallenges />} />
             <Route path="/c/:slug/members" element={<MarketMembers />} />
             <Route path="/c/:slug/chat" element={<NetworkChat />} />
             <Route path="/c/:slug/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/manage/:slug" element={<ManageChapter />} />
             <Route path="/admin/languages" element={<AdminLanguages />} />
+            {/* The VIP tools are for the team AND for a market's own lead, so this sits beside the languages
+                page (which has the same audience) rather than under the admin-only guard. The database decides
+                who can see what (vip_can_manage); this page only draws it. */}
+            <Route path="/admin/vip" element={<AdminVip />} />
+            <Route element={<NotForVip />}>
+              <Route path="/milestones" element={<Milestones />} />
+              <Route path="/c/:slug/challenges" element={<MarketChallenges />} />
+            </Route>
           </Route>
 
           {/* ---------- Admin only ---------- */}

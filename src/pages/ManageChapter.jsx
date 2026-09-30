@@ -57,6 +57,26 @@ const ADDABLE_ROOMS = [
   { key: 'wins', label: 'Wins', hint: 'Post a result you are proud of.', icon: 'trophy' },
 ]
 
+// A market with a VIP programme gets a door to its tools here (2 Oct 2026). Nothing is drawn for a market
+// without one, so the lead of a market that has no VIPs never sees a dead end.
+function VipSection({ chapter }) {
+  const tr = useT()
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    let alive = true
+    supabase.from('vip_programmes').select('id').eq('community_id', chapter.id).eq('active', true).maybeSingle()
+      .then(({ data }) => { if (alive) setOn(!!data) })
+    return () => { alive = false }
+  }, [chapter.id])
+  if (!on) return null
+  return (
+    <Section icon="star" title={tr('VIP creators')} hint={tr('Paid by views, with their own rooms. Members, bonuses, month-end payouts and numbers.')}
+      action={<Link to="/admin/vip" className="btn-primary !py-2 !px-5 !text-sm">{tr('Open the VIP tools')}</Link>}>
+      <p className="text-sm text-smoke">{tr('Add a VIP, send a sign-up link, set a bonus, approve the month.')}</p>
+    </Section>
+  )
+}
+
 function Section({ icon, title, hint, children, action }) {
   return (
     <motion.section variants={listItem} className="card">
@@ -698,6 +718,8 @@ export default function ManageChapter() {
                 )}
               </div>
             </Section>
+
+            <VipSection chapter={chapter} />
 
             {/* ---------------- Challenges ---------------- */}
             <Section icon="flag" title={tr("Challenges")} hint={tr("Everything this market has run. Scoring is set on each challenge.")}

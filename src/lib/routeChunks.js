@@ -67,6 +67,8 @@ export const chunk = {
   AdminChallengeAnalytics: () => import('../pages/admin/AdminChallengeAnalytics'),
   AdminVideoTracker: () => import('../pages/admin/AdminVideoTracker'),
   AdminKpis: () => import('../pages/admin/AdminKpis'),
+  AdminVip: () => import('../pages/admin/AdminVip'),
+  VipHub: () => import('../pages/VipHub'),
   AdminHooks: () => import('../pages/admin/AdminHooks'),
   ChallengeRecap: () => import('../pages/ChallengeRecap'),
   AdminEvents: () => import('../pages/admin/AdminEvents'),
@@ -138,6 +140,8 @@ const ROUTES = [
   [/^\/admin\/languages/, 'AdminLanguages'],
   [/^\/admin\/testing/, 'TestingCentre'],
   [/^\/admin\/kpis/, 'AdminKpis'],
+  [/^\/admin\/vip/, 'AdminVip'],
+  [/^\/vip(?!\/join)/, 'VipHub'],
   [/^\/admin\/hooks/, 'AdminHooks'],
   [/^\/admin/, 'AdminPanel'],
 ]
