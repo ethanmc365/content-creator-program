@@ -644,9 +644,17 @@ export function Select({
   // dialog simply grows and its own scroller takes over, which is the answer
   // this codebase already reached once for the same reason.
   inFlow = false,
+  // FLOATING OVER A DIALOG WITHOUT BEING CLIPPED (30 Sep 2026). Ethan, on the video tracker's edit
+  // sheet: "whenever you click a market, it moves everything down. Instead, this dropdown should just
+  // go over the other cards." An in-flow menu cannot be clipped but pushes the form; this renders the
+  // menu into <body> at the button's position (fixed), so it floats over everything and no scroll box
+  // can slice it. Re-measured on scroll and resize.
+  portal = false,
 }) {
   const tr = useT()
   const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
+  const [rect, setRect] = useState(null)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
   const [query, setQuery] = useState('')
@@ -673,10 +681,18 @@ export function Select({
 
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target) && !menuRef.current?.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
+  useEffect(() => {
+    if (!open || !portal) return undefined
+    const measure = () => { const b = btnRef.current?.getBoundingClientRect(); if (b) setRect({ top: b.top, bottom: b.bottom, left: b.left, width: b.width }) }
+    measure()
+    window.addEventListener('scroll', measure, true)
+    window.addEventListener('resize', measure)
+    return () => { window.removeEventListener('scroll', measure, true); window.removeEventListener('resize', measure) }
+  }, [open, portal])
 
   function openMenu() {
     const box = btnRef.current?.getBoundingClientRect()
@@ -685,6 +701,7 @@ export function Select({
     // An in-flow menu is never flipped: it is part of the column, so "above"
     // would mean pushing the button it belongs to down the page as it opens.
     setUp(!inFlow && !!box && box.bottom + needed > window.innerHeight && box.top > needed)
+    if (box) setRect({ top: box.top, bottom: box.bottom, left: box.left, width: box.width })
     setQuery('')
     setActive(options.findIndex((o) => o.value === value))
     setOpen(true)
@@ -716,53 +733,7 @@ export function Select({
     else if (e.key === ' ' && !searchable) { e.preventDefault(); choose(active) }
   }
 
-  return (
-    <div ref={wrapRef} className={cx('relative', className)}>
-      <button
-        ref={btnRef}
-        id={id}
-        type="button"
-        role="combobox"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        onKeyDown={onKeyDown}
-        className={cx(
-          'flex w-full items-center justify-between gap-2 border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60',
-          variant === 'field'
-            // Matched to `.input`: same radius, same padding, and 16px on mobile
-            // so iOS does not zoom the page when it is focused.
-            ? 'rounded-xl px-4 py-3 text-base sm:text-sm'
-            // MATCHED TO A FILTER CHIP (8 Sep 2026). Ethan, on the analytics
-            // controls: "the All markets button is round, and all the other
-            // ones are quite square, so I would fix that."
-            //
-            // Measured, because "looks different" is worth turning into a
-            // number: the seven market chips and the EUR/GBP pair are 8px and
-            // 28px tall, and this dropdown - sitting in the same row, doing the
-            // same job - was 9999px and 38px. It read as a different KIND of
-            // control from the ones either side of it, which it is not.
-            //
-            // The rule the page now follows: a FILTER is a chip, an ACTION is a
-            // pill. So this matches its neighbours and "Export challenge log"
-            // stays round, because it does something rather than narrowing
-            // something.
-            : variant === 'chip'
-              ? 'rounded-lg px-3 py-1.5 text-xs font-semibold'
-              : 'rounded-full px-4 py-2 text-sm font-medium',
-          open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
-        )}
-      >
-        <span className={cx('truncate', !selected && 'text-gray-400')}>{selected?.label ?? placeholder}</span>
-        <Icon
-          name="chevronRight"
-          className={cx('h-4 w-4 shrink-0 text-smoke transition-transform', open ? '-rotate-90' : 'rotate-90')}
-        />
-      </button>
-
-      {open && (
+  const menuEl = (
         // THE SEARCH BOX IS NOT IN THE SCROLLING LIST.
         //
         // It was: a `sticky top-0` <li> inside the scrolling <ul>, pulled up
@@ -775,9 +746,14 @@ export function Select({
         // scrolls. The menu is a column now: a fixed search row, then the list.
         // It is better ARIA too - a listbox should not contain a textbox.
         <div
+          ref={menuRef}
+          style={portal && rect ? {
+            position: 'fixed', left: rect.left, width: rect.width, zIndex: 1000,
+            ...(up ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
+          } : undefined}
           className={cx(
             'z-40 flex w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white',
-            inFlow
+            portal ? 'shadow-lift animate-pop-in' : inFlow
               // In the flow: no shadow and no `min-w-max`. It is a panel that
               // belongs to the field above it rather than a thing hovering
               // over the page, and a menu wider than its own column is exactly
@@ -871,7 +847,55 @@ export function Select({
           })}
           </ul>
         </div>
-      )}
+          )
+
+  return (
+    <div ref={wrapRef} className={cx('relative', className)}>
+      <button
+        ref={btnRef}
+        id={id}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onKeyDown}
+        className={cx(
+          'flex w-full items-center justify-between gap-2 border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60',
+          variant === 'field'
+            // Matched to `.input`: same radius, same padding, and 16px on mobile
+            // so iOS does not zoom the page when it is focused.
+            ? 'rounded-xl px-4 py-3 text-base sm:text-sm'
+            // MATCHED TO A FILTER CHIP (8 Sep 2026). Ethan, on the analytics
+            // controls: "the All markets button is round, and all the other
+            // ones are quite square, so I would fix that."
+            //
+            // Measured, because "looks different" is worth turning into a
+            // number: the seven market chips and the EUR/GBP pair are 8px and
+            // 28px tall, and this dropdown - sitting in the same row, doing the
+            // same job - was 9999px and 38px. It read as a different KIND of
+            // control from the ones either side of it, which it is not.
+            //
+            // The rule the page now follows: a FILTER is a chip, an ACTION is a
+            // pill. So this matches its neighbours and "Export challenge log"
+            // stays round, because it does something rather than narrowing
+            // something.
+            : variant === 'chip'
+              ? 'rounded-lg px-3 py-1.5 text-xs font-semibold'
+              : 'rounded-full px-4 py-2 text-sm font-medium',
+          open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
+        )}
+      >
+        <span className={cx('truncate', !selected && 'text-gray-400')}>{selected?.label ?? placeholder}</span>
+        <Icon
+          name="chevronRight"
+          className={cx('h-4 w-4 shrink-0 text-smoke transition-transform', open ? '-rotate-90' : 'rotate-90')}
+        />
+      </button>
+
+      {open && (portal ? createPortal(menuEl, document.body) : menuEl)}
     </div>
   )
 }

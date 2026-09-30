@@ -20,9 +20,11 @@ export const BAR_TONES = {
   orange: { fill: 'from-brand-light to-brand', text: 'text-brand' },
   amber: { fill: 'from-amber-300 to-amber-500', text: 'text-amber-600' },
   red: { fill: 'from-red-400 to-red-600', text: 'text-red-600' },
+  gray: { fill: 'from-gray-300 to-gray-400', text: 'text-smoke' },
 }
 
 export function barTone(status, pct) {
+  if (status === 'upcoming') return 'gray'
   if (status === 'met') return 'green'
   if (status === 'missed') return 'red'
   if (pct >= 0.9) return 'green'
@@ -36,23 +38,39 @@ export function barTone(status, pct) {
 // card had it and the next did not. Now every running total shows it for as long as its period is
 // running (met or not), it is drawn as a labelled notch rather than a stray hairline, and an
 // average never shows it, because an average has no straight line to be ahead of.
-export default function KpiProgress({ status, pct, progress, isLevel = false, className, size = 'md' }) {
+// THE PACE MARKER IS A PLAIN LINE (30 Sep 2026). Ethan: "I don't really like the coloured bar for
+// recommended pace ... maybe just a black bar or grey ... just a line, more simple." A thin dark-grey
+// tick across the track, no ring, no glow; the legend under the bar uses the same tick.
+//
+// A PERIOD THAT HAS NOT STARTED draws an empty, dashed track and says when it starts, instead of a
+// bar and "on track" for goals nobody has had a chance at yet.
+export default function KpiProgress({ status, pct, progress, isLevel = false, className, size = 'md', startsIn = null }) {
   const tr = useT()
+  void isLevel
   const tone = BAR_TONES[barTone(status, pct)]
   const cur = Math.round(pct * 100)
   const fill = Math.min(100, cur)
   const steady = Math.round(progress * 100)
-  // EVERY KPI SHOWS IT (2 Oct 2026). Ethan: "for some things, like average entries per creator, we
-  // don't have the progress bar or the recommended pace bar ... ensure this shows up for all the KPIs".
-  // An average in this tracker is still counted over the period so far, so it builds as the period
-  // runs; the same straight line to the goal applies.
-  void isLevel
-  const showPace = status !== 'missed' && progress > 0 && progress < 1
-  const markAt = Math.min(98.5, Math.max(1.5, steady))
+  const showPace = status !== 'missed' && status !== 'upcoming' && progress > 0 && progress < 1
+  const markAt = Math.min(99, Math.max(1, steady))
+  const h = size === 'lg' ? 'h-3' : 'h-2'
+
+  if (status === 'upcoming') {
+    return (
+      <div className={className}>
+        <div className={cx('rounded-full border border-dashed border-gray-300 bg-gray-50', h)} />
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium leading-none text-smoke">
+          <span className="inline-block h-2 w-2 rounded-full border border-dashed border-gray-400" />
+          {startsIn == null ? tr('Not started yet')
+            : startsIn <= 1 ? tr('Starts tomorrow') : tr('Starts in {n} days', { n: startsIn })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={className}>
-      <div className={cx('relative rounded-full bg-cloud', size === 'lg' ? 'h-3' : 'h-2')}>
+      <div className={cx('relative rounded-full bg-cloud', h)}>
         <div className="absolute inset-0 overflow-hidden rounded-full">
           <div
             className={cx('kpi-fill relative h-full overflow-hidden rounded-full bg-gradient-to-r', tone.fill, status === 'met' && 'kpi-complete')}
@@ -63,7 +81,7 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
           <span
             aria-hidden
             title={tr('Recommended pace')}
-            className="absolute top-1/2 z-10 h-[calc(100%+10px)] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_2px_#fff,0_1px_4px_rgba(0,0,0,0.25)]"
+            className="absolute top-1/2 z-10 h-[calc(100%+8px)] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-700/80"
             style={{ left: `${markAt}%` }}
           />
         )}
@@ -75,7 +93,7 @@ export default function KpiProgress({ status, pct, progress, isLevel = false, cl
         </span>
         {showPace && (
           <span className="font-medium text-smoke">
-            <span className="mr-1 inline-block h-3 w-[5px] rounded-full bg-brand align-[-2px]" />
+            <span className="mr-1.5 inline-block h-3 w-[2px] rounded-full bg-gray-700/80 align-[-2px]" />
             {tr('Recommended pace')} <span className="tabular-nums">{steady}%</span>
           </span>
         )}

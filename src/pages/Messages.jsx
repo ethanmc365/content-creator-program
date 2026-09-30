@@ -2640,6 +2640,7 @@ export default function Messages() {
                                   </button>
                                 )}
                                 {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
+                                {mt.isFailed(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr("This message can't be translated right now.")}</span>}
                               </span>
                             )
                           )}

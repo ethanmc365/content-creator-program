@@ -85,6 +85,7 @@ export function OnDemandSwitch({ t, className, compact = false }) {
         {t.busy ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : null}
         {tr('Translate')}
       </button>
+      {t.failed && <span className="px-1.5 font-medium text-smoke">{tr("This message can't be translated right now.")}</span>}
     </div>
   )
 }

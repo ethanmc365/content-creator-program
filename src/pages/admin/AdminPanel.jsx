@@ -115,6 +115,8 @@ const TOOLS = [
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
+  // Surveys the team puts in front of creators (30 Sep 2026, migration 291).
+  { id: 'surveys', to: '/admin/surveys', icon: 'chartPie', title: 'Surveys' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },

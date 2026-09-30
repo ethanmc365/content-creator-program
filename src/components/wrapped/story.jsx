@@ -3,7 +3,7 @@ import { useId } from 'react'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 import { cx } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
+import { getLocale, useT } from '../../lib/i18n'
 
 
 // EVERY SCREEN OF THE RECAP, IN ORDER, AS DATA.
@@ -19,7 +19,7 @@ import { useT } from '../../lib/i18n'
 // something to post. Views - the number the programme is actually about - sits
 // at the emotional peak, two thirds through, not first.
 
-const nf = (n) => Number(n || 0).toLocaleString('en-GB')
+const nf = (n) => Number(n || 0).toLocaleString(getLocale() === 'en' ? 'en-GB' : getLocale())
 const MODE_NAME = {
   pinpoint: 'Guess the Country', zip: 'Flight Path', languages: 'Guess the language',
   flags: 'Guess the flag', map: 'Find it on the map', airports: 'Airport codes', currencies: 'What do they spend?',
@@ -42,6 +42,8 @@ export function monthShort(value) {
   if (value == null || value === '') return ''
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return ''
+  const loc = getLocale()
+  if (loc && loc !== 'en') return d.toLocaleDateString(loc === 'pt' ? 'pt-PT' : loc, { month: 'short' }).replace('.', '')
   return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]
 }
 
@@ -73,22 +75,27 @@ export function flagScale(n) {
  * Under a tenth of a percent there is no honest figure to print (it rounds to
  * nothing), so that case keeps a line about the logging instead.
  */
-export function distanceLine(t) {
+export function distanceLine(t, tr = fill) {
   const laps = t.timesRoundEarth
   if (laps >= 1) {
     // 1.04 laps is "once" - "1.0 times around the world" reads like a rounding
     // error rather than a fact.
-    return `That is ${laps >= 1.05 ? `${laps.toFixed(1)} times` : 'once'} around the world.`
+    return laps >= 1.05
+      ? tr('That is {n} times around the world.', { n: laps.toFixed(1) })
+      : tr('That is once around the world.')
   }
   const pct = laps * 100
-  if (pct < 0.1) return 'Every one of them logged, down to the aircraft.'
-  return `That is ${pct >= 10 ? Math.round(pct) : Number(pct.toFixed(1))}% of the way around the world.`
+  if (pct < 0.1) return tr('Every one of them logged, down to the aircraft.')
+  return tr('That is {n}% of the way around the world.', { n: pct >= 10 ? Math.round(pct) : Number(pct.toFixed(1)) })
 }
+
+// The stand-in translator for tests and the bench: English, with {placeholders} filled.
+function fill(s, v) { return String(s).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m)) }
 
 // `tr` is an ARGUMENT, not a hook, because this is a plain function and not a
 // component. The identity default keeps the tests and the bench calling it
 // with one argument; YearInReview passes the real translator.
-export function buildCards(data, tr = (s) => s) {
+export function buildCards(data, tr = fill) {
   const { me, year, travel, content, community, games, ranks, busiest, everyone } = data
   const cards = []
   const push = (c) => { if (c) cards.push(c) }
@@ -153,14 +160,20 @@ export function buildCards(data, tr = (s) => s) {
                 firstName.length > 9 ? 'text-[clamp(26px,8vw,36px)]' : firstName.length > 6 ? 'text-[clamp(30px,9.5vw,42px)]' : 'text-[clamp(32px,11vw,48px)]',
               )}
             >
-              Hello,<br />{firstName}.
+              {tr('Hello,')}<br />{firstName}.
             </p>
             <Line palette="ember" className="mt-3">
               {quiet
-                ? `You joined the Tryp.com creator community${me?.market ? ` in ${me.market}` : ''} this year. Your story here is only just starting.`
+                ? (me?.market
+                  ? tr('You joined the Tryp.com creator community in {market} this year. Your story here is only just starting.', { market: tr(me.market) })
+                  : tr('You joined the Tryp.com creator community this year. Your story here is only just starting.'))
                 : me?.joinedThisYear
-                  ? `You joined the Tryp.com creator community this year${me?.market ? ` in ${me.market}` : ''}. Here is what you did with it.`
-                  : `Here is your ${year} with the Tryp.com creator community${me?.market ? `, ${me.market}` : ''}.`}
+                  ? (me?.market
+                    ? tr('You joined the Tryp.com creator community this year in {market}. Here is what you did with it.', { market: tr(me.market) })
+                    : tr('You joined the Tryp.com creator community this year. Here is what you did with it.'))
+                  : (me?.market
+                    ? tr('Here is your {year} with the Tryp.com creator community, {market}.', { year, market: tr(me.market) })
+                    : tr('Here is your {year} with the Tryp.com creator community.', { year }))}
             </Line>
           </div>
         </div>
@@ -176,14 +189,14 @@ export function buildCards(data, tr = (s) => s) {
         <>
           <Eyebrow palette="sky">{tr("You went places")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={nf(travel.distance)} unit="km flown" palette="sky" />
-            <Line palette="sky">{distanceLine(travel)}</Line>
-            <Standing standing={ranks.distance} what="for distance" palette="sky" />
+            <Hero value={nf(travel.distance)} unit={tr('km flown')} palette="sky" />
+            <Line palette="sky">{distanceLine(travel, tr)}</Line>
+            <Standing standing={ranks.distance} what={tr('for distance')} palette="sky" />
           </div>
           <Facts palette="sky" items={[
-            { label: 'Flights', value: travel.flights },
-            travel.hours ? { label: 'In the air', value: `${travel.hours}h` } : null,
-            travel.airports ? { label: 'Airports', value: travel.airports } : null,
+            { label: tr('Flights'), value: travel.flights },
+            travel.hours ? { label: tr('In the air'), value: `${travel.hours}h` } : null,
+            travel.airports ? { label: tr('Airports'), value: travel.airports } : null,
           ]} />
         </>
       ),
@@ -196,7 +209,7 @@ export function buildCards(data, tr = (s) => s) {
           <>
             <Eyebrow palette="mint">{tr("Where you landed")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
-              <Hero value={travel.countries} unit={travel.countries === 1 ? 'country' : 'countries'} palette="mint" />
+              <Hero value={travel.countries} unit={travel.countries === 1 ? tr('country') : tr('countries')} palette="mint" />
               {/* EVERY FLAG, AT A SIZE THAT FITS HOWEVER MANY THERE ARE.
                   Ethan: "ensure you have the capability so that it works no
                   matter how few or how many they have... let's say they travel
@@ -328,12 +341,13 @@ export function buildCards(data, tr = (s) => s) {
         <>
           <Eyebrow palette="dusk">{tr("You made things")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={content.videos} unit={content.videos === 1 ? 'video' : 'videos'} palette="dusk" />
+            <Hero value={content.videos} unit={content.videos === 1 ? tr('video') : tr('videos')} palette="dusk" />
             <Line palette="dusk">
-              Across {content.challenges} {content.challenges === 1 ? 'challenge' : 'challenges'}
-              {content.platforms.length ? ` on ${content.platforms.join(' and ')}` : ''}.
+              {content.platforms.length
+                ? tr(content.challenges === 1 ? 'Across {n} challenge on {platforms}.' : 'Across {n} challenges on {platforms}.', { n: content.challenges, platforms: content.platforms.join(` ${tr('and')} `) })
+                : tr(content.challenges === 1 ? 'Across {n} challenge.' : 'Across {n} challenges.', { n: content.challenges })}
             </Line>
-            <Standing standing={ranks.videos} what="for videos posted" palette="dusk" />
+            <Standing standing={ranks.videos} what={tr('for videos posted')} palette="dusk" />
           </div>
         </>
       ),
@@ -359,15 +373,15 @@ export function buildCards(data, tr = (s) => s) {
           <>
             <Eyebrow palette="ember">{tr("And people watched")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
-              <Hero value={nf(content.views)} unit="views" palette="ember" />
+              <Hero value={nf(content.views)} unit={tr('views')} palette="ember" />
               <Line palette="ember">
                 {tr("Everything you posted for Tryp.com this year, added up.")}
               </Line>
-              <Standing standing={ranks.views} what="for total views" palette="ember" />
+              <Standing standing={ranks.views} what={tr('for total views')} palette="ember" />
             </div>
             <Facts palette="ember" items={[
-              content.videos > 0 ? { label: 'Videos', value: content.videos } : null,
-              content.videos > 0 ? { label: 'Average', value: formatViews(Math.round(content.views / content.videos)) } : null,
+              content.videos > 0 ? { label: tr('Videos'), value: content.videos } : null,
+              content.videos > 0 ? { label: tr('Average'), value: formatViews(Math.round(content.views / content.videos)) } : null,
             ]} />
           </>
         ),
@@ -431,11 +445,11 @@ export function buildCards(data, tr = (s) => s) {
                 </div>
               ) : (
                 <div className="w-full">
-                  <Hero value={nf(content.best.views)} unit="views" palette="night" />
-                  {content.best.challenge && <Line palette="night" className="mt-3">Made for {content.best.challenge}.</Line>}
+                  <Hero value={nf(content.best.views)} unit={tr('views')} palette="night" />
+                  {content.best.challenge && <Line palette="night" className="mt-3">{tr('Made for {challenge}.', { challenge: content.best.challenge })}</Line>}
                 </div>
               )}
-              <span className="self-center"><Standing standing={ranks.bestVideo} what="for one video" palette="night" /></span>
+              <span className="self-center"><Standing standing={ranks.bestVideo} what={tr('for one video')} palette="night" /></span>
             </div>
           </>
         ),
@@ -456,7 +470,7 @@ export function buildCards(data, tr = (s) => s) {
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero
                 value={wholeMoney(content.cash + content.vouchers, content.currency)}
-                unit="won"
+                unit={tr('won')}
                 palette="mint"
               />
               <Line palette="mint">
@@ -465,21 +479,23 @@ export function buildCards(data, tr = (s) => s) {
                     different there." It was the no-wins fallback, and it
                     shrugged at somebody who had just been paid. */}
                 {content.wins > 0
-                  ? `${content.wins} ${content.wins === 1 ? 'first place' : 'first places'}${content.podiums > content.wins ? ` and ${content.podiums - content.wins} more on the podium` : ''}.`
+                  ? (content.podiums > content.wins
+                    ? tr(content.wins === 1 ? '{n} first place and {m} more on the podium.' : '{n} first places and {m} more on the podium.', { n: content.wins, m: content.podiums - content.wins })
+                    : tr(content.wins === 1 ? '{n} first place.' : '{n} first places.', { n: content.wins }))
                   : content.podiums > 0
-                    ? `${content.podiums} ${content.podiums === 1 ? 'finish' : 'finishes'} on the podium.`
+                    ? tr(content.podiums === 1 ? '{n} finish on the podium.' : '{n} finishes on the podium.', { n: content.podiums })
                     // "Rather than say 'earned from the briefs you entered this
                     // year', say 'earned from the challenges you entered this
                     // year'." The product says CHALLENGE everywhere a creator
                     // can see it - the nav, the page title, the notifications -
                     // and "brief" is what the team calls them internally.
-                    : 'Earned from the challenges you entered this year.'}
+                    : tr('Earned from the challenges you entered this year.')}
               </Line>
             </div>
             <Facts palette="mint" items={[
-              content.cash > 0 ? { label: 'Cash', value: wholeMoney(content.cash, content.currency) } : null,
-              content.vouchers > 0 ? { label: 'Travel credit', value: wholeMoney(content.vouchers, content.currency) } : null,
-              content.podiums > 0 ? { label: 'Podiums', value: content.podiums } : null,
+              content.cash > 0 ? { label: tr('Cash'), value: wholeMoney(content.cash, content.currency) } : null,
+              content.vouchers > 0 ? { label: tr('Travel credit'), value: wholeMoney(content.vouchers, content.currency) } : null,
+              content.podiums > 0 ? { label: tr('Podiums'), value: content.podiums } : null,
             ]} />
           </>
         ),
@@ -495,26 +511,26 @@ export function buildCards(data, tr = (s) => s) {
         <>
           <Eyebrow palette="dusk">{tr("You were around")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            <Hero value={nf(community.messages)} unit={community.messages === 1 ? 'message' : 'messages'} palette="dusk" />
+            <Hero value={nf(community.messages)} unit={community.messages === 1 ? tr('message') : tr('messages')} palette="dusk" />
             <Line palette="dusk">
               {/* The old line was "And 9 creators you had never met became
                   connections", which Ethan wanted rewritten - it read like a
                   stat sheet and it asserted something the data does not know
                   (whether they had met). This says what the number is. */}
               {community.dms > 0 && community.roomMessages > 0
-                ? `${nf(community.roomMessages)} in the rooms and ${nf(community.dms)} in your DMs.`
+                ? tr('{rooms} in the rooms and {dms} in your DMs.', { rooms: nf(community.roomMessages), dms: nf(community.dms) })
                 : community.dms > 0
-                  ? 'Nearly all of it one to one, in your DMs.'
-                  : 'Posted into the rooms, where the community happens in public.'}
+                  ? tr('Nearly all of it one to one, in your DMs.')
+                  : tr('Posted into the rooms, where the community happens in public.')}
             </Line>
-            <Standing standing={ranks.messages} what="for turning up" palette="dusk" />
+            <Standing standing={ranks.messages} what={tr('for turning up')} palette="dusk" />
           </div>
           <Facts palette="dusk" items={[
             community.connections > 0
-              ? { label: community.connections === 1 ? 'New connection' : 'New connections', value: community.connections }
+              ? { label: community.connections === 1 ? tr('New connection') : tr('New connections'), value: community.connections }
               : null,
-            community.reactions > 0 ? { label: 'Reactions given', value: community.reactions } : null,
-            community.markets.length ? { label: 'Markets', value: community.markets.length } : null,
+            community.reactions > 0 ? { label: tr('Reactions given'), value: community.reactions } : null,
+            community.markets.length ? { label: tr('Markets'), value: community.markets.length } : null,
           ]} />
         </>
       ),
@@ -527,7 +543,7 @@ export function buildCards(data, tr = (s) => s) {
           <>
             <Eyebrow palette="mint">{tr("You levelled up")}</Eyebrow>
             <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
-              <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? 'milestone' : 'milestones'} palette="mint" />
+              <Hero value={community.milestones.length} unit={community.milestones.length === 1 ? tr('milestone') : tr('milestones')} palette="mint" />
               <MilestoneRoute
                 milestones={community.milestones}
                 next={community.nextMilestone}
@@ -565,19 +581,19 @@ export function buildCards(data, tr = (s) => s) {
                 {games.bestStreak} day streak
               </span>
             )}
-            <Hero value={nf(games.played)} unit={games.played === 1 ? 'round played' : 'rounds played'} palette="night" />
+            <Hero value={nf(games.played)} unit={games.played === 1 ? tr('round played') : tr('rounds played')} palette="night" />
             <Line palette="night">
               {games.bestStreak > 1
-                ? `Your best run was ${games.bestStreak} days without missing one.`
-                : 'One a day keeps the streak alive.'}
-              {games.favourite ? ` ${MODE_NAME[games.favourite.mode] || games.favourite.mode} was your favourite.` : ''}
+                ? tr('Your best run was {n} days without missing one.', { n: games.bestStreak })
+                : tr('One a day keeps the streak alive.')}
+              {games.favourite ? ` ${tr('{game} was your favourite.', { game: tr(MODE_NAME[games.favourite.mode] || games.favourite.mode) })}` : ''}
             </Line>
-            <Standing standing={ranks.games} what="of all the players" palette="night" />
+            <Standing standing={ranks.games} what={tr('of all the players')} palette="night" />
           </div>
           <Facts palette="night" items={[
-            { label: 'Days played', value: games.days },
-            games.bestStreak > 0 ? { label: 'Best streak', value: `${games.bestStreak}d` } : null,
-            games.modes.length > 1 ? { label: 'Games tried', value: games.modes.length } : null,
+            { label: tr('Days played'), value: games.days },
+            games.bestStreak > 0 ? { label: tr('Best streak'), value: `${games.bestStreak}d` } : null,
+            games.modes.length > 1 ? { label: tr('Games tried'), value: games.modes.length } : null,
           ]} />
         </>
       ),
@@ -638,16 +654,16 @@ export function buildCards(data, tr = (s) => s) {
       <>
         <Eyebrow palette="ember">{tr("And you were not alone")}</Eyebrow>
         <div className="flex flex-1 flex-col justify-center gap-5">
-          <Hero value={formatViews(everyone.views)} unit="views, together" palette="ember" />
+          <Hero value={formatViews(everyone.views)} unit={tr('views, together')} palette="ember" />
           <Line palette="ember">
             {everyone.creators} creators across {everyone.markets} markets, all posting in the same year.
           </Line>
           <Facts palette="ember" items={[
-            { label: 'Videos', value: nf(everyone.videos) },
-            everyone.flights ? { label: 'Flights logged', value: nf(everyone.flights) } : null,
-            everyone.countries ? { label: 'Countries', value: everyone.countries } : null,
+            { label: tr('Videos'), value: nf(everyone.videos) },
+            everyone.flights ? { label: tr('Flights logged'), value: nf(everyone.flights) } : null,
+            everyone.countries ? { label: tr('Countries'), value: everyone.countries } : null,
             // "Just give it roughly to the 1,000": €8,845 is "€8,000+".
-            everyone.prize ? { label: 'In prizes', value: roughMoney(everyone.prize, everyone.currency) } : null,
+            everyone.prize ? { label: tr('In prizes'), value: roughMoney(everyone.prize, everyone.currency) } : null,
           ]} />
         </div>
       </>
@@ -669,12 +685,12 @@ export function ShareCard({ data, className = '', style, flush = false }) {
   const tr = useT()
   const { me, year, travel, content, community, games } = data
   const stats = [
-    content.views > 0 && { label: 'Views', value: formatViews(content.views) },
-    travel.distance > 0 && { label: 'Km flown', value: nf(travel.distance) },
-    travel.countries > 0 && { label: 'Countries', value: travel.countries },
-    content.videos > 0 && { label: 'Videos', value: content.videos },
-    games.played > 0 && { label: 'Puzzles', value: nf(games.played) },
-    community.connections > 0 && { label: 'Connections', value: community.connections },
+    content.views > 0 && { label: tr('Views'), value: formatViews(content.views) },
+    travel.distance > 0 && { label: tr('Km flown'), value: nf(travel.distance) },
+    travel.countries > 0 && { label: tr('Countries'), value: travel.countries },
+    content.videos > 0 && { label: tr('Videos'), value: content.videos },
+    games.played > 0 && { label: tr('Puzzles'), value: nf(games.played) },
+    community.connections > 0 && { label: tr('Connections'), value: community.connections },
   ].filter(Boolean).slice(0, 6)
 
   // THE STANDING BADGE IS GONE FROM THIS CARD.
@@ -827,6 +843,7 @@ export function routeStops(milestones = [], next = null) {
 }
 
 export function MilestoneRoute({ milestones = [], next = null, me }) {
+  const tr = useT()
   const maskId = `route-mask-${useId().replace(/:/g, '')}`
   const stops = routeStops(milestones, next)
   if (!stops.length) return null
@@ -913,7 +930,7 @@ export function MilestoneRoute({ milestones = [], next = null, me }) {
                 : { left: 0, right: pct(ROUTE_W - ROUTE_RIGHT + (isHere ? GAP_HERE : GAP_DOT), ROUTE_W), top: pct(p.y, H) }}
             >
               <span className="block text-[10px] font-bold uppercase tracking-[0.14em] opacity-75">
-                {m.done ? (isHere ? `You are here${m.reached_at ? ` · ${monthShort(m.reached_at)}` : ''}` : monthShort(m.reached_at) || 'Reached') : 'Next stop'}
+                {m.done ? (isHere ? `${tr('You are here')}${m.reached_at ? ` · ${monthShort(m.reached_at)}` : ''}` : monthShort(m.reached_at) || tr('Reached')) : tr('Next stop')}
               </span>
               <span className="block truncate text-[15px] font-extrabold leading-tight">{m.title}</span>
               {m.reward && <span className="line-clamp-2 block text-[12px] font-medium leading-snug opacity-80">{m.reward}</span>}

@@ -1453,11 +1453,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                               ? `${r.prompt || r.label}. Awarded at ${Number(r.min_views).toLocaleString()} views`
                               : (r.prompt || r.label)}
                             className={cx(
-                              'inline-flex max-w-full items-start gap-1 rounded-xl px-2 py-1 text-[10px] font-semibold leading-snug sm:rounded-full sm:px-2.5 sm:text-[11px]',
+                              'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold leading-snug sm:px-2.5 sm:text-[11px]',
                               waiting ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700',
                             )}>
-                            <Icon name={waiting ? 'clock' : 'check'} className="mt-px h-3 w-3 shrink-0" />
-                            <span className="line-clamp-2">+{r.points} {r.label.replace(/^\+?\d+\s*/, '')}</span>
+                            <Icon name={waiting ? 'clock' : 'check'} className="h-3 w-3 shrink-0" />
+                            <span className="min-w-0 truncate">+{r.points} <TLine text={r.label.replace(/^\+?\d+\s*/, '')} /></span>
                             {waiting && ` · ${tr("at {n} views", { n: Number(r.min_views).toLocaleString() })}`}
                           </span>
                         )
@@ -1475,30 +1475,27 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       while the challenge is live. */}
                   {isLive && s.creator_id === user.id
                     && claimableFor(s).length > 0 && (
-                    <div className="rounded-xl border border-dashed border-brand/30 bg-brand-tint/20 p-3">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                        {tr("Bonus points you can still claim")}
-                      </p>
-                      <div className="space-y-1.5">
-                        {claimableFor(s).map((r) => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => claimBonus(s, r)}
-                            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-xs transition-transform duration-200 hover:-translate-y-0.5"
-                          >
-                            <span className="min-w-0 flex-1">
-                              {r.prompt}
-                              {r.min_views > 0 && (
-                                <span className="mt-0.5 block text-[10px] font-medium text-smoke">
-                                  {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
-                                </span>
-                              )}
-                            </span>
-                            <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">+{r.points}</span>
-                          </button>
-                        ))}
-                      </div>
+                    /* ONE SMALL CHIP PER BONUS (30 Sep 2026). Ethan, in Romanian: the "+5 bonus
+                       points for using the hook" card on an entry was "way, way too big". It was a
+                       boxed panel with a heading and a full-width button per bonus, and a translated
+                       prompt runs long. Now each is a single-line chip, the prompt cut to one line
+                       (the whole of it is the tooltip), in the reader's language. */
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {claimableFor(s).map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => claimBonus(s, r)}
+                          title={r.min_views > 0
+                            ? `${r.prompt} · ${tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}`
+                            : r.prompt}
+                          aria-label={tr("Bonus points you can still claim")}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-brand/40 bg-brand-tint/30 py-1 pl-1 pr-2.5 text-[11px] font-semibold text-brand transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand-tint/60"
+                        >
+                          <span className="shrink-0 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none text-white">+{r.points}</span>
+                          <span className="min-w-0 truncate"><TLine text={r.prompt} /></span>
+                        </button>
+                      ))}
                     </div>
                   )}
                   {/* THE FOOT OF THE CARD IS ONE BLOCK, AND IT IS PINNED

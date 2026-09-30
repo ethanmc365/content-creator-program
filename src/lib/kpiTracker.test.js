@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   adjacentQuarter, currentQuarter, kpiStatus, mergeKpiRows,
   metricLabel, quarterLabel, quarterProgress, quarterRange,
+  aggregateScopes, windowPeriods, periodStarted, daysUntil, scaledHeights, scopeVerdict,
 } from './kpiTracker'
 
 describe('currentQuarter', () => {
@@ -244,5 +245,55 @@ describe('formatKpiValue', () => {
     expect(formatKpiValue({ metric: 'avg_entries_per_creator' }, 8.03)).toBe('8.03')
     expect(formatKpiValue({ metric: 'views' }, 1302588)).toBe('1.3M')
     expect(metricDef({ metric: 'entries' }).kind).toBe('sum')
+  })
+})
+
+describe('the Total and the rolling window (30 Sep 2026)', () => {
+  it('adds running totals and averages levels across scopes', () => {
+    const a = { key: 'a', name: 'A' }
+    const b = { key: 'b', name: 'B' }
+    const rows = aggregateScopes([
+      { scope: a, rows: [{ metric: 'views', label: 'Views', target_value: 100, actual: 40 }, { metric: 'avg_creators_per_challenge', label: 'x', target_value: 20, actual: 10 }] },
+      { scope: b, rows: [{ metric: 'views', label: 'Views', target_value: 300, actual: 60 }, { metric: 'avg_creators_per_challenge', label: 'x', target_value: 10, actual: 20 }] },
+    ])
+    const views = rows.find((r) => r.metric === 'views')
+    expect(views.target_value).toBe(400)
+    expect(views.actual).toBe(100)
+    expect(views.parts).toHaveLength(2)
+    const lvl = rows.find((r) => r.metric === 'avg_creators_per_challenge')
+    expect(lvl.target_value).toBe(15)
+    expect(lvl.actual).toBe(15)
+  })
+  it('rolls the quarter window across the new year', () => {
+    const w = windowPeriods({ year: 2027, quarter: 1, month: null }, false)
+    expect(w.map((p) => `${p.year}Q${p.quarter}`)).toEqual(['2026Q3', '2026Q4', '2027Q1', '2027Q2'])
+    const m = windowPeriods({ year: 2027, quarter: 1, month: 2 }, true)
+    expect(m).toHaveLength(12)
+    expect(m[0]).toMatchObject({ year: 2026, month: 6 })
+    expect(m[8]).toMatchObject({ year: 2027, month: 2 })
+  })
+  it('calls a period that has not started upcoming, not on track', () => {
+    const r = kpiStatus({ target: 3, actual: 0, year: 2026, quarter: 4, now: new Date(2026, 8, 30) })
+    expect(r.status).toBe('upcoming')
+    expect(periodStarted({ year: 2026, quarter: 4, month: null }, new Date(2026, 8, 30))).toBe(false)
+    expect(daysUntil({ year: 2026, quarter: 4, month: null }, new Date(2026, 8, 30, 12))).toBe(1)
+  })
+  it('makes small goal differences visible', () => {
+    const h = scaledHeights([300, 330, 370])
+    expect(h[0]).toBeLessThan(h[1])
+    expect(h[2]).toBe(1)
+    expect(h[0]).toBeGreaterThan(0.3)
+    expect(scaledHeights([5, 5, 5])).toEqual([0.78, 0.78, 0.78])
+  })
+  it('gives a scope a verdict', () => {
+    const p = { year: 2026, quarter: 3, month: null }
+    const now = new Date(2026, 7, 16)
+    const v = scopeVerdict([
+      { metric: 'views', target_value: 100, actual: 10 },
+      { metric: 'entries', target_value: 100, actual: 10 },
+      { metric: 'challenges_run', target_value: 2, actual: 2 },
+    ], p, now)
+    expect(v.verdict).toBe('support')
+    expect(scopeVerdict([], p, now).verdict).toBe('none')
   })
 })

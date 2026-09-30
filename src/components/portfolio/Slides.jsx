@@ -1,9 +1,34 @@
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
-import { PAGE_W, PAGE_H, compactViews, contactEmail, copyFor, platformsFrom, statsFrom } from '../../lib/portfolio'
+import { DEFAULT_COPY, PAGE_W, PAGE_H, compactViews, contactEmail, platformsFrom, statsFrom } from '../../lib/portfolio'
 import { alpha, fillTemplate, formatAwardDate, readableOn, shift, tierOf } from '../../lib/certificates'
 import { socialHref, linkHref } from '../../lib/socialLinks'
 import { useT } from '../../lib/i18n'
+
+// THE PORTFOLIO'S OWN WORDS, IN THE READER'S LANGUAGE (30 Sep 2026). Ethan: "the portfolio pages will
+// need to have the ability to translate ... the actual text they write should just be in the language
+// they write it in. We translate the titles and the things with the buttons", and it "should obviously
+// also be in the language picker for the country managers to change". So a slot the creator left as it
+// came (or saved unchanged) is the default sentence through `tr` - which also puts every one of these
+// in the Languages editor - and anything they wrote themselves is printed exactly as written.
+export function copyIn(tr, copy, key) {
+  const written = copy?.[key]
+  if (typeof written === 'string' && written.trim() && written !== DEFAULT_COPY[key]) return written
+  const T = {
+    cover_kicker: tr('Tryp.com Content Creator Community'),
+    cover_role: tr('Travel Content Creator'),
+    about_title: tr('About me'),
+    about_body: tr('I make short travel videos about the places I go and the things worth stopping for. I am part of the Tryp.com Content Creator Community, where creators from around the world make work for monthly challenges.'),
+    stats_title: tr('By the numbers'),
+    work_title: tr('Selected work'),
+    work_body: tr('My most-watched videos from Tryp.com challenges. View counts are read live from each platform.'),
+    awards_title: tr('Recognition'),
+    awards_body: tr('Awarded through the Tryp.com Content Creator Community.'),
+    contact_title: tr('Work with me'),
+    contact_body: tr('Available for brand trips, destination features and short-form campaigns. The fastest way to reach me is a direct message on any of these.'),
+  }
+  return T[key] || DEFAULT_COPY[key] || ''
+}
 
 // THE PAGES OF A MEDIA KIT, AT 16:9.
 //
@@ -199,6 +224,7 @@ function Footer({ name, n, total, t }) {
 
 // ------------------------------------------------------------------ cover ---
 export function Cover({ creator, copy, videos, extraPlatforms }) {
+  const tr = useT()
   const chosen = typeof copy?.cover_photo === 'string' ? copy.cover_photo.trim() : ''
   const photo = chosen || creator?.photo_url
   const links = socialRows(creator, videos, extraPlatforms).slice(0, 5)
@@ -241,7 +267,7 @@ export function Cover({ creator, copy, videos, extraPlatforms }) {
       }}>
         {/* "Slightly more bold or slightly bigger" - it is the line that says
             whose community this is. */}
-        <Kicker color={t.ink} size={14.5}>{copyFor(copy, 'cover_kicker')}</Kicker>
+        <Kicker color={t.ink} size={14.5}>{copyIn(tr, copy, 'cover_kicker')}</Kicker>
         <p style={{
           margin: '22px 0 0', fontWeight: 700, fontSize: nameSize(creator?.name),
           lineHeight: 1.04, letterSpacing: '-0.025em',
@@ -249,7 +275,7 @@ export function Cover({ creator, copy, videos, extraPlatforms }) {
           {creator?.name || 'Creator'}
         </p>
         <p style={{ margin: '18px 0 0', fontSize: 22, fontWeight: 600, color: SMOKE }}>
-          {copyFor(copy, 'cover_role')}
+          {copyIn(tr, copy, 'cover_role')}
         </p>
         {(creator?.city || creator?.country) && (
           <p style={{ margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: 7, fontSize: 15, fontWeight: 500, color: FAINT }}>
@@ -300,12 +326,12 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
   return (
     <div style={page({ padding: '56px 64px 0' })}>
       <Kicker color={t.ink}>{tr("Who I am")}</Kicker>
-      <SlideTitle>{copyFor(copy, 'about_title')}</SlideTitle>
+      <SlideTitle>{copyIn(tr, copy, 'about_title')}</SlideTitle>
 
       <div style={{ display: 'flex', gap: 56, marginTop: 30 }}>
         <div style={{ flex: '1 1 48%', minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: SMOKE, whiteSpace: 'pre-line' }}>
-            {copyFor(copy, 'about_body')}
+            {copyIn(tr, copy, 'about_body')}
           </p>
           {tools?.length > 0 && (
             <div style={{ marginTop: 30 }}>
@@ -325,7 +351,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
         </div>
 
         <div style={{ flex: '1 1 52%', minWidth: 0 }}>
-          <Label>{copyFor(copy, 'stats_title')}</Label>
+          <Label>{copyIn(tr, copy, 'stats_title')}</Label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 14 }}>
             {cells.map((c) => (
               c.lead ? (
@@ -416,11 +442,12 @@ export function Work({ creator, copy, videos, n, total, offset = 0 }) {
     <div style={page({ padding: '48px 64px 0' })}>
       {/* JUST THE HEADING (2 Oct 2026). Ethan: the line under it ("Most watched videos from Trip.com
           challenges...") "is not needed", the "Videos 1 to 4 of 12" pill is "unnecessary", and "No
-          need to say at the top, 'Most viewed first'... just 'Videos'". "Continued" stays on the
-          pages after the first. */}
+          need to say at the top, 'Most viewed first'... just 'Videos'". And every page after the first
+          says "Videos" too (30 Sep 2026, Ethan: "on the next page it shows Continue. I would still just
+          show videos above this"). */}
       <div style={{ minWidth: 0 }}>
-        <Kicker color={t.ink}>{offset === 0 ? tr('Videos') : tr('Continued')}</Kicker>
-        <SlideTitle size={38}>{copyFor(copy, 'work_title')}</SlideTitle>
+        <Kicker color={t.ink}>{tr('Videos')}</Kicker>
+        <SlideTitle size={38}>{copyIn(tr, copy, 'work_title')}</SlideTitle>
       </div>
 
       <div style={{ display: 'flex', gap: 32, marginTop: 30 }}>
@@ -522,9 +549,9 @@ export function Awards({ creator, copy, certificates, n, total }) {
   return (
     <div style={page({ padding: '56px 64px 0' })}>
       <Kicker color={t.ink}>{tr("Recognised by Tryp.com")}</Kicker>
-      <SlideTitle>{copyFor(copy, 'awards_title')}</SlideTitle>
+      <SlideTitle>{copyIn(tr, copy, 'awards_title')}</SlideTitle>
       <p style={{ margin: '12px 0 0', maxWidth: 700, fontSize: 14.5, lineHeight: 1.65, color: SMOKE }}>
-        {copyFor(copy, 'awards_body')}
+        {copyIn(tr, copy, 'awards_body')}
       </p>
 
       <div style={{
@@ -592,9 +619,9 @@ export function Contact({ creator, copy, videos, extraPlatforms }) {
     <div style={page()}>
       <div style={{ position: 'absolute', left: 64, top: 60, width: 640 }}>
         <Kicker color={t.ink}>{"Let's create together"}</Kicker>
-        <SlideTitle size={46}>{copyFor(copy, 'contact_title')}</SlideTitle>
+        <SlideTitle size={46}>{copyIn(tr, copy, 'contact_title')}</SlideTitle>
         <p style={{ margin: '16px 0 0', fontSize: 16.5, lineHeight: 1.75, color: SMOKE }}>
-          {copyFor(copy, 'contact_body')}
+          {copyIn(tr, copy, 'contact_body')}
         </p>
 
         <div style={{

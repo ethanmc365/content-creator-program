@@ -51,9 +51,34 @@ const loadCatalogue = () => import('../../locales/catalogue.json')
 // is the screen. The key is unchanged; only the label is tidied.
 const screenLabel = (name) => name
   .replace(/^Admin · (Admin )?/, '')
+  .replace(/^(Shared|Other|Signing in) · /, '')
   .replace(/\bKpis?\b/g, (m) => m.toUpperCase().replace('S', 's'))
   .replace(/^creator /, 'Creator ')
 const isAdminScreen = (name) => name.startsWith('Admin · ')
+
+// THE SCREENS GROUPED THE WAY THE PLATFORM IS (30 Sep 2026). Ethan: the list on the left "is quite hard
+// to find ... Maybe section it better in the actual main section of the platform, like the worldwide
+// section, challenges section, room section, messages, calendar, and the other pages." ~170 files in
+// one alphabetical list became one list per part of the app, in the order of the app's own nav, each
+// folding open. A screen goes to the first section whose words it matches; anything unmatched is
+// "Shared pieces".
+const SECTIONS = [
+  { key: 'home', label: 'Home and getting started', icon: 'home', re: /^(Dashboard|Landing|Onboarding|Signing in|Settings|Global Settings|Notifications)$|Signing in|Tour Host|Add To Home|App Layout|App Icon|Intro (Card|Prompt)|Timezone Prompt|Notification (Bell|Preferences)|Offline Screen|Error Screen|Protected Route|Turnstile|Google Button|Command Palette|Help Team/ },
+  { key: 'worldwide', label: 'Worldwide and markets', icon: 'globe', re: /Global Home|Explore Markets|Chapter Home|Directory|Market (Members|Header|Map|Picker|Activity)|Manage Chapter|Creator (Map|Card|Spotlight)|Country Panel|World Map|Who To Meet|Place Switcher|Group Panels|Global Challenge Strip|Connect|Connections/ },
+  { key: 'challenges', label: 'Challenges', icon: 'flag', re: /Challenge|Board|Leaderboard|Bonus Points|Point Rules|Scoring|Submission|Submitted|Entry Feedback|Hook|Winners|Podium|Participation Bar|Recap|Countdown|Live Challenge|Streak|Resource|Deal Finder|story/i },
+  { key: 'rooms', label: 'Rooms and messages', icon: 'chat', re: /Rooms|Network Chat|Messages|Chat|Composer|Message|Reaction|Seen By|Poll|Media Attachment|Rich Toolbar|Outbox|Unread|People Picker|Report|Photo Board|Collapsible Rich|Translated Text|Collab|Jobs/ },
+  { key: 'calendar', label: 'Calendar and events', icon: 'calendar', re: /Events|Event|Calendar|Reminder|Date Time|Personal Event/ },
+  { key: 'profile', label: 'Profile and rewards', icon: 'user', re: /Profile|Portfolio|Slides|Kit Strip|Certificate|Milestone|Rewards|Refer|Voucher|Payment|Bank Details|Year In Review|Viewing As|Photo (Cropper|Lightbox)/ },
+  { key: 'games', label: 'Games and flights', icon: 'plane', re: /Game|Puzzle|Pinpoint|Zip|Flight|Aircraft|Boarding Pass|Language Game/ },
+]
+const sectionOf = (name) => {
+  if (isAdminScreen(name)) return 'admin'
+  const label = name.replace(/^(Shared|Other|Signing in) · /, '')
+  if (name.startsWith('Signing in')) return 'home'
+  const hit = SECTIONS.find((sec) => sec.re.test(label))
+  return hit ? hit.key : 'shared'
+}
+const SECTION_META = [...SECTIONS, { key: 'shared', label: 'Shared pieces', icon: 'squares' }, { key: 'admin', label: 'Admin screens', icon: 'shield' }]
 
 // The `{placeholders}` in a sentence, as a sorted list, so "same set" is a string compare.
 const holes = (s) => (String(s).match(/\{[a-zA-Z0-9_]+\}/g) || []).sort().join(',')
@@ -128,6 +153,12 @@ export default function AdminLanguages() {
   // Creator-facing screens first - they are what creators read - then the admin ones.
   const screens = useMemo(() => (withExtras ? Object.keys(withExtras) : [])
     .sort((a, b) => (isAdminScreen(a) - isAdminScreen(b)) || screenLabel(a).localeCompare(screenLabel(b))), [withExtras])
+
+  const sections = useMemo(() => SECTION_META.map((m) => ({
+    ...m, screens: screens.filter((n) => sectionOf(n) === m.key),
+  })).filter((m) => m.screens.length), [screens])
+  const [openSection, setOpenSection] = useState(null)
+  const currentSection = screen ? sectionOf(screen) : null
 
   const dict = bundledDict(locale) || {}
   const overrides = useMemo(() => {
@@ -329,34 +360,58 @@ export default function AdminLanguages() {
                 className="input"
               >
                 <option value="">{tr('Pick a screen')}</option>
-                {screens.map((name) => {
-                  const { n, total } = doneOn(name)
-                  return <option key={name} value={name}>{isAdminScreen(name) ? `Admin · ${screenLabel(name)}` : screenLabel(name)}{n < total ? ` (${total - n})` : ''}</option>
-                })}
+                {sections.map((sec) => (
+                  <optgroup key={sec.key} label={tr(sec.label)}>
+                    {sec.screens.map((name) => {
+                      const { n, total } = doneOn(name)
+                      return <option key={name} value={name}>{screenLabel(name)}{n < total ? ` (${total - n})` : ''}</option>
+                    })}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <nav className="hidden max-h-[72vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1.5 shadow-card lg:sticky lg:top-24 lg:block" aria-label={tr('Screens')}>
-              {screens.map((name, i) => {
-                const { n, total } = doneOn(name)
-                const complete = n === total
-                const on = screen === name && !search
-                const heading = i === 0 ? tr('Creator screens') : isAdminScreen(name) && !isAdminScreen(screens[i - 1]) ? tr('Admin screens') : null
+              {sections.map((sec) => {
+                const expanded = (openSection ?? currentSection) === sec.key
+                const left = sec.screens.reduce((x, name) => x + (doneOn(name).total - doneOn(name).n), 0)
                 return (
-                  <div key={name}>
-                  {heading && <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">{heading}</p>}
-                  <button
-                    type="button"
-                    onClick={() => { setScreen(name); setSearch(''); setFilter('all') }}
-                    aria-current={on ? 'true' : undefined}
-                    className={cx('group block w-full rounded-lg px-3 py-2 text-left transition-all duration-150', on ? 'bg-brand text-white shadow-card' : 'hoverable:hover:translate-x-0.5 hoverable:hover:bg-cloud')}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className={cx('min-w-0 flex-1 truncate text-[13px] font-medium', on ? 'text-white' : 'text-ink')}>{screenLabel(name)}</span>
-                      {!complete && (
-                        <span title={tr('Still in English')} className={cx('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand')}>{total - n}</span>
-                      )}
-                    </span>
-                  </button>
+                  <div key={sec.key} className="border-b border-gray-50 last:border-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenSection(expanded ? '' : sec.key)}
+                      aria-expanded={expanded}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left transition-colors hoverable:hover:bg-cloud"
+                    >
+                      <Icon name={sec.icon} className="h-4 w-4 shrink-0 text-brand" />
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-ink">{tr(sec.label)}</span>
+                      {left > 0 && <span title={tr('Still in English')} className="shrink-0 rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-brand">{left}</span>}
+                      <Icon name="chevronDown" className={cx('h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform duration-200', expanded && 'rotate-180')} />
+                    </button>
+                    {expanded && (
+                      <div className="animate-fade-up pb-1.5 pl-3">
+                        {sec.screens.map((name) => {
+                          const { n, total } = doneOn(name)
+                          const complete = n === total
+                          const on = screen === name && !search
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              onClick={() => { setScreen(name); setSearch(''); setFilter('all'); setOpenSection(sec.key) }}
+                              aria-current={on ? 'true' : undefined}
+                              className={cx('group block w-full rounded-lg border-l-2 px-3 py-1.5 text-left transition-all duration-150', on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 hoverable:hover:border-brand/40 hoverable:hover:bg-cloud')}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={cx('min-w-0 flex-1 truncate text-[12.5px] font-medium', on ? 'text-white' : 'text-ink')}>{screenLabel(name)}</span>
+                                {!complete && (
+                                  <span title={tr('Still in English')} className={cx('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand')}>{total - n}</span>
+                                )}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })}

@@ -14,6 +14,7 @@ import { watchInstallPrompt } from './lib/install'
 import ErrorBoundary, { NotFoundScreen } from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
+import { ChartGradients } from './components/charts/chartTheme'
 import RouteSkeleton from './components/RouteSkeleton'
 
 // Public pages
@@ -103,6 +104,7 @@ const AdminConnections = lazyRoute(chunk.AdminConnections)
 const AdminTeam = lazyRoute(chunk.AdminTeam)
 const AdminMilestones = lazyRoute(chunk.AdminMilestones)
 const AdminFeedback = lazyRoute(chunk.AdminFeedback)
+const AdminSurveys = lazyRoute(chunk.AdminSurveys)
 const AdminReports = lazyRoute(chunk.AdminReports)
 const AdminNotes = lazyRoute(chunk.AdminNotes)
 // The Testing Centre: every feature and every automation, demonstrated over
@@ -216,6 +218,7 @@ export default function App() {
       <OfflineScreen />
       <ConfirmHost />
       <ToastHost />
+      <ChartGradients />
       <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<LazyFallback />}>
       <Routes>
@@ -391,6 +394,7 @@ export default function App() {
                 Announcing a feature IS an announcement. */}
             <Route path="/admin/whats-new" element={<Navigate to="/chat/announcements" replace />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
+            <Route path="/admin/surveys" element={<AdminSurveys />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/notes" element={<AdminNotes />} />
             <Route path="/admin/testing" element={<TestingCentre />} />

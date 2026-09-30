@@ -3,7 +3,7 @@ import Icon from '../Icon'
 import SocialMark from '../SocialMark'
 import { ordinalFor, podiumTier } from '../../lib/podiumTiers'
 import { formatDate } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
+import { getLocale, useT } from '../../lib/i18n'
 
 // THE END-OF-CHALLENGE RECAP: THE CARDS (24 Sep 2026, rewritten 28 Sep 2026).
 //
@@ -26,10 +26,11 @@ import { useT } from '../../lib/i18n'
 //     programme's name in two lines. Rebuilt with the best video as a proper
 //     poster beside the numbers, more facts, and the logo on its own.
 
-const nf = (n) => Number(n || 0).toLocaleString('en-GB')
+const nf = (n) => Number(n || 0).toLocaleString(getLocale() === 'en' ? 'en-GB' : getLocale())
 const SOCIAL = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook' }
 
 function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height' }) {
+  const tr = useT()
   const big = size === 'xl' || size === 'lg'
   return (
     <div
@@ -69,7 +70,7 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
         <span className={`block font-extrabold leading-none tracking-tight text-white ${size === 'xl' ? 'text-[34px]' : big ? 'text-[26px]' : 'text-[16px]'}`}>
           {formatViews(video.views)}
         </span>
-        <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">views</span>
+        <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">{tr('views')}</span>
       </span>
     </div>
   )
@@ -78,7 +79,7 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
 // `tr` is an ARGUMENT, not a hook, because this is a plain function and not a
 // component. The identity default keeps the tests and the bench calling it
 // with one argument; YearInReview passes the real translator.
-export function buildChallengeCards(data, tr = (s) => s) {
+export function buildChallengeCards(data, tr = (s, v) => String(s).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m))) {
   const { me, challenge, placing, totals, top, won, wonTotal, community, points, prizes } = data
   const cards = []
   const push = (c) => { if (c) cards.push(c) }
@@ -110,14 +111,14 @@ export function buildChallengeCards(data, tr = (s) => s) {
             <div data-anim="rise" className="flex flex-wrap gap-2">
               {challenge.days && (
                 <span className="rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'rgba(255,255,255,0.18)' }}>
-                  <span data-count={String(challenge.days)}>{challenge.days}</span> days
+                  <span data-count={String(challenge.days)}>{challenge.days}</span> {tr('days')}
                 </span>
               )}
               <span className="rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'rgba(255,255,255,0.18)' }}>
-                {nf(community.creators)} creators
+                {nf(community.creators)} {tr('creators')}
               </span>
               <span className="rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'rgba(255,255,255,0.18)' }}>
-                {nf(community.videos)} videos
+                {nf(community.videos)} {tr('videos')}
               </span>
             </div>
           )}
@@ -137,16 +138,16 @@ export function buildChallengeCards(data, tr = (s) => s) {
           <Eyebrow palette="dusk">{tr("Where you finished")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
             {podium
-              ? <Hero value={ordinalFor(placing.rank)} unit="place" palette="dusk" />
-              : <Hero value={`Top ${placing.pct}%`} palette="dusk" />}
+              ? <Hero value={ordinalFor(placing.rank)} unit={tr('place')} palette="dusk" />
+              : <Hero value={tr('Top {n}%', { n: placing.pct })} palette="dusk" />}
             <Line palette="dusk">
               {podium
-                ? `On the podium, out of ${nf(placing.field)} creators.`
-                : `${ordinalFor(placing.rank)} of ${nf(placing.field)} creators. Ahead of ${nf(placing.field - placing.rank)} of them.`}
+                ? tr('On the podium, out of {n} creators.', { n: nf(placing.field) })
+                : tr('{place} of {n} creators. Ahead of {ahead} of them.', { place: ordinalFor(placing.rank), n: nf(placing.field), ahead: nf(placing.field - placing.rank) })}
             </Line>
             {points != null && points > 0 && (
               <span data-anim="pop" className="inline-flex items-center gap-1.5 self-start rounded-full bg-white/15 px-3.5 py-2 text-sm font-bold">
-                <Icon name="trophy" className="h-4 w-4" /> <span data-count={String(points)}>{nf(points)}</span> points
+                <Icon name="trophy" className="h-4 w-4" /> <span data-count={String(points)}>{nf(points)}</span> {tr('points')}
               </span>
             )}
           </div>
@@ -163,13 +164,13 @@ export function buildChallengeCards(data, tr = (s) => s) {
         <>
           <Eyebrow palette="sky">{tr("What you made")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
-            <Hero value={nf(totals.views)} unit="views" palette="sky" />
+            <Hero value={nf(totals.views)} unit={tr('views')} palette="sky" />
             <Facts
               palette="sky"
               items={[
-                { label: totals.videos === 1 ? 'Video' : 'Videos', value: nf(totals.videos) },
-                totals.platforms.length > 0 && { label: totals.platforms.length === 1 ? 'Platform' : 'Platforms', value: totals.platforms.length },
-                totals.share != null && totals.share >= 1 && { label: 'Of all views', value: `${totals.share}%` },
+                { label: totals.videos === 1 ? tr('Video') : tr('Videos'), value: nf(totals.videos) },
+                totals.platforms.length > 0 && { label: totals.platforms.length === 1 ? tr('Platform') : tr('Platforms'), value: totals.platforms.length },
+                totals.share != null && totals.share >= 1 && { label: tr('Of all views'), value: `${totals.share}%` },
               ]}
             />
             {totals.platforms.length > 0 && (
@@ -202,7 +203,7 @@ export function buildChallengeCards(data, tr = (s) => s) {
         render: () => (
           <>
             <Eyebrow palette="night">
-              {ranked.length === 1 ? 'Your best video' : rank === 1 ? 'And your number one' : `Your number ${rank}`}
+              {ranked.length === 1 ? tr('Your best video') : rank === 1 ? tr('And your number one') : tr('Your number {n}', { n: rank })}
             </Eyebrow>
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 py-2">
               <div className="flex h-[70%] min-h-0 justify-center">
@@ -210,8 +211,8 @@ export function buildChallengeCards(data, tr = (s) => s) {
               </div>
               <p data-anim="rise" data-delay="700" className="text-center text-sm font-semibold text-white/80">
                 {rank === 1 && totals.bestBeatPct != null
-                  ? (totals.bestBeatPct === 100 ? 'The most-watched video in the whole challenge.' : `More views than ${totals.bestBeatPct}% of every video in the challenge.`)
-                  : v.platform ? `On ${v.platform}.` : ''}
+                  ? (totals.bestBeatPct === 100 ? tr('The most-watched video in the whole challenge.') : tr('More views than {n}% of every video in the challenge.', { n: totals.bestBeatPct }))
+                  : v.platform ? tr('On {platform}.', { platform: v.platform }) : ''}
               </p>
             </div>
           </>
@@ -223,7 +224,7 @@ export function buildChallengeCards(data, tr = (s) => s) {
         key: 'top-all', palette: 'night', hold: 4200,
         render: () => (
           <>
-            <Eyebrow palette="night">{`Your top ${ranked.length}, together`}</Eyebrow>
+            <Eyebrow palette="night">{tr('Your top {n}, together', { n: ranked.length })}</Eyebrow>
             <div className="flex min-h-0 flex-1 flex-col justify-center gap-4 py-2">
               <div className="flex w-full items-end justify-center gap-2.5">
                 {/* The podium shape: number one in the middle and biggest.
@@ -245,7 +246,7 @@ export function buildChallengeCards(data, tr = (s) => s) {
               <div data-anim="rise" data-delay="700" className="mx-auto grid w-full max-w-[18rem] grid-cols-2 overflow-hidden rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <span className="px-3 py-3">
                   <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(ranked.reduce((n, v) => n + v.views, 0))}</span>
-                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{`Your top ${ranked.length}`}</span>
+                  <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{tr('Your top {n}', { n: ranked.length })}</span>
                 </span>
                 <span className="border-l border-white/15 px-3 py-3">
                   <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(totals.avg > 0 ? totals.avg : 0)}</span>
@@ -283,7 +284,7 @@ export function buildChallengeCards(data, tr = (s) => s) {
               {won.map((w, n) => (
                 <span key={n} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">
                   <Icon name={w.kind === 'voucher' ? 'ticket' : 'cash'} className="h-3.5 w-3.5" />
-                  {wholeMoney(w.amount, w.currency)} {w.kind === 'voucher' ? 'Tryp.com voucher' : 'cash'}
+                  {wholeMoney(w.amount, w.currency)} {w.kind === 'voucher' ? tr('Tryp.com voucher') : tr('cash')}
                 </span>
               ))}
             </div>
@@ -303,24 +304,24 @@ export function buildChallengeCards(data, tr = (s) => s) {
         <>
           <Eyebrow palette="ember">{tr("Everybody, together")}</Eyebrow>
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
-            <Hero value={formatViews(community.views)} unit="views" palette="ember" />
+            <Hero value={formatViews(community.views)} unit={tr('views')} palette="ember" />
             <Facts
               palette="ember"
               items={[
-                { label: 'Creators', value: nf(community.creators) },
-                { label: 'Videos', value: nf(community.videos) },
-                pool > 0 && { label: 'Prize pool', value: roughMoney(pool, challenge.currency) },
+                { label: tr('Creators'), value: nf(community.creators) },
+                { label: tr('Videos'), value: nf(community.videos) },
+                pool > 0 && { label: tr('Prize pool'), value: roughMoney(pool, challenge.currency) },
               ]}
             />
             {prizes?.vouchers > 0 && (
               <span data-anim="pop" className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'rgba(255,255,255,0.18)' }}>
                 <Icon name="ticket" className="h-3.5 w-3.5" />
-                Including {wholeMoney(prizes.vouchers, challenge.currency)} in Tryp.com vouchers
+                {tr('Including {amount} in Tryp.com vouchers', { amount: wholeMoney(prizes.vouchers, challenge.currency) })}
               </span>
             )}
             {/* Just the one line (28 Sep 2026): "Don't say, 'The biggest single
                 video reached 143k.' Just keep that first line." */}
-            <Line palette="ember">{`What ${nf(community.creators)} creators made together.`}</Line>
+            <Line palette="ember">{tr('What {n} creators made together.', { n: nf(community.creators) })}</Line>
           </div>
         </>
       ),
@@ -349,15 +350,15 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
   // ranking; now it is said once, as a badge in the podium's own tone, and the
   // grid holds only numbers said nowhere else on the card.
   const stats = [
-    points != null && points > 0 && { label: 'Points', value: nf(points) },
-    totals.views > 0 && { label: 'Views', value: formatViews(totals.views) },
-    totals.videos > 0 && { label: totals.videos === 1 ? 'Video' : 'Videos', value: String(totals.videos) },
-    totals.share != null && totals.share >= 1 && { label: 'Of all views', value: `${totals.share}%` },
-    totals.avg > 0 && totals.videos > 1 && { label: 'Per video', value: formatViews(totals.avg) },
+    points != null && points > 0 && { label: tr('Points'), value: nf(points) },
+    totals.views > 0 && { label: tr('Views'), value: formatViews(totals.views) },
+    totals.videos > 0 && { label: totals.videos === 1 ? tr('Video') : tr('Videos'), value: String(totals.videos) },
+    totals.share != null && totals.share >= 1 && { label: tr('Of all views'), value: `${totals.share}%` },
+    totals.avg > 0 && totals.videos > 1 && { label: tr('Per video'), value: formatViews(totals.avg) },
   ].filter(Boolean).slice(0, 4)
   const badge = placing?.kind === 'podium'
-    ? { text: `${ordinalFor(placing.rank)} place`, tier: podiumTier(placing.rank) }
-    : placing?.kind === 'top' ? { text: `Top ${placing.pct}%`, tier: null } : null
+    ? { text: tr('{place} place', { place: ordinalFor(placing.rank) }), tier: podiumTier(placing.rank) }
+    : placing?.kind === 'top' ? { text: tr('Top {n}%', { n: placing.pct }), tier: null } : null
   // NO SUMMING-UP LINE ALONG THE BOTTOM (28 Sep 2026). This read "1st of 28
   // creators overall, 4.8× the average video" under the Tryp mark. Ethan, on
   // the final card: "I wouldn't show that at all. I think the other stats on

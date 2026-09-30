@@ -4,7 +4,7 @@ import { Modal } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import {
-  STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, formatKpiValue, metricDef, periodLabel, splitQuarterTarget,
+  STANDARD_METRICS, adjacentMonth, adjacentQuarter, currentMonth, formatKpiValue, metricDef, periodLabel, scaledHeights, splitQuarterTarget,
 } from '../../lib/kpiTracker'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -47,7 +47,7 @@ export default function KpiTargetSheet(props) {
 }
 
 function SheetBody({
-  row, communityName, currency = 'EUR', basis = 'all', isGlobalScope = false,
+  row, communityName, scopes = [], scopeKey = '', currency = 'EUR', basis: pageBasis = 'all', isGlobalScope: pageGlobal = false,
   year, quarter, month = null, profileId, actuals = {}, onClose, onSaved, onEditExisting,
 }) {
   const tr = useT()
@@ -58,6 +58,19 @@ function SheetBody({
   const [notes, setNotes] = useState(row?.notes || '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+
+  // WHICH MARKET, CHANGEABLE HERE (30 Sep 2026). Ethan: "whenever I'm setting a KPI from Germany ...
+  // Germany should then show me the option to change it to a different one." It starts on the market
+  // the page is on (or the goal's own) and lists every market this admin may set goals for.
+  const startKey = row?.id
+    ? (scopes.find((x) => x.id === row.community_id && x.basis === row.basis)?.key || scopeKey)
+    : scopeKey
+  const [sk, setSk] = useState(startKey)
+  const picked = scopes.find((x) => x.key === sk)
+  const communityId = picked?.id || row.community_id
+  const basis = picked?.basis || pageBasis
+  const isGlobalScope = picked ? picked.basis === 'global' : pageGlobal
+  const scopeLabel = picked?.name || communityName
 
   // WHEN. An editing row starts on its own period; a new one on the page's.
   const start = row?.id ? { year: row.year, quarter: row.quarter, month: row.month ?? null } : { year, quarter, month }
@@ -101,22 +114,26 @@ function SheetBody({
   useEffect(() => {
     if (!pickingMetric) return undefined
     let alive = true
-    let q = supabase.from('kpi_targets').select('*').eq('community_id', row.community_id).eq('basis', basis).eq('year', p.year).eq('quarter', p.quarter)
+    let q = supabase.from('kpi_targets').select('*').eq('community_id', communityId).eq('basis', basis).eq('year', p.year).eq('quarter', p.quarter)
     q = byMonth ? q.eq('month', p.month) : q.is('month', null)
     q.neq('metric', 'custom').then(({ data }) => {
       if (alive) setExisting(Object.fromEntries((data || []).map((r) => [r.metric, r])))
     })
     return () => { alive = false }
-  }, [pickingMetric, row?.community_id, basis, p.year, p.quarter, p.month, byMonth])
+  }, [pickingMetric, communityId, basis, p.year, p.quarter, p.month, byMonth])
 
   const offered = useMemo(() => STANDARD_METRICS.filter((m) => !(isGlobalScope && m.people)), [isGlobalScope])
+  // A metric that the newly picked market does not offer is dropped rather than saved invalid.
+  useEffect(() => {
+    if (metric && !offered.some((m) => m.key === metric)) setMetric('')
+  }, [offered, metric])
   const chosen = STANDARD_METRICS.find((m) => m.key === metric)
 
   const targetNum = Number(target)
   const valid = target !== '' && Number.isFinite(targetNum) && targetNum >= 0
   const split = !byMonth && valid && metric ? splitQuarterTarget({ metric }, targetNum) : null
-  const splitMax = split ? Math.max(...split, 1) : 1
-  const samePeriodAsPage = p.year === year && p.quarter === quarter && (p.month ?? null) === (month ?? null)
+  const splitH = split ? scaledHeights(split, 0.38) : null
+  const samePeriodAsPage = sk === scopeKey && p.year === year && p.quarter === quarter && (p.month ?? null) === (month ?? null)
   const soFar = metric && samePeriodAsPage && actuals[metric] != null ? actuals[metric] : null
 
   async function save() {
@@ -125,7 +142,7 @@ function SheetBody({
     setSaving(true)
     setErr('')
     const payload = {
-      community_id: row.community_id,
+      community_id: communityId,
       basis,
       year: p.year,
       quarter: p.quarter,
@@ -148,7 +165,7 @@ function SheetBody({
       setErr(error.code === '23505' ? tr('That KPI already has a goal for {p} - edit it instead of adding another.', { p: periodLabel(p) }) : error.message)
       return
     }
-    onSaved({ year: p.year, quarter: p.quarter, month: p.month ?? null })
+    onSaved({ year: p.year, quarter: p.quarter, month: p.month ?? null }, sk)
   }
 
   const unitSuffix = metricDef({ metric }).unit === 'percent' ? '%' : ''
@@ -161,12 +178,7 @@ function SheetBody({
               design and where you placed it isn't very good ... maybe show it to the left of quarter and
               month. Add a nice card slot there." */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-9 min-w-0 items-center gap-2 rounded-xl border border-gray-100 bg-white pl-1.5 pr-3 shadow-card">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
-                <Icon name="globe" className="h-3.5 w-3.5" />
-              </span>
-              <span className="truncate text-[13px] font-bold text-ink">{communityName}</span>
-            </span>
+            <ScopePicker scopes={scopes} value={sk} label={scopeLabel} onChange={setSk} />
             <Segmented
               value={byMonth ? 'month' : 'quarter'}
               onChange={setMode}
@@ -299,7 +311,11 @@ function SheetBody({
                 {split.map((v, i) => (
                   <div key={i} className="flex flex-col items-center gap-1.5">
                     <div className="flex h-12 w-full items-end rounded-lg bg-white">
-                      <div className="w-full rounded-lg bg-gradient-to-t from-brand to-brand-light transition-[height] duration-500 ease-out" style={{ height: `${Math.max(12, (v / splitMax) * 100)}%` }} />
+                      {/* SMALL DIFFERENCES MADE VISIBLE (30 Sep 2026). Ethan: "even though these
+                          differences are small, I still want you to visually show that there's a
+                          little bit of a difference." Heights run from a floor across the three
+                          months instead of from zero, so 7 / 8 / 9 are three clear steps. */}
+                      <div className="w-full rounded-lg bg-gradient-to-t from-brand to-brand-light transition-[height] duration-500 ease-out" style={{ height: `${Math.round(splitH[i] * 100)}%` }} />
                     </div>
                     <span className="text-sm font-bold tabular-nums text-ink">{formatKpiValue({ metric }, v, currency)}</span>
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-smoke">{monthShort(p.year, (p.quarter - 1) * 3 + 1 + i)}</span>
@@ -324,5 +340,66 @@ function SheetBody({
           </button>
         </div>
       </div>
+  )
+}
+
+// The market this goal is for, as a drop-down that floats over the sheet (it never pushes anything
+// down). With only one market to choose from it is a plain label.
+function ScopePicker({ scopes, value, label, onChange }) {
+  const tr = useT()
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const off = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    // Escape closes the list, not the whole sheet: caught on the way down and stopped there.
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
+    document.addEventListener('pointerdown', off)
+    document.addEventListener('keydown', esc, true)
+    return () => { document.removeEventListener('pointerdown', off); document.removeEventListener('keydown', esc, true) }
+  }, [open])
+  const current = scopes.find((x) => x.key === value)
+  const many = scopes.length > 1
+  return (
+    <div ref={box} className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => many && setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cx(
+          'inline-flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-xl border border-gray-100 bg-white pl-1.5 pr-2.5 shadow-card transition-all duration-200',
+          many && 'hoverable:hover:border-brand/30 hoverable:hover:shadow-lift',
+        )}
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: current?.color || '#d94407' }}>
+          <Icon name="globe" className="h-3.5 w-3.5" />
+        </span>
+        <span className="truncate text-[13px] font-bold text-ink">{label}</span>
+        {many && <Icon name="chevronDown" className={cx('h-3.5 w-3.5 shrink-0 text-smoke transition-transform duration-200', open && 'rotate-180')} />}
+      </button>
+      {open && (
+        <ul role="listbox" aria-label={tr('Market')} className="absolute left-0 top-full z-30 mt-1.5 max-h-72 w-56 overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-lift animate-pop-in">
+          {scopes.map((x) => (
+            <li key={x.key}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={x.key === value}
+                onClick={() => { onChange(x.key); setOpen(false) }}
+                className={cx(
+                  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold transition-colors',
+                  x.key === value ? 'bg-brand-tint text-brand' : 'text-ink hoverable:hover:bg-cloud',
+                )}
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} />
+                <span className="min-w-0 flex-1 truncate">{x.name}</span>
+                {x.key === value && <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

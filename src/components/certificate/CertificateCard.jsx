@@ -131,23 +131,6 @@ export default function CertificateCard({ design, facts: rawFacts = {}, cardRef,
 // THE PARTS
 // ---------------------------------------------------------------------------
 
-function Kicker({ s, children, align = 'left', color, size = 11 }) {
-  if (!children) return null
-  const col = color || s.accentText
-  return (
-    <p style={{
-      margin: 0, display: 'flex', alignItems: 'center', gap: 8,
-      justifyContent: align === 'center' ? 'center' : 'flex-start',
-      fontSize: size, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: col,
-    }}>
-      <span style={{ display: 'inline-flex', transform: 'rotate(45deg)', color: col }}>
-        <Icon name="plane-flight" className="h-3.5 w-3.5" />
-      </span>
-      {children}
-    </p>
-  )
-}
-
 function Title({ s, children, size = 38, align = 'left', color }) {
   return (
     <p style={{
@@ -521,8 +504,8 @@ function Horizon({ s, c, o }) {
         position: 'absolute', left: 28 + PANEL + 60, right: M + 8, top: M, bottom: 170,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
       }}>
-        <Kicker s={s}>{c.subtitle}</Kicker>
-        <div style={{ height: c.subtitle ? 12 : 0 }} />
+        {/* NO KICKER ABOVE THE TITLE (30 Sep 2026). Ethan: the panel's foot already says
+            "Tryp.com Creator Community", so the same line over the title said it twice. */}
         <Title s={s} size={38}>{c.title}</Title>
         <div style={{ height: 34 }} />
         <Preamble s={s}>{c.preamble}</Preamble>
@@ -697,8 +680,19 @@ function Postcard({ s, c, o }) {
       <div style={{ position: 'absolute', left: M + 4, top: M + 4, width: MID - M - 60, bottom: M, display: 'flex', flexDirection: 'column' }}>
         <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Kicker s={s}>{c.subtitle || 'Greetings from Tryp.com'}</Kicker>
-          <div style={{ height: 14 }} />
+          {/* A GREETING, WRITTEN LIKE ONE (30 Sep 2026). Ethan liked the colour it adds "although I would
+              change the font of it ... make it look better". It was the spaced-out capitals every
+              other layout uses for a label; on a postcard it is the line you would write by hand, so
+              it is sentence case, larger, slanted, with a short stroke under it. Poppins only, so the
+              saved picture matches the screen. */}
+          <p style={{
+            margin: 0, fontSize: 19, fontWeight: 700, fontStyle: 'italic', letterSpacing: '-0.005em',
+            color: s.accentText, lineHeight: 1.2,
+          }}>
+            {c.subtitle || tIn(c.lang, 'Greetings from Tryp.com')}
+          </p>
+          <div style={{ width: 44, height: 3, borderRadius: 2, background: s.accentText, opacity: 0.45, marginTop: 10 }} />
+          <div style={{ height: 16 }} />
           <Title s={s} size={38}>{c.title}</Title>
           <div style={{ height: 16 }} />
           <Body s={s} width={420} size={16}>{c.body}</Body>
@@ -863,9 +857,8 @@ function Banner({ s, c, o }) {
         <div style={{ position: 'absolute', left: 0, right: 0, top: 44, display: 'flex', justifyContent: 'center' }}>
           <Wordmark white={white} height={30} style={{ alignSelf: 'center' }} />
         </div>
-        <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 102, textAlign: 'center' }}>
-          <Kicker s={s} color={ink} align="center">{c.subtitle}</Kicker>
-          <div style={{ height: c.subtitle ? 10 : 0 }} />
+        <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 112, textAlign: 'center' }}>
+          {/* The community line is said once, in the footer (30 Sep 2026, Ethan). */}
           <Title s={s} size={40} align="center" color={ink}>{c.title}</Title>
         </div>
       </GradientBlock>

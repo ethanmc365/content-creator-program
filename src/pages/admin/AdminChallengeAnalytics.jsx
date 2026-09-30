@@ -17,6 +17,7 @@ import { challengeSpend } from '../../lib/challengeSpend'
 import MarketSplit from '../../components/admin/MarketSplit'
 import EntryPreview from '../../components/challenge/EntryPreview'
 import { useEntryPoints } from '../../lib/entryPoints'
+import { FILL } from '../../components/charts/chartTheme'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -368,7 +369,7 @@ export default function AdminChallengeAnalytics() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
-                  <Bar animationDuration={600} dataKey="views" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={56} />
+                  <Bar animationDuration={600} dataKey="views" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -878,7 +879,7 @@ function EntriesOverTime({ subs, challenge }) {
                 formatter={(v, name) => (name === 'views' ? [formatViews(v), 'Views so far'] : [v, 'Entries'])}
               />
               <Area animationDuration={600} yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />
-              <Bar animationDuration={600} yAxisId="e" dataKey="entries" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={22} />
+              <Bar animationDuration={600} yAxisId="e" dataKey="entries" fill={FILL.brand} radius={[6, 6, 0, 0]} maxBarSize={22} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

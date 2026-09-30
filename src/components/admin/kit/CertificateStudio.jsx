@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../context/AuthContext'
 import { EmptyState, Skeleton, Spinner, Toggle } from '../../ui'
+import { KitAction } from '../../../pages/admin/AdminCreatorKit'
 import Icon from '../../Icon'
 import { cx } from '../../../lib/utils'
 import { pickClass } from '../../../lib/pick'
@@ -213,11 +214,14 @@ export default function CertificateStudio() {
           on the page said so. One sentence, above the list it describes. */}
       {/* NO EXPLANATION ABOVE THE LIST (1 Oct 2026). Ethan: "you can remove all that copy.
           It's not needed, and we know it." The Live / Draft chip on each card says the rest. */}
-      <div className="flex justify-end">
-        <button type="button" onClick={() => setPicking(true)} className="btn-primary shrink-0">
+      {/* ON THE TAB ROW (30 Sep 2026). Ethan: the certificates page should sit "tighter to the page
+          and the certificate button ... actually move up". It had a row of its own under the tabs;
+          it is now in the tab row's own slot, so the list starts right under the tabs. */}
+      <KitAction>
+        <button type="button" onClick={() => setPicking(true)} className="btn-primary shrink-0 !py-2.5">
           <Icon name="plus" className="h-4 w-4" /> New certificate
         </button>
-      </div>
+      </KitAction>
 
       {picking && (
         <StarterGallery
@@ -442,6 +446,7 @@ export function triggerText(row, markets = []) {
     return `Finishing ${places.map((p) => `#${p}`).join(', ')} in ${where}`
   }
   if (row.award_on === 'challenge_entry') return `Entering any challenge in ${where}`
+  if (row.award_on === 'creator_joined') return `Joining the community, in ${where}`
   if (row.award_on === 'milestone') return row.milestone_id ? 'Reaching a milestone' : 'No milestone chosen yet'
   return 'Given by hand'
 }
@@ -498,7 +503,10 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
   // WHICH PLACE THE PREVIEW SHOWS, for a place certificate: 1st, 2nd, 3rd
   // and 4th+ are drawn differently, so you can look at each.
   const placeChoices = design.award_on === 'challenge_rank'
-    ? (design.all_prize_places ? [1, 2, 3, 4, 5, 10] : (design.ranks || []).slice().sort((a, b) => a - b))
+    // EVERY PLACE, 1st TO 10th (30 Sep 2026). Ethan: the preview "goes for 2nd, 3rd, 4th, 5th, and
+    // then jumps to 10th ... obviously it should be for every place". It skipped 6-9 because they
+    // look like 5th; now each place a podium certificate can go to has its own chip.
+    ? (design.all_prize_places ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : (design.ranks || []).slice().sort((a, b) => a - b))
     : []
   const [previewPlace, setPreviewPlace] = useState(null)
   // EVERY LANGUAGE, FOR REVIEW (30 Sep 2026). A creator who speaks Spanish can save the
@@ -592,12 +600,17 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      {/* TWO COLUMNS, EACH SCROLLING ON ITS OWN (30 Sep 2026). Ethan: "whenever I scroll down on the
+          left side, it scrolls the right column first. Scrolling on the left column just scrolls down
+          there. Scrolling on the right just scrolls on the right." On a desktop the pair is one
+          screen tall and each column is its own scroller (overscroll-contain, so reaching the end of
+          one never drags the page or the other). On a phone they stack and the page scrolls. */}
+      <div className="grid gap-6 lg:h-[calc(100dvh-13.5rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_380px]">
         {/* THE PREVIEW IS FIRST IN THE DOM AND STICKY ON A DESKTOP. What this
             screen is for is watching the certificate change, so on a narrow
             screen it is what you see when you arrive, and on a wide one it
             stays put while the form under your thumb scrolls. */}
-        <div className="lg:sticky lg:top-40 lg:self-start">
+        <div className="lg:-mx-2 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:px-2 lg:pb-6 lg:pt-1 [scrollbar-width:thin]">
           {/* THE PREVIEW IS THE CERTIFICATE, NOTHING AROUND IT (28 Sep 2026).
               Ethan: "ensure you show it how it will actually look. You can
               round the corners just for the design of the platform, but
@@ -674,7 +687,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 lg:-mr-2 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pb-6 lg:pr-2 lg:pt-1 [scrollbar-width:thin]">
           <Section title="What it is">
             <Field label="Name (only admins see this)">
               <input value={design.name} onChange={(e) => set({ name: e.target.value })}
@@ -687,7 +700,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
             <Field label="Title">
               <input value={design.title} onChange={(e) => set({ title: e.target.value })} className="input" />
             </Field>
-            <Field label="Line above the title">
+            <Field label="Greeting line" hint="Shown on the Postcard and Minimal layouts. The others already name the community at the foot, so they leave it out.">
               <input value={design.subtitle} onChange={(e) => set({ subtitle: e.target.value })} className="input" />
             </Field>
             <Field
@@ -945,6 +958,7 @@ function AwardRules({ design, set, markets, milestones }) {
   const OPTIONS = [
     { key: 'challenge_rank', label: 'Finishing on the podium', hint: 'Given when winners are published' },
     { key: 'challenge_entry', label: 'Entering a challenge', hint: 'Everyone who submitted gets one' },
+    { key: 'creator_joined', label: 'Joining the community', hint: 'Every creator gets one the day they are approved' },
     { key: 'milestone', label: 'Reaching a milestone', hint: 'Given the moment they reach it' },
     { key: 'manual', label: 'By hand', hint: 'You award it from the Awarded tab' },
   ]

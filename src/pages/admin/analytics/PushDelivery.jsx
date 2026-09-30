@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase'
 import { Skeleton, StatCard } from '../../../components/ui'
 import Segmented from '../../../components/network/Segmented'
 import { cx, timeAgo } from '../../../lib/utils'
+import { FILL } from '../../../components/charts/chartTheme'
 
 // DID THE PUSH GO OUT, AND DID ANYONE OPEN IT? (30 Sep 2026, migration 283)
 //
@@ -134,9 +135,9 @@ export default function PushDelivery() {
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #F1F1F2', fontSize: 12 }} />
-                    <Bar dataKey="sent" name="Sent" fill="#fde3d1" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
-                    <Bar dataKey="delivered" name="Shown" fill="#f5853f" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
-                    <Bar dataKey="clicked" name="Tapped" fill="#d94407" radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
+                    <Bar dataKey="sent" name="Sent" fill={FILL.pale} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
+                    <Bar dataKey="delivered" name="Shown" fill={FILL.light} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
+                    <Bar dataKey="clicked" name="Tapped" fill={FILL.brand} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

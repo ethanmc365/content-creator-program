@@ -10,7 +10,7 @@ import { notice } from '../../lib/confirm'
 import { getLocale, tIn, useT } from '../../lib/i18n'
 import { downloadBlob, snapshotNode } from '../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
-import { fillTemplate, formatAwardDate, sortCertificates, tierOf } from '../../lib/certificates'
+import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates, tierOf } from '../../lib/certificates'
 
 // WHAT THE PROGRAMME HAS GIVEN YOU, ON A WALL.
 //
@@ -32,7 +32,13 @@ export default function CertificateWall({ profileId, className, readOnly = false
   const { profile, isAdmin } = useAuth()
   const speaks = certificateLocales(profile, { all: isAdmin }).filter((l) => l.code !== 'en')
   const [rows, setRows] = useState(null)
+  const [designs, setDesigns] = useState([])
   const [open, setOpen] = useState(null)
+  // AN ADMIN ON THEIR OWN REWARDS PAGE SEES EVERY DESIGN AS A CREATOR WOULD (30 Sep 2026). Ethan:
+  // "Whenever I'm viewing the rewards page, I'll be able to see how the certificates look for the
+  // creators too, to make sure it's right and ensure they're able to download it easily." Viewing a
+  // creator (?as=) shows that creator's real wall instead.
+  const previewing = isAdmin && !readOnly && profileId === profile?.id
   const listLang = speaks.some((l) => l.code === getLocale()) ? getLocale() : 'en'
 
   const load = useCallback(async () => {
@@ -43,6 +49,9 @@ export default function CertificateWall({ profileId, className, readOnly = false
       .order('awarded_at', { ascending: false })
     const sorted = sortCertificates(data || [])
     setRows(sorted)
+    // Creators read only LIVE designs (RLS); an admin reads drafts too, for the preview.
+    const { data: ds } = await supabase.from('certificate_designs').select('*').order('created_at')
+    setDesigns(ds || [])
     // Every language this person can save in, translated before they open one.
     const langs = certificateLocales(profile, { all: isAdmin })
     for (const r of sorted) prefetchCertificateDesign(r.design, langs)
@@ -60,7 +69,14 @@ export default function CertificateWall({ profileId, className, readOnly = false
   }
 
   if (rows === null) return <Skeleton className={cx('h-40 w-full rounded-card', className)} />
-  if (rows.length === 0) return null
+  if (previewing) return <AdminPreview designs={designs} className={className} />
+  // STILL TO EARN (30 Sep 2026): every live certificate the creator does not have yet, as a quiet
+  // locked tile saying how it is earned, so the section is a collection to fill rather than
+  // something that appears out of nowhere. Hand-given ones are left out - there is no way to "go
+  // and get" those.
+  const have = new Set(rows.map((r) => r.design_id))
+  const toEarn = designs.filter((d) => d.is_active && d.award_on !== 'manual' && !have.has(d.id))
+  if (rows.length === 0 && toEarn.length === 0) return null
 
   return (
     <section className={className}>
@@ -84,8 +100,80 @@ export default function CertificateWall({ profileId, className, readOnly = false
         {rows.map((row) => (
           <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} />
         ))}
+        {toEarn.map((d) => <LockedRow key={d.id} design={d} lang={listLang} />)}
       </div>
 
+      <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
+    </section>
+  )
+}
+
+const HOW_TO_EARN = {
+  challenge_rank: 'Finish in a prize place in a challenge',
+  challenge_entry: 'Enter a challenge',
+  creator_joined: 'Given to every creator who joins',
+  milestone: 'Reach the milestone',
+}
+
+function LockedRow({ design: raw, lang }) {
+  const tr = useT()
+  const { design } = useCertificateDesign(raw, lang)
+  return (
+    <div className="relative flex items-center gap-3 rounded-card border border-dashed border-gray-200 bg-white/60 p-4">
+      <span className="relative block h-[62px] w-[88px] shrink-0 overflow-hidden rounded-lg border border-gray-100 opacity-45 grayscale">
+        <span className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${88 / CERT_W})` }}>
+          <CertificateCard design={design} lang={lang} facts={sampleFacts(design)} />
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-smoke">{design?.title || tr('Certificate')}</span>
+        <span className="mt-0.5 flex items-center gap-1 text-[11px] text-smoke">
+          <Icon name="lock" className="h-3 w-3" />
+          {tr(HOW_TO_EARN[raw.award_on] || 'Still to earn')}
+        </span>
+      </span>
+    </div>
+  )
+}
+
+// Every design, drafts included, drawn with the admin's own name on it and opening into the very
+// viewer (and downloads) a creator gets. Labelled so nobody mistakes it for what creators see.
+function AdminPreview({ designs, className }) {
+  const tr = useT()
+  const { profile } = useAuth()
+  const [open, setOpen] = useState(null)
+  if (!designs.length) return null
+  const rowFor = (d) => ({
+    id: `preview-${d.id}`,
+    design: d,
+    design_id: d.id,
+    serial: 'TRYP-PREVIEW',
+    seen_at: 'preview',
+    facts: { ...sampleFacts(d), name: profile?.name || 'Your name' },
+    person: { photo_url: profile?.photo_url || '' },
+    awarded_at: new Date().toISOString(),
+  })
+  return (
+    <section className={className}>
+      <div className="mb-3 rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+          <Icon name="eye" className="h-4 w-4 text-brand" />
+          {tr('Certificates, as creators see them')}
+        </h2>
+        <p className="mt-1 text-sm text-smoke">
+          {tr('Only admins see this preview. Each one uses your name and a sample challenge; open one to check the certificate, the Instagram story and both downloads. Drafts are not given to anybody.')}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {designs.map((d) => (
+          <div key={d.id} className="relative">
+            <CertificateRow row={rowFor(d)} lang="en" readOnly onOpen={() => setOpen(rowFor(d))} />
+            <span className={cx('pointer-events-none absolute bottom-3 right-3 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', d.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500')}>
+              {d.is_active ? tr('Live') : tr('Draft')}
+            </span>
+          </div>
+        ))}
+      </div>
       <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
     </section>
   )
@@ -102,7 +190,7 @@ function CertificateRow({ row, lang, readOnly, onOpen }) {
             <button
                             type="button"
               onClick={onOpen}
-              className="group relative flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"
+              className="group relative flex w-full items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"
             >
               {/* THE CERTIFICATE ITSELF, SMALL (28 Sep 2026), rather than an icon
                   standing in for it: the thing you are about to open. */}
@@ -333,13 +421,17 @@ export function StoryFrame({ refCb, design, facts, lang = 'en' }) {
       ref={refCb}
       style={{
         width: W, height: 1920, position: 'relative', overflow: 'hidden', fontFamily: 'Poppins, system-ui, sans-serif',
-        background: 'linear-gradient(160deg,#d94407 0%,#f5853f 60%,#ffb37a 100%)', color: '#ffffff',
+        // LIGHT AT THE TOP, DARK AT THE FOOT (30 Sep 2026, Ethan: "do the gradient the opposite way,
+        // so the darker colour at the bottom, lighter colour at the top").
+        background: 'linear-gradient(200deg,#ffb37a 0%,#f5853f 42%,#d94407 100%)', color: '#ffffff',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 56,
       }}
     >
-      <div style={{ position: 'absolute', right: -220, top: -220, width: 720, height: 720, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 68%)' }} />
+      <div style={{ position: 'absolute', left: -240, bottom: -260, width: 760, height: 760, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 68%)' }} />
       <div style={{ textAlign: 'center', padding: '0 80px' }}>
-        <p style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85 }}>{tIn(lang, 'I just earned')}</p>
+        {/* BOLDER, NOT SPACED-OUT CAPITALS (30 Sep 2026). Ethan: "make it a bit bolder ... rather
+            than very slim". Thin tracked capitals at 85% read as a label; this is the creator saying it. */}
+        <p style={{ margin: 0, fontSize: 46, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1, textShadow: '0 2px 18px rgba(120,40,0,0.18)' }}>{tIn(lang, 'I just earned')}</p>
         <p style={{ margin: '18px 0 0', fontSize: 64, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.02em' }}>{design?.title || tIn(lang, 'Certificate')}</p>
       </div>
       <div style={{ width: inner, height: CERT_H * (inner / CERT_W), borderRadius: 28, overflow: 'hidden', boxShadow: '0 40px 90px rgba(0,0,0,0.28)' }}>

@@ -21,6 +21,57 @@ import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 const memo = new Map() // `${locale}\n${text}` -> { value, src }
 const engineLang = (l) => (l === 'pt' ? 'pt-PT' : l)
 
+// NOT RATE-LIMITED, AND FAST THE SECOND TIME (30 Sep 2026). Ethan: "properly set it up so that we don't
+// get rate-limited and we receive no errors. If there is a rate limit error, just show a simple error"
+// and chat translations "take a little while to load".
+//   - ONE REQUEST PER TEXT, not one per paragraph (a five-line message was five calls).
+//   - A QUEUE: at most two calls in flight and ~150ms between starts, so opening a busy room and
+//     translating a run of messages never bursts at Google.
+//   - A 429 or 5xx is retried twice with backoff; a 429 also starts a two-minute cool-down during
+//     which requests go straight to the server fallback instead of hammering the endpoint.
+//   - Results are remembered in this browser (localStorage, newest 400), so a message translated
+//     yesterday is instant today.
+//   - Any failure after all that returns `failed`, and the UI says "This message can't be translated
+//     right now." rather than an error.
+const STORE = 'tryp_mt_cache_v1'
+const STORE_MAX = 400
+function loadStore() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE) || '[]')
+    for (const [k, v] of raw) memo.set(k, v)
+  } catch { /* private mode or corrupt: start empty */ }
+}
+let storeTimer = null
+function saveStore() {
+  clearTimeout(storeTimer)
+  storeTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE, JSON.stringify([...memo.entries()].slice(-STORE_MAX))) } catch { /* full or blocked */ }
+  }, 400)
+}
+if (typeof window !== 'undefined') loadStore()
+
+const MAX_IN_FLIGHT = 2
+const GAP_MS = 150
+let inFlight = 0
+let lastStart = 0
+const waiting = []
+let coolUntil = 0
+function pump() {
+  if (inFlight >= MAX_IN_FLIGHT || waiting.length === 0) return
+  const wait = Math.max(0, lastStart + GAP_MS - Date.now())
+  if (wait > 0) { setTimeout(pump, wait); return }
+  const job = waiting.shift()
+  inFlight += 1
+  lastStart = Date.now()
+  job.run().then(job.resolve, job.reject).finally(() => { inFlight -= 1; pump() })
+  pump()
+}
+function queued(run) {
+  return new Promise((resolve, reject) => { waiting.push({ run, resolve, reject }); pump() })
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+export const TRANSLATE_FAILED_TEXT = "This message can't be translated right now."
+
 // {placeholders} ("for winning {challenge}") must come back exactly as they went in, so they are
 // swapped for inert tokens first and put back after. If the engine ate one, it is a failure.
 function protect(text) {
@@ -49,16 +100,32 @@ export async function translateInBrowser(text, target) {
   return { value, src: r.src }
 }
 
+async function oneCall(text, target) {
+  if (Date.now() < coolUntil) throw new Error('cooling down')
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${engineLang(target)}&dt=t&q=${encodeURIComponent(text)}`
+  for (let attempt = 0; ; attempt += 1) {
+    const res = await queued(() => fetch(url))
+    if (res.ok) return res.json()
+    const retryable = res.status === 429 || res.status >= 500
+    if (res.status === 429) coolUntil = Date.now() + 120000
+    if (!retryable || attempt >= 2) throw new Error(`mt ${res.status}`)
+    await sleep(700 * (attempt + 1) + Math.random() * 300)
+  }
+}
+
 async function viaBrowser(text, target) {
-  const paras = text.split('\n')
+  // The whole text in one call (Google keeps the line breaks); only a very long one is split.
+  const chunks = []
+  let cur = ''
+  for (const line of text.split('\n')) {
+    if (cur && (cur.length + line.length + 1) > 4000) { chunks.push(cur); cur = line } else cur = cur ? `${cur}\n${line}` : line
+  }
+  chunks.push(cur)
   const out = []
   let src = null
-  for (const p of paras) {
-    if (!p.trim()) { out.push(p); continue }
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${engineLang(target)}&dt=t&q=${encodeURIComponent(p.slice(0, 4500))}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`mt ${res.status}`)
-    const data = await res.json()
+  for (const c of chunks) {
+    if (!c.trim()) { out.push(c); continue }
+    const data = await oneCall(c.slice(0, 4500), target)
     out.push((data[0] || []).map((x) => String(x?.[0] ?? '')).join(''))
     if (!src && typeof data[2] === 'string') src = data[2].toLowerCase().slice(0, 2)
   }
@@ -82,7 +149,13 @@ export async function translateNow(text, target = getLocale()) {
     try { r = await viaServer(text, target) } catch { return { value: text, src: null, failed: true } }
   }
   memo.set(k, r)
+  saveStore()
   return r
+}
+
+/** Already translated (this session or a previous one), so it can be shown with no wait. */
+export function cachedTranslation(text, target = getLocale()) {
+  return memo.get(`${target}\n${text}`) || null
 }
 
 /**
@@ -139,10 +212,13 @@ export function useMessageTranslations() {
     if (cur?.value != null && cur.body === m.body) { patch(m.id, { on: true }); return }
     patch(m.id, { busy: true })
     const r = await translateNow(m.body, locale)
-    patch(m.id, { busy: false, on: !r.failed, value: r.value, body: m.body, same: r.src === locale })
+    patch(m.id, { busy: false, on: !r.failed, failed: !!r.failed, value: r.value, body: m.body, same: r.src === locale })
+    // The failure note clears itself after a few seconds, so it never sits on a message for good.
+    if (r.failed) setTimeout(() => patch(m.id, { failed: false }), 6000)
   }, [state, locale])
   return {
     available,
+    isFailed: (m) => !!state.get(m.id)?.failed,
     isOn: (m) => !!state.get(m.id)?.on && state.get(m.id)?.body === m.body,
     isBusy: (m) => !!state.get(m.id)?.busy,
     isSame: (m) => !!state.get(m.id)?.same,

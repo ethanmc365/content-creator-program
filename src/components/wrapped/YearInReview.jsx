@@ -373,7 +373,7 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
           className="flex h-10 items-center gap-2 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-30"
         >
           <Icon name={paused ? 'plane-flight' : 'mute'} className="h-4 w-4" />
-          {paused ? 'Play' : 'Pause'}
+          {paused ? tr('Play') : tr('Pause')}
         </button>
         <button
           type="button"
@@ -399,7 +399,7 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
               className="btn-primary inline-flex items-center gap-2 !py-2.5 text-sm disabled:opacity-60"
             >
               <Icon name={saved ? 'check' : 'download'} className="h-4 w-4" />
-              {saving && !savedCount ? 'Drawing…' : saved ? 'Saved' : onShare ? 'Save my card' : 'Save this card'}
+              {saving && !savedCount ? tr('Drawing…') : saved ? tr('Saved') : onShare ? tr('Save my card') : tr('Save this card')}
             </button>
             {/* "Have the ability to save every card at once or save a specific
                 card." The one above saves whichever card is on screen; this one
@@ -412,11 +412,11 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
               className="btn-secondary inline-flex items-center gap-2 !py-2.5 text-sm disabled:opacity-60"
             >
               <Icon name="download" className="h-4 w-4" />
-              {savedCount ? `Saving ${savedCount} of ${cards.length + 1}…` : 'Save all'}
+              {savedCount ? tr('Saving {n} of {total}…', { n: savedCount, total: cards.length + 1 }) : tr('Save all')}
             </button>
           </div>
           <p className="text-[11px] text-smoke">
-            {onShare ? 'A picture, ready for a story.' : 'Pictures, ready for a story.'}
+            {onShare ? tr('A picture, ready for a story.') : tr('Pictures, ready for a story.')}
           </p>
         </div>
       )}

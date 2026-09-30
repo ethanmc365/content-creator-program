@@ -18,6 +18,7 @@ import HistoryForm from '../../../components/admin/HistoryForm'
 import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
+import { FILL } from '../../../components/charts/chartTheme'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -428,7 +429,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                   <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar animationDuration={600} yAxisId="l" dataKey="spend" name={`Prize spend (${currency})`} fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={32} />
+                  <Bar animationDuration={600} yAxisId="l" dataKey="spend" name={`Prize spend (${currency})`} fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={32} />
                   <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="views" name="Views" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
                 </ComposedChart>
               </Card>
@@ -440,7 +441,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => money(v, currency, 2)} width={60} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => money(v, currency, 2)} />
                   <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" label={{ value: 'target', fontSize: 10, fill: GOOD, position: 'right' }} />
-                  <Bar animationDuration={600} dataKey="cpm" name="Blended CPM" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={32} />
+                  <Bar animationDuration={600} dataKey="cpm" name="Blended CPM" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={32} />
                 </BarChart>
               </Card>
             </div>
@@ -461,7 +462,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                   <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area animationDuration={600} yAxisId="l" type="monotone" dataKey="views" name="Views to date" stroke={BRAND} fill={BRAND} fillOpacity={0.16} strokeWidth={2.5} />
+                  <Area animationDuration={600} yAxisId="l" type="monotone" dataKey="views" name="Views to date" stroke={BRAND} fill={FILL.area} strokeWidth={2.5} />
                   <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="spend" name={`Spend to date (${currency})`} stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
                 </ComposedChart>
               </Card>

@@ -29,7 +29,6 @@ import GameEventCard from '../components/GameEventCard'
 import ResourceCard from '../components/ResourceCard'
 import LiveLeaderboardCard from '../components/LiveLeaderboardCard'
 import { renderMessageBody, stripMarkup } from '../lib/richText'
-import TranslatedText from '../components/TranslatedText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
 import ChatAdminTools from '../components/ChatAdminTools'
@@ -1663,18 +1662,18 @@ export default function NetworkChat() {
                           <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>
                             {search
                               ? <Highlight text={m.body} term={search} />
-                              : active?.key === 'announcements' && !mine && m.body.trim().length > 12
-                                /* ANNOUNCEMENTS READ IN YOUR LANGUAGE (30 Sep 2026): the team's
-                                   announcements are important text, so they get the same
-                                   Translated / Original switch as a brief. */
-                                ? <TranslatedText text={m.body}>{(md) => renderMessageBody(md, { rich: true, members, onDark: mine })}</TranslatedText>
-                                : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: mine })}
+                              /* ANNOUNCEMENTS ARE LIKE EVERY OTHER MESSAGE (30 Sep 2026). They had their own
+                                 Translated / Original switch on top as well as the Translate action and the
+                                 "Show original" line under it - two controls for one job, and only in the
+                                 announcements room (Ethan saw it in Germany's). One way now, everywhere. */
+                              : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: mine })}
                             {mt.isOn(m) && (
                                   <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
                                     <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
                                   </button>
                                 )}
                                 {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
+                                {mt.isFailed(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr("This message can't be translated right now.")}</span>}
                           </div>
                         )
                       )}

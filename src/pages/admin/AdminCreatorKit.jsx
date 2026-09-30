@@ -1,4 +1,5 @@
-import { Suspense } from 'react'
+import { Suspense, createContext, useContext, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { lazyRoute } from '../../lib/lazyRoute'
@@ -29,8 +30,17 @@ const TABS = [
   { key: 'awarded', label: 'Awarded', icon: 'check', hint: 'Who has what, and hand one out' },
 ]
 
+// A tab's own action (New certificate) lives at the right end of the tab row, not on a row of its
+// own under it (30 Sep 2026) - the tab portals it into this slot.
+const KitSlot = createContext(null)
+export function KitAction({ children }) {
+  const slot = useContext(KitSlot)
+  return slot ? createPortal(children, slot) : <div className="flex justify-end">{children}</div>
+}
+
 export default function AdminCreatorKit() {
   const [params, setParams] = useSearchParams()
+  const [slot, setSlot] = useState(null)
   const tab = TABS.some((t) => t.key === params.get('tab')) ? params.get('tab') : 'graphics'
   const current = TABS.find((t) => t.key === tab)
 
@@ -46,7 +56,8 @@ export default function AdminCreatorKit() {
           horizontal bleed matches `.page`'s own padding exactly, so the row
           runs to the screen edge on a phone (the cue that says there is more to
           the right) without giving the page a scrollbar. */}
-      <div className="pick-row -mx-5 flex gap-2 px-5 sm:-mx-8 sm:px-8" role="tablist">
+      <div className="flex items-center gap-2">
+      <div className="pick-row -mx-5 flex min-w-0 flex-1 gap-2 px-5 sm:-mx-8 sm:px-8" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -60,13 +71,17 @@ export default function AdminCreatorKit() {
           </button>
         ))}
       </div>
-      {current.hint ? <p className="mb-6 text-sm text-smoke">{current.hint}</p> : <div className="mb-2" />}
+      <div ref={setSlot} className="flex shrink-0 items-center" />
+      </div>
+      {current.hint ? <p className="mb-6 text-sm text-smoke">{current.hint}</p> : <div className="mb-3" />}
 
-      <Suspense fallback={<Skeleton className="h-96 w-full rounded-card" />}>
-        {tab === 'graphics' && <KitLibrary />}
-        {tab === 'certificates' && <CertificateStudio />}
-        {tab === 'awarded' && <AwardedList />}
-      </Suspense>
+      <KitSlot.Provider value={slot}>
+        <Suspense fallback={<Skeleton className="h-96 w-full rounded-card" />}>
+          {tab === 'graphics' && <KitLibrary />}
+          {tab === 'certificates' && <CertificateStudio />}
+          {tab === 'awarded' && <AwardedList />}
+        </Suspense>
+      </KitSlot.Provider>
     </div>
   )
 }

@@ -413,6 +413,7 @@ export const TIER_FOR_AWARD = {
   manual: 'honour',
   milestone: 'milestone',
   challenge_entry: 'participation',
+  creator_joined: 'participation',
 }
 export const tierForAward = (awardOn) => TIER_FOR_AWARD[awardOn] || 'honour'
 
@@ -447,6 +448,8 @@ export function awardKind(design = {}, facts = {}) {
   const on = design.award_on || ({ achievement: 'challenge_rank', honour: 'manual', milestone: 'milestone', participation: 'challenge_entry' })[design.tier]
   if (on === 'challenge_rank') return { key: 'winner', label: 'Prize winner', badgeLabel: '', icon: 'trophy' }
   if (on === 'challenge_entry') return { key: 'entry', label: 'Participant', badgeLabel: '', icon: 'check' }
+  // JOINING (migration 290): every creator gets one the day they are approved.
+  if (on === 'creator_joined') return { key: 'joined', label: 'Official creator', badgeLabel: '', icon: 'star' }
   // A FLAG IS NOT A MILESTONE. Ethan: "I don't like the current milestone icon.
   // Maybe change it to something else, like a trophy."
   if (on === 'milestone') return { key: 'milestone', label: 'Milestone', badgeLabel: '', icon: 'trophy' }
@@ -508,6 +511,9 @@ export function sampleFacts(design = {}, ctx = {}) {
   }
   if (design.award_on === 'challenge_entry') {
     return { ...SAMPLE_BASE, challenge: 'Hidden Gems of Your City', market }
+  }
+  if (design.award_on === 'creator_joined') {
+    return { ...SAMPLE_BASE, market }
   }
   if (design.award_on === 'manual') {
     // A hand-given certificate usually has no challenge behind it, so the
@@ -572,6 +578,7 @@ const BODY_FOR_AWARD = {
   challenge_rank: 'for finishing {place} in {challenge}',
   challenge_entry: 'for taking part in {challenge}',
   milestone: 'for reaching {milestone}',
+  creator_joined: 'for joining the Tryp.com Content Creator Community',
   manual: 'for outstanding work in the Tryp.com\nContent Creator Community',
 }
 

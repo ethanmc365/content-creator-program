@@ -223,6 +223,14 @@ export function kpiStatus({ target, actual, year, quarter, month = null, now = n
   const progress = quarterProgress(year, quarter, now, month)
   const over = progress >= 1
 
+  // NOT STARTED YET (30 Sep 2026). Ethan: Q4 "shows fully white, but it says 6 out of 6, on track or
+  // met ... it shouldn't show this unless it's actually started". A goal for a period that has not
+  // begun is a plan: it is neither on track nor behind, it is upcoming.
+  if (now < periodRange({ year, quarter, month }).start) {
+    const pct0 = target > 0 ? actual / target : 0
+    return { status: 'upcoming', pct: higherIsBetter ? pct0 : 0, progress: 0 }
+  }
+
   // LOWER IS BETTER (a cost, a delay): met at or under the goal. How close a
   // figure is reads as goal / actual, capped, so 100% still means "there".
   if (!higherIsBetter) {
@@ -403,4 +411,136 @@ export function withDerivedTargets({ period, own, monthsOfQuarter = [], quarterT
     }
   }
   return out
+}
+
+// ---- THE TOTAL (30 Sep 2026) ------------------------------------------------
+// Ethan: "the total one shouldn't have targets set and instead should be a combination of everything
+// from all the KPIs that have been set for all the markets ... rather than me setting it, you're
+// actually pulling everything."
+//
+// So the Total is never typed in. For one period it is every scope's goals (the global challenges and
+// each market) added together, each scope's live number beside its own goal:
+//   a running total  goal = the goals added up, actual = the actuals added up
+//   a level          goal and actual are the AVERAGE across the scopes that set it (an average of
+//                    averages, said as such on the page) - adding up "20 creators per challenge" in
+//                    two markets to 40 would be a number nobody set
+// Only scopes that set a goal for a metric contribute to it, so the total compares like with like: a
+// market with no views goal does not inflate the views actual against goals it never shared.
+
+/** Stable key of a period, used for caches and batch requests. */
+export function periodKey({ year, quarter, month }) {
+  return `${year}-${quarter}-${month ?? ''}`
+}
+
+/**
+ * perScope: [{ scope: { key, name, color }, rows: mergedRows }] for ONE period.
+ * Returns one row per metric with `parts` (each scope's own goal, actual and row).
+ */
+export function aggregateScopes(perScope) {
+  const byMetric = new Map()
+  for (const { scope, rows } of perScope) {
+    for (const r of rows || []) {
+      if (!byMetric.has(r.metric)) byMetric.set(r.metric, { metric: r.metric, label: r.label, parts: [] })
+      byMetric.get(r.metric).parts.push({ scope, row: r, target: Number(r.target_value) || 0, actual: Number(r.actual) || 0 })
+    }
+  }
+  const out = []
+  for (const agg of byMetric.values()) {
+    const def = metricDef(agg)
+    const n = agg.parts.length
+    const tSum = agg.parts.reduce((s, p) => s + p.target, 0)
+    const aSum = agg.parts.reduce((s, p) => s + p.actual, 0)
+    const level = def.kind === 'level'
+    out.push({
+      id: null,
+      total: true,
+      metric: agg.metric,
+      label: agg.label,
+      target_value: level ? round2(tSum / n) : tSum,
+      actual: level ? round2(aSum / n) : aSum,
+      parts: agg.parts,
+      averaged: level,
+      unit: 'number',
+      cumulative: true,
+      higher_is_better: true,
+    })
+  }
+  return out.sort((a, b) => {
+    const ra = STANDARD_ORDER.has(a.metric) ? STANDARD_ORDER.get(a.metric) : 99
+    const rb = STANDARD_ORDER.has(b.metric) ? STANDARD_ORDER.get(b.metric) : 99
+    return ra - rb
+  })
+}
+
+/**
+ * THE OVERVIEW IS A ROLLING WINDOW, NOT A CALENDAR YEAR (30 Sep 2026). Ethan: "the year overview says
+ * 2026, but in 2027 it's still compared to the last quarter, which would be in 2026." Around the
+ * period on screen: two quarters before it and one after (four), or eight months before and three
+ * after (twelve), crossing the new year like any other boundary.
+ */
+export function windowPeriods(period, byMonth) {
+  if (byMonth) {
+    const m = period.month ?? (period.quarter - 1) * 3 + 1
+    return Array.from({ length: 12 }, (_, i) => {
+      const p = adjacentMonth(period.year, m, i - 8)
+      return { ...p, key: periodKey(p), short: MONTHS[p.month - 1].slice(0, 3), yearTag: p.month === 1 || i === 0 }
+    })
+  }
+  return [-2, -1, 0, 1].map((d, i) => {
+    const q = adjacentQuarter(period.year, period.quarter, d)
+    const p = { ...q, month: null }
+    return { ...p, key: periodKey(p), short: `Q${q.quarter}`, yearTag: q.quarter === 1 || i === 0 }
+  })
+}
+
+/** The rows for one scope and one period out of all of that scope's targets (any period). */
+export function rowsForPeriod(allTargets, period) {
+  const own = allTargets.filter((t) => t.year === period.year && t.quarter === period.quarter && (t.month ?? null) === (period.month ?? null))
+  return withDerivedTargets({
+    period,
+    own,
+    monthsOfQuarter: period.month == null ? allTargets.filter((t) => t.year === period.year && t.quarter === period.quarter && t.month != null) : [],
+    quarterTargets: period.month != null ? allTargets.filter((t) => t.year === period.year && t.quarter === period.quarter && t.month == null) : [],
+  })
+}
+
+/** How a scope is doing overall in one period: counts per status and a single verdict. */
+export function scopeVerdict(rows, period, now = new Date()) {
+  const counts = { met: 0, on_track: 0, behind: 0, missed: 0 }
+  let pctSum = 0
+  for (const r of rows) {
+    const s = rowStatus(r, period, now)
+    counts[s.status] += 1
+    pctSum += Math.min(1.5, s.pct)
+  }
+  const n = rows.length
+  const progress = quarterProgress(period.year, period.quarter, now, period.month ?? null)
+  if (n === 0) return { verdict: 'none', counts, n, avgPct: 0, progress }
+  if (progress === 0) return { verdict: 'upcoming', counts, n, avgPct: pctSum / n, progress }
+  const bad = counts.behind + counts.missed
+  const verdict = bad === 0 ? 'good' : bad / n > 0.34 ? 'support' : 'watch'
+  return { verdict, counts, n, avgPct: pctSum / n, progress }
+}
+
+/** Has this period started yet? A goal for next quarter is a plan, not a result. */
+export function periodStarted(period, now = new Date()) {
+  return now >= periodRange(period).start
+}
+
+/** Whole days until a period starts (0 once it has). */
+export function daysUntil(period, now = new Date()) {
+  return Math.max(0, Math.ceil((periodRange(period).start - now) / 86400000))
+}
+
+/** Goal heights exaggerated from a floor so small differences are visible. */
+export function scaledHeights(values, floor = 0.42) {
+  const nums = values.filter((v) => v != null && Number.isFinite(v))
+  if (nums.length === 0) return values.map(() => 0)
+  const min = Math.min(...nums)
+  const max = Math.max(...nums)
+  return values.map((v) => {
+    if (v == null) return 0
+    if (max === min) return 0.78
+    return floor + (1 - floor) * ((v - min) / (max - min))
+  })
 }

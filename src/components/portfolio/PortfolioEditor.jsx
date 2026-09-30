@@ -7,7 +7,8 @@ import { cx } from '../../lib/utils'
 import { pickClass } from '../../lib/pick'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
-import { DEFAULT_COPY, PORTFOLIO_ACCENTS as ACCENTS, WORK_LIMIT, compactViews, copyFor, slugify, workMode } from '../../lib/portfolio'
+import { copyIn } from './Slides'
+import { DEFAULT_COPY, PORTFOLIO_ACCENTS as ACCENTS, WORK_LIMIT, compactViews, slugify, workMode } from '../../lib/portfolio'
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
 //
@@ -210,7 +211,7 @@ function Words({ portfolio, creator, onChange, certificates, tr }) {
       {fields.map((f) => {
         const written = copy[f.key]
         const changed = typeof written === 'string' && written.trim() && written !== DEFAULT_COPY[f.key]
-        const value = copyFor(copy, f.key)
+        const value = copyIn(tr, copy, f.key)
         const left = f.max - value.length
         // Silent until it matters. A counter on every field all the time reads
         // as a form with ten limits in it; one that appears in the last fifth

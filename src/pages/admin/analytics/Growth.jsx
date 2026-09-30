@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { growthByMonth, monthLabel } from '../../../lib/analyticsScope'
 import { downloadCsv, formatViews } from '../../../lib/utils'
+import { FILL } from '../../../components/charts/chartTheme'
 
 // HOW BIG IS THIS, AND IS IT STILL GETTING BIGGER.
 //
@@ -22,7 +23,6 @@ import { downloadCsv, formatViews } from '../../../lib/utils'
 // the queue is not a member.
 
 const BRAND = '#d94407'
-const BRAND_LIGHT = '#f5853f'
 
 const tooltipStyle = {
   borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
@@ -155,7 +155,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
             <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />
             <Tooltip contentStyle={tooltipStyle} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar animationDuration={600} dataKey="joined" name="Joined" fill={BRAND_LIGHT} radius={[4, 4, 0, 0]} maxBarSize={38} />
+            <Bar animationDuration={600} dataKey="joined" name="Joined" fill={FILL.light} radius={[4, 4, 0, 0]} maxBarSize={38} />
             <Line
               type="monotone" dataKey="total" name="Total creators"
               stroke={BRAND} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }}
@@ -204,7 +204,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
                 <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar animationDuration={600} dataKey="videos" name="Videos" fill="#f9b98a" radius={[4, 4, 0, 0]} maxBarSize={38} />
+                <Bar animationDuration={600} dataKey="videos" name="Videos" fill={FILL.light} radius={[4, 4, 0, 0]} maxBarSize={38} />
                 <Line animationDuration={600} type="monotone" dataKey="creators" name="Creators posting" stroke={BRAND} strokeWidth={2.5} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>

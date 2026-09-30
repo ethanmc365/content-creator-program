@@ -1,6 +1,7 @@
 import { formatViews, formatMoney, cx } from '../../lib/utils'
 import { flagEmoji } from '../../lib/countries'
 import Icon from '../Icon'
+import { useT } from '../../lib/i18n'
 
 // THE SHAPES A STORY CARD CAN TAKE.
 //
@@ -204,6 +205,7 @@ export function Facts({ items, palette = 'ember' }) {
 
 /** "Top 4% of the community" - the line people screenshot. */
 export function Standing({ standing: s, what, palette = 'ember' }) {
+  const tr = useT()
   if (!s || !s.top) return null
   const p = PALETTES[palette] || PALETTES.ember
   return (
@@ -213,7 +215,7 @@ export function Standing({ standing: s, what, palette = 'ember' }) {
       style={{ background: p.chip, color: p.ink }}
     >
       <Icon name="trophy" className="h-3.5 w-3.5" />
-      Top {s.percentile}% {what}
+      {tr('Top {n}% {what}', { n: s.percentile, what })}
     </span>
   )
 }

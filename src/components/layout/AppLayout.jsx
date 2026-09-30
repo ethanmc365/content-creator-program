@@ -16,6 +16,7 @@ import RouteSkeleton from '../RouteSkeleton'
 import PullToRefresh from '../PullToRefresh'
 import BankDetailsPrompt from '../BankDetailsPrompt'
 import AddToHomePrompt from '../AddToHomePrompt'
+import SurveyHost from '../SurveyHost'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { startHeartbeat } from '../../lib/presence'
@@ -539,6 +540,8 @@ export default function AppLayout() {
           notifications, then bank details. */}
       <AddToHomePrompt />
       <BankDetailsPrompt />
+      {/* Surveys from the team (migration 291), last in the same queue. */}
+      <SurveyHost />
 
       {/* When an admin is previewing as the sandbox creator, a persistent pill
           floats above everything so they can always exit back to their admin

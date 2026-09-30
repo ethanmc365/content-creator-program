@@ -331,7 +331,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
           </Field>
           <Field label={tr('Market')}>
             <Select
-              inFlow
+              portal
               variant="field"
               value={form.community_id}
               onChange={(v) => set({ community_id: v })}
@@ -344,7 +344,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
 
         <Field label={tr('Challenge')} hint={tr('Live challenges and everything in the challenge log.')}>
           <Select
-            inFlow
+            portal
             variant="field"
             value={form.challenge}
             onChange={(v) => set({ challenge: v })}
@@ -359,9 +359,8 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
             rows={3} className={inputCls} />
         </Field>
 
-        <Field label={tr('Tags')} hint={tr('Commas between them. POV, transition, price reveal.')}>
-          <input value={form.tags} onChange={(e) => set({ tags: e.target.value })} className={inputCls} />
-        </Field>
+        {/* NO TAGS (30 Sep 2026). Ethan: "There's no need for the tag section on this." Tags already
+            saved on a row are kept as they are; there is simply no field for them any more. */}
 
         <Field label={tr('Notes for the team')} hint={tr('Why it worked, what to copy, what not to.')}>
           <AutoTextarea value={form.notes} onChange={(e) => set({ notes: e.target.value })}

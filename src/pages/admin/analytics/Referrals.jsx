@@ -9,6 +9,7 @@ import Icon from '../../../components/Icon'
 import { cx, downloadCsv, formatMoney, formatViews } from '../../../lib/utils'
 import { REFERRAL_STAGES, referralStage, referralTerms } from '../../../lib/referrals'
 import Segmented from '../../../components/network/Segmented'
+import { FILL } from '../../../components/charts/chartTheme'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -386,8 +387,8 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
                     labelFormatter={(l) => `Week of ${l}`}
                     formatter={(v, k) => [v, k === 'signed' ? 'Signed up' : 'Counted']}
                   />
-                  <Bar dataKey="signed" fill="#f5b48a" radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} />
-                  <Bar dataKey="counted" fill="#d94407" radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} animationBegin={150} />
+                  <Bar dataKey="signed" fill={FILL.light} radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} />
+                  <Bar dataKey="counted" fill={FILL.brand} radius={[4, 4, 0, 0]} maxBarSize={22} animationDuration={700} animationBegin={150} />
                 </BarChart>
               </ResponsiveContainer>
             )}

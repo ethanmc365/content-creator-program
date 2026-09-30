@@ -28,6 +28,12 @@
 // only the admin knows which one - the studio says so in the panel.
 // THE TWO DRAFTS SWAPPED LOOKS (1 Oct 2026), at Ethan's request before he puts them live:
 // "Milestone reached" is now the minimal one and "Took part" the boarding pass.
+// WHAT GIVES EACH ONE OUT (30 Sep 2026). Ethan: "use the podium finish one for now. It will do first
+// place to tenth place ... The prize winner one can just be something else for now ... given by hand",
+// "Official creator ... given to every creator that joins", "Took part ... everyone that takes part",
+// and the milestone and creator-of-the-month ones "wired up by hand for now". All six were created in
+// production as DRAFTS that day; nothing is awarded until each is switched on and `certificates_live`
+// is turned on.
 export const STARTERS = [
   {
     // ONE DESIGN FOR EVERY PAID PLACE (28 Sep 2026): each place gets its own
@@ -36,7 +42,7 @@ export const STARTERS = [
     tier: 'achievement',
     title: 'Certificate of Achievement',
     subtitle: 'Tryp.com Creator Community',
-    body: 'for finishing {place} in {challenge}\n{market}',
+    body: 'for winning a prize in {challenge}\n{market}',
     footnote: '',
     accent: '#D94407',
     layout: 'banner',
@@ -45,9 +51,8 @@ export const STARTERS = [
     pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
-    award_on: 'challenge_rank',
+    award_on: 'manual',
     ranks: [],
-    all_prize_places: true,
     community_ids: [],
     is_active: true,
   },
@@ -66,7 +71,8 @@ export const STARTERS = [
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
     award_on: 'challenge_rank',
-    ranks: [2, 3],
+    ranks: [],
+    all_prize_places: true,
     community_ids: [],
     is_active: true,
   },
@@ -84,7 +90,7 @@ export const STARTERS = [
     pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
-    award_on: 'manual',
+    award_on: 'creator_joined',
     ranks: [],
     community_ids: [],
     is_active: true,
@@ -113,7 +119,7 @@ export const STARTERS = [
     tier: 'milestone',
     title: 'Certificate of Achievement',
     subtitle: 'Tryp.com Creator Community',
-    body: 'for reaching {milestone}',
+    body: 'for reaching a new milestone\nin the Tryp.com Content Creator Community',
     footnote: '',
     accent: '#D94407',
     layout: 'minimal',
@@ -122,7 +128,7 @@ export const STARTERS = [
     pattern: 'plain',
     signature: 'Tryp.com',
     signature_role: 'Creator Community',
-    award_on: 'milestone',
+    award_on: 'manual',
     ranks: [],
     community_ids: [],
     is_active: false,

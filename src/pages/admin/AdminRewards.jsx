@@ -18,6 +18,8 @@ import { rewardsTotal } from '../../lib/programme'
 import { groupRewards } from '../../lib/rewardsGrouping'
 import VoucherTicket from '../../components/VoucherTicket'
 import VouchersPanel from './VouchersPanel'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -280,6 +282,70 @@ function StillToPay({ title, hint, rows, loading, openInvoices = 0, ...rowProps 
   )
 }
 
+// PAID OUT SO FAR, READABLE (30 Sep 2026). Ethan: "The payout so far, everything looks hard to read
+// there. The information is just in a line. Improve it." It was two rows of label and number. Now: the
+// total, the split between cash and vouchers as one bar with both halves named, how many payouts and
+// creators that is, and the last six months as a small chart (cash and vouchers stacked, in euros).
+function PaidOut({ rewards, cashOut, voucherOut, paid }) {
+  const paidRows = rewards.filter((r) => r.status === 'distributed')
+  const total = (cashOut.amount || 0) + (voucherOut.amount || 0)
+  const cashPct = total > 0 ? Math.round(((cashOut.amount || 0) / total) * 100) : 0
+  const people = new Set(paidRows.map((r) => r.creator_id || r.profiles?.id).filter(Boolean)).size
+  const months = useMemo(() => {
+    const now = new Date()
+    const out = []
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      const inMonth = paidRows.filter((r) => { const t = r.distributed_at && new Date(r.distributed_at); return t && `${t.getFullYear()}-${t.getMonth()}` === key })
+      out.push({
+        name: d.toLocaleDateString('en-GB', { month: 'short' }),
+        cash: rewardsTotal(inMonth.filter((r) => r.reward_type === 'cash')).amount || 0,
+        vouchers: rewardsTotal(inMonth.filter((r) => r.reward_type === 'voucher')).amount || 0,
+      })
+    }
+    return out
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rewards])
+  const eur = (n) => formatMoney(n, 'EUR')
+  return (
+    <section className="card">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-semibold">Paid out so far</h2>
+        <span className="text-xs text-smoke">{paidRows.length} payouts · {people} creators</span>
+      </div>
+      <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{money(paid)}</p>
+      <div className="mt-4 flex h-3 gap-[3px] overflow-hidden rounded-full bg-cloud">
+        {cashPct > 0 && <span className="kpi-fill h-full rounded-l-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${cashPct}%` }} />}
+        {cashPct < 100 && total > 0 && <span className="kpi-fill h-full rounded-r-full bg-[#fbc9a6]" style={{ width: `${100 - cashPct}%` }} />}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-cloud/70 px-3.5 py-2.5">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-smoke"><span className="h-2 w-2 rounded-full bg-brand" />Cash · {cashPct}%</p>
+          <p className="mt-0.5 text-lg font-bold tabular-nums">{money(cashOut)}</p>
+        </div>
+        <div className="rounded-xl bg-cloud/70 px-3.5 py-2.5">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-smoke"><span className="h-2 w-2 rounded-full bg-[#fbc9a6]" />Vouchers · {total > 0 ? 100 - cashPct : 0}%</p>
+          <p className="mt-0.5 text-lg font-bold tabular-nums">{money(voucherOut)}</p>
+        </div>
+      </div>
+      <p className="mb-1 mt-5 text-[11px] font-bold uppercase tracking-wide text-gray-400">Last six months</p>
+      <div className="h-32">
+        <ResponsiveContainer>
+          <BarChart data={months} margin={{ top: 4, right: 0, left: -18, bottom: 0 }} barCategoryGap="30%">
+            <CartesianGrid vertical={false} stroke={CHART.grid} />
+            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+            <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : v)} />
+            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.05)' }} formatter={(v, k) => [eur(v), k === 'cash' ? 'Cash' : 'Vouchers']} />
+            <Bar dataKey="cash" stackId="p" fill={FILL.brand} maxBarSize={28} />
+            <Bar dataKey="vouchers" stackId="p" fill={FILL.light} radius={[5, 5, 0, 0]} maxBarSize={28} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  )
+}
+
 // THE FIRST PAGE (30 Sep 2026): the money at a glance and whatever needs following up.
 function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vouchersNeedCode, referralPending, rewards, go }) {
   const count = (st) => invoiceStages.filter((i) => i.stage === st).length
@@ -298,7 +364,9 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total community spend" value={money(spend)} />
-        <StatCard label="Distributed" value={money(paid)} accent />
+        {/* SAME AS ITS NEIGHBOURS (30 Sep 2026). Ethan: "For that card that says Distributed, it's a
+            different colour. I don't like that it's a different colour. Just align it with the others." */}
+        <StatCard label="Distributed" value={money(paid)} />
         <StatCard label="Pending payout" value={money(pending)} hint={pending.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>
 
@@ -322,13 +390,7 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="card">
-          <h2 className="mb-3 text-base font-semibold">Paid out so far</h2>
-          <dl className="divide-y divide-gray-50 text-sm">
-            <div className="flex justify-between py-2.5"><dt className="text-smoke">Cash</dt><dd className="font-bold tabular-nums">{money(cashOut)}</dd></div>
-            <div className="flex justify-between py-2.5"><dt className="text-smoke">Vouchers</dt><dd className="font-bold tabular-nums">{money(voucherOut)}</dd></div>
-          </dl>
-        </section>
+        <PaidOut rewards={rewards} cashOut={cashOut} voucherOut={voucherOut} paid={paid} />
         <section className="card">
           <h2 className="mb-3 text-base font-semibold">Recently paid</h2>
           {recent.length === 0 ? <p className="text-sm text-smoke">Nothing yet.</p> : (

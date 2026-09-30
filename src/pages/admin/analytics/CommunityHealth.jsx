@@ -11,6 +11,7 @@ import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
 import ConnectionsSection from './ConnectionsSection'
 import PushDelivery from './PushDelivery'
 import Icon from '../../../components/Icon'
+import { FILL } from '../../../components/charts/chartTheme'
 
 // Community health: is the place actually being used, and by whom.
 //
@@ -409,8 +410,8 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
                 <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} unit="%" />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar animationDuration={600} yAxisId="l" dataKey="members" name="Members" fill={BRAND_PALE} radius={[8, 8, 0, 0]} maxBarSize={26} />
-                <Bar animationDuration={600} yAxisId="l" dataKey="active_creators" name="Active" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={26} />
+                <Bar animationDuration={600} yAxisId="l" dataKey="members" name="Members" fill={FILL.pale} radius={[8, 8, 0, 0]} maxBarSize={26} />
+                <Bar animationDuration={600} yAxisId="l" dataKey="active_creators" name="Active" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={26} />
                 <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="activePct" name="Active %" stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>

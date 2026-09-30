@@ -8,7 +8,8 @@ import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import KpiProgress from './KpiProgress'
 import { cx, formatDate, formatViews } from '../../lib/utils'
-import { formatKpiValue, metricDef, metricLabel, periodLabel, rowStatus } from '../../lib/kpiTracker'
+import { daysUntil, formatKpiValue, metricDef, metricLabel, periodLabel, rowStatus } from '../../lib/kpiTracker'
+import { CHART, FILL, axisTick, tooltipStyle as chartTip } from '../charts/chartTheme'
 import { useT } from '../../lib/i18n'
 
 // ONE KPI, OPENED UP (28 Sep 2026).
@@ -29,16 +30,12 @@ import { useT } from '../../lib/i18n'
 // custom KPI is typed in by hand and has no history, so it gets part 1 only.
 
 const BRAND = '#d94407'
-const BRAND_LIGHT = '#f5853f'
-const tooltipStyle = {
-  borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
-  fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
-}
 const STATUS = {
   met: { label: 'Target met', chip: 'bg-emerald-50 text-emerald-700', bar: 'bg-emerald-500' },
   on_track: { label: 'On track', chip: 'bg-brand-tint text-brand', bar: 'bg-brand' },
   behind: { label: 'Behind pace', chip: 'bg-amber-50 text-amber-700', bar: 'bg-amber-500' },
   missed: { label: 'Missed', chip: 'bg-red-50 text-red-600', bar: 'bg-red-500' },
+  upcoming: { label: 'Not started', chip: 'bg-gray-100 text-smoke', bar: 'bg-gray-300' },
 }
 
 const DATE_METRICS = new Set(['creators_recruited', 'referrals', 'activation_rate', 'creators_total'])
@@ -159,10 +156,12 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                 also keeps red and amber readable, neither of which survives on
                 an orange background - and is the very component the card uses. */}
             <div className="relative mt-4 rounded-2xl bg-white px-4 py-3 text-ink shadow-card">
-              <KpiProgress status={status} pct={pct} progress={progress} isLevel={isLevel} size="lg" />
+              <KpiProgress status={status} pct={pct} progress={progress} isLevel={isLevel} size="lg" startsIn={daysUntil(period)} />
             </div>
             <p className="relative mt-3 text-sm text-white/90">
-              {status === 'met'
+              {status === 'upcoming'
+                ? tr('{p} has not started yet. The goal is {g}.', { p: periodLabel(period), g: f(row.target_value) })
+                : status === 'met'
                 ? tr('Target reached, at {p}% of it.', { p: Math.round(pct * 100) })
                 : status === 'missed'
                   ? tr('Finished {n} short of the target.', { n: f(left) })
@@ -171,8 +170,24 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                     : gap >= 0
                       ? tr('{n} ahead of the recommended pace for today. {left} to go.', { n: f(gap), left: f(left) })
                       : tr('{n} behind the recommended pace for today. {left} to go.', { n: f(-gap), left: f(left) })}
-              {daysLeft != null && status !== 'met' && status !== 'missed' && ` ${daysLeft === 1 ? tr('1 day left.') : tr('{n} days left.', { n: daysLeft })}`}
+              {daysLeft != null && status !== 'met' && status !== 'missed' && status !== 'upcoming' && ` ${daysLeft === 1 ? tr('1 day left.') : tr('{n} days left.', { n: daysLeft })}`}
             </p>
+          </div>
+
+          {/* FOUR NUMBERS, READ AT A GLANCE (30 Sep 2026). Ethan: the detail view "seems hard to read
+              the data". The sentence above says it; these say it without reading. */}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <DetailStat label={tr('So far')} value={status === 'upcoming' ? '-' : f(row.actual)} />
+            <DetailStat label={isLevel ? tr('The goal') : tr('Goal')} value={f(row.target_value)} />
+            <DetailStat
+              label={isLevel ? tr('Still to go') : tr('Pace today')}
+              value={status === 'upcoming' ? '-' : isLevel ? f(left) : f(expectedNow)}
+              tone={!isLevel && status !== 'upcoming' && status !== 'met' ? (gap >= 0 ? 'good' : 'bad') : null}
+            />
+            <DetailStat
+              label={status === 'upcoming' ? tr('Starts in') : tr('Days left')}
+              value={status === 'upcoming' ? tr('{n} days', { n: daysUntil(period) }) : daysLeft == null ? '-' : String(daysLeft)}
+            />
           </div>
 
           {custom ? (
@@ -210,27 +225,22 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
                     <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-brand" />{tr('Actual')}</span>
-                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />{isLevel ? tr('The goal') : tr('Recommended pace')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-gray-600/70" />{isLevel ? tr('The goal') : tr('Recommended pace')}</span>
                   </span>
                 </div>
                 <div className="h-60">
                   <ResponsiveContainer>
                     <ComposedChart data={series} margin={{ top: 6, right: 6, left: -8, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="kpiFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={BRAND} stopOpacity={0.28} />
-                          <stop offset="100%" stopColor={BRAND} stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
-                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={28} />
-                      <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
+                      <CartesianGrid stroke={CHART.grid} vertical={false} />
+                      <XAxis dataKey="day" tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={32} />
+                      <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => f(v)} allowDecimals={false} />
                       <Tooltip
-                        contentStyle={tooltipStyle}
+                        contentStyle={chartTip}
+                        cursor={{ stroke: '#d1d5db', strokeWidth: 1 }}
                         formatter={(v, name) => [f(v), name === 'total' ? tr('So far') : isLevel ? tr('The goal') : tr('Recommended pace')]}
                       />
-                      <Line type="monotone" dataKey="pace" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
-                      <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill="url(#kpiFill)" connectNulls={false} animationDuration={600} />
+                      <Line type="monotone" dataKey="pace" stroke="#4B5563" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
+                      <Area type="monotone" dataKey="total" stroke={BRAND} strokeWidth={2.5} fill={FILL.area} connectNulls={false} animationDuration={600} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: BRAND }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -249,11 +259,11 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   <div className="h-40">
                     <ResponsiveContainer>
                       <BarChart data={series} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
-                        <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={28} />
-                        <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v) => f(v)} allowDecimals={false} />
-                        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [f(v), tr('That day')]} />
-                        <Bar animationDuration={600} dataKey="landed" fill={BRAND_LIGHT} radius={[4, 4, 0, 0]} maxBarSize={14} />
+                        <CartesianGrid stroke={CHART.grid} vertical={false} />
+                        <XAxis dataKey="day" tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={32} />
+                        <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => f(v)} allowDecimals={false} />
+                        <Tooltip contentStyle={chartTip} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [f(v), tr('That day')]} />
+                        <Bar animationDuration={600} dataKey="landed" fill={FILL.brand} radius={[4, 4, 0, 0]} maxBarSize={14} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -342,5 +352,14 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
         </div>
       )}
     </Modal>
+  )
+}
+
+function DetailStat({ label, value, tone }) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-card">
+      <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={cx('mt-1 truncate text-lg font-bold tabular-nums', tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-amber-600' : 'text-ink')}>{value}</p>
+    </div>
   )
 }

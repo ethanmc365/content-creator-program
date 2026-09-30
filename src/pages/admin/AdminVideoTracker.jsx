@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
-import Reveal from '../../components/network/Reveal'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
 import { cx, formatViews, formatDate, downloadCsv } from '../../lib/utils'
@@ -120,7 +119,9 @@ export default function AdminVideoTracker() {
   const shown = useMemo(() => visibleVideos(rows || [], filter), [rows, filter])
   const totals = useMemo(() => summarise(shown), [shown])
 
-  const months = useMemo(() => monthsOf(rows || []), [rows])
+  // THE MONTH COUNTS FOLLOW THE OTHER FILTERS (30 Sep 2026). They counted every row ever tracked,
+  // retired ones included, so "September 21" sat under "All months 15" - two numbers for one list.
+  const months = useMemo(() => monthsOf(visibleVideos(rows || [], { ...filter, month: '' })), [rows, filter])
   const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month
 
   return (
@@ -382,24 +383,25 @@ export default function AdminVideoTracker() {
           )}
 
           {rows && shown.length > 0 && (
-            <Reveal
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-              stagger={0.05}
-              maxStagger={9}
+            // ONE ENTRANCE FOR THE WHOLE GRID (30 Sep 2026). Ethan: "it takes a little while for the
+            // videos to load in, and the animation does not smooth. Everything should be synced nicely
+            // and flow together rather than be spaced apart." The scroll-triggered, staggered reveal
+            // made cards arrive one by one as each came into view; now the grid rises as one, keyed on
+            // the filter so a change of filter replays it, and each frame fades in over its own
+            // placeholder the moment its picture has loaded.
+            <div
+              key={JSON.stringify(filter)}
+              className="grid animate-fade-up grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
             >
               {shown.map((v, i) => (
                 <VideoCard
                   key={v.id}
                   v={v}
-                  place={filter.sort === 'views' ? i + 1 : null}
+                  eager={i < 6}
                   onOpen={() => setEditing(v)}
-                  onPin={async () => {
-                    await supabase.from('tracked_videos').update({ pinned: !v.pinned }).eq('id', v.id)
-                    load()
-                  }}
                 />
               ))}
-            </Reveal>
+            </div>
           )}
         </div>
 
@@ -415,7 +417,7 @@ export default function AdminVideoTracker() {
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:mx-0 lg:max-h-[32rem] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
               <MonthChip
                 label={tr('All months')}
-                count={rows ? rows.filter((v) => v.qualifies || v.pinned).length : 0}
+                count={rows ? visibleVideos(rows, { ...filter, month: '' }).length : 0}
                 active={!filter.month}
                 onClick={() => set({ month: '' })}
               />
@@ -454,7 +456,7 @@ export default function AdminVideoTracker() {
 // number beside it, and the caption is the small print. Every other card in
 // this product leads with a person or a title; this one leads with a sentence,
 // because the sentence is what somebody came here to steal.
-function VideoCard({ v, place, onOpen, onPin }) {
+function VideoCard({ v, onOpen, eager = false }) {
   const tr = useT()
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
@@ -494,6 +496,7 @@ function VideoCard({ v, place, onOpen, onPin }) {
   // expiring URL is the right thing to do rather than a corner cut.
   const [thumb, setThumb] = useState(v.thumbnail_url || null)
   const [retried, setRetried] = useState(false)
+  const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     if (v.thumbnail_url && !retried) { setThumb(v.thumbnail_url); return undefined }
     let alive = true
@@ -551,9 +554,23 @@ function VideoCard({ v, place, onOpen, onPin }) {
         className="relative block aspect-[4/5] w-full overflow-hidden bg-cloud text-left"
         aria-label={tr('Open on the platform')}
       >
-        {thumb
-          ? <img src={thumb} alt="" onError={onThumbError} referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-          : <span className="absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/25" aria-hidden />}
+        <span className={cx('absolute inset-0 bg-gradient-to-br from-brand/10 to-brand/20', !loaded && thumb && 'animate-pulse')} aria-hidden />
+        {thumb && (
+          <img
+            src={thumb}
+            alt=""
+            onError={onThumbError}
+            onLoad={() => setLoaded(true)}
+            referrerPolicy="no-referrer"
+            decoding="async"
+            loading={eager ? 'eager' : 'lazy'}
+            fetchPriority={eager ? 'high' : 'auto'}
+            className={cx(
+              'relative h-full w-full object-cover transition-[opacity,transform] duration-500 ease-out group-hover:scale-105',
+              loaded ? 'opacity-100' : 'opacity-0',
+            )}
+          />
+        )}
         {/* NO PLAY MARK. Ethan: "completely remove the play button from the
             middle and just still have the function there to click anywhere on
             that." The frame IS the button - this whole block is one - so the
@@ -570,11 +587,8 @@ function VideoCard({ v, place, onOpen, onPin }) {
             is where it came in its CHALLENGE, which is the stronger statement
             and wins; `place` is where it sits in the list you are looking at,
             which is what makes a monthly report read as a chart. */}
-        {(v.rank || place) && (
-          <span className="absolute left-2 top-2 flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-brand shadow-card">
-            {v.rank || place}
-          </span>
-        )}
+        {/* NO NUMBER IN THE CORNER (30 Sep 2026). Ethan: "you don't need to actually number every
+            video in the top left. It doesn't really make sense numbering them." */}
         {/* THE PLATFORM AS ITS OWN MARK. Ethan: "change that to the actual
             social media brand icon, the logo, instead of just general
             Instagram, TikTok in white and grey." Same marks as the challenge
@@ -648,16 +662,6 @@ function VideoCard({ v, place, onOpen, onPin }) {
           </span>
         </div>
 
-        {v.tags?.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {v.tags.map((t) => (
-              <span key={t} className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-smoke">
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-
         {/* THE "OVER THE VIEW LINE" BADGE IS GONE (23 Sep 2026). Migration 252
             made the tracker threshold-only - every synced row's reason IS
             "over the line", always, so a badge repeating that on every single
@@ -683,8 +687,9 @@ function VideoCard({ v, place, onOpen, onPin }) {
           </span>
 
           <span className="ml-auto flex shrink-0 items-center gap-1">
-            <IconButton label={v.pinned ? tr('Unpin') : tr('Pin to the top')} onClick={onPin} active={v.pinned} name="star" />
-            <IconButton label={tr('Open on the platform')} href={v.video_url} name="link" />
+            {/* ONLY EDIT (30 Sep 2026). Ethan: the card itself opens the video, "so you can remove the
+                link button", and the star "acts as a pin ... we don't need it because we have the pin
+                to top" inside the edit sheet. A pinned video keeps its orange border. */}
             <IconButton label={tr('Edit')} onClick={onOpen} name="pencil" />
           </span>
         </div>
