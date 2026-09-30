@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import FlagStack from './FlagStack'
 import { challengeDeadline, cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // THE LIVE CHALLENGE, AS ONE ROW, ON EVERY SCREEN.
 //
@@ -38,6 +39,7 @@ import { challengeDeadline, cx } from '../../lib/utils'
 // whole row IS the link there, and adding two more targets inside it would
 // be three links doing two people's worth of thinking in a 20rem column.
 export default function LiveNowRow({ challenge, market, global: isGlobal, now, expanded = false }) {
+  const tr = useT()
   if (!challenge) return null
   const closes = challengeDeadline(challenge.end_date)
   const days = Math.max(0, Math.ceil((closes - now) / 86400000))
@@ -60,15 +62,15 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
           {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
               network/Motion.jsx. */}
           <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-          {isGlobal ? 'Live · everyone' : `Live in ${market?.name || 'your market'}`}
+          {isGlobal ? tr('Live · everyone') : market?.name ? tr('Live in {market}', { market: tr(market.name) }) : tr('Live in your market')}
         </span>
         {/* `line-clamp-2` rather than `truncate`: the rail is 20rem wide and a
             brief title cut at one line there says less than nothing. On a phone
             a title long enough to wrap is rare and two lines is fine. */}
         <span className="mt-1 block line-clamp-2 text-[15px] font-semibold leading-snug">{challenge.title}</span>
         <span className="mt-0.5 block text-xs text-white/75">
-          {days === 0 ? 'Closes today' : days === 1 ? 'Closes tomorrow' : `${days} days left`}
-          {!expanded && ' · Submit your video'}
+          {days === 0 ? tr('Closes today') : days === 1 ? tr('Closes tomorrow') : tr('{n} days left', { n: days })}
+          {!expanded && ` · ${tr('Submit your video')}`}
         </span>
       </span>
       {!expanded && <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 text-white/70" />}
@@ -107,13 +109,13 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
             to={`/challenges/${challenge.id}`}
             className="btn justify-center whitespace-nowrap border border-white/50 !text-white hover:bg-white/10"
           >
-            Read brief
+            {tr('Read brief')}
           </Link>
           <Link
             to={`/challenges/${challenge.id}?submit=1`}
             className="btn justify-center whitespace-nowrap border border-white bg-white !text-brand hover:bg-white/90"
           >
-            Submit your video
+            {tr('Submit your video')}
           </Link>
         </div>
       </div>

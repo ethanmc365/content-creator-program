@@ -725,7 +725,7 @@ export default function GlobalHome() {
           <Reveal delay={stepDelay()} className="-mb-3">
             <section>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-                Hey {profile?.name?.split(' ')[0]}
+                {tr('Hey {name}', { name: profile?.name?.split(' ')[0] || '' })}
               </h1>
               {/* ONE LINE ON A PHONE.
                   "Here is what is happening across the network right now" is

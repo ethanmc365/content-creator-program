@@ -10,6 +10,7 @@ import { useMyScopes } from '../lib/scope'
 import { Modal, PageHeader } from '../components/ui'
 import PageSkeleton from '../components/PageSkeleton'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
+import { translateTexts } from '../lib/contentTranslate'
 import Icon from '../components/Icon'
 import EventRsvp from '../components/EventRsvp'
 import EventPolls from '../components/EventPolls'
@@ -26,7 +27,7 @@ import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
 import Reveal from '../components/network/Reveal'
 import { cx, dateLocale } from '../lib/utils'
-import { useT } from '../lib/i18n'
+import { useLocale, useT } from '../lib/i18n'
 
 // THE CALENDAR, THIRD PASS.
 //
@@ -366,7 +367,32 @@ export default function Events() {
   }, [data, user])
 
   const loading = data === null
-  const all = useMemo(() => data?.items ?? [], [data])
+  const raw = useMemo(() => data?.items ?? [], [data])
+  // EVENTS IN THE READER'S LANGUAGE (1 Oct 2026). Ethan: "The events seem to also not be translated,
+  // so just ensure that everything gets translated automatically for all these languages." What a
+  // person wrote - an event's title and details, a challenge's name - is translated the same way a
+  // brief is (content_translations, one batched lookup for the whole calendar), and falls back to
+  // the words as written if no translation can be had.
+  const locale = useLocale()
+  const [tx, setTx] = useState({})
+  const txKey = useMemo(() => [...new Set(raw.flatMap((i) => (
+    i.kind === 'event' || i.kind === 'personal' ? [i.title, i.description] : i.baseTitle ? [i.baseTitle] : []
+  )).filter((x) => x && x.trim()))].join('\u0001'), [raw])
+  useEffect(() => {
+    let alive = true
+    if (!txKey) return undefined
+    translateTexts(txKey.split('\u0001'), locale).then((res) => { if (alive) setTx(res) })
+    return () => { alive = false }
+  }, [txKey, locale])
+  const all = useMemo(() => {
+    const pick = (x) => { const r = x && tx[x]; return r && !r.same && r.value ? r.value : x }
+    if (!Object.keys(tx).length) return raw
+    return raw.map((i) => {
+      if (i.kind === 'event' || i.kind === 'personal') return { ...i, title: pick(i.title), description: pick(i.description) }
+      if (i.baseTitle && pick(i.baseTitle) !== i.baseTitle) return { ...i, title: i.title.replace(i.baseTitle, pick(i.baseTitle)) }
+      return i
+    })
+  }, [raw, tx])
   const travelDays = data?.travelDays ?? new Map()
 
   const days = useMemo(() => {

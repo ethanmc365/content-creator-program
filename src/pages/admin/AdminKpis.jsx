@@ -13,6 +13,8 @@ import KpiTotal from '../../components/admin/KpiTotal'
 import { RollingOverview } from '../../components/admin/KpiOverview'
 import { SCOPE_COLORS } from '../../components/charts/chartTheme'
 import { clearKpiPlanCache } from '../../lib/useKpiPlan'
+import { STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
+import { prefetchKpiDetail } from '../../components/admin/KpiDetail'
 import {
   adjacentMonth, adjacentQuarter, currentMonth, currentQuarter, daysUntil, formatKpiValue, mergeKpiRows,
   metricDef, metricLabel, periodLabel, periodStarted, rollUpTargets, rowStatus, withDerivedTargets,
@@ -212,6 +214,29 @@ export default function AdminKpis() {
   }, [scope, isTotal, basis, year, quarter, month, byMonth, fetchSet, apply])
   useEffect(() => { load() }, [load])
 
+  // EVERYTHING ON THE PAGE MOVES TOGETHER (1 Oct 2026). Ethan: Germany showed "0 out of 500k" with
+  // no KPI set, and the UK "showing up once, then deleted. Everything should update." The per-scope
+  // cache was cleared after a save or a delete, but the Total and the overview kept their own copies
+  // and never asked again, so a deleted goal lived on in them. `invalidate` now clears every cache
+  // AND tells every chart to re-read (clearKpiPlanCache bumps a version they all listen to), and a
+  // realtime subscription does the same when a goal changes anywhere else - another admin, another
+  // tab, a market lead on their phone.
+  const invalidate = useCallback(({ reload = true } = {}) => {
+    cacheRef.current.clear()
+    clearKpiPlanCache()
+    if (reload) load()
+  }, [load])
+  useEffect(() => {
+    let timer = null
+    const ch = supabase.channel('kpi-targets-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_targets' }, () => {
+        clearTimeout(timer)
+        timer = setTimeout(() => invalidate(), 250)
+      })
+      .subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(ch) }
+  }, [invalidate])
+
   // EVERY MARKET'S CURRENT PERIOD, FETCHED WHILE IDLE (30 Sep 2026), so pressing a market paints at
   // once from the cache instead of skeletons first.
   useEffect(() => {
@@ -252,6 +277,13 @@ export default function AdminKpis() {
       return vals ? { ...r, monthsSum: rollUpTargets(r, vals), monthsSet: vals.length } : r
     })
   }, [targets, actuals, monthTargets, quarterTargets, period, byMonth])
+  // Every card's story is fetched while the page is idle, so opening one shows its charts at once.
+  useEffect(() => {
+    if (isTotal || !merged?.length) return undefined
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 500))
+    const id = ric(() => merged.forEach((row) => prefetchKpiDetail({ row, scope, basis, period })))
+    return () => (window.cancelIdleCallback ? window.cancelIdleCallback(id) : clearTimeout(id))
+  }, [merged, isTotal, scope, basis, period])
   const canEdit = !isTotal && !!(managedIds && scope && managedIds.has(scope))
   const scopeName = isTotal ? tr('Total') : current?.name || ''
   const currency = current?.currency || 'EUR'
@@ -300,9 +332,7 @@ export default function AdminKpis() {
     }))
     const { error } = await supabase.from('kpi_targets').insert(rows)
     if (error) { setErr(error.message); return }
-    cacheRef.current.clear()
-    clearKpiPlanCache()
-    load()
+    invalidate()
   }
 
   async function removeTarget(row) {
@@ -311,10 +341,9 @@ export default function AdminKpis() {
       { danger: true, confirmLabel: tr('Delete') },
     )
     if (!ok) return
-    await supabase.from('kpi_targets').delete().eq('id', row.id)
-    cacheRef.current.clear()
-    clearKpiPlanCache()
-    load()
+    const { error } = await supabase.from('kpi_targets').delete().eq('id', row.id)
+    if (error) { setErr(error.message); return }
+    invalidate()
   }
 
 
@@ -376,7 +405,6 @@ export default function AdminKpis() {
                       : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
                   )}
                 >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: scopeKey === c.key ? '#fff' : c.color }} />
                   {c.name}
                 </button>
               ))
@@ -396,7 +424,7 @@ export default function AdminKpis() {
             {/* BACK TO TODAY, CENTRED OVER THE PERIOD (30 Sep 2026). Ethan: it was "too far above it,
                 and it's not centred with the Q4 2026. Centre that button, and maybe lower it a bit."
                 Absolute, so it never moves anything when it appears. */}
-            <span className="pointer-events-none absolute bottom-full left-1/2 mb-3 hidden -translate-x-1/2 lg:block">
+            <span className="pointer-events-none absolute bottom-full left-1/2 mb-6 hidden -translate-x-1/2 lg:block">
               <BackToToday show={!isCurrent} label={tr('Back to {p}', { p: backLabel })} onClick={backToToday} className="pointer-events-auto" />
             </span>
             <button
@@ -407,7 +435,10 @@ export default function AdminKpis() {
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
             </button>
-            <span className="flex h-8 min-w-[6.5rem] items-center justify-center overflow-hidden rounded-lg bg-brand-tint px-3 text-[13px] font-bold tabular-nums text-brand sm:min-w-[8.5rem]">
+            {/* THE PERIOD, IN THE PLATFORM'S OWN STYLE (1 Oct 2026). Ethan did not like the pale orange
+                block: it is white with a calendar mark now, like every other control on the bar. */}
+            <span className="flex h-8 min-w-[6.5rem] items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-bold tabular-nums text-ink shadow-[0_1px_2px_rgba(26,26,26,0.04)] sm:min-w-[8.5rem]">
+              <Icon name="calendar" className="h-3.5 w-3.5 shrink-0 text-brand" />
               <span key={periodLabel(period)} className="animate-pop-in">{periodLabel(period)}</span>
             </span>
             <button
@@ -533,6 +564,7 @@ export default function AdminKpis() {
                       onEdit={() => setEditing(row)}
                       onDelete={() => (row.id ? removeTarget(row) : null)}
                       onOpen={() => setDetail(row)}
+                      onPrefetch={() => prefetchKpiDetail({ row, scope, basis, period })}
                     />
                   ))}
                 </div>
@@ -586,8 +618,7 @@ export default function AdminKpis() {
           onEditExisting={(r) => setEditing(r)}
           onSaved={(p, savedScopeKey) => {
             setEditing(null)
-            cacheRef.current.clear()
-            clearKpiPlanCache()
+            invalidate({ reload: false })
             if (savedScopeKey && savedScopeKey !== scopeKey) setScopeKey(savedScopeKey)
             // Land on the period the goal was set for, so it is right there.
             if (p && (p.year !== year || p.quarter !== quarter || (p.month ?? null) !== (month ?? null))) setPeriod(p)
@@ -623,28 +654,18 @@ function BackToToday({ show, label, onClick, className }) {
 // Tones for a bar drawn ON the orange card, not on white: each is checked against both ends of
 // the brand gradient (#d94407 to #f5853f).
 // Met is a deep green (2 Oct 2026, Ethan: "a bit darker green, especially on the left side").
-const SUMMARY_HEX = { met: '#047857', on_track: '#ffffff', behind: '#fde68a', missed: '#7f1d1d', upcoming: 'rgba(255,255,255,0.45)' }
+const SUMMARY_HEX = STATUS_HEX_ON_BRAND
 
 // ONE GRADIENT FOR THE WHOLE SPREAD: each status owns a share of the strip in proportion to how
 // many goals are in it, and the colour eases into its neighbour across the seam instead of
 // stopping dead. Best first (met, on track, behind, missed), so it reads green to red.
 function spreadGradient(statuses) {
-  const order = ['met', 'on_track', 'behind', 'missed', 'upcoming']
-  const total = statuses.length || 1
-  const parts = order.map((k) => ({ k, n: statuses.filter((x) => x.status === k).length })).filter((x) => x.n)
-  if (parts.length === 1) return SUMMARY_HEX[parts[0].k]
-  let at = 0
-  const stops = []
-  for (const { k, n } of parts) {
-    const w = (n / total) * 100
-    const mid = at + w / 2
-    stops.push(`${SUMMARY_HEX[k]} ${mid.toFixed(1)}%`)
-    at += w
-  }
-  return `linear-gradient(90deg, ${stops.join(', ')})`
+  const counts = {}
+  for (const x of statuses) counts[x.status] = (counts[x.status] || 0) + 1
+  return statusGradient(counts, SUMMARY_HEX)
 }
 const STATUS_STYLE = {
-  met: { ring: 'stroke-emerald-600', bar: 'bg-emerald-600', chip: 'bg-emerald-50 text-emerald-700', label: 'Target met' },
+  met: { ring: 'stroke-emerald-400', bar: 'bg-emerald-400', chip: 'bg-emerald-50 text-emerald-600', label: 'Target met' },
   on_track: { ring: 'stroke-brand', bar: 'bg-brand', chip: 'bg-brand-tint text-brand', label: 'On track' },
   behind: { ring: 'stroke-amber-500', bar: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700', label: 'Behind pace' },
   missed: { ring: 'stroke-red-500', bar: 'bg-red-500', chip: 'bg-red-50 text-red-600', label: 'Missed' },
@@ -657,7 +678,7 @@ const STATUS_STYLE = {
 // fill runs to 100% at the target and keeps counting in the LABEL past it -
 // a KPI hit at 140% is worth celebrating, not clipping off at a full bar
 // that looks identical to one hit at exactly 100%.
-function KpiCard({ row, period, startsIn, currency, canEdit, onEdit, onDelete, onOpen, style: cardStyle }) {
+function KpiCard({ row, period, startsIn, currency, canEdit, onEdit, onDelete, onOpen, onPrefetch, style: cardStyle }) {
   const tr = useT()
   const def = metricDef(row)
   const { status, pct, progress } = rowStatus(row, period)
@@ -670,6 +691,8 @@ function KpiCard({ row, period, startsIn, currency, canEdit, onEdit, onDelete, o
       role="button"
       tabIndex={0}
       onClick={onOpen}
+      onPointerEnter={onPrefetch}
+      onFocus={onPrefetch}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
       style={cardStyle}
       className={cx(

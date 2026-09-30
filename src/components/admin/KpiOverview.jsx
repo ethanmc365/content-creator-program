@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Skeleton } from '../ui'
 import Icon from '../Icon'
-import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../charts/chartTheme'
+import { CHART, FILL, axisTickSmall, tooltipStyle } from '../charts/chartTheme'
 import {
   STANDARD_METRICS, aggregateScopes, formatKpiValue, metricDef, metricIcon, metricLabel, periodKey, periodLabel,
   rowStatus, scaledHeights, windowPeriods,
@@ -24,10 +24,10 @@ import { useT } from '../../lib/i18n'
 // It serves one scope or many: for the Total it is handed every scope and adds them up per period.
 
 export const STATUS_STYLE = {
-  met: { dot: 'bg-emerald-600', chip: 'bg-emerald-50 text-emerald-700', fill: FILL.green, hex: '#059669', label: 'Target met' },
+  met: { dot: 'bg-emerald-400', chip: 'bg-emerald-50 text-emerald-600', fill: FILL.green, hex: '#34d399', label: 'Target met' },
   on_track: { dot: 'bg-brand', chip: 'bg-brand-tint text-brand', fill: FILL.brand, hex: '#d94407', label: 'On track' },
-  behind: { dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700', fill: FILL.amber, hex: '#f59e0b', label: 'Behind pace' },
-  missed: { dot: 'bg-red-500', chip: 'bg-red-50 text-red-600', fill: FILL.red, hex: '#ef4444', label: 'Missed' },
+  behind: { dot: 'bg-amber-400', chip: 'bg-amber-50 text-amber-700', fill: FILL.amber, hex: '#fbbf24', label: 'Behind pace' },
+  missed: { dot: 'bg-red-400', chip: 'bg-red-50 text-red-600', fill: FILL.red, hex: '#f87171', label: 'Missed' },
   upcoming: { dot: 'bg-gray-300', chip: 'bg-gray-100 text-smoke', fill: FILL.gray, hex: '#d1d5db', label: 'Not started' },
 }
 
@@ -105,6 +105,7 @@ export function RollingOverview({ scopes, period, byMonth, currency, windowRows,
                 last={i === metrics.length - 1}
                 onPick={() => setOpen(m.metric)}
                 current={periodKey(period)}
+                index={i}
               />
             ))}
           </div>
@@ -115,39 +116,67 @@ export function RollingOverview({ scopes, period, byMonth, currency, windowRows,
   )
 }
 
-function MetricStrip({ metric, periods, currency, on, last, onPick, current }) {
+// ONE ROW PER METRIC (rebuilt 1 Oct 2026). Ethan: the quarter-by-quarter strips "don't really look
+// great". Each row now says the number for the period on screen in words, and its little columns sit
+// on a neutral grey track (not beige): a column's HEIGHT is its goal, the orange is what was achieved,
+// a dashed outline is a period that has not started, a short grey dash is a period with no goal.
+function MetricStrip({ metric, periods, currency, on, last, onPick, current, index }) {
   const tr = useT()
   const rows = periods.map((p) => metric.periods[p.key] || null)
   const heights = scaledHeights(rows.map((r) => (r ? Number(r.target_value) : null)))
   const sample = rows.find(Boolean)
   const many = periods.length > 4
+  const here = metric.periods[current]
+  const hereStatus = here ? rowStatus(here, periods.find((p) => p.key === current)) : null
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={on}
+      style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
       className={cx(
-        'group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200',
+        'animate-fade-up group relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200',
         !last && 'border-b border-gray-100',
-        on ? 'bg-brand-tint/60' : 'hoverable:hover:bg-cloud/60',
+        on ? 'bg-cloud/70' : 'hoverable:hover:bg-cloud/40',
       )}
     >
-      <Icon name={metricIcon(metric)} className={cx('h-4 w-4 shrink-0 transition-colors', on ? 'text-brand' : 'text-gray-400 group-hover:text-brand')} />
-      <span className="w-32 shrink-0 text-[12.5px] font-semibold leading-tight text-ink line-clamp-2 sm:w-40">{tr(metricLabel(metric))}</span>
+      {/* the picked row is marked with a brand bar on its edge, not a tint */}
+      <span aria-hidden className={cx('absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-brand transition-all duration-300', on ? 'opacity-100' : 'scale-y-0 opacity-0')} />
+      <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-200', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke group-hover:text-brand')}>
+        <Icon name={metricIcon(metric)} className="h-4 w-4" />
+      </span>
+      <span className="w-32 shrink-0 sm:w-40">
+        <span className="block text-[12.5px] font-semibold leading-tight text-ink line-clamp-2">{tr(metricLabel(metric))}</span>
+        <span className="mt-0.5 block truncate text-[11px] tabular-nums text-smoke">
+          {!here ? tr('No goal this period')
+            : hereStatus.status === 'upcoming' ? tr('Goal {v}', { v: formatKpiValue(sample, here.target_value, currency) })
+              : `${formatKpiValue(sample, here.actual, currency)} / ${formatKpiValue(sample, here.target_value, currency)}`}
+        </span>
+      </span>
       <span className={cx('grid h-10 flex-1 items-end', many ? 'grid-cols-12 gap-[3px]' : 'grid-cols-4 gap-1.5')}>
         {rows.map((r, i) => {
           const p = periods[i]
-          if (!r) return <span key={p.key} className="h-1 rounded-full bg-gray-100" />
+          if (!r) return <span key={p.key} className="h-[3px] rounded-full bg-gray-100" />
           const s = rowStatus(r, p)
           const done = Math.max(0, Math.min(1, s.pct))
+          const upcoming = s.status === 'upcoming'
           return (
             <span
               key={p.key}
               title={`${periodLabel(p)} · ${formatKpiValue(sample, r.actual, currency)} / ${formatKpiValue(sample, r.target_value, currency)}`}
-              className={cx('relative w-full overflow-hidden rounded-[4px] bg-[#fdeee4] transition-[height] duration-500 ease-out', p.key === current && 'ring-2 ring-brand/40 ring-offset-1')}
+              className={cx(
+                'relative w-full overflow-hidden rounded-[5px] transition-[height] duration-500 ease-out',
+                upcoming ? 'border border-dashed border-gray-300 bg-gray-50' : 'bg-[#eef0f3]',
+                p.key === current && 'outline outline-2 outline-offset-1 outline-brand/50',
+              )}
               style={{ height: `${Math.round(heights[i] * 100)}%` }}
             >
-              <span className="absolute inset-x-0 bottom-0 rounded-[4px]" style={{ height: `${done * 100}%`, background: s.status === 'upcoming' ? '#e5e7eb' : 'linear-gradient(to top,#d94407,#f5853f)' }} />
+              {!upcoming && (
+                <span
+                  className="kpi-grow absolute inset-x-0 bottom-0 rounded-[5px]"
+                  style={{ height: `${done * 100}%`, background: s.status === 'met' ? 'linear-gradient(to top,#10b981,#6ee7b7)' : 'linear-gradient(to top,#d94407,#f5853f)' }}
+                />
+              )}
             </span>
           )
         })}
@@ -166,80 +195,124 @@ function MetricChart({ metric, periods, currency, current }) {
   const data = periods.map((p) => {
     const r = metric.periods[p.key]
     const label = p.yearTag ? `${p.short} ’${String(p.year).slice(2)}` : p.short
-    if (!r) return { name: label, key: p.key, done: null, rest: null, target: null, actual: null }
+    if (!r) return { name: label, key: p.key, done: null, rest: null, over: null, ahead: null, target: null, actual: null, top: null }
     const s = rowStatus(r, p)
-    const actual = s.status === 'upcoming' ? 0 : Number(r.actual) || 0
+    const upcoming = s.status === 'upcoming'
+    const actual = upcoming ? 0 : Number(r.actual) || 0
     const target = Number(r.target_value) || 0
-    return { name: label, key: p.key, done: Math.min(actual, target), over: Math.max(0, actual - target), rest: Math.max(0, target - actual), target, actual, status: s.status }
+    return {
+      name: label,
+      key: p.key,
+      done: upcoming ? 0 : Math.min(actual, target),
+      over: upcoming ? 0 : Math.max(0, actual - target),
+      rest: upcoming ? 0 : Math.max(0, target - actual),
+      ahead: upcoming ? target : 0, // a period not started: its goal as a dashed outline
+      target,
+      actual,
+      status: s.status,
+      pct: target > 0 ? actual / target : 0,
+      top: Math.max(target, actual),
+    }
   })
-  const withGoal = data.filter((d) => d.target != null)
-  const tA = withGoal.reduce((x, d) => x + d.actual, 0)
-  const tT = withGoal.reduce((x, d) => x + d.target, 0)
-  const met = withGoal.filter((d) => d.status === 'met').length
+  const hereRow = metric.periods[current]
+  const here = data.find((d) => d.key === current)
+  const herePeriod = periods.find((p) => p.key === current)
+  const started = data.filter((d) => d.target != null && d.status !== 'upcoming')
+  const met = started.filter((d) => d.status === 'met').length
+  const anyOver = data.some((d) => d.over > 0)
+  const anyUpcoming = data.some((d) => d.ahead > 0)
   return (
-    <div key={metric.metric} className="animate-fade-up rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-            <Icon name={metricIcon(metric)} className="h-3.5 w-3.5 text-brand" />
-            {tr(metricLabel(metric))}
-          </p>
-          {def.kind === 'sum' ? (
-            <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-ink">
-              {fmt(tA)}<span className="ml-1.5 text-sm font-semibold text-smoke">/ {fmt(tT)}</span>
+    <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+      <div key={metric.metric} className="animate-chart-in">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <Icon name={metricIcon(metric)} className="h-3.5 w-3.5 text-brand" />
+              {tr(metricLabel(metric))}
             </p>
-          ) : (
-            <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-ink">
-              {met}<span className="ml-1.5 text-sm font-semibold text-smoke">/ {withGoal.length} {tr('periods met')}</span>
-            </p>
-          )}
+            {/* THE PERIOD ON SCREEN, NOT A SUM OF THE WINDOW (1 Oct 2026). Ethan: Germany "shows 0 out
+                of 500k views, but there's no KPI set". The headline used to add up every period in
+                view, so a quarter with no goal still showed next quarter's. */}
+            {hereRow ? (
+              <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-ink">
+                {here.status === 'upcoming' ? fmt(here.target) : fmt(here.actual)}
+                <span className="ml-1.5 text-sm font-semibold text-smoke">
+                  {here.status === 'upcoming' ? tr('goal for {p}', { p: periodLabel(herePeriod) }) : `/ ${fmt(here.target)} · ${periodLabel(herePeriod)}`}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1.5 text-sm font-semibold text-smoke">{tr('No goal for {p}', { p: periodLabel(herePeriod || periods[0]) })}</p>
+            )}
+            {started.length > 1 && (
+              <p className="mt-1 text-[11px] font-medium text-smoke">{tr('{n} of {t} periods met', { n: met, t: started.length })}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-smoke">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-brand to-brand-light" />{tr('Achieved')}</span>
+            {anyOver && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-emerald-500 to-emerald-300" />{tr('Beyond the goal')}</span>}
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#eef0f3]" />{tr('Still to go')}</span>
+            {anyUpcoming && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-gray-400" />{tr('Not started')}</span>}
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-[11px] font-semibold text-smoke">
-          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-t from-brand to-brand-light" />{tr('Achieved')}</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#fdeee4] ring-1 ring-[#fcd9c2]" />{tr('Still to go')}</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 rounded-full bg-gray-700/80" />{tr('Goal')}</span>
+        <div className="h-60">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 22, right: 4, left: -10, bottom: 0 }} barCategoryGap="24%">
+              <CartesianGrid vertical={false} stroke={CHART.grid} />
+              <XAxis dataKey="name" tick={<PeriodTick data={data} current={current} />} axisLine={false} tickLine={false} interval={0} />
+              <YAxis tick={axisTickSmall} tickFormatter={fmt} axisLine={false} tickLine={false} width={54} allowDecimals={def.unit === 'decimal' || def.unit === 'percent'} />
+              <Tooltip
+                cursor={{ fill: 'rgba(26,26,26,0.03)', radius: 8 }}
+                content={({ active, payload }) => {
+                  const d = active && payload?.[0]?.payload
+                  if (!d || d.target == null) return null
+                  const st = STATUS_STYLE[d.status]
+                  return (
+                    <div style={tooltipStyle} className="px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{periodLabel(periods.find((p) => p.key === d.key))}</p>
+                      {d.status === 'upcoming' ? (
+                        <p className="text-sm font-bold text-ink">{tr('Goal')} {fmt(d.target)}</p>
+                      ) : (
+                        <p className="text-sm font-bold text-ink">{fmt(d.actual)} <span className="font-medium text-smoke">/ {fmt(d.target)}</span></p>
+                      )}
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-smoke">
+                        <span className={cx('h-2 w-2 rounded-full', st.dot)} />{tr(st.label)}{d.status !== 'upcoming' && ` · ${Math.round(d.pct * 100)}%`}
+                      </p>
+                    </div>
+                  )
+                }}
+              />
+              <Bar dataKey="done" stackId="a" fill={FILL.brand} maxBarSize={44} animationDuration={650} animationEasing="ease-out" />
+              <Bar dataKey="over" stackId="a" fill={FILL.green} maxBarSize={44} animationDuration={650} animationEasing="ease-out" />
+              <Bar dataKey="rest" stackId="a" fill={FILL.rest} maxBarSize={44} animationDuration={650} animationEasing="ease-out" />
+              <Bar dataKey="ahead" stackId="a" fill="#ffffff" stroke="#c4c8cf" strokeDasharray="4 3" strokeWidth={1.2} maxBarSize={44} animationDuration={650} radius={[8, 8, 0, 0]} />
+              {/* the percentage over each column, or the goal over one not started */}
+              <Line dataKey="top" stroke="none" dot={false} activeDot={false} isAnimationActive={false} label={<TopLabel data={data} fmt={fmt} />} />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
+        {def.kind === 'level' && <p className="mt-2 text-[11px] text-smoke">{tr('An average, so each period stands on its own.')}</p>}
       </div>
-      <div className="h-60">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 4, left: -10, bottom: 0 }} barCategoryGap="22%">
-            <CartesianGrid vertical={false} stroke={CHART.grid} />
-            <XAxis dataKey="name" tick={{ ...axisTick, fontWeight: 600 }} axisLine={false} tickLine={false} interval={0} fontSize={10} />
-            <YAxis tick={axisTickSmall} tickFormatter={fmt} axisLine={false} tickLine={false} width={54} allowDecimals={def.unit === 'decimal' || def.unit === 'percent'} />
-            <Tooltip
-              cursor={{ fill: 'rgba(217,68,7,0.05)', radius: 8 }}
-              content={({ active, payload }) => {
-                const d = active && payload?.[0]?.payload
-                if (!d || d.target == null) return null
-                const pct = d.target > 0 ? Math.round((d.actual / d.target) * 100) : 0
-                const st = STATUS_STYLE[d.status]
-                return (
-                  <div style={tooltipStyle} className="px-3 py-2">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{periodLabel(periods.find((p) => p.key === d.key))}</p>
-                    <p className="text-sm font-bold text-ink">{fmt(d.actual)} <span className="font-medium text-smoke">/ {fmt(d.target)}</span></p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-smoke">
-                      <span className={cx('h-2 w-2 rounded-full', st.dot)} />{tr(st.label)} · {pct}%
-                    </p>
-                  </div>
-                )
-              }}
-            />
-            <Bar dataKey="done" stackId="a" fill={FILL.brand} maxBarSize={40} animationDuration={500} radius={[0, 0, 4, 4]} />
-            <Bar dataKey="over" stackId="a" fill={FILL.green} maxBarSize={40} animationDuration={500} />
-            <Bar dataKey="rest" stackId="a" fill={FILL.pale} maxBarSize={40} animationDuration={500} radius={[6, 6, 0, 0]} />
-            <Line type="linear" dataKey="target" stroke="#374151" strokeOpacity={0.8} strokeWidth={0} dot={<GoalTick />} activeDot={false} isAnimationActive={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-[11px] text-smoke">
-        {data.some((d) => d.key === current) && tr('The ringed column is the period on screen.')} {def.kind === 'level' && tr('An average, so each period stands on its own.')}
-      </p>
     </div>
   )
 }
 
-// A short dark tick across each column at its goal - the same mark as the pace line on the bars.
-function GoalTick({ cx: x, cy: y, payload }) {
-  if (payload?.target == null || x == null || y == null) return null
-  return <rect x={x - 14} y={y - 1} width={28} height={2} rx={1} fill="#374151" fillOpacity={0.8} />
+// The period on screen is bold and orange on the axis, instead of a ring round its column.
+function PeriodTick({ x, y, payload, data, current }) {
+  const d = data?.find((r) => r.name === payload?.value)
+  const on = d?.key === current
+  return (
+    <text x={x} y={y + 12} textAnchor="middle" fontSize={11} fontWeight={on ? 700 : 600} fill={on ? CHART.brand : CHART.axis}>
+      {payload?.value}
+    </text>
+  )
+}
+
+function TopLabel({ x, y, index, data, fmt }) {
+  const d = data?.[index]
+  if (!d || d.target == null || x == null || y == null) return null
+  const text = d.status === 'upcoming' ? fmt(d.target) : `${Math.round(d.pct * 100)}%`
+  const fill = d.status === 'met' ? '#059669' : d.status === 'upcoming' ? CHART.muted : CHART.ink
+  return (
+    <text x={x} y={y - 8} textAnchor="middle" fontSize={11} fontWeight={700} fill={fill}>{text}</text>
+  )
 }

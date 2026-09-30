@@ -13,11 +13,21 @@ import { mergeKpiRows, periodKey, rowsForPeriod } from './kpiTracker'
 // scopes with at least one goal in that period appear. A result already seen paints at once and is
 // refreshed behind.
 const cache = new Map()
+// Bumped whenever a goal is saved or deleted anywhere, so every mounted chart re-reads instead of
+// holding on to a plan that no longer exists (1 Oct 2026).
+let version = 0
+const listeners = new Set()
 const scopeKeyOf = (communityId, basis) => `${communityId}:${basis}`
 
 export function useKpiPlan({ scopes, periods, enabled = true }) {
   const key = `${scopes.map((s) => s.key).join(',')}|${periods.map((p) => periodKey(p)).join(',')}`
   const [state, setState] = useState(() => ({ key, data: cache.get(key) || null, error: '' }))
+  const [ver, setVer] = useState(version)
+  useEffect(() => {
+    const fn = () => setVer(version)
+    listeners.add(fn)
+    return () => { listeners.delete(fn) }
+  }, [])
   const current = state.key === key ? state : { key, data: cache.get(key) || null, error: '' }
 
   useEffect(() => {
@@ -67,7 +77,7 @@ export function useKpiPlan({ scopes, periods, enabled = true }) {
     })()
     return () => { alive = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled])
+  }, [key, enabled, ver])
 
   return current
 }
@@ -75,4 +85,6 @@ export function useKpiPlan({ scopes, periods, enabled = true }) {
 /** Forget cached plans (after a goal is saved or deleted). */
 export function clearKpiPlanCache() {
   cache.clear()
+  version += 1
+  for (const fn of listeners) fn()
 }

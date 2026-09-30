@@ -12,6 +12,7 @@ export const CHART = {
   brand: '#d94407',
   light: '#f5853f',
   pale: '#fde3d1',
+  rest: '#eef0f3',
   grid: '#F1F1F2',
   axis: '#8A8A8F',
   ink: '#1A1A1A',
@@ -29,6 +30,9 @@ export const FILL = {
   amber: 'url(#tg-amber)',
   red: 'url(#tg-red)',
   gray: 'url(#tg-gray)',
+  // "Still to go" in a neutral light grey, not a beige (1 Oct 2026, Ethan: "I don't really like the
+  // light beige colour. Prefer the style of the platform").
+  rest: 'url(#tg-rest)',
 }
 
 // A COLOUR PER MARKET THAT FOLLOWS THE MARKET, never its rank (validated with the dataviz palette
@@ -59,9 +63,10 @@ export function ChartGradients() {
         <V id="tg-brand" from="#d94407" to="#f5853f" />
         <V id="tg-light" from="#f5853f" to="#f9b98a" />
         <V id="tg-pale" from="#fcd9c2" to="#fdeee4" />
-        <V id="tg-green" from="#047857" to="#10b981" />
-        <V id="tg-amber" from="#d97706" to="#fbbf24" />
-        <V id="tg-red" from="#b91c1c" to="#f87171" />
+        <V id="tg-green" from="#10b981" to="#6ee7b7" />
+        <V id="tg-amber" from="#f59e0b" to="#fcd34d" />
+        <V id="tg-red" from="#ef4444" to="#fca5a5" />
+        <V id="tg-rest" from="#eceef2" to="#f5f6f8" />
         <V id="tg-gray" from="#d1d5db" to="#e5e7eb" />
         <linearGradient id="tg-brand-h" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#f5853f" />

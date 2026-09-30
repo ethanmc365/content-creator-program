@@ -315,9 +315,17 @@ function PaidOut({ rewards, cashOut, voucherOut, paid }) {
         <span className="text-xs text-smoke">{paidRows.length} payouts · {people} creators</span>
       </div>
       <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{money(paid)}</p>
-      <div className="mt-4 flex h-3 gap-[3px] overflow-hidden rounded-full bg-cloud">
-        {cashPct > 0 && <span className="kpi-fill h-full rounded-l-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${cashPct}%` }} />}
-        {cashPct < 100 && total > 0 && <span className="kpi-fill h-full rounded-r-full bg-[#fbc9a6]" style={{ width: `${100 - cashPct}%` }} />}
+      {/* ONE BAR, TWO SHARES, NO GAP (1 Oct 2026). Ethan: "there's a space between the progress bar.
+          Can it merge those colours into a nice gradient to show them as still separate". Cash runs
+          deep to bright orange and eases into the vouchers' soft peach across a short seam, so the two
+          still read as two without a hole between them. */}
+      <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-cloud">
+        {total > 0 && (
+          <span
+            className="kpi-fill absolute inset-0 rounded-full"
+            style={{ background: cashPct >= 100 ? 'linear-gradient(90deg,#d94407,#f5853f)' : cashPct <= 0 ? 'linear-gradient(90deg,#fbc9a6,#fde3d1)' : `linear-gradient(90deg, #d94407 0%, #f5853f ${Math.max(0, cashPct - 5)}%, #fbc9a6 ${Math.min(100, cashPct + 5)}%, #fde3d1 100%)` }}
+          />
+        )}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-cloud/70 px-3.5 py-2.5">

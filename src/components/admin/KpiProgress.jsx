@@ -16,10 +16,12 @@ import { cx } from '../../lib/utils'
 // red only when the period ended short. Every gradient runs light to dark
 // left to right so the leading edge is the brightest part.
 export const BAR_TONES = {
-  green: { fill: 'from-emerald-700 to-emerald-500', text: 'text-emerald-700' },
+  // Lighter, fresher tones (1 Oct 2026, Ethan: "The green is very dark ... Nicer colours, brighter
+  // colours, match the style of the platform").
+  green: { fill: 'from-emerald-300 to-emerald-500', text: 'text-emerald-600' },
   orange: { fill: 'from-brand-light to-brand', text: 'text-brand' },
-  amber: { fill: 'from-amber-300 to-amber-500', text: 'text-amber-600' },
-  red: { fill: 'from-red-400 to-red-600', text: 'text-red-600' },
+  amber: { fill: 'from-amber-200 to-amber-400', text: 'text-amber-600' },
+  red: { fill: 'from-red-300 to-red-500', text: 'text-red-500' },
   gray: { fill: 'from-gray-300 to-gray-400', text: 'text-smoke' },
 }
 

@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import KpiProgress from './KpiProgress'
 import { RollingOverview, STATUS_STYLE, useWindowRows } from './KpiOverview'
-import { CHART, axisTickSmall, tooltipStyle } from '../charts/chartTheme'
+import { CHART, FILL, axisTickSmall, tooltipStyle } from '../charts/chartTheme'
 import {
   adjacentMonth, adjacentQuarter, daysUntil, formatKpiValue, metricDef, metricIcon, metricLabel, periodKey, periodLabel, rowStatus, scopeVerdict,
 } from '../../lib/kpiTracker'
 import { cx } from '../../lib/utils'
+import { STATUS_HEX, STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
 import { usePlural, useT } from '../../lib/i18n'
 
 // THE TOTAL (30 Sep 2026).
@@ -111,11 +112,21 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
               {started && <HeroStat value={support.length} label={tr('Need support')} />}
               {!started && <HeroStat value={startsIn} label={startsIn === 1 ? tr('Day to go') : tr('Days to go')} />}
             </div>
-            <div className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-white/20" role="img" aria-label={tr('How the goals are doing')}>
-              {started ? ORDER.filter((k) => counts[k]).map((k) => (
-                <span key={k} className="kpi-fill h-full first:rounded-l-full last:rounded-r-full [&+&]:ml-[2px]" style={{ width: `${(counts[k] / allRows.length) * 100}%`, background: HERO_HEX[k] }} />
-              )) : <span className="h-full w-full rounded-full border border-dashed border-white/50" />}
+            <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/20" role="img" aria-label={tr('How the goals are doing')}>
+              {started
+                ? <span className="kpi-fill block h-full w-full rounded-full" style={{ background: statusGradient(counts, STATUS_HEX_ON_BRAND) }} />
+                : <span className="block h-full w-full rounded-full border border-dashed border-white/50" />}
             </div>
+            {started && (
+              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-white/90">
+                {ORDER.filter((k) => counts[k]).map((k) => (
+                  <span key={k} className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX_ON_BRAND[k] }} />
+                    <span className="tabular-nums">{counts[k]}</span> {tr(STATUS_STYLE[k].label).toLowerCase()}
+                  </span>
+                ))}
+              </div>
+            )}
             <p className="mt-3 text-sm text-white/90">
               {!started
                 ? (startsIn <= 1
@@ -144,14 +155,21 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
           <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-card border border-dashed border-gray-200 px-3 py-2.5">
             <span className="mr-1 text-[12px] font-medium text-smoke">{tr('No goals for {p}:', { p: periodLabel(period) })}</span>
             {perScope.filter((s) => s.n === 0).map((s) => (
-              <button key={s.scope.key} type="button" onClick={() => onPickScope?.(s.scope.key)} className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors hoverable:hover:bg-brand-tint hoverable:hover:text-brand">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.scope.color }} />
+              <button key={s.scope.key} type="button" onClick={() => onPickScope?.(s.scope.key)} className="inline-flex items-center rounded-full bg-cloud px-2.5 py-1 text-[12px] font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-gray-200">
                 {s.scope.name}
               </button>
             ))}
           </div>
         )}
       </section>
+
+      {/* ---------- 2b. the markets side by side (1 Oct 2026) ---------- */}
+      {started && active.filter((x) => x.verdict !== 'upcoming').length > 1 && (
+        <section className="animate-fade-up [animation-delay:90ms]">
+          <SectionTitle>{tr('Markets compared')}</SectionTitle>
+          <MarketsCompared markets={active.filter((x) => x.verdict !== 'upcoming')} onPickScope={onPickScope} />
+        </section>
+      )}
 
       {/* ---------- 3. every goal, every market ---------- */}
       {total.length > 0 && active.length > 0 && (
@@ -180,7 +198,6 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
   )
 }
 
-const HERO_HEX = { met: '#047857', on_track: '#ffffff', behind: '#fde68a', missed: '#7f1d1d', upcoming: 'rgba(255,255,255,0.45)' }
 const rankVerdict = (s) => ({ support: 0, watch: 1, good: 2, upcoming: 3, none: 4 }[s.verdict])
 
 function HeroStat({ value, label }) {
@@ -211,7 +228,6 @@ function MarketTile({ s, period, onOpen }) {
       )}
     >
       <span className="flex items-center gap-2.5">
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.scope.color }} />
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{s.scope.name}</span>
         <span className={cx('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', v.chip)}>
           <Icon name={v.icon} className="h-3 w-3" />
@@ -227,16 +243,14 @@ function MarketTile({ s, period, onOpen }) {
         </span>
       ) : (
         <>
-          <span className="flex h-2 gap-[2px] overflow-hidden rounded-full">
-            {ORDER.filter((k) => s.counts[k]).map((k) => (
-              <span key={k} title={`${tr(STATUS_STYLE[k].label)}: ${s.counts[k]}`} className={cx('kpi-fill h-full', STATUS_STYLE[k].dot)} style={{ width: `${(s.counts[k] / s.n) * 100}%` }} />
-            ))}
+          <span className="block h-2 overflow-hidden rounded-full bg-cloud">
+            <span className="kpi-fill block h-full w-full rounded-full" style={{ background: statusGradient(s.counts) }} />
           </span>
           <span className="flex items-center justify-between gap-2 text-[12px]">
             <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-smoke">
               {ORDER.filter((k) => s.counts[k]).map((k) => (
                 <span key={k} className="inline-flex items-center gap-1">
-                  <span className={cx('h-1.5 w-1.5 rounded-full', STATUS_STYLE[k].dot)} />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_HEX[k] }} />
                   <span className="font-semibold tabular-nums text-ink">{s.counts[k]}</span> {tr(STATUS_STYLE[k].label).toLowerCase()}
                 </span>
               ))}
@@ -254,6 +268,40 @@ function MarketTile({ s, period, onOpen }) {
   )
 }
 
+// Each market's average progress against its goals, with the day's recommended pace as one line
+// across all of them: a bar past the line is ahead, a bar short of it is behind.
+function MarketsCompared({ markets, onPickScope }) {
+  const tr = useT()
+  const pace = markets[0]?.progress ?? 0
+  const data = markets
+    .map((m) => ({ key: m.scope.key, name: m.scope.name, pct: Math.min(1.5, m.avgPct || 0), verdict: m.verdict }))
+    .sort((a, b) => b.pct - a.pct)
+  const fill = { good: FILL.green, watch: FILL.amber, support: FILL.red }
+  return (
+    <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-smoke">
+        <span>{tr('Average progress towards each market\'s goals')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-3 w-0 border-l-2 border-dashed border-gray-500" />{tr('Recommended pace {n}%', { n: Math.round(pace * 100) })}</span>
+      </div>
+      <div className="animate-chart-in" style={{ height: Math.max(120, data.length * 44) }}>
+        <ResponsiveContainer>
+          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }} barCategoryGap="30%" onClick={(e) => e?.activePayload?.[0] && onPickScope?.(e.activePayload[0].payload.key)}>
+            <CartesianGrid horizontal={false} stroke={CHART.grid} />
+            <XAxis type="number" domain={[0, (max) => Math.max(1, Math.ceil(max * 10) / 10)]} tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={axisTickSmall} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={112} tick={{ fontSize: 12, fill: CHART.ink, fontWeight: 600 }} axisLine={false} tickLine={false} />
+            <Tooltip cursor={{ fill: 'rgba(26,26,26,0.03)' }} contentStyle={tooltipStyle} formatter={(v) => [`${Math.round(v * 100)}%`, tr('Average progress')]} />
+            <ReferenceLine x={pace} stroke="#6b7280" strokeDasharray="4 4" strokeWidth={1.5} />
+            <Bar dataKey="pct" radius={[0, 8, 8, 0]} maxBarSize={20} animationDuration={700} className="cursor-pointer">
+              {data.map((d) => <Cell key={d.key} fill={fill[d.verdict] || FILL.brandH} />)}
+              <LabelList dataKey="pct" position="right" formatter={(v) => `${Math.round(v * 100)}%`} style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
 function Heatmap({ total, scopes, period, currency, onPickScope }) {
   const tr = useT()
   return (
@@ -265,8 +313,7 @@ function Heatmap({ total, scopes, period, currency, onPickScope }) {
               <th className="sticky left-0 z-10 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Goal')}</th>
               {scopes.map((s) => (
                 <th key={s.scope.key} className="px-2 py-3 text-center">
-                  <button type="button" onClick={() => onPickScope?.(s.scope.key)} className="inline-flex max-w-[7.5rem] items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-ink transition-colors hoverable:hover:bg-cloud">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.scope.color }} />
+                  <button type="button" onClick={() => onPickScope?.(s.scope.key)} title={s.scope.name} className="inline-flex max-w-[8.5rem] items-center rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-ink transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand">
                     <span className="truncate">{s.scope.name}</span>
                   </button>
                 </th>
@@ -335,21 +382,24 @@ function TotalCard({ row, period, currency, delay, onOpen }) {
         </span>
       </span>
       <KpiProgress status={status} pct={pct} progress={progress} startsIn={daysUntil(period)} />
-      {/* who it came from */}
-      <span className="mt-auto">
-        <span className="flex h-1.5 gap-[2px] overflow-hidden rounded-full bg-cloud">
-          {row.parts.map((p) => (
-            <span key={p.scope.key} className="h-full" style={{ width: `${(def.kind === 'level' ? 1 / row.parts.length : (status === 'upcoming' ? p.target / (row.target_value || 1) : p.actual / sumParts)) * 100}%`, background: p.scope.color }} />
-          ))}
-        </span>
-        <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-smoke">
-          {row.parts.map((p) => (
-            <span key={p.scope.key} className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.scope.color }} />
-              {p.scope.name} <span className="font-semibold tabular-nums text-ink">{status === 'upcoming' ? fmt(p.target) : fmt(p.actual)}</span>
+      {/* WHO IT CAME FROM, BY NAME (1 Oct 2026): a row per market with its own small bar, instead
+          of a multi-coloured strip that needed a dot per market to decode. */}
+      <span className="mt-auto space-y-1.5 border-t border-gray-100 pt-3">
+        {row.parts.map((p) => {
+          const v = status === 'upcoming' ? p.target : p.actual
+          const share = def.kind === 'level'
+            ? Math.min(1, p.target > 0 ? p.actual / p.target : 0)
+            : (status === 'upcoming' ? p.target / (row.target_value || 1) : p.actual / sumParts)
+          return (
+            <span key={p.scope.key} className="flex items-center gap-2 text-[11.5px]">
+              <span className="w-[6.5rem] shrink-0 truncate text-smoke">{p.scope.name}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-cloud">
+                <span className={cx('kpi-fill block h-full rounded-full', status === 'upcoming' ? 'bg-gray-300' : 'bg-gradient-to-r from-brand-light to-brand')} style={{ width: `${Math.max(3, Math.round(share * 100))}%` }} />
+              </span>
+              <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-ink">{fmt(v)}</span>
             </span>
-          ))}
-        </span>
+          )
+        })}
       </span>
     </button>
   )
@@ -361,7 +411,7 @@ function TotalDetail({ row, period, currency, onClose }) {
   const fmt = (v) => (row ? formatKpiValue(row, v, currency) : '')
   const data = (row?.parts || []).map((p) => {
     const st = rowStatus(p.row, period)
-    return { name: p.scope.name, color: p.scope.color, actual: p.actual, target: p.target, pct: p.target > 0 ? p.actual / p.target : 0, status: st.status }
+    return { name: p.scope.name, actual: p.actual, target: p.target, pct: p.target > 0 ? p.actual / p.target : 0, status: st.status }
   })
   const st = row ? rowStatus(row, period) : null
   return (
@@ -397,7 +447,7 @@ function TotalDetail({ row, period, currency, onClose }) {
                     }}
                   />
                   <Bar dataKey="pct" radius={[0, 6, 6, 0]} maxBarSize={22} animationDuration={500}>
-                    {data.map((d) => <Cell key={d.name} fill={d.color} />)}
+                    {data.map((d) => <Cell key={d.name} fill={STATUS_STYLE[d.status].fill} />)}
                     <LabelList dataKey="pct" position="right" formatter={(v) => `${Math.round(v * 100)}%`} style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />
                   </Bar>
                 </BarChart>
@@ -412,7 +462,7 @@ function TotalDetail({ row, period, currency, onClose }) {
               <tbody>
                 {data.map((d) => (
                   <tr key={d.name} className="border-t border-gray-100">
-                    <td className="px-4 py-2.5"><span className="inline-flex items-center gap-2 font-medium"><span className="h-2 w-2 rounded-full" style={{ background: d.color }} />{d.name}</span></td>
+                    <td className="px-4 py-2.5 font-medium">{d.name}</td>
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{fmt(d.actual)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-smoke">{fmt(d.target)}</td>
                     <td className="px-4 py-2.5 text-right"><span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', STATUS_STYLE[d.status].chip)}>{tr(STATUS_STYLE[d.status].label)}</span></td>

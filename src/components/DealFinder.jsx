@@ -82,7 +82,7 @@ export default function DealFinder({ className, variant = 'button' }) {
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             <span className="relative min-w-0 flex-1">
               <span className="block text-lg font-bold leading-tight">{tr('Open Tryp.com')}</span>
-              <span className="block text-xs text-white/85">{tr('Search flights and hotels, in your language')}</span>
+              <span className="block text-xs text-white/85">{tr('Search flights and hotels')}</span>
             </span>
             <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
           </a>

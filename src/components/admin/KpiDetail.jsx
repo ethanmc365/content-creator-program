@@ -44,6 +44,26 @@ const DAY = 86400000
 // Opened once, it opens instantly the next time (and refreshes behind).
 const detailCache = new Map()
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
+const inflight = new Map()
+const cacheKey = (scope, basis, { year, quarter, month }, metric) => `${scope}:${basis}:${year}:${quarter}:${month ?? ''}:${metric}`
+function fetchDetail(scope, basis, period, metric) {
+  const ck = cacheKey(scope, basis, period, metric)
+  if (inflight.has(ck)) return inflight.get(ck)
+  const p = supabase.rpc('kpi_detail', {
+    p_community_id: scope, p_year: period.year, p_quarter: period.quarter, p_month: period.month ?? null, p_metric: metric, p_basis: basis,
+  }).then((res) => { inflight.delete(ck); if (!res.error) detailCache.set(ck, res.data); return res })
+  inflight.set(ck, p)
+  return p
+}
+
+// OPENED BEFORE IT IS PRESSED (1 Oct 2026). Ethan: "whenever I click on something, like '3 challenges
+// run,' it shows the pop-up, and then it takes the graph a bit to load." A card that is hovered or
+// focused starts fetching its story, so by the time it is pressed the charts are usually already here.
+export function prefetchKpiDetail({ row, scope, basis = 'all', period }) {
+  if (!row || row.metric === 'custom' || !scope || !period) return
+  if (detailCache.has(cacheKey(scope, basis, period, row.metric))) return
+  fetchDetail(scope, basis, period, row.metric)
+}
 
 export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR', scopeName, period, onClose }) {
   const tr = useT()
@@ -56,15 +76,13 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
   useEffect(() => {
     if (!row || custom) return undefined
     let alive = true
-    const ck = `${scope}:${basis}:${year}:${quarter}:${month ?? ''}:${row.metric}`
+    const ck = cacheKey(scope, basis, { year, quarter, month }, row.metric)
     const hit = detailCache.get(ck)
     setData(hit || null)
     setErr('')
-    supabase.rpc('kpi_detail', {
-      p_community_id: scope, p_year: year, p_quarter: quarter, p_month: month ?? null, p_metric: row.metric, p_basis: basis,
-    }).then(({ data: d, error }) => {
+    fetchDetail(scope, basis, { year, quarter, month }, row.metric).then(({ data: d, error }) => {
       if (!alive) return
-      if (error) { if (!hit) setErr(error.message) } else { detailCache.set(ck, d); setData(d) }
+      if (error) { if (!hit) setErr(error.message) } else setData(d)
     })
     return () => { alive = false }
   }, [row, custom, scope, basis, year, quarter, month])
@@ -186,7 +204,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
             />
             <DetailStat
               label={status === 'upcoming' ? tr('Starts in') : tr('Days left')}
-              value={status === 'upcoming' ? tr('{n} days', { n: daysUntil(period) }) : daysLeft == null ? '-' : String(daysLeft)}
+              value={status === 'upcoming' ? (daysUntil(period) === 1 ? tr('1 day') : tr('{n} days', { n: daysUntil(period) })) : daysLeft == null ? '-' : String(daysLeft)}
             />
           </div>
 
@@ -218,7 +236,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
               </div>
             </div>
           ) : (
-            <div className="space-y-6 animate-page-in">
+            <div className="space-y-6 animate-chart-in">
               {/* ---- 2. How it got there ---- */}
               <section className="border-t border-gray-100 pt-5">
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">

@@ -1,3 +1,4 @@
+import { dateTag } from './utils'
 // What time it is where somebody is.
 //
 // "3:41pm for them" is the single most useful thing a profile can tell you
@@ -241,7 +242,7 @@ export function zonedTimeToUtc(dateStr, timeStr, zone) {
 export function formatInZone(at, zone) {
   if (!at) return ''
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(dateTag(), {
       timeZone: zone,
       weekday: 'short', day: 'numeric', month: 'short',
       hour: '2-digit', minute: '2-digit', hour12: false,

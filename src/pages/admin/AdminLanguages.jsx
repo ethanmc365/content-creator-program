@@ -264,10 +264,9 @@ export default function AdminLanguages() {
 
   return (
     <div className="page max-w-6xl">
-      <PageHeader
-        title={tr('Languages')}
-        subtitle={tr('Every word the platform says, in your language. Changes are live for everyone the moment you save.')}
-      />
+      {/* NO DESCRIPTION, EVERYTHING UP (1 Oct 2026). Ethan: "You can remove the description and move
+          everything up." */}
+      <PageHeader title={tr('Languages')} />
 
       {/* THE LANGUAGE, WITH HOW FINISHED IT IS. */}
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white p-3 shadow-card">
@@ -563,21 +562,80 @@ const StringRow = memo(function StringRow({ index = 0, source, bundled, override
 // speaks the language can read it and correct anything. A corrected one is marked as
 // reviewed and is never overwritten. Deleting one makes the next reader's view translate it
 // afresh - the way to redo a bad one.
+// WHAT IS LIVE NOW, THEN EVERYTHING ELSE (1 Oct 2026).
+//
+// Ethan: "I do like the way recent content is separated ... but only for brief messages. Whenever a
+// brief message or whatever is gone, it's no longer needed, then it shouldn't show up here at the
+// top. Just the newest one should show up at the top ... and everything should be done
+// automatically."
+//
+// So the tab asks what creators can actually read TODAY - the briefs, rules and bonus lines of every
+// challenge that is running or about to, the live surveys and the upcoming events - and puts only the
+// translations of those at the top, grouped under what they belong to, newest first. Nobody files
+// anything: when a challenge ends, its brief falls out of "Live now" on its own and joins the rest.
+const trimmed = (x) => (typeof x === 'string' ? x.trim() : '')
+async function loadLiveSources() {
+  const nowIso = new Date().toISOString()
+  const today = nowIso.slice(0, 10)
+  const [{ data: ch }, { data: sv }, { data: ev }] = await Promise.all([
+    supabase.from('challenges').select('id, title, description, rules, start_date, end_date, status, created_at')
+      .neq('status', 'archived').or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(20),
+    supabase.from('surveys').select('id, title, intro, thanks, questions, created_at').eq('status', 'live').eq('is_test', false).limit(20),
+    supabase.from('events').select('id, title, description, date').gte('date', nowIso).order('date').limit(30),
+  ])
+  const ids = (ch || []).map((c) => c.id)
+  const { data: rules } = ids.length
+    ? await supabase.from('point_rules').select('challenge_id, label, prompt').in('challenge_id', ids)
+    : { data: [] }
+  const groups = []
+  for (const c of ch || []) {
+    const parts = [
+      { kind: 'Title', text: c.title },
+      { kind: 'Brief', text: c.description },
+      { kind: 'Rules', text: c.rules },
+      ...(rules || []).filter((r) => r.challenge_id === c.id).flatMap((r) => [
+        { kind: 'Bonus', text: r.label?.replace(/^\+?\d+\s*/, '') }, { kind: 'Bonus', text: r.label }, { kind: 'Bonus', text: r.prompt },
+      ]),
+    ]
+    groups.push({ key: `c:${c.id}`, icon: 'flag', label: c.title, sub: 'Challenge', at: c.start_date || c.created_at, parts })
+  }
+  for (const x of sv || []) {
+    const parts = [{ kind: 'Title', text: x.title }, { kind: 'Intro', text: x.intro }]
+    for (const q of x.questions || []) {
+      parts.push({ kind: 'Question', text: q.prompt }, { kind: 'Question', text: q.help })
+      for (const o of q.options || []) parts.push({ kind: 'Answer', text: o })
+    }
+    parts.push({ kind: 'Thank you', text: x.thanks })
+    groups.push({ key: `s:${x.id}`, icon: 'chartPie', label: x.title, sub: 'Survey', at: x.created_at, parts })
+  }
+  for (const e of ev || []) {
+    groups.push({ key: `e:${e.id}`, icon: 'calendar', label: e.title, sub: 'Event', at: e.date, parts: [{ kind: 'Title', text: e.title }, { kind: 'Details', text: e.description }] })
+  }
+  // Newest first: the challenge that started most recently (or starts next) leads.
+  groups.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+  return groups
+}
+
 function ContentTab({ locale, userId, onError }) {
   const tr = useT()
   const [list, setList] = useState(null)
+  const [live, setLive] = useState(null)
   const [filter, setFilter] = useState('auto')
   const [busyKey, setBusyKey] = useState(null)
+  const [showRest, setShowRest] = useState(false)
 
   const load = useCallback(async () => {
-    setList(null)
-    const { data, error } = await supabase.from('content_translations')
-      .select('source_hash, source, value, src_lang, same, auto, updated_at, reviewer:reviewed_by(name)')
-      .eq('locale', locale).eq('same', false).order('updated_at', { ascending: false }).limit(200)
-    if (error) { onError(error.message); setList([]); return }
+    const [{ data, error }, groups] = await Promise.all([
+      supabase.from('content_translations')
+        .select('source_hash, source, value, src_lang, same, auto, updated_at, reviewer:reviewed_by(name)')
+        .eq('locale', locale).eq('same', false).order('updated_at', { ascending: false }).limit(300),
+      loadLiveSources().catch(() => []),
+    ])
+    if (error) { onError(error.message); setList([]); setLive([]); return }
     setList(data || [])
+    setLive(groups)
   }, [locale, onError])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { setList(null); load() }, [load])
 
   async function save(row, value) {
     setBusyKey(row.source_hash)
@@ -599,45 +657,100 @@ function ContentTab({ locale, userId, onError }) {
     load()
   }
 
-  const shown = (list || []).filter((r) => (filter === 'auto' ? r.auto : filter === 'reviewed' ? !r.auto : true))
+  // Each live thing with the translations that belong to it, in the order it reads.
+  const { liveGroups, rest } = useMemo(() => {
+    if (!list || !live) return { liveGroups: [], rest: [] }
+    const bySource = new Map(list.map((r) => [trimmed(r.source), r]))
+    const used = new Set()
+    const out = []
+    for (const g of live) {
+      const rows = []
+      for (const part of g.parts) {
+        const r = bySource.get(trimmed(part.text))
+        if (r && !used.has(r.source_hash)) { used.add(r.source_hash); rows.push({ ...r, kind: part.kind }) }
+      }
+      if (rows.length) out.push({ ...g, rows })
+    }
+    return { liveGroups: out, rest: list.filter((r) => !used.has(r.source_hash)) }
+  }, [list, live])
+
+  const shownRest = rest.filter((r) => (filter === 'auto' ? r.auto : filter === 'reviewed' ? !r.auto : true))
+  const loading = list === null || live === null
   return (
     <div>
-      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-smoke">
-        {tr('Challenge briefs and rules are translated automatically the first time a creator reads them in this language. Check them here, and correct anything that reads wrong. Your version is kept and shown instead.')}
-      </p>
-      <div className="mb-4">
-        <Segmented
-          size="sm"
-          value={filter}
-          onChange={setFilter}
-          label={tr('Which translations')}
-          options={[
-            { value: 'auto', label: tr('Not checked yet') },
-            { value: 'reviewed', label: tr('Corrected by us') },
-            { value: 'all', label: tr('All') },
-          ]}
-        />
-      </div>
-      {list === null ? (
+      {loading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}</div>
-      ) : shown.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="book" className="h-7 w-7" />}
-          title={tr('Nothing to check yet')}
-          hint={tr('Translations appear here after a creator reads a brief written in another language.')}
-        />
       ) : (
-        <ul className="space-y-3">
-          {shown.map((r) => (
-            <ContentRow key={r.source_hash} row={r} busy={busyKey === r.source_hash} onSave={(v) => save(r, v)} onRedo={() => redo(r)} />
-          ))}
-        </ul>
+        <div className="space-y-8">
+          <section className="animate-fade-up">
+            <h2 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
+              {tr('Live now')}
+            </h2>
+            {liveGroups.length === 0 ? (
+              <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
+                {tr('Nothing live needs checking. When a challenge, survey or event goes out, its words appear here first.')}
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {liveGroups.map((g) => (
+                  <div key={g.key}>
+                    <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-ink">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white shadow-card"><Icon name={g.icon} className="h-3.5 w-3.5" /></span>
+                      <span className="min-w-0 truncate">{g.label}</span>
+                      <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke">{tr(g.sub)}</span>
+                    </p>
+                    <ul className="space-y-3">
+                      {g.rows.map((r) => (
+                        <ContentRow key={r.source_hash} row={r} kind={r.kind} busy={busyKey === r.source_hash} onSave={(v) => save(r, v)} onRedo={() => redo(r)} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="animate-fade-up [animation-delay:80ms]">
+            <button type="button" onClick={() => setShowRest((x) => !x)} aria-expanded={showRest} className="mb-3 flex w-full items-center gap-2 text-left">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Everything else')}</span>
+              <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{rest.length}</span>
+              <Icon name="chevronDown" className={cx('ml-auto h-4 w-4 text-gray-400 transition-transform duration-200', showRest && 'rotate-180')} />
+            </button>
+            {showRest && (
+              <div className="animate-fade-up">
+                <div className="mb-4">
+                  <Segmented
+                    size="sm"
+                    value={filter}
+                    onChange={setFilter}
+                    label={tr('Which translations')}
+                    options={[
+                      { value: 'auto', label: tr('Not checked yet') },
+                      { value: 'reviewed', label: tr('Corrected by us') },
+                      { value: 'all', label: tr('All') },
+                    ]}
+                  />
+                </div>
+                {shownRest.length === 0 ? (
+                  <EmptyState icon={<Icon name="book" className="h-7 w-7" />} title={tr('Nothing here')} hint={tr('Translations appear after a creator reads something written in another language.')} />
+                ) : (
+                  <ul className="space-y-3">
+                    {shownRest.slice(0, 60).map((r) => (
+                      <ContentRow key={r.source_hash} row={r} busy={busyKey === r.source_hash} onSave={(v) => save(r, v)} onRedo={() => redo(r)} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
       )}
     </div>
   )
 }
 
-function ContentRow({ row, busy, onSave, onRedo }) {
+function ContentRow({ row, kind, busy, onSave, onRedo }) {
   const tr = useT()
   const [text, setText] = useState(row.value)
   const changed = text.trim() !== row.value.trim()
@@ -646,7 +759,7 @@ function ContentRow({ row, busy, onSave, onRedo }) {
     <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-board-swap">
       <div className="grid gap-px bg-gray-100 lg:grid-cols-2">
         <div className="bg-cloud/50 p-4">
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{from ? tr('Original ({lang})', { lang: from }) : tr('Original')}</p>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{kind ? `${tr(kind)} · ` : ''}{from ? tr('Original ({lang})', { lang: from }) : tr('Original')}</p>
           <p className="max-h-64 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">{row.source}</p>
         </div>
         <div className="bg-white p-4">
@@ -656,7 +769,7 @@ function ContentRow({ row, busy, onSave, onRedo }) {
               ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Automatic')}</span>
               : <span className="rounded-full bg-brand px-2 py-0.5 text-white">{tr('Corrected')}{row.reviewer?.name ? ` · ${row.reviewer.name}` : ''}</span>}
           </p>
-          <AutoTextarea value={text} minRows={4} maxHeight={320} onChange={(e) => setText(e.target.value)} className="input w-full resize-none text-[13px] leading-relaxed" />
+          <AutoTextarea value={text} minRows={2} maxHeight={320} onChange={(e) => setText(e.target.value)} className="input w-full resize-none text-[13px] leading-relaxed" />
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3">

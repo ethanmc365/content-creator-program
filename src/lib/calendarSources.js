@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { inScope } from './scope'
+import { t } from './i18n'
 
 // EVERYTHING THAT IS ALREADY A DATE, ON THE PAGE THAT IS ABOUT DATES.
 //
@@ -147,7 +148,7 @@ export async function loadCalendar({ userId, scopeIds }) {
     if (c.start_date) {
       items.push({
         id: `${c.id}-start`, key: `challenge:${c.id}:start`,
-        title: `${c.title} opens`, date: c.start_date, endsAt: null,
+        title: t('{title} opens', { title: c.title }), baseTitle: c.title, date: c.start_date, endsAt: null,
         type: 'challenge', kind: 'challenge', link: `/challenges/${c.id}`,
         description: '', timezone: null, ownerId: null,
         communityIds: c.community_id ? [c.community_id] : [],
@@ -157,7 +158,7 @@ export async function loadCalendar({ userId, scopeIds }) {
     if (c.end_date) {
       items.push({
         id: `${c.id}-end`, key: `challenge:${c.id}:end`,
-        title: `${c.title} closes`, date: c.end_date, endsAt: null,
+        title: t('{title} closes', { title: c.title }), baseTitle: c.title, date: c.end_date, endsAt: null,
         type: 'deadline', kind: 'deadline', link: `/challenges/${c.id}`,
         description: '', timezone: null, ownerId: null,
         communityIds: c.community_id ? [c.community_id] : [],
@@ -173,7 +174,7 @@ export async function loadCalendar({ userId, scopeIds }) {
   for (const f of flights ?? []) {
     items.push({
       id: `flight-${f.id}`, key: `flight:${f.id}`,
-      title: `Flight ${f.from_iata} to ${f.to_iata}`,
+      title: t('Flight {from} to {to}', { from: f.from_iata, to: f.to_iata }),
       date: middayOf(f.flown_on), endsAt: null,
       type: 'flight', kind: 'flight', link: '/flights',
       description: [f.airline, f.flight_number].filter(Boolean).join(' '),
@@ -238,8 +239,8 @@ export async function loadCalendar({ userId, scopeIds }) {
     items.push({
       id: `invoice-${inv.id}`, key: `invoice:${inv.id}`,
       title: inv.stage === 'paid'
-        ? `Paid: ${inv.currency}${Number(inv.amount).toFixed(2)}`
-        : `Invoice ${inv.number ? `#${inv.number}` : ''} sent`.trim(),
+        ? t('Paid: {amount}', { amount: `${inv.currency}${Number(inv.amount).toFixed(2)}` })
+        : (inv.number ? t('Invoice #{n} sent', { n: inv.number }) : t('Invoice sent')),
       date: String(when).length <= 10 ? middayOf(when) : when,
       endsAt: null,
       type: 'invoice', kind: 'invoice', link: '/rewards',

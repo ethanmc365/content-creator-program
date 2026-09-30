@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
 import Icon from './Icon'
-import { cx, formatDate } from '../lib/utils'
+import { cx, dateTag, formatDate } from '../lib/utils'
 import { DateField, TimeField } from './DateTimeFields'
 import { useMarkets } from '../lib/markets'
 import { useMyScopes } from '../lib/scope'
@@ -112,12 +112,12 @@ function DayHeader({ iso }) {
       <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-brand text-white shadow-card">
         <span className="text-base font-bold leading-none">{d.getDate()}</span>
         <span className="text-[9px] font-semibold uppercase leading-tight tracking-wide">
-          {d.toLocaleDateString([], { month: 'short' })}
+          {d.toLocaleDateString(dateTag(), { month: 'short' })}
         </span>
       </div>
       <div className="leading-tight">
-        <p className="text-sm font-bold text-ink">{d.toLocaleDateString([], { weekday: 'long' })}</p>
-        <p className="text-xs text-smoke">{d.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p className="text-sm font-bold text-ink">{d.toLocaleDateString(dateTag(), { weekday: 'long' })}</p>
+        <p className="text-xs text-smoke">{d.toLocaleDateString(dateTag(), { day: 'numeric', month: 'long', year: 'numeric' })}</p>
       </div>
     </div>
   )
@@ -349,7 +349,7 @@ function PollComposer({ open, onClose, onCreated }) {
     // an admin can always post the line themselves.
     if (announce) {
       const first = [...slots].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0]
-      const day = new Date(first.starts_at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })
+      const day = new Date(first.starts_at).toLocaleDateString(dateTag(), { weekday: 'long', day: 'numeric', month: 'long' })
       const { posted, error: annErr } = await announceToMarkets({
         communityIds: markets,
         senderId: user.id,
@@ -424,7 +424,7 @@ function PollComposer({ open, onClose, onCreated }) {
               {groupSlotsByDay(slots).map((g) => (
                 <div key={g.key}>
                   <p className="mb-1.5 text-xs font-bold text-ink">
-                    {new Date(g.date).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {new Date(g.date).toLocaleDateString(dateTag(), { weekday: 'long', day: 'numeric', month: 'long' })}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {g.slots.map((s) => (
