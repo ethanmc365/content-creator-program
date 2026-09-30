@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
+import { makeThumbBlob } from '../lib/avatarUrl'
 import { parseDob, formatDobInput, ageFromDob, cx, MIN_AGE } from '../lib/utils'
 import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
@@ -146,7 +147,13 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
     const path = `${user.id}/avatar-${Date.now()}.${ext}` // unique name busts caches
     try {
-      const url = await uploadFile('avatars', path, blob, blob.type || 'image/jpeg')
+      // The small copy the map pins and lists draw (lib/avatarUrl): written beside the avatar as
+      // t-<stamp>.jpg so nothing has to go through Supabase's billed image-transform endpoint.
+      const thumb = await makeThumbBlob(blob)
+      const [url] = await Promise.all([
+        uploadFile('avatars', path, blob, blob.type || 'image/jpeg'),
+        thumb ? uploadFile('avatars', path.replace(/avatar-(\d+)\.\w+$/, 't-$1.jpg'), thumb, 'image/jpeg').catch(() => null) : null,
+      ])
       onUploaded(url)
       // The remote URL is now the source of truth. The preview is kept for one
       // more beat and dropped by the effect below once the real image has

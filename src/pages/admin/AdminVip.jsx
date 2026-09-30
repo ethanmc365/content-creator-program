@@ -6,6 +6,7 @@ import { EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Segmented from '../../components/network/Segmented'
 import { VipMembersTab, VipOverviewTab } from '../../components/vip/adminA'
+import { VipAccessTab } from '../../components/vip/access'
 import { VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipKpiTab, VipSettingsTab } from '../../components/vip/adminB'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -22,15 +23,17 @@ import { useT } from '../../lib/i18n'
 // doing over time) and Settings (the rate, the rules, the terms). A market's own lead sees their market's
 // programme and nothing else; the team sees all of them. The database decides which (vip_can_manage); this
 // page only draws what it is given.
-const TABS = ['overview', 'members', 'bonuses', 'close', 'kpis', 'analytics', 'settings']
+const TABS = ['overview', 'members', 'bonuses', 'close', 'kpis', 'analytics', 'settings', 'access']
 
 export default function AdminVip() {
   const tr = useT()
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
+  // Who can open these tools is the owner's to decide (migration 296), so that tab is theirs alone.
+  const isOwner = profile?.platform_role === 'owner'
   const [params, setParams] = useSearchParams()
   const [programmes, setProgrammes] = useState(null)
   const [pid, setPid] = useState(null)
-  const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'overview'
+  const tab = TABS.includes(params.get('tab')) && (params.get('tab') !== 'access' || isOwner) ? params.get('tab') : 'overview'
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug)').order('name')
@@ -49,7 +52,7 @@ export default function AdminVip() {
     return (
       <div className="page max-w-3xl">
         <PageHeader title={tr('VIP tools')} back={isAdmin ? '/admin' : undefined} />
-        <EmptyState icon={<Icon name="star" className="h-7 w-7" />} title={tr('Nothing to manage here')} hint={tr('The VIP tools are for the team and for the lead of a market that has a VIP programme.')} />
+        <EmptyState icon={<Icon name="star" className="h-7 w-7" />} title={tr('Nothing to manage here')} hint={tr('The VIP tools are for the owner and the managers they have added to a VIP programme.')} />
       </div>
     )
   }
@@ -83,6 +86,7 @@ export default function AdminVip() {
             { value: 'kpis', label: tr('KPIs') },
             { value: 'analytics', label: tr('Analytics') },
             { value: 'settings', label: tr('Settings') },
+            ...(isOwner ? [{ value: 'access', label: tr('Access') }] : []),
           ]}
         />
       </div>
@@ -95,6 +99,7 @@ export default function AdminVip() {
         {tab === 'kpis' && <VipKpiTab programme={programme} />}
         {tab === 'analytics' && <VipAnalyticsTab programme={programme} isAdmin={isAdmin} />}
         {tab === 'settings' && <VipSettingsTab programme={programme} onSaved={load} />}
+        {tab === 'access' && <VipAccessTab programmes={programmes} />}
       </div>
     </div>
   )

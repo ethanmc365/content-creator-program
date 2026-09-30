@@ -10,19 +10,24 @@ import { thumbUrl } from './avatarUrl'
 const OURS = 'https://heuhqqoxyggawuckxocp.supabase.co/storage/v1/object/public/avatars/abc/avatar-1.jpg'
 
 describe('thumbUrl', () => {
-  it('asks the edge for the size it is actually drawn at', () => {
-    const out = thumbUrl(OURS, 32)
-    expect(out).toContain('/storage/v1/render/image/public/avatars/abc/avatar-1.jpg')
-    expect(out).toContain('resize=cover')
+  it('points at the small sibling file written at upload time, never the billed transform endpoint', () => {
+    expect(thumbUrl(OURS, 32)).toBe('https://heuhqqoxyggawuckxocp.supabase.co/storage/v1/object/public/avatars/abc/t-1.jpg')
+    expect(thumbUrl(OURS, 32)).not.toContain('/render/')
   })
 
-  it('triples for 3x phone screens, because the sharp version is still tiny', () => {
-    expect(thumbUrl(OURS, 32)).toContain('width=96')
-    expect(thumbUrl(OURS, 64)).toContain('width=192')
+  it('serves the one 192px thumbnail up to 64 drawn px, and the original above that', () => {
+    expect(thumbUrl(OURS, 64)).toContain('/t-1.jpg')
+    expect(thumbUrl(OURS, 112)).toBe(OURS)
   })
 
-  it('never goes below a floor, so a decorative avatar is still a face', () => {
-    expect(thumbUrl(OURS, 1)).toContain('width=16')
+  it('handles every extension an avatar was stored with', () => {
+    expect(thumbUrl(OURS.replace('.jpg', '.webp'), 32)).toContain('/t-1.jpg')
+    expect(thumbUrl(OURS.replace('.jpg', '.png'), 32)).toContain('/t-1.jpg')
+  })
+
+  it('leaves other buckets alone: no thumbnail sibling exists for a gallery photo', () => {
+    const g = 'https://heuhqqoxyggawuckxocp.supabase.co/storage/v1/object/public/gallery/abc/photo-1.jpg'
+    expect(thumbUrl(g, 32)).toBe(g)
   })
 
   // A profile photo can be a Google account picture from OAuth, and handing an

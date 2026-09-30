@@ -70,6 +70,8 @@ export const TYPE_META = {
   event_rating: { icon: 'star', group: 'updates', label: 'Event' },
   deletion: { icon: 'alert', group: 'updates', label: 'Account' },
   community: { icon: 'globe', group: 'updates', label: 'Market' },
+  // The VIP programme's welcome, payout, bonus and month-end notices (migrations 294/296).
+  vip: { icon: 'star', group: 'updates', label: 'VIP' },
 }
 
 export const metaFor = (type) => TYPE_META[type] || { icon: 'bell', group: 'updates', label: 'Update' }

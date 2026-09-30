@@ -8,6 +8,7 @@ import { useUnread } from '../../context/UnreadContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
 import { onResume } from '../../lib/resume'
+import { useVipAccess } from '../../lib/vip'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
@@ -246,6 +247,7 @@ export default function AppLayout() {
   // enter challenges; the tab that would have been theirs is the page that IS theirs. An admin who is also a
   // VIP keeps the challenges.
   const isVip = !!profile?.is_vip && !isAdmin
+  const vipAccess = useVipAccess(profile?.id, !!isAdmin)
   const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
   const navigate = useNavigate()
 
@@ -695,6 +697,14 @@ export default function AppLayout() {
             )}
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
+            {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).
+                On a phone it lives in the avatar menu, where there is room. */}
+            {vipAccess && (
+              <Link to="/admin/vip" className="hidden items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-card transition-transform duration-200 hover:-translate-y-px sm:flex">
+                <Icon name="star" className="h-4 w-4" />
+                <span>{tr("VIP")}</span>
+              </Link>
+            )}
             {isAdmin && (
               <Link to="/admin" className="flex items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:px-4">
                 <Icon name="shield" className="h-4 w-4" />
@@ -800,6 +810,7 @@ export default function AppLayout() {
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
+                  {vipAccess && <Link to="/admin/vip" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("VIP tools")}</Link>}
                   <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">{tr("Log out")}</button>
                 </div>
               )}

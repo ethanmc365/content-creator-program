@@ -1,4 +1,20 @@
-// A PHOTO THE SIZE IT IS ACTUALLY DRAWN.
+// A PHOTO THE SIZE IT IS ACTUALLY DRAWN - WITHOUT THE BILLED TRANSFORM ENDPOINT.
+//
+// 30 SEP 2026, WHAT CHANGED AND WHY. Supabase told Ethan the project was over its
+// plan: "Storage Image Transformations", 100 included, 200 used. That meter counts
+// UNIQUE ORIGIN IMAGES put through `/render/image` in a billing month - not
+// requests, not sizes. ~170 live profile photos plus every replaced one is past
+// 100 the moment each has been drawn once, and it grows with every sign-up. So
+// this file no longer calls the transform endpoint at all. The thumbnail is now a
+// second small file written at upload time next to the avatar
+// (`t-<stamp>.jpg`, 192px), and `thumbUrl` just points at it: a plain object URL,
+// which costs nothing and is cached by the CDN like any other file. Existing
+// avatars were backfilled once by scripts/backfill-avatar-thumbs.mjs.
+//
+// Everything below this note that talks about "the transform endpoint" describes
+// the earlier version and the measurements that motivated it; the numbers hold.
+//
+// (original note)
 //
 // THE BUG. Ethan: "the creator map, it takes a lot of time for the profile
 // pictures to load in on the pins."
@@ -29,31 +45,46 @@
 // enough that there is no reason to ship the soft one.
 
 const OBJECT = '/storage/v1/object/public/'
-const RENDER = '/storage/v1/render/image/public/'
+// `<base>/storage/v1/object/public/avatars/<uid>/avatar-<stamp>.<ext>`
+const AVATAR = /^(.*\/storage\/v1\/object\/public\/avatars\/[^/?#]+\/)avatar-(\d+)\.[a-z0-9]+$/i
+
+/** Longest side, in CSS px, a thumbnail can serve. The file is 192 wide (3x of 64). */
+export const THUMB_MAX_PX = 64
+export const THUMB_PX = 192
 
 /**
  * @param url  a `profiles.photo_url` (or any image URL, or nothing)
  * @param px   how wide it is drawn, in CSS pixels
- * @returns    a resized URL when we can make one, else `url` untouched
+ * @returns    the small sibling file when one can exist, else `url` untouched
  */
 export function thumbUrl(url, px) {
   if (!url || typeof url !== 'string') return url
-  // Already transformed - a caller that passes one of our own outputs back in
-  // must not end up with two query strings.
-  if (url.includes(RENDER)) return url
-  const at = url.indexOf(OBJECT)
-  if (at === -1) return url
-  // A URL that already carries a query is not one of ours to rewrite; appending
-  // to it would be guesswork about what the existing parameters mean.
-  if (url.includes('?')) return url
-  // THREE TIMES THE DRAWN SIZE, AT QUALITY 85 (26 Sep 2026). Ethan: "the
-  // profile pictures seem to be really low quality, but the travel photos are
-  // much higher quality." Every iPhone since the X is a 3x screen, and this
-  // asked for 2x at quality 75 - a 48px avatar arrived as a 96px, 3.5 kB
-  // image stretched to 144 device pixels. 3x at 85 is ~8 kB and sharp.
-  const size = Math.max(16, Math.round(px * 3))
-  // `cover` rather than `contain`: every avatar in this app is drawn in a
-  // circle, so the crop is what the reader sees anyway and letterboxing would
-  // put bars inside the ring.
-  return `${url.slice(0, at)}${RENDER}${url.slice(at + OBJECT.length)}?width=${size}&height=${size}&resize=cover&quality=85`
+  // Anything drawn larger than the thumbnail can carry keeps the original (it is
+  // stored at 512px, so nothing is lost by not shrinking it).
+  if (px > THUMB_MAX_PX) return url
+  if (!url.includes(OBJECT) || url.includes('?')) return url
+  const m = url.match(AVATAR)
+  if (!m) return url
+  return `${m[1]}t-${m[2]}.jpg`
+}
+
+/**
+ * The 192px square JPEG that goes beside a freshly uploaded avatar as `t-<stamp>.jpg`.
+ * Returns null when the browser cannot make one - the caller then simply has no thumbnail
+ * and `Avatar` falls back to the original.
+ */
+export async function makeThumbBlob(blob) {
+  try {
+    const bmp = await createImageBitmap(blob)
+    const side = Math.min(bmp.width, bmp.height)
+    const canvas = document.createElement('canvas')
+    canvas.width = THUMB_PX
+    canvas.height = THUMB_PX
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, THUMB_PX, THUMB_PX)
+    bmp.close?.()
+    return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85))
+  } catch {
+    return null
+  }
 }

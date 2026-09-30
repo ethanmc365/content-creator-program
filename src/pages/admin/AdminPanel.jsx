@@ -7,6 +7,7 @@ import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
 import { cx } from '../../lib/utils'
+import { useVipAccess } from '../../lib/vip'
 
 // The admin hub.
 //
@@ -324,10 +325,12 @@ export default function AdminPanel() {
   const savedOnce = useRef(false)
 
   const isGlobal = profile?.platform_role === 'global_admin' || profile?.platform_role === 'owner'
+  // The VIP tools are only for the owner and the people they have added (migration 296), not the whole team.
+  const vipAccess = useVipAccess(profile?.id, true)
 
   const visibleTools = useMemo(
-    () => TOOLS.filter((t) => !t.globalOnly || isGlobal),
-    [isGlobal],
+    () => TOOLS.filter((t) => (!t.globalOnly || isGlobal) && (t.id !== 'vip' || vipAccess)),
+    [isGlobal, vipAccess],
   )
 
   // The saved order arrives with the profile, so there is no second query and no

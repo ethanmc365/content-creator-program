@@ -160,3 +160,32 @@ export const DEFAULT_TERMS = [
   'Bought, botted or otherwise artificial views mean the videos are removed from your total, and may end your place in the programme.',
   'You need payment details saved on your account to be paid. The programme can be paused or ended by either side at any time; months already closed are still paid.',
 ]
+
+// WHO HAS THE VIP TOOLS (30 Sep 2026, migration 296). The owner and anyone on the access list; the database is
+// the judge (`vip_has_access`), this only remembers the answer for the session so the header and the admin
+// panel do not each ask. `undefined` while loading, then true/false.
+let accessCache = { uid: null, value: undefined }
+const accessSubs = new Set()
+// `fallback` is what to show if the question itself cannot be answered (a network blip, or the database not yet
+// carrying migration 296): the door is only a convenience, the data behind it is fenced by the database either way.
+export function useVipAccess(uid, fallback = false) {
+  const value = useSyncExternalStore(
+    (fn) => { accessSubs.add(fn); return () => accessSubs.delete(fn) },
+    () => (accessCache.uid === uid ? accessCache.value : undefined),
+    () => undefined,
+  )
+  useEffect(() => {
+    if (!uid || (accessCache.uid === uid && accessCache.value !== undefined)) return
+    let alive = true
+    supabase.rpc('vip_has_access').then(({ data, error }) => {
+      if (!alive) return
+      accessCache = { uid, value: error ? fallback : !!data }
+      accessSubs.forEach((fn) => fn())
+    })
+    return () => { alive = false }
+  }, [uid, fallback])
+  return value
+}
+
+/** Forget the answer (after the owner changes who has access). */
+export function clearVipAccess() { accessCache = { uid: null, value: undefined }; accessSubs.forEach((fn) => fn()) }
