@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIP Community Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #d94407; --brand-light: #f5853f; --tint: #fff4ec; --ink: #1a1a1a; --smoke: #6b7280;
+    --line: #eceef2; --cloud: #f6f7f9; --bg: #ffffff; --card: #ffffff; --green: #059669; --amber: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --ink: #f3f4f6; --smoke: #a1a1aa; --line: #2a2a2e; --cloud: #1c1c1f; --bg: #111113; --card: #17171a; --tint: #2a1a10; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: Poppins, system-ui, sans-serif; line-height: 1.6; font-size: 15px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px 80px; }
+  header.hero { background: linear-gradient(115deg, #d94407 0%, #f5853f 55%, #e8601c 100%); color: #fff; padding: 56px 16px 44px; }
+  header.hero .wrap { padding-bottom: 0; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+  h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.1; margin: 10px 0 12px; letter-spacing: -.02em; }
+  .hero p { max-width: 640px; margin: 0; opacity: .95; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .chip { background: rgba(255,255,255,.18); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+  nav.toc { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  nav.toc .wrap { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
+  nav.toc a { white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--smoke); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
+  nav.toc a:hover { background: var(--cloud); color: var(--brand); }
+  h2 { font-size: 22px; margin: 56px 0 6px; letter-spacing: -.01em; scroll-margin-top: 64px; }
+  h2 .n { display: inline-flex; width: 30px; height: 30px; border-radius: 9px; background: var(--brand); color: #fff; font-size: 14px; align-items: center; justify-content: center; margin-right: 10px; vertical-align: 3px; }
+  h3 { font-size: 16px; margin: 26px 0 6px; }
+  .lead { color: var(--smoke); margin: 0 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin: 14px 0; box-shadow: 0 2px 10px rgba(26,26,26,.04); }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .grid .card { margin: 0; }
+  .card h4 { margin: 0 0 4px; font-size: 14.5px; }
+  .card p { margin: 0; color: var(--smoke); font-size: 13.5px; }
+  .k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--smoke); }
+  .big { font-size: 28px; font-weight: 700; color: var(--brand); line-height: 1.1; }
+  ul, ol { padding-left: 20px; } li { margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--smoke); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  code { background: var(--cloud); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; }
+  .pill { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-radius: 6px; padding: 2px 7px; }
+  .rec { background: #ecfdf5; color: var(--green); } .ask { background: #fffbeb; color: var(--amber); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rec { background: #0d2a20; } :root:not([data-theme="light"]) .ask { background: #2a2210; } }
+  .phase { border-left: 3px solid var(--brand); padding-left: 16px; margin: 18px 0; }
+  .phase .k { color: var(--brand); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+  .flow span { background: var(--cloud); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; }
+  .flow i { color: var(--brand); font-style: normal; font-weight: 700; }
+  pre.prompt { white-space: pre-wrap; background: var(--cloud); border: 1px solid var(--line); border-radius: 14px; padding: 18px; font-size: 12.5px; line-height: 1.55; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; max-height: 640px; overflow: auto; }
+  button.copy { font-family: inherit; background: var(--brand); color: #fff; border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 600; cursor: pointer; transition: transform .15s; }
+  button.copy:hover { transform: scale(1.03); }
+  .note { font-size: 13px; color: var(--smoke); }
+  footer { margin-top: 60px; font-size: 12px; color: var(--smoke); }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Tryp.com Content Creator Community · Plan · 1 October 2026</div>
+    <h1>The VIP Community,<br>moved onto the platform</h1>
+    <p>A separate programme for creators who have outgrown the challenges: paid by the views they bring, on their own targets and bonuses, with their own space and tools, while still part of the worldwide community.</p>
+    <div class="chips"><span class="chip">€0.25 per 1,000 views</span><span class="chip">Spain + Romania to start</span><span class="chip">Monthly invoices, drafted automatically</span><span class="chip">Replaces the WhatsApp group</span></div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#summary">Summary</a><a href="#principles">Principles</a><a href="#creator">What VIPs get</a><a href="#tracking">Videos &amp; views</a><a href="#money">Earnings</a><a href="#bonus">Bonuses</a><a href="#invoices">Invoices</a><a href="#admin">Admin tools</a><a href="#data">Data model</a><a href="#rules">Rules &amp; fraud</a><a href="#rollout">Rollout</a><a href="#decisions">Your decisions</a><a href="#prompt">Build prompt</a>
+</div></nav>
+
+<main class="wrap">
+
+<h2 id="summary"><span class="n">1</span>In one page</h2>
+<p class="lead">What changes, for whom, and what it costs.</p>
+<div class="grid">
+  <div class="card"><div class="k">Who</div><h4>VIP creators</h4><p>Creators too big for the normal challenges, or who want a different structure. Today: the Spanish VIPs and one or two in Romania, run from a WhatsApp group.</p></div>
+  <div class="card"><div class="k">How they earn</div><h4>Paid by views, not by winning</h4><p>€0.25 for every 1,000 views on qualifying videos (the CPM), plus monthly targets and bonuses. No prize places, no leaderboard luck.</p></div>
+  <div class="card"><div class="k">Where they live</div><h4>Their own section, inside the whole community</h4><p>A VIP hub and VIP rooms only they (and the team) can see, while keeping Worldwide, Global rooms, DMs and the calendar like everyone else.</p></div>
+  <div class="card"><div class="k">How they get paid</div><h4>One invoice a month, drafted for them</h4><p>At month end the platform totals each VIP's views, applies the CPM and any bonus, and drafts the invoice. The team approves, the creator is notified, it is paid.</p></div>
+</div>
+<div class="card">
+  <div class="k">What it costs, at €0.25 CPM</div>
+  <table><tr><th>Views in a month</th><th>Payout</th><th>For comparison</th></tr>
+  <tr><td>200,000</td><td><strong>€50</strong></td><td>a typical mid VIP</td></tr>
+  <tr><td>1,000,000</td><td><strong>€250</strong></td><td>the Spain Monthly VIP challenges paid €200-270 for 0.5-2.6M views</td></tr>
+  <tr><td>5,000,000</td><td><strong>€1,250</strong></td><td>worth a monthly cap per creator (see decisions)</td></tr></table>
+  <p class="note">The historical Spain VIP challenges (Jan-May 2026, in the Challenge Log) paid roughly €0.08-0.40 per 1,000 views. €0.25 sits in the middle and is predictable for both sides.</p>
+</div>
+
+<h2 id="principles"><span class="n">2</span>Principles</h2>
+<ul>
+  <li><strong>One platform, two programmes.</strong> VIP is a flag on a creator, not a second app. Everything shared (profile, rooms, DMs, calendar, games, portfolio, certificates) stays shared.</li>
+  <li><strong>Separate money, separate rules.</strong> VIP earnings never mix with challenge prizes. A VIP cannot enter the normal challenges (or can, but is never ranked or paid in them - your call), so nobody competes against a creator with 50x their audience.</li>
+  <li><strong>Reuse what already works.</strong> The automatic view tracker (TikTok, Instagram, YouTube, Facebook), the old-video check, the video tracker, invoices and payment details, the KPI tracker, surveys and notifications all exist. VIP plugs into them rather than copying them.</li>
+  <li><strong>Every number is live and explainable.</strong> A VIP can always see this month's views, videos and projected payout, and how each figure was reached.</li>
+  <li><strong>The month closes itself.</strong> Nobody should total views in a spreadsheet again.</li>
+</ul>
+
+<h2 id="creator"><span class="n">3</span>What a VIP sees</h2>
+<p class="lead">A <code>/vip</code> hub, in the creator's language (Spanish and Romanian first), reached from a VIP badge on their profile menu and a VIP tab on Worldwide.</p>
+<div class="grid">
+  <div class="card"><h4>This month, live</h4><p>A big earnings counter (views x CPM), views so far, qualifying videos, days left, and a projection for the month based on pace.</p></div>
+  <div class="card"><h4>My target</h4><p>Progress towards the monthly target set for them (e.g. 4 videos and 300k views), with the same progress bar as the KPI tracker. Hitting it unlocks the target bonus.</p></div>
+  <div class="card"><h4>Submit a video</h4><p>The same submit flow as challenges (paste a link), filed to the VIP month. Status: tracking, qualified, not eligible (and why).</p></div>
+  <div class="card"><h4>My videos</h4><p>Each video with its thumbnail, views, views counted this month, and what it has earned. Tap for its view curve.</p></div>
+  <div class="card"><h4>VIP board</h4><p>This month's VIPs by views (opt-in names or first name + market), with the bonus prizes shown against each place.</p></div>
+  <div class="card"><h4>Payouts</h4><p>Every month's statement: views, CPM, bonuses, invoice status (drafted, approved, paid) and the PDF.</p></div>
+  <div class="card"><h4>VIP rooms</h4><p>A VIP room per language plus one VIP Global room, with the full chat standard (markdown, media, reactions, search). Replaces the WhatsApp group.</p></div>
+  <div class="card"><h4>Briefs and campaigns</h4><p>Optional: the team posts suggested angles, destinations or deals ("film the Lisbon deal this week") with a CPM boost for videos on that brief.</p></div>
+</div>
+<p class="note">Still part of the whole community: VIPs keep Worldwide, the Global rooms, DMs, the calendar and everything else, so they can connect with every creator. Their VIP badge shows on their profile.</p>
+
+<h2 id="tracking"><span class="n">4</span>Videos and views</h2>
+<div class="flow"><span>VIP posts on TikTok / IG / YouTube / FB</span><i>→</i><span>Submits the link</span><i>→</i><span>Checks: posted this month, mentions Tryp.com, public</span><i>→</i><span>View tracker updates every few hours</span><i>→</i><span>Month closes: views frozen</span><i>→</i><span>Invoice drafted</span></div>
+<ul>
+  <li><strong>Reuse the challenge machinery by giving each month its own hidden "VIP month" record.</strong> Recommended: a <code>vip_months</code> row per month per programme, and VIP videos stored as <code>submissions</code> with a <code>vip_month_id</code> instead of a challenge. That keeps the existing view-sync, posted-at decoding, disqualify/reinstate and video tracker working unchanged.</li>
+  <li><strong>Which views count</strong> <span class="pill ask">decide</span>: recommended <em>views gained during the month on videos posted in the last 60 days</em>. Snapshots at the start and end of each month give the "gained this month" figure, so a video that keeps growing earns again next month, and nothing is paid twice.</li>
+  <li>The old-video check already rejects videos posted before the window. Duplicates (same video submitted twice, or reposts) are blocked by the one-video-one-entry trigger.</li>
+  <li>Instagram and Facebook are read by the crawler route that already works; if a platform stops returning views, the tracker's health alert already flags it on the admin desk.</li>
+</ul>
+
+<h2 id="money"><span class="n">5</span>How earnings are worked out</h2>
+<div class="card">
+  <div class="k">The formula</div>
+  <p style="font-size:15px;color:var(--ink)"><strong>Payout = (qualifying views ÷ 1,000) × CPM + bonuses</strong>, rounded to the cent, capped at the creator's monthly cap if one is set.</p>
+</div>
+<div class="tablewrap"><table>
+  <tr><th>Setting</th><th>Where it lives</th><th>Default</th></tr>
+  <tr><td>CPM</td><td>per programme, overridable per creator</td><td>€0.25</td></tr>
+  <tr><td>Monthly cap</td><td>per creator (optional)</td><td>€1,000 <span class="pill ask">decide</span></td></tr>
+  <tr><td>Minimum payout</td><td>programme</td><td>€10 (smaller amounts roll into next month)</td></tr>
+  <tr><td>Tiered CPM</td><td>programme (optional)</td><td>e.g. €0.25 up to 1M, €0.30 above</td></tr>
+  <tr><td>Per-video cap</td><td>programme (optional)</td><td>none; protects against one freak viral</td></tr>
+  <tr><td>Currency</td><td>creator's payment details</td><td>EUR; GBP converted at the invoice date</td></tr>
+</table></div>
+
+<h2 id="bonus"><span class="n">6</span>Targets and bonuses</h2>
+<div class="grid">
+  <div class="card"><h4>Target bonus</h4><p>Each VIP gets a monthly target (videos and/or views) set by the team. Hit it: +€X, or CPM x1.2 for the month.</p></div>
+  <div class="card"><h4>Top of the month</h4><p>Most views among VIPs: €100 / €50 / €25 for 1st-3rd (configurable per month).</p></div>
+  <div class="card"><h4>Best single video</h4><p>The month's most-viewed VIP video: a flat bonus and a spot on the wall of fame.</p></div>
+  <div class="card"><h4>Consistency streak</h4><p>Posted at least N qualifying videos in each of the last 3 months: +10% on the month.</p></div>
+  <div class="card"><h4>Campaign boost</h4><p>Videos on a team brief (a deal, a destination) earn a boosted CPM for that video only.</p></div>
+  <div class="card"><h4>Milestones</h4><p>First 1M views as a VIP, first €500 month: a certificate (the certificate system already exists) and a shout-out in the VIP room.</p></div>
+</div>
+<p class="note">Bonuses are rules, not manual payments: each one is a row with a kind, amount and window, like challenge point rules, so the month-end close can apply them without anyone deciding by hand. Manual adjustments stay possible, with a reason, on the invoice draft.</p>
+
+<h2 id="invoices"><span class="n">7</span>The month-end close and invoices</h2>
+<ol>
+  <li><strong>Last day of the month, 23:59 in the creator's market time</strong>: the tracker takes a final views snapshot.</li>
+  <li><strong>1st of the month, 06:00</strong>: a cron job computes each VIP's statement (views, CPM, tier, bonuses, cap) and <strong>drafts an invoice</strong> in the existing invoices system, one line per item, using their saved payment details.</li>
+  <li>The admin <strong>VIP close</strong> screen shows every draft side by side, flags anything unusual (a spike, a creator with no payment details, a video disqualified late) and approves in bulk.</li>
+  <li>Approved invoices go through the normal flow: the creator is notified (push + in-app, email once the mail domain is live), the PDF is on their Payouts page, and it is marked paid when the transfer is made.</li>
+  <li>Late view corrections after the close go to next month as an adjustment line, never by reopening a paid month.</li>
+</ol>
+
+<h2 id="admin"><span class="n">8</span>Admin tools</h2>
+<div class="grid">
+  <div class="card"><h4>VIP members</h4><p>Add or remove a VIP, set CPM, cap, target and market, see their lifetime views and earnings. Moving a creator to VIP is one press from their profile.</p></div>
+  <div class="card"><h4>This month</h4><p>Live board of every VIP: views, videos, projected payout, target progress, total projected spend against budget.</p></div>
+  <div class="card"><h4>Bonus rules</h4><p>Set this month's bonuses and campaign boosts; preview what they would cost on current numbers.</p></div>
+  <div class="card"><h4>Close the month</h4><p>Drafted statements, flags, bulk approve, export CSV for finance.</p></div>
+  <div class="card"><h4>KPI tracker</h4><p>A "VIP programme" scope in the existing KPI tracker: views, effective CPM, active VIPs, spend, videos.</p></div>
+  <div class="card"><h4>Analytics</h4><p>VIP vs challenge creators: cost per 1,000 views, views per creator, retention month to month.</p></div>
+</div>
+
+<h2 id="data"><span class="n">9</span>Data model (for the build)</h2>
+<div class="tablewrap"><table>
+  <tr><th>Table</th><th>What it holds</th></tr>
+  <tr><td><code>vip_programmes</code></td><td>name, default CPM, tiers (jsonb), min payout, per-video cap, budget per month, active</td></tr>
+  <tr><td><code>vip_members</code></td><td>profile_id, programme_id, community_id, cpm override, monthly cap, target (videos, views), status (active, paused, left), joined_on, notes</td></tr>
+  <tr><td><code>vip_months</code></td><td>programme_id, year, month, starts_at, ends_at (market time), status (open, closing, closed), closed_at</td></tr>
+  <tr><td><code>submissions</code> (existing)</td><td>+ <code>vip_month_id</code>; challenge_id null for VIP videos; same view tracking</td></tr>
+  <tr><td><code>vip_view_snapshots</code></td><td>submission_id, vip_month_id, views_at_start, views_at_end (so "gained this month" is exact)</td></tr>
+  <tr><td><code>vip_bonus_rules</code></td><td>programme_id, vip_month_id (or recurring), kind (target, top_n, best_video, streak, campaign), amount / multiplier, conditions jsonb</td></tr>
+  <tr><td><code>vip_statements</code></td><td>member, month, views, cpm, base, bonuses jsonb, cap applied, total, invoice_id, status</td></tr>
+  <tr><td><code>invoices</code> (existing)</td><td>+ <code>source = 'vip'</code> and a link back to the statement</td></tr>
+</table></div>
+<p class="note">RLS: a VIP reads only their own membership, statements and videos; admins read all; VIP rooms are channels scoped to a VIP community so the existing room permissions apply. Every rule change is audited through the existing <code>audit_change</code>.</p>
+
+<h2 id="rules"><span class="n">10</span>Rules, quality and fraud</h2>
+<ul>
+  <li>Qualifying video: posted within the window, public, on the creator's own verified account, mentions or tags Tryp.com (as the challenges already require), not a repost of an earlier video.</li>
+  <li>Automatic flags on the close screen: views jump more than 5x overnight, very low likes-to-views ratio, a video deleted after being counted, an account not on the creator's profile.</li>
+  <li>Disqualify and reinstate work as they do for challenges (the row moves out and back, totals recompute).</li>
+  <li>Written VIP terms (payment timing, what counts, bought views = removal) accepted in-app once, versioned.</li>
+</ul>
+
+<h2 id="rollout"><span class="n">11</span>Rollout</h2>
+<div class="phase"><div class="k">Phase 0 · 1 day</div><h3 style="margin-top:2px">Decide the open questions (section 12)</h3><p class="note">Nothing below needs rework if these are settled first.</p></div>
+<div class="phase"><div class="k">Phase 1 · week 1</div><h3 style="margin-top:2px">Membership, hub and rooms</h3><p class="note">VIP flag and admin members page, VIP badge, VIP rooms (Spanish, Romanian, Global VIP), a read-only hub. Invite the VIPs; keep WhatsApp running alongside.</p></div>
+<div class="phase"><div class="k">Phase 2 · week 2</div><h3 style="margin-top:2px">Videos, tracking, live earnings</h3><p class="note">Submit to the VIP month, view snapshots, live earnings counter and projection, target progress, VIP board.</p></div>
+<div class="phase"><div class="k">Phase 3 · week 3</div><h3 style="margin-top:2px">Month-end close and invoices</h3><p class="note">Statement computation, cron, invoice drafts, admin close screen, notifications. Rehearse on last month's real numbers before the first live close.</p></div>
+<div class="phase"><div class="k">Phase 4 · week 4</div><h3 style="margin-top:2px">Bonuses, KPIs, analytics</h3><p class="note">Bonus rules and preview, campaign boosts, VIP scope in the KPI tracker, VIP vs challenge analytics, milestone certificates.</p></div>
+<div class="phase"><div class="k">Switchover · first of the next month</div><h3 style="margin-top:2px">Close the WhatsApp group</h3><p class="note">First month paid from the platform; a pinned message in WhatsApp points to the VIP room, then the group is archived.</p></div>
+
+<h2 id="decisions"><span class="n">12</span>Decisions only you can make</h2>
+<div class="tablewrap"><table>
+  <tr><th>Question</th><th>Recommendation</th></tr>
+  <tr><td>Which views count?</td><td><span class="pill rec">Rec</span> Views gained in the month on videos posted in the last 60 days</td></tr>
+  <tr><td>Can VIPs enter normal challenges?</td><td><span class="pill rec">Rec</span> No. They see challenges but cannot enter; Global challenges only if you invite them</td></tr>
+  <tr><td>Monthly cap per creator?</td><td><span class="pill rec">Rec</span> €1,000 default, raised per creator</td></tr>
+  <tr><td>Tiered CPM?</td><td>Start flat at €0.25; add tiers after two months of data</td></tr>
+  <tr><td>Which bonuses at launch?</td><td><span class="pill rec">Rec</span> Target bonus + top 3 of the month. Add streaks and campaigns later</td></tr>
+  <tr><td>Names on the VIP board?</td><td>First name + market, full names opt-in</td></tr>
+  <tr><td>Who can become VIP?</td><td>Invite only, by a global admin or a market lead, from the creator's profile</td></tr>
+  <tr><td>Budget guard?</td><td>A monthly programme budget with a warning at 80% projected spend</td></tr>
+</table></div>
+
+<h2 id="prompt"><span class="n">13</span>The build prompt</h2>
+<p class="lead">Paste this into a new session once the decisions above are made. It carries everything the build needs.</p>
+<p><button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('prompt-text').innerText).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy the prompt',1600)})">Copy the prompt</button></p>
+<pre class="prompt" id="prompt-text">Build the VIP Community on the Tryp.com Content Creator platform (repo /Users/ethan/tryp-creator-platform, Supabase ref heuhqqoxyggawuckxocp). Read docs/VIP_COMMUNITY_PLAN.html first: it is the agreed plan. Plan, build, test (unit + browser, desktop and phone, English/Spanish/Romanian), then deploy to staging for review.
+
+WHAT IT IS
+VIP creators are paid by views instead of competing in challenges: EUR 0.25 per 1,000 qualifying views (CPM), plus monthly targets and bonuses, one invoice per month drafted automatically. Today they are the Spanish VIPs and one or two Romanian creators on WhatsApp. They get their own hub and rooms but stay part of the worldwide community (Worldwide, Global rooms, DMs, calendar, games, portfolio all unchanged).
+
+DECISIONS (fill in before starting)
+- Views that count: [views gained during the month on videos posted in the last 60 days]
+- VIPs in normal challenges: [cannot enter]
+- Monthly cap per creator: [EUR 1,000 default, per-creator override]
+- Minimum payout: [EUR 10, smaller rolls over]
+- Bonuses at launch: [target bonus EUR __ ; top 3 of the month EUR 100/50/25]
+- Board names: [first name + market]
+
+BUILD, IN ORDER
+1. Migration(s): vip_programmes, vip_members, vip_months, vip_view_snapshots, vip_bonus_rules, vip_statements; submissions.vip_month_id; invoices.source 'vip' + statement link. RLS: VIP reads own rows, admins all. Rehearse every trigger/RPC in a rolled-back do-block before applying. Add any new notification type to notifications_type_check.
+2. Reuse, do not copy: view-sync + posted_at decoding + one-video-one-entry + disqualify/reinstate must work for VIP submissions exactly as for challenge entries. Month snapshots (views at start/end) give "gained this month".
+3. Creator hub /vip (translated with tr(), English-sentence keys): live earnings counter + projection, target progress (reuse KpiProgress), submit a video, my videos with per-video earnings, VIP board, payouts history with invoice PDFs, rules/terms acceptance. VIP badge on profile. VIP rooms (Spanish, Romanian, Global VIP) with the full chat standard.
+4. Admin /admin/vip: members (add from a creator's profile, CPM/cap/target overrides), this month live board with projected spend vs budget, bonus rules with cost preview, close-the-month screen (statements, flags, bulk approve, CSV).
+5. Month-end: pg_cron job on the 1st computes vip_statements (formula: views/1000 x CPM, tiers, bonuses, cap, min payout rollover) and drafts invoices through the existing invoice pipeline; notify creators on approval. Late corrections become next month's adjustment lines.
+6. KPI tracker: a VIP programme scope (views, effective CPM, active VIPs, spend). Analytics: VIP vs challenge cost per 1,000 views.
+7. Tests: statement maths (tiers, caps, rollover, bonuses), RLS rehearsals, a full rehearsal of one month on sample data.
+8. Migration from WhatsApp: seed the current VIPs (ask me for the list), run one month in parallel, then switch.
+
+HOUSE RULES
+White-dominant, Poppins, brand orange #d94407 / #f5853f; a picked option is solid brand with white text; no em dashes in copy; line icons from Icon.jsx, never emoji in chrome; confirm()/notice() from lib/confirm, never window.confirm; charts use components/charts/chartTheme; no entrance animation starts at opacity 0; PostgREST returns max 1000 rows (use lib/fetchAll); run npm test, npm run lint, npm run build before any push; push to staging for review and only to main when I say deploy.</pre>
+
+<footer>Prepared with the platform's current state in mind: automatic view tracking on four platforms, invoices and payment details, the KPI tracker, surveys and certificates are all live and are what this plan builds on.</footer>
+</main>
+</body>
+</html>
