@@ -139,7 +139,7 @@ export function VipAccessTab({ programmes }) {
               {saving ? <Spinner className="h-4 w-4" /> : <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />}{tr('Give access')}
             </button>
           </div>
-          <p className="mt-3 text-xs text-smoke">{tr('They get the VIP tools for that programme: its members, bonuses, month-end payouts, numbers and rooms. They cannot add other managers.')}</p>
+          <p className="mt-3 text-xs text-smoke">{tr('They run that programme: its members, bonuses, month-end payouts and content. They can also see how every other market is doing, but not change it. They cannot add other managers.')}</p>
         </div>
       </section>
     </div>

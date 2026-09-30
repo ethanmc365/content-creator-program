@@ -7,6 +7,7 @@ import Icon from '../../components/Icon'
 import Segmented from '../../components/network/Segmented'
 import { VipMembersTab, VipOverviewTab } from '../../components/vip/adminA'
 import { VipAccessTab } from '../../components/vip/access'
+import { VipContentTab, VipMarketsTab } from '../../components/vip/adminD'
 import { AnnouncementsTab } from '../../components/vip/adminC'
 import { VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipKpiTab, VipSettingsTab } from '../../components/vip/adminB'
 import { cx } from '../../lib/utils'
@@ -24,7 +25,7 @@ import { useT } from '../../lib/i18n'
 // doing over time) and Settings (the rate, the rules, the terms). A market's own lead sees their market's
 // programme and nothing else; the team sees all of them. The database decides which (vip_can_manage); this
 // page only draws what it is given.
-const TABS = ['overview', 'members', 'bonuses', 'close', 'kpis', 'announcements', 'analytics', 'settings', 'access']
+const TABS = ['overview', 'members', 'markets', 'content', 'bonuses', 'close', 'kpis', 'announcements', 'analytics', 'settings', 'access']
 
 export default function AdminVip() {
   const tr = useT()
@@ -36,16 +37,20 @@ export default function AdminVip() {
   const [pid, setPid] = useState(null)
   const tab = TABS.includes(params.get('tab')) && (params.get('tab') !== 'access' || isOwner) ? params.get('tab') : 'overview'
 
+  // EVERYBODY WITH ACCESS SEES EVERY MARKET; THEY MANAGE THEIR OWN (migration 299). `can_manage` is what the
+  // screens use to hide the controls a person could not use; the database refuses the rest either way.
   const load = useCallback(async () => {
     const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug)').order('name')
-    const mine = []
+    const all = []
     for (const p of data || []) {
+      if (!p.active && !isOwner) continue
       const { data: ok } = await supabase.rpc('vip_can_manage', { p_programme: p.id })
-      if (ok) mine.push(p)
+      all.push({ ...p, can_manage: !!ok })
     }
-    setProgrammes(mine)
-    setPid((cur) => cur && mine.some((p) => p.id === cur) ? cur : mine[0]?.id || null)
-  }, [])
+    all.sort((a, b) => Number(b.can_manage) - Number(a.can_manage))
+    setProgrammes(all)
+    setPid((cur) => cur && all.some((p) => p.id === cur) ? cur : all[0]?.id || null)
+  }, [isOwner])
   useEffect(() => { load() }, [load])
 
   if (programmes === null) return <div className="page max-w-6xl"><Skeleton className="mb-5 h-10 w-48" /><Skeleton className="h-72 w-full rounded-card" /></div>
@@ -82,6 +87,8 @@ export default function AdminVip() {
           options={[
             { value: 'overview', label: tr('Overview') },
             { value: 'members', label: tr('Members') },
+            { value: 'markets', label: tr('Markets') },
+            { value: 'content', label: tr('Content') },
             { value: 'announcements', label: tr('Announcements') },
             { value: 'bonuses', label: tr('Bonuses') },
             { value: 'close', label: tr('Month end') },
@@ -93,9 +100,15 @@ export default function AdminVip() {
         />
       </div>
 
+      {!programme.can_manage && tab !== 'markets' && tab !== 'access' && (
+        <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
+      )}
+
       <div key={`${programme.id}:${tab}`} className="animate-fade-up">
         {tab === 'overview' && <VipOverviewTab programme={programme} />}
         {tab === 'members' && <VipMembersTab programme={programme} />}
+        {tab === 'markets' && <VipMarketsTab programme={programme} isOwner={isOwner} onChanged={load} />}
+        {tab === 'content' && <VipContentTab programme={programme} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams({ tab: 'content', part: v }, { replace: true })} />}
         {tab === 'announcements' && <AnnouncementsTab programme={programme} />}
         {tab === 'bonuses' && <VipBonusesTab programme={programme} />}
         {tab === 'close' && <VipCloseTab programme={programme} />}

@@ -1,6 +1,7 @@
 import { cx } from '../../lib/utils'
 import { forwardRef, useEffect, useState } from 'react'
 import { About, Awards, Contact, Cover, Work } from './Slides'
+import Reveal from '../network/Reveal'
 import { PAGE_H, PAGE_W, WORK_LIMIT, orderedVideos, workMode } from '../../lib/portfolio'
 
 // THE WHOLE DOCUMENT, SCALED TO THE COLUMN IT IS IN.
@@ -45,7 +46,7 @@ export function buildPages({ videos = [], certificates = [] } = {}) {
 }
 
 const PortfolioDeck = forwardRef(function PortfolioDeck(
-  { creator, portfolio, videos, certificates, width, pageRefs, gap = 28, horizontal = false, onPageCount },
+  { creator, portfolio, videos, certificates, width, pageRefs, gap = 28, horizontal = false, onPageCount, reveal = false },
   ref,
 ) {
   const all = videos || []
@@ -64,20 +65,29 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
     total: pages.length,
   }
 
+  // ON SCREEN, EACH PAGE ARRIVES WHEN IT SCROLLS INTO VIEW (30 Sep 2026). The pages below the fold used to play their
+  // entrance on mount, while nobody could see them, so the document simply "appeared" - Ethan: "I noticed there are no
+  // animations for that page." `reveal` hands the stack to Reveal (the house entrance, in view, staggered). The copy
+  // that gets photographed for the PDF never passes it: a hidden, off-screen page would never be "in view" and would
+  // be photographed invisible.
+  const Stack = reveal && !horizontal ? Reveal : 'div'
+  const stackProps = reveal && !horizontal ? { stagger: 0.12, early: 25, className: 'flex flex-col' } : {}
+
   return (
     // VERTICAL IS A DOCUMENT AND HORIZONTAL IS A PAGER. The pages are the same
     // nodes either way; only the axis changes. `/portfolio` reads top-to-bottom
     // because that is how you read a document; the profile embed pages sideways
     // because there it is one section among nine, and five stacked A4 pages
     // would bury everything under it.
-    <div
-      ref={ref}
+    <Stack
+      {...(Stack === 'div' ? { ref } : {})}
+      {...stackProps}
       style={horizontal
         ? { display: 'flex', gap, width: 'max-content' }
         : { display: 'flex', flexDirection: 'column', gap, width }}
     >
       {pages.map((p, i) => (
-        <Sheet key={p.key} index={i} scale={scale} width={width} snap={horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
+        <Sheet key={p.key} index={i} scale={scale} width={width} snap={horizontal} still={reveal && !horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
           {p.key === 'cover' && <Cover {...common} />}
           {p.key === 'about' && <About {...common} n={i + 1} />}
           {p.key.startsWith('work') && <Work {...common} videos={p.videos} offset={p.offset} n={i + 1} />}
@@ -85,19 +95,19 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
           {p.key === 'contact' && <Contact {...common} n={i + 1} />}
         </Sheet>
       ))}
-    </div>
+    </Stack>
   )
 })
 
 // EACH PAGE RISES IN, ONE AFTER ANOTHER (2 Oct 2026). Ethan: "there are no animations on that
 // page". The motion is on the outer frame; the ref that gets photographed for the PDF is inside it
 // and never moves.
-function Sheet({ index = 0, scale, width, snap, setRef, children }) {
+function Sheet({ index = 0, scale, width, snap, still = false, setRef, children }) {
   return (
     <div
-      className={cx('animate-fade-up', snap && 'snap-start')}
+      className={cx(!still && 'animate-fade-up', snap && 'snap-start')}
       style={{
-        animationDelay: `${Math.min(index, 5) * 70}ms`,
+        animationDelay: still ? undefined : `${Math.min(index, 5) * 70}ms`,
         width, flex: snap ? `0 0 ${width}px` : undefined,
         height: PAGE_H * scale, overflow: 'hidden',
         borderRadius: 14 * Math.min(1, scale * 1.6),

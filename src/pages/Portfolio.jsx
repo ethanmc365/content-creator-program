@@ -70,7 +70,7 @@ export default function Portfolio() {
 
   const load = useCallback(async () => {
     if (!viewingId) return
-    const [{ data: creator }, { data: port }, { data: subs }, { data: certs }] = await Promise.all([
+    const [{ data: creator }, { data: port }, { data: subs }, { data: certs }, { data: vipVids }] = await Promise.all([
       supabase.from('profiles')
         .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links')
         .eq('id', viewingId).maybeSingle(),
@@ -83,6 +83,11 @@ export default function Portfolio() {
         .select('*, design:certificate_designs(title, tier, accent, emblem, body)')
         .eq('profile_id', viewingId)
         .order('awarded_at', { ascending: false }),
+      // A VIP's work lives in vip_videos (they do not enter challenges). An error reads as an empty list.
+      supabase.from('vip_videos')
+        .select('id, platform, video_url, thumbnail_url, caption, logged_views, submitted_at, programme:programme_id(name)')
+        .eq('profile_id', viewingId).eq('status', 'tracking')
+        .order('logged_views', { ascending: false }),
     ])
     // THE ACCOUNT EMAIL. Your own is on the session. An admin looking at
     // somebody else's gets theirs from the definer RPC the roster uses, which
@@ -101,12 +106,20 @@ export default function Portfolio() {
         youtube: creator.youtube_url, facebook: creator.facebook_url, linkedin: creator.linkedin_url,
       } } : null,
       portfolio: port || blankPortfolio(viewingId, creator?.name),
-      videos: (subs || []).map((s) => ({
-        ...s,
-        views: s.logged_views,
-        challenge: s.challenge?.title || null,
-        market: s.market?.name || null,
-      })),
+      videos: [
+        ...(subs || []).map((s) => ({
+          ...s,
+          views: s.logged_views,
+          challenge: s.challenge?.title || null,
+          market: s.market?.name || null,
+        })),
+        ...(vipVids || []).map((v) => ({
+          ...v,
+          views: v.logged_views,
+          challenge: null,
+          market: v.programme?.name || null,
+        })),
+      ].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0)),
       certificates: (certs || []).map((c) => ({
         ...c,
         title: c.design?.title, tier: c.design?.tier,
@@ -270,12 +283,18 @@ export default function Portfolio() {
 
   return (
     <div className="page max-w-6xl">
-      <PageHeader
-        title={tr('Portfolio')}
-        subtitle={readOnly
-          ? tr('You are looking at this the way the creator sees it. Nothing here can be edited by you.')
-          : tr('A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.')}
-      />
+      {/* EVERYTHING ARRIVES (30 Sep 2026). Ethan: "I noticed there are no animations for that page. Whenever it
+          loads in, everything comes in with a nice, smooth animation rather than just appearing." The blocks
+          above the fold rise in one after another (a growing delay), the document's pages arrive as they
+          scroll into view (PortfolioDeck `reveal`), and the editor's sections follow the page. */}
+      <div className="animate-fade-up">
+        <PageHeader
+          title={tr('Portfolio')}
+          subtitle={readOnly
+            ? tr('You are looking at this the way the creator sees it. Nothing here can be edited by you.')
+            : tr('A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.')}
+        />
+      </div>
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -289,12 +308,12 @@ export default function Portfolio() {
           Ethan: "The year in review should be showing up at the top. Make the
           card even a little bit smaller for mobile and show it at the top, at
           the very top above Share your Tryp.com Creator." */}
-      {!readOnly && <YearTeaser tiny className="mb-5 lg:hidden" />}
+      {!readOnly && <div className="animate-fade-up [animation-delay:60ms] lg:hidden"><YearTeaser tiny className="mb-5" /></div>}
 
       {!readOnly && (
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
-          <KitStrip className="min-w-0" />
-          <YearTeaser className="hidden lg:flex" />
+          <div className="min-w-0 animate-fade-up [animation-delay:120ms]"><KitStrip className="min-w-0" /></div>
+          <div className="hidden animate-fade-up [animation-delay:200ms] lg:flex"><YearTeaser className="flex w-full" /></div>
         </div>
       )}
 
@@ -308,7 +327,7 @@ export default function Portfolio() {
             you land on, which is the thing this page is for; the controls are
             under it. On a desktop the grid puts the editor on the right. */}
         <div ref={holder} className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3 animate-fade-up [animation-delay:180ms]">
             {/* Side by side on a phone, half the row each. */}
             <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
               <button type="button" onClick={exportPdf} disabled={!!exporting} className="btn-primary flex-1 justify-center whitespace-nowrap max-sm:px-3 sm:flex-none">
@@ -357,6 +376,7 @@ export default function Portfolio() {
             videos={videos}
             certificates={certificates}
             width={width}
+            reveal
           />
 
         </div>

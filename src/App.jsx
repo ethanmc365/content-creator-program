@@ -21,7 +21,6 @@ import NotForVip from './components/NotForVip'
 // Public pages
 import Landing from './pages/Landing'
 import Preview from './pages/dev/Preview'
-import VipBench from './pages/dev/VipBench'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
@@ -92,6 +91,10 @@ const AdminVideoTracker = lazyRoute(chunk.AdminVideoTracker)
 const AdminKpis = lazyRoute(chunk.AdminKpis)
 const AdminVip = lazyRoute(chunk.AdminVip)
 const VipHub = lazyRoute(chunk.VipHub)
+// A dev-only bench. LAZY, or its static import drags the VIP screens (and the charting library under them) into the
+// entry chunk of every creator: the bundle-graph test caught exactly that after the VIP second pass.
+const VipBench = lazyRoute(() => import('./pages/dev/VipBench'))
+const VipRecap = lazyRoute(chunk.VipRecap)
 const AdminHooks = lazyRoute(chunk.AdminHooks)
 const ChallengeRecap = lazyRoute(chunk.ChallengeRecap)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
@@ -286,6 +289,7 @@ export default function App() {
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Messages />} />
           <Route path="/vip" element={<VipHub />} />
+          <Route path="/vip/recap" element={<VipRecap />} />
           {/* VIPs are paid by views and never see the challenges, milestones, leaderboard or referrals. */}
           <Route element={<NotForVip />}>
             <Route path="/challenges" element={<Challenges />} />

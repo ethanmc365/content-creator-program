@@ -606,6 +606,7 @@ export function VipSettingsTab({ programme, onSaved }) {
   const [f, setF] = useState(() => ({
     cpm: programme.cpm, min_payout: programme.min_payout, monthly_cap: programme.monthly_cap ?? '', budget_monthly: programme.budget_monthly ?? '',
     window_days: programme.window_days, terms: programme.terms || '', tiers: programme.tiers || [], active: programme.active, reaccept: false,
+    accent: programme.accent || '', tagline: programme.tagline || '', welcome_message: programme.welcome_message || '',
   }))
   const [busy, setBusy] = useState(false)
   const set = (p) => setF((x) => ({ ...x, ...p }))
@@ -618,6 +619,7 @@ export function VipSettingsTab({ programme, onSaved }) {
       window_days: Math.max(1, Number(f.window_days) || 60), terms: f.terms.trim() || null,
       tiers: f.tiers.filter((t) => Number(t.from_views) > 0 && Number(t.cpm) >= 0).map((t) => ({ from_views: Number(t.from_views), cpm: Number(t.cpm) })).sort((a, b) => a.from_views - b.from_views),
       active: f.active, ...(f.reaccept ? { terms_version: programme.terms_version + 1 } : {}),
+      accent: /^#[0-9a-fA-F]{6}$/.test(f.accent) ? f.accent : null, tagline: f.tagline.trim() || null, welcome_message: f.welcome_message.trim() || null,
     }
     const { error } = await supabase.from('vip_programmes').update(row).eq('id', programme.id)
     setBusy(false)
@@ -652,6 +654,25 @@ export function VipSettingsTab({ programme, onSaved }) {
           <button type="button" onClick={() => set({ tiers: [...f.tiers, { from_views: '', cpm: '' }] })} className="text-xs font-semibold text-brand hover:underline">+ {tr('Add a tier')}</button>
         </div>
       </div>
+
+      <section className="space-y-4 rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+        <div>
+          <h3 className="text-[15px] font-bold text-ink">{tr('Make it your own')}</h3>
+          <p className="text-sm text-smoke">{tr('How this market\'s VIP page looks and what a new VIP is told. Each VIP can also pick their own colour and headline.')}</p>
+        </div>
+        <div>
+          <span className="label">{tr('Programme colour')}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#d94407', '#0d6b57', '#2f7fb5', '#7a3cc2', '#c2185b', '#b8860b', '#1f2937'].map((c) => (
+              <button key={c} type="button" aria-label={c} aria-pressed={f.accent === c} onClick={() => set({ accent: c })} className={cx('h-8 w-8 rounded-full ring-offset-2 transition-transform duration-200 hoverable:hover:scale-110', f.accent === c && 'ring-2 ring-ink')} style={{ background: c }} />
+            ))}
+            <input type="color" aria-label={tr('Pick any colour')} value={/^#[0-9a-fA-F]{6}$/.test(f.accent) ? f.accent : '#d94407'} onChange={(e) => set({ accent: e.target.value })} className="h-8 w-10 cursor-pointer rounded border border-gray-200 bg-white p-0.5" />
+            {f.accent && <button type="button" onClick={() => set({ accent: '' })} className="text-xs font-semibold text-smoke hover:text-ink">{tr('Use the Tryp.com orange')}</button>}
+          </div>
+        </div>
+        <label className="block"><span className="label">{tr('Tagline')}</span><input className="input" maxLength={120} value={f.tagline} onChange={(e) => set({ tagline: e.target.value })} placeholder={tr('For example: The Spanish VIP creators')} /></label>
+        <label className="block"><span className="label">{tr('Welcome message for new VIPs')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={f.welcome_message} onChange={(e) => set({ welcome_message: e.target.value })} placeholder={tr('Leave empty for the standard welcome.')} /></label>
+      </section>
 
       <label className="block">
         <span className="label">{tr('Terms (optional)')}</span>

@@ -248,3 +248,46 @@ export function useOptionalRpc(fn, args, key) {
 export function shortDay(iso) {
   try { return new Date(`${iso}T12:00:00Z`).toLocaleDateString(localeTag(), { day: 'numeric', month: 'short', timeZone: 'UTC' }) } catch { return iso }
 }
+
+// ---------------------------------------------------------------- VIP v3 (migration 299)
+
+/** What a perk is unlocked by, as data the creator's screen and the team's editor share. */
+export const PERK_METRICS = [
+  { key: 'lifetime_views', label: 'Total views as a VIP', unit: 'views' },
+  { key: 'lifetime_videos', label: 'Total videos as a VIP', unit: 'videos' },
+  { key: 'best_video_views', label: 'Views on one video', unit: 'views' },
+  { key: 'months_active', label: 'Months as a VIP', unit: 'months' },
+  { key: 'streak_months', label: 'Months in a row with a video', unit: 'months' },
+  { key: 'manual', label: 'Given by the team (no automatic unlock)', unit: '' },
+]
+
+export const PERK_KINDS = [
+  { key: 'perk', label: 'Perk', icon: 'sparkles' },
+  { key: 'milestone', label: 'Milestone', icon: 'flag' },
+  { key: 'trip', label: 'Trip', icon: 'plane' },
+]
+
+export const BRIEF_METRICS = [
+  { key: 'views', label: 'Most views this month', unit: 'views' },
+  { key: 'videos', label: 'Most videos this month', unit: 'videos' },
+  { key: 'best_video', label: 'Best single video', unit: 'views' },
+]
+
+/** "1,000 views", "6 months", in the reader's language. */
+export function unitLabel(metricKey, n, tr, list = PERK_METRICS) {
+  const unit = (list.find((m) => m.key === metricKey) || {}).unit
+  if (unit === 'videos') return tr('{n} videos', { n: nf(n) })
+  if (unit === 'months') return tr('{n} months', { n: nf(n) })
+  return tr('{n} views', { n: nf(n) })
+}
+
+/** The one sign-up link every VIP uses. */
+export function vipJoinLink(token) { return token ? vipJoinUrl(token) : '' }
+
+/** Ask for a programme's brand colour, but never trust it: only a plain #rrggbb goes into a style. */
+export function safeAccent(hex, fallback = '#d94407') {
+  return typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : fallback
+}
+
+/** A month's "year*12+month" number, for comparing months without dates. */
+export const monthIndex = (year, month) => year * 12 + month

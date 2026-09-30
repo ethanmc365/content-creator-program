@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
@@ -9,8 +10,9 @@ import {
   PaymentBanner, TargetBar, VipBoardList, VipEarn, VipStatementCard, VipSubmit, VipTermsGate, VipVideoRow,
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
+import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
 import { cx } from '../lib/utils'
-import { daysLeft, money, monthLabel, nf, rate, useVipOverview, vipRpc } from '../lib/vip'
+import { daysLeft, money, monthLabel, nf, rate, safeAccent, useVipOverview, vipRpc } from '../lib/vip'
 import { useT } from '../lib/i18n'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
@@ -24,30 +26,36 @@ import { useT } from '../lib/i18n'
 // decide every number live in the database, so this page, the team's page and the invoice agree.
 export default function VipHub() {
   const tr = useT()
+  const { user } = useAuth()
   const [params, setParams] = useSearchParams()
-  const tab = ['month', 'videos', 'stats', 'payouts', 'board', 'earn'].includes(params.get('tab')) ? params.get('tab') : 'month'
+  const tab = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].includes(params.get('tab')) ? params.get('tab') : 'month'
   const { overview, error, reload } = useVipOverview()
   const [statements, setStatements] = useState(null)
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
   const [slug, setSlug] = useState('')
+  const [boardView, setBoardView] = useState('mine')
+  const [look, setLook] = useState(null)
 
   const programmeId = overview?.programme?.id
   const communityId = overview?.programme?.community_id
 
   const loadMore = useCallback(async () => {
     if (!programmeId) return
-    const [st, bd, rl, cm] = await Promise.all([
+    const [st, bd, rl, cm, pr, me] = await Promise.all([
       vipRpc('vip_my_statements').catch(() => []),
       vipRpc('vip_board').catch(() => []),
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
       supabase.from('communities').select('slug').eq('id', communityId).maybeSingle(),
+      supabase.from('vip_programmes').select('accent, tagline').eq('id', programmeId).maybeSingle(),
+      supabase.from('vip_members').select('accent, headline').eq('profile_id', user.id).maybeSingle(),
     ])
+    setLook({ accent: me.data?.accent || pr.data?.accent || null, tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
     setStatements(st || [])
     setBoard(bd || [])
     setRules(rl.data || [])
     setSlug(cm.data?.slug || '')
-  }, [programmeId, communityId])
+  }, [programmeId, communityId, user.id])
   useEffect(() => { loadMore() }, [loadMore])
 
   const refresh = () => { reload(); loadMore() }
@@ -89,7 +97,10 @@ export default function VipHub() {
       />
 
       {/* ---------------- this month, live ---------------- */}
-      <section className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-fade-up sm:p-7">
+      <section
+        className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-fade-up sm:p-7"
+        style={look?.accent ? { background: `linear-gradient(135deg, ${safeAccent(look.accent)}, color-mix(in srgb, ${safeAccent(look.accent)} 60%, #1b1b1f))` } : undefined}
+      >
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
         <span aria-hidden className="survey-orb pointer-events-none absolute -bottom-20 left-10 h-44 w-44 rounded-full bg-white/10 blur-2xl [animation-delay:-3s]" />
         <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
@@ -98,6 +109,7 @@ export default function VipHub() {
               <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
+            {(look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || look.tagline}</p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
               <CountUp value={stats.base} format={(n) => money(n, cur)} />
             </p>
@@ -119,7 +131,7 @@ export default function VipHub() {
       {paused && <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('Your VIP place is paused, so new views are not being counted. Ask your market lead if that is a surprise.')}</p>}
       {!overview.payment_ready && <div className="mb-4"><PaymentBanner /></div>}
 
-      <div className="mb-5">
+      <div className="mb-5 overflow-x-auto">
         <Segmented
           value={tab}
           onChange={(v) => setParams(v === 'month' ? {} : { tab: v }, { replace: true })}
@@ -130,7 +142,10 @@ export default function VipHub() {
             { value: 'stats', label: tr('Stats') },
             { value: 'payouts', label: tr('Payouts') },
             { value: 'board', label: tr('Board') },
+            { value: 'perks', label: tr('Perks and trips') },
             { value: 'earn', label: tr('Earn more') },
+            { value: 'library', label: tr('Library') },
+            { value: 'map', label: tr('Map') },
           ]}
         />
       </div>
@@ -139,6 +154,7 @@ export default function VipHub() {
         {tab === 'month' && (
           <div className="space-y-5">
             <VipAnnouncements programmeId={programme.id} />
+            <VipChallengeCard overview={overview} />
             <div className="grid gap-5 lg:grid-cols-2">
               <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Your target this month')}</h2>
@@ -195,7 +211,12 @@ export default function VipHub() {
           </div>
         )}
 
-        {tab === 'stats' && <VipStats overview={overview} rules={rules} programmeId={programme.id} />}
+        {tab === 'stats' && (
+          <div className="space-y-5">
+            <VipStats overview={overview} rules={rules} programmeId={programme.id} />
+            <VipMySettings overview={overview} onSaved={refresh} />
+          </div>
+        )}
 
         {tab === 'payouts' && (
           <div className="space-y-5">
@@ -213,9 +234,31 @@ export default function VipHub() {
         )}
 
         {tab === 'board' && (
+          <div className="space-y-4">
+            <Segmented
+              value={boardView}
+              onChange={setBoardView}
+              label={tr('Board view')}
+              options={[{ value: 'mine', label: tr('My market') }, { value: 'markets', label: tr('All markets') }]}
+            />
+            {boardView === 'mine' ? (
+              <div className="space-y-3">
+                <p className="text-sm text-smoke">{tr('This month\'s VIP creators by views counted. First names only.')}</p>
+                {board === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipBoardList rows={board} rules={rules} currency={cur} />}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-smoke">{tr('Every VIP market, side by side. The same month, the same rules.')}</p>
+                <MarketStandings />
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'perks' && (
           <div className="space-y-3">
-            <p className="text-sm text-smoke">{tr('This month\'s VIP creators by views counted. First names only.')}</p>
-            {board === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipBoardList rows={board} rules={rules} currency={cur} />}
+            <p className="text-sm text-smoke">{tr('Unlock perks and trips as your views and videos add up. The team marks each one delivered.')}</p>
+            <PerksPath />
           </div>
         )}
 
@@ -225,6 +268,9 @@ export default function VipHub() {
             {rules === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipEarn rules={rules} overview={overview} currency={cur} />}
           </div>
         )}
+
+        {tab === 'library' && <VipLibrary programmeId={programme.id} />}
+        {tab === 'map' && <VipMap />}
       </div>
 
       <VipTermsGate open={!member.terms_ok} programme={programme} onAccepted={refresh} />

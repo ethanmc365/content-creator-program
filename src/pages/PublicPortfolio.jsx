@@ -5,6 +5,7 @@ import { Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 import { compactViews } from '../lib/portfolio'
+import Reveal from '../components/network/Reveal'
 
 // A PORTFOLIO ANYBODY CAN OPEN.
 //
@@ -74,7 +75,7 @@ export default function PublicPortfolio() {
     <div className="min-h-screen bg-cloud/40 pb-16">
       {/* A thin band rather than the app header: it says where this came from
           and it does not pretend to be navigation. */}
-      <header className="border-b border-gray-200 bg-white">
+      <header className="animate-fade-up border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-lg" />
           <div className="min-w-0 flex-1">
@@ -97,6 +98,7 @@ export default function PublicPortfolio() {
           videos={videos || []}
           certificates={certificates || []}
           width={width}
+          reveal
         />
 
         {/* THE VIDEO CARDS ARE CLICKABLE, and this is where that happens.
@@ -108,9 +110,9 @@ export default function PublicPortfolio() {
             for the export, where an anchor is a rectangle that does nothing.
             Putting the interactivity beside the paper keeps the paper honest. */}
         {videos?.length > 0 && (
-          <section className="mt-8 animate-fade-up [animation-delay:250ms]">
+          <section className="mt-8">
             <h2 className="mb-3 text-sm font-bold text-ink">Watch them</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
               {videos.map((v) => (
                 <a
                   key={v.id}
@@ -131,7 +133,7 @@ export default function PublicPortfolio() {
                   <Icon name="link" className="h-4 w-4 shrink-0 text-gray-300 group-hover:text-brand" />
                 </a>
               ))}
-            </div>
+            </Reveal>
           </section>
         )}
 

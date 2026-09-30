@@ -44,8 +44,8 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
 
   return (
     <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
-      {SECTIONS.map((s) => (
-        <section key={s.key} className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+      {SECTIONS.map((s, n) => (
+        <section key={s.key} className="animate-fade-up overflow-hidden rounded-card border border-gray-100 bg-white shadow-card" style={{ animationDelay: `${240 + n * 70}ms` }}>
           <button
             type="button"
             onClick={() => setOpen(open === s.key ? null : s.key)}

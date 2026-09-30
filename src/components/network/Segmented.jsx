@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { motion } from 'motion/react'
 import { cx } from '../../lib/utils'
 import { SPRING } from '../../lib/motion'
@@ -36,8 +36,20 @@ import { SPRING } from '../../lib/motion'
 export default function Segmented({ value, onChange, options, size = 'md', id, label, className }) {
   const autoId = useId()
   const key = id || autoId
+  const root = useRef(null)
+  // A LONG CONTROL IN A SCROLLING ROW (the VIP tabs on a phone) must show which option is on. Only the row's own
+  // horizontal scroll moves - never the page - and only when the row actually overflows.
+  useEffect(() => {
+    const el = root.current?.querySelector('[aria-checked="true"]')
+    const row = root.current?.parentElement
+    if (!el || !row || row.scrollWidth <= row.clientWidth + 1) return
+    const a = el.getBoundingClientRect()
+    const b = row.getBoundingClientRect()
+    row.scrollLeft += a.left - b.left - (b.width - a.width) / 2
+  }, [value])
   return (
     <div
+      ref={root}
       role="radiogroup"
       aria-label={label}
       className={cx(

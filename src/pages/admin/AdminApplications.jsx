@@ -198,7 +198,9 @@ export default function AdminApplications() {
     ])
     const list = profiles ?? []
     // Team applicants first: they are the ones whose approval hands over the admin panel.
-    list.sort((a, b) => Number(!!b.team_application) - Number(!!a.team_application))
+    // ...then VIP applicants, who came through the VIP link and are paid by views rather than entering challenges.
+    const weight = (a) => Number(!!a.team_application) * 2 + Number(!!a.is_vip)
+    list.sort((a, b) => weight(b) - weight(a))
     setApps(list)
     if (list.some((a) => a.team_invite_id)) {
       supabase.from('team_invites').select('id, label').then(({ data }) => setInviteLabels(Object.fromEntries((data ?? []).map((r) => [r.id, r.label]))))
@@ -522,7 +524,8 @@ export default function AdminApplications() {
   const inThisBucket = useMemo(() => {
     const list = (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded))
     if (bucket !== 'applied') return onlyUnfollowed ? list.filter((a) => !a.followed_up_at) : list
-    return [...list].sort((a, b) => Number(!!b.team_application) - Number(!!a.team_application) || new Date(appliedAt(b)) - new Date(appliedAt(a)))
+    const weight = (a) => Number(!!a.team_application) * 2 + Number(!!a.is_vip)
+    return [...list].sort((a, b) => weight(b) - weight(a) || new Date(appliedAt(b)) - new Date(appliedAt(a)))
   }, [apps, bucket, onlyUnfollowed])
 
   const tabs = useMemo(() => {
@@ -936,9 +939,19 @@ export function ApplicationCard({
   return (
     <div className={cx(
       'card !p-0 overflow-hidden transition-all duration-200 hover:shadow-lift',
-      app.team_application && '!border-brand/50 shadow-lift',
+      (app.team_application || app.is_vip) && '!border-brand/50 shadow-lift',
       selected && 'ring-2 ring-brand/40',
     )}>
+      {/* A VIP APPLICATION LOOKS LIKE ONE (30 Sep 2026). Ethan: "ensure that the application funnel shows whenever
+          it's a VIP signed up, differentiated from a normal creator." They came through the one VIP link; approving
+          them places them with their own market's VIP programme, where they are paid by views, not by challenges. */}
+      {app.is_vip && !app.team_application && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gradient-to-r from-ink to-gray-700 px-4 py-2.5 text-white sm:px-6">
+          <Icon name="star" className="h-4 w-4 shrink-0" />
+          <span className="text-sm font-bold">VIP creator application</span>
+          <span className="text-xs text-white/85">Signed up with the VIP link. Approve them into their own market and they move to its VIP programme.</span>
+        </div>
+      )}
       {/* A TEAM APPLICATION LOOKS LIKE ONE (29 Sep 2026). Ethan: on the applications page
           they "just appear as a normal creator", but approving them gives them admin
           access. So the card says it in solid brand colour before anything else does. */}
@@ -1313,6 +1326,7 @@ function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2 className="min-w-0 break-words text-base font-bold leading-snug sm:text-lg">{app.name?.trim() || 'No name yet'}</h2>
+            {app.is_vip && <Badge tone="brand">VIP link</Badge>}
             {app.followed_up_at
               ? <Badge tone="green">Followed up {timeAgo(app.followed_up_at)}</Badge>
               : <Badge tone="grey">Never finished</Badge>}

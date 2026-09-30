@@ -5,11 +5,12 @@ import { Avatar, Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { copyToClipboard } from '../../lib/clipboard'
 import { cx, formatDate, formatViews } from '../../lib/utils'
-import { money, monthLabel, nf, rate, vipJoinUrl, vipRpc } from '../../lib/vip'
+import { money, monthLabel, nf, rate, vipRpc } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, MemberStoryModal, SuggestionsCard, TrendCard } from './adminC'
+import { useAuth } from '../../context/AuthContext'
+import { VipLinkCard } from './adminD'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
@@ -318,41 +319,21 @@ function EditMemberModal({ m, programme, onClose, onSaved }) {
 /** Who is in, the sign-up links, and the one-press transfer from the community. */
 export function VipMembersTab({ programme }) {
   const tr = useT()
+  const { profile } = useAuth()
+  const isOwner = profile?.platform_role === 'owner'
   const [data, setData] = useState(null)
-  const [invites, setInvites] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [label, setLabel] = useState('')
-  const [maxUses, setMaxUses] = useState('')
-  const [making, setMaking] = useState(false)
   const [story, setStory] = useState(null)
   const [query, setQuery] = useState('')
   const [show, setShow] = useState('active')
   const cur = programme.currency
 
   const load = useCallback(async () => {
-    const [o, inv] = await Promise.all([
-      vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
-      supabase.from('vip_invites').select('*').eq('programme_id', programme.id).order('created_at', { ascending: false }),
-    ])
-    setData(o); setInvites(inv.data || [])
+    setData(await vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null))
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
 
-  async function makeLink() {
-    setMaking(true)
-    try {
-      const token = await vipRpc('vip_create_invite', { p_programme: programme.id, p_label: label || null, p_max_uses: maxUses ? Number(maxUses) : null, p_days: null })
-      await copyToClipboard(vipJoinUrl(token))
-      toastSuccess(tr('Link made and copied. Send it to the creator.'))
-      setLabel(''); setMaxUses('')
-      load()
-    } catch (e) { notice(e.message) } finally { setMaking(false) }
-  }
-  async function revoke(i) {
-    if (!await confirm(tr('Stop this link working? People who already joined through it stay VIPs.'), { confirmLabel: tr('Stop it'), danger: true })) return
-    await vipRpc('vip_revoke_invite', { p_id: i.id }); load()
-  }
   async function moveBack(m) {
     if (!await confirm(tr('Move {n} back to the community? They see the challenges, points and leaderboard again. Statements already made stay as they are, and they are told.', { n: m.name }), { confirmLabel: tr('Move back'), danger: true })) return
     try { await vipRpc('vip_update_member', { p_profile: m.profile_id, p_status: 'left' }); toastSuccess(tr('{n} is back with the community creators.', { n: m.name })); setStory(null); load() } catch (e) { notice(e.message) }
@@ -415,38 +396,7 @@ export function VipMembersTab({ programme }) {
         )}
       </section>
 
-      <section>
-        <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Sign-up links')}</h2>
-        <p className="mb-3 text-sm text-smoke">{tr('A link for recruiting a creator straight into the VIP programme. It opens the usual sign-up, says they are joining the VIP creators, and makes them a VIP as they finish.')}</p>
-        <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="block min-w-[12rem] flex-1"><span className="label">{tr('Who is it for? (a note to yourself)')}</span><input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={tr('For example: Lucia, from the WhatsApp group')} /></label>
-            <label className="block w-28"><span className="label">{tr('Uses')}</span><input className="input" inputMode="numeric" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} placeholder={tr('Any')} /></label>
-            <button type="button" onClick={makeLink} disabled={making} className="btn-primary !py-2.5 text-sm">{making ? <Spinner className="h-4 w-4" /> : <Icon name="link" className="h-4 w-4" />}{tr('Make a link')}</button>
-          </div>
-          {invites && invites.length > 0 && (
-            <ul className="mt-4 divide-y divide-gray-50 border-t border-gray-100">
-              {invites.map((i) => {
-                const dead = i.revoked_at || (i.max_uses && i.uses >= i.max_uses) || (i.expires_at && new Date(i.expires_at) < new Date())
-                return (
-                  <li key={i.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{i.label || tr('VIP link')}</p>
-                      <p className="text-xs text-smoke">{tr('Made {d}', { d: formatDate(i.created_at) })} · {tr('{n} joined', { n: i.uses })}{i.max_uses ? ` / ${i.max_uses}` : ''}{dead ? ` · ${tr('not working')}` : ''}</p>
-                    </div>
-                    {!dead && (
-                      <>
-                        <button type="button" onClick={async () => { await copyToClipboard(vipJoinUrl(i.token)); toastSuccess(tr('Copied')) }} className="btn-secondary !px-3 !py-1.5 text-xs"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy link')}</button>
-                        <button type="button" onClick={() => revoke(i)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">{tr('Stop it')}</button>
-                      </>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      </section>
+      <VipLinkCard isOwner={isOwner} />
 
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
       {editing && <EditMemberModal m={editing} programme={programme} onClose={() => setEditing(null)} onSaved={load} />}
