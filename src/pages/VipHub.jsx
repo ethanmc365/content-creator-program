@@ -8,6 +8,7 @@ import { CountUp } from '../components/network/Motion'
 import {
   PaymentBanner, TargetBar, VipBoardList, VipEarn, VipStatementCard, VipSubmit, VipTermsGate, VipVideoRow,
 } from '../components/vip/parts'
+import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { cx } from '../lib/utils'
 import { daysLeft, money, monthLabel, nf, rate, useVipOverview, vipRpc } from '../lib/vip'
 import { useT } from '../lib/i18n'
@@ -24,7 +25,7 @@ import { useT } from '../lib/i18n'
 export default function VipHub() {
   const tr = useT()
   const [params, setParams] = useSearchParams()
-  const tab = ['month', 'videos', 'payouts', 'board', 'earn'].includes(params.get('tab')) ? params.get('tab') : 'month'
+  const tab = ['month', 'videos', 'stats', 'payouts', 'board', 'earn'].includes(params.get('tab')) ? params.get('tab') : 'month'
   const { overview, error, reload } = useVipOverview()
   const [statements, setStatements] = useState(null)
   const [board, setBoard] = useState(null)
@@ -126,6 +127,7 @@ export default function VipHub() {
           options={[
             { value: 'month', label: tr('This month') },
             { value: 'videos', label: tr('My videos') },
+            { value: 'stats', label: tr('Stats') },
             { value: 'payouts', label: tr('Payouts') },
             { value: 'board', label: tr('Board') },
             { value: 'earn', label: tr('Earn more') },
@@ -136,6 +138,7 @@ export default function VipHub() {
       <div key={tab} className="animate-fade-up">
         {tab === 'month' && (
           <div className="space-y-5">
+            <VipAnnouncements programmeId={programme.id} />
             <div className="grid gap-5 lg:grid-cols-2">
               <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Your target this month')}</h2>
@@ -191,6 +194,8 @@ export default function VipHub() {
               : <ul className="space-y-3">{overview.videos.map((v) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} />)}</ul>}
           </div>
         )}
+
+        {tab === 'stats' && <VipStats overview={overview} rules={rules} programmeId={programme.id} />}
 
         {tab === 'payouts' && (
           <div className="space-y-5">

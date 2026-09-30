@@ -700,7 +700,7 @@ export default function AppLayout() {
             {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).
                 On a phone it lives in the avatar menu, where there is room. */}
             {vipAccess && (
-              <Link to="/admin/vip" className="hidden items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-card transition-transform duration-200 hover:-translate-y-px sm:flex">
+              <Link to="/admin/vip" className="hidden items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:flex sm:px-4">
                 <Icon name="star" className="h-4 w-4" />
                 <span>{tr("VIP")}</span>
               </Link>

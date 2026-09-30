@@ -27,6 +27,8 @@ describes the architecture, the controls in place, and the known limitations.
 | Data access | RLS enabled on all 24 tables; every write policy scoped to `auth.uid()` / `is_admin()` / `can_post()`. Verified with a real creator token: cannot escalate `is_admin`, edit others' rows, read others' DMs, or read admin-only tables. |
 | Account onboarding | New signups are `pending` and **cannot access the app until an admin approves**; declining deletes the account. |
 | Auth abuse | `auth-gate` enforces **max 5 attempts / 15 min** (login: per email+IP; signup/recover: per IP). Password reset never reveals whether an email exists. |
+| Write flooding | (30 Sep 2026, migration 297) `enforce_write_limit` BEFORE INSERT triggers cap what one signed-in person can insert per window on chat, DMs, reactions, connections, entries, VIP videos, feedback, reports, board answers, collab interests and flights, so a script using their own token cannot flood the tables. Admins and server jobs are exempt. |
+| VIP programme | (30 Sep 2026, migration 296) The VIP tools, payouts and VIP rooms are limited to the owner and an explicit per-programme access list (`vip_managers`, written only by the owner). Not every admin, not market managers by title. |
 | Storage abuse | Uploads go through `upload` (own-folder enforcement) and are rate-limited to 40 / 10 min per user. |
 | Push/email | `notify-dispatch` only runs for requests carrying the DB webhook secret; emails/push respect per-user preferences. |
 | Privilege escalation | `protect_admin_columns` trigger blocks non-admins changing `is_admin`/`status`; admin-only RPCs (`admin_delete_creator`, `admin_list_emails`) raise unless `is_admin()`. |

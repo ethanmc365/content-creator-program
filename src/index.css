@@ -3249,3 +3249,10 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
   .survey-fill { animation: none; }
   .survey-draw { stroke-dasharray: none; }
 }
+
+
+/* VIP: a share bar that grows from its left edge. It starts at a real width (never zero opacity), so a background
+   tab that never paints the animation still shows a bar. */
+.animate-bar-grow { animation: bar-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes bar-grow { from { transform: scaleX(0.15); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .animate-bar-grow { animation: none; } }

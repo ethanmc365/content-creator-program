@@ -7,6 +7,7 @@ import Icon from '../../components/Icon'
 import Segmented from '../../components/network/Segmented'
 import { VipMembersTab, VipOverviewTab } from '../../components/vip/adminA'
 import { VipAccessTab } from '../../components/vip/access'
+import { AnnouncementsTab } from '../../components/vip/adminC'
 import { VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipKpiTab, VipSettingsTab } from '../../components/vip/adminB'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -23,7 +24,7 @@ import { useT } from '../../lib/i18n'
 // doing over time) and Settings (the rate, the rules, the terms). A market's own lead sees their market's
 // programme and nothing else; the team sees all of them. The database decides which (vip_can_manage); this
 // page only draws what it is given.
-const TABS = ['overview', 'members', 'bonuses', 'close', 'kpis', 'analytics', 'settings', 'access']
+const TABS = ['overview', 'members', 'bonuses', 'close', 'kpis', 'announcements', 'analytics', 'settings', 'access']
 
 export default function AdminVip() {
   const tr = useT()
@@ -81,6 +82,7 @@ export default function AdminVip() {
           options={[
             { value: 'overview', label: tr('Overview') },
             { value: 'members', label: tr('Members') },
+            { value: 'announcements', label: tr('Announcements') },
             { value: 'bonuses', label: tr('Bonuses') },
             { value: 'close', label: tr('Month end') },
             { value: 'kpis', label: tr('KPIs') },
@@ -94,6 +96,7 @@ export default function AdminVip() {
       <div key={`${programme.id}:${tab}`} className="animate-fade-up">
         {tab === 'overview' && <VipOverviewTab programme={programme} />}
         {tab === 'members' && <VipMembersTab programme={programme} />}
+        {tab === 'announcements' && <AnnouncementsTab programme={programme} />}
         {tab === 'bonuses' && <VipBonusesTab programme={programme} />}
         {tab === 'close' && <VipCloseTab programme={programme} />}
         {tab === 'kpis' && <VipKpiTab programme={programme} />}

@@ -189,3 +189,62 @@ export function useVipAccess(uid, fallback = false) {
 
 /** Forget the answer (after the owner changes who has access). */
 export function clearVipAccess() { accessCache = { uid: null, value: undefined }; accessSubs.forEach((fn) => fn()) }
+
+// ---------------------------------------------------------------- VIP v2 (migration 298)
+
+/** Why somebody is on the "needs a nudge" list, in words. */
+export const ATTENTION = {
+  no_payment: 'No payment details yet',
+  no_terms: 'Terms not accepted',
+  quiet: 'No new video for ten days',
+  sync_error: 'A video could not be read',
+}
+
+/** One line for an entry in the timeline. `e` is a row of `vip_timeline`; `tr` is the translator. */
+export function describeEvent(e, tr, currency = 'EUR') {
+  const d = e.detail || {}
+  switch (e.kind) {
+    case 'joined': return d.source === 'invite' ? tr('Joined with a VIP link') : d.source === 'transfer' ? tr('Moved from the community to VIP') : tr('Made a VIP')
+    case 'rejoined': return tr('Moved from the community back to VIP')
+    case 'left': return tr('Moved back to the community')
+    case 'paused': return tr('VIP place paused')
+    case 'resumed': return tr('VIP place resumed')
+    case 'moved': return tr('Moved to another programme')
+    case 'rate_changed': return d.to == null ? tr('Back on the programme rate') : tr('Own rate set to {r} per 1,000', { r: `${currency} ${rate(d.to)}` })
+    case 'cap_changed': return d.to == null ? tr('Monthly cap removed') : tr('Monthly cap set to {a}', { a: money(d.to, currency, { cents: false }) })
+    case 'target_changed': return tr('Targets changed')
+    default: return tr('Changed')
+  }
+}
+
+/** The icon that goes with a timeline kind. */
+export const EVENT_ICON = {
+  joined: 'plus', rejoined: 'plus', left: 'users', paused: 'clock', resumed: 'refresh', moved: 'globe',
+  rate_changed: 'money', cap_changed: 'money', target_changed: 'trophy',
+}
+
+/**
+ * A new (migration 298) database function, asked for politely: if the database does not have it yet the answer is
+ * `missing`, and the caller simply draws nothing instead of an error. `key` re-asks when it changes.
+ */
+export function useOptionalRpc(fn, args, key) {
+  const [state, setState] = useState({ data: undefined, missing: false })
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    let alive = true
+    setState((s) => ({ data: key === undefined ? s.data : undefined, missing: false }))
+    supabase.rpc(fn, args).then(({ data, error }) => {
+      if (!alive) return
+      if (error) setState({ data: null, missing: /could not find the function|does not exist|schema cache/i.test(error.message) })
+      else setState({ data, missing: false })
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fn, key, tick])
+  return { ...state, reload: () => setTick((n) => n + 1) }
+}
+
+/** "12 Sep", in the reader's language, from a plain date like 2026-09-12. */
+export function shortDay(iso) {
+  try { return new Date(`${iso}T12:00:00Z`).toLocaleDateString(localeTag(), { day: 'numeric', month: 'short', timeZone: 'UTC' }) } catch { return iso }
+}

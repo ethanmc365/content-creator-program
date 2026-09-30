@@ -21,6 +21,7 @@ import NotForVip from './components/NotForVip'
 // Public pages
 import Landing from './pages/Landing'
 import Preview from './pages/dev/Preview'
+import VipBench from './pages/dev/VipBench'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
@@ -230,6 +231,7 @@ export default function App() {
           signed-in layout work can be measured without a login. Tree-shaken out
           of production builds by the DEV guard. */}
       {import.meta.env.DEV && <Route path="/__preview" element={<Preview />} />}
+      {import.meta.env.DEV && <Route path="/__vip-bench" element={<VipBench />} />}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />

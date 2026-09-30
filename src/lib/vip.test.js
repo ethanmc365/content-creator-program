@@ -34,3 +34,39 @@ describe('vip helpers', () => {
     expect(describeRule({ kind: 'milestone', amount: 15, reward: 'cash', conditions: { metric: 'lifetime_views', threshold: 250000 } }, tr)).toMatch(/once/)
   })
 })
+
+// ------------------------------------------------------------- second pass (migration 298)
+import { ATTENTION, EVENT_ICON, describeEvent, shortDay } from './vip'
+
+describe('describeEvent', () => {
+  const tr = (s, v = {}) => s.replace(/\{(\w+)\}/g, (_, k) => v[k])
+  it('says where a creator came from and where they went', () => {
+    expect(describeEvent({ kind: 'joined', detail: { source: 'invite' } }, tr)).toBe('Joined with a VIP link')
+    expect(describeEvent({ kind: 'joined', detail: { source: 'transfer' } }, tr)).toBe('Moved from the community to VIP')
+    expect(describeEvent({ kind: 'joined', detail: {} }, tr)).toBe('Made a VIP')
+    expect(describeEvent({ kind: 'left' }, tr)).toBe('Moved back to the community')
+    expect(describeEvent({ kind: 'rejoined' }, tr)).toBe('Moved from the community back to VIP')
+  })
+  it('writes the numbers into rate and cap changes, and says so when they are cleared', () => {
+    expect(describeEvent({ kind: 'rate_changed', detail: { to: 0.3 } }, tr, 'EUR')).toBe('Own rate set to EUR 0.3 per 1,000')
+    expect(describeEvent({ kind: 'rate_changed', detail: { to: null } }, tr)).toBe('Back on the programme rate')
+    expect(describeEvent({ kind: 'cap_changed', detail: { to: null } }, tr)).toBe('Monthly cap removed')
+  })
+  it('never throws on a kind it does not know', () => {
+    expect(describeEvent({ kind: 'from_the_future' }, tr)).toBe('Changed')
+    expect(describeEvent({ kind: 'left', detail: null }, tr)).toBe('Moved back to the community')
+  })
+  it('has an icon for every kind it can describe', () => {
+    for (const k of ['joined', 'rejoined', 'left', 'paused', 'resumed', 'moved', 'rate_changed', 'cap_changed', 'target_changed']) expect(EVENT_ICON[k]).toBeTruthy()
+  })
+})
+
+describe('the small helpers', () => {
+  it('names every reason a creator can need a nudge', () => {
+    expect(Object.keys(ATTENTION).sort()).toEqual(['no_payment', 'no_terms', 'quiet', 'sync_error'])
+  })
+  it('turns a plain date into a short day without a time zone shifting it', () => {
+    expect(shortDay('2026-09-05')).toMatch(/5/)
+    expect(shortDay('not a date')).toBeTruthy()
+  })
+})
