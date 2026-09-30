@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../lib/supabase'
@@ -163,7 +163,7 @@ export default function AdminSurveys() {
           {rows.length > 0 && (
             <div className="grid grid-cols-3 gap-3 animate-fade-up">
               <MiniStat label={tr('Surveys')} value={rows.length} />
-              <MiniStat label={tr('Live now')} value={liveCount} accent={liveCount > 0} />
+              <MiniStat label={tr('Live now')} value={liveCount} />
               <MiniStat label={tr('Answers in')} value={answeredAll} />
             </div>
           )}
@@ -194,7 +194,7 @@ export default function AdminSurveys() {
                       </span>
                     </span>
                     <span className="hidden shrink-0 text-right sm:block">
-                      <span className="block text-xl font-bold tabular-nums text-ink">{c.answered}</span>
+                      <span className="block text-xl font-bold tabular-nums text-brand">{c.answered}</span>
                       <span className="block text-[11px] text-smoke">{tr('answered')}{c.declined ? ` · ${tr('{n} said no', { n: c.declined })}` : ''}</span>
                     </span>
                     <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
@@ -245,11 +245,11 @@ export default function AdminSurveys() {
   )
 }
 
-function MiniStat({ label, value, accent }) {
+function MiniStat({ label, value }) {
   return (
     <div className="rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card">
       <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className={cx('mt-1 text-2xl font-bold tabular-nums', accent ? 'text-brand' : 'text-ink')}>{value}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums text-brand">{value}</p>
     </div>
   )
 }
@@ -315,8 +315,15 @@ function SurveyEditor({ survey, markets, challenges, onChange, onCancel, onSave 
       </div>
       {problem && <p className="-mt-2 shrink-0 px-1 text-xs font-medium text-amber-700">{problem}</p>}
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
-        {/* ---------- left: the steps, scrolling on their own ---------- */}
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+        {/* ---------- left: the creator's card on a phone, live (2 Oct 2026) ----------
+            Ethan: "most of the time on the platform we have the preview on the left and the editing
+            thing on the right", so the phone is first. On a small screen the steps still come first:
+            you cannot edit and watch side by side in one column. */}
+        <aside className="order-last min-h-0 lg:order-first lg:overflow-y-auto lg:overscroll-contain lg:pb-10">
+          <SurveyPreview survey={previewSurvey} stage={previewStage} at={openIdx} />
+        </aside>
+        {/* ---------- right: the steps, scrolling on their own ---------- */}
         <div className="min-h-0 space-y-4 lg:overflow-y-auto lg:overscroll-contain lg:pb-10 lg:pr-2">
           <Step n={1} title={tr('The words')} hint={tr('Write it in English. Each creator reads it in their own language.')}>
             <Field label={tr('Title')}>
@@ -437,29 +444,68 @@ function SurveyEditor({ survey, markets, challenges, onChange, onCancel, onSave 
           </Step>
         </div>
 
-        {/* ---------- right: the creator's card, on a phone, live ---------- */}
-        <aside className="min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-10">
-          <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name="eye" className="h-3.5 w-3.5" />{tr('What creators see')}</p>
+      </div>
+    </div>
+  )
+}
+
+// THE CREATOR'S SCREEN, AS THEY WILL MEET IT (2 Oct 2026).
+//
+// Ethan: "I don't like how it currently looks, and you have that black outline around it. I want it to
+// look more like the recap card, which shows the way the creators will actually see it. This one doesn't
+// really show where the screen is." It was the card floating in a black-rimmed box with nothing behind
+// it. Now it is a phone with the platform's own screen under a dimmed scrim and the card rising over it,
+// exactly the way a creator meets it - and there is no tab strip or caption: pressing a field or a
+// question in the editor is what moves the phone to that screen. "No thanks" closes the survey here just
+// as it does for a creator, and leaves a Replay to bring it back.
+function SurveyPreview({ survey, stage, at }) {
+  const tr = useT()
+  const [run, setRun] = useState(0)
+  const [closedKey, setClosedKey] = useState(null)
+  const key = `${stage}:${at}:${run}`
+  const closed = closedKey === key
+  return (
+    <div className="mx-auto w-full max-w-[360px] animate-fade-up">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white shadow-lift ring-1 ring-gray-200/80">
+        <div className="relative h-[min(640px,calc(100dvh-13rem))] min-h-[500px] overflow-hidden bg-cloud">
+          {/* the platform underneath: a status bar, the header, and a few cards */}
+          <div className="absolute inset-0 select-none" aria-hidden>
+            <div className="flex items-center justify-between px-7 pb-1 pt-3.5 text-[11px] font-bold text-ink">
+              <span>9:41</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-3.5 rounded-[2px] bg-ink/70" /><span className="h-2 w-2 rounded-full bg-ink/70" /></span>
             </div>
-            <div className="mb-4 grid grid-cols-4 gap-1 rounded-xl bg-cloud p-1 text-[11.5px] font-semibold">
-              {[['intro', tr('Opening')], ['questions', tr('Questions')], ['decline', tr('Saying no')], ['sent', tr('Thank you')]].map(([k, label]) => (
-                <button key={k} type="button" onClick={() => setPreviewStage(k)} className={cx('rounded-lg px-1 py-1.5 transition-all duration-200', previewStage === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label}</button>
-              ))}
+            <div className="flex items-center gap-2.5 px-5 py-2">
+              <img src="/brand/tryp-logo.png" alt="" className="h-8 rounded-lg" />
+              <span className="h-3 w-24 rounded-full bg-gray-200" />
+              <span className="ml-auto h-8 w-8 rounded-full bg-white shadow-card" />
             </div>
-            <div className="mx-auto max-w-[340px] rounded-[36px] border-[6px] border-ink bg-[#f3f3f5] p-2 shadow-lift">
-              <div className="flex min-h-[520px] flex-col justify-end overflow-hidden rounded-[28px] bg-ink/40 pt-16">
-                {previewSurvey.questions.length === 0 ? (
-                  <p className="m-4 rounded-2xl bg-white p-5 text-center text-sm text-smoke">{tr('Word a question to see it here.')}</p>
-                ) : (
-                  <SurveyCard key={`${previewStage}:${openIdx}`} survey={previewSurvey} preview stage={previewStage} at={openIdx} name="Sam" className="!rounded-t-[24px] !rounded-b-none" onDone={() => setPreviewStage('intro')} />
-                )}
-              </div>
+            <div className="space-y-3 px-4 pt-2">
+              <div className="brand-drift h-24 rounded-card" />
+              <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3 w-2/3 rounded-full bg-gray-200" /><span className="mt-3 block h-2.5 w-full rounded-full bg-gray-100" /><span className="mt-2 block h-2.5 w-4/5 rounded-full bg-gray-100" /></div>
+              <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3 w-1/2 rounded-full bg-gray-200" /><span className="mt-3 block h-16 rounded-xl bg-gray-100" /></div>
             </div>
-            <p className="mt-3 text-center text-[11px] leading-relaxed text-smoke">{tr('Each creator sees their own first name, in their own language. Closing it means "later": it comes back next time.')}</p>
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-around border-t border-gray-100 bg-white px-4 pb-5 pt-3">
+              {[0, 1, 2, 3, 4].map((k) => <span key={k} className={cx('h-5 w-5 rounded-md', k === 0 ? 'bg-brand/70' : 'bg-gray-200')} />)}
+            </div>
           </div>
-        </aside>
+          {/* the scrim, then the card */}
+          <div className={cx('absolute inset-0 bg-ink/45 backdrop-blur-[1.5px] transition-opacity duration-300', closed ? 'opacity-0' : 'opacity-100')} />
+          <div className={cx('absolute inset-x-0 bottom-0', closed ? 'animate-survey-sink pointer-events-none' : 'animate-survey-rise')} key={closed ? 'out' : 'in'}>
+            {survey.questions.length === 0 ? (
+              <p className="m-4 rounded-2xl bg-white p-5 text-center text-sm text-smoke">{tr('Word a question to see it here.')}</p>
+            ) : (
+              <SurveyCard key={key} survey={survey} preview stage={stage} at={at} name="Sam" className="!rounded-b-none" onDone={() => setClosedKey(key)} />
+            )}
+          </div>
+          {closed && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button type="button" onClick={() => setRun((r) => r + 1)} className="btn-primary animate-survey-rise shadow-lift">
+                <Icon name="refresh" className="h-4 w-4" /> {tr('Play it again')}
+              </button>
+            </div>
+          )}
+          <span aria-hidden className="pointer-events-none absolute bottom-1.5 left-1/2 h-1 w-28 -translate-x-1/2 rounded-full bg-ink/60" />
+        </div>
       </div>
     </div>
   )
@@ -469,7 +515,7 @@ function Step({ n, title, hint, children }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5 animate-fade-up" style={{ animationDelay: `${(n - 1) * 50}ms` }}>
       <div className="mb-4 flex items-start gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">{n}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white shadow-card">{n}</span>
         <div className="min-w-0">
           <h2 className="text-[15px] font-bold leading-7 text-ink">{title}</h2>
           {hint && <p className="text-xs text-smoke">{hint}</p>}
@@ -501,6 +547,48 @@ function OptionCard({ on, onClick, icon, label, hint }) {
   )
 }
 
+// WHAT THE CREATOR WILL TAP, DRAWN IN THE EDITOR (2 Oct 2026). Ethan: a yes or no "shows up on the
+// preview as yes or no, so that's good", and it "should show up on the actual editing thing" too. Every
+// kind that has a fixed answer now shows it under the wording: stars, the 0 to 10 row, the two buttons,
+// the box for a written answer. Lists of options stay as the editable list they already were.
+function AnswerSketch({ type }) {
+  const tr = useT()
+  if (type === 'yesno') {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {[[tr('Yes'), 'M5 12.5l4.5 4.5L19 7.5'], [tr('No'), 'M6 6l12 12M18 6L6 18']].map(([label, d]) => (
+          <span key={label} className="flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-gray-100 bg-cloud/50 text-[13px] font-bold text-ink">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
+            {label}
+          </span>
+        ))}
+      </div>
+    )
+  }
+  if (type === 'rating') {
+    return (
+      <div className="flex items-center gap-1.5 rounded-xl bg-cloud/50 px-3 py-2.5 text-brand">
+        {[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" className="h-6 w-6" />)}
+        <span className="ml-auto text-[11px] font-semibold text-smoke">{tr('1 to 5 stars')}</span>
+      </div>
+    )
+  }
+  if (type === 'scale') {
+    return (
+      <div className="rounded-xl bg-cloud/50 px-3 py-2.5">
+        <div className="grid grid-cols-11 gap-1">
+          {Array.from({ length: 11 }, (_, n) => <span key={n} className="flex h-7 items-center justify-center rounded-md border border-gray-200 bg-white text-[10.5px] font-bold tabular-nums text-ink">{n}</span>)}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] font-semibold text-gray-400"><span>{tr('Not at all')}</span><span>{tr('Definitely')}</span></div>
+      </div>
+    )
+  }
+  if (type === 'text') {
+    return <div className="rounded-xl border border-dashed border-gray-200 bg-cloud/50 px-3 py-3 text-[12px] text-gray-400">{tr('Write your answer…')}</div>
+  }
+  return null
+}
+
 function QuestionEditor({ q, i, total, open, onOpen, onChange, onMove, onDuplicate, onRemove }) {
   const tr = useT()
   const type = QUESTION_TYPES.find((t) => t.key === q.type)
@@ -528,6 +616,7 @@ function QuestionEditor({ q, i, total, open, onOpen, onChange, onMove, onDuplica
           </div>
           <input className="input font-semibold" value={q.prompt} maxLength={200} onChange={(e) => onChange({ prompt: e.target.value })} placeholder={tr('What do you want to ask?')} autoFocus={!q.prompt} />
           <input className="input !py-2 text-[13px]" value={q.help || ''} maxLength={160} onChange={(e) => onChange({ help: e.target.value })} placeholder={tr('A hint under the question (optional)')} />
+          {!hasOptions(q.type) && <AnswerSketch type={q.type} />}
           {hasOptions(q.type) && (
             <div className="space-y-1.5">
               {q.options.map((o, k) => (
@@ -714,22 +803,24 @@ function SurveyResults({ survey, markets, challenges, onBack, onEdit, onStatus, 
             summary.answered === 0 ? (
               <EmptyState icon={<Icon name="chartPie" className="h-7 w-7" />} title={tr('No answers yet')} hint={survey.status === 'live' ? tr('Answers appear here as they arrive.') : tr('Put it live to start collecting answers.')} />
             ) : (
-              <div key="charts" className="grid gap-4 lg:grid-cols-2">
+              <div key="charts" className="grid items-stretch gap-4 lg:grid-cols-2">
                 {summary.questions.map((q, i) => (
-                  <section key={q.id} className={cx('card animate-fade-up', q.type === 'text' && 'lg:col-span-2')} style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
-                    <div className="flex items-start gap-2.5">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand text-[11px] font-bold text-white">{i + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-snug text-ink">{q.prompt}</p>
-                        <p className="mt-0.5 text-[11px] text-smoke">{q.n === 1 ? tr('1 answer') : tr('{n} answers', { n: q.n })}</p>
-                      </div>
+                  <section key={q.id} className={cx('flex h-full flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up', q.type === 'text' && 'lg:col-span-2')} style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-[12px] font-bold text-white shadow-card">{i + 1}</span>
+                      <p className="min-w-0 flex-1 pt-0.5 text-[15px] font-semibold leading-snug text-ink">{q.prompt}</p>
+                      <span className="shrink-0 rounded-full bg-cloud px-2.5 py-1 text-[11px] font-bold tabular-nums text-smoke">{q.n === 1 ? tr('1 answer') : tr('{n} answers', { n: q.n })}</span>
                     </div>
-                    <div className="mt-4">
-                      {q.type === 'rating' && <RatingResult q={q} />}
-                      {q.type === 'scale' && <ScaleResult q={q} />}
-                      {q.type === 'yesno' && <YesNoResult q={q} />}
-                      {(q.type === 'choice' || q.type === 'multi') && <ChoiceResult q={q} />}
-                      {q.type === 'text' && <TextResult q={q} who={(a) => who({ profile_id: a.profile_id, sample_name: a.sample_name })} />}
+                    {/* The result fills whatever the tallest card beside it needs and sits in the middle of
+                        it, so a short chart is not left at the top of a tall box with nothing under it. */}
+                    <div className="mt-5 flex flex-1 items-center">
+                      <div className="w-full">
+                        {q.type === 'rating' && <RatingResult q={q} />}
+                        {q.type === 'scale' && <ScaleResult q={q} />}
+                        {q.type === 'yesno' && <YesNoResult q={q} />}
+                        {(q.type === 'choice' || q.type === 'multi') && <ChoiceResult q={q} />}
+                        {q.type === 'text' && <TextResult q={q} who={(a) => who({ profile_id: a.profile_id, sample_name: a.sample_name })} />}
+                      </div>
                     </div>
                   </section>
                 ))}
@@ -916,50 +1007,153 @@ function TextResult({ q, who }) {
   )
 }
 
+// EVERY RESPONSE, ONE PERSON AT A TIME (2 Oct 2026). Ethan: "We should obviously see the creators' profile
+// pictures whenever they submit and be able to go through them one by one to see what each creator
+// actually said. Currently, we can't see that ... it's a little bit confusing." It was a long list of
+// rows that each unfolded in place, and the face was tiny. Now there is a list of people on the left
+// (their photo, name, market and when), and the person picked fills the right: a big photo, who they are,
+// every question with their answer drawn the way they gave it, and Previous / Next (or the arrow keys)
+// to walk the whole list. On a phone the list is a strip of faces across the top.
 function ResponsesList({ survey, responses, who, onDelete }) {
   const tr = useT()
-  const [open, setOpen] = useState(null)
+  const [filter, setFilter] = useState('all')
+  const [idx, setIdx] = useState(0)
+  const [dir, setDir] = useState(1)
+  const list = useMemo(() => responses.filter((r) => filter === 'all' || (filter === 'declined' ? r.declined : !r.declined)), [responses, filter])
+  const at = Math.min(idx, Math.max(0, list.length - 1))
+  const cur = list[at]
+  const go = useCallback((d) => { setDir(d); setIdx((i) => Math.max(0, Math.min(list.length - 1, Math.min(i, list.length - 1) + d))) }, [list.length])
+  const pick = (i) => { setDir(i >= at ? 1 : -1); setIdx(i) }
+  const listRef = useRef(null)
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.closest?.('input, textarea, select, [contenteditable]')) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); go(1) }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(-1) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [go])
+  // The picked person stays in view in the list as you step through it.
+  useEffect(() => {
+    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [at, filter])
+
   if (!responses.length) return <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title={tr('No responses yet')} />
+  const answeredN = responses.filter((r) => !r.declined).length
+  const w = cur ? who(cur) : null
   return (
-    <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up">
-      {responses.map((r, i) => {
-        const w = who(r)
-        const on = open === r.id
-        return (
-          <div key={r.id} className={cx(i > 0 && 'border-t border-gray-100')}>
-            <button type="button" onClick={() => setOpen(on ? null : r.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hoverable:hover:bg-cloud/50">
-              <Avatar src={w.photo} name={w.name} size="sm" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-ink">{w.name}{w.sample && <span className="ml-1.5 rounded bg-amber-50 px-1 text-[10px] font-bold uppercase text-amber-700">{tr('Sample')}</span>}</span>
-                <span className="block text-[11px] text-smoke">{w.market ? `${tr(w.market)} · ` : ''}{formatDate(r.created_at)}</span>
-              </span>
-              <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', r.declined ? 'bg-gray-100 text-smoke' : 'bg-emerald-50 text-emerald-600')}>{r.declined ? tr('Said no') : tr('Answered')}</span>
-              <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200', on && 'rotate-180')} />
-            </button>
-            {on && (
-              <div className="space-y-3 border-t border-gray-50 bg-cloud/30 px-4 py-4 animate-fade-up">
-                {r.declined ? <p className="text-sm text-smoke">{tr('They chose not to take part.')}</p> : (survey.questions || []).map((q, k) => {
-                  const v = r.answers?.[q.id]
-                  const text = v == null || v === '' || (Array.isArray(v) && !v.length) ? null
-                    : Array.isArray(v) ? v.join(', ') : q.type === 'yesno' ? (v === 'yes' ? tr('Yes') : tr('No')) : q.type === 'rating' ? `${v} / 5` : q.type === 'scale' ? `${v} / 10` : String(v)
-                  return (
-                    <div key={q.id}>
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{k + 1}. {q.prompt}</p>
-                      <p className={cx('mt-0.5 whitespace-pre-wrap text-sm', text ? 'text-ink' : 'text-gray-400')}>{text || tr('Skipped')}</p>
-                    </div>
-                  )
-                })}
-                <div className="flex justify-end">
-                  <button type="button" onClick={() => onDelete(r)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
-                    <Icon name="trash" className="h-3.5 w-3.5" /> {tr('Delete response')}
-                  </button>
-                </div>
-              </div>
-            )}
+    <div className="animate-fade-up">
+      <div className="mb-3 inline-flex gap-1 rounded-xl bg-cloud p-1 text-[12.5px] font-semibold">
+        {[['all', tr('Everyone ({n})', { n: responses.length })], ['answered', tr('Answered ({n})', { n: answeredN })], ['declined', tr('Said no ({n})', { n: responses.length - answeredN })]].map(([k, label]) => (
+          <button key={k} type="button" onClick={() => { setFilter(k); setIdx(0) }} className={cx('rounded-lg px-3 py-1.5 transition-all duration-200', filter === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label}</button>
+        ))}
+      </div>
+      {!cur ? (
+        <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody here.')}</p>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+          {/* the people: a strip of faces on a phone, a list from a laptop up */}
+          <div ref={listRef} className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            {list.map((r, i) => {
+              const x = who(r)
+              return (
+                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={i === at ? 'true' : undefined} aria-label={x.name} className="flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition-all duration-200 aria-[current=true]:bg-brand-tint">
+                  <span className={cx('rounded-full p-0.5 transition-all duration-200', i === at ? 'bg-brand' : 'bg-transparent')}><Avatar src={x.photo} name={x.name} size="md" /></span>
+                  <span className={cx('max-w-[4.5rem] truncate text-[11px] font-semibold', i === at ? 'text-brand' : 'text-smoke')}>{x.name.split(' ')[0]}</span>
+                </button>
+              )
+            })}
           </div>
-        )
-      })}
+          <div className="hidden max-h-[70vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1.5 shadow-card lg:block lg:self-start">
+            {list.map((r, i) => {
+              const x = who(r)
+              const on = i === at
+              return (
+                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={on ? 'true' : undefined} className={cx('relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200', on ? 'bg-brand-tint' : 'hoverable:hover:bg-cloud')}>
+                  <span aria-hidden className={cx('absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-brand transition-all duration-300', on ? 'opacity-100' : 'scale-y-0 opacity-0')} />
+                  <Avatar src={x.photo} name={x.name} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className={cx('block truncate text-[13px] font-semibold', on ? 'text-brand' : 'text-ink')}>{x.name}</span>
+                    <span className="block truncate text-[11px] text-smoke">{x.market ? `${tr(x.market)} · ` : ''}{formatDate(r.created_at)}</span>
+                  </span>
+                  <span className={cx('h-2 w-2 shrink-0 rounded-full', r.declined ? 'bg-gray-300' : 'bg-emerald-400')} title={r.declined ? tr('Said no') : tr('Answered')} />
+                </button>
+              )
+            })}
+          </div>
+
+          {/* the person picked */}
+          <div key={cur.id} className={cx('min-w-0 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', dir > 0 ? 'animate-survey-next' : 'animate-survey-back')}>
+            <div className="brand-drift relative flex flex-wrap items-center gap-4 px-5 py-5 text-white">
+              <span aria-hidden className="survey-orb pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
+              <span className="relative rounded-full bg-white/90 p-[3px] shadow-lift"><Avatar src={w.photo} name={w.name} size="lg" /></span>
+              <div className="relative min-w-0 flex-1">
+                <p className="truncate text-xl font-bold tracking-tight">
+                  {w.id ? <Link to={`/profile/${w.id}`} className="hover:underline">{w.name}</Link> : w.name}
+                  {w.sample && <span className="ml-2 rounded bg-white/25 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase">{tr('Sample')}</span>}
+                </p>
+                <p className="mt-0.5 truncate text-[13px] text-white/85">{w.market ? `${tr(w.market)} · ` : ''}{formatDate(cur.created_at)}</p>
+                <span className="mt-2 inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-brand">{cur.declined ? tr('Said no') : tr('Answered')}</span>
+              </div>
+              <div className="relative flex items-center gap-1.5">
+                <button type="button" onClick={() => go(-1)} disabled={at === 0} aria-label={tr('Previous response')} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 transition-all duration-200 active:scale-90 disabled:opacity-30 hoverable:enabled:hover:bg-white/35"><Icon name="chevronLeft" className="h-5 w-5" /></button>
+                <span className="min-w-[3.5rem] text-center text-[13px] font-bold tabular-nums">{at + 1} / {list.length}</span>
+                <button type="button" onClick={() => go(1)} disabled={at === list.length - 1} aria-label={tr('Next response')} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 transition-all duration-200 active:scale-90 disabled:opacity-30 hoverable:enabled:hover:bg-white/35"><Icon name="chevronRight" className="h-5 w-5" /></button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-50 px-5">
+              {cur.declined ? (
+                <p className="py-8 text-center text-sm text-smoke">{tr('They chose not to take part.')}</p>
+              ) : (survey.questions || []).map((q, k) => (
+                <div key={q.id} className="py-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{k + 1}. {q.prompt}</p>
+                  <div className="mt-1.5"><GivenAnswer q={q} v={cur.answers?.[q.id]} /></div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-5 py-3">
+              <span className="text-[11px] text-gray-400">{tr('Use the arrow keys to move between people.')}</span>
+              <button type="button" onClick={() => onDelete(cur)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
+                <Icon name="trash" className="h-3.5 w-3.5" /> {tr('Delete response')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
+// One answer, drawn the way it was given: stars for stars, a number on its scale, a chip for a yes or no.
+function GivenAnswer({ q, v }) {
+  const tr = useT()
+  const none = v == null || v === '' || (Array.isArray(v) && !v.length)
+  if (none) return <p className="text-sm text-gray-400">{tr('Skipped')}</p>
+  if (q.type === 'rating') {
+    return (
+      <p className="flex items-center gap-2">
+        <span className="flex gap-0.5 text-brand">{[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" className={cx('h-5 w-5', n <= v ? 'opacity-100' : 'opacity-20')} />)}</span>
+        <span className="text-sm font-bold tabular-nums text-ink">{v} / 5</span>
+      </p>
+    )
+  }
+  if (q.type === 'scale') {
+    return (
+      <div className="flex items-center gap-3">
+        <span className="text-2xl font-bold tabular-nums text-brand">{v}</span>
+        <span className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${(v / 10) * 100}%` }} /></span>
+        <span className="text-[11px] font-semibold text-gray-400">/ 10</span>
+      </div>
+    )
+  }
+  if (q.type === 'yesno') {
+    return <span className={cx('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold', v === 'yes' ? 'bg-brand text-white' : 'bg-gray-100 text-ink')}><Icon name={v === 'yes' ? 'check' : 'close'} className="h-3.5 w-3.5" strokeWidth={2.6} />{v === 'yes' ? tr('Yes') : tr('No')}</span>
+  }
+  if (Array.isArray(v)) {
+    return <span className="flex flex-wrap gap-1.5">{v.map((o) => <span key={o} className="rounded-full bg-brand-tint px-3 py-1 text-[13px] font-semibold text-brand">{o}</span>)}</span>
+  }
+  if (q.type === 'choice') return <span className="inline-flex rounded-full bg-brand-tint px-3 py-1 text-[13px] font-semibold text-brand">{String(v)}</span>
+  return <p className="whitespace-pre-wrap rounded-xl bg-cloud/60 px-3.5 py-3 text-sm leading-relaxed text-ink">&ldquo;{String(v)}&rdquo;</p>
+}

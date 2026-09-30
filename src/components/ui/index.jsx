@@ -394,6 +394,9 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
  * for: a modal somebody cannot leave is a trap unless the only way past it is
  * something they were always going to have to do.
  */
+// How long a dialog takes to leave. Keep in step with `.scrim-out` / `.sheet-out` in index.css.
+const EXIT_MS = 190
+
 export function Modal({ open, onClose, title, children, wide = false, sheet = true, dismissible = true }) {
   const tr = useT()
   // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE
@@ -414,22 +417,45 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   // its content, so it has somewhere to scroll, and lib/keyboardFollow then has
   // room to put the focused field above the keyboard.
   const vp = useVisualViewport()
+  // A DIALOG LEAVES THE WAY IT CAME (2 Oct 2026).
+  //
+  // Ethan, on the KPI cards: "when I click out of the card there's a weird bug, something flashes up on
+  // my screen ... everything jitters up a bit." Closing used to do THREE things in one frame: the scrim
+  // and the card were deleted, the page was un-frozen (body back in flow, scroll offset restored) and
+  // the sticky header snapped back. No single one of them is a bug, but together they read as a flash.
+  // Now the dialog plays a short exit (scrim fades, sheet drops) and the page stays frozen until it has
+  // finished, so the only thing that changes in any one frame is the dialog going away. The last
+  // content is kept for the exit, because callers clear their state the moment they close.
+  const [present, setPresent] = useState(open)
+  if (open && !present) setPresent(true)
+  const closing = !open && present
+  // What was on screen, held across the frame in which the caller has already cleared it ("adjust state
+  // while rendering": on the second pass `children` is the same object, so it settles at once).
+  const [snap, setSnap] = useState({ children, title })
+  if (open && (snap.children !== children || snap.title !== title)) setSnap({ children, title })
+  useEffect(() => {
+    if (open || !present) return undefined
+    const id = setTimeout(() => setPresent(false), EXIT_MS)
+    return () => clearTimeout(id)
+  }, [open, present])
   const keyboard = open ? vp.keyboard : 0
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape' && dismissible) onClose() }
     document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose, dismissible])
+  useEffect(() => {
+    if (!present) return undefined
     // `document.body.style.overflow = 'hidden'` was here, and it does nothing at
     // all to touch scrolling on iOS. See lib/scrollLock for the whole story and
     // for why the release has to restore the scroll position by hand.
-    const release = lockScroll()
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      release()
-    }
-  }, [open, onClose, dismissible])
+    return lockScroll()
+  }, [present])
 
-  if (!open) return null
+  if (!present) return null
+  const shownChildren = open ? children : snap.children
+  const shownTitle = open ? title : snap.title
   // PORTALLED TO THE BODY, AND IT HAS TO BE.
   //
   // `position: fixed` is measured against the nearest ancestor with a
@@ -442,8 +468,9 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   // claiming the whole screen has to be a child of the body to get it.
   return createPortal(
     <div
-      className={cx('fixed inset-x-0 top-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4')}
-      role="dialog" aria-modal="true" aria-label={title}
+      className={cx('fixed inset-x-0 top-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4', closing && 'pointer-events-none')}
+      role="dialog" aria-modal="true" aria-label={shownTitle}
+      aria-hidden={closing || undefined}
       // Only while a keyboard is actually up. With none, this is `inset-0` by
       // another name and the layout is exactly what it always was.
       style={keyboard > 0
@@ -456,8 +483,8 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           screen. That cut is what "a bit glitchy" describes; the card's own
           entrance was never the problem. */}
       {dismissible
-        ? <button aria-label={tr("Close")} className="scrim-in absolute inset-0 bg-ink/40" onClick={onClose} />
-        : <div className="scrim-in absolute inset-0 bg-ink/40" aria-hidden />}
+        ? <button aria-label={tr("Close")} className={cx('absolute inset-0 bg-ink/40', closing ? 'scrim-out' : 'scrim-in')} onClick={onClose} />
+        : <div className={cx('absolute inset-0 bg-ink/40', closing ? 'scrim-out' : 'scrim-in')} aria-hidden />}
       {/* On mobile the sheet variant runs to the edge of the screen, where the
           tab bar sits over it - so the last control inside gets the tab bar's
           height (plus the home-indicator safe area) as padding, or a tall
@@ -475,7 +502,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           // travel below `sm` and the 12px rise above it - because that is one
           // element playing two roles, and a 12px hop on something pinned to
           // the bottom of a phone reads as a flicker rather than as a sheet.
-          sheet ? 'sheet-in' : 'animate-fade-up',
+          closing ? 'sheet-out' : sheet ? 'sheet-in' : 'animate-fade-up',
           sheet
             ? 'w-full rounded-t-card p-6 sm:rounded-card sm:p-8 sm:pb-8'
             : 'w-full rounded-card p-5 sm:p-7',
@@ -489,14 +516,14 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
         style={keyboard > 0 ? { maxHeight: '100%' } : undefined}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{title}</h2>
+          <h2 className="text-xl font-semibold">{shownTitle}</h2>
           {dismissible && (
             <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           )}
         </div>
-        {children}
+        {shownChildren}
       </div>
     </div>,
     document.body,

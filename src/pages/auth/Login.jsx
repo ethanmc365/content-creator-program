@@ -42,7 +42,7 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (demo) { setError('Sandbox: nobody was signed in.'); return }
+    if (demo) { setError(tr('Sandbox: nobody was signed in.')); return }
     // Read straight from the fields too: browser autofill can populate the DOM
     // without firing React's onChange, which would otherwise submit blank creds
     // on the first try (the "enter it twice" bug).
@@ -62,7 +62,7 @@ export default function Login() {
       // or which provider it uses, and the one person it helps is the one who
       // recognises their own situation in it.
       setError(error.message === 'Invalid login credentials'
-        ? 'Email or password is incorrect. If you joined with Google, use Continue with Google above - or reset your password to set one.'
+        ? tr('Email or password is incorrect. If you joined with Google, use Continue with Google below, or reset your password to set one.')
         : error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
@@ -75,7 +75,7 @@ export default function Login() {
   return (
     <AuthShell
       title={tr("Welcome back")}
-      subtitle="Log in to the Tryp.com Content Creator Community."
+      subtitle={tr("Log in to the Tryp.com Content Creator Community.")}
       footer={<span>{tr("New here?")} <Link to="/signup" className="font-medium text-brand hover:underline">{tr("Create your account")}</Link></span>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -96,7 +96,7 @@ export default function Login() {
         {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
 
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
-          {busy ? <Spinner /> : captchaToken ? 'Log in' : 'Verifying…'}
+          {busy ? <Spinner /> : captchaToken ? tr('Log in') : tr('Verifying…')}
         </button>
       </form>
 

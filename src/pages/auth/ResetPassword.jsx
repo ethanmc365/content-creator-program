@@ -21,16 +21,16 @@ export default function ResetPassword() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (password.length < 8) return setError('Password must be at least 8 characters.')
-    if (password !== confirm) return setError("Passwords don't match.")
-    if (demo) { setError('Sandbox: no password was changed.'); return }
+    if (password.length < 8) return setError(tr('Password must be at least 8 characters.'))
+    if (password !== confirm) return setError(tr("Passwords don't match."))
+    if (demo) { setError(tr('Sandbox: no password was changed.')); return }
     setBusy(true)
     const { error } = await updatePassword(password)
     setBusy(false)
     if (error) {
       setError(
         error.message.includes('session')
-          ? 'This reset link has expired. Request a new one from the login page.'
+          ? tr('This reset link has expired. Request a new one from the login page.')
           : error.message
       )
       return
@@ -39,7 +39,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthShell title={tr("Choose a new password")} subtitle="Almost there. Set your new password below.">
+    <AuthShell title={tr("Choose a new password")} subtitle={tr("Almost there. Set your new password below.")}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="password" className="label">{tr("New password")}</label>
@@ -51,7 +51,7 @@ export default function ResetPassword() {
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="btn-primary w-full">
-          {busy ? <Spinner /> : 'Save new password'}
+          {busy ? <Spinner /> : tr('Save new password')}
         </button>
       </form>
     </AuthShell>

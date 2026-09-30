@@ -78,7 +78,7 @@ export default function AuthCallback() {
     return (
       <AuthShell
         title={tr('That did not work')}
-        subtitle="Google did not complete the sign in. Nothing was created and nothing was changed - you can try again, or use your email and password."
+        subtitle={tr("Google did not complete the sign in. Nothing was created and nothing was changed - you can try again, or use your email and password.")}
         footer={<span>{tr('Need a hand?')} <Link to="/login" className="font-medium text-brand hover:underline">{tr('Back to log in')}</Link></span>}
       >
         <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{failed}</p>
@@ -93,7 +93,7 @@ export default function AuthCallback() {
     return (
       <AuthShell
         title={tr('Sign in did not complete')}
-        subtitle="We did not get a session back. That usually means the link was opened twice or it has expired."
+        subtitle={tr("We did not get a session back. That usually means the link was opened twice or it has expired.")}
         footer={<span><Link to="/signup" className="font-medium text-brand hover:underline">{tr('Create your account')}</Link></span>}
       >
         <Link to="/login" className="btn-primary w-full justify-center">{tr('Back to log in')}</Link>

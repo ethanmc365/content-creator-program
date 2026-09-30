@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -20,16 +20,13 @@ import { useT } from '../lib/i18n'
 // us' ... but they can still always click no."
 //
 // So it is a CARD, not a form: an orange header that greets the creator by name, one question at a
-// time with a progress bar across the top, big answers to tap, and a thank-you at the end. The close
-// button is "later": the survey comes back the next time the app opens, until it is answered or
-// declined. Declining asks once more, kindly, and then takes the no.
+// time with a progress bar across the top, big answers to tap, and a thank-you at the end. There is NO
+// CLOSE BUTTON (2 Oct 2026): they take part, or they say "No thanks". It comes back the next time the
+// app opens until it is answered or declined. Declining asks once more, kindly, and then takes the no.
 //
 // STRUCTURED WITH THE OTHER ASKS, NOT ON TOP OF THEM. It joins the same one-at-a-time queue as the
 // home-screen, notifications and bank-details prompts (lib/appNag), last in line, and never while the
 // walkthrough is running or any other dialog is open.
-const SNOOZE_KEY = 'tryp_survey_later'
-const snoozed = () => { try { return JSON.parse(sessionStorage.getItem(SNOOZE_KEY) || '[]') } catch { return [] } }
-const snooze = (id) => { try { sessionStorage.setItem(SNOOZE_KEY, JSON.stringify([...new Set([...snoozed(), id])])) } catch { /* private mode */ } }
 
 export default function SurveyHost() {
   const { user, profile } = useAuth()
@@ -49,7 +46,7 @@ export default function SurveyHost() {
         supabase.from('survey_responses').select('survey_id').eq('profile_id', user.id),
       ])
       if (!alive) return
-      const next = pendingSurveys(live, mine, snoozed())[0]
+      const next = pendingSurveys(live, mine, [])[0]
       if (!next || tourRunning()) return
       if (document.querySelector('[role="dialog"]')) { setTimeout(() => alive && setTurn((n) => n + 1), 8000); return }
       if (!claimNag('survey')) return
@@ -67,23 +64,47 @@ export default function SurveyHost() {
   return <SurveyModal survey={survey} onDone={close} />
 }
 
-/** The survey as a dialog over the app. Used by the pop-up and by the Feedback page. */
-export function SurveyModal({ survey, onDone, preview = false }) {
+/** The survey as a dialog over the app. Used by the pop-up and by the Feedback page.
+ *
+ *  NO WAY OUT BUT AN ANSWER (2 Oct 2026). Ethan: "They shouldn't have that X button at all. There should
+ *  be no X button. They can either just say 'No thanks' or 'Continue.'" So there is no close button and
+ *  Escape does nothing: the card leaves when they take part and finish, or say no. It leaves the way it
+ *  came - the scrim fades and the card sinks - instead of vanishing. */
+export function SurveyModal({ survey, onDone, preview = false, dismissible = false }) {
+  const [leaving, setLeaving] = useState(false)
   useEffect(() => lockScroll(), [])
+  const finish = useCallback(() => {
+    setLeaving(true)
+    setTimeout(onDone, 240)
+  }, [onDone])
+  // A survey somebody OPENED themselves (from the Feedback page) can be put down again with Escape or a
+  // tap outside - nothing is recorded. The one that pops up on its own cannot: that is the "no X" rule.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') { if (!preview) snooze(survey.id); onDone() } }
+    if (!dismissible) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') finish() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [survey.id, onDone, preview])
+  }, [dismissible, finish])
   return createPortal(
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 p-0 backdrop-blur-[2px] animate-fade-in sm:items-center sm:p-4">
-      <div className="w-full max-w-md animate-survey-rise sm:w-[28rem]">
-        <SurveyCard survey={survey} preview={preview} onDone={onDone} />
+    <div role="dialog" aria-modal="true" className={cx('fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4', leaving ? 'animate-fade-out' : 'animate-fade-in')}
+      onPointerDown={(e) => { if (dismissible && e.target === e.currentTarget) finish() }}>
+      <div className={cx('w-full max-w-md sm:w-[28rem]', leaving ? 'animate-survey-sink' : 'animate-survey-rise')}>
+        <SurveyCard survey={survey} preview={preview} onDone={finish} />
       </div>
     </div>,
     document.body,
   )
 }
+
+// The same handful of confetti pieces every time, so a thank-you is always the same thank-you.
+const CONFETTI = Array.from({ length: 22 }, (_, i) => {
+  const a = (i / 22) * Math.PI * 2 + (i % 3) * 0.2
+  const d = 70 + ((i * 37) % 70)
+  return {
+    x: Math.round(Math.cos(a) * d), y: Math.round(Math.sin(a) * d * 0.8 - 26), r: ((i * 53) % 360) - 180,
+    d: (i % 6) * 40, c: ['#ffffff', '#fde68a', '#fed7aa', '#fbbf24', '#ffffff', '#fdba74'][i % 6],
+  }
+})
 
 /**
  * THE CARD ITSELF. Drawn in the pop-up, on the Feedback page, and - inline, with `preview` - in the
@@ -123,15 +144,13 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
     setBusy('')
     if (ok) setStage('sent')
   }
+  // "No thanks" CLOSES THE SURVEY (2 Oct 2026). In the pop-up it records the no and the card leaves; in
+  // the builder's preview it closes the preview the same way, so the team sees what a creator sees.
   async function decline() {
     setBusy('decline')
     const ok = await write({ declined: true, answers: {} })
     setBusy('')
     if (ok) onDone()
-  }
-  function later() {
-    if (!preview) snooze(survey.id)
-    onDone()
   }
   function go(d) {
     setDir(d)
@@ -139,6 +158,16 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
     setI((x) => Math.max(0, Math.min(questions.length - 1, x + d)))
   }
   const set = (v) => setAnswers((a) => ({ ...a, [q.id]: v }))
+  // A line that arrives a word at a time. The spaces are real spaces, so a screen reader still reads a sentence.
+  const words = (text) => {
+    const list = String(text).split(' ')
+    return list.map((w, k) => (
+      <Fragment key={k}>
+        <span className="survey-word" style={{ '--d': `${120 + k * 70}ms` }}>{w}</span>
+        {k < list.length - 1 ? ' ' : null}
+      </Fragment>
+    ))
+  }
 
   return (
     <div className={cx('relative overflow-hidden rounded-t-[28px] bg-white shadow-lift sm:rounded-[28px]', className)}>
@@ -146,67 +175,79 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
       <div className="brand-drift relative overflow-hidden px-6 pb-6 pt-5 text-white">
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
         <span aria-hidden className="survey-orb pointer-events-none absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/10 blur-2xl [animation-delay:-3s]" />
-        <div className="relative flex items-center gap-2">
+        {/* a few slow stars of light, so the header is never quite still */}
+        {[['right-8 top-14', '0ms'], ['right-20 top-24', '900ms'], ['left-[46%] top-5', '1700ms'], ['right-4 top-32', '2300ms']].map(([pos, d]) => (
+          <span key={pos} aria-hidden className={cx('survey-twinkle pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-white', pos)} style={{ '--d': d }} />
+        ))}
+        <div className="relative flex items-center gap-3">
           {stage === 'questions' ? (
-            <div className="flex flex-1 gap-1" aria-label={tr('Question {n} of {t}', { n: i + 1, t: questions.length })}>
-              {questions.map((x, k) => (
-                <span key={x.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
-                  <span className="block h-full rounded-full bg-white transition-[width] duration-500 ease-out" style={{ width: k < i ? '100%' : k === i ? (answered(x, answers[x.id]) ? '100%' : '40%') : '0%' }} />
-                </span>
-              ))}
-            </div>
+            <>
+              <div className="flex flex-1 gap-1.5" role="progressbar" aria-valuemin={1} aria-valuemax={questions.length} aria-valuenow={i + 1} aria-label={tr('Question {n} of {t}', { n: i + 1, t: questions.length })}>
+                {questions.map((x, k) => {
+                  const done = k < i || (k === i && answered(x, answers[x.id]))
+                  const width = k < i ? '100%' : k === i ? (done ? '100%' : '42%') : '0%'
+                  return (
+                    <span key={x.id} className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/25">
+                      <span
+                        className={cx('survey-shine survey-fill absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-white via-amber-100 to-white transition-[width] duration-700 ease-out', k === i && !done && 'survey-glow')}
+                        style={{ width }}
+                      />
+                    </span>
+                  )
+                })}
+              </div>
+              <span key={i} className="survey-label shrink-0 text-[11px] font-bold tabular-nums tracking-wide text-white/90">{i + 1}/{questions.length}</span>
+            </>
           ) : (
             <span className="inline-flex flex-1 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">
-              <Icon name="sparkles" className="h-3.5 w-3.5" />
+              <Icon name="sparkles" className="survey-twinkle h-3.5 w-3.5" />
               {tr('Quick survey')}
             </span>
           )}
-          {stage !== 'sent' && (
-            <button type="button" onClick={later} aria-label={tr('Later')} title={tr('Later')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition-all duration-200 hoverable:hover:scale-105 hoverable:hover:bg-white/25">
-              <Icon name="close" className="h-4 w-4" />
-            </button>
-          )}
         </div>
         {stage === 'intro' && (
-          <div key="intro-h" className="relative mt-5 animate-survey-in">
-            <p className="text-3xl font-bold leading-tight tracking-tight">{first ? tr('Hey {name}', { name: first }) : tr('Hey there')}</p>
-            <p className="mt-2 text-[17px] font-semibold leading-snug text-white/95"><TLine text={survey.title} /></p>
+          <div key="intro-h" className="relative mt-5">
+            <p className="text-3xl font-bold leading-tight tracking-tight">{words(first ? tr('Hey {name}', { name: first }) : tr('Hey there'))}</p>
+            <p className="survey-word mt-2 block text-[17px] font-semibold leading-snug text-white/95" style={{ '--d': '380ms' }}><TLine text={survey.title} /></p>
           </div>
         )}
         {stage === 'questions' && (
-          <p key="q-h" className="relative mt-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white/80">
+          <p key={`q-h${i}`} className="survey-label relative mt-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white/80">
             {tr('Question {n} of {t}', { n: i + 1, t: questions.length })}
           </p>
         )}
         {stage === 'decline' && (
-          <div key="decline-h" className="relative mt-5 animate-survey-in">
-            <p className="text-2xl font-bold leading-tight tracking-tight">{tr('Before you go')}</p>
+          <div key="decline-h" className="relative mt-5">
+            <p className="text-2xl font-bold leading-tight tracking-tight">{words(tr('Before you go'))}</p>
           </div>
         )}
         {stage === 'sent' && (
-          <div key="sent-h" className="relative mt-3 flex flex-col items-center pb-1 text-center animate-survey-in">
+          <div key="sent-h" className="relative mt-3 flex flex-col items-center pb-1 text-center">
+            {CONFETTI.map((c, k) => (
+              <span key={k} aria-hidden className="survey-confetti" style={{ '--x': `${c.x}px`, '--y': `${c.y}px`, '--r': `${c.r}deg`, '--d': `${c.d}ms`, background: c.c }} />
+            ))}
             <span className="survey-done relative flex h-16 w-16 items-center justify-center rounded-full bg-white text-brand shadow-lift">
-              <Icon name="check" className="h-8 w-8" strokeWidth={2.6} />
+              <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path className="survey-draw" style={{ '--len': 24 }} d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
             </span>
-            <p className="mt-4 text-2xl font-bold tracking-tight">{first ? tr('Thank you, {name}!', { name: first }) : tr('Thank you!')}</p>
+            <p className="mt-4 text-2xl font-bold tracking-tight">{words(first ? tr('Thank you, {name}!', { name: first }) : tr('Thank you!'))}</p>
           </div>
         )}
       </div>
 
       {/* ---------- the body ---------- */}
       <div className="px-6 pb-6 pt-5">
-        {preview && <p className="mb-4 rounded-xl bg-cloud px-3 py-2 text-[11px] font-semibold text-smoke">{tr('Preview - nothing you do here is saved.')}</p>}
-
         {stage === 'intro' && (
           <div key="intro" className="animate-survey-in">
             {survey.intro && <p className="text-[15px] leading-relaxed text-smoke"><TLine text={survey.intro} /></p>}
             <div className="mt-4 flex flex-wrap gap-2 text-[12px] font-semibold text-ink">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5"><Icon name="poll" className="h-3.5 w-3.5 text-brand" />{questions.length === 1 ? tr('1 question') : tr('{n} questions', { n: questions.length })}</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5"><Icon name="clock" className="h-3.5 w-3.5 text-brand" />{mins === 1 ? tr('About 1 minute') : tr('About {n} minutes', { n: mins })}</span>
+              <span className="survey-word inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '160ms' }}><Icon name="poll" className="h-3.5 w-3.5 text-brand" />{questions.length === 1 ? tr('1 question') : tr('{n} questions', { n: questions.length })}</span>
+              <span className="survey-word inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '260ms' }}><Icon name="clock" className="h-3.5 w-3.5 text-brand" />{mins === 1 ? tr('About 1 minute') : tr('About {n} minutes', { n: mins })}</span>
             </div>
-            <button type="button" onClick={() => { setDir(1); setStage('questions') }} className="btn-primary mt-6 w-full justify-center !py-3.5 text-[15px] transition-transform duration-200 hoverable:hover:scale-[1.02]">
+            <button type="button" onClick={() => { setDir(1); setStage('questions') }} className="btn-primary survey-shine mt-6 w-full justify-center !py-3.5 text-[15px] transition-transform duration-200 active:scale-[0.98] hoverable:hover:scale-[1.02]">
               {tr("Let's go")}
-              <Icon name="chevronRight" className="h-4 w-4" strokeWidth={2.4} />
+              <Icon name="chevronRight" className="survey-nudge h-4 w-4" strokeWidth={2.4} />
             </button>
             <button type="button" onClick={() => setStage('decline')} className="mx-auto mt-3 block text-[13px] font-semibold text-smoke transition-colors hover:text-ink">
               {tr("I don't want to take part")}
@@ -226,13 +267,13 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
             </div>
             {err && <p className="mt-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{err}</p>}
             <div className="mt-6 flex items-center gap-2.5">
-              <button type="button" onClick={() => (i === 0 ? setStage('intro') : go(-1))} aria-label={tr('Back')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cloud text-smoke transition-all duration-200 hoverable:hover:-translate-x-0.5 hoverable:hover:text-ink">
+              <button type="button" onClick={() => (i === 0 ? setStage('intro') : go(-1))} aria-label={tr('Back')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cloud text-smoke transition-all duration-200 active:scale-95 hoverable:hover:-translate-x-0.5 hoverable:hover:bg-gray-200 hoverable:hover:text-ink">
                 <Icon name="chevronLeft" className="h-5 w-5" />
               </button>
-              <button type="button" onClick={() => go(1)} disabled={!canNext || !!busy} className="btn-primary h-12 flex-1 justify-center text-[15px] transition-all duration-200 disabled:opacity-40 hoverable:enabled:hover:scale-[1.02]">
+              <button type="button" onClick={() => go(1)} disabled={!canNext || !!busy} className={cx('btn-primary h-12 flex-1 justify-center text-[15px] transition-all duration-300 active:scale-[0.98] disabled:opacity-40 hoverable:enabled:hover:scale-[1.02]', canNext && 'survey-shine')}>
                 {busy === 'send' ? <Spinner className="h-4 w-4" /> : null}
                 {last ? tr('Send my answers') : !answered(q, answers[q.id]) && !q.required ? tr('Skip') : tr('Next')}
-                {!last && <Icon name="chevronRight" className="h-4 w-4" strokeWidth={2.4} />}
+                {!last && <Icon name="chevronRight" className={cx('h-4 w-4', canNext && 'survey-nudge')} strokeWidth={2.4} />}
               </button>
             </div>
           </div>
@@ -242,10 +283,10 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
           <div key="decline" className="animate-survey-in">
             <p className="text-[15px] leading-relaxed text-ink">{tr('This really helps us make the community better for you, and it only takes about {n} minute.', { n: mins })}</p>
             <p className="mt-2 text-[13px] leading-relaxed text-smoke">{tr('Every answer is read by the team. You can still say no.')}</p>
-            <button type="button" onClick={() => { setDir(1); setStage('questions') }} className="btn-primary mt-6 w-full justify-center !py-3.5 text-[15px] transition-transform duration-200 hoverable:hover:scale-[1.02]">
+            <button type="button" onClick={() => { setDir(1); setStage('questions') }} className="btn-primary survey-shine mt-6 w-full justify-center !py-3.5 text-[15px] transition-transform duration-200 active:scale-[0.98] hoverable:hover:scale-[1.02]">
               {tr("OK, I'll help")}
             </button>
-            <button type="button" onClick={decline} disabled={!!busy} className="btn-secondary mt-2.5 w-full justify-center !py-3">
+            <button type="button" onClick={decline} disabled={!!busy} className="btn-secondary mt-2.5 w-full justify-center !py-3 active:scale-[0.98]">
               {busy === 'decline' ? <Spinner className="h-4 w-4" /> : tr('No thanks')}
             </button>
           </div>
@@ -256,7 +297,7 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
             <p className="text-[15px] leading-relaxed text-smoke">
               {survey.thanks ? <TLine text={survey.thanks} /> : tr('Your answers are with the team. Every one is read.')}
             </p>
-            <button type="button" onClick={onDone} className="btn-primary mx-auto mt-6 w-full justify-center !py-3.5">{tr('Done')}</button>
+            <button type="button" onClick={onDone} className="btn-primary mx-auto mt-6 w-full justify-center !py-3.5 active:scale-[0.98]">{tr('Done')}</button>
           </div>
         )}
       </div>
@@ -264,13 +305,36 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
   )
 }
 
-function Answer({ q, value, onChange }) {
+// A SINGLE STAR, FILLED WITH A GRADIENT (2 Oct 2026). Gold to amber to the brand orange, so a chosen
+// star reads warm and alive rather than as a flat orange block. `gid` ties it to the gradient the row
+// defines once.
+const STAR = 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z'
+const SPARKS = Array.from({ length: 8 }, (_, k) => {
+  const a = (k / 8) * Math.PI * 2
+  return { x: Math.round(Math.cos(a) * 34), y: Math.round(Math.sin(a) * 34), c: ['#fbbf24', '#f59e0b', '#d94407', '#fde68a'][k % 4] }
+})
+const STAR_LABELS = ['Not good', 'Could be better', 'It is okay', 'Good', 'Loved it']
+
+function RatingAnswer({ q, value, onChange }) {
   const tr = useT()
-  if (q.type === 'rating') {
-    return (
-      <div className="flex items-center justify-between gap-2" role="radiogroup" aria-label={q.prompt}>
+  const gid = useId().replace(/:/g, '')
+  const [hover, setHover] = useState(0)
+  const shown = hover || value || 0
+  return (
+    <div>
+      <svg width="0" height="0" aria-hidden className="absolute">
+        <defs>
+          <linearGradient id={`${gid}-on`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fde047" />
+            <stop offset="45%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d94407" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="flex items-center justify-between gap-1" role="radiogroup" aria-label={q.prompt} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => {
-          const on = value >= n
+          const on = (value || 0) >= n
+          const lit = shown >= n
           return (
             <button
               key={n}
@@ -278,105 +342,164 @@ function Answer({ q, value, onChange }) {
               role="radio"
               aria-checked={value === n}
               aria-label={String(n)}
+              onMouseEnter={() => setHover(n)}
+              onFocus={() => setHover(n)}
+              onBlur={() => setHover(0)}
               onClick={() => onChange(n)}
-              className={cx(
-                'flex aspect-square flex-1 items-center justify-center rounded-2xl border-2 transition-all duration-200 hoverable:hover:-translate-y-0.5',
-                on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white text-gray-300 hoverable:hover:border-brand/40 hoverable:hover:text-brand',
-                value === n && 'survey-pop',
-              )}
+              className="relative flex aspect-square flex-1 items-center justify-center rounded-2xl outline-none transition-transform duration-200 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand hoverable:hover:-translate-y-1"
             >
-              <Icon name="star" className="h-7 w-7" />
+              {value === n && SPARKS.map((sp, k) => (
+                <span key={`${value}-${k}`} aria-hidden className="survey-spark" style={{ '--x': `${sp.x}px`, '--y': `${sp.y}px`, background: sp.c }} />
+              ))}
+              <span
+                key={on ? `on${value}` : 'off'}
+                className={cx('block', on ? 'survey-star-in' : 'survey-twinkle')}
+                style={{ '--d': on ? `${(n - 1) * 60}ms` : `${n * 280}ms` }}
+              >
+                <svg viewBox="0 0 24 24" className="h-10 w-10 transition-all duration-300 sm:h-11 sm:w-11" style={{ filter: on ? 'drop-shadow(0 5px 7px rgba(217,68,7,0.35))' : 'none', opacity: lit && !on ? 0.6 : 1 }} aria-hidden>
+                  <path d={STAR} fill={lit ? `url(#${gid}-on)` : '#e5e7eb'} stroke={lit ? '#d94407' : '#d1d5db'} strokeWidth="0.6" strokeLinejoin="round" style={{ transition: 'fill 0.25s' }} />
+                </svg>
+              </span>
             </button>
           )
         })}
       </div>
-    )
-  }
-  if (q.type === 'scale') {
-    return (
-      <div>
-        <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-11" role="radiogroup" aria-label={q.prompt}>
-          {Array.from({ length: 11 }, (_, n) => (
+      <p key={shown} className="survey-label mt-3 h-5 text-center text-sm font-bold text-brand">
+        {shown ? tr(STAR_LABELS[shown - 1]) : <span className="font-medium text-gray-400">{tr('Tap a star')}</span>}
+      </p>
+    </div>
+  )
+}
+
+function ScaleAnswer({ q, value, onChange }) {
+  const tr = useT()
+  return (
+    <div>
+      <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-11" role="radiogroup" aria-label={q.prompt}>
+        {Array.from({ length: 11 }, (_, n) => {
+          const on = value === n
+          return (
             <button
               key={n}
               type="button"
               role="radio"
-              aria-checked={value === n}
+              aria-checked={on}
               onClick={() => onChange(n)}
-              className={cx(
-                'flex h-11 items-center justify-center rounded-xl border-2 text-sm font-bold tabular-nums transition-all duration-200 hoverable:hover:-translate-y-0.5',
-                value === n ? 'survey-pop border-brand bg-brand text-white shadow-card' : 'border-gray-100 text-ink hoverable:hover:border-brand/40',
-              )}
+              className="group relative flex h-11 items-center justify-center rounded-xl text-sm font-bold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
-              {n}
-            </button>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between text-[11px] font-semibold text-gray-400">
-          <span>{tr('Not at all')}</span><span>{tr('Definitely')}</span>
-        </div>
-      </div>
-    )
-  }
-  if (q.type === 'yesno') {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        {[['yes', tr('Yes'), 'check'], ['no', tr('No'), 'close']].map(([k, label, icon]) => (
-          <button
-            key={k}
-            type="button"
-            aria-pressed={value === k}
-            onClick={() => onChange(k)}
-            className={cx(
-              'flex h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 text-[15px] font-bold transition-all duration-200 hoverable:hover:-translate-y-0.5',
-              value === k ? 'survey-pop border-brand bg-brand text-white shadow-card' : 'border-gray-100 text-ink hoverable:hover:border-brand/40',
-            )}
-          >
-            <Icon name={icon} className="h-5 w-5" strokeWidth={2.4} />
-            {label}
-          </button>
-        ))}
-      </div>
-    )
-  }
-  if (q.type === 'choice' || q.type === 'multi') {
-    const multi = q.type === 'multi'
-    const picked = multi ? (Array.isArray(value) ? value : []) : value
-    return (
-      <div className="space-y-2">
-        {(q.options || []).map((o, k) => {
-          const on = multi ? picked.includes(o) : picked === o
-          return (
-            <button
-              key={o}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onChange(multi ? (on ? picked.filter((x) => x !== o) : [...picked, o]) : o)}
-              style={{ animationDelay: `${k * 40}ms` }}
-              className={cx(
-                'animate-fade-up flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left text-[15px] font-semibold transition-all duration-200',
-                on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 text-ink hoverable:hover:translate-x-0.5 hoverable:hover:border-brand/40',
-              )}
-            >
-              <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center border-2 transition-colors', multi ? 'rounded-md' : 'rounded-full', on ? 'border-white bg-white text-brand' : 'border-gray-300')}>
-                {on && <Icon name="check" className="h-3.5 w-3.5" strokeWidth={3} />}
-              </span>
-              <span className="min-w-0 flex-1"><TLine text={o} /></span>
+              <span className={cx(
+                'absolute inset-0 rounded-xl border-2 transition-all duration-200',
+                on ? 'scale-105 border-transparent bg-gradient-to-br from-brand-light to-brand shadow-card' : 'border-gray-100 bg-white group-hover:-translate-y-0.5 group-hover:border-brand/40',
+              )} />
+              {on && <span key={value} aria-hidden className="survey-ripple absolute inset-0 rounded-xl bg-brand/40" />}
+              <span key={on ? `on${value}` : 'off'} className={cx('relative', on ? 'survey-pop text-white' : 'text-ink')}>{n}</span>
             </button>
           )
         })}
-        {multi && <p className="pt-1 text-[12px] text-gray-400">{tr('Pick as many as you like.')}</p>}
       </div>
-    )
-  }
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div
+          className={cx('h-full rounded-full bg-gradient-to-r from-brand-light to-brand transition-[width] duration-500 ease-out', value != null && 'survey-shine')}
+          style={{ width: value == null ? '0%' : `${(value / 10) * 100}%` }}
+        />
+      </div>
+      <div className="mt-2 flex justify-between text-[11px] font-semibold text-gray-400">
+        <span>{tr('Not at all')}</span><span>{tr('Definitely')}</span>
+      </div>
+    </div>
+  )
+}
+
+// YES AND NO, WITH THEIR MARKS DRAWN (2 Oct 2026). Ethan: "there seems to be something weird with the
+// animations and style" when picking one. The old buttons toggled their background, border and scale
+// all at once and fought their own hover lift. Now the colour is a layer that fades in, the tick or
+// cross is drawn as a stroke, the other answer steps back, and a ripple leaves the one that was chosen.
+function YesNoAnswer({ q, value, onChange }) {
+  const tr = useT()
+  const opts = [['yes', tr('Yes'), 'M5 12.5l4.5 4.5L19 7.5', 24], ['no', tr('No'), 'M6 6l12 12M18 6L6 18', 34]]
   return (
-    <textarea
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      rows={4}
-      maxLength={2000}
-      placeholder={tr('Write your answer…')}
-      className="input no-ios-zoom min-h-[7rem] resize-none rounded-2xl text-[15px]"
-    />
+    <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={q.prompt}>
+      {opts.map(([k, label, d, len]) => {
+        const on = value === k
+        const other = value != null && !on
+        return (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(k)}
+            className={cx(
+              'group relative flex h-24 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl text-[15px] font-bold outline-none transition-all duration-300 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand',
+              other ? 'scale-[0.97] opacity-60' : 'hoverable:hover:-translate-y-0.5',
+            )}
+          >
+            <span aria-hidden className={cx('absolute inset-0 rounded-2xl border-2 bg-white transition-colors duration-300', on ? 'border-transparent' : 'border-gray-100 group-hover:border-brand/40')} />
+            <span aria-hidden className={cx('absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-light to-brand shadow-card transition-opacity duration-300', on ? 'opacity-100' : 'opacity-0')} />
+            {on && <span key={value} aria-hidden className="survey-ripple absolute left-1/2 top-1/2 -ml-8 -mt-8 h-16 w-16 rounded-full bg-white/60" />}
+            <span className={cx('relative flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300', on ? 'bg-white/25 text-white' : 'bg-cloud text-smoke group-hover:text-brand')}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path key={on ? 'drawn' : 'still'} className={on ? 'survey-draw' : undefined} style={{ '--len': len }} d={d} />
+              </svg>
+            </span>
+            <span className={cx('relative transition-colors duration-300', on ? 'text-white' : 'text-ink')}>{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function ChoiceAnswer({ q, value, onChange }) {
+  const tr = useT()
+  const multi = q.type === 'multi'
+  const picked = multi ? (Array.isArray(value) ? value : []) : value
+  return (
+    <div className="space-y-2">
+      {(q.options || []).map((o, k) => {
+        const on = multi ? picked.includes(o) : picked === o
+        return (
+          <button
+            key={o}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(multi ? (on ? picked.filter((x) => x !== o) : [...picked, o]) : o)}
+            style={{ animationDelay: `${k * 45}ms` }}
+            className={cx(
+              'animate-fade-up group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border-2 px-4 py-3 text-left text-[15px] font-semibold outline-none transition-[border-color,transform] duration-200 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-brand',
+              on ? 'border-transparent' : 'border-gray-100 hoverable:hover:translate-x-0.5 hoverable:hover:border-brand/40',
+            )}
+          >
+            <span aria-hidden className={cx('absolute inset-0 origin-left bg-gradient-to-r from-brand to-brand-light transition-transform duration-400 ease-out', on ? 'scale-x-100' : 'scale-x-0')} />
+            <span className={cx('relative flex h-6 w-6 shrink-0 items-center justify-center border-2 transition-all duration-300', multi ? 'rounded-md' : 'rounded-full', on ? 'scale-110 border-white bg-white text-brand' : 'border-gray-300')}>
+              {on && <Icon name="check" className="survey-pop h-3.5 w-3.5" strokeWidth={3} />}
+            </span>
+            <span className={cx('relative min-w-0 flex-1 transition-colors duration-300', on ? 'text-white' : 'text-ink')}><TLine text={o} /></span>
+          </button>
+        )
+      })}
+      {multi && <p className="pt-1 text-[12px] text-gray-400">{tr('Pick as many as you like.')}</p>}
+    </div>
+  )
+}
+
+function Answer({ q, value, onChange }) {
+  const tr = useT()
+  if (q.type === 'rating') return <RatingAnswer q={q} value={value} onChange={onChange} />
+  if (q.type === 'scale') return <ScaleAnswer q={q} value={value} onChange={onChange} />
+  if (q.type === 'yesno') return <YesNoAnswer q={q} value={value} onChange={onChange} />
+  if (q.type === 'choice' || q.type === 'multi') return <ChoiceAnswer q={q} value={value} onChange={onChange} />
+  return (
+    <div className="relative">
+      <textarea
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        maxLength={2000}
+        placeholder={tr('Write your answer…')}
+        className="input no-ios-zoom min-h-[7rem] resize-none rounded-2xl text-[15px] transition-shadow duration-300 focus:shadow-[0_0_0_4px_rgba(217,68,7,0.12)]"
+      />
+      {(value || '').length > 0 && <span className="survey-label absolute bottom-2.5 right-3.5 text-[11px] font-semibold tabular-nums text-gray-400">{(value || '').length}/2000</span>}
+    </div>
   )
 }

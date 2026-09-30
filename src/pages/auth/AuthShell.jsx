@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useT } from '../../lib/i18n'
+import LanguagePicker from '../../components/LanguagePicker'
+import Icon from '../../components/Icon'
+import { useAuth } from '../../context/AuthContext'
 
 // THE FRAME FOR EVERY AUTH PAGE, AND THE FIRST SCREEN A CREATOR EVER MEETS.
 //
@@ -25,8 +28,25 @@ import { useT } from '../../lib/i18n'
 //   sits with the wordmark and lifts on hover, because on a signup page the
 //   only way back to the thing you were reading is worth being visible.
 export default function AuthShell({ title, subtitle, children, footer }) {
+  const tr = useT()
+  const { user } = useAuth()
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-5 py-12">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-5 pb-12 pt-24 sm:pt-28">
+      {/* THE HEADING BAR, WITH THE LANGUAGE IN IT (2 Oct 2026). Ethan: a language picker "at the very top,
+          we have that heading bar. They can switch the language there". Every auth page shares this shell,
+          so log in, sign up, forgotten password and reset all get it, and the choice follows the person
+          through the whole sign-up (it is kept on the device, and written to the profile once there is
+          one). The back link is the same way out the logo always was, made visible. */}
+      <div className="fixed inset-x-0 top-0 z-40 px-3 pt-[max(env(safe-area-inset-top),0.75rem)] sm:px-5 sm:pt-4">
+        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between sm:h-14">
+          <Link to="/" className="group flex h-10 items-center gap-1.5 rounded-full bg-white/80 pl-3 pr-4 text-sm font-semibold text-smoke shadow-card ring-1 ring-black/5 backdrop-blur transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink">
+            <Icon name="chevronLeft" className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" strokeWidth={2.2} />
+            {tr('Back')}
+          </Link>
+          <LanguagePicker userId={user?.id || null} />
+        </div>
+      </div>
+
       {/* Two blooms, one warm and one faint, in the corners the card does not
           use. Fixed rather than absolute so a tall form scrolling past does not
           drag the light with it. */}
@@ -43,7 +63,7 @@ export default function AuthShell({ title, subtitle, children, footer }) {
           className="h-14 rounded-2xl shadow-card transition-transform duration-200 group-hover:-translate-y-0.5"
         />
         <span className="text-xs font-medium text-smoke transition-colors group-hover:text-brand">
-          Creator Community
+          {tr('Creator Community')}
         </span>
       </Link>
 

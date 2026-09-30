@@ -1811,8 +1811,28 @@ html[data-reduce-motion] *::after {
   .sheet-in { animation: sheet-in-wide 340ms ease-out both; }
 }
 
+/* THE WAY OUT (2 Oct 2026). The scrim lets go first-ish, the sheet drops its own height on a phone and
+   sinks a little on a desktop. `both` so the last frame holds until the Modal unmounts. */
+@keyframes scrim-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes sheet-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(100%); }
+}
+@keyframes sheet-out-wide {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+.scrim-out { animation: scrim-out 190ms ease-in both; }
+.sheet-out { animation: sheet-out 190ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (min-width: 640px) {
+  .sheet-out { animation: sheet-out-wide 170ms ease-in both; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .scrim-in, .sheet-in { animation: none; opacity: 1; transform: none; }
+  .scrim-in, .sheet-in, .scrim-out, .sheet-out { animation: none; opacity: 1; transform: none; }
 }
 
 @keyframes tour-glow-breathe {
@@ -3138,4 +3158,94 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in, .animate-survey-rise, .animate-survey-in, .animate-survey-next, .animate-survey-back,
   .survey-pop, .survey-orb, .survey-done, .survey-done::after { animation: none; }
+}
+
+
+/* THE KPI DETAIL ARRIVES IN PIECES (2 Oct 2026). Ethan: the card "just pops up, which looks good, but
+   there should be more animations there." Each block rises on its own clock (`--d`), so the header,
+   the four numbers, the charts and the lists land one after another instead of all at once. The
+   floor is 0.55 rather than 0: an entrance that starts invisible freezes invisible in a background
+   tab. `both` holds the first frame through the delay. */
+@keyframes kpi-rise {
+  from { opacity: 0.55; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes kpi-pop {
+  0%   { opacity: 0.55; transform: translateY(8px) scale(0.94); }
+  60%  { transform: translateY(0) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.kpi-rise { animation: kpi-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+.kpi-pop  { animation: kpi-pop 480ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+@media (prefers-reduced-motion: reduce) {
+  .kpi-rise, .kpi-pop { animation: none; }
+}
+
+/* One cell of the period grid pops in on its own beat (2 Oct 2026). */
+@keyframes kpi-cell-in {
+  from { opacity: 0.5; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.kpi-cell { animation: kpi-cell-in 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .kpi-cell { animation: none; } }
+
+/* ---------------------------------------------------------------------------
+   THE SURVEY CARD, SECOND PASS (2 Oct 2026). Ethan: "more animations ... improve the progress bar ...
+   for the stars, much better animations, different gradients and constant cool animations." Every
+   piece below is decoration on top of state that already works, and each respects reduced motion. */
+@keyframes survey-word {
+  from { transform: translateY(16px) scale(0.96); opacity: 0.35; filter: blur(3px); }
+  to   { transform: none; opacity: 1; filter: none; }
+}
+.survey-word { display: inline-block; animation: survey-word 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+@keyframes survey-shine { from { transform: translateX(-130%); } to { transform: translateX(230%); } }
+.survey-shine { position: relative; overflow: hidden; }
+.survey-shine::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.5) 50%, transparent 75%);
+  animation: survey-shine 2.6s ease-in-out infinite;
+}
+@keyframes survey-twinkle { 0%, 100% { opacity: 0.35; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+.survey-twinkle { animation: survey-twinkle 3.2s ease-in-out infinite; animation-delay: var(--d, 0ms); }
+@keyframes survey-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.survey-float { animation: survey-float 3.4s ease-in-out infinite; animation-delay: var(--d, 0ms); }
+@keyframes survey-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+.survey-nudge { animation: survey-nudge 1.6s ease-in-out infinite; }
+@keyframes survey-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.0); } 50% { box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.75); } }
+.survey-glow { animation: survey-glow 1.8s ease-in-out infinite; }
+
+/* A star that has just been chosen: it springs, then settles, one after another up to the chosen one. */
+@keyframes survey-star-in {
+  0%   { transform: scale(0.55) rotate(-24deg); }
+  55%  { transform: scale(1.32) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.survey-star-in { animation: survey-star-in 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--d, 0ms); }
+@keyframes survey-spark {
+  0%   { transform: translate(0, 0) scale(0.4); opacity: 1; }
+  100% { transform: translate(var(--x), var(--y)) scale(1); opacity: 0; }
+}
+.survey-spark { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 9999px; animation: survey-spark 0.7s ease-out both; }
+@keyframes survey-label { from { transform: translateY(6px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+.survey-label { animation: survey-label 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes survey-ripple { from { transform: scale(0.6); opacity: 0.55; } to { transform: scale(1.9); opacity: 0; } }
+.survey-ripple { animation: survey-ripple 0.7s ease-out both; }
+@keyframes survey-draw { from { stroke-dashoffset: var(--len, 30); } to { stroke-dashoffset: 0; } }
+.survey-draw { stroke-dasharray: var(--len, 30); animation: survey-draw 0.5s ease-out 0.05s both; }
+@keyframes survey-confetti {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(0.6); opacity: 1; }
+  100% { transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(1); opacity: 0; }
+}
+.survey-confetti { position: absolute; left: 50%; top: 42%; width: 8px; height: 12px; border-radius: 2px; animation: survey-confetti 1.3s cubic-bezier(0.16, 0.8, 0.3, 1) both; animation-delay: var(--d, 0ms); }
+@keyframes survey-sink { from { transform: none; opacity: 1; } to { transform: translateY(60px) scale(0.97); opacity: 0; } }
+.animate-survey-sink { animation: survey-sink 0.24s cubic-bezier(0.4, 0, 1, 1) both; }
+@keyframes survey-fade-out { from { opacity: 1; } to { opacity: 0; } }
+.animate-fade-out { animation: survey-fade-out 0.24s ease-in both; }
+@keyframes survey-fill-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+.survey-fill { animation: survey-fill-glow 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .survey-word, .survey-shine::after, .survey-twinkle, .survey-float, .survey-nudge, .survey-glow, .survey-star-in,
+  .survey-spark, .survey-label, .survey-ripple, .survey-draw, .survey-confetti, .animate-survey-sink, .animate-fade-out,
+  .survey-fill { animation: none; }
+  .survey-draw { stroke-dasharray: none; }
 }

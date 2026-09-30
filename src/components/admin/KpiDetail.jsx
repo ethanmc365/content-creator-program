@@ -11,6 +11,7 @@ import { cx, formatDate, formatViews } from '../../lib/utils'
 import { daysUntil, formatKpiValue, metricDef, metricLabel, periodLabel, rowStatus } from '../../lib/kpiTracker'
 import { CHART, FILL, axisTick, tooltipStyle as chartTip } from '../charts/chartTheme'
 import { useT } from '../../lib/i18n'
+import { CountUp } from '../network/Motion'
 
 // ONE KPI, OPENED UP (28 Sep 2026).
 //
@@ -155,17 +156,17 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
       {row && (
         <div className="space-y-6">
           {/* ---- 1. Where it stands ---- */}
-          <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-6">
+          <div className="kpi-rise relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-6">
             <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="relative flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/80">{scopeName} · {periodLabel(period)}</p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight">
-                  {f(row.actual)}
+                  {status === 'upcoming' ? f(row.actual) : <CountUp value={row.actual} format={(n) => f(n)} />}
                   <span className="ml-2 text-lg font-semibold text-white/75">/ {f(row.target_value)}</span>
                 </p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card">{tr(st.label)}</span>
+              <span className="kpi-pop rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card" style={{ '--d': '260ms' }}>{tr(st.label)}</span>
             </div>
             {/* THE SAME BAR AS THE CARD (30 Sep 2026). This header used to draw
                 its own flat green bar on the orange, so a card that read orange
@@ -195,14 +196,16 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
           {/* FOUR NUMBERS, READ AT A GLANCE (30 Sep 2026). Ethan: the detail view "seems hard to read
               the data". The sentence above says it; these say it without reading. */}
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            <DetailStat label={tr('So far')} value={status === 'upcoming' ? '-' : f(row.actual)} />
-            <DetailStat label={isLevel ? tr('The goal') : tr('Goal')} value={f(row.target_value)} />
+            <DetailStat i={0} label={tr('So far')} value={status === 'upcoming' ? '-' : f(row.actual)} />
+            <DetailStat i={1} label={isLevel ? tr('The goal') : tr('Goal')} value={f(row.target_value)} />
             <DetailStat
+              i={2}
               label={isLevel ? tr('Still to go') : tr('Pace today')}
               value={status === 'upcoming' ? '-' : isLevel ? f(left) : f(expectedNow)}
               tone={!isLevel && status !== 'upcoming' && status !== 'met' ? (gap >= 0 ? 'good' : 'bad') : null}
             />
             <DetailStat
+              i={3}
               label={status === 'upcoming' ? tr('Starts in') : tr('Days left')}
               value={status === 'upcoming' ? (daysUntil(period) === 1 ? tr('1 day') : tr('{n} days', { n: daysUntil(period) })) : daysLeft == null ? '-' : String(daysLeft)}
             />
@@ -236,9 +239,9 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
               </div>
             </div>
           ) : (
-            <div className="space-y-6 animate-chart-in">
+            <div className="space-y-6">
               {/* ---- 2. How it got there ---- */}
-              <section className="border-t border-gray-100 pt-5">
+              <section className="kpi-rise border-t border-gray-100 pt-5" style={{ '--d': '80ms' }}>
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-sm font-semibold">{tr('Over the period')}</h3>
                   <span className="flex items-center gap-3 text-[11px] text-smoke">
@@ -272,7 +275,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
 
               {/* Per day, as bars: when things actually happened. */}
               {def.kind === 'sum' && series.some((p) => p.landed) && (
-                <section className="border-t border-gray-100 pt-5">
+                <section className="kpi-rise border-t border-gray-100 pt-5" style={{ '--d': '200ms' }}>
                   <h3 className="mb-3 text-sm font-semibold">{tr('Day by day')}</h3>
                   <div className="h-40">
                     <ResponsiveContainer>
@@ -297,9 +300,9 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                     other empty. */}
                 {row.metric !== 'challenges_run' && (
                   <section className={cx(
-                    'border-t border-gray-100 pt-5',
+                    'kpi-rise border-t border-gray-100 pt-5',
                     !(data.challenges || []).length && 'lg:col-span-2',
-                  )}>
+                  )} style={{ '--d': '320ms' }}>
                     <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
                       {peopleTitle}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{(data.people || []).length}</span>
@@ -312,7 +315,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                         !(data.challenges || []).length && 'lg:grid lg:max-h-96 lg:grid-cols-2 lg:divide-y-0',
                       )}>
                         {data.people.map((p, i) => (
-                          <li key={p.id}>
+                          <li key={p.id} className="kpi-rise" style={{ '--d': `${380 + Math.min(i, 10) * 35}ms` }}>
                             <Link to={`/profile/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-cloud/60">
                               {VIEW_METRICS.has(row.metric) && <span className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-smoke">{i + 1}</span>}
                               <Avatar src={p.photo_url} name={p.name} size="xs" />
@@ -332,7 +335,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                   </section>
                 )}
                 {(data.challenges || []).length > 0 && (
-                  <section className={cx('border-t border-gray-100 pt-5', row.metric === 'challenges_run' && 'lg:col-span-2')}>
+                  <section className={cx('kpi-rise border-t border-gray-100 pt-5', row.metric === 'challenges_run' && 'lg:col-span-2')} style={{ '--d': '380ms' }}>
                     <h3 className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm font-semibold">
                       {row.metric === 'challenges_run' ? tr('The challenges') : tr('By challenge')}
                       <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-bold tabular-nums text-smoke">{data.challenges.length}</span>
@@ -341,7 +344,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                       {data.challenges.map((c) => {
                         const maxViews = Math.max(1, ...data.challenges.map((x) => Number(x.views) || 0))
                         return (
-                          <li key={c.id}>
+                          <li key={c.id} className="kpi-rise" style={{ '--d': `${420 + Math.min(data.challenges.indexOf(c), 8) * 45}ms` }}>
                             <Link to={`/admin/analytics/${c.id}`} className="block px-4 py-3 transition-colors hover:bg-cloud/60">
                               <span className="flex items-center justify-between gap-3">
                                 <span className="min-w-0 truncate text-sm font-medium">{c.title}</span>
@@ -373,9 +376,9 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
   )
 }
 
-function DetailStat({ label, value, tone }) {
+function DetailStat({ label, value, tone, i = 0 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-card">
+    <div className="kpi-pop rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-card" style={{ '--d': `${140 + i * 70}ms` }}>
       <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
       <p className={cx('mt-1 truncate text-lg font-bold tabular-nums', tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-amber-600' : 'text-ink')}>{value}</p>
     </div>

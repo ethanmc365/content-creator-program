@@ -5,7 +5,7 @@ import Icon from '../Icon'
 import { CHART, FILL, axisTickSmall, tooltipStyle } from '../charts/chartTheme'
 import {
   STANDARD_METRICS, aggregateScopes, formatKpiValue, metricDef, metricIcon, metricLabel, periodKey, periodLabel,
-  rowStatus, scaledHeights, windowPeriods,
+  rowStatus, windowPeriods,
 } from '../../lib/kpiTracker'
 import { useKpiPlan } from '../../lib/useKpiPlan'
 import { cx } from '../../lib/utils'
@@ -95,6 +95,7 @@ export function RollingOverview({ scopes, period, byMonth, currency, windowRows,
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* every metric, one line each; press one to chart it */}
           <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+            <PeriodHeader periods={periods} current={periodKey(period)} />
             {metrics.map((m, i) => (
               <MetricStrip
                 key={m.metric}
@@ -116,14 +117,44 @@ export function RollingOverview({ scopes, period, byMonth, currency, windowRows,
   )
 }
 
-// ONE ROW PER METRIC (rebuilt 1 Oct 2026). Ethan: the quarter-by-quarter strips "don't really look
-// great". Each row now says the number for the period on screen in words, and its little columns sit
-// on a neutral grey track (not beige): a column's HEIGHT is its goal, the orange is what was achieved,
-// a dashed outline is a period that has not started, a short grey dash is a period with no goal.
+// ONE ROW PER METRIC, ONE CELL PER PERIOD (rebuilt again 2 Oct 2026). Ethan: the little columns with
+// the orange circle round the current one "I don't really get that. I don't really like the UI."
+// The columns encoded a goal as a height and an achievement as a fill, which takes a key to read.
+// This is a grid a person can read cold: a metric down the side, the periods across the top, and in
+// each cell how much of that period's goal was reached, coloured by how it went. The period on screen
+// is named "Now" in the header and its column is tinted - nothing is circled. A period with no goal
+// shows a dash; one that has not begun shows its goal in dashed outline.
+const CELL = {
+  met: 'bg-emerald-50 text-emerald-700',
+  on_track: 'bg-brand-tint text-brand',
+  behind: 'bg-amber-50 text-amber-700',
+  missed: 'bg-red-50 text-red-600',
+}
+
+function PeriodHeader({ periods, current }) {
+  const tr = useT()
+  const many = periods.length > 4
+  return (
+    <div className="flex items-center gap-3 border-b border-gray-100 bg-cloud/40 px-4 py-2">
+      <span className="w-[calc(2rem+0.75rem+8rem)] shrink-0 text-[10.5px] font-bold uppercase tracking-wide text-gray-400 sm:w-[calc(2rem+0.75rem+10rem)]">{tr('Goal reached')}</span>
+      <span className={cx('grid flex-1', many ? 'gap-[3px]' : 'gap-1.5')} style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(0, 1fr))` }}>
+        {periods.map((p) => {
+          const now = p.key === current
+          return (
+            <span key={p.key} className={cx('truncate text-center text-[10.5px] tabular-nums', now ? 'font-bold text-brand' : 'font-semibold text-smoke')}>
+              {many ? String(p.short).slice(0, 3) : p.yearTag ? `${p.short} ’${String(p.year).slice(2)}` : p.short}
+            </span>
+          )
+        })}
+      </span>
+      <span className="w-4 shrink-0" aria-hidden />
+    </div>
+  )
+}
+
 function MetricStrip({ metric, periods, currency, on, last, onPick, current, index }) {
   const tr = useT()
   const rows = periods.map((p) => metric.periods[p.key] || null)
-  const heights = scaledHeights(rows.map((r) => (r ? Number(r.target_value) : null)))
   const sample = rows.find(Boolean)
   const many = periods.length > 4
   const here = metric.periods[current]
@@ -153,30 +184,27 @@ function MetricStrip({ metric, periods, currency, on, last, onPick, current, ind
               : `${formatKpiValue(sample, here.actual, currency)} / ${formatKpiValue(sample, here.target_value, currency)}`}
         </span>
       </span>
-      <span className={cx('grid h-10 flex-1 items-end', many ? 'grid-cols-12 gap-[3px]' : 'grid-cols-4 gap-1.5')}>
+      <span className={cx('grid flex-1', many ? 'gap-[3px]' : 'gap-1.5')} style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(0, 1fr))` }}>
         {rows.map((r, i) => {
           const p = periods[i]
-          if (!r) return <span key={p.key} className="h-[3px] rounded-full bg-gray-100" />
+          const now = p.key === current
+          if (!r) {
+            return <span key={p.key} title={`${periodLabel(p)} · ${tr('No goal')}`} className={cx('flex h-8 items-center justify-center rounded-lg text-[11px] text-gray-300', now && 'bg-cloud')}>-</span>
+          }
           const s = rowStatus(r, p)
-          const done = Math.max(0, Math.min(1, s.pct))
           const upcoming = s.status === 'upcoming'
           return (
             <span
               key={p.key}
               title={`${periodLabel(p)} · ${formatKpiValue(sample, r.actual, currency)} / ${formatKpiValue(sample, r.target_value, currency)}`}
               className={cx(
-                'relative w-full overflow-hidden rounded-[5px] transition-[height] duration-500 ease-out',
-                upcoming ? 'border border-dashed border-gray-300 bg-gray-50' : 'bg-[#eef0f3]',
-                p.key === current && 'outline outline-2 outline-offset-1 outline-brand/50',
+                'kpi-cell flex h-8 items-center justify-center truncate rounded-lg px-0.5 text-[11px] font-bold tabular-nums',
+                upcoming ? 'border border-dashed border-gray-300 font-semibold text-gray-400' : CELL[s.status],
+                now && !upcoming && 'shadow-[inset_0_0_0_1.5px_currentColor]',
               )}
-              style={{ height: `${Math.round(heights[i] * 100)}%` }}
+              style={{ animationDelay: `${index * 35 + i * 25}ms` }}
             >
-              {!upcoming && (
-                <span
-                  className="kpi-grow absolute inset-x-0 bottom-0 rounded-[5px]"
-                  style={{ height: `${done * 100}%`, background: s.status === 'met' ? 'linear-gradient(to top,#10b981,#6ee7b7)' : 'linear-gradient(to top,#d94407,#f5853f)' }}
-                />
-              )}
+              {many ? (upcoming ? '' : `${Math.round(s.pct * 100)}`) : upcoming ? formatKpiValue(sample, r.target_value, currency) : `${Math.round(s.pct * 100)}%`}
             </span>
           )
         })}

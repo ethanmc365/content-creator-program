@@ -89,18 +89,18 @@ export default function Signup() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (demo) { setError('Sandbox: no account was created.'); return }
+    if (demo) { setError(tr('Sandbox: no account was created.')); return }
     // Read from the fields too (browser autofill may not fire React onChange).
     const field = (id) => e.target.querySelector('#' + id)?.value
     const nameVal = (field('name') || name).trim()
     const emailVal = (field('email') || email).trim()
     const passVal = field('password') || password
     if (passVal.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(tr('Password must be at least 8 characters.'))
       return
     }
     if (!agreed) {
-      setError('Please agree to the Terms and Privacy Policy to continue.')
+      setError(tr('Please agree to the Terms and Privacy Policy to continue.'))
       return
     }
     setBusy(true)
@@ -122,7 +122,7 @@ export default function Signup() {
       // lets the person who owns the address know which is theirs. Somebody
       // guessing learns only what GoTrue already told them.
       setError(/already registered|already exists/i.test(error.message)
-        ? 'That email already has an account. Log in with your password, or use Continue with Google if that is how you joined. Forgotten your password? Reset it from the log in page.'
+        ? tr('That email already has an account. Log in with your password, or use Continue with Google if that is how you joined. Forgotten your password? Reset it from the log in page.')
         : error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
@@ -135,7 +135,7 @@ export default function Signup() {
 
   if (error === 'CHECK_EMAIL') {
     return (
-      <AuthShell title={tr("Check your inbox")} subtitle="We have sent you a confirmation link. Open it, then log in and we will take you through the rest.">
+      <AuthShell title={tr("Check your inbox")} subtitle={tr("We have sent you a confirmation link. Open it, then log in and we will take you through the rest.")}>
         <Link to="/login" className="btn-primary w-full">{tr("Go to log in")}</Link>
       </AuthShell>
     )
@@ -144,7 +144,7 @@ export default function Signup() {
   return (
     <AuthShell
       title={teamInvite?.valid ? tr('Join the Tryp.com team') : tr("Join the community")}
-      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : "Create your creator account. It takes a minute."}
+      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : tr("Create your creator account. It takes a minute.")}
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
       {ref && !teamToken && (
@@ -219,18 +219,20 @@ export default function Signup() {
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
           <span>
-            I agree to the{' '}
-            <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Terms of Service")}</a>{' '}
-            and{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Privacy Policy")}</a>,
-            and to represent Tryp.com honestly in my content.
+            {tr('I agree to the {terms} and {privacy}, and to represent Tryp.com honestly in my content.')
+              .split(/(\{terms\}|\{privacy\})/)
+              .map((part, i) => (part === '{terms}'
+                ? <a key={i} href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Terms of Service")}</a>
+                : part === '{privacy}'
+                  ? <a key={i} href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Privacy Policy")}</a>
+                  : part))}
           </span>
         </label>
 
         {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
 
         <button type="submit" disabled={busy || !captchaToken || !agreed} className="btn-primary w-full">
-          {busy ? <Spinner /> : captchaToken ? 'Create account' : 'Verifying…'}
+          {busy ? <Spinner /> : captchaToken ? tr('Create account') : tr('Verifying…')}
         </button>
       </form>
 
@@ -254,7 +256,7 @@ export default function Signup() {
           project; the invite code is handed to it because it cannot survive the
           round trip in the URL. See lib/oauth. */}
       <div className="mt-6">
-        <GoogleButton referral={ref} label="Sign up with Google" />
+        <GoogleButton referral={ref} label={tr("Sign up with Google")} />
       </div>
     </AuthShell>
   )

@@ -21,6 +21,7 @@ import {
 } from '../../lib/kpiTracker'
 import Segmented from '../../components/network/Segmented'
 import { usePlural, useT } from '../../lib/i18n'
+import { flagEmoji } from '../../lib/countries'
 
 // THE KPI TRACKER.
 //
@@ -73,8 +74,8 @@ export default function AdminKpis() {
   // opens `KpiTotal`, which reads every other scope. Each scope carries a colour that follows it
   // everywhere the Total draws it.
   const scopes = useMemo(() => (communities || []).flatMap((c) => (c.kind === 'network'
-    ? [{ key: `${c.id}:global`, id: c.id, basis: 'global', name: tr('Global challenges'), sub: tr('Global challenges only'), currency: c.currency }]
-    : [{ key: c.id, id: c.id, basis: 'all', name: c.name, currency: c.currency }]))
+    ? [{ key: `${c.id}:global`, id: c.id, basis: 'global', name: tr('Global challenges'), sub: tr('Global challenges only'), currency: c.currency, global: true }]
+    : [{ key: c.id, id: c.id, basis: 'all', name: c.name, currency: c.currency, flag: marketFlag(c.country_codes) }]))
     .map((x, i) => ({ ...x, color: SCOPE_COLORS[i % SCOPE_COLORS.length] })), [communities, tr])
   const TOTAL = 'total'
   const isTotal = scopeKey === TOTAL
@@ -125,7 +126,7 @@ export default function AdminKpis() {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.from('communities').select('id, name, kind, currency').is('retired_at', null),
+      supabase.from('communities').select('id, name, kind, currency, country_codes').is('retired_at', null),
       supabase.rpc('my_managed_scopes'),
     ]).then(([{ data: c, error: cErr }, { data: m, error: mErr }]) => {
       if (!alive) return
@@ -630,6 +631,13 @@ export default function AdminKpis() {
   )
 }
 
+// A market shows a flag only when it is one country (or a country and its neighbour, like the UK and
+// Ireland, which take the first); a region such as the Nordics has no single flag and shows the name alone.
+function marketFlag(codes) {
+  const c = (codes || []).filter(Boolean)
+  return c.length > 0 && c.length <= 2 ? flagEmoji(c[0]) : ''
+}
+
 // The solid "Back to Q3 2026" button. Fades and shrinks away when already on today's period, and is
 // never removed, so nothing next to it moves.
 function BackToToday({ show, label, onClick, className }) {
@@ -696,7 +704,7 @@ function KpiCard({ row, period, startsIn, currency, canEdit, onEdit, onDelete, o
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
       style={cardStyle}
       className={cx(
-        'animate-fade-up group relative flex cursor-pointer flex-col gap-3 rounded-card border bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift',
+        'animate-fade-up group relative flex cursor-pointer flex-col gap-3 rounded-card border bg-white p-4 shadow-card transition-[box-shadow,border-color] duration-300 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift active:scale-[0.99]',
         row.derived ? 'border-dashed border-brand/30' : 'border-gray-100',
       )}
     >

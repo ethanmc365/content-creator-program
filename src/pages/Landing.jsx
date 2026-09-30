@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useDemoMode } from '../lib/demoMode'
 import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
+import LanguagePicker from '../components/LanguagePicker'
 import CreatorMap from '../components/CreatorMap'
 import Reveal from '../components/network/Reveal'
 import { useBootCleared } from '../lib/bootLoader'
@@ -192,6 +193,7 @@ export default function Landing() {
             >
               {tr("Tryp.com ↗")}
             </a>
+            <LanguagePicker tone="quiet" className="!h-9" />
             <Link
               to="/login"
               className="rounded-full px-3 py-2 text-sm font-medium text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink sm:px-4"

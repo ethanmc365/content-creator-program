@@ -36,7 +36,7 @@ export default function ForgotPassword() {
 
   if (sent) {
     return (
-      <AuthShell title={tr("Email on its way ✉️")} subtitle={`If an account exists for ${email}, you'll receive a reset link shortly. Check your spam folder too.`}>
+      <AuthShell title={tr("Email on its way ✉️")} subtitle={tr("If an account exists for {email}, you'll receive a reset link shortly. Check your spam folder too.", { email })}>
         <Link to="/login" className="btn-primary w-full">{tr("Back to log in")}</Link>
       </AuthShell>
     )
@@ -45,8 +45,8 @@ export default function ForgotPassword() {
   return (
     <AuthShell
       title={tr("Reset your password")}
-      subtitle="Enter your email and we'll send you a secure reset link."
-      footer={<Link to="/login" className="font-medium text-brand hover:underline">← Back to log in</Link>}
+      subtitle={tr("Enter your email and we'll send you a secure reset link.")}
+      footer={<Link to="/login" className="font-medium text-brand hover:underline">← {tr("Back to log in")}</Link>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
@@ -56,7 +56,7 @@ export default function ForgotPassword() {
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
-          {busy ? <Spinner /> : captchaToken ? 'Send reset link' : 'Verifying…'}
+          {busy ? <Spinner /> : captchaToken ? tr('Send reset link') : tr('Verifying…')}
         </button>
       </form>
     </AuthShell>

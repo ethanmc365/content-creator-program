@@ -139,11 +139,11 @@ export default function Turnstile({ onToken }) {
       <div ref={containerRef} className="flex justify-center" />
       {failed && (
         <div role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          The security check could not load, so we cannot verify you are human.
+          {tr('The security check could not load, so we cannot verify you are human.')}
           {' '}
           <button type="button" onClick={retry} className="font-semibold underline">{tr("Try again")}</button>
           {' '}
-          . If it keeps failing, please let us know rather than waiting.
+          {tr('If it keeps failing, please let us know rather than waiting.')}
         </div>
       )}
     </div>

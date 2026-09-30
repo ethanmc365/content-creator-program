@@ -8,6 +8,7 @@ import CountryPanel from './CountryPanel'
 import { lockScroll } from '../lib/scrollLock'
 import { thumbUrl } from '../lib/avatarUrl'
 import { useT } from '../lib/i18n'
+import { usePlaceNames } from '../lib/placeNames'
 import { cx } from '../lib/utils'
 
 // Interactive world map for "countries visited".
@@ -46,6 +47,7 @@ const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
 function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false }) {
   const tr = useT()
+  const place = usePlaceNames()
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
   // Unvisited land + the hairline between countries darken in dark mode so the
@@ -172,8 +174,8 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
-    return allNames.filter((n) => n.toLowerCase().includes(q)).slice(0, 6)
-  }, [query, allNames])
+    return allNames.filter((n) => n.toLowerCase().includes(q) || place.country(n).toLowerCase().includes(q)).slice(0, 6)
+  }, [query, allNames, place])
 
   // ZOOMING HAS TO TAKE THE VIEW OVER, not just edit the one it is not using.
   //
@@ -247,7 +249,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         {/* Country name tooltip on hover */}
         {tooltip && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
-            {tooltip}
+            {place.country(tooltip)}
           </div>
         )}
 
@@ -290,7 +292,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           <button
             type="button"
             onClick={() => setFull((v) => !v)}
-            aria-label={full ? 'Close full screen map' : 'Open the map full screen'}
+            aria-label={full ? tr('Close full screen map') : tr('Open the map full screen')}
             className={cx('flex h-9 w-9 items-center justify-center text-smoke transition-colors hover:bg-cloud hover:text-ink', !onlyFullButton && 'sm:border-t sm:border-gray-100')}
           >
             {full ? (
@@ -511,9 +513,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                         onClick={() => { onToggle?.(name); setQuery('') }}
                         className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cloud"
                       >
-                        <span>{name}</span>
+                        <span>{place.country(name)}</span>
                         <span className={isSel ? 'text-xs font-medium text-brand' : 'text-xs text-smoke'}>
-                          {isSel ? 'Added ✓ tap to remove' : 'Add +'}
+                          {isSel ? tr('Added ✓ tap to remove') : tr('Add +')}
                         </span>
                       </button>
                     </li>
@@ -543,9 +545,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                   type="button"
                   onClick={() => onToggle?.(name)}
                   className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand hover:text-white"
-                  aria-label={`Remove ${name}`}
+                  aria-label={tr('Remove {name}', { name: place.country(name) })}
                 >
-                  {name}
+                  {place.country(name)}
                   <span aria-hidden className="text-sm leading-none">×</span>
                 </button>
               ))}

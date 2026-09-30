@@ -343,6 +343,16 @@ function SheetBody({
   )
 }
 
+// A MARKET IS ITS NAME, WITH A FLAG WHEN IT HAS ONE (2 Oct 2026). Ethan: the drop-down "still has
+// different colours and a worldwide icon for the countries, which we shouldn't have anymore. It should
+// just be the country names. You can show their flags as well, but obviously not all the flags."
+// So no colour chips and no globe on a country. Only the Global challenges row keeps a plain globe.
+function ScopeMark({ scope }) {
+  if (scope?.flag) return <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-[17px] leading-none">{scope.flag}</span>
+  if (scope?.global) return <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-smoke"><Icon name="globe" className="h-4 w-4" /></span>
+  return null
+}
+
 // The market this goal is for, as a drop-down that floats over the sheet (it never pushes anything
 // down). With only one market to choose from it is a plain label.
 function ScopePicker({ scopes, value, label, onChange }) {
@@ -372,9 +382,7 @@ function ScopePicker({ scopes, value, label, onChange }) {
           many && 'hoverable:hover:border-brand/30 hoverable:hover:shadow-lift',
         )}
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: current?.color || '#d94407' }}>
-          <Icon name="globe" className="h-3.5 w-3.5" />
-        </span>
+        <ScopeMark scope={current} />
         <span className="truncate text-[13px] font-bold text-ink">{label}</span>
         {many && <Icon name="chevronDown" className={cx('h-3.5 w-3.5 shrink-0 text-smoke transition-transform duration-200', open && 'rotate-180')} />}
       </button>
@@ -392,7 +400,7 @@ function ScopePicker({ scopes, value, label, onChange }) {
                   x.key === value ? 'bg-brand-tint text-brand' : 'text-ink hoverable:hover:bg-cloud',
                 )}
               >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} />
+                <ScopeMark scope={x} />
                 <span className="min-w-0 flex-1 truncate">{x.name}</span>
                 {x.key === value && <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />}
               </button>

@@ -46,7 +46,7 @@ function GoogleMark({ className = 'h-5 w-5' }) {
 // forwarding slot and strips it before the component ever sees it, so the
 // invite code would have silently vanished on exactly the signups that came
 // from an invite link.
-export default function GoogleButton({ referral, label = 'Continue with Google' }) {
+export default function GoogleButton({ referral, label }) {
   const tr = useT()
   // THE TESTING CENTRE RENDERS THESE PAGES FOR REAL, AND THIS BUTTON LEAVES THE
   // SITE. `?demo=1` puts a live Login/Signup inside an admin demo (see
@@ -64,7 +64,7 @@ export default function GoogleButton({ referral, label = 'Continue with Google' 
   if (!demoAsked && !providers?.has('google')) return null
 
   async function go() {
-    if (demo) { setError('Sandbox: nobody was signed in.'); return }
+    if (demo) { setError(tr('Sandbox: nobody was signed in.')); return }
     setBusy(true)
     setError('')
     const { error: err } = await signInWithGoogle(referral)
@@ -103,7 +103,7 @@ export default function GoogleButton({ referral, label = 'Continue with Google' 
         className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-5 py-3.5 text-sm font-semibold text-ink shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift active:scale-[0.99] disabled:opacity-60"
       >
         {busy ? <Spinner className="h-5 w-5" /> : <GoogleMark />}
-        <span>{tr(label)}</span>
+        <span>{label ? tr(label) : tr('Continue with Google')}</span>
       </button>
 
       {error && (

@@ -16,6 +16,7 @@ import AutoTextarea from './AutoTextarea'
 import PhotoCropper from './PhotoCropper'
 import SocialMark, { BRAND_COLOR } from './SocialMark'
 import { useT } from '../lib/i18n'
+import { usePlaceNames } from '../lib/placeNames'
 
 export const LANGUAGE_OPTIONS = [
   'English', 'Irish', 'French', 'Spanish', 'Portuguese', 'Italian', 'German',
@@ -96,8 +97,8 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     e.target.value = ''
     if (!file) return
     const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
-    if (!looksImage) return setError('Please choose an image.')
-    if (file.size > 15 * 1024 * 1024) return setError('Please choose an image under 15MB.')
+    if (!looksImage) return setError(tr('Please choose an image.'))
+    if (file.size > 15 * 1024 * 1024) return setError(tr('Please choose an image under 15MB.'))
     setError('')
 
     setBusy('reading')
@@ -290,7 +291,7 @@ export function DobField({ value, onChange, required, fallbackAge = null }) {
 
   return (
     <div>
-      <label htmlFor="dob" className="label">Date of birth{required && <span className="text-brand"> *</span>}</label>
+      <label htmlFor="dob" className="label">{tr('Date of birth')}{required && <span className="text-brand"> *</span>}</label>
       <input
         id="dob"
         type="text"
@@ -348,7 +349,7 @@ export function PhoneInput({ value, onChange, required }) {
   const number = value.phone || ''
   return (
     <div>
-      <label htmlFor="phone" className="label">Phone number{required && <span className="text-brand"> *</span>}</label>
+      <label htmlFor="phone" className="label">{tr('Phone number')}{required && <span className="text-brand"> *</span>}</label>
       {/* Stack on mobile so the dial-code picker isn't crammed; side-by-side on larger screens. */}
       <div className="flex flex-col gap-2 sm:flex-row">
         {/* NO EMPTY OPTION. "Country code" used to be in the list as a
@@ -438,6 +439,7 @@ export function QuoteField({ value, onChange }) {
 // is what the "+ Other" toggle used to be - one control fewer, and no mode.
 export function LanguageSelect({ selected = [], onChange }) {
   const tr = useT()
+  const place = usePlaceNames()
   const [query, setQuery] = useState('')
 
   function toggle(lang) {
@@ -448,7 +450,7 @@ export function LanguageSelect({ selected = [], onChange }) {
   const q = query.trim().toLowerCase()
   const already = (v) => selected.some((l) => l.toLowerCase() === v.toLowerCase())
   const suggestions = LANGUAGE_OPTIONS
-    .filter((l) => !already(l) && (!q || l.toLowerCase().includes(q)))
+    .filter((l) => !already(l) && (!q || l.toLowerCase().includes(q) || place.language(l).toLowerCase().includes(q)))
     .slice(0, q ? 12 : 40)
   // Offer the typed value only when it is genuinely not on the list and not
   // already picked, so "Eng" does not offer to add a language called "Eng"
@@ -464,11 +466,11 @@ export function LanguageSelect({ selected = [], onChange }) {
               key={lang}
               type="button"
               onClick={() => toggle(lang)}
-              title={`Remove ${lang}`}
-              aria-label={`Remove ${lang}`}
+              title={tr('Remove {name}', { name: place.language(lang) })}
+              aria-label={tr('Remove {name}', { name: place.language(lang) })}
               className="inline-flex items-center gap-1.5 rounded-full bg-brand py-1.5 pl-3.5 pr-2.5 text-xs font-medium text-white transition-transform duration-200 hover:scale-105"
             >
-              {lang}
+              {place.language(lang)}
               <Icon name="close" className="h-3 w-3 shrink-0 text-white/80" />
             </button>
           ))}
@@ -498,7 +500,7 @@ export function LanguageSelect({ selected = [], onChange }) {
             onClick={() => toggle(query.trim())}
             className="rounded-full border border-dashed border-brand px-4 py-1.5 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
           >
-            + Add &ldquo;{query.trim()}&rdquo;
+            {tr('Add “{name}”', { name: query.trim() })}
           </button>
         )}
         {suggestions.map((lang) => (
@@ -508,7 +510,7 @@ export function LanguageSelect({ selected = [], onChange }) {
             onClick={() => toggle(lang)}
             className="rounded-full border border-gray-200 px-4 py-1.5 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand"
           >
-            {lang}
+            {place.language(lang)}
           </button>
         ))}
         {suggestions.length === 0 && !canAddCustom && (
@@ -546,12 +548,13 @@ export function LanguageSelect({ selected = [], onChange }) {
  * is unlabelled the moment it has anything in it.
  */
 export function SocialInputs({ values, onChange }) {
+  const tr = useT()
   const fields = [
-    { key: 'instagram_url', brand: 'instagram', label: 'Instagram', placeholder: 'instagram.com/yourhandle' },
-    { key: 'tiktok_url', brand: 'tiktok', label: 'TikTok', placeholder: 'tiktok.com/@yourhandle' },
-    { key: 'youtube_url', brand: 'youtube', label: 'YouTube', placeholder: 'youtube.com/@yourchannel' },
-    { key: 'facebook_url', brand: 'facebook', label: 'Facebook', placeholder: 'facebook.com/yourpage' },
-    { key: 'linkedin_url', brand: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/yourname' },
+    { key: 'instagram_url', brand: 'instagram', label: 'Instagram', placeholder: tr('instagram.com/yourhandle') },
+    { key: 'tiktok_url', brand: 'tiktok', label: 'TikTok', placeholder: tr('tiktok.com/@yourhandle') },
+    { key: 'youtube_url', brand: 'youtube', label: 'YouTube', placeholder: tr('youtube.com/@yourchannel') },
+    { key: 'facebook_url', brand: 'facebook', label: 'Facebook', placeholder: tr('facebook.com/yourpage') },
+    { key: 'linkedin_url', brand: 'linkedin', label: 'LinkedIn', placeholder: tr('linkedin.com/in/yourname') },
   ]
   return (
     <div className="space-y-2.5">
@@ -617,8 +620,9 @@ export function SocialInputs({ values, onChange }) {
  *
  * onChange({ country, country_code }).
  */
-export function CountrySelect({ value = '', code = '', onChange, required, label = 'Country', hint }) {
+export function CountrySelect({ value = '', code = '', onChange, required, label, hint }) {
   const tr = useT()
+  const place = usePlaceNames()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef(null)
@@ -633,13 +637,14 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
   const q = normalizeCountry(query)
   const list = q
     ? COUNTRIES.filter((c) => normalizeCountry(c.name).includes(q)
+        || normalizeCountry(place.country(c.name)).includes(q)
         || (c.aliases || []).some((a) => normalizeCountry(a).includes(q)))
     : COUNTRIES
   const picked = code ? COUNTRIES.find((c) => c.iso2 === code) : null
 
   return (
     <div ref={rootRef} className="relative">
-      <span className="label">{label}{required && <span className="text-brand"> *</span>}</span>
+      <span className="label">{label || tr('Country')}{required && <span className="text-brand"> *</span>}</span>
       <button
         type="button"
         onClick={() => { setOpen((o) => !o); setQuery('') }}
@@ -649,7 +654,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
       >
         <span className="flex min-w-0 items-center gap-2">
           {picked && <span aria-hidden>{flagEmoji(picked.iso2)}</span>}
-          <span className="truncate">{value || 'Choose your country'}</span>
+          <span className="truncate">{value ? place.country(value) : tr('Choose your country')}</span>
         </span>
         <Icon name="chevronRight" className="h-4 w-4 shrink-0 rotate-90 text-gray-400" />
       </button>
@@ -682,7 +687,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
                   )}
                 >
                   <span aria-hidden>{flagEmoji(c.iso2)}</span>
-                  <span className="truncate">{c.name}</span>
+                  <span className="truncate">{place.country(c.name)}</span>
                 </button>
               </li>
             ))}

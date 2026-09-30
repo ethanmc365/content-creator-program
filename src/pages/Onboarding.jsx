@@ -19,7 +19,9 @@ import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob, MIN_AGE } from '../lib/utils'
 import { notice } from '../lib/confirm'
 import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
-import { useT, usePlural } from '../lib/i18n'
+import { useT, usePlural, getLocale } from '../lib/i18n'
+import { usePlaceNames } from '../lib/placeNames'
+import LanguagePicker from '../components/LanguagePicker'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -209,7 +211,7 @@ export function draftProblems(draft, contact, { team = false } = {}) {
   // typed. It is a validation problem now: named at the field, blocking on the
   // step, and refused with a sentence rather than an error at the end.
   else if (ageFromDob(draft.dob) != null && ageFromDob(draft.dob) < MIN_AGE) {
-    p.push({ step: 'based', text: `You need to be at least ${MIN_AGE} to join` })
+    p.push({ step: 'based', text: 'You need to be at least {n} to join', vars: { n: MIN_AGE } })
   }
   if (!contact.phone?.trim() || !contact.phone_country) p.push({ step: 'based', text: 'Add a phone number with its country code' })
   // A team application is not asked for channels, languages or a travel map -
@@ -592,7 +594,7 @@ export default function Onboarding() {
 
   function next() {
     const mine = problemsFor(current.key)
-    if (mine.length) { setError(mine.map((m) => m.text).join(' · ')); return }
+    if (mine.length) { setError(mine.map((m) => tr(m.text, m.vars)).join(' · ')); return }
     setError(''); setDir('fwd')
     setStep((s) => Math.min(steps.length - 1, s + 1))
   }
@@ -629,7 +631,7 @@ export default function Onboarding() {
   }
 
   async function finish(sayHello) {
-    if (!complete) { setError('There are still a few things to fill in.'); setStep(steps.findIndex((s) => s.key === 'review')); return }
+    if (!complete) { setError(tr('There are still a few things to fill in.')); setStep(steps.findIndex((s) => s.key === 'review')); return }
     // THE LAST GATE BEFORE THE WRITE, AND IT SAYS SO IN WORDS.
     //
     // `problemsFor` already blocks the date-of-birth step, so reaching here
@@ -641,9 +643,8 @@ export default function Onboarding() {
     if (age != null && age < MIN_AGE) {
       setStep(steps.findIndex((s) => s.key === 'based'))
       await notice(
-        `The Tryp.com Content Creator Community is for people aged ${MIN_AGE} and over, and the date of birth you have entered makes you ${age}. `
-        + `Nothing has been sent. You are very welcome to apply again once you turn ${MIN_AGE} - we will still be here.`,
-        { title: 'You are a little too young for this one' },
+        tr('The Tryp.com Content Creator Community is for people aged {min} and over, and the date of birth you have entered makes you {age}. Nothing has been sent. You are very welcome to apply again once you turn {min} - we will still be here.', { min: MIN_AGE, age }),
+        { title: tr('You are a little too young for this one') },
       )
       return
     }
@@ -659,6 +660,8 @@ export default function Onboarding() {
     const update = {
       ...draftColumns(draft),
       onboarded: true,
+      // The language they filled this in in, so the account opens in it on every device.
+      locale: getLocale(),
       // Taken from the browser rather than asked for. It is what makes the
       // local clock on a profile honest for the countries that span several
       // zones, where a guess from the country alone would be a wrong fact.
@@ -811,7 +814,7 @@ export default function Onboarding() {
 
             And now leaving really is safe rather than nominally safe: `leave`
             writes the draft before it drops the session. See `saveDraft`. */}
-        <Progress step={step} total={steps.length} barPct={barPct} current={current} onLeave={leave} leaving={leaving} />
+        <Progress step={step} total={steps.length} barPct={barPct} current={current} onLeave={leave} leaving={leaving} userId={demo ? null : user?.id} />
 
         {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).
             Ethan: "going from slide to slide, it's like everything seems very
@@ -910,7 +913,7 @@ export default function Onboarding() {
                     onChange={(e) => set({ bio: e.target.value.replace(/[\r\n]+/g, ' ') })}
                     placeholder={tr("London based travel creator")}
                   />
-                  <p className="mt-1 text-xs text-smoke">{120 - draft.bio.length} characters left. This sits under your name everywhere.</p>
+                  <p className="mt-1 text-xs text-smoke">{tr('{n} characters left. This sits under your name everywhere.', { n: 120 - draft.bio.length })}</p>
                 </div>
                 <div>
                   <label htmlFor="about" className="label">{tr("A few lines about you")} <Req /></label>
@@ -1103,10 +1106,15 @@ function Req() {
   return <span className="text-brand" title={tr("Required")}>*</span>
 }
 
-function Progress({ step, total, barPct, current, onLeave, leaving }) {
+function Progress({ step, total, barPct, current, onLeave, leaving, userId }) {
   const tr = useT()
   return (
-    <div className="mb-8 flex flex-col items-center gap-5">
+    <div className="relative mb-8 flex w-full flex-col items-center gap-5">
+      {/* THE LANGUAGE, WITHIN REACH ALL THE WAY THROUGH (2 Oct 2026): somebody who picked it on the front
+          page can change their mind on any screen, and the answer is kept on the device and on the profile. */}
+      <div className="absolute right-0 top-0 z-10">
+        <LanguagePicker userId={userId} />
+      </div>
       {/* THE MARK IS THE BUTTON (8 Sep 2026).
           It was an `img`, sitting decoratively above the bar while a squished
           copy of itself in the corner did the actual navigating. It is a
@@ -1152,7 +1160,7 @@ function Progress({ step, total, barPct, current, onLeave, leaving }) {
                   on ? 'text-brand' : passed ? 'text-smoke' : 'text-gray-300',
                 )}
               >
-                {p}
+                {tr(p)}
               </span>
             )
           })}
@@ -1163,13 +1171,14 @@ function Progress({ step, total, barPct, current, onLeave, leaving }) {
             style={{ width: `${barPct}%` }}
           />
         </div>
-        <p className="mt-2 text-center text-xs text-smoke">Step {step + 1} of {total}</p>
+        <p className="mt-2 text-center text-xs text-smoke">{tr('Step {n} of {total}', { n: step + 1, total })}</p>
       </div>
     </div>
   )
 }
 
 function StepHead({ step, pending, team = false }) {
+  const tr = useT()
   if (step.key === 'welcome') return null
   const chip = step.need ? 'Required' : step.skippable ? 'Optional' : null
   const COPY = {
@@ -1208,11 +1217,11 @@ function StepHead({ step, pending, team = false }) {
             step.need ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
           )}
         >
-          {chip}
+          {tr(chip)}
         </span>
       )}
-      <h2 className={cx('text-2xl font-bold tracking-tight', chip && 'mt-3')}>{title}</h2>
-      {sub && <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">{sub}</p>}
+      <h2 className={cx('text-2xl font-bold tracking-tight', chip && 'mt-3')}>{tr(title)}</h2>
+      {sub && <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">{tr(sub)}</p>}
     </div>
   )
 }
@@ -1233,7 +1242,7 @@ function Welcome({ name, pending }) {
 
           "TEAM", NOT "CREW" (3 Sep 2026). Ethan: "I like the welcome to the
           crew - I would say welcome to the team rather than crew." */}
-      <h1 className="text-3xl font-bold">Welcome to the team{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
+      <h1 className="text-3xl font-bold">{name ? tr('Welcome to the team, {name}!', { name: name.split(' ')[0] }) : tr('Welcome to the team!')}</h1>
       {/* THE PLANE, BETWEEN THE GREETING AND THE THREE ROWS (9 Sep 2026).
           Ethan: "below the title and above those three cards, we can add in the
           Tryp.com animated plane with the little contrails coming out the back
@@ -1335,6 +1344,7 @@ function Welcome({ name, pending }) {
  */
 function MarketCard({ market, country, ready }) {
   const tr = useT()
+  const place = usePlaceNames()
   if (market.outcome !== 'unknown' && !ready) {
     return (
       <div className="flex items-center gap-3 rounded-card border border-gray-200 bg-white px-4 py-3.5 text-xs text-smoke">
@@ -1360,9 +1370,7 @@ function MarketCard({ market, country, ready }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold">{tr("Worldwide community")}</p>
             <p className="mt-1 text-xs leading-relaxed text-smoke">
-              No market covers {country || 'your country'} yet, and that is completely fine. You are in the
-              worldwide community with every other creator, you can enter anything open to everyone, and we
-              will tell you the moment a market opens near you.
+              {tr('No market covers {country} yet, and that is completely fine. You are in the worldwide community with every other creator, you can enter anything open to everyone, and we will tell you the moment a market opens near you.', { country: country ? place.country(country) : tr('your country') })}
             </p>
           </div>
         </div>
@@ -1381,15 +1389,16 @@ function MarketCard({ market, country, ready }) {
           <p className="text-[10px] font-bold uppercase tracking-wide text-brand">{tr("Your market")}</p>
           <p className="mt-0.5 text-sm font-semibold">{m.name}</p>
           <p className="mt-1 text-xs leading-relaxed text-smoke">
-            {m.tagline || `Briefs, rooms and challenges for ${m.name}.`}
+            {m.tagline || tr('Briefs, rooms and challenges for {name}.', { name: m.name })}
           </p>
         </div>
         <Icon name="check" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
       </div>
       {market.others.length > 0 && (
         <p className="mt-3 border-t border-brand/15 pt-3 text-xs text-smoke">
-          {market.others.length === 1 ? 'One other market also covers' : `${market.others.length} other markets also cover`}{' '}
-          {country}. The team will sort that out with you after you join.
+          {market.others.length === 1
+            ? tr('One other market also covers {country}. The team will sort that out with you after you join.', { country: place.country(country) })
+            : tr('{n} other markets also cover {country}. The team will sort that out with you after you join.', { n: market.others.length, country: place.country(country) })}
         </p>
       )}
     </div>
@@ -1611,6 +1620,7 @@ function BucketList({ rows = [], onChange }) {
  */
 function Review({ draft, contact, market, problems, pending, onJump, demo }) {
   const tr = useT()
+  const place = usePlaceNames()
   const age = ageFromDob(draft.dob)
   const socials = [
     ['Instagram', draft.instagram_url],
@@ -1635,7 +1645,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-white"
                 >
                   <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-brand" />
-                  <span className="min-w-0 flex-1">{p.text}</span>
+                  <span className="min-w-0 flex-1">{tr(p.text, p.vars)}</span>
                   <span className="shrink-0 font-semibold text-brand">{tr("Fix")}</span>
                 </button>
               </li>
@@ -1673,14 +1683,14 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
         </div>
       ) : (
         <div className="rounded-card border border-gray-200 px-4 py-3 text-xs text-smoke">
-          Worldwide community only for now. No market covers {draft.country || 'your country'} yet.
+          {tr('Worldwide community only for now. No market covers {country} yet.', { country: draft.country ? place.country(draft.country) : tr('your country') })}
         </div>
       )}
 
       <dl className="divide-y divide-gray-100">
         <ReviewRow label={tr("About you")} onJump={() => onJump('story')} value={draft.about} multiline />
         <ReviewRow label={tr("Posts on")} onJump={() => onJump('socials')} value={socials.map(([k]) => k).join(', ')} />
-        <ReviewRow label={tr("Languages")} onJump={() => onJump('languages')} value={draft.languages.join(', ')} />
+        <ReviewRow label={tr("Languages")} onJump={() => onJump('languages')} value={draft.languages.map(place.language).join(', ')} />
         <ReviewRow label={tr("Countries visited")} onJump={() => onJump('map')} value={draft.countries_visited.length ? `${draft.countries_visited.length}` : ''} />
         <ReviewRow label={tr("Phone")} onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint={tr("Private. Only the team can see this.")} />
         <ReviewRow label={tr("Favourite quote")} onJump={() => onJump('story')} value={draft.favourite_quote} optional />
@@ -1690,8 +1700,8 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
 
       <p className="text-center text-xs leading-relaxed text-smoke">
         {pending
-          ? 'When you submit, the Tryp.com Team is notified and a person reads your application. You will hear back by email.'
-          : 'Your profile goes live as soon as you finish. You can change any of it later.'}
+          ? tr('When you submit, the Tryp.com Team is notified and a person reads your application. You will hear back by email.')
+          : tr('Your profile goes live as soon as you finish. You can change any of it later.')}
       </p>
     </div>
   )
@@ -1734,7 +1744,7 @@ function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
       </dt>
       <dd className="min-w-0 flex-1 text-sm">
         {empty
-          ? <span className={cx('text-xs', optional ? 'text-gray-400' : 'font-medium text-brand')}>{optional ? 'Not added' : 'Missing'}</span>
+          ? <span className={cx('text-xs', optional ? 'text-gray-400' : 'font-medium text-brand')}>{optional ? tr('Not added') : tr('Missing')}</span>
           : <span className={cx('block', multiline ? 'line-clamp-3 leading-relaxed' : 'truncate')}>{value}</span>}
       </dd>
       <button
@@ -1775,7 +1785,7 @@ function DemoGallery() {
           <div key={s} className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl bg-cloud px-3 text-center">
             <Icon name="image" className="h-6 w-6 text-brand/50" />
             <span className="text-[11px] leading-tight text-smoke">{s}</span>
-            <span className="text-[10px] text-gray-400">Photo {i + 1}</span>
+            <span className="text-[10px] text-gray-400">{tr('Photo {n}', { n: i + 1 })}</span>
           </div>
         ))}
       </div>

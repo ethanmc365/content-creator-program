@@ -259,7 +259,7 @@ function SurveysForYou() {
           </button>
         ))}
       </div>
-      {open && <SurveyModal survey={open} onDone={() => { setOpen(null); load() }} />}
+      {open && <SurveyModal dismissible survey={open} onDone={() => { setOpen(null); load() }} />}
     </section>
   )
 }

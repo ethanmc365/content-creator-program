@@ -92,8 +92,51 @@ const holesProblem = (source, text) => {
     : 'This sentence has no {placeholders}, so there should be none here.'
 }
 
+// THE SCREEN LIST FITS THE WINDOW, WHEREVER THE PAGE IS SCROLLED (2 Oct 2026).
+//
+// Ethan: opening the last section "I'm not able to scroll down through it. On the left column I should
+// be able to scroll, but I have to scroll on the right column to see the bottom" and "sometimes that
+// card on the left becomes a big card that shows all the headings."
+//
+// TWO CAUSES, ONE BOX. (1) The list was a grid item, and grid items STRETCH to the row: with a long
+// screen of sentences beside it the card grew to the height of that column (capped only by its max
+// height), so a list of seven headings sat in a tall, mostly empty card. `self-start` makes it as tall
+// as what it holds. (2) Its cap was 72vh, measured from wherever the box happens to start. Below the
+// language bar and search box that is hundreds of pixels down the window, so the bottom of a long list
+// was off the screen, and the only way to reach it was to scroll the OTHER column. Now the cap is
+// whatever room is left between the box's real position (or where it sticks, 6rem) and the bottom of
+// the window, re-measured as the page scrolls or resizes - so the list is always entirely on screen and
+// scrolls inside itself.
+function useFitToWindow(el, { stickTop = 96, gap = 16, min = 220 } = {}) {
+  useEffect(() => {
+    if (!el) return undefined
+    let frame = 0
+    const fit = () => {
+      frame = 0
+      if (!el.offsetParent) return
+      const top = Math.max(el.getBoundingClientRect().top, stickTop)
+      el.style.setProperty('max-height', `${Math.max(min, Math.floor(window.innerHeight - top - gap))}px`)
+    }
+    const queue = () => { if (!frame) frame = requestAnimationFrame(fit) }
+    fit()
+    window.addEventListener('scroll', queue, { passive: true })
+    window.addEventListener('resize', queue)
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(queue) : null
+    ro?.observe(document.body)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', queue)
+      window.removeEventListener('resize', queue)
+      ro?.disconnect()
+    }
+  }, [el, stickTop, gap, min])
+}
+
 export default function AdminLanguages() {
   const tr = useT()
+  // A state, not a ref object: the list mounts after the catalogue has loaded, long after this hook first runs.
+  const [navEl, setNavEl] = useState(null)
+  useFitToWindow(navEl)
   const { user, isAdmin } = useAuth()
   const { communities, memberships, loading: ctxLoading } = useCommunity()
 
@@ -263,7 +306,7 @@ export default function AdminLanguages() {
   const loading = !withExtras || !dictReady || rows === null
 
   return (
-    <div className="page max-w-6xl">
+    <div className={cx('page', tab === 'content' ? 'max-w-7xl' : 'max-w-6xl')}>
       {/* NO DESCRIPTION, EVERYTHING UP (1 Oct 2026). Ethan: "You can remove the description and move
           everything up." */}
       <PageHeader title={tr('Languages')} />
@@ -369,7 +412,7 @@ export default function AdminLanguages() {
                 ))}
               </select>
             </div>
-            <nav className="hidden max-h-[72vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1.5 shadow-card lg:sticky lg:top-24 lg:block" aria-label={tr('Screens')}>
+            <nav ref={setNavEl} className="hidden max-h-[72vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1.5 shadow-card lg:sticky lg:top-24 lg:block lg:self-start" aria-label={tr('Screens')}>
               {sections.map((sec) => {
                 const expanded = (openSection ?? currentSection) === sec.key
                 const left = sec.screens.reduce((x, name) => x + (doneOn(name).total - doneOn(name).n), 0)
@@ -700,7 +743,7 @@ function ContentTab({ locale, userId, onError }) {
                       <span className="min-w-0 truncate">{g.label}</span>
                       <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke">{tr(g.sub)}</span>
                     </p>
-                    <ul className="space-y-3">
+                    <ul className="divide-y divide-gray-100 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
                       {g.rows.map((r) => (
                         <ContentRow key={r.source_hash} row={r} kind={r.kind} busy={busyKey === r.source_hash} onSave={(v) => save(r, v)} onRedo={() => redo(r)} />
                       ))}
@@ -735,7 +778,7 @@ function ContentTab({ locale, userId, onError }) {
                 {shownRest.length === 0 ? (
                   <EmptyState icon={<Icon name="book" className="h-7 w-7" />} title={tr('Nothing here')} hint={tr('Translations appear after a creator reads something written in another language.')} />
                 ) : (
-                  <ul className="space-y-3">
+                  <ul className="divide-y divide-gray-100 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
                     {shownRest.slice(0, 60).map((r) => (
                       <ContentRow key={r.source_hash} row={r} busy={busyKey === r.source_hash} onSave={(v) => save(r, v)} onRedo={() => redo(r)} />
                     ))}
@@ -750,33 +793,38 @@ function ContentTab({ locale, userId, onError }) {
   )
 }
 
+// ONE ORIGINAL AND ITS TRANSLATION, SIDE BY SIDE, ON WHITE (2 Oct 2026). Ethan: "the UI just doesn't look
+// right ... there's a weird grey box that doesn't fit nicely with the UI, and scrolling down, there's
+// actually a lot of space that we're not utilising." The original used to sit in a grey panel with its
+// own 16rem scroll box beside a text box that grew to 20rem, so the two columns were never the same
+// height and every row carried a band of dead space, plus a whole extra line for two buttons. Now the
+// original is plain text with a thin rule down its side (nothing to scroll), the two buttons sit under
+// the translation in the same column, and rows share one card per live item instead of one card each.
 function ContentRow({ row, kind, busy, onSave, onRedo }) {
   const tr = useT()
   const [text, setText] = useState(row.value)
   const changed = text.trim() !== row.value.trim()
   const from = LOCALES.find((l) => l.code === row.src_lang)?.native
   return (
-    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-board-swap">
-      <div className="grid gap-px bg-gray-100 lg:grid-cols-2">
-        <div className="bg-cloud/50 p-4">
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{kind ? `${tr(kind)} · ` : ''}{from ? tr('Original ({lang})', { lang: from }) : tr('Original')}</p>
-          <p className="max-h-64 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">{row.source}</p>
-        </div>
-        <div className="bg-white p-4">
-          <p className="mb-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-            {tr('Translation')}
-            {row.auto
-              ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Automatic')}</span>
-              : <span className="rounded-full bg-brand px-2 py-0.5 text-white">{tr('Corrected')}{row.reviewer?.name ? ` · ${row.reviewer.name}` : ''}</span>}
-          </p>
-          <AutoTextarea value={text} minRows={2} maxHeight={320} onChange={(e) => setText(e.target.value)} className="input w-full resize-none text-[13px] leading-relaxed" />
-        </div>
+    <li className="grid gap-x-8 gap-y-3 px-4 py-4 sm:px-5 lg:grid-cols-2">
+      <div className="min-w-0 border-l-2 border-gray-200 pl-3.5">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{kind ? `${tr(kind)} · ` : ''}{from ? tr('Original ({lang})', { lang: from }) : tr('Original')}</p>
+        <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink [overflow-wrap:anywhere]">{row.source}</p>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3">
-        <button type="button" onClick={onRedo} disabled={busy} className="btn-ghost !py-1.5 text-xs">{tr('Translate it again')}</button>
-        <button type="button" onClick={() => onSave(text)} disabled={busy || (!changed && !row.auto)} className="btn-primary !py-1.5 text-xs disabled:opacity-50">
-          {busy ? <Spinner className="h-3.5 w-3.5" /> : changed ? tr('Save my version') : tr('Looks right')}
-        </button>
+      <div className="min-w-0">
+        <p className="mb-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+          {tr('Translation')}
+          {row.auto
+            ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Automatic')}</span>
+            : <span className="rounded-full bg-brand px-2 py-0.5 text-white">{tr('Corrected')}{row.reviewer?.name ? ` · ${row.reviewer.name}` : ''}</span>}
+        </p>
+        <AutoTextarea value={text} minRows={2} maxHeight={640} onChange={(e) => setText(e.target.value)} className="input w-full resize-none text-[13.5px] leading-relaxed" />
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+          <button type="button" onClick={onRedo} disabled={busy} className="btn-ghost !py-1.5 text-xs">{tr('Translate it again')}</button>
+          <button type="button" onClick={() => onSave(text)} disabled={busy || (!changed && !row.auto)} className="btn-primary !py-1.5 text-xs disabled:opacity-50">
+            {busy ? <Spinner className="h-3.5 w-3.5" /> : changed ? tr('Save my version') : tr('Looks right')}
+          </button>
+        </div>
       </div>
     </li>
   )
