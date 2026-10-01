@@ -3,6 +3,7 @@
 // via a search/datalist lines up exactly with what the map highlights.
 import { feature } from 'topojson-client'
 import { geoCentroid } from 'd3-geo'
+import { isSlowNetwork } from './netQuality'
 
 // 50m (medium-res) TopoJSON. The 110m file we used before dropped every small
 // country (Monaco, Vatican, San Marino, Liechtenstein, Malta, Singapore, Cabo
@@ -92,8 +93,14 @@ export function loadMapFeatures() {
  * Deliberately silent about failure: this is an optimisation, and the real call
  * site retries and falls back to an empty collection.
  */
+/** Already downloaded and parsed this session, so drawing a map costs no bandwidth. */
+export function atlasReady() { return !!featureCache }
+
 export function warmMapAtlas() {
   if (featureCache || topoInflight) return
+  // ON A SLOW CONNECTION THE ATLAS WAITS TO BE ASKED FOR (1 Oct 2026): it is
+  // ~170kB that would otherwise compete with the page the creator is waiting on.
+  if (isSlowNetwork()) return
   const go = () => { loadMapFeatures().catch(() => {}) }
   if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 3000 })
   else setTimeout(go, 1200)

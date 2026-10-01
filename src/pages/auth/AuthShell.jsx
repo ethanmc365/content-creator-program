@@ -58,7 +58,7 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         className="animate-fade-up group relative mb-8 flex flex-col items-center gap-2"
       >
         <img
-          src="/brand/tryp-logo.png"
+          src="/brand/tryp-logo-360.png"
           alt="Tryp.com"
           className="h-14 rounded-2xl shadow-card transition-transform duration-200 group-hover:-translate-y-0.5"
         />

@@ -332,6 +332,15 @@ export default function AdminChallengeForm() {
     return () => { alive = false }
   }, [editing, id])
 
+  // "...placed in Group B, check and move them" links to #groups: land there
+  // once the editor has drawn, not at the top of a long form.
+  const groupsScrolledRef = useRef(false)
+  useEffect(() => {
+    if (!groupsLoaded || groupsScrolledRef.current || window.location.hash !== '#groups') return
+    groupsScrolledRef.current = true
+    setTimeout(() => document.getElementById('groups')?.scrollIntoView({ block: 'start' }), 120)
+  }, [groupsLoaded])
+
   // WHO CAN BE DEALT IN: the market's own roster, minus admins and the QA
   // accounts, which is the same audience every other member count on this
   // platform uses. Re-read whenever the market changes, because moving a
@@ -1057,7 +1066,7 @@ export default function AdminChallengeForm() {
               It sits under "How it is won" because that is what it is: not a
               different contest, a different way of deciding who is racing
               whom. See lib/challengeGroups and migration 154. */}
-          <div className="border-t border-gray-100 pt-5">
+          <div id="groups" className="scroll-mt-24 border-t border-gray-100 pt-5">
             {/* NO STANDING EXPLANATION - see the note in "Who it is for". */}
             <p className="label mb-3">Leaderboards</p>
             {!groupsLoaded ? (

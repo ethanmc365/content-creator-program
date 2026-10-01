@@ -6,7 +6,9 @@ import { Avatar } from './ui'
 import ParticipationBar from './network/ParticipationBar'
 import { cx, formatDate, formatViews } from '../lib/utils'
 import { ordinalFor, rankInk } from '../lib/podiumTiers'
+import { useState } from 'react'
 import { useT } from '../lib/i18n'
+import { prizeForGroup } from '../lib/challengeGroups'
 import { briefExcerpt } from '../lib/briefExcerpt'
 import SpinningEarth from './SpinningEarth'
 import GlowRing from './network/GlowRing'
@@ -94,7 +96,7 @@ function prizeForPlace(prizes, place) {
 // just the top 3. It should show '+5 more prizes' if there are +5 more prizes,
 // or not if there isn't."
 const BOARD_ROWS = 5
-function Leaderboard({ leaders, prizes, className, scoring }) {
+function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
   const tr = useT()
   const paid = (Array.isArray(prizes) ? prizes : []).filter((p) => p?.prize && placeNumber(p?.place, null) != null).length
   const depth = Math.max(3, Math.min(BOARD_ROWS, Math.max(paid, leaders?.length || 0)))
@@ -106,10 +108,13 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
   }))
   return (
     <div className={cx('rounded-2xl bg-white p-4 shadow-[0_12px_34px_rgba(0,0,0,0.20)]', className)}>
-      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
-        <Icon name="trophy" className="h-3.5 w-3.5" />
-        {tr('Leaderboard')}
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
+          <Icon name="trophy" className="h-3.5 w-3.5" />
+          {tr('Leaderboard')}
+        </p>
+        {header}
+      </div>
       <div className="space-y-1">
         {rows.map(({ place, leader, prize }) => (
           <div
@@ -189,9 +194,38 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
   )
 }
 
-export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null }) {
+export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null }) {
   const tr = useT()
   const excerpt = briefExcerpt(c.description || '')
+  // A SPLIT CHALLENGE HAS ONE BOARD PER GROUP (1 Oct 2026). A creator's card
+  // shows their own group's board and prizes; the team, on no board, can flip
+  // between them. `leaders` carry `group_id`, because ranks are per board.
+  const [pickedGroup, setPickedGroup] = useState(null)
+  const split = groups.length > 0
+  const shownGroupId = pickedGroup ?? myGroupId ?? groups[0]?.id ?? null
+  const shownGroup = groups.find((g) => g.id === shownGroupId) || null
+  const boardPrizes = split && shownGroup ? prizeForGroup(shownGroup, c).prize_structure : c.prize_structure
+  const boardLeaders = split ? (leaders || []).filter((l) => (l.group_id ?? null) === shownGroupId) : leaders
+  const boardHeader = !split ? null : myGroupId ? (
+    <span className="truncate rounded-md bg-cloud px-2 py-0.5 text-[11px] font-semibold text-ink">{shownGroup?.name}</span>
+  ) : (
+    <span className="flex shrink-0 gap-1">
+      {groups.map((g) => (
+        <button
+          key={g.id}
+          type="button"
+          onClick={() => setPickedGroup(g.id)}
+          aria-pressed={g.id === shownGroupId}
+          className={cx(
+            'rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors',
+            g.id === shownGroupId ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink',
+          )}
+        >
+          {g.name}
+        </button>
+      ))}
+    </span>
+  )
   return (
     <div>
       {/* THE ROTATING GLOW, AND AN ARRIVAL ON MOBILE TOO (23 Sep 2026). Ethan:
@@ -330,8 +364,9 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           </Link>
 
           <Leaderboard
-            leaders={leaders}
-            prizes={c.prize_structure}
+            leaders={boardLeaders}
+            prizes={boardPrizes}
+            header={boardHeader}
             scoring={c.scoring}
             className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
           />

@@ -13,7 +13,7 @@ import FlagTile from '../components/network/FlagTile'
 import NetworkMotion from '../components/NetworkMotion'
 import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { registerChatSearch } from '../lib/chatSearch'
-import { setChatChromeHidden } from '../lib/chatChrome'
+import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -972,6 +972,8 @@ export default function NetworkChat() {
     }
     // Reading hides the chrome; running out of messages at the top brings it
     // back, because that is the moment you are looking for something else.
+    // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
+    if (!readerMovedChrome()) return
     if (el.scrollTop < 12) showChrome()
     else hideChrome()
   }
@@ -1340,6 +1342,7 @@ export default function NetworkChat() {
         // where it sits, and two mechanisms moving one scroller is the jitter.
         data-chat-scroller
         onScroll={onScroll}
+        {...chromeGestureHandlers}
         className={cx(
           // The rooms share the DM overlay's geometry and therefore its trap:
           // see the long note on the thread scroller in Messages.jsx. An empty

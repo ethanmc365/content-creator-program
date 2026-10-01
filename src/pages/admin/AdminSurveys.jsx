@@ -498,7 +498,7 @@ function SurveyPreview({ survey, stage, at }) {
               <span className="flex items-center gap-1"><span className="h-2 w-3.5 rounded-[2px] bg-ink/70" /><span className="h-2 w-2 rounded-full bg-ink/70" /></span>
             </div>
             <div className="flex items-center gap-2.5 px-5 py-2">
-              <img src="/brand/tryp-logo.png" alt="" className="h-8 rounded-lg" />
+              <img src="/brand/tryp-logo-360.png" alt="" className="h-8 rounded-lg" />
               <span className="h-3 w-24 rounded-full bg-gray-200" />
               <span className="ml-auto h-8 w-8 rounded-full bg-white shadow-card" />
             </div>

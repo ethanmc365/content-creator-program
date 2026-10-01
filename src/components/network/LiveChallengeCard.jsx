@@ -14,6 +14,8 @@ import { SOFT_SPRING } from '../../lib/motion'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { isHiddenTestRow } from '../../lib/testData'
+import { useAuth } from '../../context/AuthContext'
+import { prizeForGroup } from '../../lib/challengeGroups'
 import MarketMap from '../MarketMap'
 
 // The live challenge, wherever it is shown inside a market.
@@ -59,45 +61,63 @@ function Pulse() {
 // it draws.
 const MAX_PLACES = 6
 
-function useLeaders(challengeId) {
-  const [leaders, setLeaders] = useState([])
+// IT READS THE BOARD, `results`, NOT ITS OWN SUM OF VIEWS (1 Oct 2026). It used
+// to add up each creator's views, which is a different contest on a points
+// challenge and a nonsense one on a split challenge - two boards ranked as one.
+// Now: the saved ranks, per board, plus the groups and which one is mine.
+function useBoard(challengeId, userId) {
+  const [board, setBoard] = useState({ rows: [], groups: [], mine: null })
   useEffect(() => {
     if (!challengeId) return undefined
     let cancelled = false
-    supabase.from('submissions')
-      .select('creator_id, logged_views, profiles:creator_id(id, name, photo_url, is_test)')
-      .eq('challenge_id', challengeId)
-      .then(({ data }) => {
-        if (cancelled) return
-        // Summed PER CREATOR: somebody can post more than one entry and the
-        // board ranks people, not videos. Test profiles are dropped - a sandbox
-        // account at the top of a live leaderboard is a bug report, not a
-        // standing.
-        const byCreator = new Map()
-        for (const row of data || []) {
-          if (isHiddenTestRow(row.profiles)) continue
-          const cur = byCreator.get(row.creator_id) || {
-            id: row.profiles?.id ?? row.creator_id,
-            name: row.profiles?.name,
-            photo_url: row.profiles?.photo_url,
-            views: 0,
-          }
-          cur.views += Number(row.logged_views) || 0
-          byCreator.set(row.creator_id, cur)
-        }
-        setLeaders([...byCreator.values()].filter((x) => x.views > 0).sort((a, b) => b.views - a.views))
+    Promise.all([
+      supabase.from('results')
+        .select('creator_id, rank, group_id, final_views, total_views, profiles:creator_id(id, name, photo_url, is_test)')
+        .eq('challenge_id', challengeId)
+        .lte('rank', MAX_PLACES)
+        .order('rank'),
+      supabase.from('challenge_groups').select('*').eq('challenge_id', challengeId).order('position'),
+      userId
+        ? supabase.from('challenge_group_members').select('group_id').eq('challenge_id', challengeId).eq('creator_id', userId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]).then(([{ data: rows }, { data: groups }, { data: mine }]) => {
+      if (cancelled) return
+      setBoard({
+        // Test profiles are dropped - a sandbox account at the top of a live
+        // leaderboard is a bug report, not a standing.
+        rows: (rows || []).filter((r) => !isHiddenTestRow(r.profiles)).map((r) => ({
+          id: r.profiles?.id ?? r.creator_id,
+          name: r.profiles?.name,
+          photo_url: r.profiles?.photo_url,
+          group_id: r.group_id ?? null,
+          rank: Number(r.rank),
+          score: Number(r.final_views) || 0,
+        })),
+        groups: groups || [],
+        mine: mine?.group_id ?? null,
       })
+    })
     return () => { cancelled = true }
-  }, [challengeId])
-  return leaders
+  }, [challengeId, userId])
+  return board
 }
 
 function LiveBoard({ challenge, className }) {
   const tr = useT()
-  const leaders = useLeaders(challenge.id)
+  const { user } = useAuth()
+  const board = useBoard(challenge.id, user?.id)
+  const [picked, setPicked] = useState(null)
+  const split = board.groups.length > 0
+  const shownId = picked ?? board.mine ?? board.groups[0]?.id ?? null
+  const shownGroup = board.groups.find((g) => g.id === shownId) || null
+  const prizes = split && shownGroup ? prizeForGroup(shownGroup, challenge).prize_structure : challenge.prize_structure
+  const leaders = board.rows
+    .filter((r) => !split || r.group_id === shownId)
+    .sort((x, y) => x.rank - y.rank)
+  const points = challenge.scoring === 'points'
 
   const prizeAt = new Map(
-    (Array.isArray(challenge.prize_structure) ? challenge.prize_structure : [])
+    (Array.isArray(prizes) ? prizes : [])
       .map((p, i) => [placeNumber(p?.place) ?? i + 1, p?.prize])
       .filter(([n, prize]) => n != null && prize),
   )
@@ -113,10 +133,32 @@ function LiveBoard({ challenge, className }) {
 
   return (
     <div className={cx('rounded-2xl bg-white p-4 shadow-[0_12px_34px_rgba(0,0,0,0.20)]', className)}>
-      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
-        <Icon name="trophy" className="h-3.5 w-3.5" />
-        {tr('Leaderboard')}
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
+          <Icon name="trophy" className="h-3.5 w-3.5" />
+          {tr('Leaderboard')}
+        </p>
+        {/* A split challenge: my board's name, or - for the team, on no
+            board - a switch between them. */}
+        {split && (board.mine ? (
+          <span className="truncate rounded-md bg-cloud px-2 py-0.5 text-[11px] font-semibold text-ink">{shownGroup?.name}</span>
+        ) : (
+          <span className="flex shrink-0 gap-1">
+            {board.groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setPicked(g.id)}
+                aria-pressed={g.id === shownId}
+                className={cx('rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                  g.id === shownId ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}
+              >
+                {g.name}
+              </button>
+            ))}
+          </span>
+        ))}
+      </div>
       <div className="space-y-1">
         {rows.map(({ place, leader, prize }) => (
           <div
@@ -153,7 +195,9 @@ function LiveBoard({ challenge, className }) {
               {prize && <span className="block truncate text-[11px] text-smoke"><PrizeText text={prize} /></span>}
             </span>
             {leader && (
-              <span className="shrink-0 text-sm font-bold tabular-nums text-ink">{formatViews(leader.views)}</span>
+              <span className="shrink-0 text-sm font-bold tabular-nums text-ink">
+                {points ? `${leader.score.toLocaleString()} ${tr('pts')}` : formatViews(leader.score)}
+              </span>
             )}
           </div>
         ))}

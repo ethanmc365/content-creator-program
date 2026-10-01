@@ -645,7 +645,7 @@ export default function AppLayout() {
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-full h-screen bg-white" />
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/global" className="flex items-center gap-3">
-            <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
+            <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-9 rounded-lg" />
             <span className="hidden text-sm font-semibold text-smoke md:block">{tr('Content Creator Community')}</span>
           </Link>
 

@@ -32,6 +32,7 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
+import { readPageCache, writePageCache } from '../lib/pageCache'
 import { ordinalFor, podiumTier, placeNumber } from '../lib/podiumTiers'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
@@ -111,15 +112,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const { user, isAdmin } = useAuth()
   const { networkId } = useMyScopes()
 
-  const [challenge, setChallenge] = useState(null)
+  // THE LAST COPY OF THIS CHALLENGE PAINTS FIRST (1 Oct 2026, slow wifi): a
+  // second visit draws what it drew last time while the queries run, the same
+  // stale-while-revalidate the bottom tabs use. See lib/pageCache.
+  const cacheKey = `challenge:${id}`
+  const [seed] = useState(() => readPageCache(cacheKey))
+  const [challenge, setChallenge] = useState(seed?.challenge ?? null)
   // The admin push composer, which lives behind the button beside Edit.
   // Who is earning the capped participation prize (migration 233). Same
   // function the payout reads, so "you have earned it" is never a promise the
   // payout then breaks.
   const prizeStandings = usePrizeStandings(challenge?.participation_cap || challenge?.participation_scope === 'outside_prizes' ? challenge?.id : null)
-  const [submissions, setSubmissions] = useState([])
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
+  const [results, setResults] = useState(seed?.results ?? [])
+  const [loading, setLoading] = useState(!seed)
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries
   // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB (28 Sep 2026). Ethan:
   // "a button for the creators ... that says 'My Entries' so they can quickly
@@ -191,25 +197,41 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // no community (the legacy UK contest) or belongs to Worldwide, which
   // everybody is in. Admins and QA accounts are excluded from both halves, the
   // same rule every other member count here follows.
-  const [audience, setAudience] = useState(null)
+  const [audience, setAudience] = useState(seed?.audience ?? null)
 
   // ---- MORE THAN ONE LEADERBOARD, AND CLAIMABLE BONUSES -------------------
   // Both are opt-in per challenge and both are empty on almost every one, so
   // every read path below falls through to exactly the behaviour that existed
   // before them. See lib/challengeGroups and migration 155.
-  const [groups, setGroups] = useState([])
-  const [groupMembers, setGroupMembers] = useState([])
-  const [bonusRules, setBonusRules] = useState([])
-  const [bonusClaims, setBonusClaims] = useState([])
+  const [groups, setGroups] = useState(seed?.groups ?? [])
+  const [groupMembers, setGroupMembers] = useState(seed?.groupMembers ?? [])
+  const [bonusRules, setBonusRules] = useState(seed?.bonusRules ?? [])
+  const [bonusClaims, setBonusClaims] = useState(seed?.bonusClaims ?? [])
   // Which bonuses the creator has ticked in the submit form, before they send.
   const [claiming, setClaiming] = useState([])
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
   const [board, setBoard] = useState(null)
+  // STAFF ONLY, ON A SPLIT CHALLENGE: whose eyes the page is seen through.
+  // Null is "every group at once"; a group id is that group's creator view.
+  const [viewAs, setViewAs] = useState(null)
   // Points each entry has earned, for the chip on its cover (points challenges only).
   const entryPoints = useEntryPoints(id, challenge?.scoring === 'points', `${challenge?.results_updated_at ?? ''}:${submissions.length}`)
 
   const load = useCallback(async () => {
+    // THE GROUPS AND BONUSES ARE ASKED FOR AT THE SAME TIME AS THE CHALLENGE
+    // (1 Oct 2026). They only need the id, and waiting for the first round
+    // before starting the second was a whole extra round trip - on a slow
+    // connection, a second or more with the prizes still blank.
+    const sideReads = Promise.all([
+      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
+      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+      supabase.from('point_rules')
+        .select('id, label, points, prompt, min_views, starts_at, ends_at')
+        .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
+        .not('prompt', 'is', null).order('position'),
+      supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
+    ])
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
       supabase.from('challenges').select('*').eq('id', id).single(),
       supabase
@@ -263,15 +285,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // usually empty: most challenges have no groups and no claimable bonuses,
     // and an empty table returns nothing rather than costing a join on every
     // challenge page in the platform. See lib/challengeGroups.
-    const [{ data: gs }, { data: gms }, { data: brules }, { data: claims }] = await Promise.all([
-      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
-      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
-      supabase.from('point_rules')
-        .select('id, label, points, prompt, min_views, starts_at, ends_at')
-        .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
-        .not('prompt', 'is', null).order('position'),
-      supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
-    ])
+    const [{ data: gs }, { data: gms }, { data: brules }, { data: claims }] = await sideReads
     setGroups(gs ?? [])
     setGroupMembers(gms ?? [])
     setBonusRules(brules ?? [])
@@ -285,6 +299,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // Keep the copy the next visit paints from.
+  useEffect(() => {
+    if (!challenge || challenge.id !== id) return
+    writePageCache(cacheKey, { challenge, submissions, results, audience, groups, groupMembers, bonusRules, bonusClaims })
+  }, [cacheKey, id, challenge, submissions, results, audience, groups, groupMembers, bonusRules, bonusClaims])
 
   // THE BOARD FOLLOWS THE SYNC WITHOUT A RELOAD (22 Sep 2026). Ethan: the
   // leaderboard should update for creators every time views are synced, with
@@ -576,7 +596,23 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // ---- WHICH BOARD AM I ON ------------------------------------------------
   const byCreator = groupByCreator(groupMembers)
   const boards = boardsFor(groups, byCreator, results.length ? results : submissions)
-  const myGroupId = byCreator.get(user.id) ?? null
+  const ownGroupId = byCreator.get(user.id) ?? null
+  // THE TEAM IS ON NO BOARD, SO IT SEES EVERY BOARD (1 Oct 2026).
+  //
+  // Ethan, on the Spanish October challenge - the first to run two groups:
+  // "as admins are obviously not assigned in any group it shows that there is
+  // no prizes ... the admin should see the prizes for both and see everything
+  // for both, the creators should see what they should for their group. Admins
+  // should also have a button at the top where you can view how the challenge
+  // looks from each group."
+  //
+  // So for staff on a split challenge: `viewAs` null is ALL GROUPS (every
+  // group's prizes, each under its name), and a group id is exactly what a
+  // creator in that group is shown - the same `myGroup` every line below reads.
+  const staffView = isAdmin && groups.length > 0 && !ownGroupId
+  const previewGroup = staffView && viewAs ? groups.find((g) => g.id === viewAs) || null : null
+  const allGroupsView = staffView && !previewGroup
+  const myGroupId = previewGroup?.id ?? ownGroupId
   const myGroup = groups.find((g) => g.id === myGroupId) || null
   // The prize this viewer is actually racing for. `prizeForGroup` returns the
   // challenge itself for somebody in no group, so everything downstream reads
@@ -632,10 +668,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // BY VIDEOS OR BY POINTS (migration 241). The number is read in the
   // challenge's basis, a group's own threshold included.
   const partBasis = challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries'
-  const participation =
-    myPrize?.participation_threshold && myPrize?.participation_prize
-      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
-      : parseParticipationPrize(prizes)
+  const participationOf = (p) => (p?.participation_threshold && p?.participation_prize
+    ? { threshold: p.participation_threshold, prize: p.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
+    : parseParticipationPrize(Array.isArray(p?.prize_structure) ? p.prize_structure : []))
+  const participation = participationOf(myPrize)
   // Where I stand against that number: my entries, or my points on the board.
   const myPoints = Number(results.find((r) => r.creator_id === user.id)?.final_views) || 0
   const partHave = participation?.basis === 'points' ? myPoints : myEntries.length
@@ -807,6 +843,48 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         }
       />
 
+      {/* SEE IT AS EACH GROUP SEES IT (1 Oct 2026) - staff only, split
+          challenges only. "All groups" shows every group's prizes side by
+          side; a group shows the page exactly as a creator in it gets it. */}
+      {staffView && (
+        <div className="mb-6 flex flex-col gap-2 rounded-card border border-brand/20 bg-white px-4 py-3 shadow-card sm:flex-row sm:items-center sm:gap-4">
+          <p className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-smoke">
+            <Icon name="eye" className="h-4 w-4 text-brand" />
+            {tr("View as")}
+          </p>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5" role="radiogroup" aria-label={tr("View as")}>
+            {[{ id: null, name: tr('All groups') }, ...groups].map((g) => {
+              const on = (viewAs ?? null) === g.id
+              return (
+                <button
+                  key={g.id ?? 'all'}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => { setViewAs(g.id); setBoard(g.id ?? null) }}
+                  className={cx(
+                    'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all duration-200',
+                    on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+                  )}
+                >
+                  {g.name}
+                  {g.id && (
+                    <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/25' : 'bg-white text-smoke')}>
+                      {boardCounts.get(g.id) || 0}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-smoke sm:ml-auto sm:text-right">
+            {previewGroup
+              ? tr("What a creator in {g} sees.", { g: previewGroup.name })
+              : tr("Every group's prizes and boards. Creators only see their own group.")}
+          </p>
+        </div>
+      )}
+
       {/* THE DEADLINE CARD, WHICH IS THE ONE THING ON THIS PAGE THAT MOVES.
           (1 Sep 2026.)
 
@@ -900,9 +978,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {groups.length > 0 && (
         <div className={cx(
           'mb-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border px-5 py-4',
-          myGroup ? 'border-brand/25 bg-brand-tint/40' : 'border-dashed border-gray-200 bg-cloud/40',
+          myGroup || allGroupsView ? 'border-brand/25 bg-brand-tint/40' : 'border-dashed border-gray-200 bg-cloud/40',
         )}>
-          <Icon name={myGroup ? 'trophy' : 'alert'} className={cx('h-5 w-5 shrink-0', myGroup ? 'text-brand' : 'text-smoke')} />
+          <Icon name={myGroup || allGroupsView ? 'trophy' : 'alert'} className={cx('h-5 w-5 shrink-0', myGroup ? 'text-brand' : 'text-smoke')} />
           {myGroup ? (
             <>
               <p className="text-sm">
@@ -916,6 +994,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </span>
               )}
             </>
+          ) : allGroupsView ? (
+            <p className="text-sm text-smoke">
+              {tr("This challenge runs {n} separate leaderboards, each with its own prizes. You are seeing all of them.", { n: groups.length })}
+            </p>
           ) : (
             <p className="text-sm text-smoke">
               This challenge runs {groups.length} separate leaderboards and you have not been put
@@ -1084,52 +1166,27 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           )}
           </>
         )
-        const prizesCard = (
-          <>
-          {/* THE PRIZES ARE THE POINT OF THE PAGE - BUT THEY ARE STILL A
-              CARD ON THIS PAGE (2 Sep 2026).
-
-              Ethan: "I like how it stands out more, although it looks like it
-              doesn't really fit in - it looks very different from the other
-              cards. I don't like how first place is a really big font size
-              and the others are smaller on the right; they should all be the
-              same as second and third, with the cash on the right and it just
-              says first, second, third. Change the colours of the one, two,
-              three to match the podium colours. And I don't like the beige
-              background."
-
-              So: the same white `card` surface, border and shadow as the
-              brief, the rules and the platforms card beside it, with the
-              brand carried by the heading rule and the place chips instead of
-              by a gradient banner and a wash. THE ROWS ARE ALL ONE ROW: a
-              chip in that place's own podium tone, the ordinal, and the prize
-              right-aligned at one size. First place used to be a separate
-              block with the money at heading size, which made a five-place
-              breakdown read as one prize and four footnotes - and put the
-              money on two different axes on one card.
-
-              THE PARTICIPATION PRIZE IS STILL ITS OWN BLOCK, because "post 3
-              videos and everybody gets a voucher" is the offer that reaches
-              the creators who will never come first, which is most of them.
-              Its ticket is a BARE ICON now - it was a glyph on a white disc
-              with a shadow, which on a white card is a circle drawn around
-              nothing. */}
-          <section className="card !p-0 overflow-hidden">
+        // ONE PRIZE CARD, DRAWN ONCE FOR A CREATOR AND ONCE PER GROUP FOR THE TEAM.
+        const prizeCardFor = ({ key, list, potLabel, part, groupName = null, showProgress = true, withAwards = true }) => (
+          <section key={key} className="card !p-0 overflow-hidden">
             <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-4">
               <Icon name="trophy" className="h-5 w-5 shrink-0 text-brand" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-ink">{tr("Prizes")}</h2>
-              {prizePot > 0 && (
-                <span className="ml-auto rounded-full bg-brand px-2.5 py-1 text-xs font-bold tabular-nums text-white">
-                  {tr("{n} to win", { n: prizePotLabel })}
+              {groupName && (
+                <span className="truncate rounded-md bg-cloud px-2 py-0.5 text-xs font-semibold text-ink">{groupName}</span>
+              )}
+              {potLabel && (
+                <span className="ml-auto shrink-0 rounded-full bg-brand px-2.5 py-1 text-xs font-bold tabular-nums text-white">
+                  {tr("{n} to win", { n: potLabel })}
                 </span>
               )}
             </div>
 
-            {prizes.length === 0 ? (
+            {list.length === 0 ? (
               <p className="px-5 py-6 text-sm text-smoke">{tr("Prize details coming soon.")}</p>
             ) : (
               <ul className="divide-y divide-gray-50">
-                {(isMobile && !allPrizes ? prizes.slice(0, 5) : prizes).map((p, i) => {
+                {(isMobile && !allPrizes ? list.slice(0, 5) : list).map((p, i) => {
                   // The ordinal on the row is the admin's own text ("1st",
                   // and sometimes "3+ videos"), but the CHIP has to be a
                   // number, so it reads the digits off it and falls back to
@@ -1155,13 +1212,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               </ul>
             )}
             {/* Five places on a phone, the rest one tap away. */}
-            {isMobile && prizes.length > 5 && (
+            {isMobile && list.length > 5 && (
               <button
                 type="button"
                 onClick={() => setAllPrizes((v) => !v)}
                 className="flex w-full items-center justify-center gap-1.5 border-t border-gray-50 px-5 py-3 text-sm font-semibold text-brand"
               >
-                {allPrizes ? tr('Show less') : (prizes.length - 5 === 1 ? tr('+1 more prize') : tr('+{n} more prizes', { n: prizes.length - 5 }))}
+                {allPrizes ? tr('Show less') : (list.length - 5 === 1 ? tr('+1 more prize') : tr('+{n} more prizes', { n: list.length - 5 }))}
                 <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-300', allPrizes && 'rotate-180')} />
               </button>
             )}
@@ -1171,7 +1228,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 in our Tryp.com voucher'... show '18 more points to go', which
                 is nice." The prize is the headline, the condition is the line
                 under it, and the bar says how far along YOU are in numbers. */}
-            {participation && (() => {
+            {part && (() => {
+              const participation = part
               const byPoints = participation.basis === 'points'
               const pct = Math.min(100, Math.round((partHave / participation.threshold) * 100))
               const mine = prizeStandings?.find((r) => r.slot === 'participation' && r.creator_id === user?.id)
@@ -1209,7 +1267,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       </p>
                     </div>
                   </div>
-                  {isLive && (
+                  {isLive && showProgress && (
                     <div className="mt-3">
                       <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
                         <span className="font-semibold text-ink">{status}</span>
@@ -1225,7 +1283,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </div>
               )
             })()}
-            {Array.isArray(challenge?.extra_awards) && challenge.extra_awards.filter((a) => a?.prize).map((a) => (
+            {withAwards && Array.isArray(challenge?.extra_awards) && challenge.extra_awards.filter((a) => a?.prize).map((a) => (
               <div key={a.id} className="border-t border-gray-100 px-5 py-4">
                 <div className="flex items-start gap-3">
                   <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
@@ -1242,6 +1300,61 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               </div>
             ))}
           </section>
+        )
+        const prizesCard = (
+          <>
+          {/* THE PRIZES ARE THE POINT OF THE PAGE - BUT THEY ARE STILL A
+              CARD ON THIS PAGE (2 Sep 2026).
+
+              Ethan: "I like how it stands out more, although it looks like it
+              doesn't really fit in - it looks very different from the other
+              cards. I don't like how first place is a really big font size
+              and the others are smaller on the right; they should all be the
+              same as second and third, with the cash on the right and it just
+              says first, second, third. Change the colours of the one, two,
+              three to match the podium colours. And I don't like the beige
+              background."
+
+              So: the same white `card` surface, border and shadow as the
+              brief, the rules and the platforms card beside it, with the
+              brand carried by the heading rule and the place chips instead of
+              by a gradient banner and a wash. THE ROWS ARE ALL ONE ROW: a
+              chip in that place's own podium tone, the ordinal, and the prize
+              right-aligned at one size. First place used to be a separate
+              block with the money at heading size, which made a five-place
+              breakdown read as one prize and four footnotes - and put the
+              money on two different axes on one card.
+
+              THE PARTICIPATION PRIZE IS STILL ITS OWN BLOCK, because "post 3
+              videos and everybody gets a voucher" is the offer that reaches
+              the creators who will never come first, which is most of them.
+              Its ticket is a BARE ICON now - it was a glyph on a white disc
+              with a shadow, which on a white card is a circle drawn around
+              nothing. */}
+          {allGroupsView ? (
+            <div className="space-y-5">
+              {groups.map((g, i) => {
+                const gp = prizeForGroup(g, challenge)
+                const pot = Number(gp.prize_amount) || 0
+                return prizeCardFor({
+                  key: g.id,
+                  list: Array.isArray(gp.prize_structure) ? gp.prize_structure : [],
+                  potLabel: pot > 0 ? formatMoney(pot, gp.prize_currency || 'EUR') : '',
+                  part: participationOf(gp),
+                  groupName: g.name,
+                  // The team is on no board, so there is no "your progress" to draw.
+                  showProgress: false,
+                  withAwards: i === groups.length - 1,
+                })
+              })}
+            </div>
+          ) : prizeCardFor({
+            key: 'mine',
+            list: prizes,
+            potLabel: prizePotLabel,
+            part: participation,
+            groupName: myGroup?.name ?? null,
+          })}
           </>
         )
         const platformsCard = (

@@ -253,7 +253,10 @@ export default function ChallengeLeaderboard({
                   <Icon name="plus" className="h-4 w-4 text-brand/50" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-smoke">{tr('This spot is up for grabs')}</span>
+                  {/* "Up for grabs" on a phone, where the long sentence was cut to
+                      "This spot is..." (1 Oct 2026); the full one from sm. */}
+                  <span className={cx('block truncate text-sm font-semibold text-smoke', !wide && 'sm:hidden')}>{wide ? tr('This spot is up for grabs') : tr('Up for grabs')}</span>
+                  {!wide && <span className="hidden truncate text-sm font-semibold text-smoke sm:block">{tr('This spot is up for grabs')}</span>}
                   {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
                 </span>
               </span>
@@ -267,7 +270,7 @@ export default function ChallengeLeaderboard({
 
             {/* THE SCORE. On a phone the views sit under the points; from sm
                 they have a column of their own. */}
-            <span className="w-16 shrink-0 text-right sm:w-20">
+            <span className={cx('shrink-0 text-right sm:w-20', row ? 'w-16' : 'w-4')}>
               {row ? (
                 <>
                   <span className={cx('block font-bold tabular-nums leading-tight', podium ? 'text-lg text-brand' : 'text-base text-ink')}>

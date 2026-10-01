@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { geoArea, geoBounds, geoCentroid, geoMercator, geoPath } from 'd3-geo'
-import { loadMapFeatures } from '../lib/mapCountries'
+import { loadMapFeatures, atlasReady } from '../lib/mapCountries'
+import { useSlowNetwork } from '../lib/netQuality'
 import { COUNTRIES } from '../lib/countries'
 import { cx } from '../lib/utils'
 
@@ -92,10 +93,12 @@ function frameFor(features) {
 export default function MarketMap({ codes, className = '' }) {
   const canvasRef = useRef(null)
   const key = (codes || []).join(',')
+  // Decoration waits for a good connection unless the atlas is already here (see SpinningEarth).
+  const skip = useSlowNetwork() && !atlasReady()
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return undefined
+    if (!canvas || skip) return undefined
     const ctx = canvas.getContext('2d')
     if (!ctx) return undefined
     let alive = true
@@ -156,7 +159,7 @@ export default function MarketMap({ codes, className = '' }) {
     ro.observe(canvas)
     return () => { alive = false; clearTimeout(t); ro.disconnect() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, skip])
 
   return <canvas ref={canvasRef} aria-hidden className={cx('pointer-events-none', className)} />
 }

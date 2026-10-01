@@ -3,7 +3,9 @@
    offline app-shell caching so the app still boots with no connection. */
 
 const CACHE = 'tryp-cache-v7'
-const SHELL = ['/', '/index.html', '/brand/tryp-logo.png', '/brand/tryp-plane.png', '/manifest.webmanifest']
+// The shell is what the offline screen needs and no more: the small logo and plane (1 Oct 2026 - the
+// full-size PNGs were 760kB, downloaded on install over whatever connection the creator had).
+const SHELL = ['/', '/index.html', '/brand/tryp-logo-360.png', '/brand/tryp-plane-640.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -40,17 +42,29 @@ self.addEventListener('fetch', (event) => {
 
   // Page navigations: network-first (fresh HTML when online), falling back to
   // the cached shell so the SPA still loads when offline.
+  //
+  // BUT NOT WAITING FOR EVER ON A WEAK CONNECTION (1 Oct 2026). Ethan: "on a
+  // slightly slower wifi connection, the entire platform becomes super laggy and
+  // almost unusable." Every launch waited for a fresh index.html, so a slow line
+  // was a blank screen before anything else could even start. The network now
+  // gets 2.5 seconds; after that the cached shell boots the app and the fresh
+  // copy still lands in the cache for next time. A shell from an older deploy is
+  // safe: its chunks are in this cache, and lib/lazyRoute reloads once if one is
+  // missing.
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE)
-      try {
-        const fresh = await fetch(request)
+      const cached = (await cache.match('/index.html')) || (await cache.match('/'))
+      const network = fetch(request).then(async (fresh) => {
+        const html = /text\/html/i.test(fresh?.headers?.get('content-type') || '')
         // Await the write so the worker isn't torn down before it lands.
-        await cache.put('/index.html', fresh.clone())
+        if (fresh && fresh.ok && html) await cache.put('/index.html', fresh.clone())
         return fresh
-      } catch {
-        return (await cache.match('/index.html')) || (await cache.match('/')) || Response.error()
-      }
+      })
+      if (!cached) return network.catch(() => Response.error())
+      event.waitUntil(network.catch(() => {}))
+      const late = new Promise((resolve) => setTimeout(() => resolve(cached), 2500))
+      return Promise.race([network.catch(() => cached), late])
     })())
     return
   }

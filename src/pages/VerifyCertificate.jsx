@@ -133,7 +133,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200/70 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-4xl items-center gap-3 px-5 py-3.5 sm:px-8">
-        <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-md" />
+        <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-md" />
         <span className="h-5 w-px shrink-0 bg-gray-200" />
         <div className="min-w-0">
           <p className="truncate text-sm font-bold leading-tight text-ink">{tr("Certificate check")}</p>

@@ -13,6 +13,7 @@ import { CountUp } from '../components/network/Motion'
 import LiveChallengeCard from '../components/LiveChallengeCard'
 import { useCommunity } from '../context/CommunityContext'
 import RecapBanner from '../components/challenge/RecapBanner'
+import OtherMarketChallenges from '../components/challenge/OtherMarketChallenges'
 import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
@@ -136,7 +137,7 @@ export default function Challenges() {
     if (!liveIds.length) return undefined
     let cancelled = false
     supabase.from('results')
-      .select('challenge_id, creator_id, rank, final_views, total_views, profiles:creator_id(name, photo_url, is_test)')
+      .select('challenge_id, creator_id, rank, group_id, final_views, total_views, profiles:creator_id(name, photo_url, is_test)')
       .in('challenge_id', liveIds)
       .lte('rank', 5)
       .order('rank')
@@ -147,6 +148,8 @@ export default function Challenges() {
           if (isHiddenTestRow(r.profiles)) continue
           ;(out[r.challenge_id] ||= []).push({
             creator_id: r.creator_id,
+            // Ranks are per board on a split challenge; the card picks a board.
+            group_id: r.group_id ?? null,
             name: r.profiles?.name,
             photo_url: r.profiles?.photo_url,
             // `score` is what the board RANKS on - points on a points
@@ -159,6 +162,27 @@ export default function Challenges() {
       })
     return () => { cancelled = true }
   }, [challenges])
+
+  // THE BOARDS OF A SPLIT LIVE CHALLENGE, AND WHICH ONE IS MINE (1 Oct 2026).
+  // Almost always empty: one cheap read for the groups and one for my own row.
+  const [liveGroups, setLiveGroups] = useState(cached?.liveGroups ?? { groups: {}, mine: {} })
+  useEffect(() => {
+    const liveIds = challenges
+      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
+      .map((c) => c.id)
+    if (!liveIds.length || !user?.id) return undefined
+    let alive = true
+    Promise.all([
+      supabase.from('challenge_groups').select('*').in('challenge_id', liveIds).order('position'),
+      supabase.from('challenge_group_members').select('challenge_id, group_id').in('challenge_id', liveIds).eq('creator_id', user.id),
+    ]).then(([{ data: gs }, { data: mine }]) => {
+      if (!alive) return
+      const groups = {}
+      for (const g of gs || []) (groups[g.challenge_id] ||= []).push(g)
+      setLiveGroups({ groups, mine: Object.fromEntries((mine || []).map((m) => [m.challenge_id, m.group_id])) })
+    })
+    return () => { alive = false }
+  }, [challenges, user?.id])
 
   // Participation, computed per live challenge and against the RIGHT crowd.
   //
@@ -204,8 +228,8 @@ export default function Challenges() {
   // run on every visit exactly as they always did. See lib/pageCache.
   useEffect(() => {
     if (loading) return
-    writePageCache(CACHE_KEY, { challenges, galleries, participation, prizesAwarded, leaders })
-  }, [loading, challenges, galleries, participation, prizesAwarded, leaders])
+    writePageCache(CACHE_KEY, { challenges, galleries, participation, prizesAwarded, leaders, liveGroups })
+  }, [loading, challenges, galleries, participation, prizesAwarded, leaders, liveGroups])
 
   const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
   // This page is the creator's OWN community's challenge board. RLS already
@@ -273,6 +297,13 @@ export default function Challenges() {
   // because the row never arrives; the `isAdmin` guard below is about not
   // drawing an empty heading, not about access.
   const drafts = mine.filter((c) => !isLive(c) && c.status === 'draft')
+  // THE OTHER MARKETS' LIVE CHALLENGES (1 Oct 2026). The team reads them off
+  // this page's own rows (RLS lets an admin read every market); a creator's
+  // come from an RPC inside the component. See OtherMarketChallenges.
+  const othersLive = isAdmin
+    ? challenges.filter((c) => isLive(c) && c.community_id && c.community_id !== networkId && !inScope(scopeIds, c.community_id))
+    : null
+  const othersSection = <OtherMarketChallenges staffRows={othersLive} communities={communities} />
   const past = mine.filter((c) => !isLive(c) && c.status !== 'draft')
 
   // YOUR RECAP, ON THE PAGE YOU ACTUALLY OPEN (29 Sep 2026).
@@ -358,13 +389,16 @@ export default function Challenges() {
            stopped; the market boards have had a proper answer to this for
            weeks - the plane, a sentence about what happens next, and a create
            button for whoever can act on it. See NoLiveChallenge. */
-        <Reveal from="down" delay={0.12}>
-          <NoLiveChallenge
-            canCreate={isAdmin}
-            title={tr("No challenge running right now")}
-            hint={tr("The next challenge is landing here soon, and you will get a notification the moment it does.")}
-          />
-        </Reveal>
+        <div className="space-y-12">
+          <Reveal from="down" delay={0.12}>
+            <NoLiveChallenge
+              canCreate={isAdmin}
+              title={tr("No challenge running right now")}
+              hint={tr("The next challenge is landing here soon, and you will get a notification the moment it does.")}
+            />
+          </Reveal>
+          {othersSection}
+        </div>
       ) : (
         <div className="space-y-12">
           {/* ---------- Nothing live ----------
@@ -430,6 +464,8 @@ export default function Challenges() {
                 entries={c.submissions?.[0]?.count ?? 0}
                 participation={participation[c.id]}
                 leaders={leaders[c.id]}
+                groups={liveGroups.groups[c.id] ?? []}
+                myGroupId={liveGroups.mine[c.id] ?? null}
               />
             </Reveal>
           ))}
@@ -480,6 +516,9 @@ export default function Challenges() {
               </Reveal>
             </section>
           )}
+
+          {/* ---------- Other markets, above the archive ---------- */}
+          {othersSection}
 
           {/* ---------- Past ---------- */}
           {past.length > 0 && (

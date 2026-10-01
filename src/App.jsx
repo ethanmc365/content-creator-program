@@ -4,6 +4,7 @@ import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { chunk } from './lib/routeChunks'
 import { installLinkPrefetch } from './lib/prefetchLinks'
+import { isSlowNetwork } from './lib/netQuality'
 import { breadcrumb } from './lib/breadcrumbs'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
@@ -195,7 +196,10 @@ export default function App() {
     // a boundary is almost never crossed - and RouteSkeleton, which draws the
     // shape of the page for the times it is, becomes the rare case it was
     // always meant to be rather than a screen in the way of every tap.
-    preloadWhenIdle([chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat, chunk.Game, chunk.Leaderboard])
+    // On a slow connection only the tabs: the games can load when they are opened.
+    preloadWhenIdle(isSlowNetwork()
+      ? [chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat]
+      : [chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat, chunk.Game, chunk.Leaderboard])
   }, [])
   // The outbox listens for the connection coming back, once, for the whole app.
   // It is mounted here rather than in a chat page on purpose: a message queued

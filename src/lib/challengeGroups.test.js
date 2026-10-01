@@ -172,3 +172,17 @@ describe('the random split is even, not independent', () => {
     expect(dealEvenly(['a', 'b'], []).size).toBe(0)
   })
 })
+
+describe('prizeForGroup carries the taking-part value (1 Oct 2026)', () => {
+  it('a group with its own reward brings its own amount and type', () => {
+    const g = { id: 'a', participation_threshold: 10, participation_prize: '10€ voucher', participation_amount: 10, participation_reward_type: 'voucher' }
+    const p = prizeForGroup(g, { participation_amount: 99, participation_reward_type: 'cash' })
+    expect(p.participation_amount).toBe(10)
+    expect(p.participation_reward_type).toBe('voucher')
+  })
+  it('a group without one falls through to the challenge, both halves', () => {
+    const p = prizeForGroup({ id: 'b' }, { participation_threshold: 3, participation_prize: 'x', participation_amount: 5, participation_reward_type: 'cash' })
+    expect(p.participation_amount).toBe(5)
+    expect(p.participation_reward_type).toBe('cash')
+  })
+})

@@ -64,6 +64,11 @@ export default function AdminChallengeAnalytics() {
   // computed FROM the row, so patching state in place would leave the old CPM
   // beside the new view count.
   const [refresh, setRefresh] = useState(0)
+  // COMBINED, OR ONE GROUP (1 Oct 2026). Ethan: "the analytics should have
+  // combined and separate analytics." 'all' is the challenge as a whole; a
+  // group id narrows every figure on the page - entries, views, spend, CPM -
+  // to that group's creators.
+  const [view, setView] = useState('all')
 
   useEffect(() => { loadMarkets().then((m) => setMarkets(m || [])) }, [])
 
@@ -120,9 +125,20 @@ export default function AdminChallengeAnalytics() {
   }, [id])
   const standings = usePrizeStandings(raw?.challenge ? id : null, refresh)
 
+  // The creators on the board being looked at, or null for the whole challenge.
+  const viewMembers = useMemo(() => {
+    if (!raw || view === 'all') return null
+    return new Set(raw.groupMembers.filter((m) => m.group_id === view).map((m) => m.creator_id))
+  }, [raw, view])
+
   const d = useMemo(() => {
     if (!raw) return null
-    const { subs, rewards, totalCreators } = raw
+    const inView = (r) => !viewMembers || viewMembers.has(r.creator_id)
+    const subs = raw.subs.filter(inView)
+    const rewards = raw.rewards.filter(inView)
+    // Out of the people who could have entered: the group, or - on a split
+    // challenge - everybody on its boards, rather than the whole platform.
+    const totalCreators = viewMembers ? viewMembers.size : (raw.groupMembers.length || raw.totalCreators)
     const viewed = subs.filter((s) => s.logged_views != null).map((s) => s.logged_views).sort((a, b) => a - b)
     const totalViews = viewed.reduce((a, b) => a + b, 0)
     const uniqueCreators = new Set(subs.map((s) => s.creator_id)).size
@@ -151,13 +167,23 @@ export default function AdminChallengeAnalytics() {
       prizesPaid: rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0),
       prizesPending: rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0),
     }
-  }, [raw])
+  }, [raw, viewMembers])
 
   if (!raw || !d) {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
   }
 
-  const { challenge, logged, siblings, subs, results, groups, groupMembers } = raw
+  const { challenge, logged, siblings, groups, groupMembers } = raw
+  // Everything below reads the board being LOOKED AT; the comparison table
+  // alone reads every board, because comparing them is its job.
+  const allSubs = raw.subs
+  const inViewRow = (r) => !viewMembers || viewMembers.has(r.creator_id)
+  const subs = allSubs.filter(inViewRow)
+  const results = raw.results.filter(inViewRow)
+  const viewGroup = groups.find((g) => g.id === view) || null
+  // A group's own prizes and taking-part reward, so its pot and CPM are its own.
+  const viewChallenge = viewGroup && challenge ? { ...challenge, ...prizeForGroup(viewGroup, challenge) } : challenge
+  const viewStandings = (standings || []).filter(inViewRow)
   const homeMarket = challenge ? markets.find((m) => m.id === challenge.community_id) : null
   const singleMarket = !!homeMarket && homeMarket.kind !== 'network' && homeMarket.slug !== 'worldwide'
 
@@ -190,7 +216,7 @@ export default function AdminChallengeAnalytics() {
   // in two halves produced one challenge's worth of reach and that is the
   // number the programme is measured on. `compareBoards` derives both from the
   // same rows, so they cannot disagree. */
-  const { rows: boardRows } = compareBoards(groups, groupMembers, subs)
+  const { rows: boardRows } = compareBoards(groups, groupMembers, allSubs)
   const memberCount = new Map()
   for (const m of groupMembers) memberCount.set(m.group_id, (memberCount.get(m.group_id) || 0) + 1)
 
@@ -225,12 +251,34 @@ export default function AdminChallengeAnalytics() {
         }
       />
 
-      <LiveEconomics challenge={challenge} subs={subs} standings={standings} totalViews={d.totalViews} />
+      {/* COMBINED OR ONE GROUP. Only on a split challenge. */}
+      {groups.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-smoke">Showing</span>
+          {[{ id: 'all', name: 'Combined' }, ...groups].map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setView(g.id)}
+              aria-pressed={view === g.id}
+              className={cx(
+                'rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-200',
+                view === g.id ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+              )}
+            >
+              {g.name}
+              {g.id !== 'all' && <span className="ml-1.5 text-xs opacity-75">{memberCount.get(g.id) || 0}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <LiveEconomics challenge={viewChallenge} subs={subs} standings={viewStandings} totalViews={d.totalViews} />
 
       {/* ---------- Headline stats ---------- */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Entries" value={d.submissions} hint={`${d.uniqueCreators} creators`} />
-        <StatCard label="Participation" value={`${d.participation}%`} hint="of all creators" />
+        <StatCard label="Participation" value={`${d.participation}%`} hint={viewGroup ? `of ${viewGroup.name}` : groups.length ? 'of everyone in its groups' : 'of all creators'} />
         <StatCard label="Total views" value={formatViews(d.totalViews)} accent />
         <StatCard label="Prize money paid" value={formatMoney(d.prizesPaid)} hint={d.prizesPending ? `${formatMoney(d.prizesPending)} pending` : 'all settled'} />
       </div>
@@ -242,7 +290,7 @@ export default function AdminChallengeAnalytics() {
             could not find it under the band. Same `challengeSpend` as the band,
             so the two cannot disagree, and it stays once the challenge ends. */}
         {(() => {
-          const sp = challengeSpend(challenge, standings || [], d.totalViews)
+          const sp = challengeSpend(viewChallenge, viewStandings, d.totalViews)
           const ccy = challenge.prize_currency || 'EUR'
           return (
             <StatCard
@@ -273,7 +321,7 @@ export default function AdminChallengeAnalytics() {
             split by group, and they add back up to it.
           </p>
           <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
-            <table className="w-full min-w-[44rem] text-sm">
+            <table className="w-full min-w-[56rem] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wide text-smoke">
                   <th className="py-2 pr-4">Group</th>
@@ -283,6 +331,8 @@ export default function AdminChallengeAnalytics() {
                   <th className="py-2 pr-4 text-right">Views</th>
                   <th className="py-2 pr-4 text-right">Per entry</th>
                   <th className="py-2 pr-4 text-right">Best video</th>
+                  <th className="py-2 pr-4 text-right">Spend</th>
+                  <th className="py-2 pr-4 text-right">CPM</th>
                   <th className="py-2 text-right">Share</th>
                 </tr>
               </thead>
@@ -291,6 +341,11 @@ export default function AdminChallengeAnalytics() {
                   const g = groups.find((x) => x.id === r.id)
                   const inGroup = memberCount.get(r.id) || 0
                   const prize = g ? prizeForGroup(g, challenge) : null
+                  // EACH GROUP'S OWN SPEND AND CPM: its pot, plus the taking-part
+                  // rewards its own creators have earned (same rule as the band).
+                  const members = new Set(groupMembers.filter((m) => m.group_id === r.id).map((m) => m.creator_id))
+                  const sp = g ? challengeSpend({ ...challenge, ...prize }, (standings || []).filter((x) => members.has(x.creator_id)), r.views) : null
+                  const ccy = challenge.prize_currency || 'EUR'
                   return (
                     <tr key={r.id ?? 'ungrouped'} className="border-b border-gray-50 last:border-0">
                       <td className="py-3 pr-4">
@@ -316,6 +371,8 @@ export default function AdminChallengeAnalytics() {
                       <td className="py-3 pr-4 text-right font-semibold tabular-nums text-brand">{formatViews(r.views)}</td>
                       <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.perEntry)}</td>
                       <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.best)}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{sp ? formatMoney(sp.spend, ccy) : '-'}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{sp?.cpm != null ? formatMoney(Math.round(sp.cpm * 100) / 100, ccy) : '-'}</td>
                       <td className="py-3 text-right">
                         <span className="inline-flex items-center gap-2">
                           <span className="h-1.5 w-16 overflow-hidden rounded-full bg-cloud">

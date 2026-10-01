@@ -159,6 +159,10 @@ export function prizeForGroup(group, challenge) {
     prize_structure: ownPrizes ? group.prize_structure : (challenge?.prize_structure ?? []),
     participation_threshold: ownPart ? group.participation_threshold : (challenge?.participation_threshold ?? null),
     participation_prize: ownPart ? group.participation_prize : (challenge?.participation_prize ?? null),
+    // What the reward is worth and what kind it is, from the same half - the
+    // spend and the payout read these (migration 307's group columns).
+    participation_amount: ownPart ? (group.participation_amount ?? null) : (challenge?.participation_amount ?? null),
+    participation_reward_type: ownPart ? (group.participation_reward_type ?? null) : (challenge?.participation_reward_type ?? null),
     // Which of the two the answer came from, for anything that wants to say
     // "this board has its own prize" without re-deriving the rule.
     own: ownPrizes || ownPart,

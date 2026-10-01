@@ -158,7 +158,7 @@ function Drawing({ id, animate, tight = false }) {
         />
 
         <image
-          href="/brand/tryp-plane-cutout.png"
+          href="/brand/tryp-plane-cutout-640.png"
           x={PLANE_X}
           y={PLANE_Y}
           width={PLANE_W}
@@ -225,7 +225,7 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
   if (variant === 'badge') {
     return (
       <img
-        src="/brand/tryp-plane-cutout.png"
+        src="/brand/tryp-plane-cutout-640.png"
         alt=""
         aria-hidden
         className={cx('pointer-events-none h-4 w-7 shrink-0 object-contain', className)}

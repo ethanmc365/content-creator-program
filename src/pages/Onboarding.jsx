@@ -1180,7 +1180,7 @@ function Progress({ step, total, barPct, current, onLeave, leaving, userId }) {
         title={tr('Back to Tryp.com')}
         className="rounded-xl shadow-card transition-all duration-200 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:opacity-60"
       >
-        <img src="/brand/tryp-logo.png" alt="" className="h-11 rounded-xl" />
+        <img src="/brand/tryp-logo-360.png" alt="" className="h-11 rounded-xl" />
       </button>
       <div className="w-full max-w-md">
         {/* THE FOUR PARTS, SO NINE SCREENS READ AS A SHORT JOURNEY RATHER THAN A

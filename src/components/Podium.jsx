@@ -103,9 +103,19 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   />
                 </span>
               )}
+              {/* "UP FOR GRABS" WRAPS, A NAME TRUNCATES (1 Oct 2026). Ethan, on a
+                  phone: the "up for grabs" text was "going through each other".
+                  Five steps at 375px leave the outer columns ~60px, and the face
+                  wrapper was sized to its content rather than its column, so
+                  `truncate` had no width to cut at and each label ran into the
+                  next step. The wrapper is the column's width now, a name
+                  ellipsises inside it, and the open-place words break onto two
+                  short lines instead of being cut to "Up fo...". */}
               <p className={cx(
-                'mt-2 max-w-full truncate text-center font-semibold transition-colors group-hover:text-brand',
+                'mt-2 w-full max-w-full text-center font-semibold transition-colors group-hover:text-brand',
+                p.empty ? 'line-clamp-2 break-words leading-tight' : 'truncate',
                 outer ? 'text-xs' : 'text-sm',
+                p.empty && outer && 'text-[11px]',
                 p.empty && 'text-gray-400',
                 !p.empty && meId && p.id === meId && 'text-brand',
               )}>
@@ -131,7 +141,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
                 winning without showing what they are winning is half the fact,
                 and on an empty board the prize is the ONLY fact there is. */}
             {p.prize && (
-              <p className="mt-1 max-w-full truncate text-center text-[11px] font-semibold text-smoke" title={p.prize}>
+              <p className={cx('mt-1 w-full max-w-full text-center font-semibold leading-tight text-smoke', outer ? 'line-clamp-2 text-[10px] sm:text-[11px]' : 'truncate text-[11px]')} title={p.prize}>
                 <PrizeText text={p.prize} />
               </p>
             )}
@@ -153,6 +163,6 @@ export default function Podium({ places = [], meId = null, animate = true, class
 // A podium step is a link when we know whose it is, and plain markup when we do
 // not - an anchor with no href is a focus stop that goes nowhere.
 function PodiumFace({ to, children }) {
-  if (!to) return <span className="group flex flex-col items-center">{children}</span>
-  return <Link to={to} className="group flex flex-col items-center">{children}</Link>
+  if (!to) return <span className="group flex w-full min-w-0 flex-col items-center">{children}</span>
+  return <Link to={to} className="group flex w-full min-w-0 flex-col items-center">{children}</Link>
 }

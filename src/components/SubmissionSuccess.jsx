@@ -126,7 +126,7 @@ export default function SubmissionSuccess({
             <div className="sx-plane w-44 max-w-[72%] sm:w-56">
               <div className="sx-bob">
                 <img
-                  src="/brand/tryp-plane-cutout.png"
+                  src="/brand/tryp-plane-cutout-640.png"
                   alt="Tryp.com plane taking off"
                   className="w-full drop-shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                 />

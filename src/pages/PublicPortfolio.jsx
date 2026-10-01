@@ -58,7 +58,7 @@ export default function PublicPortfolio() {
         {/* The logo at its own aspect (`w-auto`), as in the app header. It was
             forced into a 56px square, which is the "really compressed" logo
             Ethan saw on a link that had not been published yet. */}
-        <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-12 w-auto rounded-xl shadow-card" />
+        <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-12 w-auto rounded-xl shadow-card" />
         <h1 className="text-xl font-bold text-ink">This portfolio is not here</h1>
         <p className="max-w-sm text-sm text-smoke">
           It may have been unpublished, or the address may be wrong. Nothing has gone missing from
@@ -77,7 +77,7 @@ export default function PublicPortfolio() {
           and it does not pretend to be navigation. */}
       <header className="animate-fade-up border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-lg" />
+          <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-8 w-auto shrink-0 rounded-lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-ink">{creator?.name}</p>
             <p className="truncate text-[11px] text-smoke">Tryp.com Content Creator Community</p>
@@ -142,7 +142,7 @@ export default function PublicPortfolio() {
             href="https://tryp.com"
             className="inline-flex items-center gap-2 text-xs font-semibold text-smoke hover:text-brand"
           >
-            <img src="/brand/tryp-logo.png" alt="" className="h-5 w-auto rounded" />
+            <img src="/brand/tryp-logo-360.png" alt="" className="h-5 w-auto rounded" />
             Part of the Tryp.com Content Creator Community
           </a>
         </footer>

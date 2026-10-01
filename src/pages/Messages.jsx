@@ -22,7 +22,7 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
-import { setChatChromeHidden } from '../lib/chatChrome'
+import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
 import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
@@ -1417,6 +1417,8 @@ export default function Messages() {
     // REACHING THE TOP OF THE THREAD IS WHERE YOU HAVE RUN OUT OF MESSAGES AND
     // ARE LOOKING FOR SOMETHING ELSE, so the chrome comes back there and goes
     // away everywhere else. Same rule as the rooms.
+    // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
+    if (!readerMovedChrome()) return
     if (el.scrollTop < 12) showChrome()
     else hideChrome()
   }, [showChrome, hideChrome])
@@ -2329,6 +2331,7 @@ export default function Messages() {
                 // where it sits, and two mechanisms moving one scroller is the jitter.
                 data-chat-scroller
                 onScroll={onScrollMessages}
+                {...chromeGestureHandlers}
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
                 onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}

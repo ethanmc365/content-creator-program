@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { GEO_URL, loadMapFeatures } from '../lib/mapCountries'
+import { GEO_URL, loadMapFeatures, atlasReady } from '../lib/mapCountries'
+import { useSlowNetwork } from '../lib/netQuality'
 import { createEarthScene, prepareLand } from '../lib/earth/earthScene'
 import { cx } from '../lib/utils'
 
@@ -22,10 +23,15 @@ function measure(canvas) {
 
 export default function SpinningEarth({ className = '', tilt = -18, speed = 7 }) {
   const hostRef = useRef(null)
+  // DECORATION WAITS FOR A GOOD CONNECTION (1 Oct 2026): the globe is the world
+  // atlas, and on a slow line that download competes with the page itself. If
+  // the atlas is already here it costs nothing, so it draws.
+  const slow = useSlowNetwork()
+  const skip = slow && !atlasReady()
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host) return undefined
+    if (!host || skip) return undefined
     // A canvas made per run: one that has been handed to a worker can never be handed over (or drawn on) again, and
     // React runs an effect twice in development.
     const canvas = document.createElement('canvas')
@@ -107,7 +113,7 @@ export default function SpinningEarth({ className = '', tilt = -18, speed = 7 })
       unmount()
     }
     return () => cleanup()
-  }, [tilt, speed])
+  }, [tilt, speed, skip])
 
   return <span ref={hostRef} aria-hidden className={cx('pointer-events-none block aspect-square', className)} />
 }

@@ -168,7 +168,7 @@ export default function Landing() {
           )}
         >
           <Link to="/" className="landing-lift flex items-center gap-2.5">
-            <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg sm:h-9" />
+            <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-8 rounded-lg sm:h-9" />
             {/* GREY, NOT INK (8 Sep 2026). Ethan: "at the very top bar where it
                 says Content Creator Community, it's in black, and then the
                 Tryp.com sign and the login button - it's in like a grey. I

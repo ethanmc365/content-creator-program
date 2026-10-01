@@ -57,7 +57,7 @@ export default function TrypPlaneScene({ title, subtitle, children, z = 'z-[100]
       {/* Centered plane + message */}
       <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
         <div className="tryp-plane relative w-[320px] max-w-full sm:w-[460px]">
-          <img src="/brand/tryp-plane.png" alt="Tryp.com plane" className="relative z-10 w-full" />
+          <img src="/brand/tryp-plane-640.png" alt="Tryp.com plane" className="relative z-10 w-full" />
         </div>
         <div className="max-w-sm">
           <h1 className="text-2xl font-bold text-ink sm:text-3xl">{title}</h1>

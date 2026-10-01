@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
+import { prizeForGroup } from './challengeGroups'
 import { onResume } from './resume'
 
 // ONE LIVE BOARD PER CHALLENGE, HOWEVER MANY CARDS ARE SHOWING IT (22 Sep 2026).
@@ -38,6 +39,12 @@ async function read(challengeId, groupId) {
     })(),
   ])
   if (chErr || rowErr) throw chErr || rowErr
+  // ONE GROUP'S BOARD PLAYS FOR THAT GROUP'S PRIZES (1 Oct 2026), not the
+  // challenge's - which on a split challenge are usually empty.
+  if (groupId && challenge) {
+    const { data: group } = await supabase.from('challenge_groups').select('*').eq('id', groupId).maybeSingle()
+    if (group) return { challenge: { ...challenge, ...prizeForGroup(group, challenge), group_name: group.name }, rows: rows ?? [] }
+  }
   return { challenge, rows: rows ?? [] }
 }
 

@@ -6,7 +6,7 @@ export default function LegalShell({ title, updated, children }) {
     <div className="min-h-screen bg-cloud/40 px-5 py-10 sm:py-16">
       <div className="mx-auto max-w-3xl">
         <Link to="/" className="mb-8 inline-flex items-center gap-2">
-          <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg shadow-card" />
+          <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-9 rounded-lg shadow-card" />
         </Link>
         <div className="card !p-8 sm:!p-12">
           <h1 className="text-3xl font-bold">{title}</h1>
