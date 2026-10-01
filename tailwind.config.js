@@ -37,6 +37,16 @@ export default {
           '0%': { transform: 'scaleY(0)' },
           '100%': { transform: 'scaleY(1)' },
         },
+        // A rail card that arrives after the rail's own entrance (the VIP communities, whose rows load late).
+        // Switching between tabs of one page: short, small, opacity-led, so a kept tab reappearing reads as a switch.
+        'tab-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'slide-in-right': {
+          from: { opacity: '0', transform: 'translateX(28px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
         'fade-up': {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -259,6 +269,8 @@ export default {
         // centre and makes the label look unsteady.
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
+        'tab-in': 'tab-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'slide-in-right': 'slide-in-right 0.55s cubic-bezier(0.22, 1, 0.36, 1) both',
         'bar-rise': 'bar-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
         'board-swap': 'board-swap 180ms ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',

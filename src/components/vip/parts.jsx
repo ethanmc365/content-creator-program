@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import VideoThumb from '../VideoThumb'
+import SocialMark from '../SocialMark'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { platformOf } from '../../lib/videoLinks'
@@ -28,6 +29,7 @@ export function vipError(message, tr) {
   if (/already in the VIP programme/i.test(m)) return tr('This video is already in the VIP programme.')
   const old = m.match(/more than (\d+) days ago/i)
   if (old) return tr('That video was posted more than {n} days ago, so it cannot be added.', { n: old[1] })
+  if (/before this month/i.test(m)) return tr('That video was posted before this month started. Only videos posted this month count for this month.')
   if (/already counted/i.test(m)) return tr('A statement already counted this month. Ask the team to take it out.')
   return m
 }
@@ -56,61 +58,85 @@ export function TargetBar({ label, value, target, format = nf, done }) {
   )
 }
 
-/** Add a video: paste a link, the platform is read from it, and a refusal is said in words. */
-export function VipSubmit({ disabled, onAdded, windowDays = 60 }) {
+/** Add a video: paste a link, the platform is read from it, and a refusal is said in words.
+ *
+ * REDONE (1 Oct 2026). Ethan: the browser's own "Please enter a URL" bubble appeared over the form (it was an
+ * `<input type="url">`), and the box should look like the rest of the page. The form now checks the link itself and
+ * says what is wrong in the same red line every other refusal uses. Only videos posted in THIS month are taken, and
+ * once one is added its views are read straight away (migration 307 asks for a reading on insert); the page asks
+ * again every few seconds until the first reading lands, so the number appears without a refresh. */
+export function VipSubmit({ disabled, onAdded, month }) {
   const tr = useT()
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [focus, setFocus] = useState(false)
   const platform = platformOf(url)
   const looksLink = /^https?:\/\//i.test(url.trim())
+  const since = month ? monthLabel(month.year, month.month) : ''
 
   async function add(e) {
     e.preventDefault()
     setErr('')
+    const link = url.trim()
+    if (!link) { setErr(tr('Paste the link to your video first.')); return }
+    if (!/^https?:\/\/\S+\.\S+/i.test(link)) { setErr(tr('That does not look like a link. Copy it from the share button on your video.')); return }
     if (!platform) { setErr(tr('Only TikTok, Instagram, YouTube and Facebook links carry a view count we can read.')); return }
     setBusy(true)
     try {
-      await vipRpc('vip_submit_video', { p_url: url.trim(), p_platform: platform, p_caption: null })
+      await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null })
       setUrl('')
-      toastSuccess(tr('Added. We read its views within the hour, and every day after.'))
-      onAdded?.()
+      toastSuccess(tr('Added. Reading its views now.'))
+      onAdded?.({ watch: true })
     } catch (e2) { setErr(vipError(e2.message, tr)) } finally { setBusy(false) }
   }
 
   return (
-    <form onSubmit={add} className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-card"><Icon name="video" className="h-5 w-5" /></span>
-        <div className="min-w-0">
-          <h3 className="text-[15px] font-bold text-ink">{tr('Add a video')}</h3>
-          <p className="text-xs text-smoke">{tr('Posted in the last {n} days, on your own account.', { n: windowDays })}</p>
+    <form onSubmit={add} noValidate className="relative overflow-clip rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+      <span aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />
+      <div className="relative flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card"><Icon name="video" className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-bold text-ink">{tr('Submit a video')}</h3>
+          <p className="text-xs text-smoke">{since ? tr('Posted in {m}, on your own account.', { m: since }) : tr('Posted this month, on your own account.')}</p>
         </div>
+        <span className="hidden items-center gap-1.5 sm:flex" aria-hidden>
+          {['tiktok', 'instagram', 'youtube', 'facebook'].map((b) => (
+            <span key={b} className={cx('block h-6 w-6 overflow-hidden rounded-lg transition-all duration-300', platform && platform.toLowerCase() !== b ? 'opacity-25 grayscale' : 'opacity-100')}><SocialMark brand={b} tile className="h-full w-full" /></span>
+          ))}
+        </span>
       </div>
-      <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
-        <div className="relative min-w-0 flex-1">
+      <div className="relative mt-4 flex flex-col gap-2.5 sm:flex-row">
+        <div className={cx('field-shell relative flex min-w-0 flex-1 items-center rounded-xl border-2 bg-cloud/40 transition-colors duration-200', err ? 'border-red-200 bg-red-50/40' : focus ? 'border-brand/40 bg-white' : 'border-transparent')}>
+          <Icon name="link" className={cx('ml-3.5 h-4 w-4 shrink-0 transition-colors', focus || url ? 'text-brand' : 'text-gray-400')} />
           <input
-            type="url"
+            type="text"
             inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={url}
             onChange={(e) => { setUrl(e.target.value); setErr('') }}
+            onFocus={() => setFocus(true)}
+            onBlur={() => setFocus(false)}
             placeholder={tr('Paste the link to your video')}
             disabled={disabled}
             aria-label={tr('Link to your video')}
-            className="input !pr-28"
+            aria-invalid={!!err}
+            className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[15px] text-ink outline-none placeholder:text-gray-400"
           />
           {looksLink && (
-            <span className={cx('absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11px] font-bold', platform ? 'bg-brand-tint text-brand' : 'bg-amber-50 text-amber-700')}>
+            <span className={cx('mr-2.5 shrink-0 animate-pop-in rounded-full px-2.5 py-1 text-[11px] font-bold', platform ? 'bg-brand-tint text-brand' : 'bg-amber-50 text-amber-700')}>
               {platform || tr('Unknown link')}
             </span>
           )}
         </div>
-        <button type="submit" disabled={busy || disabled || !url.trim()} className="btn-primary shrink-0 justify-center disabled:opacity-50">
+        <button type="submit" disabled={busy || disabled} className="btn-primary shrink-0 justify-center !px-6 disabled:opacity-50">
           {busy ? <Spinner className="h-4 w-4" /> : <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />}
           {tr('Add video')}
         </button>
       </div>
-      {err && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{err}</p>}
+      {err && <p role="alert" className="relative mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600 animate-fade-up"><Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />{err}</p>}
     </form>
   )
 }
@@ -233,7 +259,7 @@ function Line({ label, value, good }) {
   )
 }
 
-/** This month's VIPs by views: first name and photo, the prizes beside their places. */
+/** This month's VIPs by views: the top three as a podium, everyone else as a list, the prizes beside their places. */
 export function VipBoardList({ rows, rules, currency }) {
   const tr = useT()
   const prizes = useMemo(() => {
@@ -245,22 +271,55 @@ export function VipBoardList({ rows, rules, currency }) {
     }
     return out
   }, [rules, currency, tr])
-  if (!rows?.length) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody has views yet this month. Add a video to get on the board.')}</p>
+  if (!rows?.length) {
+    return (
+      <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center">
+        <Icon name="trophy" className="mx-auto h-7 w-7 text-gray-300" />
+        <p className="mt-2 text-sm text-smoke">{tr('Nobody has views yet this month. Add a video to get on the board.')}</p>
+      </div>
+    )
+  }
+  const top = rows.slice(0, 3)
+  const rest = rows.slice(3)
+  // Second, first, third: the winner in the middle and tallest.
+  const order = [top[1], top[0], top[2]].filter(Boolean)
+  const height = { 1: 'h-24', 2: 'h-16', 3: 'h-12' }
   return (
-    <ol className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-      {rows.map((r, i) => (
-        <li key={i} className={cx('flex items-center gap-3 px-4 py-3', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')}>
-          <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums', r.rank === 1 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{r.rank}</span>
-          <Avatar src={r.photo} name={r.name} size="sm" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-ink">{r.name}{r.me && <span className="ml-1.5 text-[11px] font-bold text-brand">{tr('You')}</span>}</span>
-            <span className="block text-[11px] text-smoke">{r.videos === 1 ? tr('1 video') : tr('{n} videos', { n: r.videos })}</span>
-          </span>
-          {prizes[r.rank] && <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 sm:inline">{prizes[r.rank].join(' + ')}</span>}
-          <span className="text-right text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-3">
+      <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 pb-0 pt-5 text-white shadow-card">
+        <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+        <div className="relative flex items-end justify-center gap-3 sm:gap-5">
+          {order.map((r, i) => (
+            <div key={r.rank} className="flex w-1/3 max-w-[9rem] flex-col items-center animate-fade-up" style={{ animationDelay: `${i * 90}ms` }}>
+              <div className="relative">
+                <Avatar src={r.photo} name={r.name} size={r.rank === 1 ? 'lg' : 'md'} className="ring-4 ring-white/40" />
+                {r.rank === 1 && <Icon name="star" className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-white p-0.5 text-brand shadow" />}
+              </div>
+              <p className="mt-1.5 max-w-full truncate text-sm font-bold">{r.name}{r.me ? ` · ${tr('You')}` : ''}</p>
+              <p className="text-xs font-semibold tabular-nums text-white/85">{formatViews(r.views)}</p>
+              {prizes[r.rank] && <p className="mt-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{prizes[r.rank].join(' + ')}</p>}
+              <div className={cx('mt-2 flex w-full items-start justify-center rounded-t-xl bg-white/20 pt-1.5 text-lg font-extrabold origin-bottom animate-bar-rise', height[r.rank])}>{r.rank}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {rest.length > 0 && (
+        <ol className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          {rest.map((r, i) => (
+            <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-3 animate-fade-up', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
+              <span className="w-7 shrink-0 text-center text-sm font-bold tabular-nums text-gray-400">{r.rank}</span>
+              <Avatar src={r.photo} name={r.name} size="sm" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink">{r.name}{r.me && <span className="ml-1.5 text-[11px] font-bold text-brand">{tr('You')}</span>}</span>
+                <span className="block text-[11px] text-smoke">{r.videos === 1 ? tr('1 video') : tr('{n} videos', { n: r.videos })}</span>
+              </span>
+              {prizes[r.rank] && <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 sm:inline">{prizes[r.rank].join(' + ')}</span>}
+              <span className="text-right text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }
 
@@ -345,18 +404,22 @@ export function VipTermsGate({ open, programme, onAccepted }) {
   )
 }
 
-/** A nudge that costs nothing to ignore until money is waiting: payment details. */
+/** A nudge that costs nothing to ignore until money is waiting: payment details.
+ *
+ * IN THE PAGE'S OWN COLOURS (1 Oct 2026). Ethan asked for its colour to change: it was the amber of a warning, the
+ * only amber card on a page of white and orange. It is a white card with the brand's tile, like every other card. */
 export function PaymentBanner() {
   const tr = useT()
   return (
-    <Link to="/settings?section=payment" className="group flex items-center gap-3 rounded-card border border-amber-200 bg-amber-50/70 px-4 py-3.5 transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Icon name="wallet" className="h-5 w-5" /></span>
+    <Link to="/settings?section=payment" className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-brand/20 bg-white px-4 py-3.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="wallet" className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-amber-900">{tr('Add your payment details')}</span>
-        <span className="block text-xs text-amber-800/80">{tr('We cannot pay your monthly invoice until they are saved.')}</span>
+        <span className="block text-sm font-bold text-ink">{tr('Add your payment details')}</span>
+        <span className="block text-xs text-smoke">{tr('We cannot pay your monthly invoice until they are saved.')}</span>
       </span>
-      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-amber-700 transition-transform group-hover:translate-x-0.5" />
+      <span className="hidden shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white sm:inline">{tr('Add them')}</span>
+      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand transition-transform group-hover:translate-x-0.5 sm:hidden" />
     </Link>
   )
 }
-

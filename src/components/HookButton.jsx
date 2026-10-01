@@ -86,7 +86,7 @@ export function prefetchHooks() {
   else setTimeout(go, 600)
 }
 
-export default function HookButton({ className }) {
+export default function HookButton({ className, variant = 'card' }) {
   const tr = useT()
   const [open, setOpen] = useState(false)
   const [hook, setHook] = useState(null)
@@ -134,8 +134,25 @@ export default function HookButton({ className }) {
     if (ok !== false) toastSuccess(tr('Hook copied'))
   }
 
+  // `big` (1 Oct 2026): the button alone, larger, for the VIP library where it sits beside "Find a deal".
+  const bigButton = (
+    <div className={cx('relative', className)}>
+      <span aria-hidden className="absolute inset-0 animate-cta-glow rounded-2xl bg-brand/50 blur-md" />
+      <button
+        type="button"
+        onClick={start}
+        className="hook-cta relative flex h-full min-h-[4.5rem] w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-brand to-brand-light px-6 py-5 text-base font-bold text-white shadow-card transition-transform duration-200 hoverable:hover:scale-[1.02] active:scale-[0.98]"
+      >
+        <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+        <span className="hook-sparkles relative h-6 w-6" aria-hidden><Icon name="sparkles" className="h-6 w-6" /></span>
+        {tr('Hook me up')}
+      </button>
+    </div>
+  )
+
   return (
     <>
+      {variant === 'big' ? bigButton : (<>
       {/* JUST THE BUTTON, AND IT ASKS TO BE PRESSED (26 Sep 2026).
           Ethan: "remove where it says 'Stuck on the first line' and the other
           icon ... All I would have here is the button, small. Maybe have it
@@ -160,6 +177,7 @@ export default function HookButton({ className }) {
         {/* The other thing a creator needs before filming: a price to show. */}
         <DealFinder className="mt-2.5" />
       </section>
+      </>)}
 
       <Modal open={open} onClose={() => setOpen(false)} title={tr('Your hook')}>
         <div className="space-y-5">

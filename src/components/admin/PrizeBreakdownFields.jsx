@@ -157,10 +157,13 @@ export function cleanExtraAwards(list = []) {
  * rather than inventing one.
  */
 export function prizeBudget({ prizes = [], participation = null, awards = [], creators = null } = {}) {
-  const rows = (Array.isArray(prizes) ? prizes : []).filter((p) => Number(p.amount) > 0)
+  // The value box, or the amount read out of the words when the box is empty - the same fallback the payout uses
+  // (`prize_amount_of`), so the total never says €0 for a row that will pay €150.
+  const amountOf = (p) => toAmount(p.amount) ?? toAmount(numberIn(p.prize)) ?? 0
+  const rows = (Array.isArray(prizes) ? prizes : []).filter((p) => amountOf(p) > 0)
   const places = { cash: 0, voucher: 0, count: 0 }
   for (const p of rows) {
-    places[rowType(p)] += Number(p.amount)
+    places[rowType(p)] += amountOf(p)
     if (String(p.place || '').trim()) places.count += 1
   }
   const extra = (Array.isArray(awards) ? awards : [])
@@ -347,6 +350,9 @@ export default function PrizeBreakdownFields({
   onExtraAwards = null,
   idPrefix = 'prize',
   dense = false,
+  // A GROUP's taking-part reward (1 Oct 2026): its own value, cash or voucher, and videos or points like the
+  // challenge's - but the cap and who can earn it stay the challenge's, so those two rows are left out.
+  groupMode = false,
 }) {
   // The taking-part card is open when it holds anything, or once "Add" has been
   // pressed and before anything is typed.
@@ -499,6 +505,7 @@ export default function PrizeBreakdownFields({
               {/* THE CAP. Ethan: "only the first 30 creators can actually earn
                   that, so we're not giving out theoretically unlimited
                   vouchers." First = whoever's Nth entry went in first. */}
+              {!groupMode && (<>
               <SettingRow
                 label="How many"
                 note={participationExtra.cap && Number(participationExtra.cap) > 0
@@ -525,6 +532,10 @@ export default function PrizeBreakdownFields({
                   ]}
                 />
               </SettingRow>
+              </>)}
+              {groupMode && pointsBasisAllowed && (
+                <p className="text-[11px] text-smoke">Videos or points is set once for the whole challenge, so every group earns it the same way.</p>
+              )}
             </div>
           )}
         </RewardCard>
@@ -618,12 +629,42 @@ export default function PrizeBreakdownFields({
  * THE TOTALS, DERIVED: what the challenge costs, split into cash and vouchers,
  * with the taking-part reward shown as the range it really is.
  */
+/** Several leaderboards' budgets as one: what a split challenge costs in total, with a line per group. */
+export function combineBudgets(parts) {
+  const add = (a, b) => (a == null || b == null ? null : a + b)
+  const out = {
+    places: { cash: 0, voucher: 0, count: 0 },
+    awards: [],
+    part: null,
+    groups: [],
+    min: { cash: 0, voucher: 0, total: 0 },
+    max: { cash: 0, voucher: 0, total: 0 },
+  }
+  for (const { label, budget: b } of parts) {
+    out.places.cash += b.places.cash
+    out.places.voucher += b.places.voucher
+    out.places.count += b.places.count
+    out.awards.push(...b.awards)
+    for (const k of ['cash', 'voucher', 'total']) {
+      out.min[k] += b.min[k]
+      out.max[k] = add(out.max[k], b.max[k])
+    }
+    if (b.part) {
+      out.part = out.part
+        ? { ...out.part, each: Math.max(out.part.each, b.part.each), max: add(out.part.max, b.part.max), reach: add(out.part.reach, b.part.reach) }
+        : { ...b.part }
+    }
+    out.groups.push({ label, min: b.min.total, max: b.max.total, places: b.places.count, part: b.part })
+  }
+  return out
+}
+
 export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null }) {
   const { places, awards, part, min, max } = budget
   const ranged = !!part && part.each > 0
   const range = (lo, hi) => (hi == null ? `${money(symbol, lo)}+` : lo === hi ? money(symbol, lo) : `${money(symbol, lo)} to ${money(symbol, hi)}`)
   const lines = []
-  if (places.cash + places.voucher > 0) {
+  if (places.cash + places.voucher > 0 && !(budget.groups || []).length) {
     lines.push({
       icon: 'trophy',
       label: `${places.count} prize place${places.count === 1 ? '' : 's'}`,
@@ -634,7 +675,17 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
   for (const a of awards) {
     lines.push({ icon: 'star', label: a.label, value: money(symbol, a.amount), note: a.type === 'cash' ? 'cash' : 'voucher' })
   }
-  if (part) {
+  // A SPLIT CHALLENGE ADDS UP EVERY GROUP (1 Oct 2026). Ethan: "at the very bottom the total cost doesn't appear
+  // whenever you assign different prizes for the different groups." Each group is a line; the headline is the sum.
+  for (const g of budget.groups || []) {
+    lines.push({
+      icon: 'users',
+      label: g.label,
+      value: g.min === g.max ? money(symbol, g.min) : range(g.min, g.max),
+      note: [`${g.places} place${g.places === 1 ? '' : 's'}`, g.part ? `taking part: ${money(symbol, g.part.each)} each at ${g.part.threshold} ${g.part.basis === 'points' ? 'points' : 'videos'}` : null].filter(Boolean).join(', '),
+    })
+  }
+  if (part && !(budget.groups || []).length) {
     lines.push({
       icon: 'video',
       label: 'Taking part',

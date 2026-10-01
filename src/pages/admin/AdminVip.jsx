@@ -37,18 +37,21 @@ export default function AdminVip() {
   const [params, setParams] = useSearchParams()
   const [programmes, setProgrammes] = useState(null)
   const [pid, setPid] = useState(null)
+  // TABS STAY MOUNTED ONCE OPENED (1 Oct 2026). Ethan: "there's a bit of lag when clicking between these with things
+  // loading." Every tab used to be thrown away when you left it and fetched from nothing when you came back, so each
+  // press was a skeleton and then a jump. Now a tab you have opened is kept (hidden) for this programme, so going back
+  // to it is instant, and only the first visit loads.
+  const [seen, setSeen] = useState(() => new Set())
   const tab = TABS.includes(params.get('tab')) && (params.get('tab') !== 'access' || isOwner) ? params.get('tab') : 'overview'
 
   // EVERYBODY WITH ACCESS SEES EVERY MARKET; THEY MANAGE THEIR OWN (migration 299). `can_manage` is what the
   // screens use to hide the controls a person could not use; the database refuses the rest either way.
   const load = useCallback(async () => {
     const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug)').order('name')
-    const all = []
-    for (const p of data || []) {
-      if (!p.active && !isOwner) continue
-      const { data: ok } = await supabase.rpc('vip_can_manage', { p_programme: p.id })
-      all.push({ ...p, can_manage: !!ok })
-    }
+    // All at once, not one round trip after another (it was the first second of every visit).
+    const shown = (data || []).filter((p) => p.active || isOwner)
+    const oks = await Promise.all(shown.map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
+    const all = shown.map((p, i) => ({ ...p, can_manage: oks[i] }))
     all.sort((a, b) => Number(b.can_manage) - Number(a.can_manage))
     setProgrammes(all)
     setPid((cur) => cur && all.some((p) => p.id === cur) ? cur : all[0]?.id || null)
@@ -65,6 +68,9 @@ export default function AdminVip() {
     )
   }
   const programme = programmes.find((p) => p.id === pid) || programmes[0]
+  const seenKey = `${programme.id}:${tab}`
+  if (!seen.has(seenKey)) setSeen((s) => new Set(s).add(seenKey))
+  const visited = (t) => t === tab || seen.has(`${programme.id}:${t}`)
 
   // THE WAY INTO THE VIP'S OWN SIDE (1 Oct 2026). Ethan: "how do I get to that screen?" A VIP sees their page, rooms,
   // videos, statements and guides; the team never sees those as a VIP. This opens the hidden sandbox VIP in Spain, the
@@ -125,18 +131,22 @@ export default function AdminVip() {
         <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
       )}
 
-      <div key={`${programme.id}:${tab}`} className="animate-fade-up">
-        {tab === 'overview' && <VipOverviewTab programme={programme} />}
-        {tab === 'members' && <VipMembersTab programme={programme} />}
-        {tab === 'markets' && <VipMarketsTab programme={programme} isOwner={isOwner} onChanged={load} />}
-        {tab === 'content' && <VipContentTab programme={programme} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams({ tab: 'content', part: v }, { replace: true })} />}
-        {tab === 'announcements' && <AnnouncementsTab programme={programme} />}
-        {tab === 'bonuses' && <VipBonusesTab programme={programme} />}
-        {tab === 'close' && <VipCloseTab programme={programme} />}
-        {tab === 'kpis' && <VipKpiTab programme={programme} />}
-        {tab === 'analytics' && <VipAnalyticsTab programme={programme} isAdmin={isAdmin} />}
-        {tab === 'settings' && <VipSettingsTab programme={programme} onSaved={load} />}
-        {tab === 'access' && <VipAccessTab programmes={programmes} />}
+      <div key={programme.id}>
+        {[
+          ['overview', () => <VipOverviewTab programme={programme} />],
+          ['members', () => <VipMembersTab programme={programme} />],
+          ['markets', () => <VipMarketsTab programme={programme} isOwner={isOwner} onChanged={load} />],
+          ['content', () => <VipContentTab programme={programme} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams({ tab: 'content', part: v }, { replace: true })} />],
+          ['announcements', () => <AnnouncementsTab programme={programme} />],
+          ['bonuses', () => <VipBonusesTab programme={programme} />],
+          ['close', () => <VipCloseTab programme={programme} />],
+          ['kpis', () => <VipKpiTab programme={programme} />],
+          ['analytics', () => <VipAnalyticsTab programme={programme} isAdmin={isAdmin} />],
+          ['settings', () => <VipSettingsTab programme={programme} onSaved={load} />],
+          ['access', () => <VipAccessTab programmes={programmes} />],
+        ].filter(([t]) => visited(t)).map(([t, render]) => (
+          <div key={t} hidden={t !== tab} className={t === tab ? 'animate-tab-in' : undefined}>{render()}</div>
+        ))}
       </div>
     </div>
   )

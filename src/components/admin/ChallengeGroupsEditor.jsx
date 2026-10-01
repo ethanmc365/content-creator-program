@@ -84,7 +84,7 @@ const ownPrize = (g) => g.prize_own ?? !!(
 // group who has since left it - see the note on `strangers` in the form. They
 // are the same list in the normal case and the distinction only matters at the
 // edges, which is exactly where a chip reading "?" would have appeared.
-export default function ChallengeGroupsEditor({ groups, onChange, audience = [], people = null, currency = 'EUR' }) {
+export default function ChallengeGroupsEditor({ groups, onChange, audience = [], people = null, currency = 'EUR', pointsAllowed = false, basis = 'entries', onBasis = null }) {
   const [pickerFor, setPickerFor] = useState(null) // index of the group being added to
 
   const byId = useMemo(() => new Map((people ?? audience).map((p) => [p.id, p])), [people, audience])
@@ -95,7 +95,8 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
   const unassigned = audience.filter((p) => !assigned.has(p.id))
 
   const setGroup = (i, patch) =>
-    onChange(groups.map((g, j) => (j === i ? { ...g, ...patch } : g)))
+    // Functional, so two changes from one keystroke (the reward text and the value read from it) both land.
+    onChange((prev) => prev.map((g, j) => (j === i ? { ...g, ...patch } : g)))
 
   const makeGroup = (i) => ({ ...BLANK_GROUP(), name: suggestName(i), prize_currency: currency })
 
@@ -279,6 +280,8 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                       prize_structure: [],
                       participation_threshold: '',
                       participation_prize: '',
+                      participation_amount: '',
+                      participation_reward_type: null,
                     })}
                   className={cx(
                     'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
@@ -306,6 +309,25 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                 participationPrize={g.participation_prize ?? ''}
                 onParticipation={({ threshold, prize }) =>
                   setGroup(i, { participation_threshold: threshold, participation_prize: prize, prize_own: true })}
+                // THE GROUP'S OWN TAKING-PART REWARD, PROPERLY (1 Oct 2026): a value, cash or voucher, and videos or
+                // points - "we want to be able to do it to the points, like the way we have it set up for the global
+                // challenge". Videos-or-points is the challenge's one setting, shared by every group.
+                groupMode
+                pointsBasisAllowed={pointsAllowed}
+                participationExtra={{
+                  amount: g.participation_amount ?? '',
+                  reward_type: g.participation_reward_type || 'voucher',
+                  basis,
+                  cap: '',
+                  scope: 'everyone',
+                }}
+                onParticipationExtra={(patch) => {
+                  if ('basis' in patch && onBasis) onBasis(patch.basis)
+                  const own = {}
+                  if ('amount' in patch) own.participation_amount = patch.amount
+                  if ('reward_type' in patch) own.participation_reward_type = patch.reward_type
+                  if (Object.keys(own).length) setGroup(i, { ...own, prize_own: true })
+                }}
               />
               {/* Derived, and shown for the same reason the challenge shows it:
                   so nobody has to add up their own prize rows to check the

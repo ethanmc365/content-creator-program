@@ -51,6 +51,7 @@ export default function Signup() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
   const [agreed, setAgreed] = useState(false)
+  const [signedUpHere, setSignedUpHere] = useState(false)
 
   // Is the VIP link good, and which programme is it for? Also: open the page in the programme's language
   // unless this device has already been told otherwise.
@@ -116,10 +117,10 @@ export default function Signup() {
     // SOMEBODY ALREADY SIGNED IN IS ASKED, NOT SWITCHED (1 Oct 2026). Opening the link used to make whoever was signed
     // in a VIP the moment the page loaded ("it just automatically logged me in with my other account"). The page now
     // says who is signed in and lets them choose; see the card below.
-    if (vipToken && vipInvite?.valid) return
-    if (vipToken && vipInvite === null) return
+    if (vipToken && vipInvite?.valid && !signedUpHere) return
+    if (vipToken && vipInvite === null && !signedUpHere) return
     navigate('/onboarding', { replace: true })
-  }, [user, navigate, demoAsked, vipToken, vipInvite])
+  }, [user, navigate, demoAsked, vipToken, vipInvite, signedUpHere])
 
   // The signed-in visitor chose to join with the account they are already using.
   async function joinWithThisAccount() {
@@ -129,6 +130,9 @@ export default function Signup() {
     navigate('/vip', { replace: true })
   }
   // ...or to start again as somebody else: sign out, keep the link, and the sign-up form below is what is left.
+  // A NEW ACCOUNT MADE ON THIS PAGE IS NOT ASKED "JOIN WITH THIS ACCOUNT?" (1 Oct 2026). Ethan: after "Sign out and
+  // use another" and signing up, the same card came back naming the account he had just created. An account made
+  // here goes straight on to the profile, where the link is claimed (Onboarding reads `tryp_vip_invite`).
   async function useAnotherAccount() {
     try { await signOut() } catch { /* the form below still works */ }
   }
@@ -151,9 +155,12 @@ export default function Signup() {
       return
     }
     setBusy(true)
+    setSignedUpHere(true)
+    if (vipToken) { try { localStorage.setItem('tryp_vip_invite', vipToken) } catch { /* private mode */ } }
     const { data, error } = await signUp(emailVal, passVal, nameVal, ref, captchaToken)
     if (error) {
       setBusy(false)
+      setSignedUpHere(false)
       // "CAN THEY STILL USE THAT EMAIL TO SIGN UP NORMALLY?" - THE ANSWER IS
       // NO, AND THE SCREEN HAS TO SAY WHICH DOOR IS THEIRS (7 Sep 2026).
       //
@@ -191,7 +198,7 @@ export default function Signup() {
   return (
     <AuthShell
       title={teamInvite?.valid ? tr('Join the Tryp.com team') : vipInvite?.valid ? tr('Join the VIP creators') : tr("Join the community")}
-      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : vipInvite?.valid ? tr('You have been invited. Create your account and tell us about you.') : tr("Create your creator account. It takes a minute.")}
+      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : vipInvite?.valid ? null : tr("Create your creator account. It takes a minute.")}
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
       {vipToken && vipInvite && (
@@ -199,8 +206,9 @@ export default function Signup() {
           <div className="brand-drift relative mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-card sm:p-6">
             <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
             <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('By invitation')}</p>
-            <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Paid for every view you bring')}</p>
-            <p className="relative mt-1.5 text-sm leading-relaxed text-white/90">{tr('Your own page, your own rooms and a payout every month.')}</p>
+            {/* SHORTER (1 Oct 2026). Ethan: "just say 'Paid for every view.' Don't say 'your own page, your own rooms,
+                pay per every month'". The three steps say the rest. */}
+            <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Paid for every view')}</p>
             <ol className="relative mt-4 grid grid-cols-3 gap-2 text-center">
               {[tr('Make your account'), tr('Tell us about you'), tr('Your VIP page opens')].map((label, i) => (
                 <li key={label} className="rounded-xl bg-white/15 px-2 py-2.5 backdrop-blur-sm">
@@ -217,7 +225,7 @@ export default function Signup() {
         )
       )}
 
-      {vipToken && vipInvite?.valid && user && !demoAsked && (
+      {vipToken && vipInvite?.valid && user && !demoAsked && !signedUpHere && (
         <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
           <p className="text-sm text-smoke">{tr('You are signed in as')}</p>
           <p className="truncate text-[15px] font-bold text-ink">{profile?.name || user.email}</p>
@@ -269,7 +277,7 @@ export default function Signup() {
         )
       )}
 
-      {!(vipToken && vipInvite?.valid && user && !demoAsked) && (<>
+      {!(vipToken && vipInvite?.valid && user && !demoAsked && !signedUpHere) && (<>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>

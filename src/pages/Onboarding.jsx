@@ -488,6 +488,18 @@ export default function Onboarding() {
     })
   }, [user?.id, refreshProfile, demo])
 
+  // THE VIP MARKET, NOT THE COMMUNITY ONE (1 Oct 2026). Ethan signed up on the VIP link, picked his country and was
+  // told "your market is UK & Ireland". A VIP's market is the VIP programme that covers their country (or the default
+  // one): that is what the screen says, and what they are put in when they finish (vip_settle_home, migration 307).
+  const [vipHome, setVipHome] = useState(null)
+  useEffect(() => {
+    if (!vipApplication || demo) return undefined
+    let alive = true
+    supabase.rpc('vip_home_for', { p_country_code: draft.country_code || null })
+      .then(({ data }) => { if (alive) setVipHome(data || null) })
+    return () => { alive = false }
+  }, [vipApplication, demo, draft.country_code])
+
   const steps = useMemo(() => stepsFor(teamApplication), [teamApplication])
   const problems = draftProblems(draft, contact, { team: teamApplication })
   const problemsFor = (key) => problems.filter((p) => p.step === key)
@@ -741,7 +753,12 @@ export default function Onboarding() {
     // to let in. A failure here is not allowed to block onboarding - landing in
     // the network with no market is a state the whole shell handles, and being
     // stuck on a spinner is not.
-    if (market.market?.slug) {
+    if (vipApplication) {
+      // A VIP joins their VIP market, never a community market by country.
+      const { error: vipErr } = await supabase.rpc('vip_settle_home')
+      if (vipErr) console.warn('Could not settle the VIP market at onboarding:', vipErr.message)
+      clearVipCache()
+    } else if (market.market?.slug) {
       const { error: joinErr } = await supabase.rpc('join_market', { p_slug: market.market.slug })
       if (joinErr) console.warn('Could not join market at onboarding:', joinErr.message)
     }
@@ -887,7 +904,9 @@ export default function Onboarding() {
                   hint={tr("Pick from the list so we can put you in the right market.")}
                 />
 
-                <MarketCard market={market} country={draft.country} ready={marketsReady} />
+                {vipApplication
+                  ? <VipMarketCard home={vipHome} country={draft.country} />
+                  : <MarketCard market={market} country={draft.country} ready={marketsReady} />}
 
                 <div>
                   <label htmlFor="city" className="label">{tr("Town or city")} <Req /></label>
@@ -991,7 +1010,7 @@ export default function Onboarding() {
 
             {current.key === 'review' && (
               <Review
-                draft={draft} contact={contact} market={market} problems={problems}
+                draft={draft} contact={contact} market={market} problems={problems} vipHome={vipApplication ? vipHome : null}
                 pending={pending} onJump={goTo} demo={demo}
               />
             )}
@@ -1366,6 +1385,35 @@ function Welcome({ name, pending, vip }) {
  * later - and it means a creator sees the answer while the country picker is
  * still in front of them, which is the only moment they can correct it.
  */
+function VipMarketCard({ home, country }) {
+  const tr = useT()
+  const place = usePlaceNames()
+  if (!home) {
+    return (
+      <div className="flex items-center gap-3 rounded-card border border-dashed border-gray-200 px-4 py-3.5 text-xs text-smoke">
+        <Icon name="star" className="h-4 w-4 text-brand" />
+        {tr('Pick your country and we will tell you which VIP market you join.')}
+      </div>
+    )
+  }
+  return (
+    <div key={home.programme_id} className="onb-market relative overflow-hidden rounded-card bg-gradient-to-r from-brand to-brand-light px-4 py-3.5 text-white shadow-card">
+      <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/15 blur-xl" />
+      <div className="relative flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-xl leading-none">{(home.country_codes || []).map(flagFromIso).join('') || '⭐'}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-white/85">{tr('Your VIP market')}</p>
+          <p className="truncate text-[15px] font-bold">{home.name}</p>
+        </div>
+        <Icon name="star" className="h-5 w-5 shrink-0 text-white/90" />
+      </div>
+      {!home.matched && country && (
+        <p className="relative mt-2 text-xs leading-relaxed text-white/90">{tr('There is no VIP market for {country} yet, so you start in {m}. The team will move you if one opens.', { country: place.country(country), m: home.name })}</p>
+      )}
+    </div>
+  )
+}
+
 function MarketCard({ market, country, ready }) {
   const tr = useT()
   const place = usePlaceNames()
@@ -1642,7 +1690,7 @@ function BucketList({ rows = [], onChange }) {
  * to the screen it lives on, rather than an orange line saying "fill in all
  * required boxes" and leaving the hunt to you.
  */
-function Review({ draft, contact, market, problems, pending, onJump, demo }) {
+function Review({ draft, contact, market, problems, pending, onJump, demo, vipHome = null }) {
   const tr = useT()
   const place = usePlaceNames()
   const age = ageFromDob(draft.dob)
@@ -1694,7 +1742,16 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
         </div>
       </div>
 
-      {market.market ? (
+      {vipHome ? (
+        <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
+          <span className="text-xl leading-none" aria-hidden>{(vipHome.country_codes || []).map(flagFromIso).join('') || '⭐'}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-smoke">{tr('Your VIP market')}</p>
+            <p className="text-sm font-bold text-brand">{vipHome.name}</p>
+          </div>
+          <Icon name="star" className="h-5 w-5 shrink-0 text-brand" />
+        </div>
+      ) : market.market ? (
         <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
           <span className="text-xl leading-none" aria-hidden>
             {(market.market.country_codes || []).map(flagFromIso).join('') || '🌍'}

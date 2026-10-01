@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import SwipeToDismiss from '../SwipeToDismiss'
 import Icon from '../Icon'
 import { timeAgo, cx } from '../../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../../lib/notifications'
@@ -47,6 +48,8 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
       )}
       style={leaving ? undefined : { '--notif-i': Math.min(i, 8) }}
     >
+      <SwipeToDismiss className="w-full rounded-xl" label={tr('Clear')} onDismiss={() => onDismiss(n.id)}>
+      <div className="group/row relative flex items-stretch">
       <button
         onClick={() => onOpen(n)}
         className={cx(
@@ -112,6 +115,8 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
       >
         <Icon name="close" className="h-3.5 w-3.5" />
       </button>
+      </div>
+      </SwipeToDismiss>
     </div>
   )
 }

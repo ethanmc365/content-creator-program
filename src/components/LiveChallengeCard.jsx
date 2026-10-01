@@ -259,7 +259,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
         {/* A MARKET'S CHALLENGE CARRIES ITS OWN COUNTRY, highlighted on a zoomed map (see MarketMap); the global card has
             the turning Earth. The card stays the lighter gradient, so the two are never mistaken for each other. */}
         {!isGlobal && codes?.length > 0 && (
-          <MarketMap codes={codes} className="absolute -right-24 -top-4 h-[120%] w-auto opacity-90 [mask-image:linear-gradient(to_left,black_55%,transparent_100%)] sm:-right-10 lg:left-[50%] lg:right-auto lg:top-1/2 lg:h-[112%] lg:-translate-x-1/2 lg:-translate-y-1/2" />
+          <MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" />
         )}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the

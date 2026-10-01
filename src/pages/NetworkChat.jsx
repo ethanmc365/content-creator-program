@@ -1121,17 +1121,26 @@ export default function NetworkChat() {
   // first and then markets alphabetically is only the DEFAULT, used until
   // somebody drags something. A place with no rooms is dropped rather than
   // rendered as an empty heading.
-  const places = [
+  const allPlaces = [
     ...myCommunities,
     ...(community && !myCommunities.some((c) => c.id === community.id) ? [community] : []),
   ]
+  const places = allPlaces
     .map((c) => ({
       ...c,
       flags: (c.country_codes || []).map(flagFromIso).join(''),
-      rooms: sidebarRooms.filter((r) => r.community_id === c.id),
+      rooms: sidebarRooms.filter((r) => r.community_id === c.id && r.visibility !== 'vip'),
     }))
     .filter((c) => c.rooms.length > 0)
     .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
+  // THE VIP ROOMS, APART (1 Oct 2026). Ethan: "I don't see the specific VIP rooms. I just see it on the bottom of the
+  // Spanish one, but I said I wanted it to be separate." Each VIP market (and the lounge) is its own card under a
+  // "VIP rooms" heading, below the markets for the team and at the top for a VIP creator.
+  const vipFirst = !!profile?.is_vip && !isAdmin
+  const vipPlaces = allPlaces
+    .map((c) => ({ ...c, rooms: sidebarRooms.filter((r) => r.community_id === c.id && r.visibility === 'vip') }))
+    .filter((c) => c.rooms.length > 0)
+    .sort((a, b) => (a.kind === 'network') - (b.kind === 'network') || a.name.localeCompare(b.name))
 
   // The saved order, with anything it has not heard of (a market opened since
   // you last dragged) falling in behind at its alphabetical place rather than
@@ -1237,7 +1246,9 @@ export default function NetworkChat() {
             role="tablist"
             aria-label={`${community.name} rooms`}
           >
-            {channels.map((c) => {
+            {/* VIP ROOMS ARE THEIR OWN SET OF TABS (1 Oct 2026): in a VIP room the strip is that market's VIP rooms,
+                in a community room it is the community's. They used to sit at the end of the market's own tabs. */}
+            {channels.filter((c) => (c.visibility === 'vip') === (active?.visibility === 'vip')).map((c) => {
               // A ROOM WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN TAB. On a
               // phone this strip IS the navigation between rooms, and it was
               // the one place that never said which of the four had been
@@ -1977,6 +1988,41 @@ export default function NetworkChat() {
                 )
               }}
             />
+            {vipPlaces.length > 0 && (
+              <div className={cx('flex flex-col gap-3', vipFirst ? 'order-first' : '')}>
+                <p className="px-1 pt-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-brand">{tr('VIP rooms')}</p>
+                {vipPlaces.map((place) => {
+                  const here = place.id === community.id
+                  const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
+                  return (
+                    <div key={place.id} className="rounded-card border border-brand/25 bg-gradient-to-br from-brand-tint via-white to-white p-2 shadow-card">
+                      <div className="mb-1.5 flex items-center gap-2 border-b border-brand/10 px-1 pb-2 pt-1">
+                        <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg bg-white" title={place.name} />
+                        <span className={cx('min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em]', here ? 'text-brand' : 'text-ink')}>
+                          {place.kind === 'network' ? tr('VIP lounge') : tr('VIP {m}', { m: place.name })}
+                        </span>
+                        <Icon name="star" className="h-3.5 w-3.5 text-brand" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        {place.rooms.map((c) => {
+                          const on = here && active?.key === c.key
+                          const key = scopedKey(place, c.key)
+                          const isNew = key !== roomKey && unread.has(key)
+                          return (
+                            <Link key={c.id} to={`${roomBase}/${c.key}`} aria-current={on ? 'page' : undefined}
+                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-200', on ? 'bg-brand-tint font-semibold text-brand' : 'text-ink hover:bg-white')}>
+                              <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on || isNew ? 'text-brand' : 'text-smoke')} />
+                              <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
+                              {isNew && <UnreadDot size="sm" />}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </nav>
 
           {room}

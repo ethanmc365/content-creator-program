@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
+import { useAuth } from '../context/AuthContext'
 import { useUnread, scopedChannel } from '../context/UnreadContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
@@ -256,6 +257,8 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
 export default function Rooms() {
   const tr = useT()
   const { myCommunities, loading: ctxLoading } = useCommunity()
+  const { profile, isAdmin } = useAuth()
+  const vipFirst = !!profile?.is_vip && !isAdmin
   const isMobile = useIsMobile()
   // SECOND AND LATER VISITS DRAW THE ROOMS, NOT A PLACEHOLDER. Both queries
   // below still run every time; the cache only decides what is on screen while
@@ -374,11 +377,11 @@ export default function Rooms() {
   return (
     <NetworkMotion>
       <NetworkLayout width="narrow" switcher={false}>
-        <motion.div {...pageFade}>
+        <motion.div {...pageFade} className="flex flex-col">
           {/* The heading arrives with the page rather than sitting there while
               the cards under it animate in - a title that is already still
               while everything below it moves reads as two pages, not one. */}
-          <Reveal from="down" className="mb-6">
+          <Reveal from="down" className="-order-2 mb-6">
             {/* NO STRAPLINE. It read "Worldwide is shared by everybody. Each
                 market has its own rooms, and nothing posted in one reaches
                 another" - a description of how the product is built, told to
@@ -462,7 +465,8 @@ export default function Rooms() {
             </Reveal>
           )}
           {vipPlaces.length > 0 && !(ctxLoading || rooms === null) && (
-            <div className="mt-6 flex flex-col gap-4">
+            // A VIP creator's own rooms come first; the team's VIP rooms come after the markets.
+            <div className={cx('flex flex-col gap-4', vipFirst ? '-order-1 mb-6' : 'mt-6')}>
               <h2 className="text-[11px] font-bold uppercase tracking-widest text-brand">{tr('VIP rooms')}</h2>
               {vipPlaces.map(({ place, rooms: rs }) => (
                 <PlaceCard key={place.id} vip unreadKeys={unreadKeys} place={place} rooms={rs} lastByChannel={lastByChannel} isNetwork={place.kind === 'network'} />

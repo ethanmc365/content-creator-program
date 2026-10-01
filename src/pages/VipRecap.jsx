@@ -45,14 +45,27 @@ export default function VipRecap() {
   return (
     <div className="page max-w-3xl">
       <BackLink to="/vip" label={tr('Back to VIP')} />
+      {/* A HEADING AND A MONTH STRIP (1 Oct 2026). Ethan: the recap's "current design definitely needs to be improved".
+          It opened on a bare row of grey pills over the story. Now it says what it is, the months are a strip of
+          cards with the open one in the brand gradient, and the story sits centred under them. */}
+      <header className="mb-4 flex items-end justify-between gap-4 animate-fade-up">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{tr('VIP recap')}</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-3xl">{tr('Your month, as a story')}</h1>
+          <p className="mt-1 text-sm text-smoke">{tr('Tap through it, then save the last card to share.')}</p>
+        </div>
+      </header>
       {months.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tr('Month')}>
-          {months.map((mm) => {
+        <div className="scrollbar-none -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1" role="tablist" aria-label={tr('Month')}>
+          {months.map((mm, i) => {
             const key = `${mm.year}-${mm.month}`
+            const on = current === key
             return (
-              <button key={key} type="button" role="tab" aria-selected={current === key} onClick={() => setParams({ m: key }, { replace: true })}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 ${current === key ? 'bg-brand text-white' : 'bg-cloud text-smoke hoverable:hover:text-ink'}`}>
-                {monthLabel(mm.year, mm.month, { short: true })}
+              <button key={key} type="button" role="tab" aria-selected={on} onClick={() => setParams({ m: key }, { replace: true })}
+                style={{ animationDelay: `${i * 40}ms` }}
+                className={`flex shrink-0 animate-fade-up flex-col items-start rounded-2xl px-4 py-2.5 text-left transition-all duration-200 ${on ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'border border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-0.5'}`}>
+                <span className="text-sm font-bold">{monthLabel(mm.year, mm.month, { short: true })}</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wide ${on ? 'text-white/80' : 'text-gray-400'}`}>{mm.status === 'closed' ? tr('Closed') : tr('So far')}</span>
               </button>
             )
           })}

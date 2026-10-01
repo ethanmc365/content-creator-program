@@ -946,10 +946,12 @@ export function ApplicationCard({
           it's a VIP signed up, differentiated from a normal creator." They came through the one VIP link; approving
           them places them with their own market's VIP programme, where they are paid by views, not by challenges. */}
       {app.is_vip && !app.team_application && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gradient-to-r from-ink to-gray-700 px-4 py-2.5 text-white sm:px-6">
-          <Icon name="star" className="h-4 w-4 shrink-0" />
+        // PURE BLACK, NO GRADIENT (1 Oct 2026). Ethan: "you have a gradient where it shows up black. Maybe just keep it
+        // pure black rather than show the gradient, so it stands out more."
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-black px-4 py-2.5 text-white sm:px-6">
+          <Icon name="star" className="h-4 w-4 shrink-0 text-brand-light" />
           <span className="text-sm font-bold">VIP creator application</span>
-          <span className="text-xs text-white/85">Signed up with the VIP link. Approve them into their own market and they move to its VIP programme.</span>
+          <span className="text-xs text-white/80">Signed up with the VIP link and already placed in their VIP market.</span>
         </div>
       )}
       {/* A TEAM APPLICATION LOOKS LIKE ONE (29 Sep 2026). Ethan: on the applications page

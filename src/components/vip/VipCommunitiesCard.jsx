@@ -28,7 +28,10 @@ export default function VipCommunitiesCard() {
   }, [profile?.id])
   if (!rows || rows.length === 0) return null
   return (
-    <RailCard icon={<Icon name="star" className="h-3.5 w-3.5 text-brand" />} title={tr('VIP communities')}
+    // IT ARRIVES LIKE THE REST OF THE RAIL (1 Oct 2026). Ethan: "the new VIP communities card doesn't animate in as the
+    // other ones do." The rail's entrance runs once, when the page's data lands; this card's own rows land a moment
+    // later, so it used to appear after the show was over, in one frame. It now brings its own entrance.
+    <RailCard className="animate-fade-up lg:animate-slide-in-right" icon={<Icon name="star" className="h-3.5 w-3.5 text-brand" />} title={tr('VIP communities')}
       action={access ? <Link to="/admin/vip" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">{tr('VIP tools')}</Link> : (profile?.is_vip ? <Link to="/vip" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">{tr('My VIP page')}</Link> : null)}>
       <div className="space-y-1.5">
         {rows.map((p) => (
@@ -41,9 +44,14 @@ export default function VipCommunitiesCard() {
             <Icon name="chevronRight" className="relative h-4 w-4 text-white/80 transition-transform group-hover:translate-x-0.5" />
           </Link>
         ))}
-        {access && (
-          <Link to="/global/chat/vip_global" className="flex items-center gap-2.5 rounded-xl border border-brand/30 bg-brand-tint/50 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand-tint">
-            <Icon name="chat" className="h-3.5 w-3.5" />{tr('The VIP lounge, every market together')}
+        {/* THE LOUNGE IS WHITE (1 Oct 2026). Ethan liked the gradient rows and not the pale orange one under them: it
+            is a different kind of place (every market together), so it is the white of the cards around it, with
+            the same shape as the rows above. */}
+        {(access || profile?.is_vip) && (
+          <Link to="/global/chat/vip_global" className="group flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-sm font-semibold text-ink shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name="globe" className="h-3.5 w-3.5" /></span>
+            <span className="min-w-0 flex-1 truncate">{tr('VIP lounge')}<span className="ml-1.5 text-[11px] font-medium text-smoke">{tr('every market')}</span></span>
+            <Icon name="chevronRight" className="h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
           </Link>
         )}
       </div>

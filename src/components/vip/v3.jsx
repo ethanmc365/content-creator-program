@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import CreatorMap from '../CreatorMap'
+import FlagTile from '../network/FlagTile'
+import DealFinder from '../DealFinder'
 import HookButton from '../HookButton'
 import Reveal from '../network/Reveal'
 import TranslatedText, { TLine } from '../TranslatedText'
@@ -134,7 +136,11 @@ export function MarketStandings() {
         return (
           <li key={r.programme_id} className={cx('rounded-card border bg-white p-4 shadow-card animate-fade-up sm:p-5', r.mine ? 'border-brand/40' : 'border-gray-100')} style={{ animationDelay: `${i * 70}ms` }}>
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-white" style={{ background: accent }}>{i + 1}</span>
+              {/* THE MARKET'S FLAG, WITH ITS PLACE (1 Oct 2026). Ethan: "per-market ones ... Maybe show the flag." */}
+              <span className="relative shrink-0">
+                <FlagTile codes={r.country_codes} kind="chapter" size="h-10 w-10" glyph="text-[22px]" title={r.name} />
+                <span className={cx('absolute -bottom-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold ring-2 ring-white', i === 0 ? 'bg-brand text-white' : 'bg-ink text-white')}>{i + 1}</span>
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink">{r.name}{r.mine && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">{tr('Your market')}</span>}</p>
                 {r.tagline && <p className="text-xs text-smoke">{r.tagline}</p>}
@@ -252,12 +258,11 @@ export function VipLibrary({ programmeId }) {
   const openGuide = (guides || []).find((g) => g.id === openId) || null
   return (
     <div className="space-y-6">
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-fade-up">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="bulb" className="h-5 w-5 text-brand" />{tr('Stuck on the first line?')}</h2>
-          <p className="mt-1 max-w-md text-sm text-smoke">{tr('Press the button for a hook from the team\'s best-performing videos. Change the words so it sounds like you.')}</p>
-        </div>
-        <HookButton />
+      {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE (1 Oct 2026). Ethan: "don't say 'Stuck on the first line.' I don't
+          like that colour. Just have the 'Hook me up' and 'find a deal' button ... bigger ... side by side." */}
+      <section className="grid gap-3 sm:grid-cols-2 animate-fade-up">
+        <HookButton variant="big" />
+        <DealFinder variant="big" />
       </section>
 
       <section>
@@ -302,21 +307,67 @@ export function VipLibrary({ programmeId }) {
 }
 
 // ------------------------------------------------------------------------------ the VIP map
-/** Every VIP creator on one map. Only people who chose to be on it. */
-export function VipMap({ hint = true }) {
+/** Every VIP creator on one map. Only people who chose to be on it.
+ *
+ * THE MAP IS ALWAYS THERE (1 Oct 2026). Ethan: "It says 'No VIPs in the map yet,' but the map should always be
+ * showing." An empty map is still the map, with a line on it. And the creator's own "show me on the VIP map" switch
+ * lives HERE now, under the map it is about (it was in the Stats tab), with what else decides whether they appear:
+ * their town on their profile, and their profile's own map setting. */
+export function VipMap({ hint = true, onSaved }) {
   const tr = useT()
-  const { data, missing } = useOptionalRpc('vip_map', {}, 'map')
-  const { user } = useAuth()
+  const { data, missing, reload } = useOptionalRpc('vip_map', {}, 'map')
+  const { user, profile, isAdmin } = useAuth()
+  const [me, setMe] = useState(undefined)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!user?.id) return undefined
+    let alive = true
+    supabase.from('vip_members').select('show_on_map').eq('profile_id', user.id).maybeSingle()
+      .then(({ data: row }) => { if (alive) setMe(row || null) })
+    return () => { alive = false }
+  }, [user?.id])
   if (missing) return null
-  if (data === undefined) return <Skeleton className="h-[26rem] w-full rounded-card" />
-  if (!data || data.length === 0) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No VIPs on the map yet. Creators appear once they add their town to their profile.')}</p>
-  const countries = new Set(data.map((c) => c.country).filter(Boolean)).size
+  const list = data || []
+  const countries = new Set(list.map((c) => c.country).filter(Boolean)).size
+  const hasTown = profile?.city_lat != null && profile?.city_lng != null
+  const profileHidden = profile?.show_on_map === false
+
+  async function toggle(on) {
+    setBusy(true)
+    try { await vipRpc('vip_set_on_map', { p_on: on }); setMe({ show_on_map: on }); reload(); onSaved?.() }
+    catch (e) { notice(e.message) } finally { setBusy(false) }
+  }
+
   return (
     <div className="space-y-3">
-      <p className="text-sm text-smoke">{hint ? tr('{n} VIP creators in {c} countries. You can hide yourself in "Make it yours" on the Stats tab.', { n: data.length, c: countries }) : tr('{n} VIP creators in {c} countries.', { n: data.length, c: countries })}</p>
-      <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-        <CreatorMap creators={data} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen />
+      <p className="text-sm text-smoke">
+        {data === undefined ? ' ' : list.length === 0
+          ? tr('No VIPs on the map yet. Creators appear once they add their town to their profile.')
+          : tr('{n} VIP creators in {c} countries.', { n: list.length, c: countries })}
+      </p>
+      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card">
+        {data === undefined
+          ? <Skeleton className="h-[26rem] w-full" />
+          : <CreatorMap creators={list} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen />}
       </div>
+      {hint && me && (
+        <section className="flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="pin" className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-ink">{tr('Show me on the VIP map')}</span>
+            <span className="block text-xs text-smoke">
+              {!hasTown ? <>{tr('Add your town to your profile to appear.')} <Link to="/profile/edit" className="font-semibold text-brand hover:underline">{tr('Add it')}</Link></>
+                : profileHidden ? <>{tr('Your profile is hidden from maps.')} <Link to="/settings" className="font-semibold text-brand hover:underline">{tr('Change it')}</Link></>
+                  : me.show_on_map !== false ? tr('Other VIPs can see where you are based.') : tr('You are hidden from this map.')}
+            </span>
+          </span>
+          <button type="button" role="switch" aria-checked={me.show_on_map !== false} disabled={busy} onClick={() => toggle(me.show_on_map === false)}
+            className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60', me.show_on_map !== false ? 'bg-brand' : 'bg-gray-200')}>
+            <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200', me.show_on_map !== false ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+          </button>
+        </section>
+      )}
+      {isAdmin && !me && list.length === 0 && <p className="text-xs text-smoke">{tr('VIPs appear here once they have a town on their profile.')}</p>}
     </div>
   )
 }
@@ -329,14 +380,13 @@ export function VipMySettings({ overview, onSaved }) {
   const [row, setRow] = useState(undefined)
   const [headline, setHeadline] = useState('')
   const [goal, setGoal] = useState('')
-  const [onMap, setOnMap] = useState(true)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views, show_on_map').eq('profile_id', user.id).maybeSingle()
+    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', user.id).maybeSingle()
     if (error || !data) { setRow(null); return }
     setRow(data)
-    setHeadline(data.headline || ''); setGoal(data.own_goal_views ? String(data.own_goal_views) : ''); setOnMap(data.show_on_map !== false)
+    setHeadline(data.headline || ''); setGoal(data.own_goal_views ? String(data.own_goal_views) : '')
   }, [user.id])
   useEffect(() => { load() }, [load])
   if (row === undefined) return <Skeleton className="h-48 w-full rounded-card" />
@@ -345,7 +395,7 @@ export function VipMySettings({ overview, onSaved }) {
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_update_my_settings', { p_headline: headline, p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: onMap })
+      await vipRpc('vip_update_my_settings', { p_headline: headline, p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: null })
       toastSuccess(tr('Saved'))
       onSaved?.()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
@@ -359,11 +409,8 @@ export function VipMySettings({ overview, onSaved }) {
         <label className="block"><span className="label">{tr('Headline')}</span><input className="input" maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder={tr('For example: Budget city breaks from Madrid')} /></label>
         <label className="block"><span className="label">{tr('My own monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('Optional, for example 250000')} /></label>
         {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} />}
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink"><input type="checkbox" checked={onMap} onChange={(e) => setOnMap(e.target.checked)} className="h-4 w-4 accent-[#d94407]" />{tr('Show me on the VIP map')}</label>
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={save} disabled={busy} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button>
-          <Link to="/vip/recap" className="btn-secondary !py-2.5 text-sm"><Icon name="sparkles" className="h-4 w-4" />{tr('My recap')}</Link>
-          <Link to="/portfolio" className="btn-secondary !py-2.5 text-sm"><Icon name="briefcase" className="h-4 w-4" />{tr('My portfolio')}</Link>
         </div>
       </div>
     </section>

@@ -170,8 +170,8 @@ export function clearVipCache() { cache = null; cacheAt = 0; notify() }
 // each one is translated on its own; the team can replace the lot with its own text on the programme.
 export const DEFAULT_TERMS = [
   'You are paid for the views your videos gain during each calendar month, at the rate on your VIP page. Views from before you added a video, or from before the month began, are not counted.',
-  'A video counts if it is public, posted on your own account within the last {days} days, and mentions or tags Tryp.com as agreed with the team. Reposts of an earlier video do not count.',
-  'At the end of each month we take a final reading of your views, draft your statement and, once it is approved, your invoice. Small amounts below the minimum payout carry over to the next month.',
+  'A video counts if it is public, posted on your own account during the month it is counted for, and mentions or tags Tryp.com as agreed with the team. Reposts of an earlier video do not count.',
+  'At the end of each month we take a final reading of your views, draft your statement and, once it is approved, your invoice.',
   'Bought, botted or otherwise artificial views mean the videos are removed from your total, and may end your place in the programme.',
   'You need payment details saved on your account to be paid. The programme can be paused or ended by either side at any time; months already closed are still paid.',
 ]

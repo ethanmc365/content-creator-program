@@ -11,13 +11,24 @@ import { useT } from '../../lib/i18n'
 // hoisted by the bundler into the entry chunk - which put the whole charting library on every creator's first load
 // (the bundle-graph test caught it). adminC now loads this on demand instead, so it stays out of the entry.
 
-const RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days']]
+const RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days'], ['all', 'All time']]
 
 /** Views gained per day, a platform split and the best videos. `mine` swaps the team's numbers for the creator's own. */
-export default function TrendCard({ programmeId, mine = false, title }) {
+export default function TrendCard({ programmeId, mine = false, title, since = null }) {
   const tr = useT()
-  const [days, setDays] = useState(30)
-  const { data, missing } = useOptionalRpc(mine ? 'vip_my_trends' : 'vip_trends', mine ? { p_days: days } : { p_programme: programmeId, p_days: days }, `${programmeId}:${days}`)
+  const [range, setRange] = useState(30)
+  // "All time" is every day since the creator joined (or the programme's first year for the team), never a fixed number.
+  const [now] = useState(() => Date.now())
+  const allDays = since ? Math.max(30, Math.ceil((now - new Date(since).getTime()) / 864e5) + 1) : 365
+  const days = range === 'all' ? Math.min(730, allDays) : range
+  const { data: fresh, missing } = useOptionalRpc(mine ? 'vip_my_trends' : 'vip_trends', mine ? { p_days: days } : { p_programme: programmeId, p_days: days }, `${programmeId}:${days}`)
+  // NO JUMP BETWEEN RANGES (1 Oct 2026). Ethan: "clicking between them causes lag and the character changes size."
+  // The chart was swapped for a grey block while the next range loaded, and back. Now the last chart stays, a little
+  // faded, until the new one is here, so nothing on the card changes size.
+  const [last, setLast] = useState(null)
+  if (fresh && fresh !== last) setLast(fresh)
+  const data = fresh ?? last ?? undefined
+  const loadingNext = fresh === undefined && !!last
   const series = useMemo(() => (data?.daily || []).map((r) => ({ d: r.d, label: shortDay(r.d), views: Number(r.views) })), [data])
   const total = series.reduce((a, r) => a + r.views, 0)
   const best = series.reduce((a, r) => (r.views > (a?.views || 0) ? r : a), null)
@@ -32,19 +43,19 @@ export default function TrendCard({ programmeId, mine = false, title }) {
         <div>
           <h2 className="text-[15px] font-bold text-ink">{title || tr('Views gained each day')}</h2>
           <p className="mt-0.5 text-xs text-smoke">
-            {data ? tr('{n} views in the last {d} days', { n: nf(total), d: days }) : ' '}
+            {data ? (range === 'all' ? tr('{n} views since you joined', { n: nf(total) }) : tr('{n} views in the last {d} days', { n: nf(total), d: days })) : ' '}
             {best && best.views > 0 ? ` · ${tr('best day {d}', { d: best.label })}` : ''}
           </p>
         </div>
         <div className="inline-flex gap-1 rounded-xl bg-cloud p-1 text-xs font-semibold" role="tablist" aria-label={tr('Time range')}>
-          {RANGES.map(([n, label]) => (
-            <button key={n} type="button" role="tab" aria-selected={days === n} onClick={() => setDays(n)}
-              className={cx('rounded-lg px-3 py-1.5 transition-all duration-200', days === n ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{tr(label)}</button>
+          {RANGES.filter(([n]) => n !== 'all' || mine).map(([n, label]) => (
+            <button key={n} type="button" role="tab" aria-selected={range === n} onClick={() => setRange(n)}
+              className={cx('whitespace-nowrap rounded-lg px-3 py-1.5 transition-colors duration-200', range === n ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{tr(label)}</button>
           ))}
         </div>
       </div>
       {data === undefined ? <Skeleton className="mt-3 h-56 w-full rounded-xl" /> : (
-        <div className="mt-3 h-56 sm:h-60">
+        <div className={cx('mt-3 h-56 transition-opacity duration-200 sm:h-60', loadingNext && 'opacity-50')}>
           <ResponsiveContainer>
             <AreaChart data={series} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
               <defs>

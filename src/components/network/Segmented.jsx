@@ -36,7 +36,9 @@ import { SPRING } from '../../lib/motion'
 // `shape="tabs"` (1 Oct 2026) is the strip for pages with many views (the VIP tools). Ethan: "I like that you can scroll,
 // but it's a bit cut off ... the sides are always squared but a bit rounded at the corners." The strip IS the scroller,
 // full width, with softly rounded corners and no hidden overflow outside it, so nothing is clipped by a parent; each tab
-// is a rounded square and the one that is on is scrolled into view.
+// is a rounded square and the one that is on is scrolled into view. AS WIDE AS ITS TABS (1 Oct 2026): "the grey bar
+// shouldn't be fully expanded unless there are actually more markets" - it ends after the last tab, and scrolls only
+// once the tabs are wider than the page.
 export default function Segmented({ value, onChange, options, size = 'md', id, label, className, shape = 'pill' }) {
   const tabs = shape === 'tabs'
   const autoId = useId()
@@ -58,7 +60,7 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
       role="radiogroup"
       aria-label={label}
       className={cx(
-        tabs ? 'scrollbar-none flex w-full max-w-full overflow-x-auto rounded-xl bg-cloud p-1' : 'inline-flex rounded-full bg-cloud p-1',
+        tabs ? 'scrollbar-none inline-flex w-auto max-w-full overflow-x-auto rounded-xl bg-cloud p-1 align-top' : 'inline-flex rounded-full bg-cloud p-1',
         size === 'sm' ? 'gap-0.5' : 'gap-1',
         className,
       )}

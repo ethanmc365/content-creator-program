@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
+import SwipeToDismiss from '../components/SwipeToDismiss'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import { timeAgo, cx } from '../lib/utils'
@@ -38,6 +39,8 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
       className={cx('group/row relative flex items-stretch border-b border-gray-50 last:border-0', leaving ? 'notif-leave' : 'notif-enter')}
       style={leaving ? undefined : { '--notif-i': Math.min(i, 8) }}
     >
+      <SwipeToDismiss className="w-full" label={tr('Clear')} onDismiss={() => onDismiss(n.id)}>
+      <div className="group/row relative flex items-stretch">
       <button
         onClick={() => onOpen(n)}
         className={cx(
@@ -90,6 +93,8 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
       >
         <Icon name="close" className="h-4 w-4" />
       </button>
+      </div>
+      </SwipeToDismiss>
     </div>
   )
 }

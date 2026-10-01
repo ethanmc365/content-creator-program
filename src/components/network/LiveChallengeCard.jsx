@@ -198,7 +198,7 @@ export default function LiveChallengeCard({
         {/* THE MARKET'S OWN COUNTRY, highlighted on a zoomed map behind the words (1 Oct 2026, see MarketMap). It
             replaces the flag that sat in the pill: the same fact, drawn where it can be seen. */}
         {!isGlobal && codes?.length > 0 && (
-          <MarketMap codes={codes} className="absolute -right-16 top-1/2 h-[135%] w-auto -translate-y-1/2 opacity-90 [mask-image:linear-gradient(to_left,black_55%,transparent_100%)] sm:-right-8 lg:right-[18rem]" />
+          <MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" />
         )}
         {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT - the same shape the
             /challenges card uses, and for the same reason: the words and the

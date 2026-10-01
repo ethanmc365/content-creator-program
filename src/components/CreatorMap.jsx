@@ -1,3 +1,4 @@
+import { lockScroll } from '../lib/scrollLock'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
@@ -2120,12 +2121,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     setTimeout(() => {
       setFullscreen(false)
       setClosing(false)
-      // After the unmount, so the lock has been released and the document can
-      // actually be moved. A frame later still, because the class comes off in
-      // the same commit.
-      const y = scrollBefore.current
-      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }))
-      setTimeout(() => window.scrollTo({ top: y, behavior: 'instant' }), 60)
+      // The page is put back by the scroll lock's own release (below), in the
+      // same task as the unlock, so there is no frame at the top of the page.
     }, 180)
   }, [])
 
@@ -2137,21 +2134,23 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     const onChange = () => {
       if (document.fullscreenElement) return
       setFullscreen(false)
-      // The system gesture and the Escape key both land here without going
-      // through `exitFullscreen`, and they lose the offset in exactly the same
-      // way. See the note on `scrollBefore`.
-      const y = scrollBefore.current
-      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }))
     }
     const onKey = (e) => { if (e.key === 'Escape') exitFullscreen() }
     document.addEventListener('fullscreenchange', onChange)
     document.addEventListener('keydown', onKey)
     // The page behind must not scroll while a full-window overlay is up.
-    document.documentElement.classList.add('overlay-lock')
+    // NO JUMP ON THE WAY OUT (1 Oct 2026). Ethan: "whenever exiting full screen
+    // on the map, there's a bit of lag ... I think that's where the screen's
+    // scrolling down." It was `overlay-lock` (overflow hidden, height 100% on
+    // the document), which scrolls the page to the top behind the map; leaving
+    // drew one frame at the top and then scrolled back down a frame later. The
+    // shared scroll lock holds the page where it is (fixed, offset kept) and
+    // puts the scroll back in the same moment it lets go.
+    const release = lockScroll()
     return () => {
       document.removeEventListener('fullscreenchange', onChange)
       document.removeEventListener('keydown', onKey)
-      document.documentElement.classList.remove('overlay-lock')
+      release()
     }
   }, [fullscreen, exitFullscreen])
 

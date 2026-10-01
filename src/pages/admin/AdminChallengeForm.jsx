@@ -12,7 +12,7 @@ import SocialMark from '../../components/SocialMark'
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
-import PrizeBreakdownFields, { PrizeSummary, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
+import PrizeBreakdownFields, { PrizeSummary, combineBudgets, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
@@ -323,6 +323,8 @@ export default function AdminChallengeForm() {
         prize_structure: Array.isArray(g.prize_structure) ? g.prize_structure : [],
         participation_threshold: g.participation_threshold ?? '',
         participation_prize: g.participation_prize ?? '',
+        participation_amount: g.participation_amount ?? '',
+        participation_reward_type: g.participation_reward_type ?? null,
         members: members.filter((m) => m.group_id === g.id).map((m) => m.creator_id),
       })))
       setGroupsLoaded(true)
@@ -535,6 +537,8 @@ export default function AdminChallengeForm() {
         // prize nobody can qualify for, is a promise that cannot be kept.
         participation_threshold: hasPart ? Math.max(1, threshold) : null,
         participation_prize: hasPart ? String(g.participation_prize).trim() : null,
+        participation_amount: hasPart && String(g.participation_amount ?? '').trim() !== '' && Number(g.participation_amount) >= 0 ? Number(g.participation_amount) : null,
+        participation_reward_type: hasPart ? (g.participation_reward_type === 'cash' ? 'cash' : 'voucher') : null,
       }
     }
 
@@ -780,6 +784,32 @@ export default function AdminChallengeForm() {
   const { pot: rowPot, winners: rowWinners } = prizeTotals(form.prize_structure)
   const derivedPot = rowPot || Number(form.prize_amount) || 0
   const derivedWinners = rowWinners || Number(form.winners_count) || 0
+  // The taking-part reward as the challenge sets it, and what a split challenge costs: every group's own prizes (or
+  // the challenge's), its own taking-part reward (or the challenge's) for its own members, added up.
+  const challengeParticipation = {
+    threshold: form.participation_threshold,
+    prize: form.participation_prize,
+    cap: form.participation_cap,
+    amount: form.participation_amount,
+    type: form.participation_reward_type,
+    scope: form.participation_scope,
+    basis: form.scoring === 'points' ? form.participation_basis : 'entries',
+  }
+  const groupsBudget = groups.length === 0 ? null : combineBudgets(groups.map((g, i) => {
+    const own = cleanPrizes(g.prize_structure)
+    const ownPart = !!(String(g.participation_threshold ?? '').trim() && String(g.participation_prize ?? '').trim())
+    return {
+      label: (g.name || '').trim() || `Group ${String.fromCharCode(65 + i)}`,
+      budget: prizeBudget({
+        prizes: own.length ? own : form.prize_structure,
+        awards: i === 0 ? form.extra_awards : [],
+        participation: ownPart
+          ? { threshold: g.participation_threshold, prize: g.participation_prize, amount: g.participation_amount, type: g.participation_reward_type, cap: null, scope: form.participation_scope, basis: challengeParticipation.basis }
+          : challengeParticipation,
+        creators: g.members.length || null,
+      }),
+    }
+  }))
   const potIsLegacy = !rowPot && derivedPot > 0
 
   // CLOSING ENTRIES LIVES HERE NOW, NOT ON THE CHALLENGE PAGE (23 Sep 2026).
@@ -1039,6 +1069,9 @@ export default function AdminChallengeForm() {
                 audience={audience}
                 people={groupPeople}
                 currency={form.prize_currency || 'EUR'}
+                pointsAllowed={form.scoring === 'points'}
+                basis={form.scoring === 'points' ? form.participation_basis : 'entries'}
+                onBasis={(b) => set({ participation_basis: b })}
               />
             )}
             {groups.length > 0 && !form.community_id && (
@@ -1288,19 +1321,11 @@ export default function AdminChallengeForm() {
           <PrizeSummary
             symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
             cpmTarget={form.cpm_target}
-            legacyPot={potIsLegacy ? derivedPot : null}
-            budget={prizeBudget({
+            legacyPot={potIsLegacy && groups.length === 0 ? derivedPot : null}
+            budget={groups.length > 0 ? groupsBudget : prizeBudget({
               prizes: form.prize_structure,
               awards: form.extra_awards,
-              participation: {
-                threshold: form.participation_threshold,
-                prize: form.participation_prize,
-                cap: form.participation_cap,
-                amount: form.participation_amount,
-                type: form.participation_reward_type,
-                scope: form.participation_scope,
-                basis: form.scoring === 'points' ? form.participation_basis : 'entries',
-              },
+              participation: challengeParticipation,
               // With no cap the ceiling is everybody who could earn it: the
               // market's active creators (Ethan: "the limit is obviously the
               // number of creators, so put that in").

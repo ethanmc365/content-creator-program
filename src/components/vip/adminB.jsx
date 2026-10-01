@@ -675,6 +675,36 @@ function ChartCard({ title, children }) {
 }
 
 // ------------------------------------------------------------------------------------- settings
+/** How often every VIP video's views are read (app_settings `vip_sync`). A new video is read the moment it is added. */
+function SyncEvery() {
+  const tr = useT()
+  const [hours, setHours] = useState('')
+  const [saved, setSaved] = useState('')
+  useEffect(() => {
+    let alive = true
+    supabase.from('app_settings').select('value').eq('key', 'vip_sync').maybeSingle()
+      .then(({ data }) => { if (alive) { const h = String(data?.value?.interval_hours ?? 6); setHours(h); setSaved(h) } })
+    return () => { alive = false }
+  }, [])
+  async function save() {
+    const h = Math.min(48, Math.max(1, Math.round(Number(hours) || 6)))
+    const { error } = await supabase.from('app_settings').upsert({ key: 'vip_sync', value: { interval_hours: h } })
+    if (error) { notice(error.message); return }
+    setHours(String(h)); setSaved(String(h))
+    toastSuccess(tr('Views are now read every {n} hours.', { n: h }))
+  }
+  return (
+    <label className="block">
+      <span className="label">{tr('Read views every')}</span>
+      <span className="flex items-center gap-2">
+        <input className="input !w-24" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} onBlur={() => hours !== saved && save()} />
+        <span className="text-sm text-smoke">{tr('hours')}</span>
+      </span>
+      <span className="mt-1 block text-[11px] text-smoke">{tr('For every VIP market. A new video is read as soon as it is added.')}</span>
+    </label>
+  )
+}
+
 export function VipSettingsTab({ programme, onSaved }) {
   const tr = useT()
   const [f, setF] = useState(() => ({
@@ -707,10 +737,12 @@ export function VipSettingsTab({ programme, onSaved }) {
       <p className="text-sm text-smoke">{tr('The rates and rules for this programme. An individual VIP can have their own rate and cap from the Members tab.')}</p>
       <div className="grid grid-cols-2 gap-4">
         <label className="block"><span className="label">{tr('Rate per 1,000 views')} ({programme.currency})</span><input className="input" inputMode="decimal" value={f.cpm} onChange={(e) => set({ cpm: e.target.value })} /></label>
-        <label className="block"><span className="label">{tr('Minimum payout')}</span><input className="input" inputMode="decimal" value={f.min_payout} onChange={(e) => set({ min_payout: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('Less than this carries over to the next month.')}</span></label>
         <label className="block"><span className="label">{tr('Monthly cap on views pay')}</span><input className="input" inputMode="decimal" value={f.monthly_cap} onChange={(e) => set({ monthly_cap: e.target.value })} placeholder={tr('No cap')} /></label>
         <label className="block"><span className="label">{tr('Monthly budget')}</span><input className="input" inputMode="decimal" value={f.budget_monthly} onChange={(e) => set({ budget_monthly: e.target.value })} placeholder={tr('No budget')} /><span className="mt-1 block text-[11px] text-smoke">{tr('You are warned when the month is on pace to reach 80% of it.')}</span></label>
-        <label className="block"><span className="label">{tr('A video earns for this many days')}</span><input className="input" inputMode="numeric" value={f.window_days} onChange={(e) => set({ window_days: e.target.value })} /></label>
+        {/* NO MINIMUM PAYOUT AND NO "DAYS" WINDOW ON SCREEN (1 Oct 2026). Ethan: a VIP is paid by the month for videos
+            posted in that month, and "there is no minimum payout ... We can add that later". Both columns are still
+            in the database (min_payout is 0). What the team does set is how often views are read. */}
+        <SyncEvery />
       </div>
 
       <div>

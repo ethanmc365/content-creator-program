@@ -228,7 +228,7 @@ export default function AppLayout() {
       el.setAttribute('data-lock-pushed', '')
     }
   }, [lockedY, chromeHidden])
-  const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
+  const { profile, isAdmin, impersonating, exitCreatorPreview, enterCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
   // Which market the reader was last in, so Rooms can open on its card (see Rooms).
   useEffect(() => {
@@ -255,6 +255,7 @@ export default function AppLayout() {
   // VIP keeps the challenges.
   const isVip = !!profile?.is_vip && !isAdmin
   const vipAccess = useVipAccess(profile?.id, false)
+  const [vipOpening, setVipOpening] = useState(false)
   const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
   const navigate = useNavigate()
 
@@ -678,6 +679,28 @@ export default function AppLayout() {
                 {tr(item.label)}
               </NavLink>
             ))}
+            {/* THE VIP COMMUNITY, AS A TAB, FOR THE TEAM (1 Oct 2026). Ethan: "on desktop, as an admin that has access
+                to the VIP island, I just want to be able to see the VIP community ... Maybe just to the right of
+                calendar." It opens the sandbox VIP (the same as VIP tools > "See it as a VIP"), so the page is exactly
+                what a VIP sees; the bar at the top has the way back. Desktop only - a phone has no room for a sixth
+                tab, and the button in VIP tools does the same there. */}
+            {vipAccess && !isVip && !impersonating && (
+              <button
+                type="button"
+                disabled={vipOpening}
+                onClick={async () => {
+                  setVipOpening(true)
+                  const { error } = await enterCreatorPreview('vip')
+                  setVipOpening(false)
+                  if (!error) navigate('/vip')
+                }}
+                className={cx(navLinkClass('/vip'), 'disabled:opacity-60')}
+                title={tr('See the VIP community as a VIP sees it')}
+              >
+                <span className="relative inline-flex"><Icon name="star" className="h-5 w-5" /></span>
+                {vipOpening ? tr('Opening...') : tr('VIP')}
+              </button>
+            )}
           </nav>
 
           <div className="flex min-w-0 items-center gap-2">

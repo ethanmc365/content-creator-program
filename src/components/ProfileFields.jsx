@@ -24,7 +24,22 @@ export const LANGUAGE_OPTIONS = [
   'Dutch', 'Polish', 'Welsh', 'Scottish Gaelic', 'Hindi', 'Punjabi', 'Urdu',
   'Arabic', 'Mandarin', 'Cantonese', 'Japanese', 'Korean', 'Turkish', 'Greek',
   'Romanian', 'Ukrainian', 'Russian', 'Swedish', 'Norwegian', 'Danish',
+  'Finnish', 'Czech', 'Hungarian', 'Catalan', 'Basque', 'Galician', 'Bulgarian', 'Croatian',
 ]
+
+// THE LANGUAGES MOST CREATORS HERE SPEAK, SHOWN FIRST, WITH A FLAG EACH (1 Oct 2026). Ethan: "show the flag beside
+// the language ... don't show so many options, but just the most common options that we're expecting, like English,
+// Irish, Spanish, and Portuguese, but also have the ability to search for your own language." Every other language
+// is one search away, and anything not on the list can still be typed in.
+export const COMMON_LANGUAGES = ['English', 'Spanish', 'Portuguese', 'Irish', 'German', 'Romanian', 'French', 'Italian']
+const LANGUAGE_FLAG = {
+  English: '🇬🇧', Irish: '🇮🇪', French: '🇫🇷', Spanish: '🇪🇸', Portuguese: '🇵🇹', Italian: '🇮🇹', German: '🇩🇪',
+  Dutch: '🇳🇱', Polish: '🇵🇱', Welsh: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Scottish Gaelic': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', Hindi: '🇮🇳', Punjabi: '🇮🇳', Urdu: '🇵🇰',
+  Arabic: '🇸🇦', Mandarin: '🇨🇳', Cantonese: '🇭🇰', Japanese: '🇯🇵', Korean: '🇰🇷', Turkish: '🇹🇷', Greek: '🇬🇷',
+  Romanian: '🇷🇴', Ukrainian: '🇺🇦', Russian: '🇷🇺', Swedish: '🇸🇪', Norwegian: '🇳🇴', Danish: '🇩🇰', Finnish: '🇫🇮',
+  Czech: '🇨🇿', Hungarian: '🇭🇺', Catalan: '🇦🇩', Basque: '🇪🇸', Galician: '🇪🇸', Bulgarian: '🇧🇬', Croatian: '🇭🇷',
+}
+export const languageFlag = (lang) => LANGUAGE_FLAG[lang] || '🌐'
 
 /**
  * PROFILE PHOTO UPLOADER.
@@ -456,9 +471,9 @@ export function LanguageSelect({ selected = [], onChange }) {
 
   const q = query.trim().toLowerCase()
   const already = (v) => selected.some((l) => l.toLowerCase() === v.toLowerCase())
-  const suggestions = LANGUAGE_OPTIONS
+  const suggestions = (q ? LANGUAGE_OPTIONS : COMMON_LANGUAGES)
     .filter((l) => !already(l) && (!q || l.toLowerCase().includes(q) || place.language(l).toLowerCase().includes(q)))
-    .slice(0, q ? 12 : 40)
+    .slice(0, 12)
   // Offer the typed value only when it is genuinely not on the list and not
   // already picked, so "Eng" does not offer to add a language called "Eng"
   // while English is sitting right underneath it.
@@ -477,6 +492,7 @@ export function LanguageSelect({ selected = [], onChange }) {
               aria-label={tr('Remove {name}', { name: place.language(lang) })}
               className="inline-flex items-center gap-1.5 rounded-full bg-brand py-1.5 pl-3.5 pr-2.5 text-xs font-medium text-white transition-transform duration-200 hover:scale-105"
             >
+              <span aria-hidden className="text-sm leading-none">{languageFlag(lang)}</span>
               {place.language(lang)}
               <Icon name="close" className="h-3 w-3 shrink-0 text-white/80" />
             </button>
@@ -487,7 +503,7 @@ export function LanguageSelect({ selected = [], onChange }) {
       <input
         type="text"
         className="input"
-        placeholder={tr("Search languages, or type your own…")}
+        placeholder={tr("Search for your language…")}
         value={query}
         maxLength={40}
         aria-label={tr("Search languages")}
@@ -515,13 +531,14 @@ export function LanguageSelect({ selected = [], onChange }) {
             key={lang}
             type="button"
             onClick={() => toggle(lang)}
-            className="rounded-full border border-gray-200 px-4 py-1.5 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand"
+            className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-[13px] font-medium text-ink shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
           >
+            <span aria-hidden className="text-base leading-none">{languageFlag(lang)}</span>
             {place.language(lang)}
           </button>
         ))}
         {suggestions.length === 0 && !canAddCustom && (
-          <p className="text-xs text-smoke">{tr("Nothing left to add.")}</p>
+          <p className="text-xs text-smoke">{q ? tr("Nothing left to add.") : tr('Search above for any other language.')}</p>
         )}
       </div>
     </div>

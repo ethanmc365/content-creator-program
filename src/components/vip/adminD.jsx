@@ -35,14 +35,16 @@ export function VipLinkCard() {
     <section className="space-y-4">
       <div className="brand-drift relative overflow-hidden rounded-card p-5 text-white shadow-card sm:p-6">
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
-        <h2 className="relative text-[17px] font-bold">{tr('The VIP sign-up link')}</h2>
-        <p className="relative mb-4 mt-1 max-w-xl text-sm leading-relaxed text-white/90">{tr('One link for every VIP, in every market, and it never expires. They sign up as usual, are marked as VIPs in the applications list, and are placed with their own market\'s VIP programme when you approve them.')}</p>
+        {/* No paragraph about the link (1 Oct 2026): "remove the copy that says 'One link for every VIP in every
+            market, and it never expires.' No need to see all that." */}
+        <h2 className="relative mb-4 text-[17px] font-bold">{tr('The VIP sign-up link')}</h2>
         {link === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : link === null ? (
           <p className="relative text-sm text-white/90">{tr('The link could not be made.')}</p>
         ) : (
           <div className="relative flex flex-wrap items-center gap-2.5">
             <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={tr('The VIP sign-up link')} className="min-w-0 flex-1 rounded-xl border-0 bg-white/95 px-3.5 py-2.5 text-sm font-medium text-ink shadow-sm outline-none focus:ring-2 focus:ring-white/60" />
             <button type="button" onClick={async () => { await copyToClipboard(url); toastSuccess(tr('Copied')) }} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand shadow-sm transition-transform hoverable:hover:-translate-y-0.5"><Icon name="copy" className="h-4 w-4" />{tr('Copy')}</button>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/40 transition-transform hoverable:hover:-translate-y-0.5"><Icon name="eye" className="h-4 w-4" />{tr('Open')}</a>
           </div>
         )}
       </div>

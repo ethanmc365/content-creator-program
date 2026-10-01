@@ -47,6 +47,9 @@ export function VipStats({ overview, rules, programmeId }) {
   const ruleSteps = (rules || []).filter((r) => r.kind === 'milestone' && (r.conditions?.metric || 'lifetime_views') === 'lifetime_views').map((r) => Number(r.conditions?.threshold)).filter((n) => n > 0)
   const steps = (ruleSteps.length ? ruleSteps : LADDER).sort((a, b) => a - b)
   const next = steps.find((n) => n > life.views)
+  // The best month's VIEWS, if the overview carries them; otherwise worked back from its pay at the creator's rate.
+  const bestMonthViews = Number(life.best_month_views) || (Number(life.best_month) > 0 && Number(overview.stats?.effective_cpm) > 0
+    ? Math.round((Number(life.best_month) / Number(overview.stats.effective_cpm)) * 1000) : 0)
   const tiles = [
     { label: tr('Views as a VIP'), value: life.views, format: nf, icon: 'eye' },
     { label: tr('Videos'), value: life.videos, format: nf, icon: 'video' },
@@ -63,13 +66,22 @@ export function VipStats({ overview, rules, programmeId }) {
           </div>
         ))}
       </div>
-      {next ? (
-        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
+      {/* TWO BARS, NOT ONE (1 Oct 2026): the next milestone over all time, and this month against the creator's own best
+          month, so there is always something close enough to chase. */}
+      <section className="grid gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:grid-cols-2">
+        <div>
           <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your next milestone')}</h2>
-          <TargetBar label={tr('{n} views as a VIP', { n: nf(next) })} value={life.views} target={next} />
-        </section>
-      ) : null}
-      <TrendCard programmeId={programmeId} mine title={tr('Your views, day by day')} />
+          {next ? <TargetBar label={tr('{n} views as a VIP', { n: nf(next) })} value={life.views} target={next} />
+            : <p className="text-sm text-smoke">{tr('You have passed every milestone. Remarkable.')}</p>}
+        </div>
+        <div>
+          <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="fire" className="h-5 w-5 text-brand" />{tr('This month against your best')}</h2>
+          {bestMonthViews > 0
+            ? <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={bestMonthViews} done={tr('A new best month')} />
+            : <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={Math.max(10000, next || 10000)} />}
+        </div>
+      </section>
+      <TrendCard programmeId={programmeId} mine since={overview.member?.joined_on} title={tr('Your views, day by day')} />
     </div>
   )
 }

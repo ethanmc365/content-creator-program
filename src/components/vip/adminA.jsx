@@ -108,49 +108,55 @@ export function VipOverviewTab({ programme }) {
         <SuggestionsCard programme={programme} onPick={setPickProfile} />
       </div>
 
+      {/* THE BOARD, LIVE, AS A BOARD (1 Oct 2026). Ethan: "with the board live, I want you to improve the UI of that."
+          It was a seven-column table. Now each VIP is a row with their place, their views as a bar against the
+          leader's, what they have earned and are on pace for, their target, and a plain "no videos yet" when that is
+          the story - so the people who need a nudge read as such at a glance. */}
       <section>
-        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('The board, live')}</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>{tr('The board, live')}</h2>
+          <span className="text-xs text-smoke">{tr('{n} VIPs', { n: members.length })}</span>
+        </div>
         {members.length === 0 ? (
           <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody is a VIP in this programme yet. Add one from Members, or send a sign-up link.')}</p>
         ) : (
-          <div className="overflow-x-auto rounded-card border border-gray-100 bg-white shadow-card">
-            <table className="w-full min-w-[40rem] text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-                  <th className="px-4 py-2.5">#</th><th className="px-2 py-2.5">{tr('Creator')}</th>
-                  <th className="px-2 py-2.5 text-right">{tr('Videos')}</th><th className="px-2 py-2.5 text-right">{tr('Views')}</th>
-                  <th className="px-2 py-2.5 text-right">{tr('Earned')}</th><th className="px-2 py-2.5 text-right">{tr('On pace')}</th>
-                  <th className="px-4 py-2.5">{tr('Target')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m, i) => (
-                  <tr key={m.profile_id} className={cx('border-b border-gray-50 last:border-0', m.status !== 'active' && 'opacity-60')}>
-                    <td className="px-4 py-3 text-xs font-bold tabular-nums text-smoke">{i + 1}</td>
-                    <td className="px-2 py-3">
-                      <Link to={`/profile/${m.profile_id}`} className="flex items-center gap-2.5 hover:text-brand">
-                        <Avatar src={m.photo} name={m.name} size="xs" />
-                        <span className="font-semibold">{m.name}</span>
-                        {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
-                        {!m.payment_ready && <span title={tr('No payment details yet')} className="text-amber-600"><Icon name="wallet" className="h-3.5 w-3.5" /></span>}
-                      </Link>
-                    </td>
-                    <td className="px-2 py-3 text-right tabular-nums">{m.videos}</td>
-                    <td className="px-2 py-3 text-right font-semibold tabular-nums">{formatViews(m.views)}</td>
-                    <td className="px-2 py-3 text-right tabular-nums">{money(m.base, cur, { cents: false })}</td>
-                    <td className="px-2 py-3 text-right tabular-nums text-smoke">{m.projected_base != null ? money(m.projected_base, cur, { cents: false }) : '-'}</td>
-                    <td className="px-4 py-3">
-                      {m.target_videos || m.target_views ? (
-                        <span className="text-xs tabular-nums text-smoke">
-                          {m.target_videos ? `${m.videos}/${m.target_videos} ${tr('videos')}` : ''}{m.target_videos && m.target_views ? ' · ' : ''}{m.target_views ? `${formatViews(m.views)}/${formatViews(m.target_views)}` : ''}
+          <ol className="space-y-2.5">
+            {members.map((m, i) => {
+              const top = Math.max(1, Number(members[0]?.views) || 0)
+              const pct = Math.round((Number(m.views) / top) * 100)
+              return (
+                <li key={m.profile_id} className={cx('rounded-card border bg-white p-3.5 shadow-card animate-fade-up sm:p-4', i === 0 && Number(m.views) > 0 ? 'border-brand/30' : 'border-gray-100', m.status !== 'active' && 'opacity-60')} style={{ animationDelay: `${Math.min(i, 10) * 45}ms` }}>
+                  <div className="flex items-center gap-3">
+                    <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && Number(m.views) > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                    <Link to={`/profile/${m.profile_id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:text-brand">
+                      <Avatar src={m.photo} name={m.name} size="sm" />
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5 truncate text-sm font-bold">{m.name}
+                          {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                          {!m.payment_ready && <span title={tr('No payment details yet')} className="text-amber-600"><Icon name="wallet" className="h-3.5 w-3.5" /></span>}
                         </span>
-                      ) : <span className="text-xs text-gray-300">-</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        <span className="block text-[11px] text-smoke">{m.videos > 0 ? (m.videos === 1 ? tr('1 video') : tr('{n} videos', { n: m.videos })) : tr('No videos yet this month')}</span>
+                      </span>
+                    </Link>
+                    <div className="hidden shrink-0 grid-cols-3 gap-5 text-right sm:grid">
+                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Views')}</p><p className="text-sm font-bold tabular-nums text-ink">{formatViews(m.views)}</p></div>
+                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Earned')}</p><p className="text-sm font-bold tabular-nums text-ink">{money(m.base, cur, { cents: false })}</p></div>
+                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('On pace')}</p><p className="text-sm font-semibold tabular-nums text-smoke">{m.projected_base != null ? money(m.projected_base, cur, { cents: false }) : '-'}</p></div>
+                    </div>
+                    <p className="shrink-0 text-sm font-bold tabular-nums text-ink sm:hidden">{formatViews(m.views)}</p>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className="h-full origin-left rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out" style={{ width: `${Number(m.views) > 0 ? Math.max(3, pct) : 0}%` }} /></div>
+                    {(m.target_videos || m.target_views) ? (
+                      <span className="shrink-0 rounded-full bg-cloud px-2.5 py-1 text-[10.5px] font-semibold tabular-nums text-smoke">
+                        {m.target_videos ? `${m.videos}/${m.target_videos} ${tr('videos')}` : ''}{m.target_videos && m.target_views ? ' · ' : ''}{m.target_views ? `${formatViews(m.views)}/${formatViews(m.target_views)}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
         )}
       </section>
 

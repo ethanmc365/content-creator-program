@@ -81,13 +81,17 @@ export default function LanguagePicker({ className, tone = 'soft', align = 'righ
           'inline-flex h-10 items-center gap-2 rounded-full pl-3 pr-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.97]',
           tone === 'soft'
             ? 'bg-white/80 text-ink shadow-card ring-1 ring-black/5 backdrop-blur hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
-            : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
+            // `brand` (1 Oct 2026): the landing page's picker, in an orange pill beside "Join us" so it reads as a
+            // control and not as a stray word. Outlined, so "Join us" stays the one solid button in the bar.
+            : tone === 'brand'
+              ? 'border-2 border-brand bg-brand-tint/60 text-brand shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand hoverable:hover:text-white'
+              : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
           className,
         )}
       >
         <span aria-hidden className="text-[17px] leading-none">{current.flag}</span>
         <span className="hidden sm:inline">{current.native}</span>
-        <Icon name="chevronDown" className={cx('h-3.5 w-3.5 text-smoke transition-transform duration-200', open && 'rotate-180')} />
+        <Icon name="chevronDown" className={cx('h-3.5 w-3.5 transition-transform duration-200', tone === 'brand' ? 'text-current' : 'text-smoke', open && 'rotate-180')} />
       </button>
       {open && pos && createPortal(
         <ul

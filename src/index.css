@@ -221,6 +221,14 @@ html {
     @apply ring-1 ring-brand ring-offset-0;
   }
 
+  /* A TICK BOX IS NOT A FIELD (1 Oct 2026). Ethan: ticking "I agree to the Terms" on the sign-up page drew "a weird
+     orange line under it" - the field's flush ring, drawn round a 16px square that some browsers treat as
+     focus-visible on a click. A tick box shows its own state; it keeps the browser's own keyboard outline only. */
+  input[type='checkbox']:focus-visible,
+  input[type='radio']:focus-visible {
+    @apply ring-0;
+  }
+
   /* A CARD THAT CONTAINS A BARE INPUT OWNS THE FOCUS STATE (4 Sep 2026).
      Ethan, twice - on the social links and again on the bucket list: "whenever
      I click on the actual place to type in the link, it shows up this weird
