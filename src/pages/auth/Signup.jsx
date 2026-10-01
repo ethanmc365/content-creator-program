@@ -191,7 +191,7 @@ export default function Signup() {
   return (
     <AuthShell
       title={teamInvite?.valid ? tr('Join the Tryp.com team') : vipInvite?.valid ? tr('Join the VIP creators') : tr("Join the community")}
-      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : vipInvite?.valid ? tr('You have been invited to {programme}. Create your account and tell us about you.', { programme: vipInvite.programme }) : tr("Create your creator account. It takes a minute.")}
+      subtitle={teamInvite?.valid ? tr('Create your account and a short profile. It takes a couple of minutes.') : vipInvite?.valid ? tr('You have been invited. Create your account and tell us about you.') : tr("Create your creator account. It takes a minute.")}
       footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
       {vipToken && vipInvite && (
@@ -199,8 +199,8 @@ export default function Signup() {
           <div className="brand-drift relative mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-card sm:p-6">
             <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
             <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('By invitation')}</p>
-            <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Join the Tryp.com VIP creators')}</p>
-            <p className="relative mt-1.5 text-sm leading-relaxed text-white/90">{tr('Paid by the views you bring, with your own page, your own rooms and a payout every month.')}</p>
+            <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Paid for every view you bring')}</p>
+            <p className="relative mt-1.5 text-sm leading-relaxed text-white/90">{tr('Your own page, your own rooms and a payout every month.')}</p>
             <ol className="relative mt-4 grid grid-cols-3 gap-2 text-center">
               {[tr('Make your account'), tr('Tell us about you'), tr('Your VIP page opens')].map((label, i) => (
                 <li key={label} className="rounded-xl bg-white/15 px-2 py-2.5 backdrop-blur-sm">
