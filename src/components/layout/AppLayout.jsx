@@ -219,11 +219,13 @@ export default function AppLayout() {
     const el = headerRef.current
     if (!el) return
     el.style.transform = ''
+    el.removeAttribute('data-lock-pushed')
     if (!lockedY || chromeHidden) return
     const top = el.getBoundingClientRect().top
     if (top < -1) {
       el.style.transition = 'none'
       el.style.transform = `translateY(${-top}px)`
+      el.setAttribute('data-lock-pushed', '')
     }
   }, [lockedY, chromeHidden])
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()

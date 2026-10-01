@@ -61,6 +61,19 @@ const announce = () => { watchers.forEach((fn) => { try { fn(depth > 0) } catch 
  *  "whenever I click on it, the bar at the top ... disappears"). */
 export function lockedScrollY() { return depth > 0 && saved ? saved.y : 0 }
 
+/** THE HEADER'S PUSH-DOWN COMES OFF IN THE SAME BREATH AS THE LOCK (1 Oct 2026). AppLayout moves the sticky header
+ *  down by the frozen distance and marks it `data-lock-pushed`. Taking that back used to wait for a React render
+ *  triggered by `announce`; on a phone that render can land a few seconds late (Ethan: "the top bar moves down to
+ *  the bottom of the screen and stays there for a few seconds and then corrects itself" after closing Hook me up).
+ *  So the release clears it by hand, before anything can be painted. */
+function dropHeaderPush() {
+  document.querySelectorAll('[data-lock-pushed]').forEach((el) => {
+    el.style.transition = 'none'
+    el.style.transform = ''
+    el.removeAttribute('data-lock-pushed')
+  })
+}
+
 /** Is anything holding the page still right now? */
 export function isScrollLocked() { return depth > 0 }
 
@@ -111,6 +124,7 @@ export function lockScroll() {
     body.style.left = saved.left
     body.style.right = saved.right
     body.style.width = saved.width
+    dropHeaderPush()
     // Only AFTER the styles are back, or the browser has nowhere to scroll to.
     //
     // AND `behavior: 'instant'`, WHICH IS THE WHOLE FIX FOR A SECOND BUG.
@@ -183,6 +197,7 @@ export function repairScrollLock() {
   body.style.right = ''
   body.style.width = ''
   saved = null
+  dropHeaderPush()
   window.scrollTo({ top: y, left: 0, behavior: 'instant' })
   announce()
   return true
