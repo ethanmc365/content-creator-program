@@ -12,6 +12,9 @@ import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
 import { isHiddenTestRow } from '../../lib/testData'
+import { VipMoveBlock } from '../../components/vip/adminA'
+import VipCreatorsView from '../../components/vip/creatorsView'
+import Segmented from '../../components/network/Segmented'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -77,6 +80,7 @@ export default function AdminCreators() {
   const [marketOf, setMarketOf] = useState({}) // creator id -> [market name]
   const [marketFilter, setMarketFilter] = useState('')
   const [toast, setToast] = useState('')
+  const [view, setView] = useState('everyone') // the two tabs: every creator, or the VIPs
   // Turnstile gate for sending a password reset (Auth rejects token-less calls).
   const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
   const [pwToken, setPwToken] = useState('')
@@ -485,6 +489,14 @@ export default function AdminCreators() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
+      <div className="mb-5">
+        <Segmented shape="tabs" id="creators-view" label="Creators" value={view} onChange={setView} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'vip', label: 'VIPs' }]} />
+      </div>
+
+      {view === 'vip' && <VipCreatorsView creators={creators} onOpen={setSelected} />}
+
+      {view === 'everyone' && (
+        <>
       {/* THE MARKET IS A ROW OF PILLS AGAIN, AND IT IS THE SAME ONE EVERY OTHER
           ADMIN PAGE USES (10 Sep 2026).
 
@@ -669,6 +681,9 @@ export default function AdminCreators() {
         </div>
       )}
 
+        </>
+      )}
+
       {/* ---------- Creator detail modal ---------- */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''} wide>
         {selected && (
@@ -717,6 +732,8 @@ export default function AdminCreators() {
                 are a fixed four-column grid, which cannot wrap into an orphan
                 at any width. Same tiles as the profile popup; see
                 components/admin/creatorSheet. */}
+            <VipMoveBlock creator={selected} />
+
             <div>
               <SheetLabel>Their pages</SheetLabel>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

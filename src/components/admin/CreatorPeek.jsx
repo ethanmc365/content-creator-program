@@ -5,6 +5,7 @@ import { Avatar, Modal } from '../ui'
 import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from './creatorSheet'
 import { formatDateTimeTz, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { VipMoveBlock } from '../vip/adminA'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -168,6 +169,8 @@ export default function CreatorPeek({ creator, open, onClose }) {
             components/ViewingAs. It is inert for anybody who is not an admin,
             and it grants nothing: it chooses which id the page filters on, and
             row-level security decides what comes back. */}
+        <VipMoveBlock creator={creator} />
+
         <div className="border-t border-gray-100 pt-4">
           <SheetLabel>{tr('Their pages')}</SheetLabel>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

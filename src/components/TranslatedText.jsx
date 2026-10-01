@@ -32,8 +32,8 @@ export function TranslateSwitch({ t, className }) {
         className="inline-flex items-center gap-0.5 rounded-lg bg-cloud p-0.5 text-[11px] font-semibold"
         title={from ? tr('Translated automatically (original in {lang}).', { lang: from }) : tr('Translated automatically.')}
       >
-        <button type="button" onClick={() => t.showOriginal && t.toggle()} aria-pressed={!t.showOriginal} className={half(!t.showOriginal)}>{tr('Translated')}</button>
         <button type="button" onClick={() => !t.showOriginal && t.toggle()} aria-pressed={t.showOriginal} className={half(t.showOriginal)}>{tr('Original')}</button>
+        <button type="button" onClick={() => t.showOriginal && t.toggle()} aria-pressed={!t.showOriginal} className={half(!t.showOriginal)}>{tr('Translated')}</button>
       </div>
     </div>
   )
@@ -62,7 +62,7 @@ export default function TranslatedText({ text, children, note = true, heading = 
 
 /** One short line of admin-written text, in the reader's language, no switch (the tick-box question on a submit form). */
 export function TLine({ text }) {
-  const t = useContentTranslation(text)
+  const t = useContentTranslation(text, { originalFirst: false })
   return <>{t.shown}</>
 }
 

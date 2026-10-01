@@ -32,6 +32,7 @@ export const AUDIENCES = [
   { key: 'everyone', label: 'Every creator', hint: 'Everyone on the platform', icon: 'globe' },
   { key: 'markets', label: 'Chosen markets', hint: 'Only creators in the markets you pick', icon: 'pin' },
   { key: 'challenge', label: 'A challenge', hint: 'Everyone who entered, once it has ended', icon: 'flag' },
+  { key: 'vip', label: 'VIP creators', hint: 'Every VIP, or just the VIPs of one market', icon: 'star' },
 ]
 
 // When it first appears. A challenge survey always waits for the challenge to end (survey_is_for).
@@ -183,7 +184,7 @@ export function cleanSurvey(s) {
       required: !!q.required,
       ...(hasOptions(q.type) ? { options: q.options.map((o) => o.trim()).filter(Boolean) } : {}),
     })),
-    community_ids: s.audience === 'markets' ? s.community_ids : [],
+    community_ids: s.audience === 'markets' || s.audience === 'vip' ? s.community_ids : [],
     challenge_id: s.audience === 'challenge' ? s.challenge_id : null,
     timing,
     starts_at: timing === 'date' ? s.starts_at : null,

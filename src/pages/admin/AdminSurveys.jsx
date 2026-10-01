@@ -49,14 +49,16 @@ export default function AdminSurveys() {
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
   const [markets, setMarkets] = useState([])
+  const [vipMarkets, setVipMarkets] = useState([]) // the communities that have a VIP programme
   const [challenges, setChallenges] = useState([])
 
   const load = useCallback(async () => {
-    const [{ data: s }, { data: r }, { data: m }, { data: c }] = await Promise.all([
+    const [{ data: s }, { data: r }, { data: m }, { data: c }, { data: vp }] = await Promise.all([
       supabase.from('surveys').select('*').order('created_at', { ascending: false }),
       supabase.from('survey_responses').select('survey_id, declined'),
       supabase.from('communities').select('id, name, kind').is('retired_at', null).eq('kind', 'chapter').order('name'),
       supabase.from('challenges').select('id, title, start_date, end_date, status').neq('status', 'draft').order('start_date', { ascending: false }).limit(40),
+      supabase.from('vip_programmes').select('community_id, name').eq('active', true).order('name'),
     ])
     setRows(s || [])
     const n = {}
@@ -66,6 +68,7 @@ export default function AdminSurveys() {
     }
     setCounts(n)
     setMarkets(m || [])
+    setVipMarkets((vp || []).map((p) => ({ id: p.community_id, name: p.name })))
     setChallenges(c || [])
   }, [])
   useEffect(() => { load() }, [load])
@@ -114,6 +117,7 @@ export default function AdminSurveys() {
         <SurveyEditor
           survey={editing}
           markets={markets}
+          vipMarkets={vipMarkets}
           challenges={challenges}
           onChange={setEditing}
           onCancel={() => setEditing(null)}
@@ -130,6 +134,7 @@ export default function AdminSurveys() {
           key={viewing.id}
           survey={viewing}
           markets={markets}
+          vipMarkets={vipMarkets}
           challenges={challenges}
           onBack={() => setViewing(null)}
           onEdit={() => { setEditing(viewing); setViewing(null) }}
@@ -190,7 +195,7 @@ export default function AdminSurveys() {
                         {s.is_test && <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">{tr('Test')}</span>}
                       </span>
                       <span className="mt-0.5 block truncate text-xs text-smoke">
-                        {(s.questions || []).length === 1 ? tr('1 question') : tr('{n} questions', { n: (s.questions || []).length })} · {audienceText(s, markets, challenges, tr)}
+                        {(s.questions || []).length === 1 ? tr('1 question') : tr('{n} questions', { n: (s.questions || []).length })} · {audienceText(s, markets, challenges, tr, vipMarkets)}
                       </span>
                     </span>
                     <span className="hidden shrink-0 text-right sm:block">
@@ -254,14 +259,15 @@ function MiniStat({ label, value }) {
   )
 }
 
-function audienceText(s, markets, challenges, tr) {
+function audienceText(s, markets, challenges, tr, vipMarkets = []) {
+  if (s.audience === 'vip') return (s.community_ids || []).map((id) => vipMarkets.find((m) => m.id === id)?.name).filter(Boolean).join(', ') || tr('Every VIP')
   if (s.audience === 'markets') return (s.community_ids || []).map((id) => tr(markets.find((m) => m.id === id)?.name || '')).filter(Boolean).join(', ') || tr('Chosen markets')
   if (s.audience === 'challenge') return tr('Entrants of {c}', { c: challenges.find((c) => c.id === s.challenge_id)?.title || tr('a challenge') })
   return tr('Every creator')
 }
 
 // ---------------------------------------------------------------- builder ---
-function SurveyEditor({ survey, markets, challenges, onChange, onCancel, onSave }) {
+function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, onCancel, onSave }) {
   const tr = useT()
   const set = (patch) => onChange({ ...survey, ...patch })
   const setQ = (i, patch) => set({ questions: survey.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) })
@@ -376,7 +382,7 @@ function SurveyEditor({ survey, markets, challenges, onChange, onCancel, onSave 
           </Step>
 
           <Step n={3} title={tr('Who sees it')}>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {AUDIENCES.map((a) => (
                 <OptionCard key={a.key} on={survey.audience === a.key} onClick={() => set({ audience: a.key })} icon={a.icon} label={tr(a.label)} hint={tr(a.hint)} />
               ))}
@@ -393,6 +399,23 @@ function SurveyEditor({ survey, markets, challenges, onChange, onCancel, onSave 
                     </button>
                   )
                 })}
+              </div>
+            )}
+            {survey.audience === 'vip' && (
+              <div className="mt-3 animate-fade-up">
+                <p className="mb-2 text-xs text-smoke">{tr('Pick a market to ask only its VIPs, or pick none to ask every VIP. Community creators never see it.')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {vipMarkets.map((m) => {
+                    const on = survey.community_ids.includes(m.id)
+                    return (
+                      <button key={m.id} type="button" onClick={() => set({ community_ids: on ? survey.community_ids.filter((x) => x !== m.id) : [...survey.community_ids, m.id] })}
+                        className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink')}>
+                        {on && <Icon name="check" className="h-3 w-3" strokeWidth={3} />}
+                        {m.name}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
             {survey.audience === 'challenge' && (
@@ -661,7 +684,7 @@ function IconBtn({ name, label, onClick, disabled, danger }) {
 }
 
 // ---------------------------------------------------------------- results ---
-function SurveyResults({ survey, markets, challenges, onBack, onEdit, onStatus, onDelete }) {
+function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, onEdit, onStatus, onDelete }) {
   const tr = useT()
   const [responses, setResponses] = useState(null)
   const [people, setPeople] = useState({})
@@ -735,7 +758,7 @@ function SurveyResults({ survey, markets, challenges, onBack, onEdit, onStatus, 
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-bold tracking-tight">{survey.title}</h1>
-          <p className="text-xs text-smoke">{audienceText(survey, markets, challenges, tr)} · {tr('Created {d}', { d: formatDate(survey.created_at) })}</p>
+          <p className="text-xs text-smoke">{audienceText(survey, markets, challenges, tr, vipMarkets)} · {tr('Created {d}', { d: formatDate(survey.created_at) })}</p>
         </div>
         <span className={cx('rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider', STATUS[survey.status].chip)}>{tr(STATUS[survey.status].label)}</span>
         <button type="button" onClick={onEdit} className="btn-secondary !py-2 text-xs"><Icon name="pencil" className="h-3.5 w-3.5" /> {tr('Edit')}</button>

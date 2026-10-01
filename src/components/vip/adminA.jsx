@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import VideoThumb from '../VideoThumb'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
@@ -9,7 +10,6 @@ import { cx, formatDate, formatViews } from '../../lib/utils'
 import { money, monthLabel, nf, rate, vipRpc } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, MemberStoryModal, SuggestionsCard, TrendCard } from './adminC'
-import { useAuth } from '../../context/AuthContext'
 import { VipLinkCard } from './adminD'
 import { useT } from '../../lib/i18n'
 
@@ -159,19 +159,26 @@ export function VipOverviewTab({ programme }) {
         {videos === null ? <Skeleton className="h-40 w-full rounded-card" /> : videos.length === 0 ? (
           <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('No videos yet.')}</p>
         ) : (
-          <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+          <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
             {videos.map((v) => (
-              <li key={v.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">{v.name} <span className="font-normal text-smoke">· {v.platform}</span></p>
-                  <a href={v.url} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-brand hover:underline">{v.url}</a>
-                  {v.status === 'disqualified' && <p className="text-xs text-red-600">{tr('Not counting')}{v.reason ? `: ${v.reason}` : ''}</p>}
-                  {v.error && v.status === 'tracking' && <p className="text-xs text-amber-700">{tr('Could not be read: {e}', { e: v.error })}</p>}
+              <li key={v.id} className={cx('group flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift', v.status === 'disqualified' ? 'border-red-100 opacity-75' : 'border-gray-100')}>
+                <a href={v.url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open on the platform')} className="relative block">
+                  <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-3 pb-2.5 pt-8 text-white">
+                    <span className="block text-xl font-bold tabular-nums leading-none">{formatViews(v.views_counted)}</span>
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">{tr('views this month')}</span>
+                  </span>
+                  {v.status === 'disqualified' && <span className="absolute left-2 top-2 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Not counted')}</span>}
+                </a>
+                <div className="flex flex-1 flex-col gap-1 p-3">
+                  <p className="truncate text-sm font-bold text-ink">{v.name}</p>
+                  <p className="text-[11px] text-smoke">{v.platform} · {formatViews(v.views_total)} {tr('in all')}{v.posted_at ? ` · ${formatDate(v.posted_at)}` : ''}</p>
+                  {v.status === 'disqualified' && v.reason && <p className="text-[11px] text-red-600">{v.reason}</p>}
+                  {v.error && v.status === 'tracking' && <p className="text-[11px] text-amber-700">{tr('Could not be read: {e}', { e: v.error })}</p>}
+                  <button type="button" onClick={() => (v.status === 'tracking' ? (setReason(''), setDq(v)) : setStatus(v, 'tracking'))} className="mt-auto self-start rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
+                    {v.status === 'tracking' ? tr('Stop counting') : tr('Count it again')}
+                  </button>
                 </div>
-                <p className="text-right text-xs tabular-nums text-smoke"><span className="text-sm font-bold text-ink">{formatViews(v.views_counted)}</span> {tr('this month')} · {formatViews(v.views_total)} {tr('in all')}</p>
-                <button type="button" onClick={() => (v.status === 'tracking' ? (setReason(''), setDq(v)) : setStatus(v, 'tracking'))} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
-                  {v.status === 'tracking' ? tr('Stop counting') : tr('Count it again')}
-                </button>
               </li>
             ))}
           </ul>
@@ -202,8 +209,9 @@ export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
   const [tv, setTv] = useState('')
   const [tw, setTw] = useState('')
   const [busy, setBusy] = useState(false)
+  const [review, setReview] = useState(false) // the second press: nobody is made a VIP by one accidental tap
 
-  useEffect(() => { setPick(profile || null) }, [profile, open])
+  useEffect(() => { setPick(profile || null); setReview(false) }, [profile, open])
   useEffect(() => {
     if (!open || pick || q.trim().length < 2) { setFound([]); return undefined }
     let alive = true
@@ -261,14 +269,25 @@ export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
             <label className="block"><span className="label">{tr('Target: videos a month')}</span><input className="input" inputMode="numeric" value={tv} onChange={(e) => setTv(e.target.value)} placeholder="4" /></label>
             <label className="block"><span className="label">{tr('Target: views a month')}</span><input className="input" inputMode="numeric" value={tw} onChange={(e) => setTw(e.target.value)} placeholder="300000" /></label>
           </div>
-          <button type="button" onClick={add} disabled={busy} className="btn-primary w-full justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Make them a VIP')}</button>
+          {!review ? (
+            <button type="button" onClick={() => setReview(true)} className="btn-primary w-full justify-center">{tr('Continue')}</button>
+          ) : (
+            <div className="rounded-xl border border-brand/30 bg-brand-tint/60 p-4">
+              <p className="text-sm font-bold text-ink">{tr('Make {n} a VIP in {p}?', { n: pick.name, p: programme.name.replace(/^VIP /, '') })}</p>
+              <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('They leave the challenges and the leaderboard, and are told. You can move them back at any time.')}</p>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setReview(false)} disabled={busy} className="btn-secondary flex-1 justify-center !py-2.5 text-sm">{tr('Not yet')}</button>
+                <button type="button" onClick={add} disabled={busy} className="btn-primary flex-1 justify-center !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : tr('Yes, approve')}</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Modal>
   )
 }
 
-function EditMemberModal({ m, programme, onClose, onSaved }) {
+function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
   const tr = useT()
   const [cpm, setCpm] = useState(m.cpm ?? '')
   const [cap, setCap] = useState(m.cap ?? '')
@@ -276,6 +295,7 @@ function EditMemberModal({ m, programme, onClose, onSaved }) {
   const [tw, setTw] = useState(m.target_views ?? '')
   const [status, setStatus] = useState(m.status)
   const [notes, setNotes] = useState(m.notes || '')
+  const [review, setReview] = useState(m.rate_review_on || '')
   const [busy, setBusy] = useState(false)
   async function save() {
     setBusy(true)
@@ -287,6 +307,7 @@ function EditMemberModal({ m, programme, onClose, onSaved }) {
         p_target_videos: tv === '' ? null : Number(tv), p_target_views: tw === '' ? null : Number(tw),
         p_clear_targets: tv === '' && tw === '', p_notes: notes,
       })
+      if ((review || '') !== (m.rate_review_on || '')) await vipRpc('vip_set_review_date', { p_profile: m.profile_id, p_date: review || null })
       toastSuccess(tr('Saved'))
       onSaved(); onClose()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
@@ -309,8 +330,12 @@ function EditMemberModal({ m, programme, onClose, onSaved }) {
           <label className="block"><span className="label">{tr('Target: videos a month')}</span><input className="input" inputMode="numeric" value={tv} onChange={(e) => setTv(e.target.value)} /></label>
           <label className="block"><span className="label">{tr('Target: views a month')}</span><input className="input" inputMode="numeric" value={tw} onChange={(e) => setTw(e.target.value)} /></label>
         </div>
+        <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={review} onChange={(e) => setReview(e.target.value)} /><span className="mt-1 block text-[11px] text-smoke">{tr('A reminder on the Members list when the date comes round. Optional.')}</span></label>
         <label className="block"><span className="label">{tr('Notes (only the team sees these)')}</span><textarea className="input min-h-[4rem] resize-none" value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         <button type="button" onClick={save} disabled={busy} className="btn-primary w-full justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Save')}</button>
+        {m.status !== 'left' && onMoveBack && (
+          <button type="button" onClick={onMoveBack} className="w-full rounded-xl border border-red-100 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hoverable:hover:bg-red-50">{tr('Move back to the community')}</button>
+        )}
       </div>
     </Modal>
   )
@@ -319,8 +344,6 @@ function EditMemberModal({ m, programme, onClose, onSaved }) {
 /** Who is in, the sign-up links, and the one-press transfer from the community. */
 export function VipMembersTab({ programme }) {
   const tr = useT()
-  const { profile } = useAuth()
-  const isOwner = profile?.platform_role === 'owner'
   const [data, setData] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -329,8 +352,14 @@ export function VipMembersTab({ programme }) {
   const [show, setShow] = useState('active')
   const cur = programme.currency
 
+  const [reviews, setReviews] = useState({}) // profile id -> the date their own rate is to be looked at again
   const load = useCallback(async () => {
-    setData(await vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null))
+    const [o, r] = await Promise.all([
+      vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
+      supabase.from('vip_members').select('profile_id, rate_review_on').eq('programme_id', programme.id),
+    ])
+    setData(o)
+    setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x.rate_review_on])))
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
 
@@ -364,30 +393,30 @@ export function VipMembersTab({ programme }) {
         ) : (
           <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             {members.map((m, i) => (
-              <li key={m.profile_id} className="px-4 py-3.5 animate-fade-up" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-                <div className="flex items-start gap-3">
-                  <Link to={`/profile/${m.profile_id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand">
-                    <Avatar src={m.photo} name={m.name} size="sm" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold">{m.name}</span>
-                      <span className="block text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</span>
-                    </span>
-                  </Link>
-                  <div className="shrink-0 text-right text-xs tabular-nums text-smoke"><span className="block text-sm font-bold text-ink">{nf(m.lifetime_views)}</span>{tr('views in all')}</div>
+              <li key={m.profile_id} className="p-4 animate-fade-up" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                <div className="flex items-center gap-3.5">
+                  <Link to={`/profile/${m.profile_id}`} className="shrink-0"><Avatar src={m.photo} name={m.name} size="md" /></Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
+                      {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                    </p>
+                    <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
+                  </div>
+                  <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
                 </div>
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:pl-12">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                    {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2.5 py-1 uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
                     <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? `${cur} ${rate(m.cpm)}` : tr('Standard rate')}</span>
+                    {reviews[m.profile_id] && <span className={cx('rounded-full px-2.5 py-1', new Date(reviews[m.profile_id]) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date(reviews[m.profile_id]) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate(reviews[m.profile_id]) })}</span>}
                     {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
                     {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
                     {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
                     {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
                   </div>
-                  <div className="-mx-1 flex items-center gap-0.5">
-                    <button type="button" onClick={() => setStory(m)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('History')}</button>
-                    <button type="button" onClick={() => setEditing(m)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Edit')}</button>
-                    {m.status !== 'left' && <button type="button" onClick={() => moveBack(m)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">{tr('Back to community')}</button>}
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => setStory(m)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"><Icon name="clock" className="h-3.5 w-3.5" />{tr('Story')}</button>
+                    <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-white transition-opacity hoverable:hover:opacity-85"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
                   </div>
                 </div>
               </li>
@@ -396,10 +425,10 @@ export function VipMembersTab({ programme }) {
         )}
       </section>
 
-      <VipLinkCard isOwner={isOwner} />
+      <VipLinkCard />
 
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
-      {editing && <EditMemberModal m={editing} programme={programme} onClose={() => setEditing(null)} onSaved={load} />}
+      {editing && <EditMemberModal m={{ ...editing, rate_review_on: reviews[editing.profile_id] || '' }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}
       {story && <MemberStoryModal m={story} programme={programme} onClose={() => setStory(null)} onEdit={() => { setEditing(story); setStory(null) }} onMoveBack={() => moveBack(story)} />}
     </div>
   )
@@ -417,55 +446,58 @@ export function useMonths(programmeId) {
   return useMemo(() => months, [months])
 }
 
-/** On a creator's own page, for the team: one press to make them a VIP (or a line saying they are). */
-export function MakeVipButton({ creator }) {
+/** In the admin popup (a creator's name, or the Creators list): which VIP community they are in, and the move to or from it. */
+export function VipMoveBlock({ creator, onChanged }) {
   const tr = useT()
   const [programmes, setProgrammes] = useState(null)
   const [member, setMember] = useState(null)
   const [pick, setPick] = useState(null)
   const [done, setDone] = useState('')
+  const [isVip, setIsVip] = useState(!!creator.is_vip)
   useEffect(() => {
     let alive = true
+    setDone('')
     ;(async () => {
+      const { data: prof } = await supabase.from('profiles').select('is_vip').eq('id', creator.id).maybeSingle()
       const { data } = await supabase.from('vip_programmes').select('*').eq('active', true).order('name')
       const mine = []
       for (const p of data || []) {
         const { data: ok } = await supabase.rpc('vip_can_manage', { p_programme: p.id })
         if (ok) mine.push(p)
       }
-      // a VIP the viewer manages can be moved back; the row is only readable to people who manage their programme
-      const { data: row } = creator.is_vip ? await supabase.from('vip_members').select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : { data: null }
-      if (alive) { setProgrammes(mine); setMember(row || null) }
+      const { data: row } = prof?.is_vip ? await supabase.from('vip_members').select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : { data: null }
+      if (alive) { setIsVip(!!prof?.is_vip); setProgrammes(mine); setMember(row || null) }
     })()
     return () => { alive = false }
-  }, [creator.id, creator.is_vip])
+  }, [creator.id])
 
   async function moveBack() {
     if (!await confirm(tr('Move {n} back to the community? They see the challenges, points and leaderboard again. Statements already made stay as they are, and they are told.', { n: creator.name }), { confirmLabel: tr('Move back'), danger: true })) return
-    try { await vipRpc('vip_update_member', { p_profile: creator.id, p_status: 'left' }); setDone('back'); toastSuccess(tr('{n} is back with the community creators.', { n: creator.name })) } catch (e) { notice(e.message) }
+    try { await vipRpc('vip_update_member', { p_profile: creator.id, p_status: 'left' }); setDone('back'); setIsVip(false); onChanged?.(); toastSuccess(tr('{n} is back with the community creators.', { n: creator.name })) } catch (e) { notice(e.message) }
   }
 
-  if (done === 'back') return <p className="mt-3 text-xs font-semibold text-smoke">{tr('Moved back to the community. Reload to see their page as a community creator.')}</p>
-  if (done) return null
-  if (creator.is_vip) {
-    if (!member) return null
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={moveBack} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>
-      </div>
-    )
-  }
-  if (!programmes?.length) return null
+  if (programmes === null || (!programmes.length && !isVip)) return null
+  const here = programmes.find((p) => p.id === member?.programme_id)
   return (
-    <>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {programmes.map((p) => (
-          <button key={p.id} type="button" onClick={() => setPick(p)} className="btn-secondary !py-2 text-xs">
-            <Icon name="star" className="h-3.5 w-3.5" />{programmes.length > 1 ? tr('Make a VIP in {p}', { p: p.name.replace(/^VIP /, '') }) : tr('Make a VIP')}
-          </button>
-        ))}
-      </div>
-      {pick && <AddVipModal open onClose={() => setPick(null)} programme={pick} profile={{ id: creator.id, name: creator.name, photo_url: creator.photo_url }} onAdded={() => setDone('vip')} />}
-    </>
+    <div>
+      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>
+      {isVip && done !== 'back' ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/25 bg-brand-tint/50 px-3.5 py-3">
+          <p className="text-sm font-semibold text-ink"><Icon name="star" className="mr-1.5 inline h-4 w-4 text-brand" />{tr('A VIP')}{here ? ` · ${here.name.replace(/^VIP /, '')}` : ''}</p>
+          {member && <button type="button" onClick={moveBack} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
+        </div>
+      ) : done === 'vip' ? (
+        <p className="rounded-xl bg-green-50 px-3.5 py-3 text-sm font-semibold text-green-700">{tr('Done. They are a VIP now.')}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {programmes.map((p) => (
+            <button key={p.id} type="button" onClick={() => setPick(p)} className="btn-secondary !py-2 text-xs">
+              <Icon name="star" className="h-3.5 w-3.5" />{programmes.length > 1 ? tr('Move to VIP {p}', { p: p.name.replace(/^VIP /, '') }) : tr('Move to the VIP community')}
+            </button>
+          ))}
+        </div>
+      )}
+      {pick && <AddVipModal open onClose={() => setPick(null)} programme={pick} profile={{ id: creator.id, name: creator.name, photo_url: creator.photo_url }} onAdded={() => { setDone('vip'); setIsVip(true); onChanged?.() }} />}
+    </div>
   )
 }

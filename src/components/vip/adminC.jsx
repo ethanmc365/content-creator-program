@@ -24,6 +24,7 @@ export function TrendCard(props) {
 export function AttentionCard({ programme }) {
   const tr = useT()
   const { data, missing } = useOptionalRpc('vip_attention', { p_programme: programme.id }, programme.id)
+  const r = programme.currency ? `${programme.currency} ${Number(programme.cpm)}` : String(programme.cpm)
   if (missing || !data || data.length === 0) return null
   return (
     <section className="rounded-card border border-amber-200 bg-amber-50/60 p-4 shadow-card animate-fade-up sm:p-5">
@@ -41,6 +42,9 @@ export function AttentionCard({ programme }) {
           </li>
         ))}
       </ul>
+      <p className="mt-3 border-t border-amber-100 pt-3 text-xs leading-relaxed text-amber-900/80">
+        {tr('Views are always counted at the agreed rate ({r} per 1,000), nudge or no nudge. A nudge is only about what they still have to do: add payment details so the invoice can be paid, or accept the', { r })} <Link to="/admin/vip?tab=settings" className="font-semibold underline">{tr('VIP terms')}</Link>.
+      </p>
     </section>
   )
 }

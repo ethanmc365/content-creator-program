@@ -9,7 +9,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc } from '../../lib/vip'
+import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, monthLabel, nf, prizesByPlace, unitLabel, useOptionalRpc, vipJoinLink, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
@@ -23,34 +23,32 @@ const empty = (text) => <p className="rounded-card border border-dashed border-g
 
 // ------------------------------------------------------------------------------------ the one link
 /** The single sign-up link for every VIP, how many have used it, and where the people who did are in the process. */
-export function VipLinkCard({ isOwner }) {
+export function VipLinkCard() {
   const tr = useT()
   const [link, setLink] = useState(undefined)
   const { data: funnel } = useOptionalRpc('vip_funnel', {}, 'funnel')
   const load = useCallback(async () => { try { setLink(await vipRpc('vip_global_link')) } catch { setLink(null) } }, [])
   useEffect(() => { load() }, [load])
 
-  async function renew() {
-    if (!await confirm(tr('Replace the VIP sign-up link? The old one stops working straight away. People who already joined stay VIPs.'), { confirmLabel: tr('Replace it'), danger: true })) return
-    try { setLink(await vipRpc('vip_renew_global_link')); toastSuccess(tr('New link made.')) } catch (e) { notice(e.message) }
-  }
   const url = link ? vipJoinLink(link.token) : ''
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
-      <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="link" className="h-5 w-5 text-brand" />{tr('The VIP sign-up link')}</h2>
-      <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('One link for every VIP, in every market. They sign up as usual, are marked as VIPs in the applications list, and are placed with their own market\'s VIP programme when you approve them.')}</p>
-      {link === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : link === null ? (
-        <p className="text-sm text-smoke">{tr('The link could not be made.')}</p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2.5">
-          <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={tr('The VIP sign-up link')} className="input min-w-0 flex-1 !py-2.5 text-sm" />
-          <button type="button" onClick={async () => { await copyToClipboard(url); toastSuccess(tr('Copied')) }} className="btn-primary !py-2.5 text-sm"><Icon name="copy" className="h-4 w-4" />{tr('Copy')}</button>
-          {isOwner && <button type="button" onClick={renew} className="btn-secondary !py-2.5 text-sm"><Icon name="refresh" className="h-4 w-4" />{tr('Replace')}</button>}
-        </div>
-      )}
+    <section className="space-y-4">
+      <div className="brand-drift relative overflow-hidden rounded-card p-5 text-white shadow-card sm:p-6">
+        <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+        <h2 className="relative text-[17px] font-bold">{tr('The VIP sign-up link')}</h2>
+        <p className="relative mb-4 mt-1 max-w-xl text-sm leading-relaxed text-white/90">{tr('One link for every VIP, in every market, and it never expires. They sign up as usual, are marked as VIPs in the applications list, and are placed with their own market\'s VIP programme when you approve them.')}</p>
+        {link === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : link === null ? (
+          <p className="relative text-sm text-white/90">{tr('The link could not be made.')}</p>
+        ) : (
+          <div className="relative flex flex-wrap items-center gap-2.5">
+            <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={tr('The VIP sign-up link')} className="min-w-0 flex-1 rounded-xl border-0 bg-white/95 px-3.5 py-2.5 text-sm font-medium text-ink shadow-sm outline-none focus:ring-2 focus:ring-white/60" />
+            <button type="button" onClick={async () => { await copyToClipboard(url); toastSuccess(tr('Copied')) }} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand shadow-sm transition-transform hoverable:hover:-translate-y-0.5"><Icon name="copy" className="h-4 w-4" />{tr('Copy')}</button>
+          </div>
+        )}
+      </div>
       {funnel && (
-        <>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[[tr('Signed up'), funnel.joined], [tr('Not finished'), funnel.unfinished], [tr('Waiting for you'), funnel.pending], [tr('Approved'), funnel.active]].map(([label, n]) => (
               <div key={label} className="rounded-xl bg-cloud px-3.5 py-3"><dd className="text-xl font-bold tabular-nums text-ink">{nf(n)}</dd><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</dt></div>
             ))}
@@ -72,7 +70,7 @@ export function VipLinkCard({ isOwner }) {
               </ul>
             </div>
           )}
-        </>
+        </div>
       )}
     </section>
   )
@@ -223,6 +221,14 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   const [target, setTarget] = useState(brief.target ? String(brief.target) : '')
   const [prize, setPrize] = useState(brief.prize || '')
   const [busy, setBusy] = useState(false)
+  const [rules, setRules] = useState([])
+  const rulesFor = scope || programme.id
+  useEffect(() => {
+    let alive = true
+    supabase.from('vip_bonus_rules').select('*').eq('programme_id', rulesFor).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
+    return () => { alive = false }
+  }, [rulesFor])
+  const autoPlaces = prizesByPlace(rules, tr, programme.currency)
   async function save() {
     const [y, m] = ym.split('-').map(Number)
     setBusy(true)
@@ -251,8 +257,16 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
           <label className="block"><span className="label">{tr('What decides the standings')}</span><select className="input" value={metric} onChange={(e) => setMetric(e.target.value)}>{BRIEF_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}</select></label>
           <label className="block"><span className="label">{tr('A goal everyone can aim for (optional)')}</span><input className="input" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100000" /></label>
         </div>
-        <label className="block"><span className="label">{tr('The prize, in words (optional)')}</span><input className="input" maxLength={300} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder={tr('For example: A 100 euro voucher for the most views')} /></label>
-        <p className="text-xs text-smoke">{tr('The prize here is only what VIPs read. To pay a bonus automatically, add a rule in Bonuses.')}</p>
+        <div className="rounded-xl border border-gray-100 bg-cloud/50 p-3.5">
+          <p className="label !mb-1.5">{tr('Prizes by place')}</p>
+          {autoPlaces.length ? (
+            <ul className="space-y-1 text-sm">
+              {autoPlaces.map((p) => <li key={p.place} className="flex justify-between gap-3"><span className="font-bold text-smoke">#{p.place}</span><span className="font-semibold text-ink">{p.parts.join(' + ')}</span></li>)}
+            </ul>
+          ) : <p className="text-sm text-smoke">{tr('No prizes set up yet.')}</p>}
+          <p className="mt-2 text-xs text-smoke">{tr('These come straight from the "most views" bonuses, so they are paid at month end and shown to VIPs automatically.')} <Link to={`/admin/vip?tab=bonuses`} className="font-semibold text-brand hover:underline" onClick={onClose}>{tr('Change them in Bonuses')}</Link></p>
+        </div>
+        <label className="block"><span className="label">{tr('An extra note about the prize (optional)')}</span><input className="input" maxLength={300} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder={tr('For example: the winner also gets a feature on our page')} /></label>
         <div className="flex justify-end gap-2.5"><button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr('Cancel')}</button><button type="button" onClick={save} disabled={busy || !title.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>
       </div>
     </Modal>

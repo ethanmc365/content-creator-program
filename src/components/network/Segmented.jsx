@@ -33,7 +33,12 @@ import { SPRING } from '../../lib/motion'
 // `useId` is stable across renders and unique per mounted component, which is
 // exactly the scope a highlight belongs to. An explicit `id` still wins, for
 // the case where two controls SHOULD share one highlight.
-export default function Segmented({ value, onChange, options, size = 'md', id, label, className }) {
+// `shape="tabs"` (1 Oct 2026) is the strip for pages with many views (the VIP tools). Ethan: "I like that you can scroll,
+// but it's a bit cut off ... the sides are always squared but a bit rounded at the corners." The strip IS the scroller,
+// full width, with softly rounded corners and no hidden overflow outside it, so nothing is clipped by a parent; each tab
+// is a rounded square and the one that is on is scrolled into view.
+export default function Segmented({ value, onChange, options, size = 'md', id, label, className, shape = 'pill' }) {
+  const tabs = shape === 'tabs'
   const autoId = useId()
   const key = id || autoId
   const root = useRef(null)
@@ -41,19 +46,19 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
   // horizontal scroll moves - never the page - and only when the row actually overflows.
   useEffect(() => {
     const el = root.current?.querySelector('[aria-checked="true"]')
-    const row = root.current?.parentElement
+    const row = tabs ? root.current : root.current?.parentElement
     if (!el || !row || row.scrollWidth <= row.clientWidth + 1) return
     const a = el.getBoundingClientRect()
     const b = row.getBoundingClientRect()
     row.scrollLeft += a.left - b.left - (b.width - a.width) / 2
-  }, [value])
+  }, [value, tabs])
   return (
     <div
       ref={root}
       role="radiogroup"
       aria-label={label}
       className={cx(
-        'inline-flex rounded-full bg-cloud p-1',
+        tabs ? 'scrollbar-none flex w-full max-w-full overflow-x-auto rounded-xl bg-cloud p-1' : 'inline-flex rounded-full bg-cloud p-1',
         size === 'sm' ? 'gap-0.5' : 'gap-1',
         className,
       )}
@@ -69,7 +74,8 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
             title={o.hint}
             onClick={() => !on && onChange(o.value)}
             className={cx(
-              'relative rounded-full font-medium transition-colors duration-150',
+              'relative font-medium transition-colors duration-150',
+              tabs ? 'shrink-0 rounded-lg' : 'rounded-full',
               size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',
               on ? 'text-white' : 'text-smoke hover:text-ink',
             )}
@@ -78,7 +84,7 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
               <motion.span
                 layoutId={`seg-${key}`}
                 transition={SPRING}
-                className="absolute inset-0 rounded-full bg-brand"
+                className={cx('absolute inset-0 bg-brand', tabs ? 'rounded-lg' : 'rounded-full')}
               />
             )}
             <span className="relative flex items-center gap-1.5 whitespace-nowrap">{o.label}</span>

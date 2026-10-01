@@ -11,6 +11,7 @@ import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
 import { CountUp } from '../components/network/Motion'
 import LiveChallengeCard from '../components/LiveChallengeCard'
+import { useCommunity } from '../context/CommunityContext'
 import RecapBanner from '../components/challenge/RecapBanner'
 import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
@@ -44,6 +45,7 @@ export default function Challenges() {
     return () => { alive = false }
   }, [user?.id])
   const { ids: scopeIds, networkId, loading: scopesLoading } = useMyScopes()
+  const { communities } = useCommunity()
   const cached = useCachedPage(CACHE_KEY)
   const [challenges, setChallenges] = useState(cached?.challenges ?? [])
   const [galleries, setGalleries] = useState(cached?.galleries ?? {}) // challenge_id -> {winners, totalViews}
@@ -424,6 +426,7 @@ export default function Challenges() {
               <LiveChallengeCard
                 challenge={c}
                 global={isGlobal(c)}
+                codes={communities.find((m) => m.id === c.community_id)?.country_codes}
                 entries={c.submissions?.[0]?.count ?? 0}
                 participation={participation[c.id]}
                 leaders={leaders[c.id]}

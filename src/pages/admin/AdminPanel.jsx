@@ -326,7 +326,7 @@ export default function AdminPanel() {
 
   const isGlobal = profile?.platform_role === 'global_admin' || profile?.platform_role === 'owner'
   // The VIP tools are only for the owner and the people they have added (migration 296), not the whole team.
-  const vipAccess = useVipAccess(profile?.id, true)
+  const vipAccess = useVipAccess(profile?.id, false)
 
   const visibleTools = useMemo(
     () => TOOLS.filter((t) => (!t.globalOnly || isGlobal) && (t.id !== 'vip' || vipAccess)),

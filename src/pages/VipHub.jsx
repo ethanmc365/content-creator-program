@@ -12,7 +12,7 @@ import {
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
 import { cx } from '../lib/utils'
-import { daysLeft, money, monthLabel, nf, rate, safeAccent, useVipOverview, vipRpc } from '../lib/vip'
+import { daysLeft, money, monthLabel, nf, rate, useVipOverview, vipRpc } from '../lib/vip'
 import { useT } from '../lib/i18n'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
@@ -47,10 +47,10 @@ export default function VipHub() {
       vipRpc('vip_board').catch(() => []),
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
       supabase.from('communities').select('slug').eq('id', communityId).maybeSingle(),
-      supabase.from('vip_programmes').select('accent, tagline').eq('id', programmeId).maybeSingle(),
-      supabase.from('vip_members').select('accent, headline').eq('profile_id', user.id).maybeSingle(),
+      supabase.from('vip_programmes').select('tagline').eq('id', programmeId).maybeSingle(),
+      supabase.from('vip_members').select('headline').eq('profile_id', user.id).maybeSingle(),
     ])
-    setLook({ accent: me.data?.accent || pr.data?.accent || null, tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
+    setLook({ tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
     setStatements(st || [])
     setBoard(bd || [])
     setRules(rl.data || [])
@@ -99,7 +99,6 @@ export default function VipHub() {
       {/* ---------------- this month, live ---------------- */}
       <section
         className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-fade-up sm:p-7"
-        style={look?.accent ? { background: `linear-gradient(135deg, ${safeAccent(look.accent)}, color-mix(in srgb, ${safeAccent(look.accent)} 60%, #1b1b1f))` } : undefined}
       >
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
         <span aria-hidden className="survey-orb pointer-events-none absolute -bottom-20 left-10 h-44 w-44 rounded-full bg-white/10 blur-2xl [animation-delay:-3s]" />
@@ -131,8 +130,10 @@ export default function VipHub() {
       {paused && <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('Your VIP place is paused, so new views are not being counted. Ask your market lead if that is a surprise.')}</p>}
       {!overview.payment_ready && <div className="mb-4"><PaymentBanner /></div>}
 
-      <div className="mb-5 overflow-x-auto">
+      <div className="mb-5">
         <Segmented
+          shape="tabs"
+          id="vip-hub-tabs"
           value={tab}
           onChange={(v) => setParams(v === 'month' ? {} : { tab: v }, { replace: true })}
           label={tr('VIP sections')}
@@ -193,7 +194,7 @@ export default function VipHub() {
 
             <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
               <h2 className="mb-1 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="chat" className="h-5 w-5 text-brand" />{tr('Your rooms')}</h2>
-              <p className="mb-4 text-sm text-smoke">{tr('Only VIP creators and the team can see these. This is where the WhatsApp group lives now.')}</p>
+              <p className="mb-4 text-sm text-smoke">{tr('Only VIP creators and the team can see these. Ask anything, share what is working, and meet the other VIPs.')}</p>
               <div className="flex flex-wrap gap-2.5">
                 {slug && <Link to={`/c/${slug}/chat/vip`} className="btn-primary !py-2.5 text-sm"><Icon name="star" className="h-4 w-4" />{tr('VIP room')}</Link>}
                 <Link to="/global/chat/vip_global" className="btn-secondary !py-2.5 text-sm"><Icon name="globe" className="h-4 w-4" />{tr('VIP lounge')}</Link>

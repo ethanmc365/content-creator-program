@@ -126,8 +126,8 @@ export default function NotificationBell() {
   const panelRef = useRef(null)
 
   const {
-    items, loading, leaving, unread, readCount,
-    markRead, markAllRead, dismiss, clearRead,
+    items, loading, leaving, unread,
+    dismiss, clearAll,
   } = useNotifications({
     userId: user?.id,
     pathname: location.pathname,
@@ -180,8 +180,10 @@ export default function NotificationBell() {
   }, [open])
 
   function openNotification(n) {
+    // OPENING ONE TAKES IT OFF THE LIST (1 Oct 2026). Ethan: "clicking on something doesn't make it disappear. It just
+    // still shows up there." You have dealt with it by opening it, so it goes; there is nothing left to mark as read.
     setOpen(false)
-    if (!n.read) markRead(n.id)
+    dismiss(n.id)
     if (n.link) navigate(n.link)
   }
 
@@ -264,9 +266,9 @@ export default function NotificationBell() {
               Notifications
               {unread > 0 && <span className="ml-1.5 text-xs font-medium text-brand">{unread} new</span>}
             </p>
-            {unread > 0 && (
-              <button onClick={markAllRead} className="shrink-0 text-xs font-medium text-brand transition-transform duration-150 hover:scale-105">
-                {tr("Mark all read")}
+            {(items || []).length > 0 && (
+              <button onClick={clearAll} className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-brand transition-colors duration-150 hover:bg-brand-tint">
+                {tr("Clear all")}
               </button>
             )}
           </div>
@@ -339,15 +341,6 @@ export default function NotificationBell() {
             <Link to="/notifications" onClick={() => setOpen(false)} className="rounded-lg px-2 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-cloud">
               {tr("View all")}
             </Link>
-            {/* CLEARING WHAT YOU HAVE READ, NOT CLEARING EVERYTHING - the unread
-                ones are the entire point of the panel, and a button whose most
-                likely use is a mistake does not belong next to them. */}
-            {readCount > 0 && (
-              <button onClick={clearRead} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-smoke transition-colors hover:bg-cloud hover:text-ink">
-                <Icon name="trash" className="h-3.5 w-3.5" />
-                Clear {readCount} read
-              </button>
-            )}
           </div>
         </div>
       )}

@@ -1535,7 +1535,7 @@ export default function NetworkChat() {
                     // else's. A pending message has no id on the server yet, so
                     // none of them apply to it.
                     actions={m.pending || m.failed ? [] : [
-                      ...(mt.available && m.body && !mine
+                      ...(mt.canFor(m) && !mine
                         ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
                         : []),
                       // MEDIA GETS TWO MORE, AND THEY LEAD. On a message that
@@ -1673,6 +1673,7 @@ export default function NetworkChat() {
                                   </button>
                                 )}
                                 {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
+                                {mt.isOn(m) && mt.isSame(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr('Already in your language.')}</span>}
                                 {mt.isFailed(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr("This message can't be translated right now.")}</span>}
                           </div>
                         )

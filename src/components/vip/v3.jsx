@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Skeleton, Spinner } from '../ui'
+import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import CreatorMap from '../CreatorMap'
 import HookButton from '../HookButton'
@@ -10,11 +10,12 @@ import Reveal from '../network/Reveal'
 import TranslatedText, { TLine } from '../TranslatedText'
 import { CountUp } from '../network/Motion'
 import { TargetBar } from './parts'
-import { renderNote } from '../../lib/noteMarkdown'
+import { noteExcerpt, renderNote } from '../../lib/noteMarkdown'
 import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { cx } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, safeAccent, unitLabel, useOptionalRpc, vipRpc } from '../../lib/vip'
+import { cx, formatDate } from '../../lib/utils'
+import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, vipRpc } from '../../lib/vip'
+import { ordinalFor } from '../../lib/podiumTiers'
 import { useT } from '../../lib/i18n'
 
 // THE VIP'S SIDE, THIRD PASS (30 Sep 2026, migration 299): this month's challenge, how the markets compare, perks and
@@ -49,6 +50,17 @@ function BriefCard({ brief, overview }) {
   const mine = brief.metric === 'videos' ? s.videos : brief.metric === 'best_video'
     ? Math.max(0, ...(overview.videos || []).filter((v) => v.status === 'tracking').map((v) => Number(v.views_counted) || 0)) : s.views
   const me = (standings || []).find((r) => r.me)
+  // THE PRIZES COME FROM THE BONUS RULES (1 Oct 2026), the way the main challenges' prize lists come from their
+  // structure, so the team sets them once. The typed prize is now only an extra note.
+  const [rules, setRules] = useState([])
+  const pid = brief.programme_id || overview.programme?.id
+  useEffect(() => {
+    if (!pid) return undefined
+    let alive = true
+    supabase.from('vip_bonus_rules').select('*').eq('programme_id', pid).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
+    return () => { alive = false }
+  }, [pid])
+  const places = prizesByPlace(rules, tr, overview.programme?.currency)
   return (
     <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-fade-up sm:p-6">
       <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
@@ -67,8 +79,18 @@ function BriefCard({ brief, overview }) {
       )}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {brief.target > 0 && <TargetBar label={unitLabel(brief.metric, brief.target, tr, BRIEF_METRICS)} value={mine} target={Number(brief.target)} />}
-        {brief.prize && (
-          <p className="flex items-start gap-2 rounded-xl bg-white px-3.5 py-3 text-sm text-ink shadow-sm"><Icon name="trophy" className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span><span className="block text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('The prize')}</span><TLine text={brief.prize} /></span></p>
+        {(places.length > 0 || brief.prize) && (
+          <div className="rounded-xl bg-white px-3.5 py-3 text-sm text-ink shadow-sm">
+            <p className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name="trophy" className="h-4 w-4 text-brand" />{tr('The prizes')}</p>
+            {places.length > 0 && (
+              <ul className="space-y-1">
+                {places.slice(0, 5).map((p) => (
+                  <li key={p.place} className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-smoke">{ordinalFor(p.place)}</span><span className="font-semibold">{p.parts.join(' + ')}</span></li>
+                ))}
+              </ul>
+            )}
+            {brief.prize && <p className={cx('text-smoke', places.length > 0 && 'mt-2 border-t border-gray-100 pt-2')}><TLine text={brief.prize} /></p>}
+          </div>
         )}
       </div>
       {standings && standings.length > 0 && (
@@ -107,7 +129,7 @@ export function MarketStandings() {
     <ul className="space-y-3">
       {rows.map((r, i) => {
         const pct = Math.max(Number(r.views) > 0 ? 4 : 0, Math.round((Number(r.views) / top) * 100))
-        const accent = safeAccent(r.accent)
+        const accent = safeAccent()
         const delta = Number(r.prev_views) > 0 ? Math.round(((Number(r.views) - Number(r.prev_views)) / Number(r.prev_views)) * 100) : null
         return (
           <li key={r.programme_id} className={cx('rounded-card border bg-white p-4 shadow-card animate-fade-up sm:p-5', r.mine ? 'border-brand/40' : 'border-gray-100')} style={{ animationDelay: `${i * 70}ms` }}>
@@ -227,6 +249,7 @@ export function VipLibrary({ programmeId }) {
   }, [programmeId])
   const cats = useMemo(() => [...new Set((guides || []).map((g) => g.category))], [guides])
   const shown = (guides || []).filter((g) => cat === 'all' || g.category === cat)
+  const openGuide = (guides || []).find((g) => g.id === openId) || null
   return (
     <div className="space-y-6">
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-fade-up">
@@ -252,23 +275,28 @@ export function VipLibrary({ programmeId }) {
         {guides === null ? <Skeleton className="h-40 w-full rounded-card" /> : shown.length === 0
           ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No guides yet.')}</p>
           : (
-            <Reveal className="space-y-3" stagger={0.05}>
-              {shown.map((g) => {
-                const open = openId === g.id
-                return (
-                  <article key={g.id} className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-                    <button type="button" onClick={() => setOpenId(open ? null : g.id)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-4 text-left sm:px-5">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="book" className="h-[18px] w-[18px]" /></span>
-                      <span className="min-w-0 flex-1"><span className="block text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><TLine text={g.category} /></span><span className="block text-[15px] font-bold leading-snug text-ink"><TLine text={g.title} /></span></span>
-                      <Icon name="plus" className={cx('h-4 w-4 shrink-0 text-smoke transition-transform duration-300', open && 'rotate-45')} />
-                    </button>
-                    {open && <div className="border-t border-gray-50 px-4 pb-5 pt-4 animate-fade-up sm:px-5"><TranslatedText text={g.body}>{(t) => <div className="space-y-2 text-sm leading-relaxed text-smoke">{renderNote(t)}</div>}</TranslatedText></div>}
-                  </article>
-                )
-              })}
+            <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-2" stagger={0.05}>
+              {shown.map((g) => (
+                <article key={g.id} className="group flex flex-col rounded-card border border-gray-100 bg-white p-6 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
+                  <button type="button" onClick={() => setOpenId(g.id)} className="flex h-full flex-col text-left">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-brand"><TLine text={g.category} /></span>
+                    <h3 className="mt-1 text-lg font-semibold leading-snug text-ink"><TLine text={g.title} /></h3>
+                    <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-smoke">{noteExcerpt(g.body || '', 200)}</p>
+                    <span className="mt-auto flex items-center justify-between gap-3 border-t border-gray-50 pt-4 text-xs"><span className="text-gray-400">{formatDate(g.updated_at || g.created_at)}</span><span className="font-medium text-brand">{tr('Open →')}</span></span>
+                  </button>
+                </article>
+              ))}
             </Reveal>
           )}
       </section>
+      <Modal open={!!openGuide} onClose={() => setOpenId(null)} title={openGuide?.title || ''} wide>
+        {openGuide && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-brand"><TLine text={openGuide.category} /></p>
+            <TranslatedText text={openGuide.body}>{(t) => <div className="space-y-2 text-[15px] leading-relaxed">{renderNote(t)}</div>}</TranslatedText>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
@@ -294,24 +322,21 @@ export function VipMap({ hint = true }) {
 }
 
 // ------------------------------------------------------------------------------ make it yours
-const SWATCHES = ['#d94407', '#0d6b57', '#2f7fb5', '#7a3cc2', '#c2185b', '#b8860b', '#1f2937']
-
 /** A VIP's own headline, colour, personal goal and whether they are on the VIP map. */
 export function VipMySettings({ overview, onSaved }) {
   const tr = useT()
   const { user } = useAuth()
   const [row, setRow] = useState(undefined)
   const [headline, setHeadline] = useState('')
-  const [accent, setAccent] = useState(null)
   const [goal, setGoal] = useState('')
   const [onMap, setOnMap] = useState(true)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('vip_members').select('headline, accent, own_goal_views, show_on_map').eq('profile_id', user.id).maybeSingle()
+    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views, show_on_map').eq('profile_id', user.id).maybeSingle()
     if (error || !data) { setRow(null); return }
     setRow(data)
-    setHeadline(data.headline || ''); setAccent(data.accent || null); setGoal(data.own_goal_views ? String(data.own_goal_views) : ''); setOnMap(data.show_on_map !== false)
+    setHeadline(data.headline || ''); setGoal(data.own_goal_views ? String(data.own_goal_views) : ''); setOnMap(data.show_on_map !== false)
   }, [user.id])
   useEffect(() => { load() }, [load])
   if (row === undefined) return <Skeleton className="h-48 w-full rounded-card" />
@@ -320,7 +345,7 @@ export function VipMySettings({ overview, onSaved }) {
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_update_my_settings', { p_headline: headline, p_accent: accent, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: onMap })
+      await vipRpc('vip_update_my_settings', { p_headline: headline, p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: onMap })
       toastSuccess(tr('Saved'))
       onSaved?.()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
@@ -329,16 +354,9 @@ export function VipMySettings({ overview, onSaved }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
       <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="pencil" className="h-5 w-5 text-brand" />{tr('Make it yours')}</h2>
-      <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Your headline, your colour and your own goal. Only you and the team can change them.')}</p>
+      <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Your headline and your own goal. Only you and the team can change them.')}</p>
       <div className="space-y-4">
         <label className="block"><span className="label">{tr('Headline')}</span><input className="input" maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder={tr('For example: Budget city breaks from Madrid')} /></label>
-        <div>
-          <span className="label">{tr('Your colour')}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {SWATCHES.map((c) => <button key={c} type="button" aria-label={c} aria-pressed={accent === c} onClick={() => setAccent(c)} className={cx('h-8 w-8 rounded-full ring-offset-2 transition-transform duration-200 hoverable:hover:scale-110', accent === c && 'ring-2 ring-ink')} style={{ background: c }} />)}
-            {accent && <button type="button" onClick={() => setAccent(null)} className="ml-1 text-xs font-semibold text-smoke hover:text-ink">{tr('Use the programme colour')}</button>}
-          </div>
-        </div>
         <label className="block"><span className="label">{tr('My own monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('Optional, for example 250000')} /></label>
         {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} />}
         <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink"><input type="checkbox" checked={onMap} onChange={(e) => setOnMap(e.target.checked)} className="h-4 w-4 accent-[#d94407]" />{tr('Show me on the VIP map')}</label>

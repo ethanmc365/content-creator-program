@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import VipHomeCard from '../components/vip/VipHomeCard'
+import VipCommunitiesCard from '../components/vip/VipCommunitiesCard'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
@@ -633,6 +634,9 @@ export default function GlobalHome() {
           </Link>
         )}
       </RailCard>
+
+      {/* ---------- The VIP communities, apart from the markets ---------- */}
+      <VipCommunitiesCard />
 
       {/* ---------- The people layer, in your order ---------- */}
       <RailCard

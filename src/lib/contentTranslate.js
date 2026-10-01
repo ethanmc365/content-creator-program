@@ -86,10 +86,14 @@ export function forgetTranslation(locale, text) { memo.delete(key(locale, text))
  * `shown` is what to draw. `translated` is true only when it really differs from the
  * original, which is when the "translated automatically" note earns its place.
  */
-export function useContentTranslation(text) {
+export function useContentTranslation(text, { originalFirst = true } = {}) {
   const locale = useLocale()
   const [row, setRow] = useState(null)
-  const [showOriginal, setShowOriginal] = useState(false)
+  // ORIGINAL FIRST (1 Oct 2026). Ethan: "whenever I'm viewing in English, for example the Portugal challenge, the
+  // prefix, etc., should always show in the language it was typed in first, not automatically be translated. Of
+  // course, that toggle should still be there at the top." So what the author wrote is what opens, and the switch
+  // (Original | Translated) is one press away once a translation exists.
+  const [showOriginal, setShowOriginal] = useState(originalFirst)
   useEffect(() => {
     let alive = true
     setRow(null)
@@ -116,7 +120,7 @@ export function useContentTranslation(text) {
 export function useContentTranslations(texts) {
   const locale = useLocale()
   const [map, setMap] = useState({})
-  const [showOriginal, setShowOriginal] = useState(false)
+  const [showOriginal, setShowOriginal] = useState(true) // original first, like useContentTranslation
   const key = (texts || []).filter((t) => t && t.trim()).join('\u0001')
   useEffect(() => {
     let alive = true

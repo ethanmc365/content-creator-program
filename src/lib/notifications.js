@@ -286,6 +286,16 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
   }, [userId, all])
 
+  // ONE PRESS CLEARS THE LOT (1 Oct 2026). Ethan: "there seem to be too many clicks. You have to click to mark them all as
+  // read, then clear as read." Reading is now what happens when you open one (it leaves the list), and this empties
+  // whatever is left in a single press. The same rollback as `dismiss`: a delete that fails must not claim to have worked.
+  const clearAll = useCallback(async () => {
+    const kept = all || []
+    setRows([])
+    const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId)
+    if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
+  }, [userId, all])
+
   // THE COUNTS ARE OVER EVERYTHING HELD, NOT OVER WHAT THIS SURFACE DRAWS. A
   // bell that shows thirty rows and badges "30" while the page behind it has a
   // hundred and fifty is a bell that is quietly wrong about the only number it
@@ -294,7 +304,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   const unread = useMemo(() => (all || []).filter((n) => !n.read).length, [all])
   const readCount = useMemo(() => (all || []).filter((n) => n.read).length, [all])
 
-  return { items, loading: all === null, leaving, unread, readCount, markRead, markAllRead, dismiss, clearRead, reload: load }
+  return { items, loading: all === null, leaving, unread, readCount, markRead, markAllRead, dismiss, clearRead, clearAll, reload: load }
 }
 
 // ------------------------------------------------------------------ the feed

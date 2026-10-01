@@ -14,6 +14,7 @@ import { SOFT_SPRING } from '../../lib/motion'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { isHiddenTestRow } from '../../lib/testData'
+import MarketMap from '../MarketMap'
 
 // The live challenge, wherever it is shown inside a market.
 //
@@ -164,7 +165,8 @@ function LiveBoard({ challenge, className }) {
 export default function LiveChallengeCard({
   challenge,
   market,
-  flags = '',
+  flags = '', // eslint-disable-line no-unused-vars
+  codes = null,
   entries = null,
   participation = null,
   compact = false,
@@ -193,6 +195,11 @@ export default function LiveChallengeCard({
       >
         <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
+        {/* THE MARKET'S OWN COUNTRY, highlighted on a zoomed map behind the words (1 Oct 2026, see MarketMap). It
+            replaces the flag that sat in the pill: the same fact, drawn where it can be seen. */}
+        {!isGlobal && codes?.length > 0 && (
+          <MarketMap codes={codes} className="absolute -right-16 top-1/2 h-[135%] w-auto -translate-y-1/2 opacity-90 [mask-image:linear-gradient(to_left,black_55%,transparent_100%)] sm:-right-8 lg:right-[18rem]" />
+        )}
         {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT - the same shape the
             /challenges card uses, and for the same reason: the words and the
             clock down the left, who is winning and how to join down the right.
@@ -208,7 +215,7 @@ export default function LiveChallengeCard({
               <Pulse />
               {isGlobal
                 ? <><Icon name="globe" className="h-3.5 w-3.5" /> {tr("Live worldwide")}</>
-                : <>{flags && <span aria-hidden>{flags}</span>}{market ? `Live in ${market}` : 'Live now'}</>}
+                : <>{market ? `Live in ${market}` : 'Live now'}</>}
             </span>
             {isGlobal && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">

@@ -320,6 +320,10 @@ export default function Preview() {
         <LiveChallengeCard challenge={CHALLENGE_FULL} entries={4} leaders={BENCH_LEADERS} />
         <LiveChallengeCard challenge={CHALLENGE_EMPTY} entries={0} leaders={[]} />
         <LiveChallengeCard challenge={CHALLENGE_FULL} global entries={12} leaders={BENCH_LEADERS} />
+        {/* A market's challenge carries its own country on a zoomed map (MarketMap), one per market. */}
+        {[['GB', 'IE'], ['DE'], ['RO'], ['SE', 'NO', 'FI', 'DK'], ['ES'], ['PT']].map((codes) => (
+          <LiveChallengeCard key={codes.join()} challenge={CHALLENGE_FULL} codes={codes} entries={4} leaders={BENCH_LEADERS} />
+        ))}
         {/* The one launching next week: global, points-scored, board full. */}
         <LiveChallengeCard challenge={CHALLENGE_GLOBAL_POINTS} global entries={37} leaders={BENCH_LEADERS_POINTS} />
         <div style={{ maxWidth: 340 }}>

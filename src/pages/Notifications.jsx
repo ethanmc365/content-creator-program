@@ -102,8 +102,8 @@ export default function Notifications() {
   const [filter, setFilter] = useState('all')
 
   const {
-    items, loading, leaving, unread, readCount,
-    markRead, markAllRead, dismiss, clearRead,
+    items, loading, leaving, unread,
+    dismiss, clearAll,
   } = useNotifications({
     userId: user?.id,
     pathname: location.pathname,
@@ -119,7 +119,7 @@ export default function Notifications() {
   })
 
   function open(n) {
-    if (!n.read) markRead(n.id)
+    dismiss(n.id) // opening one takes it off the list
     if (n.link) navigate(n.link)
   }
 
@@ -137,17 +137,12 @@ export default function Notifications() {
       <PageHeader
         title={tr("Notifications")}
         subtitle={unread ? `${unread} unread` : "You're all caught up."}
-        action={
-          <div className="flex flex-wrap gap-2">
-            {unread > 0 && <button onClick={markAllRead} className="btn-secondary !py-2.5 text-sm">{tr("Mark all read")}</button>}
-            {readCount > 0 && (
-              <button onClick={clearRead} className="btn-ghost !py-2.5 text-sm text-smoke hover:text-ink">
-                <Icon name="trash" className="h-4 w-4" />
-                {tr("Clear read")}
-              </button>
-            )}
-          </div>
-        }
+        action={(items || []).length > 0 && (
+          <button onClick={clearAll} className="btn-secondary !py-2.5 text-sm">
+            <Icon name="trash" className="h-4 w-4" />
+            {tr("Clear all")}
+          </button>
+        )}
       />
 
       {/* The same four filters as the panel, from the same table, so a "People"

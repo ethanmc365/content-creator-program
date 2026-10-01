@@ -161,7 +161,7 @@ function RoomRow({ to, room, last, unread }) {
   )
 }
 
-function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleProps, dragging }) {
+function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleProps, dragging, vip = false }) {
   const tr = useT()
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
   const unreadCount = rooms.filter((r) => unreadKeys.has(scopedKey(place, r.key))).length
@@ -186,9 +186,11 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
        only rule; the hairline under the header is a hairline, not a band.
        That is the platform rule about orange applied honestly: it is spent on
        the unread dot, which is information, and on nothing decorative. */
-    <section className={cx(
-      'overflow-hidden rounded-card border bg-white p-4 transition-all duration-200',
-      unreadCount > 0 ? 'border-brand/30' : 'border-gray-100',
+    <section data-place={vip ? `vip-${isNetwork ? 'network' : place.slug}` : isNetwork ? 'network' : place.slug} className={cx(
+      'overflow-hidden rounded-card border p-4 transition-all duration-200',
+      // THE VIP ROOMS ARE THEIR OWN CARDS, TINTED, so they are never read as part of the market's general rooms.
+      vip ? 'bg-gradient-to-br from-brand-tint via-white to-white' : 'bg-white',
+      unreadCount > 0 || vip ? 'border-brand/30' : 'border-gray-100',
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
       <div className="-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b border-gray-100 px-4 py-3">
@@ -212,7 +214,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
         />
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
           className="min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] text-ink transition-colors hover:text-brand">
-          {place.name}
+          {vip ? (isNetwork ? tr('VIP lounge') : tr('VIP {m}', { m: place.name })) : place.name}
         </Link>
         {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN HEADER, so a
             card three screens down is still findable without opening it. */}
@@ -301,10 +303,19 @@ export default function Rooms() {
     writePageCache(ROOMS_CACHE_KEY, { rooms })
   }, [rooms])
 
+  // The VIP rooms are kept out of the market cards and drawn as cards of their own, after the markets.
+  const vipPlaces = useMemo(() => {
+    if (!rooms) return []
+    return myCommunities
+      .map((c) => ({ place: c, rooms: rooms.filter((r) => r.community_id === c.id && r.visibility === 'vip') }))
+      .filter((g) => g.rooms.length > 0)
+      .sort((a, b) => (a.place.kind === 'network') - (b.place.kind === 'network') || a.place.name.localeCompare(b.place.name))
+  }, [rooms, myCommunities])
+
   const places = useMemo(() => {
     if (!rooms) return []
     return myCommunities
-      .map((c) => ({ place: c, rooms: rooms.filter((r) => r.community_id === c.id) }))
+      .map((c) => ({ place: c, rooms: rooms.filter((r) => r.community_id === c.id && r.visibility !== 'vip') }))
       .filter((g) => g.rooms.length > 0)
       // Worldwide first, then markets alphabetically. Worldwide is where
       // everybody already is, so it is the room you most likely came for.
@@ -326,6 +337,25 @@ export default function Rooms() {
   const orderedPlaces = [...places].sort(
     (a, b) => (rank.has(a.place.id) ? rank.get(a.place.id) : 1e9) - (rank.has(b.place.id) ? rank.get(b.place.id) : 1e9),
   )
+
+  // THE MARKET YOU WERE JUST IN IS WHERE THIS PAGE OPENS (1 Oct 2026). Ethan: "I go to Worldwide, click on a market
+  // (Spain), and then click on Rooms. I'm on the Spain one, but it's still scrolled up at the top. It should be
+  // scrolled down to wherever the Spain one actually is." AppLayout notes the last /c/<slug> page in
+  // sessionStorage; the first time the cards are on screen the page moves that market's card to the top, once.
+  useEffect(() => {
+    if (!isMobile || ctxLoading || rooms === null || places.length === 0) return undefined
+    let slug = null
+    try { slug = sessionStorage.getItem('tryp_last_market') } catch { /* private mode */ }
+    if (!slug) return undefined
+    const id = requestAnimationFrame(() => {
+      try { sessionStorage.removeItem('tryp_last_market') } catch { /* private mode */ }
+      const el = document.querySelector(`[data-place="${CSS.escape(slug)}"]`)
+      if (!el) return
+      const header = document.querySelector('header')?.getBoundingClientRect().height || 0
+      window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - header - 12), behavior: 'instant' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isMobile, ctxLoading, rooms, places.length])
 
   // ON A DESKTOP, ROOMS IS A CONVERSATION.
   //
@@ -430,6 +460,14 @@ export default function Rooms() {
               )}
             />
             </Reveal>
+          )}
+          {vipPlaces.length > 0 && !(ctxLoading || rooms === null) && (
+            <div className="mt-6 flex flex-col gap-4">
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-brand">{tr('VIP rooms')}</h2>
+              {vipPlaces.map(({ place, rooms: rs }) => (
+                <PlaceCard key={place.id} vip unreadKeys={unreadKeys} place={place} rooms={rs} lastByChannel={lastByChannel} isNetwork={place.kind === 'network'} />
+              ))}
+            </div>
           )}
         </motion.div>
       </NetworkLayout>

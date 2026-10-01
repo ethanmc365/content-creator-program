@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Segmented from '../../components/network/Segmented'
+import { notice } from '../../lib/confirm'
 import { VipMembersTab, VipOverviewTab } from '../../components/vip/adminA'
 import { VipAccessTab } from '../../components/vip/access'
 import { VipContentTab, VipMarketsTab } from '../../components/vip/adminD'
 import { AnnouncementsTab } from '../../components/vip/adminC'
 import { VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipKpiTab, VipSettingsTab } from '../../components/vip/adminB'
-import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
 // THE VIP TOOLS (2 Oct 2026, migration 294).
@@ -29,7 +29,9 @@ const TABS = ['overview', 'members', 'markets', 'content', 'bonuses', 'close', '
 
 export default function AdminVip() {
   const tr = useT()
-  const { isAdmin, profile } = useAuth()
+  const { isAdmin, profile, enterCreatorPreview } = useAuth()
+  const navigate = useNavigate()
+  const [entering, setEntering] = useState(false)
   // Who can open these tools is the owner's to decide (migration 296), so that tab is theirs alone.
   const isOwner = profile?.platform_role === 'owner'
   const [params, setParams] = useSearchParams()
@@ -64,23 +66,42 @@ export default function AdminVip() {
   }
   const programme = programmes.find((p) => p.id === pid) || programmes[0]
 
+  // THE WAY INTO THE VIP'S OWN SIDE (1 Oct 2026). Ethan: "how do I get to that screen?" A VIP sees their page, rooms,
+  // videos, statements and guides; the team never sees those as a VIP. This opens the hidden sandbox VIP in Spain, the
+  // same way "view as creator" opens the sandbox creator, and the bar at the top has the way back.
+  async function previewAsVip() {
+    setEntering(true)
+    const { error } = await enterCreatorPreview('vip')
+    setEntering(false)
+    if (error) { notice(error); return }
+    navigate('/vip')
+  }
+
   return (
     <div className="page max-w-6xl">
-      <PageHeader title={tr('VIP tools')} back={isAdmin ? '/admin' : undefined} />
+      <PageHeader
+        title={tr('VIP tools')}
+        back={isAdmin ? '/admin' : undefined}
+        action={isAdmin && <button type="button" onClick={previewAsVip} disabled={entering} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{entering ? tr('Opening...') : tr('See it as a VIP')}</button>}
+      />
 
       {programmes.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tr('Programme')}>
-          {programmes.map((p) => (
-            <button key={p.id} type="button" role="tab" aria-selected={p.id === programme.id} onClick={() => setPid(p.id)}
-              className={cx('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200', p.id === programme.id ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>
-              <Icon name="star" className="h-3.5 w-3.5" />{p.name}
-            </button>
-          ))}
+        <div className="mb-3">
+          <Segmented
+            shape="tabs"
+            value={programme.id}
+            onChange={(v) => setPid(v)}
+            label={tr('Programme')}
+            id="vip-programme"
+            options={programmes.map((p) => ({ value: p.id, label: p.name }))}
+          />
         </div>
       )}
 
-      <div className="mb-6 overflow-x-auto">
+      <div className="mb-6">
         <Segmented
+          shape="tabs"
+          id="vip-tabs"
           value={tab}
           onChange={(v) => setParams(v === 'overview' ? {} : { tab: v }, { replace: true })}
           label={tr('VIP tools')}

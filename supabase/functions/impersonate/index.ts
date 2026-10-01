@@ -94,6 +94,10 @@ async function verifyExitTicket(ticket: string): Promise<Caller | null> {
 // creator (is_test=true, not an admin, never shown in the community).
 const PREVIEW_EMAIL = 'qa-creator@trypcreators.test'
 const PREVIEW_ID = 'c655f93c-9999-4f1d-8678-9fca0bf6dcd3'
+// The second sandbox: a hidden VIP in the Spain programme, so the team can open the creator-facing VIP pages
+// (migration 305, scripts/seed-qa-vip.mjs). Same rules: is_test, not an admin, never shown in the community.
+const PREVIEW_VIP_EMAIL = 'qa-vip@trypcreators.test'
+const PREVIEW_VIP_ID = 'def3434f-758c-4821-87b1-35039ea006b1'
 
 // CORS COMES FROM THE SHARED MODULE, AND THE COPY THAT USED TO BE HERE IS WHY.
 //
@@ -159,11 +163,16 @@ Deno.serve(async (req) => {
   const { data: me } = await admin.from('profiles').select('is_admin').eq('id', caller.id).maybeSingle()
   if (!me?.is_admin) return json(req, { error: 'admins only' }, 403)
 
+  // Which of the two fixed sandboxes (never an id from the request).
+  const wantVip = body?.target === 'vip'
+  const targetId = wantVip ? PREVIEW_VIP_ID : PREVIEW_ID
+  const targetEmail = wantVip ? PREVIEW_VIP_EMAIL : PREVIEW_EMAIL
+
   // Confirm the fixed target is still a safe sandbox creator (test, non-admin).
   const { data: target } = await admin
     .from('profiles')
     .select('id, is_admin, is_test')
-    .eq('id', PREVIEW_ID)
+    .eq('id', targetId)
     .maybeSingle()
   if (!target || target.is_admin || !target.is_test) {
     return json(req, { error: 'preview account unavailable' }, 500)
@@ -172,7 +181,7 @@ Deno.serve(async (req) => {
   // Mint a magic-link token for the preview account (does NOT send an email).
   const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'magiclink',
-    email: PREVIEW_EMAIL,
+    email: targetEmail,
   })
   const tokenHash = link?.properties?.hashed_token
   if (linkErr || !tokenHash) return json(req, { error: linkErr?.message ?? 'could not create preview session' }, 500)
@@ -183,5 +192,5 @@ Deno.serve(async (req) => {
   // admin-API lookup.
   const exitTicket = await signExitTicket(caller.id, caller.email)
 
-  return json(req, { token_hash: tokenHash, exit_ticket: exitTicket, creator_id: PREVIEW_ID, admin_id: caller.id })
+  return json(req, { token_hash: tokenHash, exit_ticket: exitTicket, creator_id: targetId, admin_id: caller.id })
 })

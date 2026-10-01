@@ -119,6 +119,21 @@ export function describeRule(rule, tr, currency = 'EUR') {
   return tr('Reach {what}: {p}, once', { what, p: pay(rule.amount, rule.reward) })
 }
 
+/** The prizes by place from a programme's running "most views" rules, so a challenge never needs them typed twice
+ *  (1 Oct 2026). [{ place: 1, parts: ['EUR 100', 'EUR 50 voucher'] }, ...] in place order. */
+export function prizesByPlace(rules, tr, currency = 'EUR') {
+  const out = {}
+  for (const r of rules || []) {
+    if (r.kind !== 'top_n' || r.active === false) continue
+    for (const p of r.places || []) {
+      const voucher = p.reward === 'voucher' || (!p.reward && r.reward === 'voucher')
+      const text = voucher ? tr('{a} voucher', { a: money(p.amount, currency, { cents: false }) }) : money(p.amount, currency, { cents: false })
+      ;(out[p.place] = out[p.place] || []).push(text)
+    }
+  }
+  return Object.keys(out).map(Number).sort((a, b) => a - b).map((place) => ({ place, parts: out[place] }))
+}
+
 // ONE SHARED COPY OF "MY VIP NUMBERS" (the hub and the home card both read it).
 let cache = null
 let cacheAt = 0
@@ -284,9 +299,10 @@ export function unitLabel(metricKey, n, tr, list = PERK_METRICS) {
 /** The one sign-up link every VIP uses. */
 export function vipJoinLink(token) { return token ? vipJoinUrl(token) : '' }
 
-/** Ask for a programme's brand colour, but never trust it: only a plain #rrggbb goes into a style. */
-export function safeAccent(hex, fallback = '#d94407') {
-  return typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : fallback
+/** Every VIP screen uses the platform's orange (1 Oct 2026: "I don't want different programme colours"). Kept as a
+ *  function so old callers keep working; whatever colour is stored is ignored. */
+export function safeAccent(_hex, fallback = '#d94407') {
+  return fallback
 }
 
 /** A month's "year*12+month" number, for comparing months without dates. */

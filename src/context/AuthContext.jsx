@@ -182,7 +182,7 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const enterCreatorPreview = useCallback(async () => {
+  const enterCreatorPreview = useCallback(async (target) => {
     const { data: { session: cur } } = await supabase.auth.getSession()
     if (!cur) return { error: 'You need to be signed in.' }
     let out
@@ -194,7 +194,7 @@ export function AuthProvider({ children }) {
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           Authorization: `Bearer ${cur.access_token}`,
         },
-        body: JSON.stringify({ action: 'enter' }),
+        body: JSON.stringify({ action: 'enter', target: target === 'vip' ? 'vip' : undefined }),
       })
       out = await res.json().catch(() => ({}))
       if (!res.ok || !out?.token_hash || !out?.exit_ticket) return { error: out?.error || 'Could not start creator preview.' }

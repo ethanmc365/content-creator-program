@@ -10,6 +10,7 @@ import { useT } from '../lib/i18n'
 import { briefExcerpt } from '../lib/briefExcerpt'
 import SpinningEarth from './SpinningEarth'
 import GlowRing from './network/GlowRing'
+import MarketMap from './MarketMap'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -188,7 +189,7 @@ function Leaderboard({ leaders, prizes, className, scoring }) {
   )
 }
 
-export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders }) {
+export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null }) {
   const tr = useT()
   const excerpt = briefExcerpt(c.description || '')
   return (
@@ -254,6 +255,11 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           // sized to the card's own height and centred in it, between the
           // words and the leaderboard. The phone keeps its corner.
           <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:left-[54%] lg:right-auto lg:top-1/2 lg:h-[94%] lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2" />
+        )}
+        {/* A MARKET'S CHALLENGE CARRIES ITS OWN COUNTRY, highlighted on a zoomed map (see MarketMap); the global card has
+            the turning Earth. The card stays the lighter gradient, so the two are never mistaken for each other. */}
+        {!isGlobal && codes?.length > 0 && (
+          <MarketMap codes={codes} className="absolute -right-24 -top-4 h-[120%] w-auto opacity-90 [mask-image:linear-gradient(to_left,black_55%,transparent_100%)] sm:-right-10 lg:left-[50%] lg:right-auto lg:top-1/2 lg:h-[112%] lg:-translate-x-1/2 lg:-translate-y-1/2" />
         )}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the

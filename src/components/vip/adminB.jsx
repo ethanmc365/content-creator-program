@@ -10,7 +10,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatViews } from '../../lib/utils'
 import {
-  BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, describeRule, money, monthLabel, nf, rate, vipRpc,
+  BONUS_KINDS, DEFAULT_TERMS, FLAGS, MILESTONE_METRICS, SCOPES, describeRule, money, monthLabel, nf, rate, vipRpc,
 } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { Stat, useMonths } from './adminA'
@@ -192,12 +192,71 @@ function costNow(rule, members) {
   return null
 }
 
+// A SET OF PERSONAL MILESTONES IN ONE GO (1 Oct 2026). Ethan: "Personal milestones: ensure you can set them up easily."
+// One row per milestone (what total, what it pays), saved as one rule each; the close works each out once per creator.
+function MilestoneLadder({ programme, onClose, onSaved }) {
+  const tr = useT()
+  const { profile } = useAuth()
+  const [metric, setMetric] = useState('lifetime_views')
+  const [reward, setReward] = useState('cash')
+  const [rows, setRows] = useState([{ at: '100000', amount: '10' }, { at: '500000', amount: '25' }, { at: '1000000', amount: '50' }, { at: '5000000', amount: '150' }])
+  const [busy, setBusy] = useState(false)
+  const set = (i, patch) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  async function save() {
+    const good = rows.map((r) => ({ at: Number(String(r.at).replace(/[^\d.]/g, '')), amount: Number(r.amount) })).filter((r) => r.at > 0 && r.amount > 0)
+    if (!good.length) { notice(tr('Add at least one milestone with an amount.')); return }
+    setBusy(true)
+    const label = (n) => (metric === 'lifetime_views' ? tr('{n} views in total', { n: nf(n) }) : metric === 'lifetime_videos' ? tr('{n} videos in total', { n: nf(n) }) : tr('{n} earned in one month', { n: nf(n) }))
+    const { error } = await supabase.from('vip_bonus_rules').insert(good.map((g) => ({
+      programme_id: programme.id, label: label(g.at), kind: 'milestone', scope: 'creator', reward, amount: g.amount, places: [],
+      conditions: { metric, threshold: g.at }, active: true, created_by: profile?.id,
+    })))
+    setBusy(false)
+    if (error) { notice(error.message); return }
+    toastSuccess(tr('Saved'))
+    onSaved(); onClose()
+  }
+  return (
+    <Modal open onClose={onClose} title={tr('Personal milestones')} wide>
+      <div className="space-y-4">
+        <p className="text-sm text-smoke">{tr('A milestone pays a VIP once, the month they reach it. Fill in as many rows as you like; each becomes its own bonus you can change later.')}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block"><span className="label">{tr('What counts')}</span>
+            <select className="input" value={metric} onChange={(e) => setMetric(e.target.value)}>{MILESTONE_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}</select>
+          </label>
+          <div><span className="label">{tr('Paid as')}</span>
+            <div className="flex gap-2">{[['cash', tr('Cash')], ['voucher', tr('Voucher')]].map(([k, label]) => <button key={k} type="button" onClick={() => setReward(k)} aria-pressed={reward === k} className={cx('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', reward === k ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{label}</button>)}</div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input className="input" inputMode="numeric" value={r.at} onChange={(e) => set(i, { at: e.target.value })} placeholder={tr('Reached at')} aria-label={tr('Reached at')} />
+              <input className="input !w-32" inputMode="decimal" value={r.amount} onChange={(e) => set(i, { amount: e.target.value })} placeholder={tr('Amount')} aria-label={tr('Amount')} />
+              <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} aria-label={tr('Remove')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500"><Icon name="close" className="h-4 w-4" /></button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setRows((x) => [...x, { at: '', amount: '' }])} className="text-xs font-semibold text-brand hover:underline">+ {tr('Add a milestone')}</button>
+        </div>
+        <button type="button" onClick={save} disabled={busy} className="btn-primary w-full justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Save the milestones')}</button>
+      </div>
+    </Modal>
+  )
+}
+
+const PRESETS = [
+  { key: 'podium', icon: 'trophy', label: 'Monthly podium', hint: 'Prizes for the top three on views', rule: { kind: 'top_n', label: 'Most views of the month', scope: 'market', reward: 'cash', places: [{ place: 1, amount: '100', reward: 'cash' }, { place: 2, amount: '50', reward: 'cash' }, { place: 3, amount: '25', reward: 'cash' }] } },
+  { key: 'target', icon: 'flag', label: 'Hit your target', hint: 'A bonus for reaching their own monthly target', rule: { kind: 'target', label: 'Monthly target hit', scope: 'creator', reward: 'cash', amount: '25', conditions: { own: true } } },
+  { key: 'best', icon: 'star', label: 'Best video', hint: 'The most-viewed video of the month', rule: { kind: 'best_video', label: 'Video of the month', scope: 'market', reward: 'cash', amount: '50' } },
+]
+
 export function VipBonusesTab({ programme }) {
   const tr = useT()
   const [rules, setRules] = useState(null)
   const [members, setMembers] = useState([])
   const [month, setMonth] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [ladder, setLadder] = useState(false)
   const cur = programme.currency
 
   const load = useCallback(async () => {
@@ -220,6 +279,20 @@ export function VipBonusesTab({ programme }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-smoke">{tr('Bonuses are rules, not hand payments. The month-end close works each one out for every VIP, and you check the result before anything is approved. You can set bonuses for each creator, for the ranking in this market, or for the ranking across every VIP.')}</p>
         <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a bonus')}</button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-4">
+        {PRESETS.map((p) => (
+          <button key={p.key} type="button" onClick={() => setEdit({ preset: true, ...p.rule, label: tr(p.rule.label) })} className="group flex flex-col items-start gap-1 rounded-card border border-gray-100 bg-white p-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name={p.icon} className="h-4 w-4" /></span>
+            <span className="text-[13px] font-bold text-ink">{tr(p.label)}</span>
+            <span className="text-[11px] leading-snug text-smoke">{tr(p.hint)}</span>
+          </button>
+        ))}
+        <button type="button" onClick={() => setLadder(true)} className="group flex flex-col items-start gap-1 rounded-card border border-gray-100 bg-white p-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name="chart" className="h-4 w-4" /></span>
+          <span className="text-[13px] font-bold text-ink">{tr('Personal milestones')}</span>
+          <span className="text-[11px] leading-snug text-smoke">{tr('A ladder: 100k, 500k, 1M views and so on')}</span>
+        </button>
       </div>
       {rules === null ? <Skeleton className="h-40 w-full rounded-card" /> : rules.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No bonuses yet. Start with a bonus for hitting the monthly target, and prizes for the top three of the month.')}</p>
@@ -257,7 +330,8 @@ export function VipBonusesTab({ programme }) {
           })}
         </ul>
       )}
-      {edit && <RuleModal rule={edit.id ? edit : null} programme={programme} month={month} onClose={() => setEdit(null)} onSaved={load} />}
+      {edit && <RuleModal rule={edit.id || edit.preset ? edit : null} programme={programme} month={month} onClose={() => setEdit(null)} onSaved={load} />}
+      {ladder && <MilestoneLadder programme={programme} onClose={() => setLadder(false)} onSaved={load} />}
     </div>
   )
 }
@@ -605,8 +679,8 @@ export function VipSettingsTab({ programme, onSaved }) {
   const tr = useT()
   const [f, setF] = useState(() => ({
     cpm: programme.cpm, min_payout: programme.min_payout, monthly_cap: programme.monthly_cap ?? '', budget_monthly: programme.budget_monthly ?? '',
-    window_days: programme.window_days, terms: programme.terms || '', tiers: programme.tiers || [], active: programme.active, reaccept: false,
-    accent: programme.accent || '', tagline: programme.tagline || '', welcome_message: programme.welcome_message || '',
+    window_days: programme.window_days, terms: programme.terms || DEFAULT_TERMS.map((p) => p.replace('{days}', String(programme.window_days || 60))).join('\n\n'), tiers: programme.tiers || [], active: programme.active, reaccept: false,
+    tagline: programme.tagline || '', welcome_message: programme.welcome_message || '',
   }))
   const [busy, setBusy] = useState(false)
   const set = (p) => setF((x) => ({ ...x, ...p }))
@@ -616,10 +690,10 @@ export function VipSettingsTab({ programme, onSaved }) {
     const row = {
       cpm: Number(f.cpm) || 0, min_payout: Number(f.min_payout) || 0,
       monthly_cap: f.monthly_cap === '' ? null : Number(f.monthly_cap), budget_monthly: f.budget_monthly === '' ? null : Number(f.budget_monthly),
-      window_days: Math.max(1, Number(f.window_days) || 60), terms: f.terms.trim() || null,
+      window_days: Math.max(1, Number(f.window_days) || 60), terms: (f.terms.trim() === DEFAULT_TERMS.map((p) => p.replace('{days}', String(f.window_days || 60))).join('\n\n') ? '' : f.terms.trim()) || null,
       tiers: f.tiers.filter((t) => Number(t.from_views) > 0 && Number(t.cpm) >= 0).map((t) => ({ from_views: Number(t.from_views), cpm: Number(t.cpm) })).sort((a, b) => a.from_views - b.from_views),
       active: f.active, ...(f.reaccept ? { terms_version: programme.terms_version + 1 } : {}),
-      accent: /^#[0-9a-fA-F]{6}$/.test(f.accent) ? f.accent : null, tagline: f.tagline.trim() || null, welcome_message: f.welcome_message.trim() || null,
+      tagline: f.tagline.trim() || null, welcome_message: f.welcome_message.trim() || null,
     }
     const { error } = await supabase.from('vip_programmes').update(row).eq('id', programme.id)
     setBusy(false)
@@ -657,35 +731,35 @@ export function VipSettingsTab({ programme, onSaved }) {
 
       <section className="space-y-4 rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
         <div>
-          <h3 className="text-[15px] font-bold text-ink">{tr('Make it your own')}</h3>
-          <p className="text-sm text-smoke">{tr('How this market\'s VIP page looks and what a new VIP is told. Each VIP can also pick their own colour and headline.')}</p>
+          <h3 className="text-[15px] font-bold text-ink">{tr('What your VIPs read')}</h3>
+          <p className="text-sm text-smoke">{tr('Two short texts on the VIP page of this market. Leave either empty and the standard wording is used.')}</p>
         </div>
-        <div>
-          <span className="label">{tr('Programme colour')}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {['#d94407', '#0d6b57', '#2f7fb5', '#7a3cc2', '#c2185b', '#b8860b', '#1f2937'].map((c) => (
-              <button key={c} type="button" aria-label={c} aria-pressed={f.accent === c} onClick={() => set({ accent: c })} className={cx('h-8 w-8 rounded-full ring-offset-2 transition-transform duration-200 hoverable:hover:scale-110', f.accent === c && 'ring-2 ring-ink')} style={{ background: c }} />
-            ))}
-            <input type="color" aria-label={tr('Pick any colour')} value={/^#[0-9a-fA-F]{6}$/.test(f.accent) ? f.accent : '#d94407'} onChange={(e) => set({ accent: e.target.value })} className="h-8 w-10 cursor-pointer rounded border border-gray-200 bg-white p-0.5" />
-            {f.accent && <button type="button" onClick={() => set({ accent: '' })} className="text-xs font-semibold text-smoke hover:text-ink">{tr('Use the Tryp.com orange')}</button>}
-          </div>
-        </div>
-        <label className="block"><span className="label">{tr('Tagline')}</span><input className="input" maxLength={120} value={f.tagline} onChange={(e) => set({ tagline: e.target.value })} placeholder={tr('For example: The Spanish VIP creators')} /></label>
-        <label className="block"><span className="label">{tr('Welcome message for new VIPs')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={f.welcome_message} onChange={(e) => set({ welcome_message: e.target.value })} placeholder={tr('Leave empty for the standard welcome.')} /></label>
+        <label className="block"><span className="label">{tr('Line under the page title')}</span><input className="input" maxLength={120} value={f.tagline} onChange={(e) => set({ tagline: e.target.value })} placeholder={tr('For example: The Spanish VIP creators')} /></label>
+        <label className="block"><span className="label">{tr('Welcome note, shown to every new VIP')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={f.welcome_message} onChange={(e) => set({ welcome_message: e.target.value })} placeholder={tr('Leave empty for the standard welcome.')} /></label>
       </section>
 
-      <label className="block">
-        <span className="label">{tr('Terms (optional)')}</span>
-        <textarea className="input min-h-[8rem] resize-y text-[13px]" value={f.terms} onChange={(e) => set({ terms: e.target.value })} placeholder={tr('Leave empty to use the standard terms. Separate points with a blank line.')} />
-      </label>
-      <label className="flex items-start gap-2.5 text-sm text-ink">
-        <input type="checkbox" checked={f.reaccept} onChange={(e) => set({ reaccept: e.target.checked })} className="mt-0.5 h-4 w-4 accent-brand" />
-        <span>{tr('Ask every VIP to accept the terms again')}</span>
-      </label>
-      <label className="flex items-center gap-2.5 text-sm text-ink">
-        <input type="checkbox" checked={f.active} onChange={(e) => set({ active: e.target.checked })} className="h-4 w-4 accent-brand" />
-        <span>{tr('The programme is running (months are made and closed automatically)')}</span>
-      </label>
+      <section className="space-y-3 rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+        <div>
+          <h3 className="text-[15px] font-bold text-ink">{tr('The terms VIPs accept')}</h3>
+          <p className="text-sm text-smoke">{tr('This is exactly what a VIP reads and agrees to before they are paid. Change any point, add your own, then save. Separate the points with a blank line.')}</p>
+        </div>
+        <textarea className="input min-h-[16rem] resize-y text-[13px] leading-relaxed" value={f.terms} onChange={(e) => set({ terms: e.target.value })} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={() => set({ terms: DEFAULT_TERMS.map((p) => p.replace('{days}', String(f.window_days || 60))).join('\n\n') })} className="text-xs font-semibold text-smoke hover:text-ink">{tr('Put the standard terms back')}</button>
+          <span className="text-xs text-smoke">{tr('Version {v}', { v: programme.terms_version })}</span>
+        </div>
+        <label className="flex items-start gap-2.5 text-sm text-ink">
+          <input type="checkbox" checked={f.reaccept} onChange={(e) => set({ reaccept: e.target.checked })} className="mt-0.5 h-4 w-4 accent-brand" />
+          <span>{tr('Ask every VIP to accept the terms again')}</span>
+        </label>
+      </section>
+      <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+        <h3 className="text-[15px] font-bold text-ink">{tr('Open or closed')}</h3>
+        <label className="mt-2 flex items-start gap-2.5 text-sm text-ink">
+          <input type="checkbox" checked={f.active} onChange={(e) => set({ active: e.target.checked })} className="mt-0.5 h-4 w-4 accent-brand" />
+          <span>{tr('Open. Untick to close this programme: VIPs no longer see it and no new months are made. Nothing is deleted.')}</span>
+        </label>
+      </section>
       <button type="button" onClick={save} disabled={busy} className="btn-primary justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Save the settings')}</button>
     </div>
   )

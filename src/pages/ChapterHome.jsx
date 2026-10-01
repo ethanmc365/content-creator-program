@@ -411,6 +411,7 @@ export default function ChapterHome() {
                 challenge={data.live}
                 market={chapter.name}
                 flags={flags}
+                codes={chapter.country_codes}
                 entries={data.live.submissions?.[0]?.count ?? 0}
                 participation={data.participation}
               />
@@ -514,6 +515,7 @@ export default function ChapterHome() {
                 challenge={data.live}
                 market={chapter.name}
                 flags={flags}
+                codes={chapter.country_codes}
                 entries={data.live.submissions?.[0]?.count ?? 0}
                 participation={data.participation}
               />

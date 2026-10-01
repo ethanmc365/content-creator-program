@@ -569,6 +569,8 @@ export default function Messages() {
         ? supabase.from('direct_messages')
             .select('id, conversation_id, sender_id, created_at')
             .in('conversation_id', groups.map((c) => c.id))
+            // Only what could still be unread: a group's whole history was being read to count a handful of messages.
+            .gte('created_at', new Date(Date.now() - 45 * 86400000).toISOString())
         : Promise.resolve({ data: [] }),
     ])
 
@@ -642,8 +644,9 @@ export default function Messages() {
       setPeopleLoaded(true)
       setConnectionIds(new Set([...rels.entries()].filter(([, v]) => v.relation === 'connected').map(([id]) => id)))
     }
-    loadPeople()
-    return () => { cancelled = true }
+    // The people list is only for the search box and the empty pane, so it waits until the inbox itself is drawn.
+    const id = setTimeout(loadPeople, 900)
+    return () => { cancelled = true; clearTimeout(id) }
   }, [user.id])
 
   // Jump into a conversation with someone from search / the suggestions list,
@@ -815,20 +818,19 @@ export default function Messages() {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
       if (cancelled) return
+      // THE MESSAGES ARE ON SCREEN THE MOMENT THEY ARRIVE (1 Oct 2026). Ethan: "clicking on a DM ... seems to take a
+      // long time to load." The reactions, the entry cards and the read marks were three round trips run one after
+      // another BEFORE the spinner stopped, so a thread waited for things it can draw without. They run alongside now
+      // and fill in when they land.
       setThread(data ?? [])
-      // Load reactions for the thread (silently no-ops if the table isn't there yet).
-      const ids = (data ?? []).map((m) => m.id)
-      if (ids.length) {
-        const { data: reacts } = await supabase.from('dm_reactions').select('*').in('message_id', ids)
-        if (!cancelled) setReactions(reacts ?? [])
-      } else if (!cancelled) {
-        setReactions([])
-      }
-      // A feedback DM carries the entry it is about, so the bubble can show the
-      // entry card rather than a paragraph about a video you then have to find.
-      const refs = await loadEntryRefs((data ?? []).map((m) => m.submission_id))
-      if (!cancelled) setEntryRefs(refs)
       setLoadingThread(false)
+      const ids = (data ?? []).map((m) => m.id)
+      // Reactions (silently no-ops if the table isn't there yet) and the entries a feedback DM carries, together.
+      const [reacts, refs] = await Promise.all([
+        ids.length ? supabase.from('dm_reactions').select('*').in('message_id', ids).then(({ data: r }) => r ?? []) : Promise.resolve([]),
+        loadEntryRefs((data ?? []).map((m) => m.submission_id)),
+      ])
+      if (!cancelled) { setReactions(reacts); setEntryRefs(refs) }
       // Mark everything they sent me as read. In a group there is no per-reader
       // flag on the message - one row, many readers - so the watermark on my
       // own membership row moves instead.
@@ -841,11 +843,13 @@ export default function Messages() {
           .eq('read', false),
         markGroupRead(conversationId, user.id),
       ])
-      loadConversations() // refresh unread badges
+      // The badge on this thread is simply gone; reloading the whole inbox for it (six queries, every group's whole
+      // history) was most of what a tap cost.
+      if (!cancelled) setConversations((prev) => prev.map((c) => (c.id === conversationId && c.unread ? { ...c, unread: 0 } : c)))
     }
     loadThread()
     return () => { cancelled = true }
-  }, [conversationId, user.id, loadConversations])
+  }, [conversationId, user.id])
 
   // READ RECEIPTS IN A GROUP DM.
   //
@@ -2501,7 +2505,7 @@ export default function Messages() {
                           </>
                         )}
                         actions={m.pending || m.failed ? [] : [
-                      ...(mt.available && m.body && !mine
+                      ...(mt.canFor(m) && !mine
                         ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
                         : []),
                           // MEDIA GETS TWO MORE, AND THEY LEAD - same bar, same
@@ -2640,6 +2644,7 @@ export default function Messages() {
                                   </button>
                                 )}
                                 {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
+                                {mt.isOn(m) && mt.isSame(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr('Already in your language.')}</span>}
                                 {mt.isFailed(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr("This message can't be translated right now.")}</span>}
                               </span>
                             )

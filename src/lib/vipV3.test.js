@@ -7,8 +7,8 @@ import { buildVipCards } from '../components/wrapped/vipStory'
 const tr = (s, v = {}) => String(s).replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`))
 
 describe('vip v3 helpers', () => {
-  it('only lets a plain #rrggbb colour into a style', () => {
-    expect(safeAccent('#0d6b57')).toBe('#0d6b57')
+  it('uses the platform orange whatever colour was stored (no programme colours)', () => {
+    expect(safeAccent('#0d6b57')).toBe('#d94407')
     expect(safeAccent('red; background:url(x)')).toBe('#d94407')
     expect(safeAccent(null)).toBe('#d94407')
     expect(safeAccent('#abc', '#111111')).toBe('#111111')

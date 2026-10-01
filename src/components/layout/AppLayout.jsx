@@ -230,6 +230,11 @@ export default function AppLayout() {
   }, [lockedY, chromeHidden])
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
+  // Which market the reader was last in, so Rooms can open on its card (see Rooms).
+  useEffect(() => {
+    const m = pathname.match(/^\/c\/([^/]+)/)
+    if (m) { try { sessionStorage.setItem('tryp_last_market', m[1]) } catch { /* private mode */ } }
+  }, [pathname])
   // Which of the five tabs the current URL belongs to. See activeTab above.
   const currentTab = activeTab(pathname)
   // The pill is fixed to the viewport bottom, which is exactly where a chat
@@ -249,7 +254,7 @@ export default function AppLayout() {
   // enter challenges; the tab that would have been theirs is the page that IS theirs. An admin who is also a
   // VIP keeps the challenges.
   const isVip = !!profile?.is_vip && !isAdmin
-  const vipAccess = useVipAccess(profile?.id, !!isAdmin)
+  const vipAccess = useVipAccess(profile?.id, false)
   const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
   const navigate = useNavigate()
 

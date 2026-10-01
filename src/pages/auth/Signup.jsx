@@ -25,7 +25,8 @@ export default function Signup() {
   const pwProps = demoAsked
     ? { type: 'text', autoComplete: 'off', name: 'demo-field', 'data-1p-ignore': 'true', 'data-lpignore': 'true' }
     : { type: 'password', autoComplete: 'new-password' }
-  const { signUp, user } = useAuth()
+  const { signUp, user, profile, signOut } = useAuth()
+  const [claiming, setClaiming] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const ref = searchParams.get('ref') // referral code from a creator's invite link
@@ -112,17 +113,25 @@ export default function Signup() {
   useEffect(() => {
     if (demoAsked) return
     if (!user) return
-    // Somebody who already has an account and follows a VIP link becomes a VIP now, no second sign-up.
-    if (vipToken && vipInvite?.valid) {
-      supabase.rpc('claim_vip_invite', { p_token: vipToken }).then(() => {
-        try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
-        navigate('/vip', { replace: true })
-      })
-      return
-    }
+    // SOMEBODY ALREADY SIGNED IN IS ASKED, NOT SWITCHED (1 Oct 2026). Opening the link used to make whoever was signed
+    // in a VIP the moment the page loaded ("it just automatically logged me in with my other account"). The page now
+    // says who is signed in and lets them choose; see the card below.
+    if (vipToken && vipInvite?.valid) return
     if (vipToken && vipInvite === null) return
     navigate('/onboarding', { replace: true })
   }, [user, navigate, demoAsked, vipToken, vipInvite])
+
+  // The signed-in visitor chose to join with the account they are already using.
+  async function joinWithThisAccount() {
+    setClaiming(true)
+    await supabase.rpc('claim_vip_invite', { p_token: vipToken })
+    try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
+    navigate('/vip', { replace: true })
+  }
+  // ...or to start again as somebody else: sign out, keep the link, and the sign-up form below is what is left.
+  async function useAnotherAccount() {
+    try { await signOut() } catch { /* the form below still works */ }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -187,30 +196,37 @@ export default function Signup() {
     >
       {vipToken && vipInvite && (
         vipInvite.valid ? (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-tint to-white p-4 sm:p-5">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
-                <Icon name="star" className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[15px] font-bold leading-snug text-ink">{tr('You are joining the VIP creators')}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-smoke">{tr('Paid by the views you bring, with your own page, your own rooms and a payout every month.')}</p>
-              </div>
-            </div>
-            <ol className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="brand-drift relative mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-card sm:p-6">
+            <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+            <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('By invitation')}</p>
+            <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Join the Tryp.com VIP creators')}</p>
+            <p className="relative mt-1.5 text-sm leading-relaxed text-white/90">{tr('Paid by the views you bring, with your own page, your own rooms and a payout every month.')}</p>
+            <ol className="relative mt-4 grid grid-cols-3 gap-2 text-center">
               {[tr('Make your account'), tr('Tell us about you'), tr('Your VIP page opens')].map((label, i) => (
-                <li key={label} className="rounded-xl bg-white/80 px-2 py-2.5 shadow-sm">
-                  <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">{i + 1}</span>
-                  <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-ink">{label}</span>
+                <li key={label} className="rounded-xl bg-white/15 px-2 py-2.5 backdrop-blur-sm">
+                  <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-white text-[11px] font-bold text-brand">{i + 1}</span>
+                  <span className="mt-1.5 block text-[11px] font-semibold leading-tight">{label}</span>
                 </li>
               ))}
             </ol>
           </div>
         ) : (
           <p className="mb-5 rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
-            {tr('That VIP link has expired or been withdrawn. You can still sign up as a creator below, or ask the team for a new one.')}
+            {tr('We do not recognise that VIP link. Check you copied all of it, or ask the team to send it again. You can still sign up as a creator below.')}
           </p>
         )
+      )}
+
+      {vipToken && vipInvite?.valid && user && !demoAsked && (
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
+          <p className="text-sm text-smoke">{tr('You are signed in as')}</p>
+          <p className="truncate text-[15px] font-bold text-ink">{profile?.name || user.email}</p>
+          <p className="mt-2 text-xs leading-relaxed text-smoke">{tr('Join the VIP creators with this account, or sign out and sign up as somebody new.')}</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={joinWithThisAccount} disabled={claiming} className="btn-primary flex-1 justify-center">{claiming ? <Spinner className="h-4 w-4" /> : tr('Join with this account')}</button>
+            <button type="button" onClick={useAnotherAccount} disabled={claiming} className="btn-secondary flex-1 justify-center">{tr('Sign out and use another')}</button>
+          </div>
+        </div>
       )}
 
       {ref && !teamToken && !vipToken && (
@@ -253,6 +269,7 @@ export default function Signup() {
         )
       )}
 
+      {!(vipToken && vipInvite?.valid && user && !demoAsked) && (<>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>
@@ -324,6 +341,7 @@ export default function Signup() {
       <div className="mt-6">
         <GoogleButton referral={ref} label={tr("Sign up with Google")} />
       </div>
+      </>)}
     </AuthShell>
   )
 }

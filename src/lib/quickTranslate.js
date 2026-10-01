@@ -19,6 +19,29 @@ import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 // to MyMemory. Every failure leaves the original on screen.
 
 const memo = new Map() // `${locale}\n${text}` -> { value, src }
+
+// ENGLISH READERS CAN TRANSLATE TOO (1 Oct 2026). Ethan: "if I'm on the main English language but a message is sent
+// in Spanish, I should be able to translate it ... even if a language is not on the platform. If someone sends a
+// Chinese message, we could translate it because Google can just detect it and translate."
+//
+// Google detects the language itself, so any language works. What a reader on English needs is for the button to
+// appear on the messages that are NOT English and stay out of the way on the ones that are. This is the cheap guess
+// that decides it before anything is sent anywhere: another script, accented letters, or a run of words with almost
+// none of the everyday English ones. A wrong guess costs nothing - the reader on English just does not see the button
+// on that one message, and anyone on another language always does.
+const EN_WORDS = new Set(('the and is are was were be been to of in on at for with you your i me my we our it its this that these those '
+  + 'a an or but not no yes so if as by from have has had do does did will would can could should just very really thanks thank '
+  + 'hi hello hey ok okay please what when where who how why which there here they them he she his her us all any some more most').split(' '))
+export function looksNonEnglish(text) {
+  const t = String(text || '').trim()
+  if (t.length < 2) return false
+  if (/[^\s\u0020-\u024F\u2000-\u206F\u20A0-\u20CF\u{1F000}-\u{1FFFF}\u2600-\u27BF]/u.test(t)) return true // another script
+  if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿœßąćęłńśźżăîșț]/i.test(t)) return true
+  const words = t.toLowerCase().match(/[a-z']+/g) || []
+  if (words.length < 3) return false
+  const hits = words.filter((w) => EN_WORDS.has(w)).length
+  return hits / words.length < 0.12
+}
 const engineLang = (l) => (l === 'pt' ? 'pt-PT' : l)
 
 // NOT RATE-LIMITED, AND FAST THE SECOND TIME (30 Sep 2026). Ethan: "properly set it up so that we don't
@@ -170,7 +193,7 @@ export function useTranslateOnDemand(text) {
   const seq = useRef(0)
   // A new text (the next hook) or a new language starts on the original again.
   useEffect(() => { setOn(false); setResult(null); setBusy(false) }, [text, locale])
-  const available = !!text && !!text.trim() && locale !== DEFAULT_LOCALE
+  const available = !!text && !!text.trim() && (locale !== DEFAULT_LOCALE || looksNonEnglish(text))
   const toggle = useCallback(async () => {
     if (on) { setOn(false); return }
     if (result) { setOn(true); return }
@@ -203,7 +226,7 @@ export function useMessageTranslations() {
   const locale = useLocale()
   const [state, setState] = useState(() => new Map()) // id -> { on, busy, value }
   useEffect(() => { setState(new Map()) }, [locale])
-  const available = locale !== DEFAULT_LOCALE
+  const available = true
   const patch = (id, v) => setState((cur) => { const n = new Map(cur); n.set(id, { ...(n.get(id) || {}), ...v }); return n })
   const toggle = useCallback(async (m) => {
     if (!m?.body) return
@@ -218,6 +241,9 @@ export function useMessageTranslations() {
   }, [state, locale])
   return {
     available,
+    // Whether to offer the button on this message: always for a reader on another language, and for a reader
+    // on English only where the message does not look English.
+    canFor: (m) => !!m?.body && (locale !== DEFAULT_LOCALE || looksNonEnglish(m.body)),
     isFailed: (m) => !!state.get(m.id)?.failed,
     isOn: (m) => !!state.get(m.id)?.on && state.get(m.id)?.body === m.body,
     isBusy: (m) => !!state.get(m.id)?.busy,
