@@ -10,6 +10,7 @@ import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
 import Reorderable from '../components/network/Reorderable'
 import FlagTile from '../components/network/FlagTile'
+import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
 import UnreadDot, { UnreadCount } from '../components/UnreadDot'
 import { EmptyState } from '../components/ui'
@@ -80,12 +81,12 @@ const scopedKey = scopedChannel
 // The face and the chevron are gone - the preview already names the speaker,
 // and a full-width row in a list of links does not need to be told it is
 // tappable.
-function RoomRow({ to, room, last, unread }) {
+function RoomRow({ to, room, last, unread, dark = false, place = null }) {
   const tr = useT()
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-cloud active:bg-cloud"
+      className={cx('group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors', dark ? 'hover:bg-white/10 active:bg-white/10' : 'hover:bg-cloud active:bg-cloud')}
     >
       {/* THE GLYPH IS ORANGE. THERE IS NO TILE BEHIND IT.
           It was a solid 40px brand square with a white icon in it, and eight of
@@ -107,7 +108,7 @@ function RoomRow({ to, room, last, unread }) {
       <span
         className={cx(
           'flex h-10 w-10 shrink-0 items-center justify-center',
-          room.visibility === 'staff' ? 'text-ink/70' : 'text-brand',
+          room.visibility === 'staff' ? 'text-ink/70' : dark ? 'text-brand-light' : 'text-brand',
         )}
       >
         <Icon name={room.icon || 'chat'} className="h-[22px] w-[22px]" />
@@ -134,7 +135,10 @@ function RoomRow({ to, room, last, unread }) {
               channels and every message in them - but nothing on this page said
               a word had been posted, so nobody opened it. */}
           <span className={cx('min-w-0 flex-1 truncate text-[15px] leading-tight',
-            unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
+            dark ? (unread ? 'font-bold text-white' : 'font-semibold text-white/90') : unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
+          {room.visibility === 'vip' && !dark && (
+            <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">VIP</span>
+          )}
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
@@ -152,7 +156,8 @@ function RoomRow({ to, room, last, unread }) {
         {/* The last thing said, or what the room is for if nothing has been.
             An empty room that explains itself is an invitation; an empty room
             that says nothing is a dead end. */}
-        <span className={cx('mt-1 block truncate text-[13px] leading-snug', unread ? 'font-medium text-ink/80' : 'text-smoke')}>
+        <span className={cx('mt-1 block truncate text-[13px] leading-snug', dark ? 'text-white/60' : unread ? 'font-medium text-ink/80' : 'text-smoke')}>
+          {place && <span className="font-semibold text-ink/70">{place} · </span>}
           {last
             ? `${last.profiles?.name?.split(' ')[0] || 'Someone'}: ${stripMarkup(last.body || '')}`
             : (room.hint ? tr(room.hint) : tr('Nothing posted yet'))}
@@ -188,13 +193,13 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
        That is the platform rule about orange applied honestly: it is spent on
        the unread dot, which is information, and on nothing decorative. */
     <section data-place={vip ? `vip-${isNetwork ? 'network' : place.slug}` : isNetwork ? 'network' : place.slug} className={cx(
-      'overflow-hidden rounded-card border p-4 transition-all duration-200',
-      // THE VIP ROOMS ARE THEIR OWN CARDS, TINTED, so they are never read as part of the market's general rooms.
-      vip ? 'bg-gradient-to-br from-brand-tint via-white to-white' : 'bg-white',
-      unreadCount > 0 || vip ? 'border-brand/30' : 'border-gray-100',
+      'overflow-hidden rounded-card p-4 transition-all duration-200',
+      // THE VIP ROOMS ARE THEIR OWN MATERIAL (2 Oct 2026): the dark `.vip-surface`, not the pale orange wash Ethan
+      // did not like ("I want it to be more different").
+      vip ? 'vip-surface' : cx('border bg-white', unreadCount > 0 ? 'border-brand/30' : 'border-gray-100'),
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
-      <div className="-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+      <div className={cx('-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b px-4 py-3', vip ? 'border-white/10' : 'border-gray-100')}>
         {/* The flag, at a size you can actually see. A 34px-high rounded tile
             with the flags at 19px in it - the same object the sidebar and the
             notification settings use, so all three surfaces agree about what a
@@ -214,15 +219,15 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
           title={place.name}
         />
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
-          className="min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] text-ink transition-colors hover:text-brand">
-          {vip ? (isNetwork ? tr('VIP lounge') : tr('VIP {m}', { m: place.name })) : place.name}
+          className={cx('min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] transition-colors', vip ? 'text-white' : 'text-ink hover:text-brand')}>
+          {vip ? tr('VIP {m}', { m: place.name }) : place.name}
         </Link>
         {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN HEADER, so a
             card three screens down is still findable without opening it. */}
         {unreadCount > 0 ? (
           <UnreadCount n={unreadCount} />
         ) : (
-          <span className="shrink-0 text-[11px] font-semibold text-gray-400">
+          <span className={cx('shrink-0 text-[11px] font-semibold', vip ? 'text-white/50' : 'text-gray-400')}>
             {rooms.length} {rooms.length === 1 ? tr('room') : tr('rooms')}
           </span>
         )}
@@ -247,6 +252,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
             room={r}
             last={lastByChannel.get(scopedKey(place, r.key))}
             unread={unreadKeys.has(scopedKey(place, r.key))}
+            dark={vip}
           />
         ))}
       </div>
@@ -310,15 +316,22 @@ export default function Rooms() {
   const vipPlaces = useMemo(() => {
     if (!rooms) return []
     return myCommunities
+      .filter((c) => c.kind !== 'network')
       .map((c) => ({ place: c, rooms: rooms.filter((r) => r.community_id === c.id && r.visibility === 'vip') }))
       .filter((g) => g.rooms.length > 0)
-      .sort((a, b) => (a.place.kind === 'network') - (b.place.kind === 'network') || a.place.name.localeCompare(b.place.name))
+      .sort((a, b) => a.place.name.localeCompare(b.place.name))
   }, [rooms, myCommunities])
 
   const places = useMemo(() => {
     if (!rooms) return []
     return myCommunities
-      .map((c) => ({ place: c, rooms: rooms.filter((r) => r.community_id === c.id && r.visibility !== 'vip') }))
+      // The VIP lounge is one of Worldwide's rooms, last (2 Oct 2026); market VIP rooms stay apart.
+      .map((c) => ({
+        place: c,
+        rooms: rooms
+          .filter((r) => r.community_id === c.id && (r.visibility !== 'vip' || c.kind === 'network'))
+          .sort((a, b) => (a.visibility === 'vip') - (b.visibility === 'vip')),
+      }))
       .filter((g) => g.rooms.length > 0)
       // Worldwide first, then markets alphabetically. Worldwide is where
       // everybody already is, so it is the room you most likely came for.
@@ -340,6 +353,30 @@ export default function Rooms() {
   const orderedPlaces = [...places].sort(
     (a, b) => (rank.has(a.place.id) ? rank.get(a.place.id) : 1e9) - (rank.has(b.place.id) ? rank.get(b.place.id) : 1e9),
   )
+
+  // THE FILTERS ACROSS THE TOP (2 Oct 2026). Ethan asked for the phone's rooms to be rebuilt after looking at how
+  // the popular chats do it. WhatsApp's answer to "too many conversations" is a row of filters over the list (All,
+  // Unread, Groups); Slack's is to bubble what needs you to the top. Both are here: the chips filter to Unread, to one
+  // place, or to the VIP rooms, and "All" leads with the rooms that have something new before the places.
+  const [filter, setFilter] = useState('all')
+  const unreadRooms = useMemo(() => {
+    const out = []
+    for (const g of [...orderedPlaces, ...vipPlaces]) {
+      for (const r of g.rooms) {
+        const k = scopedKey(g.place, r.key)
+        if (unreadKeys.has(k)) out.push({ g, r, last: lastByChannel.get(k) })
+      }
+    }
+    return out.sort((a, b) => String(b.last?.created_at || '').localeCompare(String(a.last?.created_at || '')))
+  }, [orderedPlaces, vipPlaces, unreadKeys, lastByChannel])
+  const chips = [
+    { key: 'all', label: tr('All') },
+    { key: 'unread', label: tr('Unread'), n: unreadRooms.length },
+    ...orderedPlaces.map((g) => ({ key: g.place.id, label: g.place.kind === 'network' ? tr('Worldwide') : g.place.name, codes: g.place.country_codes, network: g.place.kind === 'network' })),
+    ...(vipPlaces.length ? [{ key: 'vip', label: tr('VIP') }] : []),
+  ]
+  const shownPlaces = filter === 'all' ? orderedPlaces : orderedPlaces.filter((g) => g.place.id === filter)
+  const showVip = filter === 'all' || filter === 'vip'
 
   // THE MARKET YOU WERE JUST IN IS WHERE THIS PAGE OPENS (1 Oct 2026). Ethan: "I go to Worldwide, click on a market
   // (Spain), and then click on Rooms. I'm on the Spain one, but it's still scrolled up at the top. It should be
@@ -420,58 +457,104 @@ export default function Rooms() {
               action={<Link to="/global/markets" className="btn-primary">{tr("Explore markets")}</Link>}
             />
           ) : (
-            /* DRAGGABLE ON A PHONE TOO, and in the SAME order as the desktop
-               sidebar - both read `rooms-market-order` from localStorage, so
-               dragging UK under Worldwide here is dragging it there. Ethan: "I
-               want to be able to drag and reorder cards on mobile too, for
-               example for the rooms page, I should be able to drag the UK page
-               to the top, below worldwide."
-               Reorderable drags from the GRIP only. That is not a limitation
-               here, it is the point: every card is also a stack of links, and a
-               whole-card drag has to guess between "open this room" and "move
-               this market" on every single press. */
-            /* THE LIST ARRIVES ONCE, SHORTLY, AND AS ONE THING.
-               It used to have no entrance of its own: the page cross-faded as a
-               block (`pageFade`) straight out of a skeleton, so eight rooms and
-               eight icons swapped in on a single frame over a layout that had
-               only just been painted. Ethan called that laggy, and on a phone
-               it is.
-               ONE `.reveal-item`, DELIBERATELY, not a stagger. `Reorderable`
-               owns a transform on every card while you drag one, and a
-               per-child wrapper animating its own transform underneath that is
-               two things writing the same property. The whole stack landing
-               together in 320ms is the honest version here.
-               `dense` for the reason the prop exists: 24px over 720ms on a
-               stack of dense rows reads as the page sliding about. */
-            <Reveal dense>
-            <Reorderable
-              items={orderedPlaces}
-              getId={(p) => p.place.id}
-              onReorder={saveRoomOrder}
-              handleLabel="Reorder this market"
-              className="flex flex-col gap-4"
-              renderItem={({ place, rooms: rs }, { handleProps, dragging }) => (
-                <PlaceCard
-                  unreadKeys={unreadKeys}
-                  place={place}
-                  rooms={rs}
-                  lastByChannel={lastByChannel}
-                  isNetwork={place.kind === 'network'}
-                  handleProps={handleProps}
-                  dragging={dragging}
-                />
-              )}
-            />
-            </Reveal>
-          )}
-          {vipPlaces.length > 0 && !(ctxLoading || rooms === null) && (
-            // A VIP creator's own rooms come first; the team's VIP rooms come after the markets.
-            <div className={cx('flex flex-col gap-4', vipFirst ? '-order-1 mb-6' : 'mt-6')}>
-              <h2 className="text-[11px] font-bold uppercase tracking-widest text-brand">{tr('VIP rooms')}</h2>
-              {vipPlaces.map(({ place, rooms: rs }) => (
-                <PlaceCard key={place.id} vip unreadKeys={unreadKeys} place={place} rooms={rs} lastByChannel={lastByChannel} isNetwork={place.kind === 'network'} />
-              ))}
-            </div>
+            <>
+              {/* THE FILTER ROW. Scrolls sideways; the picked chip is the brand gradient. */}
+              <div className="-order-1 -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {chips.map((c) => {
+                  const on = filter === c.key
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setFilter(c.key)}
+                      aria-pressed={on}
+                      className={cx(
+                        'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
+                        on ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-gray-200 bg-white text-ink/80',
+                      )}
+                    >
+                      {(c.codes || c.network) && <FlagStack codes={c.network ? [] : c.codes} className="text-[13px]" />}
+                      {c.key === 'vip' && <Icon name="sparkles" className={cx('h-3.5 w-3.5', on ? 'text-white' : 'text-brand')} />}
+                      {c.label}
+                      {c.n > 0 && <span className={cx('rounded-full px-1.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/25 text-white' : 'bg-brand text-white')}>{c.n}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div key={filter} className="flex flex-col gap-4 animate-tab-in">
+                {/* NEW SINCE YOU LOOKED - what needs you, across every place, newest first (Slack's "bubble it up"). */}
+                {(filter === 'all' || filter === 'unread') && unreadRooms.length > 0 && (
+                  <section className="rounded-card border border-brand/25 bg-white p-3 shadow-card">
+                    <p className="flex items-center gap-2 px-2 pb-1.5 pt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-brand">
+                      <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
+                      {tr('New since you looked')}
+                    </p>
+                    <div className="space-y-0.5">
+                      {(filter === 'all' ? unreadRooms.slice(0, 4) : unreadRooms).map(({ g, r, last }) => (
+                        <RoomRow
+                          key={`${g.place.id}-${r.id}`}
+                          to={`${g.place.kind === 'network' ? '/global/chat' : `/c/${g.place.slug}/chat`}/${r.key}`}
+                          room={r}
+                          last={last}
+                          unread
+                          place={g.place.kind === 'network' ? tr('Worldwide') : r.visibility === 'vip' ? tr('VIP {m}', { m: g.place.name }) : g.place.name}
+                        />
+                      ))}
+                    </div>
+                    {filter === 'all' && unreadRooms.length > 4 && (
+                      <button type="button" onClick={() => setFilter('unread')} className="mt-1 w-full rounded-xl py-2 text-center text-xs font-semibold text-brand transition-colors active:bg-cloud">
+                        {tr('See all {n} with something new', { n: unreadRooms.length })}
+                      </button>
+                    )}
+                  </section>
+                )}
+                {filter === 'unread' && unreadRooms.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 rounded-card border border-dashed border-gray-200 px-6 py-10 text-center">
+                    <Icon name="check" className="h-7 w-7 text-brand" />
+                    <p className="text-sm font-semibold">{tr("You're all caught up")}</p>
+                    <p className="text-xs text-smoke">{tr('Nothing new in any of your rooms.')}</p>
+                  </div>
+                )}
+
+                {filter !== 'unread' && filter !== 'vip' && (
+                  /* DRAGGABLE ON A PHONE TOO, in the same order as the desktop sidebar (both read
+                     `rooms-market-order`). Reorderable drags from the GRIP only, because every card is also a stack
+                     of links. Dragging is only offered on "All": reordering one card on its own means nothing. */
+                  <Reveal dense>
+                    <Reorderable
+                      items={shownPlaces}
+                      getId={(p) => p.place.id}
+                      onReorder={filter === 'all' ? saveRoomOrder : () => {}}
+                      handleLabel="Reorder this market"
+                      className="flex flex-col gap-4"
+                      renderItem={({ place, rooms: rs }, { handleProps, dragging }) => (
+                        <PlaceCard
+                          unreadKeys={unreadKeys}
+                          place={place}
+                          rooms={rs}
+                          lastByChannel={lastByChannel}
+                          isNetwork={place.kind === 'network'}
+                          handleProps={filter === 'all' ? handleProps : null}
+                          dragging={dragging}
+                        />
+                      )}
+                    />
+                  </Reveal>
+                )}
+
+                {showVip && vipPlaces.length > 0 && (
+                  <div className={cx('flex flex-col gap-4', vipFirst && filter === 'all' && '-order-1')}>
+                    <h2 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-ink/70">
+                      <Icon name="sparkles" className="h-3.5 w-3.5 text-brand" />{tr('VIP rooms')}
+                    </h2>
+                    {vipPlaces.map(({ place, rooms: rs }) => (
+                      <PlaceCard key={place.id} vip unreadKeys={unreadKeys} place={place} rooms={rs} lastByChannel={lastByChannel} isNetwork={false} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </motion.div>
       </NetworkLayout>

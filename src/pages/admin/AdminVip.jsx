@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Segmented from '../../components/network/Segmented'
+import FlagStack from '../../components/network/FlagStack'
 import { notice } from '../../lib/confirm'
 import { VipMembersTab, VipOverviewTab } from '../../components/vip/adminA'
 import { VipAccessTab } from '../../components/vip/access'
@@ -47,7 +48,7 @@ export default function AdminVip() {
   // EVERYBODY WITH ACCESS SEES EVERY MARKET; THEY MANAGE THEIR OWN (migration 299). `can_manage` is what the
   // screens use to hide the controls a person could not use; the database refuses the rest either way.
   const load = useCallback(async () => {
-    const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug)').order('name')
+    const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug, country_codes)').order('name')
     // All at once, not one round trip after another (it was the first second of every visit).
     const shown = (data || []).filter((p) => p.active || isOwner)
     const oks = await Promise.all(shown.map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
@@ -88,7 +89,14 @@ export default function AdminVip() {
       <PageHeader
         title={tr('VIP tools')}
         back={isAdmin ? '/admin' : undefined}
-        action={isAdmin && <button type="button" onClick={previewAsVip} disabled={entering} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{entering ? tr('Opening...') : tr('See it as a VIP')}</button>}
+        // THE REAL PAGE FIRST (2 Oct 2026). "Open the VIP page" is the real one for each market (staff mode of
+        // pages/VipHub); the sandbox VIP is still one press away for checking a creator's own sections.
+        action={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/vip" className="btn-primary !py-2 text-sm transition-transform duration-200 hover:-translate-y-0.5"><Icon name="star" className="h-4 w-4" />{tr('Open the VIP page')}</Link>
+            {isAdmin && <button type="button" onClick={previewAsVip} disabled={entering} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{entering ? tr('Opening...') : tr('As a test VIP')}</button>}
+          </div>
+        )}
       />
 
       {programmes.length > 1 && (
@@ -99,7 +107,9 @@ export default function AdminVip() {
             onChange={(v) => setPid(v)}
             label={tr('Programme')}
             id="vip-programme"
-            options={programmes.map((p) => ({ value: p.id, label: p.name }))}
+            // THE FLAG BESIDE EACH MARKET (2 Oct 2026). Ethan: "add the flag beside the market where it shows VIP
+            // Spain and VIP Romania".
+            options={programmes.map((p) => ({ value: p.id, label: <span className="inline-flex items-center gap-1.5"><FlagStack codes={p.community?.country_codes} className="text-[15px]" />{p.name}</span> }))}
           />
         </div>
       )}

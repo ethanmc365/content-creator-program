@@ -70,10 +70,17 @@ export default function PushDelivery() {
   }
 
   const t = data?.totals
+  // "SHOWN" IS ONLY MEASURED WHERE IT CAN BE (2 Oct 2026, migration 309). Ethan: "why is it showing
+  // so many were sent to devices that have them on but not actually reached the device?" They were
+  // whole people, not stray pushes: creators who have not opened the app since delivery tracking
+  // began still run the old service worker, which never reports a push shown. Those sends are now
+  // "Not confirmed yet" (they may well have arrived), and "Shown" is a share of the sends to people
+  // whose phones do report.
+  const sentReporting = t?.sent_reporting ?? t?.sent ?? 0
   const steps = t ? [
     ['Notifications', t.notifications, null, 'created for creators'],
     ['Sent to a device', t.sent, pct(t.sent, t.notifications), 'push accepted for a phone or laptop'],
-    ['Shown on the device', t.delivered, pct(t.delivered, t.sent), 'the device reported showing it'],
+    ['Shown on the device', t.delivered, pct(t.delivered, sentReporting), 'of sends to devices that report back'],
     ['Tapped', t.clicked, pct(t.clicked, t.delivered || t.sent), 'opened by pressing the push'],
     ['Read in the app', t.opened, pct(t.opened, t.notifications), 'read in the bell, any way'],
   ] : []
@@ -118,12 +125,27 @@ export default function PushDelivery() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <StatCard label="Shown rate" value={pct(t.delivered, sentReporting) || '-'} hint="where the device reports" accent />
+              <StatCard label="Tap rate" value={pct(t.clicked, t.delivered || t.sent) || '-'} hint="of those shown" />
+              <StatCard
+                label="Not confirmed yet"
+                value={t.unconfirmed ?? 0}
+                hint={t.people_unconfirmed ? `${t.people_unconfirmed} ${t.people_unconfirmed === 1 ? 'person' : 'people'} on an older app` : 'every device reports'}
+              />
               <StatCard label="No device" value={t.no_device} hint="push not switched on" />
               <StatCard label="Muted" value={t.muted} hint="turned that kind off" />
               <StatCard label="Refused" value={t.failed} hint="push service said no" />
-              <StatCard label="Tap rate" value={pct(t.clicked, t.delivered || t.sent) || '-'} hint="of those shown" accent />
             </div>
           </div>
+
+          {(t.unconfirmed ?? 0) > 0 && (
+            <p className="rounded-card border border-gray-100 bg-cloud/50 px-4 py-3 text-xs leading-relaxed text-smoke">
+              <strong className="font-semibold text-ink">Why some are "not confirmed yet":</strong> a phone only reports a push
+              it showed once the creator has opened the app since 30 Sep, which is when that reporting was added. Until they
+              do, their pushes are still sent and may well arrive; we just cannot see it. They move into the funnel the next
+              time they open Tryp.com.
+            </p>
+          )}
 
           {data.daily.length > 1 && (
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">

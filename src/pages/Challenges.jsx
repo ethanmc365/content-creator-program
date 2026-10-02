@@ -454,21 +454,37 @@ export default function Challenges() {
             </Reveal>
           )}
 
-          {/* ---------- Live ---------- */}
-          {live.map((c) => (
-            <Reveal key={c.id} from="down" delay={0.12} as="div" data-tour="challenge-card">
-              <LiveChallengeCard
-                challenge={c}
-                global={isGlobal(c)}
-                codes={communities.find((m) => m.id === c.community_id)?.country_codes}
-                entries={c.submissions?.[0]?.count ?? 0}
-                participation={participation[c.id]}
-                leaders={leaders[c.id]}
-                groups={liveGroups.groups[c.id] ?? []}
-                myGroupId={liveGroups.mine[c.id] ?? null}
-              />
-            </Reveal>
-          ))}
+          {/* ---------- Live ----------
+              THREE OR MORE AT ONCE (2 Oct 2026): the global challenge stays big at the top and the market ones sit
+              side by side, compact, from `lg` (a phone stacks them exactly as before). */}
+          {(() => {
+            const card = (c, compact = false, i = 0) => (
+              <Reveal key={c.id} from="down" delay={0.12 + i * 0.06} as="div" data-tour="challenge-card" className={compact ? 'h-full' : undefined}>
+                <LiveChallengeCard
+                  challenge={c}
+                  global={isGlobal(c)}
+                  codes={communities.find((m) => m.id === c.community_id)?.country_codes}
+                  entries={c.submissions?.[0]?.count ?? 0}
+                  participation={participation[c.id]}
+                  leaders={leaders[c.id]}
+                  groups={liveGroups.groups[c.id] ?? []}
+                  myGroupId={liveGroups.mine[c.id] ?? null}
+                  compact={compact}
+                />
+              </Reveal>
+            )
+            if (live.length < 3) return live.map((c) => card(c))
+            const big = live.filter((c) => isGlobal(c))
+            const small = live.filter((c) => !isGlobal(c))
+            return (
+              <>
+                {big.map((c) => card(c))}
+                <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-6">
+                  {small.map((c, i) => card(c, true, i))}
+                </div>
+              </>
+            )
+          })()}
 
           {/* ---------- Drafts (admins only; see the note by `drafts`) ---------- */}
           {drafts.length > 0 && (

@@ -8,6 +8,8 @@ import { cx } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
 import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
+import { useAuth } from '../../context/AuthContext'
+import { useVipAccess, useVipCommunities, vipSlugFromPath } from '../../lib/vip'
 
 // Re-exported for the market components that already import it from here.
 // The definition lives in lib/flags.js: this module pulls in `motion`, and
@@ -55,23 +57,25 @@ function Row({ to, onPick, active, flags, name, badge, hint }) {
       to={to}
       onClick={onPick}
       className={cx(
-        'flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors',
-        active ? 'bg-brand-tint' : 'hover:bg-cloud',
+        'flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all duration-200',
+        // The picked place is the brand gradient with white on it, the same as "Your markets" on a desktop
+        // (2 Oct 2026); it used to be a pale orange tint.
+        active ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card animate-selected-in' : 'hover:bg-cloud active:bg-cloud',
       )}
     >
       <span className="w-7 shrink-0 text-center text-lg leading-none" aria-hidden>{flags || '🌍'}</span>
       <span className="min-w-0 flex-1">
-        <span className={cx('flex items-center gap-2 truncate font-semibold', active && 'text-brand')}>
+        <span className="flex items-center gap-2 truncate font-semibold">
           {name}
           {badge && (
-            <span className="shrink-0 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            <span className={cx('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold', active ? 'bg-white/25 text-white' : 'bg-brand text-white')}>
               {badge}
             </span>
           )}
         </span>
-        {hint && <span className="block truncate text-xs text-smoke">{hint}</span>}
+        {hint && <span className={cx('block truncate text-xs', active ? 'text-white/85' : 'text-smoke')}>{hint}</span>}
       </span>
-      {active && <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />}
+      {active && <Icon name="check" className="h-4 w-4 shrink-0 text-white" />}
     </Link>
   )
 }
@@ -82,6 +86,9 @@ export default function PlaceSwitcher({ ready = true }) {
   const { pathname } = useLocation()
   const [sheet, setSheet] = useState(false)
   const dragControls = useDragControls()
+  const { profile } = useAuth()
+  const vipAccess = useVipAccess(profile?.id, false)
+  const vipRows = useVipCommunities(vipAccess ? profile?.id : null)
 
   // Any navigation closes it. Without this, tapping a market leaves the sheet
   // sitting over the page it just took you to.
@@ -107,8 +114,9 @@ export default function PlaceSwitcher({ ready = true }) {
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
   const joinable = chapters.filter((c) => c.is_active && !myChapters.some((m) => m.id === c.id))
 
+  const vipHere = vipSlugFromPath(pathname)
   const onGlobal = pathname === '/global'
-  const currentSlug = pathname.startsWith('/c/') ? pathname.split('/')[2] : null
+  const currentSlug = pathname.startsWith('/c/') && !vipHere ? pathname.split('/')[2] : null
   const current = mine.find((c) => c.slug === currentSlug)
     || chapters.find((c) => c.slug === currentSlug)
   const currentFlags = current
@@ -278,6 +286,28 @@ export default function PlaceSwitcher({ ready = true }) {
                   </SheetRow>
                 ))}
 
+                {/* THE VIP COMMUNITIES, UNDER THE MARKETS, FOR THE TEAM (2 Oct 2026). Ethan: on a phone the VIP
+                    communities card "should show up below the other markets ... maybe it only shows up for admins
+                    and not actually VIPs, as VIPs would only be in one and they'll have the VIP tab at the top." */}
+                {vipAccess && (vipRows || []).length > 0 && (
+                  <>
+                    <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
+                      {tr('VIP communities')}
+                    </p>
+                    {vipRows.map((p, i) => (
+                      <SheetRow key={p.id} i={mine.length + 1 + i}>
+                        <Row
+                          to={`/c/${p.community?.slug}/chat/vip`}
+                          onPick={() => setSheet(false)}
+                          active={vipHere === p.community?.slug}
+                          flags={(p.community?.country_codes || []).map(flagFromIso).join('')}
+                          name={p.name}
+                          hint={tr('VIP room')}
+                        />
+                      </SheetRow>
+                    ))}
+                  </>
+                )}
               </div>
 
               {/* ALL MARKETS, ALWAYS, AND PINNED TO THE BOTTOM OF THE SHEET.

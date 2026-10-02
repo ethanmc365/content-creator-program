@@ -194,7 +194,12 @@ function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
   )
 }
 
-export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null }) {
+// `compact` (2 Oct 2026): Ethan, of a creator in two markets plus the global challenge: "when a creator or admin sees
+// 3 or more challenges ongoing, I think the cards should be smaller, the global challenge one should always be big at
+// the top ... for desktop they should be shrunk and side by side in clean design that fits everything. On mobile it's
+// perfect as is." So every compact change is an `lg:` override: from `lg` the card is one column (no leaderboard
+// panel), tighter padding, a smaller title, two lines of brief, the compact clock and the two buttons side by side.
+export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null, compact = false }) {
   const tr = useT()
   const excerpt = briefExcerpt(c.description || '')
   // A SPLIT CHALLENGE HAS ONE BOARD PER GROUP (1 Oct 2026). A creator's card
@@ -227,7 +232,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
     </span>
   )
   return (
-    <div>
+    <div className={compact ? 'flex h-full flex-col' : undefined}>
       {/* THE ROTATING GLOW, AND AN ARRIVAL ON MOBILE TOO (23 Sep 2026). Ethan:
           "on the challenges page for desktop, I think we can definitely have
           that same rotated glow effect going around the edge of the card...
@@ -245,7 +250,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
       {/* ORANGE, NOT WHITE (24 Sep 2026). Ethan: "that big global challenge
           card should have the orange glow effect around it because it's on a
           white background." The ring sits OUTSIDE the card, on the page. */}
-      <div className="global-glow">
+      <div className={cx('global-glow', compact && 'flex flex-1 flex-col')}>
       <GlowRing tone="onLight" />
       <div
         className={cx(
@@ -261,6 +266,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           isGlobal
             ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-4 sm:p-11'
             : 'bg-gradient-to-br from-brand to-brand-light p-4 sm:p-10',
+          compact && 'flex h-full flex-col lg:p-7',
         )}
       >
         {/* Soft light bloom for depth, matching the home hero. */}
@@ -310,7 +316,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             two separate columns will keep them there when one of them grows.
             On a phone none of it applies: the parts fall back into the source
             order, which is the order the phone's card already had. */}
-        <div className="relative lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8">
+        <div className={cx('relative', compact ? 'flex flex-1 flex-col' : 'lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8')}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:col-start-1 lg:row-start-1">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
@@ -338,6 +344,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
               className={cx(
                 'mt-3 inline-block origin-left font-bold leading-[1.15] tracking-[-0.02em] transition-transform duration-200 ease-out sm:mt-4 group-hover:scale-[1.03]',
                 isGlobal ? 'text-[22px] sm:text-[40px]' : 'text-xl sm:text-3xl',
+                compact && 'lg:text-2xl',
               )}
             >
               {c.title}
@@ -356,7 +363,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 and the whole of it, clamped. Now it is the opening paragraph
                 with the marks gone, and the brief itself is one tap away. */}
             {excerpt.text && (
-              <p className="mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block">
+              <p className={cx('mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block', compact && 'lg:line-clamp-2 lg:text-sm')}>
                 {/* No "Read all" (22 Sep 2026): the whole card opens the brief. */}
                 {excerpt.text}
               </p>
@@ -368,10 +375,10 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             prizes={boardPrizes}
             header={boardHeader}
             scoring={c.scoring}
-            className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
+            className={compact ? 'hidden' : 'hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start'}
           />
 
-          <div className="mt-4 sm:mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
+          <div className={cx('mt-4 sm:mt-8', compact ? 'lg:mt-auto lg:pt-5' : 'lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end')}>
             {/* THE PHONE CARD LOST ITS DIVIDER AND ITS ENTRY COUNT (2 Sep 2026).
 
                 Ethan: "the '0 entries so far' is really squeezed in on the
@@ -392,11 +399,11 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             {/* The hero clock is four big tiles. On a phone that is most of
                 what is left of the card, so it gets the compact row instead
                 and the card gets its height back. */}
-            <span className="hidden sm:block"><CountdownTimer endDate={c.end_date} hero /></span>
-            <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
+            <span className={compact ? 'hidden sm:block lg:hidden' : 'hidden sm:block'}><CountdownTimer endDate={c.end_date} hero /></span>
+            <span className={compact ? 'block sm:hidden lg:block' : 'block sm:hidden'}><CountdownTimer endDate={c.end_date} compact onDark /></span>
           </div>
 
-          <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
+          <div className={cx('mt-3.5 flex flex-col gap-2.5 sm:mt-7', compact ? 'lg:mt-5' : 'lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end')}>
             {/* BOTH BUTTONS ON A PHONE TOO (28 Sep 2026). This used to be one
                 button on a phone, on the reasoning that submitting is the one
                 you came for. Ethan asked for the details button back: what sits
@@ -407,7 +414,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 to be the same length, currently read your brief is shorter." A
                 two-column grid gives both the width of the wider one, and the
                 entry count sits centred under the pair. */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:w-full lg:grid-cols-1">
+            <div className={cx('grid gap-3 sm:grid-cols-2 lg:w-full', compact ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
               {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
                   border the solid one did not, so it stood 2px taller, and an
                   arrow its twin lacked. Both carry a 1px border now. */}

@@ -16,6 +16,7 @@ import CountryPanel, { TownPanel } from './CountryPanel'
 import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
 import { useT } from '../lib/i18n'
+import SlowMapGate from './SlowMapGate'
 
 // The creator map directory: every creator pinned on a world map at their home
 // town (photo + name), the countries they live in tinted orange, and a curved
@@ -3001,4 +3002,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   )
 }
 
-export default memo(CreatorMap)
+const CreatorMapMemo = memo(CreatorMap)
+
+// Behind the slow-signal gate (components/SlowMapGate, 2 Oct 2026).
+export default function CreatorMapGated(props) {
+  return <SlowMapGate className={props.slowGateClassName}><CreatorMapMemo {...props} /></SlowMapGate>
+}

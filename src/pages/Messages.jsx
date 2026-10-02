@@ -19,6 +19,7 @@ import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
+import { DM_CACHE_KEY, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -40,7 +41,7 @@ import ResourcePicker from '../components/ResourcePicker'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
-  loadGroupMembers, loadMyInvites, markGroupRead,
+  markGroupRead,
 } from '../lib/groups'
 import { useT } from '../lib/i18n'
 import { useMessageTranslations } from '../lib/quickTranslate'
@@ -52,7 +53,6 @@ import { testFlags } from '../lib/testData'
 const MAX_PINNED_CONVERSATIONS = 3
 const PINNED_KEY = 'dm-pinned'
 // See lib/pageCache.
-const DM_CACHE_KEY = 'dm-inbox'
 
 function loadPinnedConversations() {
   try {
@@ -129,9 +129,9 @@ function dmPreview(m) {
 // cached-inbox strain at mount (which has no such set) keeps the old, stricter
 // meaning: a cache is a record of the past, and nothing in it was created a
 // moment ago.
-export function isListableConversation(c, justCreated) {
-  return c?.kind === 'group' || !!c?.last_message_at || !!(c?.id && justCreated?.has(c.id))
-}
+// The rule itself lives in lib/inbox now (so the inbox can be fetched before this page mounts); re-exported here
+// for the code and tests that have always imported it from this page.
+export { isListableConversation }
 
 export default function Messages() {
   const tr = useT()
@@ -538,75 +538,9 @@ export default function Messages() {
 
   // ---------- Inbox ----------
   const loadConversations = useCallback(async () => {
-    const [{ data: allConvos }, myInvites] = await Promise.all([
-      supabase.from('conversations').select('*').order('last_message_at', { ascending: false }),
-      loadMyInvites(user.id),
-    ])
-    const convos = (allConvos ?? []).filter((c) => isListableConversation(c, justCreatedRef.current))
+    const { conversations: list, invites: myInvites } = await fetchInbox(user.id, justCreatedRef.current)
     setInvites(myInvites)
-    if (!convos?.length) {
-      setConversations([])
-      setLoadingList(false)
-      setInboxLoaded(true)
-      return
-    }
-    const groups = convos.filter((c) => c.kind === 'group')
-    const directs = convos.filter((c) => c.kind !== 'group')
-
-    // The other participant of each 1:1, the membership of each group, and my
-    // unread counts, in as few round trips as the shapes allow.
-    const otherIds = directs.map((c) => otherParticipant(c, user.id)).filter(Boolean)
-    const [{ data: profiles }, { data: unreadMsgs }, memberData, { data: groupMsgs }] = await Promise.all([
-      otherIds.length
-        ? supabase.from('profiles').select('id, name, photo_url, is_admin, bio').in('id', otherIds)
-        : Promise.resolve({ data: [] }),
-      supabase.from('direct_messages').select('id, conversation_id').eq('recipient_id', user.id).eq('read', false),
-      loadGroupMembers(groups.map((c) => c.id)),
-      // UNREAD IN A GROUP IS A WATERMARK, NOT A FLAG. `direct_messages.read` is
-      // one boolean on one row and a group message has many readers, so "new
-      // since you last looked" is `created_at > your last_read_at` instead.
-      groups.length
-        ? supabase.from('direct_messages')
-            .select('id, conversation_id, sender_id, created_at')
-            .in('conversation_id', groups.map((c) => c.id))
-            // Only what could still be unread: a group's whole history was being read to count a handful of messages.
-            .gte('created_at', new Date(Date.now() - 45 * 86400000).toISOString())
-        : Promise.resolve({ data: [] }),
-    ])
-
-    const profileById = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
-    const unreadByConvo = {}
-    for (const m of unreadMsgs ?? []) unreadByConvo[m.conversation_id] = (unreadByConvo[m.conversation_id] || 0) + 1
-
-    const memberProfiles = new Map()
-    const myRow = new Map()
-    for (const [cid, rows] of memberData.byConversation) {
-      memberProfiles.set(cid, rows.map((r) => r.profiles).filter(Boolean))
-      const mine = rows.find((r) => r.profile_id === user.id)
-      if (mine) myRow.set(cid, mine)
-    }
-    const groupUnread = {}
-    for (const m of groupMsgs ?? []) {
-      if (m.sender_id === user.id) continue
-      const since = myRow.get(m.conversation_id)?.last_read_at
-      if (since && new Date(m.created_at) <= new Date(since)) continue
-      groupUnread[m.conversation_id] = (groupUnread[m.conversation_id] || 0) + 1
-    }
-
-    setConversations(
-      convos.map((c) => (c.kind === 'group'
-        ? {
-            ...c,
-            members: memberProfiles.get(c.id) || [],
-            myRole: myRow.get(c.id)?.role ?? null,
-            unread: groupUnread[c.id] || 0,
-          }
-        : {
-            ...c,
-            other: profileById[otherParticipant(c, user.id)],
-            unread: unreadByConvo[c.id] || 0,
-          }))
-    )
+    setConversations(list)
     setLoadingList(false)
     setInboxLoaded(true)
   }, [user.id])

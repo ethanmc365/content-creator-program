@@ -120,6 +120,8 @@ export default function ChallengeLeaderboard({
   const unitWord = participation?.basis === 'points' ? tr('points') : tr('videos')
 
   const hasPrizes = paidPlaces.length > 0
+  // The prize column holds the voucher pill too (2 Oct 2026), and "€10 Tryp.com voucher" does not fit in 8rem.
+  const prizeCol = participation?.threshold ? 'w-44' : 'w-32'
   const fmtScore = (v) => (scoreLabel === 'points' ? `${Number(v || 0).toLocaleString()}` : formatViews(v))
 
   return (
@@ -139,7 +141,7 @@ export default function ChallengeLeaderboard({
       )}>
         <span className="w-9 shrink-0 text-center">#</span>
         <span className="min-w-0 flex-1">{tr('Creator')}</span>
-        {hasPrizes && <span className="w-32 shrink-0 text-right">{tr('Prize')}</span>}
+        {hasPrizes && <span className={cx(prizeCol, 'shrink-0 text-right')}>{tr('Prize')}</span>}
         <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
         {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
       </div>
@@ -179,6 +181,14 @@ export default function ChallengeLeaderboard({
             <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> <PrizeText text={prize} />
           </span>
         )
+        const voucherPill = hasVoucher && (
+          <span
+            title={tr('Taking-part reward')}
+            className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700"
+          >
+            <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> <PrizeText text={participation.prize} />
+          </span>
+        )
         const who = row && (
           <>
             <Avatar src={row.profiles?.photo_url} name={row.profiles?.name} size="md" className="!h-10 !w-10 sm:!h-11 sm:!w-11" />
@@ -199,18 +209,24 @@ export default function ChallengeLeaderboard({
                   <span className="font-medium tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>
                 )}
                 {streakChip}
-                {hasVoucher && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-1.5 py-0.5 font-semibold text-green-700">
-                    <Icon name="ticket" className="h-3 w-3 shrink-0" /> <PrizeText text={participation.prize} />
-                  </span>
-                )}
+                {/* THE VOUCHER SITS WITH THE PRIZES (2 Oct 2026). Ethan: "the
+                    participation vouchers should show below in that same column
+                    for prize rather than over to the left." With a prize column
+                    it stacks under the cash pill there (and under the name on a
+                    phone, beside the prize pill); without one it stays here. */}
+                {hasVoucher && !hasPrizes && voucherPill}
                 {togo != null && (
                   <span className="font-medium">
                     {tr('{n} {unit} to the voucher', { n: togo, unit: togo === 1 && participation.basis === 'points' ? tr('point') : unitWord })}
                   </span>
                 )}
               </span>
-              {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
+              {((prize) || (hasVoucher && hasPrizes)) && (
+                <span className={cx('mt-1.5 flex-wrap items-center gap-1.5', wide ? 'hidden' : 'flex sm:hidden')}>
+                  {prizePill}
+                  {hasVoucher && hasPrizes && voucherPill}
+                </span>
+              )}
             </span>
           </>
         )
@@ -263,8 +279,9 @@ export default function ChallengeLeaderboard({
             )}
 
             {hasPrizes && (
-              <span className={cx('w-32 shrink-0 justify-end', wide ? 'flex' : 'hidden sm:flex')}>
+              <span className={cx(prizeCol, 'shrink-0 flex-col items-end gap-1', wide ? 'flex' : 'hidden sm:flex')}>
                 {prizePill}
+                {hasVoucher && voucherPill}
               </span>
             )}
 

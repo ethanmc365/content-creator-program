@@ -145,6 +145,22 @@ html {
   [data-zoomable] {
     touch-action: none;
   }
+  /* THE VIP MATERIAL (2 Oct 2026). Ethan wanted the VIP rooms "more different" from the market cards than a pale
+     orange wash. Ink into a warm ember, with the brand's orange glowing in from one corner: the same family as
+     the black VIP application banner, and still only white, ink and the two oranges. */
+  .vip-surface {
+    color: #fff;
+    background:
+      radial-gradient(120% 120% at 100% 0%, rgba(245, 133, 63, 0.38) 0%, rgba(245, 133, 63, 0) 55%),
+      radial-gradient(90% 90% at 0% 100%, rgba(217, 68, 7, 0.22) 0%, rgba(217, 68, 7, 0) 60%),
+      linear-gradient(140deg, #141110 0%, #1f1714 55%, #2c1a11 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  /* A map's pop-up card is a list, not more map: a finger on it scrolls it. */
+  [data-zoomable] [data-map-panel],
+  [data-zoomable] [data-map-panel] * {
+    touch-action: pan-y;
+  }
 
   /* When a full-screen overlay page (mobile chat / DMs) is mounted, fully lock
      the document so iOS can't rubber-band it - that bounce was dragging the
@@ -3264,3 +3280,24 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 .animate-bar-grow { animation: bar-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes bar-grow { from { transform: scaleX(0.15); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .animate-bar-grow { animation: none; } }
+
+/* ON A SLOW CONNECTION THE DECORATION STANDS STILL (2 Oct 2026).
+   lib/netQuality sets `data-slow-net` on <html> once reads are measured as slow. A phone on a weak signal is
+   usually also a phone working hard to keep up, so the purely decorative motion - the rotating glow round the
+   challenge cards, the sweep of light, the drifting orbs and gradients - pauses, and the expensive backdrop
+   blurs flatten. Nothing that tells you something (a live dot, a countdown, a loading spinner) is touched. */
+html[data-slow-net] .glow-ring,
+html[data-slow-net] .glow-ring::before,
+html[data-slow-net] .challenge-sheen,
+html[data-slow-net] .survey-orb,
+html[data-slow-net] .brand-drift {
+  animation: none !important;
+}
+html[data-slow-net] .challenge-sheen { opacity: 0; }
+html[data-slow-net] .backdrop-blur,
+html[data-slow-net] .backdrop-blur-sm,
+html[data-slow-net] .backdrop-blur-md,
+html[data-slow-net] [class*="backdrop-blur-["] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

@@ -31,16 +31,39 @@ const memo = new Map() // `${locale}\n${text}` -> { value, src }
 // on that one message, and anyone on another language always does.
 const EN_WORDS = new Set(('the and is are was were be been to of in on at for with you your i me my we our it its this that these those '
   + 'a an or but not no yes so if as by from have has had do does did will would can could should just very really thanks thank '
-  + 'hi hello hey ok okay please what when where who how why which there here they them he she his her us all any some more most').split(' '))
+  + 'hi hello hey ok okay please what when where who how why which there here they them he she his her us all any some more most '
+  + 'im i\'m it\'s don\'t didn\'t can\'t won\'t you\'re we\'re they\'re i\'ve i\'d i\'ll that\'s what\'s let\'s isn\'t '
+  + 'about after again also always am back because before best better big cheap day days dont even ever every find first flight flights '
+  + 'free get go going got good great know like little look made make many much need never new next now off once one only other out over '
+  + 'people per person place places price really right same save see should show since site still such take than then thing things think '
+  + 'time times today too travel traveling travelling trip trips two up want way website week weekend well while why year years'
+).split(' '))
+// The everyday words of the other languages this community writes in (es, pt, de, ro, it, fr, pl), minus any that are
+// also English. A text is only taken for "not English" when these outnumber the English ones, or when hardly any
+// English is in it AND something foreign is (one of these words, or accented letters). A single accented NAME in an
+// English hook ("But Cátia, how are you always traveling?") is not enough on its own - that was showing Translate on
+// English hooks (2 Oct 2026, 141 of the 1,516 in the bank).
+const FOREIGN_WORDS = new Set(('de la el que y en los las con para por una uno del al lo le se su sus es muy pero como más mas hoy hola '
+  + 'gracias porque cuando donde todo todos esta este estas estos viaje viajes vuelo vuelos días dias noche barato '
+  + 'um uma não nao com do da dos das em ao os pela pelo você voce obrigado obrigada também tambem viagem viagens muito '
+  + 'und der die das ist nicht mit ich du sie wir ein eine auf für fur ist auch noch nur reise reisen '
+  + 'și si în cu pe un nu că ca pentru este sunt mai la din mulțumesc multumesc călătorie '
+  + 'il di che per non sono della e gli ho je les et des est pas pour avec une dans nie się sie jak w z na jest'
+).split(' ').filter((w) => !EN_WORDS.has(w)))
+
 export function looksNonEnglish(text) {
   const t = String(text || '').trim()
   if (t.length < 2) return false
-  if (/[^\s\u0020-\u024F\u2000-\u206F\u20A0-\u20CF\u{1F000}-\u{1FFFF}\u2600-\u27BF]/u.test(t)) return true // another script
-  if (/[àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿœßąćęłńśźżăîșț]/i.test(t)) return true
-  const words = t.toLowerCase().match(/[a-z']+/g) || []
-  if (words.length < 3) return false
-  const hits = words.filter((w) => EN_WORDS.has(w)).length
-  return hits / words.length < 0.12
+  // Letters from another script (Cyrillic, Han, Arabic...). Emoji, their variation selectors and symbols are not
+  // letters, so "SITE 😲🗺️✈️" no longer counts as a foreign script.
+  if (/(?![\p{Script=Latin}])\p{L}/u.test(t)) return true
+  const words = t.toLowerCase().match(/[\p{L}']+/gu) || []
+  const accented = words.filter((w) => /[^a-z']/.test(w)).length
+  if (words.length < 3) return accented > 0
+  const en = words.filter((w) => EN_WORDS.has(w)).length
+  const fo = words.filter((w) => FOREIGN_WORDS.has(w)).length
+  if (fo > en) return true
+  return en / words.length < 0.12 && (fo > 0 || accented / words.length >= 0.2)
 }
 const engineLang = (l) => (l === 'pt' ? 'pt-PT' : l)
 

@@ -10,6 +10,7 @@ import { thumbUrl } from '../lib/avatarUrl'
 import { useT } from '../lib/i18n'
 import { usePlaceNames } from '../lib/placeNames'
 import { cx } from '../lib/utils'
+import SlowMapGate from './SlowMapGate'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -571,4 +572,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 }
 
 // memo: the map only re-renders when the selection actually changes.
-export default memo(WorldMap)
+const WorldMapMemo = memo(WorldMap)
+
+// Behind the slow-signal gate (components/SlowMapGate, 2 Oct 2026).
+export default function WorldMapGated(props) {
+  return <SlowMapGate className={props.slowGateClassName}><WorldMapMemo {...props} /></SlowMapGate>
+}

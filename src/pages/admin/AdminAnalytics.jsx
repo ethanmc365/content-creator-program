@@ -600,9 +600,9 @@ export default function AdminAnalytics() {
     ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges here`
     : null
 
-  const filterBar = (
-    <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  const filterBar = (marketsOff = false) => (
+    <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      <div aria-hidden={marketsOff || undefined} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
         <button
           type="button"
           onClick={() => setMarket('')}
@@ -694,110 +694,48 @@ export default function AdminAnalytics() {
     </div>
   )
 
-  if (tab === 'markets') {
-    return (
-      <div className="page">
-        <PageHeader
-          back="/admin"
-          title="Analytics"
-          subtitle="Market against market: views, creators and prize money, all time and by month."
-        />
-        {tabBar}
-        {/* NO MARKET FILTER ON THIS TAB. The page is the comparison, so scoping
-            it to one market would leave a league table with one row in it. The
-            currency toggle still belongs here - the markets are not all in the
-            same one, which is half the reason this had to be computed rather
-            than eyeballed. */}
-        <MarketLeague raw={raw} currency={currency} />
-      </div>
-    )
-  }
-  if (tab === 'growth') {
-    return (
-      <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle={`How ${scopeLabel} grew, and whether it still is.`} />
-        {tabBar}
-        {filterBar}
-        <Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />
-      </div>
-    )
-  }
-  if (tab === 'referrals') {
-    return (
-      <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle={`Who is bringing new creators into ${scopeLabel}, and what those creators do once they arrive.`} />
-        {tabBar}
-        {filterBar}
-        <Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
-      </div>
-    )
-  }
-  if (tab === 'creators') {
-    return (
-      <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle={`Who delivers in ${scopeLabel}, and what they cost.`} />
-        {tabBar}
-        {filterBar}
-        <PerCreator raw={scoped} currency={currency} scopeLabel={scopeLabel} />
-      </div>
-    )
-  }
-  if (tab === 'programme') {
-    return (
-      <div className="page">
-        <PageHeader
-          back="/admin" title="Analytics" subtitle="What the programme costs and what it returns." />
-        {tabBar}
-        {filterBar}
-        <ProgrammePerformance market={marketName} currency={currency} mode="list" />
-      </div>
-    )
-  }
-  if (tab === 'community') {
-    return (
-      <div className="page">
-        <PageHeader back="/admin" title="Analytics" subtitle={`Who is here, who takes part, and who we can reach in ${scopeLabel}.`} />
-        {tabBar}
-        {filterBar}
-        <CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />
-      </div>
-    )
-  }
-  if (tab === 'errors') {
-    return (
-      <div className="page">
-        <PageHeader
-          back="/admin"
-          title="Analytics"
-          subtitle="Anything broken: crashes creators hit, and scheduled jobs that failed."
-        />
-        {tabBar}
-        {/* NO MARKET PICKER HERE, DELIBERATELY. A crash is a property of the
-            code and the route, not of a market: the same broken page breaks for
-            everybody, and `client_errors` is fingerprinted on message + route
-            with ids stripped precisely so one fault is one row. Offering a
-            scope that cannot change the answer is a control that teaches people
-            the controls do not work. */}
-        <ErrorWatch />
-      </div>
-    )
-  }
+  // ONE FRAME FOR EVERY TAB, AND NO SENTENCE UNDER THE TITLE (2 Oct 2026). Ethan: "when clicking from
+  // challenges to market league the page jumps and moves a bit because the descriptions are different
+  // lengths on each ... remove these descriptions from every one. And you can move everything up a little
+  // and ensure it all stays the same and has clean animations." Every tab used to return its own page with
+  // its own header, so a switch rebuilt the header, the tab strip and the filter row, and the subtitle's
+  // line count moved everything below it. Now the header, the strip and the filters are one tree that
+  // stays mounted, and only the body (keyed on the tab) fades in under them.
+  //
+  // NO MARKET FILTER ON THE LEAGUE: the page is the comparison, so scoping it to one market would leave a
+  // league table with one row in it. NO MARKET PICKER ON ERRORS: a crash is a property of the code and the
+  // route, not of a market, and a control that cannot change the answer teaches people controls do not work - so
+  // on those two tabs the bar stays where it is but is dimmed and switched off.
+  const shell = (body, { filters = true, markets: marketsOn = true } = {}) => (
+    <div className="page">
+      <PageHeader back="/admin" title="Analytics" />
+      {tabBar}
+      {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
+          the body starts at the same height on every tab and nothing jumps. */}
+      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn)}</div>
+      <div key={tab} className="animate-tab-in">{body}</div>
+    </div>
+  )
+
+  if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
+  if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
+  if (tab === 'referrals') return shell(<Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
+  if (tab === 'creators') return shell(<PerCreator raw={scoped} currency={currency} scopeLabel={scopeLabel} />)
+  if (tab === 'programme') return shell(<ProgrammePerformance market={marketName} currency={currency} mode="list" />)
+  if (tab === 'community') return shell(<CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
+  if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
 
   if (!derived) {
-    return (
-      <div className="page space-y-6">
-        <Skeleton className="h-10 w-72" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
+    return shell(
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
-      </div>
+      </div>,
     )
   }
 
-  return (
-    <div className="page">
-      <PageHeader back="/admin" title="Analytics" subtitle="The programme's pulse: growth, output, reach and spend." />
-      {tabBar}
-      {filterBar}
+  return shell(
+    <>
       {/* ---- Headline numbers ---- */}
       {/* EIGHT TILES, SO THE COLUMN COUNTS ARE THE ONES THAT DIVIDE EIGHT.
           `sm:grid-cols-3` left two tiles alone on a third row at tablet width,
@@ -1099,6 +1037,6 @@ export default function AdminAnalytics() {
           `challenges` rows only - one of them - under a heading that says "all",
           while the Challenges tab next door lists all fifty including the
           logged ones. Two tables, one honest. */}
-    </div>
+    </>,
   )
 }

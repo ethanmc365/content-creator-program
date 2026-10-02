@@ -8,6 +8,7 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import VipHomeCard from '../components/vip/VipHomeCard'
 import VipCommunitiesCard from '../components/vip/VipCommunitiesCard'
+import MarketsRailCard from '../components/network/MarketsRailCard'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
@@ -15,7 +16,6 @@ import GlobalChallengeStrip, { prefetchTopThree } from '../components/network/Gl
 import SectionTitle from '../components/network/SectionTitle'
 import { CountUp } from '../components/network/Motion'
 import Reorderable from '../components/network/Reorderable'
-import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
 import WhenVisible from '../components/WhenVisible'
 import MapSkeleton from '../components/network/MapSkeleton'
@@ -100,62 +100,11 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
 
 // The people layer, as one block: the rail's own list, shared with the avatar
 // menu via lib/networkLinks so the two can never drift apart.
-// Your places gets the same treatment, keyed separately. Somebody in four
-// markets has a favourite, and it is not always the one they call home.
-const MARKET_ORDER_KEY = 'network-market-order'
-
-function loadMarketOrder() {
-  try { return JSON.parse(localStorage.getItem(MARKET_ORDER_KEY)) || [] } catch { return [] }
-}
-
-// A saved order is a preference over the markets you had THEN. Markets you join
-// later fall in at the end rather than disappearing, and markets you leave drop
-// out without leaving a hole.
-function orderMarkets(markets, order, homeId) {
-  if (!order.length) return markets
-  const rank = new Map(order.map((id, i) => [id, i]))
-  return [...markets].sort(
-    (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9)
-      || (b.id === homeId) - (a.id === homeId)
-      || a.name.localeCompare(b.name),
-  )
-}
-
 function orderLinks(order) {
   if (!order.length) return NETWORK_LINKS
   const rank = new Map(order.map((to, i) => [to, i]))
   return [...NETWORK_LINKS].sort(
     (a, b) => (rank.has(a.to) ? rank.get(a.to) : 1e9) - (rank.has(b.to) ? rank.get(b.to) : 1e9),
-  )
-}
-
-// THE GRIP IS A SEPARATE ELEMENT FROM THE LINK.
-//
-// This row used to spread `handleProps` straight onto its <Link>, which made
-// the entire link the drag handle. Every press on it was therefore a press on
-// a handle first and a navigation second, and the disambiguation lost often
-// enough that the markets in the rail read as simply not clickable. The grip
-// is its own target now, sitting outside the <Link>, and the link is only ever
-// a link. Same shape as NetworkLinkRow below, for the same reason.
-function MarketLinkRow({ market, live, handleProps, dragging }) {
-  const tr = useT()
-  return (
-    <div className={cx(
-      'group flex items-center gap-1 rounded-xl transition-shadow',
-      // The lift is on the row itself. Reorderable used to draw it on its own
-      // wrapper, at a different corner radius, which showed as grey arcs at the
-      // corners of whatever was being dragged.
-      dragging ? 'bg-white shadow-card' : 'hover:bg-cloud',
-    )}>
-      <Link to={`/c/${market.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-sm">
-        <FlagStack codes={market.country_codes} className="text-[13px]" />
-        <span className="min-w-0 flex-1 truncate">{market.name}</span>
-        {live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title={tr("Challenge running")} />}
-      </Link>
-      <span {...handleProps} title={tr("Drag to reorder")} className={GRIP_CLASS}>
-        <Icon name="grip" className="h-4 w-4" />
-      </span>
-    </div>
   )
 }
 
@@ -253,7 +202,6 @@ export default function GlobalHome() {
   const cachedHub = useCachedPage(HUB_CACHE_KEY)
   const [d, setD] = useState(cachedHub ?? null)
   const [order, setOrder] = useState(loadOrder)
-  const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
   const isMobile = useIsMobile()
   // ONE CLOCK READING PER MOUNT, for the live challenge card's countdown.
   // `react-hooks/purity` bans a clock read during render, and rightly: a
@@ -268,12 +216,6 @@ export default function GlobalHome() {
     const keys = next.map((l) => l.to)
     setOrder(keys)
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(keys)) } catch { /* private mode */ }
-  }
-
-  function saveMarketOrder(next) {
-    const ids = next.map((m) => m.id)
-    setMarketOrder(ids)
-    try { localStorage.setItem(MARKET_ORDER_KEY, JSON.stringify(ids)) } catch { /* private mode */ }
   }
 
   useEffect(() => {
@@ -484,7 +426,6 @@ export default function GlobalHome() {
   const myMarkets = myChapters
     .slice()
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
-  const orderedMarkets = orderMarkets(myMarkets, marketOrder, home?.id)
 
   // Live challenges in markets the viewer is actually in. A market they can
   // read but have not joined is not "their" live challenge. The network's own
@@ -598,42 +539,8 @@ export default function GlobalHome() {
         )}
       </RailCard>
 
-      {/* ---------- Your places ---------- */}
-      <RailCard
-        className="hidden lg:block"
-        icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />}
-        // "Your places" was the name from before markets had a name. The
-        // switcher, the command palette and the hub's own removed section all
-        // said "markets"; only this one said "places".
-        title={tr("Your markets")}
-        action={
-          <Link to="/global/markets" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
-            {tr("Explore")}
-          </Link>
-        }
-      >
-        {/* Worldwide is pinned and NOT reorderable: it is the one place
-            everybody is in and the parent of all the others, so letting it be
-            dragged below Spain would be letting somebody file the building
-            under one of its rooms. Only the markets move. */}
-        <Link to="/global" className="mb-1 flex items-center gap-2.5 rounded-xl bg-brand-tint px-3 py-2 text-sm font-medium text-brand">
-          <Icon name="globe" className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 truncate">{network?.name || 'Worldwide'}</span>
-        </Link>
-        <Reorderable
-          items={orderedMarkets}
-          onReorder={saveMarketOrder}
-          handleLabel="Reorder this market"
-          renderItem={(c, { handleProps, dragging }) => (
-            <MarketLinkRow market={c} live={!!d?.live?.[c.id]} handleProps={handleProps} dragging={dragging} />
-          )}
-        />
-        {myMarkets.length === 0 && (
-          <Link to="/global/markets" className="block rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-smoke transition-colors hover:border-brand hover:text-brand">
-            {tr("You have not joined a market yet. Find yours →")}
-          </Link>
-        )}
-      </RailCard>
+      {/* ---------- Your markets (shared with every market page) ---------- */}
+      <MarketsRailCard current="worldwide" live={d?.live} />
 
       {/* ---------- The VIP communities, apart from the markets ---------- */}
       <VipCommunitiesCard />
@@ -1156,7 +1063,10 @@ export default function GlobalHome() {
                     announcement going the full way across." The columns follow
                     the count, and the count is capped at two. */}
                 <Reveal
-                  className={cx('grid gap-3', d.anns.length > 1 && 'sm:grid-cols-2')}
+                  // `grid-cols-1`, NOT an implicit column (2 Oct 2026): an implicit track is sized to its
+                  // content, so an announcement holding a long link was as wide as the link and ran off the
+                  // right of a phone ("the right side of the announcement cards are cut off").
+                  className={cx('grid grid-cols-1 gap-3', d.anns.length > 1 && 'sm:grid-cols-2')}
                   stagger={0.07}
                 >
                   {d.anns.map((a) => {
@@ -1182,18 +1092,18 @@ export default function GlobalHome() {
                         // three lines tall beside one card one line tall.
                         // Ethan: "on desktop those cards should be the same size
                         // even if just one message is bigger."
-                        className="card flex h-full flex-col border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
+                        className="card flex h-full min-w-0 flex-col overflow-hidden border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="sm" />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">{a.profiles?.name}</p>
-                            <p className="text-xs text-smoke">
+                            <p className="truncate text-xs text-smoke">
                               {marketName(from ? from.name : network?.name || 'Worldwide')} · {timeAgo(a.created_at)}
                             </p>
                           </div>
                         </div>
-                        <p className="mt-3 line-clamp-3 text-sm text-ink">{stripMarkup(a.body)}</p>
+                        <p className="mt-3 line-clamp-3 break-words text-sm text-ink [overflow-wrap:anywhere]">{stripMarkup(a.body)}</p>
                       </Link>
                     )
                   })}

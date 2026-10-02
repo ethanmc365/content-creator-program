@@ -80,7 +80,7 @@ function BriefCard({ brief, overview }) {
         </div>
       )}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        {brief.target > 0 && <TargetBar label={unitLabel(brief.metric, brief.target, tr, BRIEF_METRICS)} value={mine} target={Number(brief.target)} />}
+        {brief.target > 0 && !overview.staff && <TargetBar label={unitLabel(brief.metric, brief.target, tr, BRIEF_METRICS)} value={mine} target={Number(brief.target)} />}
         {(places.length > 0 || brief.prize) && (
           <div className="rounded-xl bg-white px-3.5 py-3 text-sm text-ink shadow-sm">
             <p className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name="trophy" className="h-4 w-4 text-brand" />{tr('The prizes')}</p>

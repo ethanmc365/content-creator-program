@@ -79,8 +79,23 @@ function chain(table) {
   return q
 }
 
+// /__vip-bench?view=staff  the team's REAL VIP page (pages/VipHub staff mode, migration 310)
+const STAFF_OVERVIEW = {
+  ...MY_OVERVIEW, staff: true, videos: [],
+  stats: { ...MY_OVERVIEW.stats, rank: null, members: 6, posting: 4, of: 6 },
+  programmes: [
+    { id: 'prog-ro', name: 'VIP Romania', country_codes: ['RO'], slug: 'romania', members: 2 },
+    { id: MY_OVERVIEW.programme.id, name: 'VIP Spain', country_codes: ['ES'], slug: 'spain', members: 6 },
+  ],
+}
+
 export default function VipBench() {
   const [ready] = useState(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'staff') {
+      RPC.vip_my_overview = null
+      RPC.vip_staff_overview = STAFF_OVERVIEW
+      RPC.vip_staff_board = RPC.vip_board.map((r) => ({ ...r, me: false }))
+    }
     supabase.rpc = (fn) => Promise.resolve({ data: RPC[fn] === undefined ? null : RPC[fn], error: null })
     supabase.from = (t) => chain(t)
     return true

@@ -975,12 +975,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           compared against, the leaderboard you appear on and the prize you are
           playing for are all your group's, not the challenge's. It only draws
           at all on a challenge that has groups. */}
-      {groups.length > 0 && (
+      {groups.length > 0 && !allGroupsView && (
         <div className={cx(
           'mb-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border px-5 py-4',
-          myGroup || allGroupsView ? 'border-brand/25 bg-brand-tint/40' : 'border-dashed border-gray-200 bg-cloud/40',
+          myGroup ? 'border-brand/25 bg-brand-tint/40' : 'border-dashed border-gray-200 bg-cloud/40',
         )}>
-          <Icon name={myGroup || allGroupsView ? 'trophy' : 'alert'} className={cx('h-5 w-5 shrink-0', myGroup ? 'text-brand' : 'text-smoke')} />
+          <Icon name={myGroup ? 'trophy' : 'alert'} className={cx('h-5 w-5 shrink-0', myGroup ? 'text-brand' : 'text-smoke')} />
           {myGroup ? (
             <>
               <p className="text-sm">
@@ -994,10 +994,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </span>
               )}
             </>
-          ) : allGroupsView ? (
-            <p className="text-sm text-smoke">
-              {tr("This challenge runs {n} separate leaderboards, each with its own prizes. You are seeing all of them.", { n: groups.length })}
-            </p>
           ) : (
             <p className="text-sm text-smoke">
               This challenge runs {groups.length} separate leaderboards and you have not been put

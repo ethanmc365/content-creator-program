@@ -39,6 +39,12 @@ export default {
         },
         // A rail card that arrives after the rail's own entrance (the VIP communities, whose rows load late).
         // Switching between tabs of one page: short, small, opacity-led, so a kept tab reappearing reads as a switch.
+        // A PICKED ROW ARRIVING (2 Oct 2026): the gradient fades up from a hint of itself and settles, never
+        // from nothing (a hidden pane or background tab would otherwise hold it invisible).
+        'selected-in': {
+          from: { opacity: '0.55', transform: 'scale(0.985)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
         'tab-in': {
           from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -270,6 +276,7 @@ export default {
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
         'tab-in': 'tab-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'selected-in': 'selected-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'slide-in-right': 'slide-in-right 0.55s cubic-bezier(0.22, 1, 0.36, 1) both',
         'bar-rise': 'bar-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
         'board-swap': 'board-swap 180ms ease-out both',

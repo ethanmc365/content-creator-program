@@ -307,3 +307,25 @@ export function safeAccent(_hex, fallback = '#d94407') {
 
 /** A month's "year*12+month" number, for comparing months without dates. */
 export const monthIndex = (year, month) => year * 12 + month
+
+// The VIP programmes this person can see (every one for the access list, their own for a VIP, none for anybody
+// else - the database decides), for the VIP communities card and the phone's market sheet.
+export function useVipCommunities(profileId) {
+  const [rows, setRows] = useState(null)
+  useEffect(() => {
+    if (!profileId) return undefined
+    let alive = true
+    supabase.from('vip_programmes').select('id, name, community:community_id(slug, country_codes)').eq('active', true).order('name')
+      .then(({ data }) => { if (alive) setRows(data || []) })
+    return () => { alive = false }
+  }, [profileId])
+  return rows
+}
+
+/** The slug of the VIP room the reader is in, from a path like /c/spain/chat/vip. */
+export function vipSlugFromPath(pathname) {
+  const m = /^\/c\/([^/]+)\/chat\/vip(?:_announcements)?(?:\/|$)/.exec(pathname || '')
+  return m ? m[1] : null
+}
+
+

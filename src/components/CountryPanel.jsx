@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { countryFacts } from '../lib/countryFacts'
@@ -135,10 +135,29 @@ export function useMessageCreator(onCreatorClick) {
 // fell back to no limit and a city with thirty creators drew a card off the top
 // of the map. The CALLER gives us a definite box and this shrinks inside it;
 // `overflow-hidden` makes min-height 0 so flex is allowed to squeeze it.
+//
+// THE CARD SCROLLS, WHATEVER MAP IT SITS ON (2 Oct 2026). Ethan: "when I click on a country and it shows the
+// popup, I should be able to scroll on that card to see who's been there ... same issue with the map on the
+// worldwide page." The card is drawn INSIDE the map's box, and the box claims gestures for itself: a non-passive
+// wheel listener that preventDefaults every wheel the map owns (CreatorMap), and `touch-action: none` from
+// `[data-zoomable]` (index.css). So a wheel or a finger on the list moved nothing. The card now stops its own
+// wheel/touch events from reaching the box (native listeners, because the box's is native too and React's
+// synthetic stopPropagation runs only after it), and index.css gives `[data-map-panel]` `touch-action: pan-y`.
 export function MapPanel({ badge, title, subtitle, onClose, className, children }) {
   const tr = useT()
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const stop = (e) => e.stopPropagation()
+    const kinds = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'mousedown', 'dblclick']
+    kinds.forEach((k) => el.addEventListener(k, stop, { passive: true }))
+    return () => kinds.forEach((k) => el.removeEventListener(k, stop))
+  }, [])
   return (
     <div
+      ref={ref}
+      data-map-panel
       className={cx(
         'pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
         // The cap lives in a CSS variable so the caller can raise it for full

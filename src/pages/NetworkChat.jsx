@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PendingLabel from '../components/PendingLabel'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { confirm, notice } from '../lib/confirm'
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { useUnread, scopedChannel } from '../context/UnreadContext'
 import UnreadDot from '../components/UnreadDot'
+import RoomSwitcherSheet from '../components/chat/RoomSwitcherSheet'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import FlagTile from '../components/network/FlagTile'
 import NetworkMotion from '../components/NetworkMotion'
@@ -241,7 +242,6 @@ function AttachedCard({ message }) {
 export default function NetworkChat() {
   const tr = useT()
   const { slug, channelKey } = useParams()
-  const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
   const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
@@ -360,35 +360,11 @@ export default function NetworkChat() {
   // It scrolls the STRIP by hand rather than calling `scrollIntoView`, which
   // would also scroll every ancestor - including the fixed overlay and the
   // document behind it - to satisfy the block axis it was never asked about.
-  const tabStripRef = useRef(null)
   const [stripSearch, setStripSearch] = useState(false)
-  useEffect(() => {
-    // RECTANGLES, NOT `offsetLeft`. The tab's offset parent is the fixed chat
-    // OVERLAY, not the strip - so `offsetLeft` is measured from the left of the
-    // screen and includes the magnifier button beside the strip. Measured: 449
-    // for a tab sitting 401px into a 319px-wide strip. Rects are relative to
-    // the viewport and already account for the current scroll, so the delta
-    // between the two is the only reliable answer.
-    //
-    // AND `scrollLeft`, NOT `scrollTo({behavior:'smooth'})`. Measured in this
-    // overlay: a smooth `scrollTo` is silently dropped and the strip does not
-    // move at all, while an assignment lands. The element inherits
-    // `scroll-behavior: smooth` from `html` anyway, so the assignment animates
-    // where the browser supports it and jumps where it does not - and a jump is
-    // still correct, which is more than can be said for not moving.
-    //
-    // One frame's delay so the new tab has been laid out before it is measured.
-    const raf = requestAnimationFrame(() => {
-      const strip = tabStripRef.current
-      const tab = strip?.querySelector('[aria-selected="true"]')
-      if (!strip || !tab) return
-      const s = strip.getBoundingClientRect()
-      const t = tab.getBoundingClientRect()
-      strip.scrollLeft = Math.max(0, strip.scrollLeft + (t.left - s.left) - (s.width - t.width) / 2)
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [channelKey, channels.length, stripSearch])
-
+  // The room switcher sheet (components/chat/RoomSwitcherSheet), opened from the phone's room header.
+  const [switcher, setSwitcher] = useState(false)
+  const closeSwitcher = useCallback(() => setSwitcher(false), [])
+  useEffect(() => { setSwitcher(false) }, [channelKey, slug])
   // Closing the strip's search when you change room, so a filter typed in
   // General is not silently still applied in Announcements.
   useEffect(() => { setStripSearch(false) }, [channelKey])
@@ -1115,7 +1091,6 @@ export default function NetworkChat() {
     )
   }
 
-  const base = slug ? `/c/${slug}/chat` : '/global/chat'
   const flags = (community.country_codes || []).map(flagFromIso).join('')
 
   // EVERY place you belong to, each with its rooms, in ONE list - the place you
@@ -1131,7 +1106,12 @@ export default function NetworkChat() {
     .map((c) => ({
       ...c,
       flags: (c.country_codes || []).map(flagFromIso).join(''),
-      rooms: sidebarRooms.filter((r) => r.community_id === c.id && r.visibility !== 'vip'),
+      // THE VIP LOUNGE IS A WORLDWIDE ROOM (2 Oct 2026). Ethan: "the vip lounge should be a chat attached to the
+      // bottom of the other worldwide rooms rather than a separate card." A network room with visibility 'vip' stays
+      // in Worldwide's card, last; only the market VIP rooms get cards of their own.
+      rooms: sidebarRooms
+        .filter((r) => r.community_id === c.id && (r.visibility !== 'vip' || c.kind === 'network'))
+        .sort((a, b) => (a.visibility === 'vip') - (b.visibility === 'vip')),
     }))
     .filter((c) => c.rooms.length > 0)
     .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
@@ -1140,9 +1120,10 @@ export default function NetworkChat() {
   // "VIP rooms" heading, below the markets for the team and at the top for a VIP creator.
   const vipFirst = !!profile?.is_vip && !isAdmin
   const vipPlaces = allPlaces
+    .filter((c) => c.kind !== 'network')
     .map((c) => ({ ...c, rooms: sidebarRooms.filter((r) => r.community_id === c.id && r.visibility === 'vip') }))
     .filter((c) => c.rooms.length > 0)
-    .sort((a, b) => (a.kind === 'network') - (b.kind === 'network') || a.name.localeCompare(b.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   // The saved order, with anything it has not heard of (a market opened since
   // you last dragged) falling in behind at its alphabetical place rather than
@@ -1157,6 +1138,10 @@ export default function NetworkChat() {
   const orderedPlaces = [...places].sort(
     (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9),
   )
+
+  // How many OTHER rooms have something new, for the badge on the phone's room header.
+  const otherUnread = [...orderedPlaces, ...vipPlaces]
+    .reduce((n, p) => n + p.rooms.filter((r) => { const k = scopedKey(p, r.key); return k !== roomKey && unread.has(k) }).length, 0)
 
   // --------------------------------------------------------------- the room
   const room = (
@@ -1187,39 +1172,24 @@ export default function NetworkChat() {
           the "very cramped" bar this strip already had removed once. It writes
           the same `search` state the desktop bar and the header field do, so
           there is one filter and three ways to reach it. */}
-      <div
-        // NOTHING HERE BRINGS THE HEADER BACK (1 Sep 2026).
-        //
-        // Ethan: "on mobile when on a chat and the header is gone, scrolling
-        // across announcements tabs at the top with announcements, general,
-        // content tips etc, should not bring the header back, there should be
-        // no way to bring the header back from here, it is not necessary,
-        // although the header should smoothly animate back in if you click on a
-        // different section like worldwide or rooms."
-        //
-        // A press here used to restore it, which meant that scrolling the strip
-        // sideways to reach another room - a horizontal drag that necessarily
-        // starts with a pointerdown - shoved 64px of chrome back onto the
-        // screen and pushed the room you were aiming at down with it. The
-        // header comes back on the way OUT of the room (the unmount releases
-        // the channel), which is the only moment it is wanted.
-        className="flex shrink-0 items-stretch gap-1 border-b border-gray-100 px-2 pt-2 lg:hidden"
-      >
-        <button
-          type="button"
-          onClick={() => { setStripSearch((v) => !v); if (stripSearch) setSearch('') }}
-          aria-label={stripSearch ? 'Close search' : `Search ${active?.label || 'this room'}`}
-          aria-expanded={stripSearch}
-          className={cx(
-            'flex shrink-0 items-center justify-center rounded-t-lg px-2.5 py-1.5 transition-colors',
-            stripSearch ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
-          )}
+      {/* THE PHONE'S ROOM HEADER (2 Oct 2026). Ethan: on mobile the rooms are "hard to navigate, especially if in
+          multiple rooms ... research how other popular chats work and rebuild the mobile version." The sideways
+          strip of one market's tabs is gone: it only ever reached the rooms of the place you were already in, and
+          on a 375px screen half of those were off the end of it. Now it is the header every chat app converged on:
+          back to your rooms, the room's name with where it is (tap it and every room you are in opens in a sheet,
+          the ones with something new first), and search. Nothing here brings the app header back - that still only
+          happens on the way out of the room (1 Sep 2026). */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-1.5 py-1.5 lg:hidden">
+        <Link
+          to="/rooms"
+          aria-label={tr('All rooms')}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition-colors active:bg-cloud"
         >
-          <Icon name={stripSearch ? 'close' : 'magnifier'} className="h-4 w-4" />
-        </button>
-
+          <Icon name="chevronLeft" className="h-5 w-5" />
+        </Link>
         {stripSearch ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-cloud px-3.5 py-1.5 animate-tab-in">
+            <Icon name="magnifier" className="h-4 w-4 shrink-0 text-smoke" />
             <input
               autoFocus
               type="text"
@@ -1227,68 +1197,61 @@ export default function NetworkChat() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${active?.label || 'this room'}`}
               aria-label={`Search ${active?.label || 'this room'}`}
-              // `no-ios-zoom` IS 16px ON A PHONE, AND THAT IS THE WHOLE FIX.
-              // Ethan: "when I click the magnifying glass icon in top left to
-              // search, it zooms in the screen a bit and is weird." iOS Safari
-              // zooms the page into any field under 16px and does not zoom back
-              // out; at `text-[13px]` this was one of them. It drops back to
-              // 13px from `sm` up, where no browser does this.
-              className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 pb-1.5 sm:text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+              // 16px on a phone so iOS never zooms into the field (see `.no-ios-zoom`).
+              className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
             />
-            {search && (
-              <span className="shrink-0 pb-1.5 text-[11px] tabular-nums text-smoke">
-                {visible.length}/{messages.length}
-              </span>
-            )}
+            {search && <span className="shrink-0 text-[11px] tabular-nums text-smoke">{visible.length}/{messages.length}</span>}
           </div>
         ) : (
-          <div
-            ref={tabStripRef}
-            className="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            role="tablist"
-            aria-label={`${community.name} rooms`}
+          <button
+            type="button"
+            onClick={() => setSwitcher(true)}
+            aria-haspopup="dialog"
+            aria-expanded={switcher}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-1.5 py-1 text-left transition-colors active:bg-cloud"
           >
-            {/* VIP ROOMS ARE THEIR OWN SET OF TABS (1 Oct 2026): in a VIP room the strip is that market's VIP rooms,
-                in a community room it is the community's. They used to sit at the end of the market's own tabs. */}
-            {channels.filter((c) => (c.visibility === 'vip') === (active?.visibility === 'vip')).map((c) => {
-              // A ROOM WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN TAB. On a
-              // phone this strip IS the navigation between rooms, and it was
-              // the one place that never said which of the four had been
-              // spoken in - you had to open each one to find out, which is
-              // exactly the complaint. Never the tab you are standing on.
-              const key = scopedKey(community, c.key)
-              const isNew = key !== roomKey && unread.has(key)
-              return (
-                <button
-                  key={c.id}
-                  role="tab"
-                  data-room-tab={c.key}
-                  aria-selected={active?.key === c.key}
-                  onClick={() => navigate(`${base}/${c.key}`)}
-                  className={cx(
-                    // Smaller than they were. Every pixel this strip gives back is
-                    // a pixel of conversation, which is what the screen is for.
-                    'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
-                    active?.key === c.key ? 'bg-brand-tint text-brand'
-                      : isNew ? 'text-ink hover:bg-cloud' : 'text-smoke hover:bg-cloud hover:text-ink',
-                  )}
-                >
-                  <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', isNew && active?.key !== c.key && 'text-brand')} />
-                  {tr(c.label)}
-                  {isNew && <UnreadDot size="sm" />}
-                </button>
-              )
-            })}
-
-            {/* NO "ALL ROOMS" BUTTON. It sat at the end of a horizontal scroller,
-                which is the one place on the strip you cannot see without scrolling
-                to it - and the Rooms tab in the bottom bar is one tap from
-                anywhere and goes to the same page. Ethan: "I would remove the 'all
-                rooms' button way to the right as it's not needed and it's quicker
-                to just click on the rooms icon at the bottom." */}
-          </div>
+            <span className={cx(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+              active?.visibility === 'vip' ? 'vip-surface text-brand-light' : 'bg-brand-tint text-brand',
+            )}>
+              <Icon name={active?.icon || 'chat'} className="h-[18px] w-[18px]" />
+            </span>
+            <span key={`${community.id}-${active?.key}`} className="min-w-0 flex-1 animate-tab-in">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-[15px] font-bold leading-tight text-ink">{active ? tr(active.label) : ' '}</span>
+                {active?.visibility === 'vip' && <VipChip />}
+              </span>
+              <span className="mt-0.5 flex items-center gap-1 text-[12px] leading-tight text-smoke">
+                <span aria-hidden>{community.kind === 'network' ? '🌍' : flags}</span>
+                <span className="truncate">{community.kind === 'network' ? tr('Worldwide') : community.name}</span>
+                <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0" />
+              </span>
+            </span>
+            {otherUnread > 0 && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white shadow-card animate-pop-in" aria-label={tr('{n} rooms with new messages', { n: otherUnread })}>
+                {otherUnread}
+              </span>
+            )}
+          </button>
         )}
+        <button
+          type="button"
+          onClick={() => { setStripSearch((v) => !v); if (stripSearch) setSearch('') }}
+          aria-label={stripSearch ? 'Close search' : `Search ${active?.label || 'this room'}`}
+          aria-expanded={stripSearch}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-smoke transition-colors active:bg-cloud"
+        >
+          <Icon name={stripSearch ? 'close' : 'magnifier'} className="h-5 w-5" />
+        </button>
       </div>
+      <RoomSwitcherSheet
+        open={switcher}
+        onClose={closeSwitcher}
+        places={orderedPlaces}
+        vipPlaces={vipPlaces}
+        currentPlaceId={community.id}
+        activeKey={active?.key}
+      />
 
       {/* The hint bar doubles as the room's identity on mobile, where the page
           heading is scrolled away.
@@ -1979,6 +1942,7 @@ export default function NetworkChat() {
                           >
                             <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : isNew ? 'text-brand' : 'text-smoke')} />
                             <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
+                            {c.visibility === 'vip' && <VipChip />}
                             {c.visibility === 'staff' && (
                               <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">{tr("Staff")}</span>
                             )}
@@ -1998,13 +1962,17 @@ export default function NetworkChat() {
                   const here = place.id === community.id
                   const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
                   return (
-                    <div key={place.id} className="rounded-card border border-brand/25 bg-gradient-to-br from-brand-tint via-white to-white p-2 shadow-card">
-                      <div className="mb-1.5 flex items-center gap-2 border-b border-brand/10 px-1 pb-2 pt-1">
-                        <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg bg-white" title={place.name} />
-                        <span className={cx('min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em]', here ? 'text-brand' : 'text-ink')}>
-                          {place.kind === 'network' ? tr('VIP lounge') : tr('VIP {m}', { m: place.name })}
+                    // THE VIP CARDS ARE THEIR OWN MATERIAL (2 Oct 2026). Ethan: "you added a slight gradient on it but I
+                    // don't like the colour, I want it to be more different." The pale orange wash read as a
+                    // slightly-off market card. Now it is the dark VIP surface (index.css `.vip-surface`: ink into a
+                    // warm ember, an orange glow in the corner), the same material as the VIP application banner.
+                    <div key={place.id} className="vip-surface rounded-card p-2 shadow-card animate-fade-up">
+                      <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 px-1 pb-2 pt-1">
+                        <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg bg-white/95" title={place.name} />
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em] text-white">
+                          {tr('VIP {m}', { m: place.name })}
                         </span>
-                        <Icon name="star" className="h-3.5 w-3.5 text-brand" />
+                        <VipChip dark />
                       </div>
                       <div className="flex flex-col gap-0.5">
                         {place.rooms.map((c) => {
@@ -2013,8 +1981,8 @@ export default function NetworkChat() {
                           const isNew = key !== roomKey && unread.has(key)
                           return (
                             <Link key={c.id} to={`${roomBase}/${c.key}`} aria-current={on ? 'page' : undefined}
-                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-200', on ? 'bg-brand-tint font-semibold text-brand' : 'text-ink hover:bg-white')}>
-                              <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on || isNew ? 'text-brand' : 'text-smoke')} />
+                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200', on ? 'bg-gradient-to-r from-brand to-brand-light font-semibold text-white shadow-card' : 'text-white/85 hover:bg-white/10 hover:text-white')}>
+                              <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand-light' : 'text-white/55')} />
                               <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                               {isNew && <UnreadDot size="sm" />}
                             </Link>
@@ -2088,5 +2056,15 @@ export default function NetworkChat() {
         onClose={() => setViewing(null)}
       />
     </NetworkMotion>
+  )
+}
+
+// The small "VIP" mark on a VIP room: a dark pill on a white card, a light one on the dark VIP material.
+function VipChip({ dark = false }) {
+  return (
+    <span className={cx(
+      'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider',
+      dark ? 'bg-white/15 text-white' : 'bg-ink text-white',
+    )}>VIP</span>
   )
 }

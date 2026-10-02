@@ -100,15 +100,15 @@ const TripCard = memo(function TripCard({
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
   return (
-    <div className={`card flex h-full flex-col ${past ? 'gap-3 !p-5 opacity-80' : 'gap-4 !p-6'}`}>
+    <div className={`card flex h-full min-w-0 flex-col overflow-hidden ${past ? 'gap-3 !p-5 opacity-80' : 'gap-4 !p-6'}`}>
       <div className="flex items-start justify-between gap-3">
-        <Link to={`/profile/${person.id}`} className="flex items-center gap-3 group">
+        <Link to={`/profile/${person.id}`} className="group flex min-w-0 flex-1 items-center gap-3">
           <Avatar src={person.photo_url} name={person.name} size="md" />
           <div className="min-w-0">
             <p className="truncate font-semibold group-hover:text-brand">{person.name}</p>
-            <p className="flex items-center gap-1 text-xs text-smoke">
-              <Icon name="pin" className="h-3.5 w-3.5" />
-              {p.city}{p.country ? `, ${p.country}` : ''}
+            <p className="flex min-w-0 items-center gap-1 text-xs text-smoke">
+              <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{p.city}{p.country ? `, ${p.country}` : ''}</span>
             </p>
           </div>
         </Link>
@@ -137,7 +137,7 @@ const TripCard = memo(function TripCard({
         )}
       </div>
 
-      <Badge tone={past ? 'grey' : 'brand'}><Icon name="calendar" className="mr-1 inline h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}</Badge>
+      <Badge tone={past ? 'grey' : 'brand'} className="max-w-full self-start truncate"><Icon name="calendar" className="mr-1 inline h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}</Badge>
 
       {/* The map mounts when the card is nearly on screen, not when the board
           renders. Six atlases laid out at once is what made the board hitch on
@@ -192,12 +192,12 @@ const TripCard = memo(function TripCard({
           and stays uniform either way. */}
       {past ? (
         (p.note || '').trim() && (
-          <p className="line-clamp-2 text-sm leading-5 text-ink/80">
+          <p className="line-clamp-2 break-words text-sm leading-5 text-ink/80 [overflow-wrap:anywhere]">
             {(p.note || '').replace(/\s+/g, ' ').trim()}
           </p>
         )
       ) : reserveNote && (
-        <p className="line-clamp-3 h-[3.75rem] overflow-hidden text-sm leading-5 text-ink/90">
+        <p className="line-clamp-3 h-[3.75rem] overflow-hidden break-words text-sm leading-5 text-ink/90 [overflow-wrap:anywhere]">
           {(p.note || '').replace(/\s+/g, ' ').trim()}
         </p>
       )}

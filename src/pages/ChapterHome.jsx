@@ -5,13 +5,15 @@ import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
+import MarketsRailCard from '../components/network/MarketsRailCard'
+import VipCommunitiesCard from '../components/vip/VipCommunitiesCard'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import MarketMap from '../components/network/MarketMap'
 import MapSkeleton from '../components/network/MapSkeleton'
 import MarketActivity from '../components/network/MarketActivity'
 import { isOnline, countOnline, byRecency, fillRows } from '../lib/presence'
-import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
+import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState } from '../components/ui'
@@ -200,28 +202,6 @@ export default function ChapterHome() {
   // the order he wants and it interleaves the two columns, which CSS `order`
   // cannot do across two parents. Same trick as the profile page: name each
   // block once, then write two running orders over the names.
-  const roomsCard = (
-    <>
-      <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title={tr("Rooms")}>
-        {loading ? <RailCardSkeleton rows={3} /> : (
-          <div className="space-y-0.5">
-            {data.channels.map((ch) => (
-              <Link key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
-                className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-cloud">
-                <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{ch.label}</span>
-                {ch.visibility === 'staff' && (
-                  <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">{tr("Staff")}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-      </RailCard>
-
-    </>
-  )
-
   const standingsCard = (
     <>
       {data?.standings?.some((x) => Number(x.views) > 0) && (
@@ -367,9 +347,14 @@ export default function ChapterHome() {
     </>
   )
 
+  // "YOUR MARKETS" IN PLACE OF THE ROOMS CARD (2 Oct 2026). Ethan: "I still want that card on the right column
+  // on the market page, remove the rooms card from that right column and instead add that one there." The rooms
+  // are the tiles in the left column already; the rail now carries the switcher you arrived by, with this market
+  // picked out, and the VIP communities under it for the people who have them.
   const rail = (
     <>
-      {roomsCard}
+      <MarketsRailCard current={chapter.id} live={data?.live ? { [chapter.id]: data.live } : null} />
+      <VipCommunitiesCard />
       {standingsCard}
       {eventsCard}
       {whoIsHereCard}
@@ -557,29 +542,41 @@ export default function ChapterHome() {
             {loading ? (
               <CardGridSkeleton count={3} height="h-20" />
             ) : (
-              <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.06}>
+              /* EVERY TILE THE SAME SIZE (2 Oct 2026). Ethan: "where it shows the rooms, on the left column under
+                 the big card, tidy up the UI, the cards should all be the same size." A room with a hint was taller
+                 than one without, so the grid went ragged. Rows are equal now (`auto-rows-fr`), every tile is a
+                 fixed shape (icon tile, name, one line of hint, chevron), and a missing hint keeps its line. */
+              <Reveal className="grid auto-rows-fr gap-3 sm:grid-cols-2" stagger={0.06}>
                 {data.channels.map((ch) => (
                   <MotionLink key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
                     {...cardHover}
                     className={cx(
-                      'card flex flex-col gap-1 !p-5 hover:shadow-lift',
+                      'card group flex h-full min-h-[5.25rem] items-center gap-3.5 !p-4 hover:shadow-lift',
                       // General is the room a market is FOR. It gets the brand
                       // edge so it is never one of four identical tiles.
                       ch.key === 'general' && 'border-brand/30 bg-brand-tint/20',
                     )}>
-                    <div className="flex items-center gap-2">
-                      <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-brand" />
-                      <span className="font-semibold">{ch.label}</span>
-                      {ch.key === 'general' && (
-                        <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                          {tr("Main room")}
-                        </span>
-                      )}
-                      {ch.visibility === 'staff' && (
-                        <span className="ml-auto rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">{tr("Staff")}</span>
-                      )}
-                    </div>
-                    {ch.hint && <p className="text-xs text-smoke">{ch.hint}</p>}
+                    <span className={cx(
+                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-transform duration-200 group-hover:scale-105',
+                      ch.key === 'general' ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'bg-brand-tint text-brand',
+                    )}>
+                      <Icon name={ch.icon || 'chat'} className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-semibold">{ch.label}</span>
+                        {ch.key === 'general' && (
+                          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            {tr("Main room")}
+                          </span>
+                        )}
+                        {ch.visibility === 'staff' && (
+                          <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">{tr("Staff")}</span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-smoke">{ch.hint || '\u00a0'}</span>
+                    </span>
+                    <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
                   </MotionLink>
                 ))}
               </Reveal>

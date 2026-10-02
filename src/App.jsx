@@ -4,7 +4,9 @@ import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { chunk } from './lib/routeChunks'
 import { installLinkPrefetch } from './lib/prefetchLinks'
-import { isSlowNetwork } from './lib/netQuality'
+import { isSlowNetwork, onSlowNetworkChange } from './lib/netQuality'
+import { toast } from './lib/toast'
+import { t } from './lib/i18n'
 import { breadcrumb } from './lib/breadcrumbs'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
@@ -206,6 +208,14 @@ export default function App() {
   // in the Lisbon room should still go out if you happen to be standing in your
   // DMs when the signal returns, and it should go out on the reload after the
   // tab was killed whether or not you open a chat at all. See lib/outbox.
+  // SAY SO, ONCE, WHEN THE SIGNAL IS WEAK (2 Oct 2026). The app quietly changes shape on a slow connection (maps
+  // wait, decoration stands still, nothing is prefetched); a single short toast per session tells the creator why,
+  // so a map card saying "when your signal improves" is not a surprise. Never repeated in one session.
+  useEffect(() => onSlowNetworkChange(() => {
+    if (!isSlowNetwork()) return
+    try { if (sessionStorage.getItem('tryp_slow_told')) return; sessionStorage.setItem('tryp_slow_told', '1') } catch { /* private mode */ }
+    toast(t('Weak signal: loading the essentials first'), { icon: 'refresh', duration: 4500 })
+  }), [])
   useEffect(() => startOutbox(), [])
   // `beforeinstallprompt` fires early and exactly once, so it has to be caught
   // at startup rather than when a screen that wants it happens to mount. See

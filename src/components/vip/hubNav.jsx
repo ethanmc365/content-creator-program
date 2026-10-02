@@ -29,12 +29,12 @@ export const VIP_SECTIONS = [
 ]
 
 /** The column on the right, desktop only. */
-export function VipSideNav({ value, onChange }) {
+export function VipSideNav({ value, onChange, hidden }) {
   const tr = useT()
   return (
     <nav aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
       <ul className="space-y-0.5">
-        {VIP_SECTIONS.map((s, i) => {
+        {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s, i) => {
           const on = s.key === value
           return (
             <li key={s.key} className="animate-slide-in-right" style={{ animationDelay: `${i * 35}ms` }}>
@@ -66,11 +66,11 @@ export function VipSideNav({ value, onChange }) {
 }
 
 /** The same sections as a strip of chips, phones and tablets. */
-export function VipChipNav({ value, onChange }) {
+export function VipChipNav({ value, onChange, hidden }) {
   const tr = useT()
   return (
     <nav aria-label={tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
-      {VIP_SECTIONS.map((s) => {
+      {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
         const on = s.key === value
         return (
           <button
@@ -95,14 +95,15 @@ export function VipChipNav({ value, onChange }) {
 }
 
 /** The quick links: their rooms, their recap and their portfolio. A callout in the column, a card on a phone. */
-export function VipQuickLinks({ slug, className }) {
+export function VipQuickLinks({ slug, className, staff = false }) {
   const tr = useT()
   const rows = [
     slug && { to: `/c/${slug}/chat/vip`, icon: 'star', label: tr('VIP room'), hint: tr('Your market') },
     slug && { to: `/c/${slug}/chat/vip_announcements`, icon: 'megaphone', label: tr('VIP announcements'), hint: tr('From the team') },
     { to: '/global/chat/vip_global', icon: 'globe', label: tr('VIP lounge'), hint: tr('Every market') },
-    { to: '/vip/recap', icon: 'sparkles', label: tr('My recap'), hint: tr('Your month as a story') },
-    { to: '/portfolio', icon: 'briefcase', label: tr('My portfolio'), hint: tr('Share your numbers') },
+    !staff && { to: '/vip/recap', icon: 'sparkles', label: tr('My recap'), hint: tr('Your month as a story') },
+    !staff && { to: '/portfolio', icon: 'briefcase', label: tr('My portfolio'), hint: tr('Share your numbers') },
+    staff && { to: '/admin/vip', icon: 'shield', label: tr('VIP tools'), hint: tr('Members, payouts, settings') },
   ].filter(Boolean)
   return (
     <section className={cx('rounded-card border border-gray-100 bg-white p-3 shadow-card', className)}>
@@ -119,6 +120,36 @@ export function VipQuickLinks({ slug, className }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+/**
+ * THE MARKET SWITCH ON THE TEAM'S VIP PAGE (2 Oct 2026). The team sees the real VIP page of each market they
+ * look after, so the pill becomes a pair (or more): the flag beside each name, the picked one solid brand with
+ * white on it (the house rule for a picked option), sliding between them.
+ */
+export function ProgrammeSwitch({ programmes, value, onChange }) {
+  const tr = useT()
+  return (
+    <div role="tablist" aria-label={tr('VIP market')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-card">
+      {programmes.map((p) => {
+        const on = p.id === value
+        return (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => !on && onChange(p.id)}
+            className={cx('relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors duration-200', on ? 'text-white' : 'text-ink/80 hoverable:hover:text-ink')}
+          >
+            {on && <motion.span layoutId="vip-programme-switch" transition={SPRING} className="absolute inset-0 rounded-full bg-gradient-to-r from-brand to-brand-light shadow-card" />}
+            <FlagStack codes={p.country_codes} className="relative text-[14px]" />
+            <span className="relative whitespace-nowrap">{p.name}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

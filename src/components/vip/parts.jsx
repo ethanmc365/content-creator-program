@@ -354,7 +354,7 @@ export function VipEarn({ rules, overview, currency }) {
                 <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(r, tr, currency)}</p>
               </div>
             </div>
-            {prog && prog.need > 0 && <div className="mt-3"><TargetBar label={tr('Your progress')} value={prog.have} target={prog.need} format={prog.format} done={tr('Reached')} /></div>}
+            {prog && prog.need > 0 && !overview.staff && <div className="mt-3"><TargetBar label={tr('Your progress')} value={prog.have} target={prog.need} format={prog.format} done={tr('Reached')} /></div>}
             {r.kind === 'target' && stats && (overview.member?.target_videos || overview.member?.target_views) ? (
               <div className="mt-3 space-y-3">
                 {overview.member.target_videos ? <TargetBar label={tr('Videos this month')} value={stats.videos} target={overview.member.target_videos} /> : null}
