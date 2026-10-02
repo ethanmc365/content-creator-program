@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
 import { getLocale } from './i18n'
 
@@ -14,6 +14,20 @@ export async function vipRpc(fn, args) {
   const { data, error } = await supabase.rpc(fn, args)
   if (error) throw new Error(error.message)
   return data
+}
+
+// THE TEAM, SEEING A CREATOR'S VIP PAGE EXACTLY (2 Oct 2026, migration 311). Inside a <VipPreviewContext value={id}>
+// every creator read on the VIP page (overview, statements, trends, perks, board) is asked for AS THAT MEMBER through
+// `vip_preview`, which the database only answers for somebody who manages their market. Writes are never routed: a
+// preview is read-only, and the components check `useVipPreview()` to grey their buttons.
+export const VipPreviewContext = createContext(null)
+export const useVipPreview = () => useContext(VipPreviewContext)
+const PREVIEW_AS = { vip_my_overview: 'overview', vip_my_statements: 'statements', vip_my_trends: 'trends', vip_my_perks: 'perks', vip_board: 'board' }
+
+/** `vipRpc`, as the previewed member when `who` is set and the function is one of the creator's own reads. */
+export function vipRpcAs(who, fn, args) {
+  if (who && PREVIEW_AS[fn]) return vipRpc('vip_preview', { p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
+  return vipRpc(fn, args)
 }
 
 const localeTag = () => (getLocale() === 'pt' ? 'pt-PT' : getLocale() === 'en' ? 'en-GB' : getLocale())
@@ -245,17 +259,21 @@ export const EVENT_ICON = {
 export function useOptionalRpc(fn, args, key) {
   const [state, setState] = useState({ data: undefined, missing: false })
   const [tick, setTick] = useState(0)
+  const who = useVipPreview()
   useEffect(() => {
     let alive = true
     setState((s) => ({ data: key === undefined ? s.data : undefined, missing: false }))
-    supabase.rpc(fn, args).then(({ data, error }) => {
+    const ask = who && PREVIEW_AS[fn]
+      ? supabase.rpc('vip_preview', { p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
+      : supabase.rpc(fn, args)
+    ask.then(({ data, error }) => {
       if (!alive) return
       if (error) setState({ data: null, missing: /could not find the function|does not exist|schema cache/i.test(error.message) })
       else setState({ data, missing: false })
     })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fn, key, tick])
+  }, [fn, key, tick, who])
   return { ...state, reload: () => setTick((n) => n + 1) }
 }
 

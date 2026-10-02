@@ -257,7 +257,7 @@ export default function AppLayout() {
   const isVip = !!profile?.is_vip && !isAdmin
   const vipAccess = useVipAccess(profile?.id, false)
   // The Challenges and DM tabs' first query, run ahead of the tap once the app is idle (lib/warmPages).
-  useEffect(() => { warmPagesWhenIdle(profile?.id) }, [profile?.id])
+  useEffect(() => { warmPagesWhenIdle(profile?.id, { challenges: !isVip }) }, [profile?.id, isVip])
   const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
   const navigate = useNavigate()
 

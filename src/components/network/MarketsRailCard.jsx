@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCommunity } from '../../context/CommunityContext'
 import { RailCard } from './NetworkLayout'
@@ -20,6 +20,15 @@ import { useT } from '../../lib/i18n'
 // rule for a picked option, and it fades in rather than snapping (`selected-in`).
 //
 // The saved order is the same localStorage key the hub always used, so nobody's arrangement is lost.
+// THE CARD TRAVELS WITH YOU (2 Oct 2026). Ethan: "on the worldwide page, whenever I click on for example Spain,
+// the your markets card should animate up nicely from where it is." On Worldwide it sits under "Live now"; on a
+// market page it is the first card in the rail, so it used to vanish and slide in again from the right a few
+// hundred pixels higher. A press inside it now notes where it stood on screen, and the copy on the next page starts
+// at that spot and glides to its own (a FLIP), skipping the rail's slide-in so the two motions do not fight.
+let carried = null
+const CARRY_MS = 4000
+const CARRY_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+
 export const MARKET_ORDER_KEY = 'network-market-order'
 
 export function loadMarketOrder() {
@@ -80,6 +89,23 @@ export default function MarketsRailCard({ current = null, live = null, className
   const ordered = orderMarkets(mine, order, home?.id)
   const worldwidePicked = current === 'worldwide'
 
+  const root = useRef(null)
+  useLayoutEffect(() => {
+    const el = root.current
+    const from = carried
+    carried = null
+    if (!el || !from || performance.now() - from.at > CARRY_MS) return
+    const dy = from.top - el.getBoundingClientRect().top
+    const item = el.closest('.reveal-item')
+    item?.classList.add('reveal-carry')
+    if (Math.abs(dy) < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    el.animate?.([{ transform: `translate3d(0, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }], { duration: 560, easing: CARRY_EASE })
+  }, [])
+  function noteCarry() {
+    const r = root.current?.getBoundingClientRect()
+    if (r) carried = { top: r.top, at: performance.now() }
+  }
+
   function save(next) {
     const ids = next.map((m) => m.id)
     setOrder(ids)
@@ -87,6 +113,7 @@ export default function MarketsRailCard({ current = null, live = null, className
   }
 
   return (
+    <div ref={root} onClickCapture={noteCarry}>
     <RailCard
       className={cx('hidden lg:block', className)}
       icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />}
@@ -124,5 +151,6 @@ export default function MarketsRailCard({ current = null, live = null, className
         </Link>
       )}
     </RailCard>
+    </div>
   )
 }

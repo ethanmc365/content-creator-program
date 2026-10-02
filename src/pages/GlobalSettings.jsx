@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
@@ -148,7 +148,9 @@ export default function GlobalSettings() {
   const { chapters, network, isGlobalAdmin, reload } = useCommunity()
   const [form, setForm] = useState(BLANK)
   const [step, setStep] = useState(0)
-  const [open, setOpen] = useState(false)
+  // `?new=market` is the admin panel's "Open another > A community market": straight onto the wizard (2 Oct 2026).
+  const [params] = useSearchParams()
+  const [open, setOpen] = useState(() => params.get('new') === 'market')
   const [busy, setBusy] = useState(false)
   const [countryQuery, setCountryQuery] = useState('')
   const [admins, setAdmins] = useState([])

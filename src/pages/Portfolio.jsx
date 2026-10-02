@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import { cx, formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { notice } from '../lib/confirm'
@@ -287,14 +288,14 @@ export default function Portfolio() {
           loads in, everything comes in with a nice, smooth animation rather than just appearing." The blocks
           above the fold rise in one after another (a growing delay), the document's pages arrive as they
           scroll into view (PortfolioDeck `reveal`), and the editor's sections follow the page. */}
-      <div className="animate-fade-up">
+      <Reveal>
         <PageHeader
           title={tr('Portfolio')}
           subtitle={readOnly
             ? tr('You are looking at this the way the creator sees it. Nothing here can be edited by you.')
             : tr('A media kit you can send to a brand, share as a link, or download as a PDF. Every word on it is yours to change.')}
         />
-      </div>
+      </Reveal>
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -308,12 +309,12 @@ export default function Portfolio() {
           Ethan: "The year in review should be showing up at the top. Make the
           card even a little bit smaller for mobile and show it at the top, at
           the very top above Share your Tryp.com Creator." */}
-      {!readOnly && <div className="animate-fade-up [animation-delay:60ms] lg:hidden"><YearTeaser tiny className="mb-5" /></div>}
+      {!readOnly && <Reveal delay={0.06} className="lg:hidden"><YearTeaser tiny className="mb-5" /></Reveal>}
 
       {!readOnly && (
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
-          <div className="min-w-0 animate-fade-up [animation-delay:120ms]"><KitStrip className="min-w-0" /></div>
-          <div className="hidden animate-fade-up [animation-delay:200ms] lg:flex"><YearTeaser className="flex w-full" /></div>
+          <Reveal delay={0.1} className="min-w-0"><KitStrip className="min-w-0" /></Reveal>
+          <Reveal delay={0.16} from="right" className="hidden lg:flex" itemClassName="flex w-full"><YearTeaser className="flex w-full" /></Reveal>
         </div>
       )}
 
@@ -327,7 +328,7 @@ export default function Portfolio() {
             you land on, which is the thing this page is for; the controls are
             under it. On a desktop the grid puts the editor on the right. */}
         <div ref={holder} className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center gap-3 animate-fade-up [animation-delay:180ms]">
+          <div className="mb-4 flex flex-wrap items-center gap-3 animate-page-in [animation-delay:180ms]">
             {/* Side by side on a phone, half the row each. */}
             <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
               <button type="button" onClick={exportPdf} disabled={!!exporting} className="btn-primary flex-1 justify-center whitespace-nowrap max-sm:px-3 sm:flex-none">
@@ -382,18 +383,23 @@ export default function Portfolio() {
         </div>
 
         {readOnly && (
-          <AdminSummary portfolio={portfolio} shown={shownVideos} videos={videos} tr={tr} />
+          <Reveal delay={0.22} from="right" className="min-w-0"><AdminSummary portfolio={portfolio} shown={shownVideos} videos={videos} tr={tr} /></Reveal>
         )}
 
+        {/* The editor slides in from the side it lives on, a beat after the document, the way a rail does. */}
         {!readOnly && desktop && (
-          <PortfolioEditor
-            portfolio={portfolio}
-            creator={creator}
-            videos={videos}
-            shown={shownVideos}
-            certificates={certificates}
-            onChange={setPortfolio}
-          />
+          // The sticky moves up to the wrapper: the grid cell is now the Reveal, and a sticky child cannot outrun a
+          // parent that is exactly its own height.
+          <Reveal delay={0.22} from="right" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            <PortfolioEditor
+              portfolio={portfolio}
+              creator={creator}
+              videos={videos}
+              shown={shownVideos}
+              certificates={certificates}
+              onChange={setPortfolio}
+            />
+          </Reveal>
         )}
       </div>
 

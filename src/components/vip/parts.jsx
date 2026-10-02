@@ -12,7 +12,7 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import {
-  BONUS_KINDS, DEFAULT_TERMS, describeRule, money, monthLabel, nf, rate, vipRpc,
+  BONUS_KINDS, DEFAULT_TERMS, describeRule, money, monthLabel, nf, rate, useVipPreview, vipRpc,
 } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
@@ -145,6 +145,7 @@ export function VipSubmit({ disabled, onAdded, month }) {
 export function VipVideoRow({ video, cpm, currency, onRemoved }) {
   const tr = useT()
   const [busy, setBusy] = useState(false)
+  const preview = !!useVipPreview()
   const out = video.status === 'disqualified'
   const reading = !video.synced_at && !video.error && !out
   const earned = (Number(video.views_counted) / 1000) * Number(cpm || 0)
@@ -177,9 +178,9 @@ export function VipVideoRow({ video, cpm, currency, onRemoved }) {
           <div><dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Earns')}</dt><dd className="text-[15px] font-bold tabular-nums text-ink">{money(earned, currency)}</dd></div>
         </dl>
       </div>
-      <button type="button" onClick={remove} disabled={busy} aria-label={tr('Remove')} title={tr('Remove')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
+      {!preview && <button type="button" onClick={remove} disabled={busy} aria-label={tr('Remove')} title={tr('Remove')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
         <Icon name="trash" className="h-4 w-4" />
-      </button>
+      </button>}
     </li>
   )
 }
@@ -337,18 +338,48 @@ export function VipEarn({ rules, overview, currency }) {
     }
     return null
   }
-  if (!rules?.length) {
-    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
+  // WHAT IS THEIRS ALONE comes first (2 Oct 2026, migration 311): a monthly fee and their own rate ladder, set per
+  // creator by the team. And if the market's bonuses are switched off for them, the page says so rather than
+  // listing bonuses they cannot earn.
+  const m = overview.member || {}
+  const own = []
+  if (Number(m.monthly_fee) > 0) {
+    own.push({ id: 'fee', icon: 'wallet', label: tr('Your monthly fee'), text: m.fee_min_videos
+      ? tr('{a} on top of your views pay, every month you post at least {n} videos.', { a: money(m.monthly_fee, currency, { cents: false }), n: m.fee_min_videos })
+      : tr('{a} on top of your views pay, every month.', { a: money(m.monthly_fee, currency, { cents: false }) }) })
   }
+  if (Array.isArray(m.tiers) && m.tiers.length) {
+    own.push({ id: 'tiers', icon: 'trendUp', label: tr('Your own rate steps'), text: m.tiers.map((t) => tr('{r} from {n} views', { r: `${currency} ${rate(t.cpm)}`, n: nf(t.from_views) })).join(' · ') })
+  }
+  const shown = m.bonuses_on === false ? [] : (rules || [])
+  if (!shown.length && !own.length) {
+    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-fade-up">{m.bonuses_on === false ? tr('Your agreement is your views pay. Market bonuses are not part of it.') : tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
+  }
+  // Each card rises in a beat after the one above it, so switching to this section reads as the list arriving
+  // rather than appearing (Ethan: clicking Earn more "doesn't have clean animations").
+  const rise = (i) => ({ className: 'animate-fade-up', style: { animationDelay: `${Math.min(i, 8) * 55}ms` } })
   return (
     <ul className="space-y-3">
-      {rules.map((r) => {
+      {own.map((o, i) => (
+        <li key={o.id} {...rise(i)}>
+          <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-white p-4 shadow-card">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card"><Icon name={o.icon} className="h-5 w-5" /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-ink">{o.label}</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{o.text}</p>
+            </div>
+          </div>
+        </li>
+      ))}
+      {m.bonuses_on === false && <li {...rise(own.length)}><p className="rounded-card border border-dashed border-gray-200 px-5 py-4 text-sm text-smoke">{tr('Market bonuses are not part of your agreement.')}</p></li>}
+      {shown.map((r, idx) => {
         const kind = BONUS_KINDS.find((k) => k.key === r.kind)
         const prog = progressFor(r)
+        const a = rise(own.length + idx)
         return (
-          <li key={r.id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+          <li key={r.id} className={cx('rounded-card border border-gray-100 bg-white p-4 shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5', a.className)} style={a.style}>
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={kind?.icon || 'trophy'} className="h-5 w-5" /></span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card"><Icon name={kind?.icon || 'trophy'} className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-bold text-ink">{r.label}</p>
                 <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(r, tr, currency)}</p>

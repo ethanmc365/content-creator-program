@@ -16,7 +16,7 @@ import { noteExcerpt, renderNote } from '../../lib/noteMarkdown'
 import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, vipRpc } from '../../lib/vip'
+import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, useVipPreview, vipRpc } from '../../lib/vip'
 import { ordinalFor } from '../../lib/podiumTiers'
 import { useT } from '../../lib/i18n'
 
@@ -181,6 +181,7 @@ export function PerksPath() {
   const tr = useT()
   const { data, missing, reload } = useOptionalRpc('vip_my_perks', {}, 'perks')
   const [busy, setBusy] = useState(null)
+  const preview = !!useVipPreview()
   if (missing) return null
   if (data === undefined) return <Skeleton className="h-48 w-full rounded-card" />
   if (!data || data.length === 0) {
@@ -191,6 +192,7 @@ export function PerksPath() {
     .sort((a, b) => (Number(b.value) / Math.max(1, Number(b.threshold))) - (Number(a.value) / Math.max(1, Number(a.threshold))))[0]
 
   async function claim(p) {
+    if (preview) { notice(tr('This is a preview of their page. Only the creator can claim a perk.')); return }
     setBusy(p.id)
     try { await vipRpc('vip_claim_perk', { p_perk: p.id }); toastSuccess(tr('Claimed. Your market lead will be in touch.')); reload() } catch (e) { notice(e.message) } finally { setBusy(null) }
   }
@@ -313,30 +315,16 @@ export function VipLibrary({ programmeId }) {
  * showing." An empty map is still the map, with a line on it. And the creator's own "show me on the VIP map" switch
  * lives HERE now, under the map it is about (it was in the Stats tab), with what else decides whether they appear:
  * their town on their profile, and their profile's own map setting. */
-export function VipMap({ hint = true, onSaved }) {
+// THE MAP IS ONLY A MAP NOW (2 Oct 2026). Ethan: the VIP map "says show me on the VIP map but I said that shouldn't
+// show here and instead should show under actual platform settings." The switch lives in Settings > Account
+// (`VipMapSetting` below), beside the profile's own map privacy, which is where a person looks for it.
+export function VipMap() {
   const tr = useT()
-  const { data, missing, reload } = useOptionalRpc('vip_map', {}, 'map')
-  const { user, profile, isAdmin } = useAuth()
-  const [me, setMe] = useState(undefined)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    if (!user?.id) return undefined
-    let alive = true
-    supabase.from('vip_members').select('show_on_map').eq('profile_id', user.id).maybeSingle()
-      .then(({ data: row }) => { if (alive) setMe(row || null) })
-    return () => { alive = false }
-  }, [user?.id])
+  const { data, missing } = useOptionalRpc('vip_map', {}, 'map')
+  const { user, isAdmin } = useAuth()
   if (missing) return null
   const list = data || []
   const countries = new Set(list.map((c) => c.country).filter(Boolean)).size
-  const hasTown = profile?.city_lat != null && profile?.city_lng != null
-  const profileHidden = profile?.show_on_map === false
-
-  async function toggle(on) {
-    setBusy(true)
-    try { await vipRpc('vip_set_on_map', { p_on: on }); setMe({ show_on_map: on }); reload(); onSaved?.() }
-    catch (e) { notice(e.message) } finally { setBusy(false) }
-  }
 
   return (
     <div className="space-y-3">
@@ -345,29 +333,12 @@ export function VipMap({ hint = true, onSaved }) {
           ? tr('No VIPs on the map yet. Creators appear once they add their town to their profile.')
           : tr('{n} VIP creators in {c} countries.', { n: list.length, c: countries })}
       </p>
-      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card">
+      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card animate-fade-up">
         {data === undefined
           ? <Skeleton className="h-[26rem] w-full" />
           : <CreatorMap creators={list} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen />}
       </div>
-      {hint && me && (
-        <section className="flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="pin" className="h-5 w-5" /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-ink">{tr('Show me on the VIP map')}</span>
-            <span className="block text-xs text-smoke">
-              {!hasTown ? <>{tr('Add your town to your profile to appear.')} <Link to="/profile/edit" className="font-semibold text-brand hover:underline">{tr('Add it')}</Link></>
-                : profileHidden ? <>{tr('Your profile is hidden from maps.')} <Link to="/settings" className="font-semibold text-brand hover:underline">{tr('Change it')}</Link></>
-                  : me.show_on_map !== false ? tr('Other VIPs can see where you are based.') : tr('You are hidden from this map.')}
-            </span>
-          </span>
-          <button type="button" role="switch" aria-checked={me.show_on_map !== false} disabled={busy} onClick={() => toggle(me.show_on_map === false)}
-            className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60', me.show_on_map !== false ? 'bg-brand' : 'bg-gray-200')}>
-            <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200', me.show_on_map !== false ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-          </button>
-        </section>
-      )}
-      {isAdmin && !me && list.length === 0 && <p className="text-xs text-smoke">{tr('VIPs appear here once they have a town on their profile.')}</p>}
+      {isAdmin && list.length === 0 && <p className="text-xs text-smoke">{tr('VIPs appear here once they have a town on their profile.')}</p>}
     </div>
   )
 }
@@ -377,17 +348,18 @@ export function VipMap({ hint = true, onSaved }) {
 export function VipMySettings({ overview, onSaved }) {
   const tr = useT()
   const { user } = useAuth()
+  const who = useVipPreview()
   const [row, setRow] = useState(undefined)
   const [headline, setHeadline] = useState('')
   const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', user.id).maybeSingle()
+    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', who || user.id).maybeSingle()
     if (error || !data) { setRow(null); return }
     setRow(data)
     setHeadline(data.headline || ''); setGoal(data.own_goal_views ? String(data.own_goal_views) : '')
-  }, [user.id])
+  }, [user.id, who])
   useEffect(() => { load() }, [load])
   if (row === undefined) return <Skeleton className="h-48 w-full rounded-card" />
   if (row === null) return null
@@ -410,7 +382,7 @@ export function VipMySettings({ overview, onSaved }) {
         <label className="block"><span className="label">{tr('My own monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('Optional, for example 250000')} /></label>
         {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} />}
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={save} disabled={busy} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button>
+          <button type="button" onClick={save} disabled={busy || !!who} title={who ? tr('Only the creator can save this') : undefined} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button>
         </div>
       </div>
     </section>

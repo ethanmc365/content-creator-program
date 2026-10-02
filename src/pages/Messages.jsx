@@ -7,7 +7,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
-import { loadRelationship, loadRelationships } from '../lib/connections'
+import { loadRelationship } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
@@ -19,7 +19,7 @@ import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
-import { DM_CACHE_KEY, fetchInbox, isListableConversation } from '../lib/inbox'
+import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -45,7 +45,6 @@ import {
 } from '../lib/groups'
 import { useT } from '../lib/i18n'
 import { useMessageTranslations } from '../lib/quickTranslate'
-import { testFlags } from '../lib/testData'
 
 
 // PINNED CHATS. Three, per device, in localStorage - see the note on the
@@ -311,12 +310,15 @@ export default function Messages() {
   const [activeRelation, setActiveRelation] = useState(null)
   // Inbox search + the people it searches over (every creator you could DM).
   const [search, setSearch] = useState('')
-  const [people, setPeople] = useState([])
+  // A CACHED PEOPLE LIST COUNTS AS LOADED (2 Oct 2026): it is this session's own answer (written by the last visit
+  // or by the idle warm-up in lib/warmPages), so the pane paints at once and the live read below only corrects it.
+  const cachedPeople = useCachedPage(DM_PEOPLE_CACHE_KEY)
+  const [people, setPeople] = useState(() => cachedPeople?.people ?? [])
   // "HAVE WE LOOKED YET" IS NOT THE SAME QUESTION AS "IS IT EMPTY", and the
   // pane below reads the wrong answer to the wrong question without this. See
   // the note on `discover`.
-  const [peopleLoaded, setPeopleLoaded] = useState(false)
-  const [connectionIds, setConnectionIds] = useState(new Set())
+  const [peopleLoaded, setPeopleLoaded] = useState(!!cachedPeople)
+  const [connectionIds, setConnectionIds] = useState(() => new Set(cachedPeople?.connected ?? []))
   const [starting, setStarting] = useState(null) // creator id being opened
   // ---------------------------------------------------------------------
   // A THREAD YOU HAVE OPENED BUT NOT YET WRITTEN IN DOES NOT EXIST YET.
@@ -560,27 +562,20 @@ export default function Messages() {
   useEffect(() => {
     let cancelled = false
     async function loadPeople() {
-      const [{ data: profiles }, rels] = await Promise.all([
-        supabase
-          .from('profiles')
-          // `created_at` and `last_seen_at` are here for the empty pane's
-          // suggestions: "new here" and "around today" are the two reasons that
-          // make a stranger worth messaging, and both are facts we already sort
-          // by and were throwing away.
-          .select('id, name, photo_url, bio, is_admin, city, country, created_at, last_seen_at')
-          .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
-          .order('last_seen_at', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false }),
-        loadRelationships(user.id),
-      ])
+      // `created_at` and `last_seen_at` ride along for the pane's suggestions: "new here" and "around today" are the
+      // two reasons that make a stranger worth messaging. See lib/inbox.fetchDmPeople.
+      const got = await fetchDmPeople(user.id)
       if (cancelled) return
-      setPeople((profiles ?? []).filter((p) => p.id !== user.id))
+      setPeople(got.people)
       setPeopleLoaded(true)
-      setConnectionIds(new Set([...rels.entries()].filter(([, v]) => v.relation === 'connected').map(([id]) => id)))
+      setConnectionIds(new Set(got.connected))
+      writePageCache(DM_PEOPLE_CACHE_KEY, got)
     }
-    // The people list is only for the search box and the empty pane, so it waits until the inbox itself is drawn.
-    const id = setTimeout(loadPeople, 900)
+    // On a desktop with no thread open the pane IS the page, so it is read at once. Elsewhere the list only feeds
+    // the search box, and it waits until the inbox itself is drawn.
+    const id = setTimeout(loadPeople, !isMobile && !conversationId ? 0 : 900)
     return () => { cancelled = true; clearTimeout(id) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id])
 
   // Jump into a conversation with someone from search / the suggestions list,
@@ -1629,7 +1624,10 @@ export default function Messages() {
     //
     // An empty computation means "I could not work this out", never "there is
     // nothing" - and here that rule has to hold for BOTH inputs.
-    if (!peopleLoaded || !inboxLoaded) return { loading: true, mode: 'new', people: [] }
+    // A cached inbox stands in for the live one only when the people list came from the same session's cache too:
+    // both answers then describe the same moment, so the badges cannot re-sort under the reader the way the half-
+    // loaded pair did. The live reads still land and correct anything that changed.
+    if (!peopleLoaded || !(inboxLoaded || (cachedPeople && cachedInbox))) return { loading: true, mode: 'new', people: [] }
     const eligible = people.filter((p) => !p.is_admin)
     const isStranger = (p) => !connectionIds.has(p.id) && !talkingTo.has(p.id)
     const strangers = eligible.filter(isStranger)

@@ -73,6 +73,20 @@ export function scopeToMarket(raw, marketId, memberRows = []) {
     rewards: (raw.rewards || []).filter((r) => ids.has(r.creator_id)),
     messages: (raw.messages || []).filter((m) => ids.has(m.sender_id)),
     decisions: raw.decisions || [],
+    // The engagement rows carry who did them (2 Oct 2026), so a market's Overview counts its own people's
+    // reactions, votes, games, trips, connections and feedback rather than the whole network's.
+    ...(raw.reactionRows ? (() => {
+      const reactionRows = raw.reactionRows.filter((r) => ids.has(r.creator_id))
+      const pollRows = (raw.pollRows || []).filter((r) => ids.has(r.voter_id))
+      const tripRows = (raw.tripRows || []).filter((r) => ids.has(r.creator_id))
+      return {
+        reactionRows, pollRows, tripRows,
+        reactionCount: reactionRows.length, pollVoteCount: pollRows.length, tripCount: tripRows.length,
+        gameScores: (raw.gameScores || []).filter((g) => ids.has(g.player_id)),
+        connections: (raw.connections || []).filter((c) => ids.has(c.creator_id) || ids.has(c.connected_creator_id)),
+        feedback: (raw.feedback || []).filter((f) => ids.has(f.creator_id)),
+      }
+    })() : {}),
   }
 }
 

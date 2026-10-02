@@ -19,6 +19,7 @@ import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
 import { FILL } from '../../../components/charts/chartTheme'
+import { overlaps } from '../../../lib/analyticsPeriod'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -77,7 +78,7 @@ const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximu
 //   mode 'summary' - the economics (ratios, month charts, breakdowns), drawn on
 //                    the OVERVIEW tab under its own headline tiles.
 //   mode 'list'    - the Challenges tab: every challenge, and nothing else.
-export default function ProgrammePerformance({ market: scopeMarket = null, currency = 'EUR', mode = 'list' }) {
+export default function ProgrammePerformance({ market: scopeMarket = null, currency = 'EUR', mode = 'list', range = null }) {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [rates, setRates] = useState(FALLBACK_RATES)
@@ -169,7 +170,10 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
     // the challenge log, so filtering here is what makes the whole tab agree
     // with the controls at the top of it. A second filter applied further down
     // is how a page comes to show "Spain, August" over a total for the year.
+    // THE OVERVIEW'S PERIOD WINS when it is handed one (2 Oct 2026): a challenge belongs to every period it was
+    // open in, the same rule as the tiles above it (lib/analyticsPeriod.overlaps).
     const inRange = (r) => {
+      if (range) return overlaps(r.start_date, r.end_date || r.start_date, range)
       if (year === 'all') return true
       if (!r.start_date) return false
       const d = new Date(r.start_date)
@@ -255,7 +259,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       // were sitting under a heading that said "Running now".
       running: runningChallenges(scoped, now),
     }
-  }, [rows, currency, rates, effectiveMarket, year, month, now])
+  }, [rows, currency, rates, effectiveMarket, year, month, now, range])
 
   if (!data) {
     return (
@@ -352,6 +356,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
           {/* The month select only appears once a year is chosen, because
               "August" across every year the programme has run is not a period
               anybody means. */}
+          {!range && <>
           <Select
             value={year}
             onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
@@ -378,6 +383,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
               Clear
             </button>
           )}
+          </>}
           {view === 'list' && <>
           <span className="mx-1 hidden h-6 w-px bg-gray-100 sm:block" />
           <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">

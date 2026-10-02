@@ -357,7 +357,9 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
  * here changes what a tile CONTAINS - the fix is that the box now obeys the
  * grid instead of the text.
  */
-export function StatCard({ label, value, hint, accent = false, onClick }) {
+// `delta` (2 Oct 2026, the analytics periods): { pct, vs, lowerIsBetter } - a small pill under the figure saying how it
+// moved against the period before. Green when it moved the good way, which for a cost (CPM) is down.
+export function StatCard({ label, value, hint, accent = false, onClick, delta = null }) {
   const className = cx(
     'card flex h-full flex-col',
     // White like every other card (2 Oct 2026, Ethan: the "push enabled" card "isn't white. It should be
@@ -369,11 +371,32 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
     <>
       <p className="text-sm font-medium text-smoke">{label}</p>
       <p className={cx('mt-2 text-3xl font-bold tracking-tight', accent && 'text-brand')}>{value}</p>
+      {delta && <DeltaPill {...delta} />}
       {hint && <p className="mt-auto pt-1 text-xs text-smoke">{hint}</p>}
     </>
   )
   if (onClick) return <button type="button" onClick={onClick} className={className}>{inner}</button>
   return <div className={className}>{inner}</div>
+}
+
+function DeltaPill({ pct, vs, lowerIsBetter = false }) {
+  if (pct == null) {
+    return vs ? <p className="mt-1.5 text-[11px] text-gray-400">Nothing to compare with {vs}</p> : null
+  }
+  const flat = pct === 0
+  const good = flat ? null : (pct > 0) !== lowerIsBetter
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-smoke">
+      <span className={cx(
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold tabular-nums',
+        flat ? 'bg-cloud text-smoke' : good ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600',
+      )}>
+        {/* Past a tenfold rise a percentage stops being readable ("4233%"); it is a multiple. */}
+        {flat ? '=' : pct > 0 ? '\u2191' : '\u2193'} {pct >= 900 ? `${Math.round(pct / 100 + 1)}\u00d7` : `${Math.abs(pct)}%`}
+      </span>
+      {vs && <span className="min-w-0 truncate">vs {vs}</span>}
+    </p>
+  )
 }
 
 /** Accessible modal dialog. Closes on Escape and backdrop click. */
@@ -677,6 +700,9 @@ export function Select({
   // menu into <body> at the button's position (fixed), so it floats over everything and no scroll box
   // can slice it. Re-measured on scroll and resize.
   portal = false,
+  // `search` overrides the "more than eight options" rule: a fixed list of presets (the analytics periods) reads
+  // better without a box asking you to type.
+  search = null,
 }) {
   const tr = useT()
   const [open, setOpen] = useState(false)
@@ -698,7 +724,7 @@ export function Select({
   // the two hundred dialling codes, where it turns a keystroke into a scroll.
   // So anything long enough to scroll gets a search box. Eight is where a menu
   // stops fitting on screen in one look.
-  const searchable = options.length > 8
+  const searchable = search ?? options.length > 8
   const q = query.trim().toLowerCase()
   // Matches the label OR the hint, so typing "353" finds Ireland by its dial
   // code and not only by its name.

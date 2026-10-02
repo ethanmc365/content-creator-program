@@ -18,7 +18,7 @@ import PageSkeleton from '../components/PageSkeleton'
 import { stripMarkup } from '../lib/richText'
 import { cx, shortAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
-import { pageFade } from '../lib/motion'
+import { pageFade, SPRING } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 
@@ -468,15 +468,22 @@ export default function Rooms() {
                       type="button"
                       onClick={() => setFilter(c.key)}
                       aria-pressed={on}
+                      // THE PICKED CHIP (2 Oct 2026). Ethan: tapping "Unread" showed the text black for a moment and the
+                      // change was not smooth. `transition-all` eased the label from ink to white while the gradient (a
+                      // background-image, which cannot transition) snapped in, so for ~100ms dark text sat on white.
+                      // Now the label flips at once and ONE shared gradient slides under it (Segmented's layoutId trick).
                       className={cx(
-                        'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
-                        on ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-gray-200 bg-white text-ink/80',
+                        'relative flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-transform duration-150 active:scale-95',
+                        on ? 'border-transparent text-white' : 'border-gray-200 bg-white text-ink/80',
                       )}
                     >
-                      {(c.codes || c.network) && <FlagStack codes={c.network ? [] : c.codes} className="text-[13px]" />}
-                      {c.key === 'vip' && <Icon name="sparkles" className={cx('h-3.5 w-3.5', on ? 'text-white' : 'text-brand')} />}
-                      {c.label}
-                      {c.n > 0 && <span className={cx('rounded-full px-1.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/25 text-white' : 'bg-brand text-white')}>{c.n}</span>}
+                      {on && <motion.span layoutId="rooms-chip" transition={SPRING} className="absolute -inset-px rounded-full bg-gradient-to-r from-brand to-brand-light shadow-card" />}
+                      <span className="relative flex items-center gap-1.5">
+                        {(c.codes || c.network) && <FlagStack codes={c.network ? [] : c.codes} className="text-[13px]" />}
+                        {c.key === 'vip' && <Icon name="sparkles" className={cx('h-3.5 w-3.5', on ? 'text-white' : 'text-brand')} />}
+                        {c.label}
+                        {c.n > 0 && <span className={cx('rounded-full px-1.5 text-[10px] font-bold tabular-nums', on ? 'bg-white/25 text-white' : 'bg-brand text-white')}>{c.n}</span>}
+                      </span>
                     </button>
                   )
                 })}

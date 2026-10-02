@@ -7,7 +7,6 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import VipHomeCard from '../components/vip/VipHomeCard'
-import VipCommunitiesCard from '../components/vip/VipCommunitiesCard'
 import MarketsRailCard from '../components/network/MarketsRailCard'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
@@ -542,8 +541,6 @@ export default function GlobalHome() {
       {/* ---------- Your markets (shared with every market page) ---------- */}
       <MarketsRailCard current="worldwide" live={d?.live} />
 
-      {/* ---------- The VIP communities, apart from the markets ---------- */}
-      <VipCommunitiesCard />
 
       {/* ---------- The people layer, in your order ---------- */}
       <RailCard
@@ -608,7 +605,6 @@ export default function GlobalHome() {
             everything above the fold firing on one frame; 50ms per section does
             that, and 440ms is not a head start, it is a wait. */}
         <div className="space-y-9">
-          <VipHomeCard />
 
           {/* ---------- Greeting ----------
               `-mb-3` against the page's own `space-y-9`. A greeting is a label
@@ -785,7 +781,11 @@ export default function GlobalHome() {
             {/* The plane and the figures share a box of their own now, so the
                 plane stays parked beside the figures when the global challenge
                 band is added under them rather than dropping onto the band. */}
-            <div className="relative">
+            {/* NO BAND, MORE ROOM (2 Oct 2026). Ethan, as a VIP: "the Tryp.com plane is going through the text. This
+                doesn't happen for the regular creator." A VIP sees no challenges, so the global challenge band is not
+                drawn - and the plane, parked a rem below a box that ends at the chips, rose into the kilometres
+                figure. Without the band the box keeps 3.5rem of air at its foot for the plane to fly in. */}
+            <div className={cx('relative', !globalLive && 'pb-14')}>
             {/* With the challenge band under it the figures' box is the plane's
                 anchor, and that box is shorter than the plane - so it drops
                 further to fly between the figures and the band, not over the
@@ -980,9 +980,12 @@ export default function GlobalHome() {
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
                     label={me?.connections === 1 ? tr('connection') : tr('connections')} />
+                  {/* A VIP has no challenges to post to; their videos live on the VIP page. */}
+                  {!profile?.is_vip && (
                   <MineChip to="/challenges" icon="video"
                     value={me ? me.myVideos : null}
                     label={me?.myVideos === 1 ? tr('video posted') : tr('videos posted')} />
+                  )}
                 </div>
               </div>
             </div>
@@ -991,6 +994,13 @@ export default function GlobalHome() {
           </section>
           </Reveal>
           )}
+
+          {/* ---------- A VIP's own month ----------
+              UNDER THE COMMUNITY CARD, NOT ABOVE IT (2 Oct 2026). Ethan: "it shows the October 2026 so far and how
+              much they have earned, but this card should actually show below the main Tryp.com Content Creator
+              Community card." It also waits for the page now, so it arrives with the sections around it rather than
+              a round trip before them. Draws nothing for anybody who is not a VIP. */}
+          {d && profile?.is_vip && <VipHomeCard delay={stepDelay()} />}
 
           {/* ---------- Global challenge ---------- */}
           {/* Above the markets on purpose. A global challenge is the one thing

@@ -458,8 +458,14 @@ export default function Challenges() {
               THREE OR MORE AT ONCE (2 Oct 2026): the global challenge stays big at the top and the market ones sit
               side by side, compact, from `lg` (a phone stacks them exactly as before). */}
           {(() => {
+            // EQUAL CARDS SIDE BY SIDE (2 Oct 2026). Ethan: the two compact cards were "slightly different in size".
+            // `h-full` sat on the Reveal, but Reveal wraps each child in its own `.reveal-item`, and that wrapper was
+            // as tall as its content - so the grid stretched the Reveal and nothing inside it. The wrapper is full
+            // height now too, every card reserves the participation bar when any of its neighbours has one, and the
+            // title and brief keep two lines each so the clocks and buttons line up across the row.
+            const reserveBar = live.length >= 3 && live.some((c) => !isGlobal(c) && participation[c.id])
             const card = (c, compact = false, i = 0) => (
-              <Reveal key={c.id} from="down" delay={0.12 + i * 0.06} as="div" data-tour="challenge-card" className={compact ? 'h-full' : undefined}>
+              <Reveal key={c.id} from="down" delay={0.12 + i * 0.06} as="div" data-tour="challenge-card" className={compact ? 'h-full' : undefined} itemClassName={compact ? 'h-full' : ''}>
                 <LiveChallengeCard
                   challenge={c}
                   global={isGlobal(c)}
@@ -470,6 +476,7 @@ export default function Challenges() {
                   groups={liveGroups.groups[c.id] ?? []}
                   myGroupId={liveGroups.mine[c.id] ?? null}
                   compact={compact}
+                  reserveBar={compact && reserveBar}
                 />
               </Reveal>
             )

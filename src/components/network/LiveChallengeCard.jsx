@@ -60,6 +60,7 @@ function Pulse() {
 // challenge id is the kind of plumbing that goes stale. The card owns the fact
 // it draws.
 const MAX_PLACES = 6
+const PREVIEW_PLACES = 3
 
 // IT READS THE BOARD, `results`, NOT ITS OWN SUM OF VIEWS (1 Oct 2026). It used
 // to add up each creator's views, which is a different contest on a points
@@ -121,10 +122,12 @@ function LiveBoard({ challenge, className }) {
       .map((p, i) => [placeNumber(p?.place) ?? i + 1, p?.prize])
       .filter(([n, prize]) => n != null && prize),
   )
-  const deepest = Math.min(
-    MAX_PLACES,
-    Math.max(3, leaders.length, ...[...prizeAt.keys()]),
-  )
+  // THREE PLACES ON THE CARD (2 Oct 2026). Ethan: "Spain's challenge card is much bigger than the size it should
+  // be, I think this is because it's showing 6 on the preview leaderboard, maybe just show 3." The board sets the
+  // card's height, so a brief paying six places made the card six rows tall. The podium is the preview; the rest is
+  // one line that says how many more places pay, and the whole board is a press away on the challenge page.
+  const deepest = PREVIEW_PLACES
+  const morePaid = [...prizeAt.keys()].filter((n) => n > PREVIEW_PLACES).length
   const rows = Array.from({ length: deepest }, (_, i) => ({
     place: i + 1,
     leader: leaders[i] || null,
@@ -202,6 +205,11 @@ function LiveBoard({ challenge, className }) {
           </div>
         ))}
       </div>
+      {morePaid > 0 && (
+        <Link to={`/challenges/${challenge.id}`} className="mt-2 block rounded-xl px-2 py-1 text-[11px] font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
+          {morePaid === 1 ? tr('1 more paid place on the full board') : tr('{n} more paid places on the full board', { n: morePaid })}
+        </Link>
+      )}
     </div>
   )
 }
@@ -259,7 +267,7 @@ export default function LiveChallengeCard({
               <Pulse />
               {isGlobal
                 ? <><Icon name="globe" className="h-3.5 w-3.5" /> {tr("Live worldwide")}</>
-                : <>{market ? `Live in ${market}` : 'Live now'}</>}
+                : <>{market ? tr('Live in {m}', { m: market }) : tr('Live now')}</>}
             </span>
             {isGlobal && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
@@ -321,11 +329,14 @@ export default function LiveChallengeCard({
             'mt-6 flex flex-col gap-2.5',
             !compact && 'lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end',
           )}>
-            <div className="flex flex-wrap gap-3 lg:justify-end">
-              <Link to={`/challenges/${challenge.id}`} className="btn whitespace-nowrap border border-white/40 text-white hover:bg-white/10">
+            {/* THE TWO BUTTONS ARE ONE SIZE (2 Oct 2026). Ethan: "View all details" was smaller than "Submit your
+                video" - each was as wide as its own words. Two equal grid columns, the label centred in each, and the
+                outline drawn with an inset shadow so the border adds no height either. */}
+            <div className="grid grid-cols-2 gap-3 lg:w-full">
+              <Link to={`/challenges/${challenge.id}`} className="btn justify-center whitespace-nowrap !px-4 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] hover:bg-white/10">
                 {tr("View all details")}
               </Link>
-              <Link to={`/challenges/${challenge.id}?submit=1`} className="btn whitespace-nowrap bg-white !text-brand hover:bg-white/90">
+              <Link to={`/challenges/${challenge.id}?submit=1`} className="btn justify-center whitespace-nowrap !px-4 bg-white !text-brand hover:bg-white/90">
                 {tr("Submit your video")}
               </Link>
             </div>

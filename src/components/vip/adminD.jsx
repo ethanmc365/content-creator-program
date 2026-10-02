@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import { MarketStandings, VipMap } from './v3'
@@ -99,7 +99,7 @@ export function VipMarketsTab({ programme, isOwner, onChanged }) {
       <section>
         <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Every VIP creator')}</h2>
         <p className="mb-3 text-sm text-smoke">{tr('Only creators who chose to be on the map.')}</p>
-        <VipMap hint={false} />
+        <VipMap />
       </section>
       {isOwner && programmes.length > 1 && (
         <section>
@@ -153,10 +153,8 @@ function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   return (
     <label className="block">
       <span className="label">{tr('Who it is for')}</span>
-      <select className="input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        <option value={programme.id}>{tr('{p} only', { p: programme.name })}</option>
-        {(isOwner || value === '') && <option value="">{tr('Every market')}</option>}
-      </select>
+      <Select variant="field" portal value={value} disabled={disabled} onChange={onChange} ariaLabel={tr('Who it is for')}
+        options={[{ value: programme.id, label: tr('{p} only', { p: programme.name }) }, ...((isOwner || value === '') ? [{ value: '', label: tr('Every market') }] : [])]} />
     </label>
   )
 }
@@ -256,7 +254,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
         <label className="block"><span className="label">{tr('The brief')}</span><textarea className="input min-h-[8rem] resize-y" maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('What to film, what to show, what to avoid. You can use - for lists and **bold**.')} /></label>
         <label className="block"><span className="label">{tr('Hook ideas (one per line)')}</span><textarea className="input min-h-[6rem] resize-y" value={hooks} onChange={(e) => setHooks(e.target.value)} /></label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">{tr('What decides the standings')}</span><select className="input" value={metric} onChange={(e) => setMetric(e.target.value)}>{BRIEF_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}</select></label>
+          <label className="block"><span className="label">{tr('What decides the standings')}</span><Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('What decides the standings')} options={BRIEF_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} /></label>
           <label className="block"><span className="label">{tr('A goal everyone can aim for (optional)')}</span><input className="input" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100000" /></label>
         </div>
         <div className="rounded-xl border border-gray-100 bg-cloud/50 p-3.5">
@@ -373,13 +371,13 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} disabled={!!perk.id} />
-          <label className="block"><span className="label">{tr('Kind')}</span><select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>{PERK_KINDS.map((k) => <option key={k.key} value={k.key}>{tr(k.label)}</option>)}</select></label>
+          <label className="block"><span className="label">{tr('Kind')}</span><Select variant="field" portal value={kind} onChange={setKind} ariaLabel={tr('Kind')} options={PERK_KINDS.map((k) => ({ value: k.key, label: tr(k.label) }))} /></label>
         </div>
         <label className="block"><span className="label">{tr('Name')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: A trip to Lisbon')} /></label>
         <label className="block"><span className="label">{tr('What they get')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
         <label className="block"><span className="label">{tr('Picture link (optional)')}</span><input className="input" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://" /></label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">{tr('Unlocked by')}</span><select className="input" value={metric} onChange={(e) => setMetric(e.target.value)}>{PERK_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}</select></label>
+          <label className="block"><span className="label">{tr('Unlocked by')}</span><Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('Unlocked by')} options={PERK_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} /></label>
           {metric !== 'manual' && <label className="block"><span className="label">{tr('Amount needed')}</span><input className="input" inputMode="numeric" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="1000000" /></label>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

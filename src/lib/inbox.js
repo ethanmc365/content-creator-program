@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 import { otherParticipant } from './utils'
 import { loadGroupMembers, loadMyInvites } from './groups'
+import { loadRelationships } from './connections'
+import { testFlags } from './testData'
 
 // THE DM INBOX, AS ONE FUNCTION (2 Oct 2026).
 //
@@ -69,5 +71,29 @@ export async function fetchInbox(userId, justCreated) {
     conversations: convos.map((c) => (c.kind === 'group'
       ? { ...c, members: memberProfiles.get(c.id) || [], myRole: myRow.get(c.id)?.role ?? null, unread: groupUnread[c.id] || 0 }
       : { ...c, other: profileById[otherParticipant(c, userId)], unread: unreadByConvo[c.id] || 0 })),
+  }
+}
+
+// EVERYONE YOU COULD MESSAGE, AND WHICH OF THEM YOU ARE CONNECTED TO (2 Oct 2026).
+//
+// Feeds the inbox search and the desktop "Connect with someone new" pane. It lives here, beside fetchInbox, so the
+// idle warm-up (lib/warmPages) can run it before the DM tab is opened and the pane paints from the page cache on its
+// first frame. Ethan: the big right column "takes a while to load". Same visibility rules as the directory, newest
+// activity first.
+export const DM_PEOPLE_CACHE_KEY = 'dm-people'
+
+export async function fetchDmPeople(userId) {
+  const [{ data: profiles }, rels] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, name, photo_url, bio, is_admin, city, country, created_at, last_seen_at')
+      .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
+      .order('last_seen_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+    loadRelationships(userId),
+  ])
+  return {
+    people: (profiles ?? []).filter((p) => p.id !== userId),
+    connected: [...rels.entries()].filter(([, v]) => v.relation === 'connected').map(([id]) => id),
   }
 }

@@ -320,6 +320,10 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           // it is why the camera no longer has to be moved to fake it.
           preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
           aria-label={tr("World map of countries visited")}
+          // Pressing the sea closes a country's card. The only rect in this svg is ZoomableGroup's own drag surface
+          // under the countries, so a click landing on a rect is a click on the water (a pan's closing click is
+          // swallowed by d3-zoom).
+          onClick={(e) => { if (e.target?.tagName === 'rect') setCountry(null) }}
         >
           <ZoomableGroup
             zoom={view.zoom}

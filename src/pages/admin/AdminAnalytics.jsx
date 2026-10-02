@@ -7,7 +7,9 @@ import {
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { allRows } from '../../lib/fetchAll'
-import { PageHeader, Skeleton, StatCard } from '../../components/ui'
+import { PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
+import Icon from '../../components/Icon'
+import { DateField } from '../../components/DateTimeFields'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
@@ -18,6 +20,7 @@ import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
+import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, periodHeadline, periodRange } from '../../lib/analyticsPeriod'
 import { convert } from '../../lib/programme'
 import { FILL } from '../../components/charts/chartTheme'
 
@@ -148,8 +151,8 @@ export default function AdminAnalytics() {
       const [
         profiles, { data: challenges }, { data: history }, submissions,
         rewards, messages, results,
-        { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
-        gameScores, connections, { count: tripCount },
+        { data: feedback }, reactionRows, pollRows,
+        gameScores, connections, tripRows,
         decisions, { data: seenRows }, { data: voucherCounts },
         memberRows, { data: marketRows },
       ] = await Promise.all([
@@ -171,17 +174,18 @@ export default function AdminAnalytics() {
         // attribute a payout without the first, and cannot convert it without
         // the second. Without them every creator's spend read as zero, which
         // made every one of them look infinitely efficient.
-        allRows(() => supabase.from('rewards').select('amount, status, challenge_id, reward_type, creator_id, currency, source')),
+        allRows(() => supabase.from('rewards').select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, created_at, distributed_at')),
         allRows(() => supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
         allRows(() => supabase.from('results').select('final_views, challenge_id')),
-        supabase.from('feedback').select('status'),
-        supabase.from('reactions').select('id', { count: 'exact', head: true }),
-        supabase.from('poll_votes').select('id', { count: 'exact', head: true }),
+        // TIMESTAMPS AND WHO, NOT JUST A COUNT (2 Oct 2026), so the Overview can be read over a period and a market.
+        supabase.from('feedback').select('status, created_at, creator_id'),
+        allRows(() => supabase.from('reactions').select('id, creator_id, created_at')),
+        allRows(() => supabase.from('poll_votes').select('id, voter_id, created_at')),
         allRows(() => supabase.from('game_scores').select('mode, created_at, player_id')),
-        allRows(() => supabase.from('connections').select('status')),
-        supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
+        allRows(() => supabase.from('connections').select('id, status, creator_id, connected_creator_id, created_at, accepted_at')),
+        allRows(() => supabase.from('collab_posts').select('id, creator_id, created_at')),
         allRows(() => supabase.from('application_decisions').select('decision, created_at')),
         supabase.rpc('admin_list_last_seen'),
         // Participation vouchers are COUNTED from the entries, not read off a
@@ -213,9 +217,10 @@ export default function AdminAnalytics() {
         profiles: profiles || [], challenges: challenges || [], history: history || [],
         submissions: submissions || [], rewards: rewards || [],
         messages: messages || [], results: results || [], feedback: feedback || [],
-        reactionCount: reactionCount || 0, pollVoteCount: pollVoteCount || 0,
+        reactionRows: reactionRows || [], pollRows: pollRows || [], tripRows: tripRows || [],
+        reactionCount: (reactionRows || []).length, pollVoteCount: (pollRows || []).length,
         gameScores: gameScores || [], connections: connections || [],
-        tripCount: tripCount || 0, decisions: decisions || [],
+        tripCount: (tripRows || []).length, decisions: decisions || [],
         seenRows: seenRows || [],
         voucherCounts: voucherCounts || [],
         memberRows: memberRows || [],
@@ -275,6 +280,27 @@ export default function AdminAnalytics() {
   // there is no market, so the global case costs nothing.
   const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
 
+  // THE PERIOD, IN THE URL beside the market and the currency, so "Spain, last month" is a link (2 Oct 2026).
+  // Measured against the moment the data was loaded, not against render time, so the memo stays pure.
+  const periodKey = PERIODS.some((p) => p.key === params.get('period')) ? params.get('period') : 'all'
+  const customFrom = params.get('from') || ''
+  const customTo = params.get('to') || ''
+  const loadedAt = raw?.loadedAt ?? 0
+  const range = useMemo(
+    () => periodRange(loadedAt ? periodKey : 'all', new Date(loadedAt || 0), { from: customFrom, to: customTo }),
+    [loadedAt, periodKey, customFrom, customTo],
+  )
+  const periodOn = !!(range.start || range.end)
+  // The eight headline figures for the period and for the one before it, worked out the same way.
+  const headline = useMemo(() => {
+    if (!scoped || !periodOn) return null
+    const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
+    return {
+      now: periodHeadline(scoped, range, money),
+      prev: range.prev ? periodHeadline(scoped, range.prev, money) : null,
+    }
+  }, [scoped, range, periodOn, currency])
+
 
   const derived = useMemo(() => {
     if (!scoped) return null
@@ -282,7 +308,12 @@ export default function AdminAnalytics() {
     // rather than renaming two hundred references: `scopeToMarket` returns the
     // ORIGINAL object when no market is chosen, so the worldwide case is
     // byte-identical to what this always did.
-    const raw = scoped
+    // AND THE PERIOD (2 Oct 2026): `applyPeriod` narrows everything that HAPPENED to the chosen stretch of time and
+    // returns the same object for All time, so that case is still byte-identical. `whole` keeps the market's
+    // un-narrowed rows for the few things that are about a challenge as a whole or about the state of the roster.
+    const whole = scoped
+    const periodOn = !!(range?.start || range?.end)
+    const raw = applyPeriod(scoped, range)
     // EVERY AMOUNT COMES THROUGH HERE.
     //
     // THE BUG THIS FIXES: the overview's money tiles were raw `reduce`s over
@@ -317,30 +348,52 @@ export default function AdminAnalytics() {
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
 
     // 1. Creator growth: new sign-ups per month + cumulative total.
-    const byMonth = {}
-    for (const p of realCreators) {
-      const key = format(startOfMonth(new Date(p.created_at)), 'yyyy-MM')
-      byMonth[key] = (byMonth[key] || 0) + 1
-    }
-    let running = 0
-    const growth = Object.keys(byMonth).sort().map((key) => {
-      running += byMonth[key]
-      return { month: format(new Date(key + '-01'), 'MMM yy'), newCreators: byMonth[key], creators: running }
-    })
-
     // 2. Submission momentum: entries per month.
-    const subsByMonth = {}
-    for (const s of submissions) {
-      const key = format(startOfMonth(new Date(s.submitted_at)), 'yyyy-MM')
-      subsByMonth[key] = (subsByMonth[key] || 0) + 1
+    // OVER A PERIOD THE TIMELINES ARE CUT TO FIT IT (2 Oct 2026): by day up to a fortnight, by week up to a quarter,
+    // by month beyond (lib/analyticsPeriod.bucketFor), every bucket drawn so a quiet day is a zero and not a gap.
+    // The running total starts from everybody who had joined BEFORE the period, so the line is the real roster.
+    let growth
+    let momentum
+    if (periodOn) {
+      const unit = bucketFor(range)
+      const keyOf = bucketKey(unit)
+      const slots = buckets(range, unit)
+      const signups = {}
+      for (const p of realCreators) if (inRange(p.created_at, range)) signups[keyOf(p.created_at)] = (signups[keyOf(p.created_at)] || 0) + 1
+      const subsBy = {}
+      for (const s of submissions) subsBy[keyOf(s.submitted_at)] = (subsBy[keyOf(s.submitted_at)] || 0) + 1
+      let running = range.start ? realCreators.filter((p) => new Date(p.created_at) < range.start).length : 0
+      growth = slots.map((b) => {
+        running += signups[b.key] || 0
+        return { month: b.label, newCreators: signups[b.key] || 0, creators: running }
+      })
+      momentum = slots.map((b) => ({ month: b.label, submissions: subsBy[b.key] || 0 }))
+    } else {
+      const byMonth = {}
+      for (const p of realCreators) {
+        const key = format(startOfMonth(new Date(p.created_at)), 'yyyy-MM')
+        byMonth[key] = (byMonth[key] || 0) + 1
+      }
+      let running = 0
+      growth = Object.keys(byMonth).sort().map((key) => {
+        running += byMonth[key]
+        return { month: format(new Date(key + '-01'), 'MMM yy'), newCreators: byMonth[key], creators: running }
+      })
+      const subsByMonth = {}
+      for (const s of submissions) {
+        const key = format(startOfMonth(new Date(s.submitted_at)), 'yyyy-MM')
+        subsByMonth[key] = (subsByMonth[key] || 0) + 1
+      }
+      momentum = Object.keys(subsByMonth).sort().map((key) => ({
+        month: format(new Date(key + '-01'), 'MMM yy'), submissions: subsByMonth[key],
+      }))
     }
-    const momentum = Object.keys(subsByMonth).sort().map((key) => ({
-      month: format(new Date(key + '-01'), 'MMM yy'), submissions: subsByMonth[key],
-    }))
 
     // 3. Per-challenge: submissions + total/average logged views.
+    // A challenge's bars are the WHOLE challenge (every entry, whenever it came in): over a period the list is the
+    // challenges that were open in it, but a CPM worked out on half a challenge's entries is not that challenge's CPM.
     const perChallenge = challenges.map((c) => {
-      const subs = submissions.filter((s) => s.challenge_id === c.id)
+      const subs = whole.submissions.filter((s) => s.challenge_id === c.id)
       const viewed = subs.filter((s) => s.logged_views != null)
       const totalViews = viewed.reduce((sum, s) => sum + s.logged_views, 0)
       return {
@@ -454,7 +507,20 @@ export default function AdminAnalytics() {
     // deletion-requested rows are filtered out of realCreators above.
     const declined = decisions.filter((d) => d.decision === 'declined').length
     const approvedEver = decisions.filter((d) => d.decision === 'approved').length
-    const funnel = [
+    // Over a period the funnel follows the people who SIGNED UP in it, from sign-up to first video.
+    let periodFunnel = null
+    if (periodOn) {
+      const cohort = realCreators.filter((p) => inRange(p.created_at, range))
+      const postedIds = new Set(whole.submissions.map((s) => s.creator_id))
+      const cohortActive = cohort.filter((p) => p.status === 'active')
+      periodFunnel = [
+        { label: 'Signed up', count: cohort.length, to: '/admin/creators', hint: `${cohortActive.length} approved so far` },
+        { label: 'Completed their profile', count: cohort.filter((p) => p.onboarded).length, to: '/admin/creators' },
+        { label: 'Approved', count: cohortActive.length, to: '/admin/applications' },
+        { label: 'Posted a video', count: cohortActive.filter((p) => postedIds.has(p.id)).length, to: null },
+      ]
+    }
+    const funnel = periodFunnel || [
       { label: 'Signed up', count: realCreators.length, to: '/admin/creators', hint: `${active.length} members + ${pendingReview.length + notCompleted.length} still pending` },
       { label: 'Completed their profile', count: realCreators.filter((p) => p.onboarded).length, to: '/admin/creators' },
       { label: 'Approved', count: active.length, to: '/admin/applications' },
@@ -475,6 +541,17 @@ export default function AdminAnalytics() {
       const ts = lastActivityById[p.id] ?? (p.last_seen_at ? new Date(p.last_seen_at).getTime() : 0)
       return ts >= weekAgo
     }).length
+    // Over a period, "active" is DID SOMETHING in it - posted, wrote, played, reacted or voted - because the only
+    // last-seen we keep is the latest one, which says nothing about last month.
+    const activeInPeriod = periodOn ? (() => {
+      const real = new Set(realCreators.map((p) => p.id))
+      const did = new Set([
+        ...submissions.map((x) => x.creator_id), ...messages.map((x) => x.sender_id),
+        ...gameScores.map((x) => x.player_id), ...(raw.reactionRows || []).map((x) => x.creator_id),
+        ...(raw.pollRows || []).map((x) => x.voter_id),
+      ])
+      return [...did].filter((id) => real.has(id)).length
+    })() : null
     const connectionsMade = connections.filter((c) => c.status === 'accepted').length
     const testIds = new Set(profiles.filter((p) => p.is_test).map((p) => p.id))
     const realGameScores = gameScores.filter((g) => !testIds.has(g.player_id))
@@ -486,8 +563,13 @@ export default function AdminAnalytics() {
     ).map(([m, plays]) => ({ name: GAME_LABEL[m] || m, plays })).sort((a, b) => b.plays - a.plays)
 
     // Weekly pulse: messages, submissions and game plays per week, last 8 weeks.
-    const weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(loadedAt, 7 - i), { weekStartsOn: 1 }))
-    const weekKey = (d) => format(startOfWeek(new Date(d), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    // Over a period it is the period, cut the same way as the timelines above.
+    const pulseUnit = periodOn ? bucketFor(range) : 'week'
+    const weeks = periodOn
+      ? buckets(range, pulseUnit).map((b) => b.key)
+      : Array.from({ length: 8 }, (_, i) => format(startOfWeek(subWeeks(loadedAt, 7 - i), { weekStartsOn: 1 }), 'yyyy-MM-dd'))
+    const weekLabels = periodOn ? Object.fromEntries(buckets(range, pulseUnit).map((b) => [b.key, b.label])) : null
+    const weekKey = periodOn ? bucketKey(pulseUnit) : (d) => format(startOfWeek(new Date(d), { weekStartsOn: 1 }), 'yyyy-MM-dd')
     const tally = (rows, dateOf) => rows.reduce((acc, r) => {
       const k = weekKey(dateOf(r))
       acc[k] = (acc[k] || 0) + 1
@@ -496,10 +578,9 @@ export default function AdminAnalytics() {
     const msgByWeek = tally(messages.filter((m) => m.created_at), (m) => m.created_at)
     const subByWeek = tally(submissions, (s) => s.submitted_at)
     const gameByWeek = tally(realGameScores, (g) => g.created_at)
-    const weeklyPulse = weeks.map((w) => {
-      const k = format(w, 'yyyy-MM-dd')
+    const weeklyPulse = weeks.map((k) => {
       return {
-        week: format(w, 'd MMM'),
+        week: weekLabels ? weekLabels[k] : format(new Date(k + 'T00:00:00'), 'd MMM'),
         messages: msgByWeek[k] || 0,
         submissions: subByWeek[k] || 0,
         games: gameByWeek[k] || 0,
@@ -513,7 +594,7 @@ export default function AdminAnalytics() {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
       totalPaid, cashPaid: programmeCash, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
       applications: { declined, approvedEver },
-      activity7d: { activeThisWeek, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
+      activity7d: { activeThisWeek, activeInPeriod, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
       gamesByMode, weeklyPulse,
       engagement: {
         reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
@@ -529,7 +610,7 @@ export default function AdminAnalytics() {
         avgViewsPerEntry,
       },
     }
-  }, [scoped, currency])
+  }, [scoped, currency, range])
 
   // The three tabs answer three different questions, and each is a page's worth
   // of material on its own: what is happening, what the money bought, and
@@ -562,6 +643,12 @@ export default function AdminAnalytics() {
   // THE MARKET IS IN THE URL TOO, so "Spain's growth chart" is a link somebody
   // can send. It survives a tab change on purpose: a country manager picks
   // their market once and then reads across the tabs.
+  const setPeriod = (next, from, to) => {
+    const q = { ...Object.fromEntries(params) }
+    if (next === 'all') delete q.period; else q.period = next
+    if (next === 'custom') { q.from = from; q.to = to } else { delete q.from; delete q.to }
+    setParams(q, { replace: true })
+  }
   const setMarket = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next) q.market = next; else delete q.market
@@ -600,7 +687,7 @@ export default function AdminAnalytics() {
     ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges here`
     : null
 
-  const filterBar = (marketsOff = false) => (
+  const filterBar = (marketsOff = false, periodOff = false) => (
     <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
       <div aria-hidden={marketsOff || undefined} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
         <button
@@ -631,6 +718,17 @@ export default function AdminAnalytics() {
       </div>
 
       {scopeNote && <span className="shrink-0 px-1 text-[11px] text-smoke max-lg:hidden">{scopeNote}</span>}
+
+      {/* WHEN (2 Oct 2026). One custom dropdown, the presets people actually ask for, and "Custom dates" opening two
+          day fields. Overview only: the other tabs have their own clocks (the league is a month, the log has its
+          year/month), so here it is dimmed rather than removed and the bar never changes shape between tabs. */}
+      <PeriodPicker
+        value={periodKey}
+        from={customFrom}
+        to={customTo}
+        onChange={setPeriod}
+        disabled={periodOff}
+      />
 
       {/* THE REPORTING CURRENCY. Half the markets are in euros and half in
           pounds, and a figure that does not say which is not a figure. EUR is
@@ -706,13 +804,13 @@ export default function AdminAnalytics() {
   // league table with one row in it. NO MARKET PICKER ON ERRORS: a crash is a property of the code and the
   // route, not of a market, and a control that cannot change the answer teaches people controls do not work - so
   // on those two tabs the bar stays where it is but is dimmed and switched off.
-  const shell = (body, { filters = true, markets: marketsOn = true } = {}) => (
+  const shell = (body, { filters = true, markets: marketsOn = true, period: periodCtl = false } = {}) => (
     <div className="page">
       <PageHeader back="/admin" title="Analytics" />
       {tabBar}
       {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
           the body starts at the same height on every tab and nothing jumps. */}
-      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn)}</div>
+      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl)}</div>
       <div key={tab} className="animate-tab-in">{body}</div>
     </div>
   )
@@ -720,7 +818,7 @@ export default function AdminAnalytics() {
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
   if (tab === 'referrals') return shell(<Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
-  if (tab === 'creators') return shell(<PerCreator raw={scoped} currency={currency} scopeLabel={scopeLabel} />)
+  if (tab === 'creators') return shell(<PerCreator raw={applyPeriod(scoped, range)} currency={currency} scopeLabel={periodOn ? `${scopeLabel} · ${range.label}` : scopeLabel} />, { period: true })
   if (tab === 'programme') return shell(<ProgrammePerformance market={marketName} currency={currency} mode="list" />)
   if (tab === 'community') return shell(<CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
   if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
@@ -731,6 +829,7 @@ export default function AdminAnalytics() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
       </div>,
+      { period: true },
     )
   }
 
@@ -743,40 +842,54 @@ export default function AdminAnalytics() {
           load. `auto-rows-fr` makes every row the same height, which with the
           card filling its cell (see ui/StatCard) is the whole of "some of the
           squares are different sizes". */}
-      <div className="mb-10 grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
-        <StatCard
-          label="Challenges run"
-          value={derived.totals.challenges}
-          hint={derived.totals.unmeasuredChallenges
-            ? `${derived.totals.unmeasuredChallenges} with no views logged`
-            : 'live and logged'}
-          onClick={() => setTab('programme')}
+      {periodOn && headline ? (
+        <PeriodTiles
+          now={headline.now}
+          prev={headline.prev}
+          range={range}
+          scopeLabel={scopeLabel}
+          members={derived.totals.creators}
+          currency={currency}
+          onCreators={() => navigate('/admin/creators')}
+          onChallenges={() => setTab('programme')}
+          onMoney={() => navigate('/admin/rewards')}
         />
-        <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
-        <StatCard
-          label="Total views"
-          value={formatViews(derived.totalViews)}
-          hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
-        />
-        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" accent onClick={() => navigate('/admin/rewards')} />
-        <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
-        <StatCard
-          label="Cash CPM"
-          value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'}
-          hint="cash spend per 1,000 views"
-        />
-        {/* THE FOURTH CARD, which the row was missing - seven tiles in a
-            four-column grid left a hole on the right, and a hole in a grid
-            reads as something that failed to load. It is also the number the
-            brief actually asked for: what a thousand views costs once the
-            vouchers are counted as spend, not just the cash. */}
-        <StatCard
-          label="Total CPM"
-          value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'}
-          hint="cash and vouchers per 1,000 views"
-        />
-      </div>
+      ) : (
+        <div className="mb-10 grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
+          <StatCard
+            label="Challenges run"
+            value={derived.totals.challenges}
+            hint={derived.totals.unmeasuredChallenges
+              ? `${derived.totals.unmeasuredChallenges} with no views logged`
+              : 'live and logged'}
+            onClick={() => setTab('programme')}
+          />
+          <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
+          <StatCard
+            label="Total views"
+            value={formatViews(derived.totalViews)}
+            hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
+          />
+          <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" accent onClick={() => navigate('/admin/rewards')} />
+          <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
+          <StatCard
+            label="Cash CPM"
+            value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'}
+            hint="cash spend per 1,000 views"
+          />
+          {/* THE FOURTH CARD, which the row was missing - seven tiles in a
+              four-column grid left a hole on the right, and a hole in a grid
+              reads as something that failed to load. It is also the number the
+              brief actually asked for: what a thousand views costs once the
+              vouchers are counted as spend, not just the cash. */}
+          <StatCard
+            label="Total CPM"
+            value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'}
+            hint="cash and vouchers per 1,000 views"
+          />
+        </div>
+      )}
 
       {/* ---- Programme economics ----
           Was the Challenges tab's "Summary" view, and nearly all of it
@@ -784,14 +897,16 @@ export default function AdminAnalytics() {
           not - the ratios, the month-by-month charts and the breakdowns - is
           here now, under the tiles, and the Challenges tab is just the list. */}
       <div className="mb-10">
-        <ProgrammePerformance market={marketName} currency={currency} mode="summary" />
+        <ProgrammePerformance market={marketName} currency={currency} mode="summary" range={periodOn ? range : null} />
       </div>
 
       {/* ---- Funnel + community health ---- */}
       <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="card">
-          <h2 className="mb-1 font-semibold">Application funnel</h2>
-          <p className="mb-6 text-xs text-smoke">From sign-up to first video · tap a stage to manage it · live accounts only, deleted and test accounts never counted</p>
+          <h2 className="mb-1 font-semibold">Application funnel{periodOn ? ` · ${range.label}` : ''}</h2>
+          <p className="mb-6 text-xs text-smoke">{periodOn
+            ? 'Everybody who signed up in this period, and how far they have got since'
+            : 'From sign-up to first video · tap a stage to manage it · live accounts only, deleted and test accounts never counted'}</p>
           <Funnel
             stages={derived.funnel.map((s) => ({
               label: s.label, count: s.count, hint: s.hint,
@@ -806,7 +921,7 @@ export default function AdminAnalytics() {
 
         <section className="card">
           <h2 className="mb-1 font-semibold">Community health</h2>
-          <p className="mb-6 text-xs text-smoke">Tap a tile to jump straight to the right page</p>
+          <p className="mb-6 text-xs text-smoke">{periodOn ? 'As it stands today, whatever the period · tap a tile to jump to the right page' : 'Tap a tile to jump straight to the right page'}</p>
           <div className="grid auto-rows-fr grid-cols-2 gap-4">
             <StatCard label="Active members" value={derived.community.active} accent onClick={() => navigate('/admin/creators')} />
             <StatCard label="Awaiting review" value={derived.community.pendingReview} onClick={() => navigate('/admin/applications')} />
@@ -818,10 +933,12 @@ export default function AdminAnalytics() {
 
       {/* ---- Platform activity this week ---- */}
       <div className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold">Platform activity</h2>
+        <h2 className="mb-4 text-lg font-semibold">Platform activity{periodOn && <span className="font-normal text-smoke"> · {range.label}</span>}</h2>
         <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />
-          <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint="all-time, all modes" onClick={() => navigate('/game')} />
+          {periodOn
+            ? <StatCard label="Active creators" value={derived.activity7d.activeInPeriod} hint="posted, wrote, played, reacted or voted" accent onClick={() => navigate('/admin/creators')} />
+            : <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />}
+          <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint={periodOn ? 'all modes, in this period' : 'all-time, all modes'} onClick={() => navigate('/game')} />
           <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => setTab('community')} />
           <StatCard label="Trips posted" value={derived.activity7d.tripsPosted} hint="collab board" onClick={() => navigate('/collab')} />
         </div>
@@ -829,7 +946,7 @@ export default function AdminAnalytics() {
 
       {/* ---- Engagement snapshot ---- */}
       <div className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold">Engagement</h2>
+        <h2 className="mb-4 text-lg font-semibold">Engagement{periodOn && <span className="font-normal text-smoke"> · {range.label}</span>}</h2>
         <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Chat messages" value={derived.engagement.chatMessages} />
           <StatCard label="Reactions" value={derived.engagement.reactions} />
@@ -847,7 +964,7 @@ export default function AdminAnalytics() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard
           title="Creator growth"
-          subtitle="New sign-ups per month (bars) and running total (line)"
+          subtitle={periodOn ? `New sign-ups per ${bucketFor(range)} (bars) and running total (line)` : 'New sign-ups per month (bars) and running total (line)'}
           onExport={() => downloadCsv('creator-growth.csv', derived.growth.map(({ month, newCreators, creators }) => ({ month, new_signups: newCreators, cumulative: creators })))}
         >
           <ResponsiveContainer>
@@ -864,7 +981,7 @@ export default function AdminAnalytics() {
 
         <ChartCard
           title="Submission momentum"
-          subtitle="Videos submitted per month"
+          subtitle={periodOn ? `Videos submitted per ${bucketFor(range)}` : 'Videos submitted per month'}
           onExport={() => downloadCsv('submission-momentum.csv', derived.momentum)}
         >
           <ResponsiveContainer>
@@ -879,8 +996,8 @@ export default function AdminAnalytics() {
         </ChartCard>
 
         <ChartCard
-          title="Weekly pulse"
-          subtitle="Chat messages, game plays and submissions per week, last 8 weeks"
+          title={periodOn ? 'Activity pulse' : 'Weekly pulse'}
+          subtitle={periodOn ? `Chat messages, game plays and submissions per ${bucketFor(range)} · ${range.label}` : 'Chat messages, game plays and submissions per week, last 8 weeks'}
           onExport={() => downloadCsv('weekly-pulse.csv', derived.weeklyPulse)}
         >
           <ResponsiveContainer>
@@ -1038,5 +1155,82 @@ export default function AdminAnalytics() {
           while the Challenges tab next door lists all fifty including the
           logged ones. Two tables, one honest. */}
     </>,
+    { period: true },
+  )
+}
+
+// THE PERIOD CONTROL (2 Oct 2026). The house dropdown (never the OS menu - see ui/Select) with the presets, and
+// "Custom dates" opening a small card of two day fields under it. The custom range is only applied on "Show", so
+// typing a date does not reload the page a digit at a time.
+function PeriodPicker({ value, from, to, onChange, disabled = false }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState({ from, to })
+  const options = PERIODS.map((p) => ({
+    value: p.key,
+    label: p.key === 'custom' && value === 'custom' && from && to ? `${from.slice(8, 10)}/${from.slice(5, 7)} to ${to.slice(8, 10)}/${to.slice(5, 7)}` : p.label,
+  }))
+  const valid = draft.from && draft.to && draft.from <= draft.to
+  return (
+    <div
+      aria-hidden={disabled || undefined}
+      className={cx('relative flex shrink-0 items-center border-gray-100 sm:border-l sm:pl-3', disabled && 'pointer-events-none select-none opacity-35')}
+    >
+      <Icon name="calendar" className="mr-1.5 h-4 w-4 text-brand" />
+      <Select
+        value={value}
+        variant="chip"
+        className="w-40"
+        ariaLabel="Period"
+        search={false}
+        options={options}
+        onChange={(v) => {
+          if (v === 'custom') { setDraft({ from, to }); setOpen(true); return }
+          setOpen(false)
+          onChange(v)
+        }}
+      />
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-2 w-[16rem] animate-menu-in rounded-card border border-gray-100 bg-white p-4 shadow-lift">
+          <p className="mb-3 text-sm font-semibold">Custom dates</p>
+          <div className="grid grid-cols-1 gap-3">
+            <DateField id="an-from" label="From" value={draft.from} onChange={(v) => setDraft((d) => ({ ...d, from: v }))} />
+            <DateField id="an-to" label="To" value={draft.to} onChange={(v) => setDraft((d) => ({ ...d, to: v }))} />
+          </div>
+          {draft.from && draft.to && !valid && <p className="mt-2 text-[11px] font-medium text-brand">The end is before the start.</p>}
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost !px-3 !py-2 text-xs">Cancel</button>
+            <button type="button" disabled={!valid} onClick={() => { setOpen(false); onChange('custom', draft.from, draft.to) }} className="btn-primary !px-4 !py-2 text-xs">Show</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// THE HEADLINE OVER A PERIOD. The same eight tiles in the same places as All time, each with how it moved against
+// the period before, so switching between "this month" and "last month" is reading one grid that changes, not two
+// different pages.
+function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreators, onChallenges, onMoney }) {
+  const vs = range.short
+  const d = (key, lowerIsBetter = false) => (prev ? { pct: change(now[key], prev[key]), vs, lowerIsBetter } : null)
+  const cpm = (v) => (v != null ? formatMoney(v, currency) : '·')
+  return (
+    <div className="mb-10">
+      <p className="mb-3 flex flex-wrap items-baseline gap-x-2 text-sm text-smoke">
+        <span className="text-base font-semibold text-ink">{range.label}</span>
+        <span>{scopeLabel}</span>
+        {range.prev && <span className="text-xs text-gray-400">compared with {vs}</span>}
+      </p>
+      <div key={`${range.key}-${range.start?.getTime()}`} className="grid auto-rows-fr grid-cols-2 gap-4 animate-tab-in lg:grid-cols-4">
+        <StatCard label="New creators" value={now.newCreators} delta={d('newCreators')} hint={`${members} members in total`} onClick={onCreators} />
+        <StatCard label="Challenges running" value={now.challenges} delta={d('challenges')} hint="open at any point in it" onClick={onChallenges} />
+        <StatCard label="Videos submitted" value={now.submissions} delta={d('submissions')} />
+        <StatCard label="Views" value={formatViews(now.views)} delta={d('views')} hint="on videos submitted in it" />
+        <StatCard label="Cash prizes paid" value={formatMoney(now.cash, currency)} delta={d('cash')} accent onClick={onMoney} />
+        <StatCard label="Voucher value given" value={formatMoney(now.vouchers, currency)} delta={d('vouchers')} onClick={onMoney} />
+        <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 views" />
+        <StatCard label="Total CPM" value={cpm(now.totalCpm)} delta={d('totalCpm', true)} hint="cash and vouchers per 1,000 views" />
+      </div>
+    </div>
   )
 }

@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import MarketsRailCard from '../components/network/MarketsRailCard'
-import VipCommunitiesCard from '../components/vip/VipCommunitiesCard'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import MarketMap from '../components/network/MarketMap'
@@ -24,7 +23,7 @@ import { stripMarkup } from '../lib/richText'
 import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
 import { useIsMobile } from '../lib/useKeyboardInset'
-import { useT } from '../lib/i18n'
+import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 
 // A single market's overview, seen by the people IN it.
@@ -47,6 +46,7 @@ const MotionLink = motion.create(Link)
 
 export default function ChapterHome() {
   const tr = useT()
+  const pl = usePlural()
   const { slug } = useParams()
   const { bySlug, manages, error, loading: ctxLoading } = useCommunity()
   // The CONTEXT's error is "the communities themselves would not load". This is
@@ -354,7 +354,6 @@ export default function ChapterHome() {
   const rail = (
     <>
       <MarketsRailCard current={chapter.id} live={data?.live ? { [chapter.id]: data.live } : null} />
-      <VipCommunitiesCard />
       {standingsCard}
       {eventsCard}
       {whoIsHereCard}
@@ -409,7 +408,7 @@ export default function ChapterHome() {
           {data?.ann && (
             <Reveal from="down" delay={0.12} as="section">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                <Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest from {chapter.name}
+                <Icon name="megaphone" className="h-5 w-5 text-brand" /> {tr('Latest from {m}', { m: chapter.name })}
               </h2>
               <MotionLink to={`/c/${chapter.slug}/chat/announcements`} {...cardHover}
                 className="card block border-l-4 !border-l-brand hover:shadow-lift">
@@ -435,7 +434,7 @@ export default function ChapterHome() {
           <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
+                <Icon name="pin" className="h-5 w-5 text-brand" /> {tr('Where we are in {m}', { m: chapter.name })}
               </h2>
               {/* NO STRAPLINE. "Every creator here, in the town they filmed
                   this morning" is a caption for a map that draws exactly that.
@@ -466,7 +465,7 @@ export default function ChapterHome() {
                     className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4">
                     <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
                     <span className="shrink-0 text-xs text-smoke">
-                      {c.submissions?.[0]?.count ?? 0} {(c.submissions?.[0]?.count ?? 0) === 1 ? 'entry' : 'entries'}
+                      {pl(c.submissions?.[0]?.count ?? 0, '{n} entry', '{n} entries')}
                     </span>
                     <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
                   </MotionLink>
@@ -480,7 +479,7 @@ export default function ChapterHome() {
           <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
+                <Icon name="clock" className="h-5 w-5 text-brand" /> {tr('Lately in {m}', { m: chapter.name })}
               </h2>
               <p className="mt-1 text-sm text-smoke">{tr("Who joined, who posted, who entered.")}</p>
             </div>
@@ -513,7 +512,7 @@ export default function ChapterHome() {
           {data?.ann && (
             <Reveal from="down" delay={0.12} as="section">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                <Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest from {chapter.name}
+                <Icon name="megaphone" className="h-5 w-5 text-brand" /> {tr('Latest from {m}', { m: chapter.name })}
               </h2>
               <MotionLink to={`/c/${chapter.slug}/chat/announcements`} {...cardHover}
                 className="card block border-l-4 !border-l-brand hover:shadow-lift">
@@ -536,7 +535,7 @@ export default function ChapterHome() {
                 <Icon name="chat" className="h-5 w-5 text-brand" /> {tr("Rooms")}
               </h2>
               <p className="mt-1 text-sm text-smoke">
-                {chapter.name}&rsquo;s own rooms.
+                {tr('{m}’s own rooms.', { m: chapter.name })}
               </p>
             </div>
             {loading ? (
@@ -550,16 +549,11 @@ export default function ChapterHome() {
                 {data.channels.map((ch) => (
                   <MotionLink key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
                     {...cardHover}
-                    className={cx(
-                      'card group flex h-full min-h-[5.25rem] items-center gap-3.5 !p-4 hover:shadow-lift',
-                      // General is the room a market is FOR. It gets the brand
-                      // edge so it is never one of four identical tiles.
-                      ch.key === 'general' && 'border-brand/30 bg-brand-tint/20',
-                    )}>
-                    <span className={cx(
-                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-transform duration-200 group-hover:scale-105',
-                      ch.key === 'general' ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'bg-brand-tint text-brand',
-                    )}>
+                    // ONE LOOK FOR EVERY ROOM (2 Oct 2026). Ethan did not like the peach background on General or the
+                    // pale icon tiles on the others: every room now carries the gradient icon on a white card, and
+                    // General is told apart by its "Main room" pill alone.
+                    className="card group flex h-full min-h-[5.25rem] items-center gap-3.5 !p-4 hover:shadow-lift">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card transition-transform duration-200 group-hover:scale-105">
                       <Icon name={ch.icon || 'chat'} className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -590,7 +584,7 @@ export default function ChapterHome() {
           <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
+                <Icon name="pin" className="h-5 w-5 text-brand" /> {tr('Where we are in {m}', { m: chapter.name })}
               </h2>
               {/* NO STRAPLINE. "Every creator here, in the town they filmed
                   this morning" is a caption for a map that draws exactly that.
@@ -610,7 +604,7 @@ export default function ChapterHome() {
           <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
+                <Icon name="clock" className="h-5 w-5 text-brand" /> {tr('Lately in {m}', { m: chapter.name })}
               </h2>
               <p className="mt-1 text-sm text-smoke">{tr("Who joined, who posted, who entered.")}</p>
             </div>
@@ -634,7 +628,7 @@ export default function ChapterHome() {
                     className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4">
                     <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
                     <span className="shrink-0 text-xs text-smoke">
-                      {c.submissions?.[0]?.count ?? 0} {(c.submissions?.[0]?.count ?? 0) === 1 ? 'entry' : 'entries'}
+                      {pl(c.submissions?.[0]?.count ?? 0, '{n} entry', '{n} entries')}
                     </span>
                     <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
                   </MotionLink>

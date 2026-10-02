@@ -293,51 +293,190 @@ export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
   )
 }
 
+// WHAT A VIEW COUNT PAYS, the same arithmetic as the database's vip_views_pay: a flat rate of their own wins; otherwise
+// the steps (their own, or the market's) apply to the views above each step.
+export function payFor(views, baseCpm, tiers, flat) {
+  const v = Number(views) || 0
+  if (v <= 0) return 0
+  if ((flat != null && flat !== '') || !Array.isArray(tiers) || tiers.length === 0) return Math.round((v / 1000) * Number(flat ?? baseCpm) * 100) / 100
+  const steps = [{ from: 0, cpm: Number(baseCpm) }, ...tiers.filter((t) => Number(t.from_views) > 0).map((t) => ({ from: Number(t.from_views), cpm: Number(t.cpm) }))]
+    .sort((x, y) => x.from - y.from)
+  let pay = 0
+  steps.forEach((st, i) => {
+    const to = steps[i + 1]?.from ?? v
+    if (v > st.from) pay += ((Math.min(v, to) - st.from) / 1000) * st.cpm
+  })
+  return Math.round(pay * 100) / 100
+}
+
+// EVERYTHING ABOUT ONE VIP, IN ONE SHEET (2 Oct 2026, migration 311). Ethan: "ensure the function is set up so they can
+// set CPM rates per creator etc and a lot of settings to customise for each VIP creator." Grouped the way the team
+// thinks about a deal: their place, their pay (own rate, own rate steps, a monthly fee, a cap, whether the market's
+// bonuses apply), what they are aiming at, how they appear, and the team's own notes. A live line shows what the
+// deal pays at three view counts, so a change is checked before it is saved. One call writes the lot.
 function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
   const tr = useT()
-  const [cpm, setCpm] = useState(m.cpm ?? '')
-  const [cap, setCap] = useState(m.cap ?? '')
-  const [tv, setTv] = useState(m.target_videos ?? '')
-  const [tw, setTw] = useState(m.target_views ?? '')
-  const [status, setStatus] = useState(m.status)
-  const [notes, setNotes] = useState(m.notes || '')
-  const [review, setReview] = useState(m.rate_review_on || '')
+  const cur = programme.currency
+  const [f, setF] = useState(() => ({
+    status: m.status,
+    cpm: m.cpm ?? '',
+    tiers: Array.isArray(m.tiers) ? m.tiers.map((t) => ({ from_views: String(t.from_views), cpm: String(t.cpm) })) : [],
+    fee: m.monthly_fee ?? '',
+    feeMin: m.fee_min_videos ?? '',
+    cap: m.cap ?? '',
+    bonuses: m.bonuses_on !== false,
+    tv: m.target_videos ?? '',
+    tw: m.target_views ?? '',
+    headline: m.headline || '',
+    onMap: m.show_on_map !== false,
+    review: m.rate_review_on || '',
+    notes: m.notes || '',
+  }))
+  const set = (patch) => setF((x) => ({ ...x, ...patch }))
   const [busy, setBusy] = useState(false)
+  const num = (v) => (v === '' || v == null ? null : Number(String(v).replace(/[^\d.]/g, '')))
+  const tiers = f.tiers.filter((t) => num(t.from_views) > 0 && num(t.cpm) != null).map((t) => ({ from_views: num(t.from_views), cpm: num(t.cpm) }))
+  const flat = f.cpm !== '' && !tiers.length ? num(f.cpm) : null
+  const base = num(f.cpm) ?? programme.cpm
+  const ladder = tiers.length ? tiers : (f.cpm === '' ? programme.tiers || [] : [])
+  const example = [50000, 250000, 1000000].map((v) => {
+    let pay = payFor(v, base, ladder, flat)
+    const cap = num(f.cap) ?? programme.monthly_cap
+    if (cap != null && pay > cap) pay = cap
+    return { v, pay: pay + (num(f.fee) || 0) }
+  })
+
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_update_member', {
-        p_profile: m.profile_id, p_status: status,
-        p_cpm: cpm === '' ? null : Number(cpm), p_clear_cpm: cpm === '',
-        p_cap: cap === '' ? null : Number(cap), p_clear_cap: cap === '',
-        p_target_videos: tv === '' ? null : Number(tv), p_target_views: tw === '' ? null : Number(tw),
-        p_clear_targets: tv === '' && tw === '', p_notes: notes,
+      await vipRpc('vip_member_settings', {
+        p_profile: m.profile_id,
+        p_settings: {
+          status: f.status,
+          cpm: num(f.cpm),
+          tiers,
+          monthly_fee: num(f.fee),
+          fee_min_videos: num(f.feeMin),
+          monthly_cap: num(f.cap),
+          bonuses_on: f.bonuses,
+          target_videos: num(f.tv),
+          target_views: num(f.tw),
+          headline: f.headline,
+          show_on_map: f.onMap,
+          rate_review_on: f.review || null,
+          notes: f.notes,
+        },
       })
-      if ((review || '') !== (m.rate_review_on || '')) await vipRpc('vip_set_review_date', { p_profile: m.profile_id, p_date: review || null })
       toastSuccess(tr('Saved'))
       onSaved(); onClose()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
+
+  const section = (icon, title, children, i) => (
+    <section className="animate-fade-up rounded-2xl border border-gray-100 p-4" style={{ animationDelay: `${i * 50}ms` }}>
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-light text-white"><Icon name={icon} className="h-4 w-4" /></span>
+        {title}
+      </h3>
+      {children}
+    </section>
+  )
+  const field = (label, value, onChange, opts = {}) => (
+    <label className="block">
+      <span className="label">{label}</span>
+      <input className="input" inputMode={opts.mode || 'decimal'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={opts.placeholder} />
+      {opts.hint && <span className="mt-1 block text-[11px] text-smoke">{opts.hint}</span>}
+    </label>
+  )
+  const Switch = ({ on, onChange, label, hint }) => (
+    <div className="flex items-center gap-3">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-ink">{label}</span>
+        {hint && <span className="block text-[11px] text-smoke">{hint}</span>}
+      </span>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
+        className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200', on ? 'bg-brand' : 'bg-gray-200')}>
+        <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200', on ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+      </button>
+    </div>
+  )
+
   return (
-    <Modal open onClose={onClose} title={m.name}>
+    <Modal open onClose={onClose} title={m.name} wide>
       <div className="space-y-4">
-        <div>
-          <p className="label">{tr('Status')}</p>
-          <div className="flex gap-2">
-            {[['active', tr('Active')], ['paused', tr('Paused')], ['left', tr('Left')]].map(([k, label]) => (
-              <button key={k} type="button" onClick={() => setStatus(k)} aria-pressed={status === k} className={cx('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', status === k ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{label}</button>
-            ))}
+        {section('users', tr('Their place'), (
+          <>
+            <div className="flex gap-2">
+              {[['active', tr('Active')], ['paused', tr('Paused')], ['left', tr('Left')]].map(([k, label]) => (
+                <button key={k} type="button" onClick={() => set({ status: k })} aria-pressed={f.status === k} className={cx('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', f.status === k ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{label}</button>
+              ))}
+            </div>
+            {f.status !== 'active' && <p className="mt-2 text-xs text-smoke">{f.status === 'paused' ? tr('Paused: views stop counting and they lose the VIP rooms until you set them back to active.') : tr('Left: they are no longer a VIP. Statements already made stay as they are.')}</p>}
+          </>
+        ), 0)}
+
+        {section('money', tr('Their pay'), (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {field(tr('Own rate per 1,000 views'), f.cpm, (v) => set({ cpm: v }), { placeholder: rate(programme.cpm), hint: tr('Empty uses the programme rate.') })}
+              {field(tr('Monthly cap'), f.cap, (v) => set({ cap: v }), { placeholder: programme.monthly_cap ? String(programme.monthly_cap) : tr('None') })}
+              {field(tr('Monthly fee'), f.fee, (v) => set({ fee: v }), { placeholder: tr('None'), hint: tr('Paid on top of views, as its own line.') })}
+              {field(tr('Fee needs at least this many videos'), f.feeMin, (v) => set({ feeMin: v }), { mode: 'numeric', placeholder: '0' })}
+            </div>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="label !mb-0">{tr('Own rate steps')}</span>
+                <button type="button" onClick={() => set({ tiers: [...f.tiers, { from_views: '', cpm: '' }] })} className="text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105"><Icon name="plus" className="mr-0.5 inline h-3.5 w-3.5" />{tr('Add a step')}</button>
+              </div>
+              {f.tiers.length === 0
+                ? <p className="text-[11px] text-smoke">{programme.tiers?.length ? tr('None of their own: the market\'s steps apply.') : tr('One rate for every view. Add a step to pay more past a number of views.')}</p>
+                : (
+                  <ul className="space-y-2">
+                    {f.tiers.map((t, i) => (
+                      <li key={i} className="flex animate-fade-up items-center gap-2">
+                        <span className="text-xs text-smoke">{tr('From')}</span>
+                        <input className="input !py-2" inputMode="numeric" value={t.from_views} placeholder="500000" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, from_views: e.target.value } : x)) })} />
+                        <span className="shrink-0 text-xs text-smoke">{tr('views, {c}', { c: cur })}</span>
+                        <input className="input !w-24 !py-2" inputMode="decimal" value={t.cpm} placeholder="0.35" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, cpm: e.target.value } : x)) })} />
+                        <button type="button" aria-label={tr('Remove')} onClick={() => set({ tiers: f.tiers.filter((_, j) => j !== i) })} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+            <Switch on={f.bonuses} onChange={(v) => set({ bonuses: v })} label={tr('Market bonuses apply to them')} hint={tr('Off for a deal that is views pay (and any fee) only.')} />
+            <div className="rounded-xl bg-cloud/70 px-3.5 py-3">
+              <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">{tr('What this deal pays in a month')}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {example.map((x) => (
+                  <div key={x.v}><p className="text-[11px] text-smoke">{tr('{n} views', { n: nf(x.v) })}</p><p className="text-sm font-bold tabular-nums text-ink">{money(x.pay, cur)}</p></div>
+                ))}
+              </div>
+            </div>
           </div>
-          {status !== 'active' && <p className="mt-2 text-xs text-smoke">{status === 'paused' ? tr('Paused: views stop counting and they lose the VIP rooms until you set them back to active.') : tr('Left: they are no longer a VIP. Statements already made stay as they are.')}</p>}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block"><span className="label">{tr('Own rate per 1,000 views')}</span><input className="input" inputMode="decimal" value={cpm} onChange={(e) => setCpm(e.target.value)} placeholder={rate(programme.cpm)} /><span className="mt-1 block text-[11px] text-smoke">{tr('Empty uses the programme rate.')}</span></label>
-          <label className="block"><span className="label">{tr('Monthly cap')}</span><input className="input" inputMode="decimal" value={cap} onChange={(e) => setCap(e.target.value)} placeholder={programme.monthly_cap ? String(programme.monthly_cap) : tr('None')} /></label>
-          <label className="block"><span className="label">{tr('Target: videos a month')}</span><input className="input" inputMode="numeric" value={tv} onChange={(e) => setTv(e.target.value)} /></label>
-          <label className="block"><span className="label">{tr('Target: views a month')}</span><input className="input" inputMode="numeric" value={tw} onChange={(e) => setTw(e.target.value)} /></label>
-        </div>
-        <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={review} onChange={(e) => setReview(e.target.value)} /><span className="mt-1 block text-[11px] text-smoke">{tr('A reminder on the Members list when the date comes round. Optional.')}</span></label>
-        <label className="block"><span className="label">{tr('Notes (only the team sees these)')}</span><textarea className="input min-h-[4rem] resize-none" value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+        ), 1)}
+
+        {section('trophy', tr('What they aim at'), (
+          <div className="grid grid-cols-2 gap-3">
+            {field(tr('Target: videos a month'), f.tv, (v) => set({ tv: v }), { mode: 'numeric' })}
+            {field(tr('Target: views a month'), f.tw, (v) => set({ tw: v }), { mode: 'numeric' })}
+          </div>
+        ), 2)}
+
+        {section('star', tr('How they appear'), (
+          <div className="space-y-3">
+            <label className="block"><span className="label">{tr('Headline on their VIP page')}</span><input className="input" maxLength={80} value={f.headline} onChange={(e) => set({ headline: e.target.value })} placeholder={tr('For example: Budget city breaks from Madrid')} /></label>
+            <Switch on={f.onMap} onChange={(v) => set({ onMap: v })} label={tr('Show on the VIP map')} />
+          </div>
+        ), 3)}
+
+        {section('pencil', tr('For the team'), (
+          <div className="space-y-3">
+            <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={f.review} onChange={(e) => set({ review: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('A reminder on the Members list when the date comes round. Optional.')}</span></label>
+            <label className="block"><span className="label">{tr('Notes (only the team sees these)')}</span><textarea className="input min-h-[4rem] resize-none" value={f.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
+          </div>
+        ), 4)}
+
         <button type="button" onClick={save} disabled={busy} className="btn-primary w-full justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Save')}</button>
         {m.status !== 'left' && onMoveBack && (
           <button type="button" onClick={onMoveBack} className="w-full rounded-xl border border-red-100 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hoverable:hover:bg-red-50">{tr('Move back to the community')}</button>
@@ -362,10 +501,11 @@ export function VipMembersTab({ programme }) {
   const load = useCallback(async () => {
     const [o, r] = await Promise.all([
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
-      supabase.from('vip_members').select('profile_id, rate_review_on').eq('programme_id', programme.id),
+      // Everything the settings sheet edits that the overview does not carry (migration 311 columns included).
+      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes').eq('programme_id', programme.id),
     ])
     setData(o)
-    setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x.rate_review_on])))
+    setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x])))
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
 
@@ -414,7 +554,7 @@ export function VipMembersTab({ programme }) {
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
                     <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? `${cur} ${rate(m.cpm)}` : tr('Standard rate')}</span>
-                    {reviews[m.profile_id] && <span className={cx('rounded-full px-2.5 py-1', new Date(reviews[m.profile_id]) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date(reviews[m.profile_id]) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate(reviews[m.profile_id]) })}</span>}
+                    {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
                     {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
                     {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
                     {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
@@ -434,7 +574,7 @@ export function VipMembersTab({ programme }) {
       <VipLinkCard />
 
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
-      {editing && <EditMemberModal m={{ ...editing, rate_review_on: reviews[editing.profile_id] || '' }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}
+      {editing && <EditMemberModal m={{ ...editing, ...(reviews[editing.profile_id] || {}), notes: reviews[editing.profile_id]?.notes ?? editing.notes }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}
       {story && <MemberStoryModal m={story} programme={programme} onClose={() => setStory(null)} onEdit={() => { setEditing(story); setStory(null) }} onMoveBack={() => moveBack(story)} />}
     </div>
   )

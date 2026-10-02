@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { confirm, notice } from '../../lib/confirm'
@@ -144,9 +144,8 @@ function RuleModal({ rule, programme, month, onClose, onSaved }) {
         {r.kind === 'milestone' && (
           <div className="grid grid-cols-2 gap-3 rounded-xl bg-cloud/60 p-3.5">
             <label className="block"><span className="label">{tr('What counts')}</span>
-              <select className="input" value={r.conditions.metric} onChange={(e) => setCond({ metric: e.target.value })}>
-                {MILESTONE_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}
-              </select>
+              <Select variant="field" portal value={r.conditions.metric} onChange={(v) => setCond({ metric: v })} ariaLabel={tr('What counts')}
+                options={MILESTONE_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} />
             </label>
             <label className="block"><span className="label">{tr('Reached at')}</span><input className="input" inputMode="numeric" value={r.conditions.threshold ?? ''} onChange={(e) => setCond({ threshold: e.target.value })} placeholder="1000000" /></label>
             <p className="col-span-2 text-xs text-smoke">{tr('Paid once per creator, the month they reach it.')}</p>
@@ -222,7 +221,7 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
         <p className="text-sm text-smoke">{tr('A milestone pays a VIP once, the month they reach it. Fill in as many rows as you like; each becomes its own bonus you can change later.')}</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="block"><span className="label">{tr('What counts')}</span>
-            <select className="input" value={metric} onChange={(e) => setMetric(e.target.value)}>{MILESTONE_METRICS.map((m) => <option key={m.key} value={m.key}>{tr(m.label)}</option>)}</select>
+            <Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('What counts')} options={MILESTONE_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} />
           </label>
           <div><span className="label">{tr('Paid as')}</span>
             <div className="flex gap-2">{[['cash', tr('Cash')], ['voucher', tr('Voucher')]].map(([k, label]) => <button key={k} type="button" onClick={() => setReward(k)} aria-pressed={reward === k} className={cx('flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', reward === k ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{label}</button>)}</div>
@@ -468,12 +467,23 @@ export function VipCloseTab({ programme }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-          {tr('Month')}
-          <select className="input !w-auto !py-2" value={monthId || ''} onChange={(e) => setMonthId(e.target.value)}>
-            {months.map((m) => <option key={m.id} value={m.id}>{monthLabel(m.year, m.month)}{m.status !== 'closed' ? ` (${m.status === 'open' ? tr('open') : tr('closing')})` : ''}</option>)}
-          </select>
-        </label>
+        {/* THE HOUSE DROPDOWN, NOT THE OS ONE (2 Oct 2026). Ethan: under Month end "the arrow is outside the button,
+            also for that dropdown it's an Apple UI not a custom UI." */}
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Icon name="calendar" className="h-4 w-4 text-brand" />
+          <Select
+            variant="chip"
+            className="w-56"
+            ariaLabel={tr('Month')}
+            value={monthId || ''}
+            onChange={setMonthId}
+            search={false}
+            options={months.map((m) => ({
+              value: m.id,
+              label: `${monthLabel(m.year, m.month)}${m.status !== 'closed' ? ` (${m.status === 'open' ? tr('open') : tr('closing')})` : ''}`,
+            }))}
+          />
+        </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button type="button" onClick={draftNow} disabled={busy || !monthId} className="btn-secondary !py-2 text-xs"><Icon name="refresh" className="h-3.5 w-3.5" />{open ? tr('Preview the statements') : tr('Work them out again')}</button>
           {rows.length > 0 && <button type="button" onClick={exportCsv} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Export CSV')}</button>}

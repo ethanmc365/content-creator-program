@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { readPageCache, writePageCache } from './pageCache'
-import { DM_CACHE_KEY, fetchInbox } from './inbox'
+import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox } from './inbox'
 import { isSlowNetwork } from './netQuality'
 
 // THE TABS YOU HAVE NOT OPENED YET, FETCHED WHILE YOU READ THE ONE YOU HAVE (2 Oct 2026).
@@ -16,7 +16,7 @@ import { isSlowNetwork } from './netQuality'
 // runs on a slow connection (lib/netQuality), never twice in a session, and never over a cache the page wrote itself.
 let warmed = false
 
-export function warmPagesWhenIdle(userId) {
+export function warmPagesWhenIdle(userId, { challenges = true } = {}) {
   if (warmed || !userId || typeof window === 'undefined') return
   warmed = true
   // Still the same person? (Creator preview swaps the session; a warm-up must never file one account's rows
@@ -25,7 +25,8 @@ export function warmPagesWhenIdle(userId) {
   const go = async () => {
     if (isSlowNetwork()) { warmed = false; return }
     try {
-      if (!readPageCache('challenges')) {
+      // A VIP cannot see challenges (they would warm an empty page), so they skip straight to the DMs.
+      if (challenges && !readPageCache('challenges')) {
         const { data } = await supabase.from('challenges').select('*, submissions(count)').order('start_date', { ascending: false })
         if (data && !readPageCache('challenges') && await same()) {
           writePageCache('challenges', { challenges: data, galleries: {}, participation: {}, prizesAwarded: null, leaders: {}, liveGroups: { groups: {}, mine: {} } })
@@ -34,6 +35,11 @@ export function warmPagesWhenIdle(userId) {
       if (!readPageCache(DM_CACHE_KEY)) {
         const { conversations } = await fetchInbox(userId)
         if (!readPageCache(DM_CACHE_KEY) && await same()) writePageCache(DM_CACHE_KEY, conversations)
+      }
+      // The DM tab's right-hand "Connect with someone new" pane (2 Oct 2026).
+      if (!readPageCache(DM_PEOPLE_CACHE_KEY)) {
+        const got = await fetchDmPeople(userId)
+        if (!readPageCache(DM_PEOPLE_CACHE_KEY) && await same()) writePageCache(DM_PEOPLE_CACHE_KEY, got)
       }
     } catch { /* a warm-up that fails is only a miss */ }
   }

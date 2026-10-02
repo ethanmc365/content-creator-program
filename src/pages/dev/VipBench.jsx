@@ -95,8 +95,20 @@ export default function VipBench() {
       RPC.vip_my_overview = null
       RPC.vip_staff_overview = STAFF_OVERVIEW
       RPC.vip_staff_board = RPC.vip_board.map((r) => ({ ...r, me: false }))
+      // The creator preview (migration 311): two VIPs to pick from, and `vip_preview` answering as one of them.
+      RPC.vip_preview_people = [
+        { id: 'p-maria', name: 'Maria Lopez', photo: null, status: 'active', test: false },
+        { id: 'p-test', name: 'Test VIP Account', photo: null, status: 'active', test: true },
+      ]
     }
-    supabase.rpc = (fn) => Promise.resolve({ data: RPC[fn] === undefined ? null : RPC[fn], error: null })
+    const MY = { ...RPC.vip_my_overview }
+    supabase.rpc = (fn, args) => {
+      if (fn === 'vip_preview') {
+        const what = { overview: { ...MY_OVERVIEW, ...MY, preview: true, member: { ...MY_OVERVIEW.member, monthly_fee: 150, fee_min_videos: 4, tiers: [{ from_views: 500000, cpm: 0.35 }] } }, statements: RPC.vip_my_statements || [], trends: RPC.vip_my_trends || null, perks: RPC.vip_my_perks || [], board: RPC.vip_board }[args?.p_what]
+        return Promise.resolve({ data: what ?? null, error: null })
+      }
+      return Promise.resolve({ data: RPC[fn] === undefined ? null : RPC[fn], error: null })
+    }
     supabase.from = (t) => chain(t)
     return true
   })

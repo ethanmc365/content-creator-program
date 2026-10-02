@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { EmptyState, PageHeader, Select, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VipChipNav, VipQuickLinks, VipSideNav } from '../components/vip/hubNav'
@@ -13,7 +13,7 @@ import {
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
 import { PayoutSummary } from '../components/vip/payouts'
-import { daysLeft, money, monthLabel, nf, rate, useVipAccess, useVipOverview, vipRpc } from '../lib/vip'
+import { VipPreviewContext, daysLeft, money, monthLabel, nf, rate, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
 import { useT } from '../lib/i18n'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
@@ -32,6 +32,27 @@ import { useT } from '../lib/i18n'
 // market switch at the top. The sections that are one person's own (videos, stats, payouts, perks) are hidden.
 const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'perks'])
 const STAFF_PICK = 'tryp_vip_staff_programme'
+// ...AND THEN EXACTLY THE CREATOR'S PAGE (2 Oct 2026, migration 311). Ethan: "the VIP page for admins is not useful,
+// as it doesn't show it up the way it should, it should show everything the creators can see, see it how they can
+// exactly." The team view above is kept one press away, but the page now OPENS as a creator sees it: a real VIP of the
+// market (picked from a list, the test account included) through `vip_preview`, which runs that creator's own
+// database functions as them, read-only. A market with no VIPs yet shows a new VIP's first day.
+const STAFF_VIEW = 'tryp_vip_staff_view'
+
+// The first day of a brand new VIP in this market: the market's own rate and month, nothing posted yet.
+function sampleOverview(s) {
+  if (!s?.programme) return null
+  return {
+    preview: true, sample: true,
+    programme: s.programme,
+    month: s.month,
+    member: { status: 'active', cpm: null, monthly_cap: null, target_videos: null, target_views: null, terms_ok: true, joined_on: null },
+    stats: { views: 0, videos: 0, base: 0, effective_cpm: s.programme.cpm, projected_base: null, projected_views: null, rank: null, of: null },
+    lifetime: { views: 0, videos: 0, best_month: 0 },
+    videos: [],
+    payment_ready: true,
+  }
+}
 
 export default function VipHub() {
   const tr = useT()
@@ -42,6 +63,10 @@ export default function VipHub() {
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
   const [staffOv, setStaffOv] = useState(undefined)
   const staffMode = own === null && access === true
+  const [teamView, setTeamView] = useState(() => { try { return localStorage.getItem(STAFF_VIEW) === 'team' } catch { return false } })
+  const [people, setPeople] = useState(undefined)
+  const [who, setWho] = useState(null)
+  const [previewOv, setPreviewOv] = useState(undefined)
   const loadStaff = useCallback(async () => {
     try {
       const d = await vipRpc('vip_staff_overview', { p_programme: staffPick })
@@ -53,10 +78,42 @@ export default function VipHub() {
     setStaffPick(id)
     try { localStorage.setItem(STAFF_PICK, id) } catch { /* private mode */ }
   }
+  // Who in this market can be previewed. A database without migration 311 answers with an error, and the page then
+  // simply stays on the team view.
+  const staffProg = staffOv?.programme?.id
+  useEffect(() => {
+    if (!staffMode || !staffProg) return undefined
+    let alive = true
+    setPeople(undefined)
+    vipRpc('vip_preview_people', { p_programme: staffProg })
+      .then((list) => {
+        if (!alive) return
+        const rows = list || []
+        setPeople(rows)
+        const lead = rows.find((r) => r.status === 'active' && !r.test) || rows.find((r) => r.status === 'active') || null
+        setWho(lead?.id ?? null)
+      })
+      .catch(() => { if (alive) setPeople(null) })
+    return () => { alive = false }
+  }, [staffMode, staffProg])
+  const previewing = staffMode && !teamView && people !== null
+  const loadPreview = useCallback(async () => {
+    if (!who) { setPreviewOv(sampleOverview(staffOv)); return }
+    try { setPreviewOv(await vipRpcAs(who, 'vip_my_overview')) } catch { setPreviewOv(sampleOverview(staffOv)) }
+  }, [who, staffOv])
+  useEffect(() => { if (previewing && people !== undefined) loadPreview() }, [previewing, people, loadPreview])
+  const pickView = (team) => {
+    setTeamView(team)
+    try { localStorage.setItem(STAFF_VIEW, team ? 'team' : 'creator') } catch { /* private mode */ }
+  }
+
   // While the staff question is still being asked, keep the skeleton rather than flashing "not a VIP".
-  const overview = own === null ? (access === undefined || (staffMode && staffOv === undefined) ? undefined : staffMode ? staffOv : null) : own
-  const reload = staffMode ? loadStaff : reloadOwn
+  const staffShown = previewing ? (people === undefined ? undefined : previewOv) : staffOv
+  const overview = own === null ? (access === undefined || (staffMode && staffShown === undefined) ? undefined : staffMode ? staffShown : null) : own
+  const reload = staffMode ? (previewing ? loadPreview : loadStaff) : reloadOwn
   const isStaff = !!overview?.staff
+  // The member being previewed, or null for "a new VIP" / not previewing.
+  const previewWho = previewing ? who : null
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].filter((k) => !(isStaff && STAFF_HIDDEN.has(k)))
   const tab = allowed.includes(asked) ? asked : 'month'
@@ -75,13 +132,14 @@ export default function VipHub() {
   const loadMore = useCallback(async () => {
     if (!programmeId) return
     const none = Promise.resolve({ data: null })
+    const sample = !!overview?.sample
     const [st, bd, rl, cm, pr, me] = await Promise.all([
-      isStaff ? Promise.resolve([]) : vipRpc('vip_my_statements').catch(() => []),
-      (isStaff ? vipRpc('vip_staff_board', { p_programme: programmeId }) : vipRpc('vip_board')).catch(() => []),
+      isStaff || sample ? Promise.resolve([]) : vipRpcAs(previewWho, 'vip_my_statements').catch(() => []),
+      (isStaff || sample ? vipRpc('vip_staff_board', { p_programme: programmeId }) : vipRpcAs(previewWho, 'vip_board')).catch(() => []),
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
       supabase.from('communities').select('slug, country_codes').eq('id', communityId).maybeSingle(),
       supabase.from('vip_programmes').select('tagline').eq('id', programmeId).maybeSingle(),
-      isStaff ? none : supabase.from('vip_members').select('headline').eq('profile_id', user.id).maybeSingle(),
+      isStaff || sample ? none : supabase.from('vip_members').select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
     ])
     setLook({ tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
     setStatements(st || [])
@@ -89,7 +147,7 @@ export default function VipHub() {
     setRules(rl.data || [])
     setSlug(cm.data?.slug || '')
     setCodes(cm.data?.country_codes || [])
-  }, [programmeId, communityId, user.id, isStaff])
+  }, [programmeId, communityId, user.id, isStaff, previewWho, overview?.sample])
   useEffect(() => { loadMore() }, [loadMore])
 
   const refresh = (opts) => { reload(); loadMore(); if (opts?.watch) setWatching((n) => n + 1) }
@@ -133,17 +191,30 @@ export default function VipHub() {
   const paused = member.status !== 'active'
   const videosThisMonth = (overview.videos || []).filter((v) => v.status === 'tracking')
 
+  const programmes = staffOv?.programmes || overview.programmes || []
   return (
+    <VipPreviewContext.Provider value={previewWho}>
     <div className="page max-w-5xl">
       <PageHeader
         title={tr('VIP')}
         inlineAction
         // THE FLAG, IN WHITE (1 Oct 2026). Ethan: "Maybe show the flag instead in a different colour. Don't make that
         // orange colour."
-        action={isStaff && (overview.programmes || []).length > 1
-          ? <ProgrammeSwitch programmes={overview.programmes} value={programme.id} onChange={pickProgramme} />
+        action={staffMode && programmes.length > 1
+          ? <ProgrammeSwitch programmes={programmes} value={programme.id} onChange={pickProgramme} />
           : <ProgrammePill name={programme.name} codes={codes} />}
       />
+
+      {staffMode && people !== null && (
+        <PreviewBar
+          team={teamView}
+          onTeam={pickView}
+          people={people}
+          who={who}
+          onWho={setWho}
+          market={programme.name}
+        />
+      )}
 
       {isStaff && (
         <p className="-mt-2 mb-4 flex items-center gap-2 text-xs text-smoke animate-fade-up">
@@ -228,7 +299,12 @@ export default function VipHub() {
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="money" className="h-5 w-5 text-brand" />{isStaff ? tr('How VIPs here are paid') : tr('How you are paid')}</h2>
                 <dl className="space-y-2.5 text-sm">
                   <Row label={isStaff ? tr('Rate') : tr('Your rate')} value={tr('{r} per 1,000 views', { r: `${cur} ${rate(stats.effective_cpm)}` })} />
-                  {programme.tiers?.length > 0 && !member.cpm && <Row label={tr('Higher rates')} value={programme.tiers.map((t) => tr('{r} from {n} views', { r: `${cur} ${rate(t.cpm)}`, n: nf(t.from_views) })).join(' · ')} />}
+                  {/* A creator's own ladder (migration 311) replaces the market's; a flat rate of their own has none. */}
+                  {(() => {
+                    const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
+                    return steps?.length > 0 && <Row label={tr('Higher rates')} value={steps.map((t) => tr('{r} from {n} views', { r: `${cur} ${rate(t.cpm)}`, n: nf(t.from_views) })).join(' · ')} />
+                  })()}
+                  {Number(member.monthly_fee) > 0 && <Row label={tr('Monthly fee')} value={member.fee_min_videos ? tr('{a}, with {n}+ videos', { a: money(member.monthly_fee, cur, { cents: false }), n: member.fee_min_videos }) : money(member.monthly_fee, cur, { cents: false })} />}
                   <Row label={tr('What counts')} value={tr('Videos you post this month')} />
                   <Row label={tr('Paid')} value={tr('Once a month')} />
                   {(member.monthly_cap || programme.monthly_cap) && <Row label={tr('Monthly cap')} value={money(member.monthly_cap || programme.monthly_cap, cur, { cents: false })} />}
@@ -236,7 +312,7 @@ export default function VipHub() {
               </section>
             </div>
 
-            {!isStaff && <VipSubmit disabled={paused} month={month} onAdded={refresh} />}
+            {!isStaff && <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />}
 
             {!isStaff && <section>
               <div className="mb-3 flex items-center justify-between">
@@ -255,7 +331,7 @@ export default function VipHub() {
 
         {tab === 'videos' && (
           <div className="space-y-5">
-            <VipSubmit disabled={paused} month={month} onAdded={refresh} />
+            <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />
             {(overview.videos || []).length === 0
               ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
               : <ul className="space-y-3">{overview.videos.map((v) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} />)}</ul>}
@@ -314,17 +390,63 @@ export default function VipHub() {
         )}
 
         {tab === 'library' && <VipLibrary programmeId={programme.id} />}
-        {tab === 'map' && <VipMap onSaved={refresh} />}
+        {tab === 'map' && <VipMap />}
       </div>
 
       {/* Desktop: the sections and the quick links, in a column that stays in view. */}
+      {/* QUICK LINKS ON TOP (2 Oct 2026). Ethan: "the quick links card on the right column should be moved up to the
+          top and be above the card with the other links." */}
       <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
+        <div className="animate-slide-in-right"><VipQuickLinks slug={slug} staff={isStaff} /></div>
         <VipSideNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} />
-        <VipQuickLinks slug={slug} staff={isStaff} />
       </aside>
       </div>
 
-      {!isStaff && <VipTermsGate open={!member.terms_ok} programme={programme} onAccepted={refresh} />}
+      {!staffMode && <VipTermsGate open={!member.terms_ok} programme={programme} onAccepted={refresh} />}
+    </div>
+    </VipPreviewContext.Provider>
+  )
+}
+
+// THE TEAM'S BAR OVER THE PAGE: whose page this is, or the team overview instead. The picked view is the sliding
+// gradient (Segmented); the person is the house dropdown, never the OS one.
+function PreviewBar({ team, onTeam, people, who, onWho, market }) {
+  const tr = useT()
+  const options = useMemo(() => [
+    ...(people || []).map((p) => ({
+      value: p.id,
+      label: p.test ? `${p.name} (${tr('test account')})` : p.status === 'paused' ? `${p.name} (${tr('paused')})` : p.status === 'left' ? `${p.name} (${tr('left')})` : p.name,
+    })),
+    { value: '__new', label: tr('A new VIP, day one') },
+  ], [people, tr])
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-2 pl-3 shadow-card animate-fade-up">
+      <Segmented
+        size="sm"
+        id="vip-preview-mode"
+        label={tr('How to see this page')}
+        value={team ? 'team' : 'creator'}
+        onChange={(v) => onTeam(v === 'team')}
+        options={[
+          { value: 'creator', label: <><Icon name="eye" className="h-3.5 w-3.5" />{tr('As a creator')}</> },
+          { value: 'team', label: <><Icon name="users" className="h-3.5 w-3.5" />{tr('Team overview')}</> },
+        ]}
+      />
+      {!team && (
+        <>
+          <span className="text-xs text-smoke">{tr('Seeing the page of')}</span>
+          <Select
+            value={who || '__new'}
+            onChange={(v) => onWho(v === '__new' ? null : v)}
+            options={options}
+            variant="chip"
+            className="w-56"
+            ariaLabel={tr('Whose VIP page to see')}
+          />
+          <span className="ml-auto hidden text-[11px] text-gray-400 sm:block">{tr('Read only. Exactly what they see in {m}.', { m: market })}</span>
+        </>
+      )}
+      {team && <span className="text-xs text-smoke">{tr('Every VIP in {m} together, this month.', { m: market })}</span>}
     </div>
   )
 }

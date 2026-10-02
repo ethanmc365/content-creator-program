@@ -2454,6 +2454,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       <ComposableMap
         width={WIDTH}
         height={HEIGHT}
+        onClick={(e) => { if (e.target?.tagName === 'rect') closePanels() }}
         projectionConfig={{ scale: 160, center: [12, 8] }}
         // In full screen the svg takes the window rather than the card's
         // aspect ratio. `xMidYMid meet` (the default) letterboxes it inside
@@ -2476,6 +2477,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
             to be inside the svg rather than behind it, because the svg's own
             background does not receive pointer events where nothing is drawn. */}
         <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="transparent" onClick={closePanels} />
+        {/* ...EXCEPT THAT RECT NEVER GOT A CLICK (2 Oct 2026). Ethan: clicking the sea did not close a country's
+            card, only the X did. react-simple-maps' ZoomableGroup draws ITS OWN transparent full-size rect (the
+            surface d3-zoom drags on) above ours, so every press on the water landed on that one. The map draws no
+            other rect, so a click whose target is a rect is a click on the water, whichever layer took it. A drag
+            does not count: d3-zoom swallows the click that ends a pan. */}
         <ZoomableGroup
           zoom={position.zoom}
           center={position.coordinates}

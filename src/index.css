@@ -660,6 +660,13 @@ html {
      which it switches to whenever the container is taller than the viewport.
      Same distance, same curve, same everything - the only difference is what
      decides the moment. See Reveal.jsx. */
+  /* A card carried over from the previous page (MarketsRailCard) is already on screen: it glides from where it was
+     instead of arriving, so the rail's own entrance is switched off for it. */
+  .reveal > .reveal-item.reveal-carry {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
   .reveal.is-in > .reveal-item,
   .reveal > .reveal-item.is-in {
     opacity: 1;

@@ -11,6 +11,7 @@ import { cx } from '../lib/utils'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import { LOCALES, getLocale, loadLocale, setLocale, useT } from '../lib/i18n'
 import Reveal from '../components/network/Reveal'
+import VipMapSetting from '../components/vip/VipMapSetting'
 import AppIconPicker from '../components/AppIconPicker'
 import PaymentDetailsFields from '../components/PaymentDetails'
 import Turnstile from '../components/Turnstile'
@@ -597,6 +598,8 @@ export default function Settings() {
             {tr("You are left out of the public map, the creators strip and the wall of fame. Fellow creators can still find you in the app.")}
           </p>
         )}
+        {/* VIPs: the VIP map's switch lives here now, not on the map (2 Oct 2026). Draws nothing for anybody else. */}
+        <div className="mt-4 border-t border-gray-50 pt-4 empty:hidden"><VipMapSetting /></div>
       </Panel>
 
       {/* DELETING YOUR ACCOUNT IS ITS OWN CARD, AT THE VERY BOTTOM.

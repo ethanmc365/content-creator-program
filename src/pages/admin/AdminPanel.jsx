@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
+import OpenMarketDialog from '../../components/admin/OpenMarketDialog'
 import { cx } from '../../lib/utils'
 import { useVipAccess } from '../../lib/vip'
 
@@ -319,6 +320,7 @@ export default function AdminPanel() {
   const [enterError, setEnterError] = useState('')
 
   const [editing, setEditing] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [order, setOrder] = useState(null)
   const [dragId, setDragId] = useState(null)
   const [overId, setOverId] = useState(null)
@@ -765,10 +767,11 @@ export default function AdminPanel() {
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-xl font-semibold tracking-[-0.01em]">{isGlobal ? 'Markets' : 'Your markets'}</h2>
+                {/* A CHOICE, NOT A DETOUR (2 Oct 2026): a community market or a VIP market. See OpenMarketDialog. */}
                 {isGlobal && (
-                  <button type="button" onClick={() => openInNetwork('/global/markets')}
-                    className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-                    Open another →
+                  <button type="button" onClick={() => setOpening(true)}
+                    className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
+                    <Icon name="plus" className="h-4 w-4" /> Open another
                   </button>
                 )}
               </div>
@@ -836,6 +839,7 @@ export default function AdminPanel() {
         ) : null}
 
       </div>
+      <OpenMarketDialog open={opening} onClose={() => setOpening(false)} />
     </div>
   )
 }

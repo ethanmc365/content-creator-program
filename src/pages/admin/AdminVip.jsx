@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -43,6 +43,12 @@ export default function AdminVip() {
   // press was a skeleton and then a jump. Now a tab you have opened is kept (hidden) for this programme, so going back
   // to it is instant, and only the first visit loads.
   const [seen, setSeen] = useState(() => new Set())
+  // THE MARKET SWITCH IS INSTANT TOO (2 Oct 2026). Ethan: "there's a bit of lag when clicking between VIP Romania and
+  // VIP Spain." The tabs were kept per programme but the whole area was KEYED on the programme, so a switch threw
+  // every open tab away and fetched it all again, on the same frame as the press. Each market's tabs now stay mounted
+  // once visited (hidden when it is not the one picked), and the switch itself is a transition, so the highlight
+  // slides at once and a first visit's tabs build behind it.
+  const [, startSwitch] = useTransition()
   const tab = TABS.includes(params.get('tab')) && (params.get('tab') !== 'access' || isOwner) ? params.get('tab') : 'overview'
 
   // EVERYBODY WITH ACCESS SEES EVERY MARKET; THEY MANAGE THEIR OWN (migration 299). `can_manage` is what the
@@ -104,7 +110,7 @@ export default function AdminVip() {
           <Segmented
             shape="tabs"
             value={programme.id}
-            onChange={(v) => setPid(v)}
+            onChange={(v) => startSwitch(() => setPid(v))}
             label={tr('Programme')}
             id="vip-programme"
             // THE FLAG BESIDE EACH MARKET (2 Oct 2026). Ethan: "add the flag beside the market where it shows VIP
@@ -141,23 +147,29 @@ export default function AdminVip() {
         <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
       )}
 
-      <div key={programme.id}>
-        {[
-          ['overview', () => <VipOverviewTab programme={programme} />],
-          ['members', () => <VipMembersTab programme={programme} />],
-          ['markets', () => <VipMarketsTab programme={programme} isOwner={isOwner} onChanged={load} />],
-          ['content', () => <VipContentTab programme={programme} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams({ tab: 'content', part: v }, { replace: true })} />],
-          ['announcements', () => <AnnouncementsTab programme={programme} />],
-          ['bonuses', () => <VipBonusesTab programme={programme} />],
-          ['close', () => <VipCloseTab programme={programme} />],
-          ['kpis', () => <VipKpiTab programme={programme} />],
-          ['analytics', () => <VipAnalyticsTab programme={programme} isAdmin={isAdmin} />],
-          ['settings', () => <VipSettingsTab programme={programme} onSaved={load} />],
-          ['access', () => <VipAccessTab programmes={programmes} />],
-        ].filter(([t]) => visited(t)).map(([t, render]) => (
-          <div key={t} hidden={t !== tab} className={t === tab ? 'animate-tab-in' : undefined}>{render()}</div>
-        ))}
-      </div>
+      {programmes.filter((p) => p.id === programme.id || [...seen].some((k) => k.startsWith(`${p.id}:`))).map((p) => {
+        const here = p.id === programme.id
+        const shown = (t) => (here ? visited(t) : seen.has(`${p.id}:${t}`))
+        return (
+          <div key={p.id} hidden={!here}>
+            {[
+              ['overview', () => <VipOverviewTab programme={p} />],
+              ['members', () => <VipMembersTab programme={p} />],
+              ['markets', () => <VipMarketsTab programme={p} isOwner={isOwner} onChanged={load} />],
+              ['content', () => <VipContentTab programme={p} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams({ tab: 'content', part: v }, { replace: true })} />],
+              ['announcements', () => <AnnouncementsTab programme={p} />],
+              ['bonuses', () => <VipBonusesTab programme={p} />],
+              ['close', () => <VipCloseTab programme={p} />],
+              ['kpis', () => <VipKpiTab programme={p} />],
+              ['analytics', () => <VipAnalyticsTab programme={p} isAdmin={isAdmin} />],
+              ['settings', () => <VipSettingsTab programme={p} onSaved={load} />],
+              ['access', () => <VipAccessTab programmes={programmes} />],
+            ].filter(([t]) => shown(t)).map(([t, render]) => (
+              <div key={t} hidden={!here || t !== tab} className={here && t === tab ? 'animate-tab-in' : undefined}>{render()}</div>
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }

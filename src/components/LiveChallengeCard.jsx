@@ -199,7 +199,7 @@ function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
 // the top ... for desktop they should be shrunk and side by side in clean design that fits everything. On mobile it's
 // perfect as is." So every compact change is an `lg:` override: from `lg` the card is one column (no leaderboard
 // panel), tighter padding, a smaller title, two lines of brief, the compact clock and the two buttons side by side.
-export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null, compact = false }) {
+export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null, compact = false, reserveBar = false }) {
   const tr = useT()
   const excerpt = briefExcerpt(c.description || '')
   // A SPLIT CHALLENGE HAS ONE BOARD PER GROUP (1 Oct 2026). A creator's card
@@ -266,7 +266,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           isGlobal
             ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-4 sm:p-11'
             : 'bg-gradient-to-br from-brand to-brand-light p-4 sm:p-10',
-          compact && 'flex h-full flex-col lg:p-7',
+          compact && 'flex flex-1 flex-col lg:p-7',
         )}
       >
         {/* Soft light bloom for depth, matching the home hero. */}
@@ -344,7 +344,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
               className={cx(
                 'mt-3 inline-block origin-left font-bold leading-[1.15] tracking-[-0.02em] transition-transform duration-200 ease-out sm:mt-4 group-hover:scale-[1.03]',
                 isGlobal ? 'text-[22px] sm:text-[40px]' : 'text-xl sm:text-3xl',
-                compact && 'lg:text-2xl',
+                compact && 'lg:line-clamp-2 lg:min-h-[2.3em] lg:text-2xl',
               )}
             >
               {c.title}
@@ -363,7 +363,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 and the whole of it, clamped. Now it is the opening paragraph
                 with the marks gone, and the brief itself is one tap away. */}
             {excerpt.text && (
-              <p className={cx('mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block', compact && 'lg:line-clamp-2 lg:text-sm')}>
+              <p className={cx('mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block', compact && 'lg:line-clamp-2 lg:min-h-[2.85rem] lg:text-sm')}>
                 {/* No "Read all" (22 Sep 2026): the whole card opens the brief. */}
                 {excerpt.text}
               </p>
@@ -436,6 +436,10 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
       {/* Participation pace: nudges the quiet majority, names no one. The
           shared component, not a fourth hand-rolled copy of it. */}
       {participation && <ParticipationBar participation={participation} where="" className="mt-4" />}
+      {/* Holds the bar's room when a neighbour in the row has one and this card does not, so the pair stays level. */}
+      {!participation && reserveBar && (
+        <div aria-hidden className="invisible hidden lg:block"><ParticipationBar participation={{ posted: 1, total: 2 }} where="" className="mt-4" /></div>
+      )}
     </div>
   )
 }
