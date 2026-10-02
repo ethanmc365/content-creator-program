@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
 import VideoThumb from '../VideoThumb'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
@@ -600,11 +600,19 @@ export function VipMoveBlock({ creator, onChanged }) {
   const [pick, setPick] = useState(null)
   const [done, setDone] = useState('')
   const [isVip, setIsVip] = useState(!!creator.is_vip)
+  // AN ADMIN IS NOT A VIP CREATOR (2 Oct 2026). Ethan: "whenever I view an admin's profile and click to see the admin
+  // tools popup, it shows that I can promote them to join the VIP community as a creator which is obviously wrong." For
+  // somebody on the team this block is about VIP TEAM access instead (see VipTeamAccess below).
+  const [staff, setStaff] = useState(null)
   useEffect(() => {
     let alive = true
     setDone('')
     ;(async () => {
-      const { data: prof } = await supabase.from('profiles').select('is_vip').eq('id', creator.id).maybeSingle()
+      const { data: prof } = await supabase.from('profiles').select('is_vip, is_admin, platform_role').eq('id', creator.id).maybeSingle()
+      if (prof?.is_admin || prof?.platform_role === 'owner' || prof?.platform_role === 'global_admin') {
+        if (alive) setStaff(prof)
+        return
+      }
       const { data } = await supabase.from('vip_programmes').select('*').eq('active', true).order('name')
       const mine = []
       for (const p of data || []) {
@@ -622,6 +630,7 @@ export function VipMoveBlock({ creator, onChanged }) {
     try { await vipRpc('vip_update_member', { p_profile: creator.id, p_status: 'left' }); setDone('back'); setIsVip(false); onChanged?.(); toastSuccess(tr('{n} is back with the community creators.', { n: creator.name })) } catch (e) { notice(e.message) }
   }
 
+  if (staff) return <VipTeamAccess person={creator} owner={staff.platform_role === 'owner'} />
   if (programmes === null || (!programmes.length && !isVip)) return null
   const here = programmes.find((p) => p.id === member?.programme_id)
   return (
@@ -644,6 +653,56 @@ export function VipMoveBlock({ creator, onChanged }) {
         </div>
       )}
       {pick && <AddVipModal open onClose={() => setPick(null)} programme={pick} profile={{ id: creator.id, name: creator.name, photo_url: creator.photo_url }} onAdded={() => { setDone('vip'); setIsVip(true); onChanged?.() }} />}
+    </div>
+  )
+}
+
+// The team-member version of the block: which VIP markets this admin can see and run, and (for the owner, who alone
+// decides it) a switch per market. The same write as the Tryp.com team page's "VIP access".
+function VipTeamAccess({ person, owner }) {
+  const tr = useT()
+  const [rows, setRows] = useState(null)
+  const [grants, setGrants] = useState([])
+  const [canEdit, setCanEdit] = useState(false)
+  const [busy, setBusy] = useState('')
+  const load = useCallback(async () => {
+    const [{ data: progs }, list] = await Promise.all([
+      supabase.from('vip_programmes').select('id, name, active').order('name'),
+      supabase.rpc('vip_managers_list'),
+    ])
+    setRows(progs || [])
+    setCanEdit(!list.error)
+    setGrants((list.data || []).filter((g) => g.profile_id === person.id).map((g) => g.programme_id))
+  }, [person.id])
+  useEffect(() => { load() }, [load])
+  if (rows === null || (!canEdit && !owner)) return null
+  async function flip(p) {
+    const on = grants.includes(p.id)
+    setBusy(p.id)
+    const { error } = await supabase.rpc(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
+    setBusy('')
+    if (error) { notice(error.message); return }
+    toastSuccess(on ? tr('{n} no longer has {p}.', { n: person.name, p: p.name }) : tr('{n} can now see and run {p}.', { n: person.name, p: p.name }))
+    load()
+  }
+  return (
+    <div>
+      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP community, as the team')}</p>
+      {owner ? (
+        <p className="rounded-xl border border-gray-100 bg-cloud/50 px-3.5 py-3 text-sm text-ink"><Icon name="star" className="mr-1.5 inline h-4 w-4 text-brand" />{tr('The programme lead sees every VIP market.')}</p>
+      ) : (
+        <div className="rounded-xl border border-gray-100 bg-white">
+          <p className="px-3.5 pt-3 text-xs text-smoke">{tr('An admin is not a VIP creator. Give them access to a VIP market to see its page, its rooms and its tools.')}</p>
+          <ul className="mt-1 divide-y divide-gray-50">
+            {rows.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{p.name}</span>
+                {busy === p.id ? <Spinner className="h-4 w-4" /> : <Toggle on={grants.includes(p.id)} onChange={() => flip(p)} label={tr('Access to {p}', { p: p.name })} disabled={!canEdit || !!busy} />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

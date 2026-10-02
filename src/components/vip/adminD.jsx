@@ -264,7 +264,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
               {autoPlaces.map((p) => <li key={p.place} className="flex justify-between gap-3"><span className="font-bold text-smoke">#{p.place}</span><span className="font-semibold text-ink">{p.parts.join(' + ')}</span></li>)}
             </ul>
           ) : <p className="text-sm text-smoke">{tr('No prizes set up yet.')}</p>}
-          <p className="mt-2 text-xs text-smoke">{tr('These come straight from the "most views" bonuses, so they are paid at month end and shown to VIPs automatically.')} <Link to={`/admin/vip?tab=bonuses`} className="font-semibold text-brand hover:underline" onClick={onClose}>{tr('Change them in Bonuses')}</Link></p>
+          <p className="mt-2 text-xs text-smoke">{tr('These come straight from the "most views" bonuses, so they are paid at month end and shown to VIPs automatically.')} <Link to={`/vip?mode=tools&tab=bonuses`} className="font-semibold text-brand hover:underline" onClick={onClose}>{tr('Change them in Bonuses')}</Link></p>
         </div>
         <label className="block"><span className="label">{tr('An extra note about the prize (optional)')}</span><input className="input" maxLength={300} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder={tr('For example: the winner also gets a feature on our page')} /></label>
         <div className="flex justify-end gap-2.5"><button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr('Cancel')}</button><button type="button" onClick={save} disabled={busy || !title.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>

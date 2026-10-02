@@ -23,6 +23,7 @@ import { useT, usePlural, getLocale } from '../lib/i18n'
 import { usePlaceNames } from '../lib/placeNames'
 import { clearVipCache } from '../lib/vip'
 import LanguagePicker from '../components/LanguagePicker'
+import ReaderText from '../components/ReaderText'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -1461,7 +1462,7 @@ function MarketCard({ market, country, ready }) {
           <p className="text-[10px] font-bold uppercase tracking-wide text-brand">{tr("Your market")}</p>
           <p className="mt-0.5 text-sm font-semibold">{m.name}</p>
           <p className="mt-1 text-xs leading-relaxed text-smoke">
-            {m.tagline || tr('Briefs, rooms and challenges for {name}.', { name: m.name })}
+            {m.tagline ? <ReaderText text={m.tagline} /> : tr('Briefs, rooms and challenges for {name}.', { name: m.name })}
           </p>
         </div>
         <Icon name="check" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />

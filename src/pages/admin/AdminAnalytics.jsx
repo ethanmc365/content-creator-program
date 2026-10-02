@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
@@ -7,7 +7,7 @@ import {
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { allRows } from '../../lib/fetchAll'
-import { PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
+import { Floating, PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { DateField } from '../../components/DateTimeFields'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
@@ -1164,6 +1164,7 @@ export default function AdminAnalytics() {
 // typing a date does not reload the page a digit at a time.
 function PeriodPicker({ value, from, to, onChange, disabled = false }) {
   const [open, setOpen] = useState(false)
+  const anchor = useRef(null)
   const [draft, setDraft] = useState({ from, to })
   const options = PERIODS.map((p) => ({
     value: p.key,
@@ -1172,6 +1173,7 @@ function PeriodPicker({ value, from, to, onChange, disabled = false }) {
   const valid = draft.from && draft.to && draft.from <= draft.to
   return (
     <div
+      ref={anchor}
       aria-hidden={disabled || undefined}
       className={cx('relative flex shrink-0 items-center border-gray-100 sm:border-l sm:pl-3', disabled && 'pointer-events-none select-none opacity-35')}
     >
@@ -1189,8 +1191,8 @@ function PeriodPicker({ value, from, to, onChange, disabled = false }) {
           onChange(v)
         }}
       />
-      {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[16rem] animate-menu-in rounded-card border border-gray-100 bg-white p-4 shadow-lift">
+      <Floating anchor={anchor} open={open} align="right" offset={8} estimate={240}>
+        <div className="w-[16rem] animate-menu-in rounded-card border border-gray-100 bg-white p-4 shadow-lift">
           <p className="mb-3 text-sm font-semibold">Custom dates</p>
           <div className="grid grid-cols-1 gap-3">
             <DateField id="an-from" label="From" value={draft.from} onChange={(v) => setDraft((d) => ({ ...d, from: v }))} />
@@ -1202,7 +1204,7 @@ function PeriodPicker({ value, from, to, onChange, disabled = false }) {
             <button type="button" disabled={!valid} onClick={() => { setOpen(false); onChange('custom', draft.from, draft.to) }} className="btn-primary !px-4 !py-2 text-xs">Show</button>
           </div>
         </div>
-      )}
+      </Floating>
     </div>
   )
 }

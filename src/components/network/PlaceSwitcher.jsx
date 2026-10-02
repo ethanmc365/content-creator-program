@@ -10,6 +10,7 @@ import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
 import { useAuth } from '../../context/AuthContext'
 import { useVipAccess, useVipCommunities, vipSlugFromPath } from '../../lib/vip'
+import ReaderText from '../ReaderText'
 
 // Re-exported for the market components that already import it from here.
 // The definition lives in lib/flags.js: this module pulls in `motion`, and
@@ -281,7 +282,7 @@ export default function PlaceSwitcher({ ready = true }) {
                       flags={(c.country_codes || []).map(flagFromIso).join('')}
                       name={marketName(c.name)}
                       badge={c.id === home?.id ? 'Home' : null}
-                      hint={c.tagline}
+                      hint={c.tagline ? <ReaderText text={c.tagline} /> : null}
                     />
                   </SheetRow>
                 ))}

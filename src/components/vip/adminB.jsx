@@ -449,7 +449,7 @@ export function VipCloseTab({ programme }) {
     try { await vipRpc('vip_compute_statements', { p_month: monthId }); await load() } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   async function approveAll() {
-    if (!await confirm(tr('Approve all {n} drafts? Each one raises its invoice for the creator. You can still stop an invoice from Rewards.', { n: drafts.length }), { confirmLabel: tr('Approve all') })) return
+    if (!await confirm(tr('Approve all {n} drafts? Each one is added to the creator\'s balance, and their payout window opens.', { n: drafts.length }), { confirmLabel: tr('Approve all') })) return
     setBusy(true)
     try { const n = await vipRpc('vip_approve_month', { p_month: monthId }); toastSuccess(tr('{n} statements approved.', { n })); await load() } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
@@ -503,13 +503,13 @@ export function VipCloseTab({ programme }) {
         <>
           <div className="grid grid-cols-3 gap-3">
             <Stat label={tr('Statements')} value={String(rows.length)} hint={tr('{n} still to approve', { n: drafts.length })} />
-            <Stat label={tr('To pay')} value={money(total, cur, { cents: false })} />
+            <Stat label={tr('Added to balances')} value={money(total, cur, { cents: false })} />
             <Stat label={tr('Flagged')} value={String(rows.filter((s) => (s.flags || []).some((f) => f !== 'no_views')).length)} hint={tr('worth a look')} tone={rows.some((s) => (s.flags || []).includes('no_payment_details')) ? 'warn' : undefined} />
           </div>
           <ul className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             {rows.map((s) => <StatementRow key={s.id} s={s} cur={cur} editable={!open} onChanged={load} />)}
           </ul>
-          <p className="text-xs text-smoke">{tr('Approving a statement raises the creator\'s invoice and counts as approving it. A creator with no payment details is approved anyway and their invoice follows the day they save them. Late corrections go on next month\'s statement, never by reopening a month that is paid.')}</p>
+          <p className="text-xs text-smoke">{tr('Approving a statement adds it to the creator\'s balance and opens their payout window: cash once the balance reaches the threshold, or a Tryp.com voucher for any amount. Their invoice is raised when they ask for cash. Late corrections go on next month\'s statement or as a balance correction in Balances.')}</p>
         </>
       )}
     </div>

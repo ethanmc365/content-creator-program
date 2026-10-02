@@ -7,7 +7,7 @@ import { toast } from '../../lib/toast'
 import TeamInvites from '../../components/admin/TeamInvites'
 import Icon from '../../components/Icon'
 import PeoplePicker from '../../components/network/PeoplePicker'
-import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from '../../components/ui'
 import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/roles'
 import { cx } from '../../lib/utils'
 
@@ -32,7 +32,7 @@ const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', g
 // this page, the API or a stray script. What the lead CAN do is hand the role
 // on, which is an action on the row of whoever would receive it.
 
-function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, busy }) {
+function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, busy, vip, onVip }) {
   const lead = person.platform_role === 'owner'
   return (
     <div className={cx(
@@ -47,6 +47,7 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
           </Link>
           {isMe && <span className="text-xs text-smoke">(you)</span>}
           {lead && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-brand">{LEAD_TITLE_SHORT}</span>}
+          <VipChip lead={lead} vip={vip} />
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
           <span className="font-medium text-ink">{person.role_title || permissionLabel(person.platform_role)}</span>
@@ -62,6 +63,16 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {viewerIsLead && !lead && onVip && (
+          <button
+            onClick={() => onVip(person)}
+            disabled={busy}
+            title="Let them into the VIP community and its tools"
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand disabled:opacity-40"
+          >
+            <Icon name="star" className="h-3.5 w-3.5" /> VIP access
+          </button>
+        )}
         <button
           onClick={() => onTitle(person)}
           disabled={busy || (lead && !isMe)}
@@ -102,6 +113,72 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
   )
 }
 
+// THE VIP COMMUNITY, FROM THE TEAM PAGE (2 Oct 2026). Ethan: "I don't seem to be able to change an admin's role so they
+// can also see the VIP community, this should be doable on the Tryp.com team page." Being an admin does not open the VIP
+// community (migration 296: it is the owner's to give, market by market). The owner's rows here show who has it and a
+// "VIP access" button that switches it on or off per VIP market. Same write as the old Access tab (vip_add_manager).
+function VipChip({ lead, vip }) {
+  if (lead) return <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white"><Icon name="star" className="h-3 w-3" />VIP, every market</span>
+  if (!vip?.length) return null
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white animate-pop-in" title={vip.map((v) => v.programme).join(', ')}>
+      <Icon name="star" className="h-3 w-3" />VIP{vip.length > 1 ? ` · ${vip.length} markets` : ` · ${vip[0].programme.replace(/^VIP /, '')}`}
+    </span>
+  )
+}
+
+function VipAccessModal({ person, programmes, grants, onClose, onChanged }) {
+  const [busy, setBusy] = useState('')
+  if (!person) return null
+  const has = (pid) => grants.some((g) => g.profile_id === person.id && g.programme_id === pid)
+  async function flip(p) {
+    setBusy(p.id)
+    const on = has(p.id)
+    const { error } = await supabase.rpc(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
+    setBusy('')
+    if (error) { notice(error.message); return }
+    toast(on ? `${person.name} no longer has ${p.name}.` : `${person.name} can now see and run ${p.name}.`)
+    onChanged()
+  }
+  async function all(on) {
+    setBusy('all')
+    for (const p of programmes) {
+      if (has(p.id) === on) continue
+      const { error } = await supabase.rpc(on ? 'vip_add_manager' : 'vip_remove_manager', { p_profile: person.id, p_programme: p.id })
+      if (error) { notice(error.message); break }
+    }
+    setBusy('')
+    onChanged()
+  }
+  const count = programmes.filter((p) => has(p.id)).length
+  return (
+    <Modal open onClose={onClose} title={`VIP access for ${person.name}`}>
+      <div className="space-y-4">
+        <p className="text-sm text-smoke">
+          With access to a VIP market they see that market's VIP page exactly as its creators do, its VIP rooms, and the VIP
+          tools for its members, balances and month end. They do not become a VIP creator.
+        </p>
+        <ul className="divide-y divide-gray-50 rounded-card border border-gray-100">
+          {programmes.map((p, i) => (
+            <li key={p.id} className="flex items-center gap-3 px-4 py-3 animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
+              <Icon name="star" className="h-4 w-4 shrink-0 text-brand" />
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{p.name}{!p.active && <span className="ml-2 text-xs font-normal text-smoke">(not open)</span>}</span>
+              {busy === p.id ? <Spinner className="h-4 w-4" /> : <Toggle on={has(p.id)} onChange={() => flip(p)} label={`Access to ${p.name}`} disabled={!!busy} />}
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-wrap justify-between gap-2">
+          <button type="button" onClick={() => all(count < programmes.length)} disabled={!!busy} className="btn-secondary !py-2 text-xs">
+            {busy === 'all' ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="star" className="h-3.5 w-3.5" />}
+            {count < programmes.length ? 'Every VIP market' : 'Remove from every VIP market'}
+          </button>
+          <button type="button" onClick={onClose} className="btn-primary !py-2 text-xs">Done</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export default function AdminTeam() {
   const { profile, refreshProfile } = useAuth()
   const [team, setTeam] = useState(null)
@@ -117,6 +194,21 @@ export default function AdminTeam() {
   const [addingTo, setAddingTo] = useState(null)
 
   const viewerIsLead = profile?.platform_role === 'owner'
+  const [vipProgrammes, setVipProgrammes] = useState([])
+  const [vipGrants, setVipGrants] = useState([])
+  const [vipFor, setVipFor] = useState(null)
+  // Only the owner can read or change who has VIP access; for anybody else these stay empty and nothing is drawn.
+  const loadVip = useCallback(async () => {
+    if (!viewerIsLead) return
+    const [{ data: progs }, { data: grants }] = await Promise.all([
+      supabase.from('vip_programmes').select('id, name, active').order('name'),
+      supabase.rpc('vip_managers_list'),
+    ])
+    setVipProgrammes(progs || [])
+    setVipGrants(grants || [])
+  }, [viewerIsLead])
+  useEffect(() => { loadVip() }, [loadVip])
+  const vipOf = (id) => vipGrants.filter((g) => g.profile_id === id)
 
   // THE TEAM FIRST, EVERYTHING ELSE AFTER (28 Sep 2026). Ethan: "the team
   // admin panel page is not loading at all ... It did load eventually." The
@@ -353,13 +445,15 @@ export default function AdminTeam() {
                   onDemote={demote}
                   onHandOver={handOver}
                   busy={busy}
+                  vip={vipOf(lead.id)}
                 />
               ) : (
                 <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Nobody leads the programme" />
               )}
               {admins.map((p) => (
                 <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
-                  viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
+                  viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy}
+                  vip={vipOf(p.id)} onVip={vipProgrammes.length ? setVipFor : null} />
               ))}
             </div>
           </section>
@@ -413,8 +507,19 @@ export default function AdminTeam() {
                               <Link to={`/profile/${p.id}`} className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
                                 <span className="truncate">{p.name}</span>
                               </Link>
-                              <p className="truncate text-xs text-smoke">{p.role_title || `${m.name} manager`}</p>
+                              <p className="flex items-center gap-2 truncate text-xs text-smoke">{p.role_title || `${m.name} manager`}<VipChip lead={p.platform_role === 'owner'} vip={vipOf(p.id)} /></p>
                             </div>
+                            {viewerIsLead && p.platform_role !== 'owner' && vipProgrammes.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setVipFor(p)}
+                                aria-label={`VIP access for ${p.name}`}
+                                title="VIP access"
+                                className={cx('rounded-full p-1.5 transition-all hover:bg-brand-tint hover:text-brand', vipOf(p.id).length ? 'text-brand' : 'text-smoke opacity-60 hover:opacity-100')}
+                              >
+                                <Icon name="star" className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => removeManager(m, p)}
@@ -433,6 +538,14 @@ export default function AdminTeam() {
               })}
             </div>
           </section>
+
+          <VipAccessModal
+            person={vipFor}
+            programmes={vipProgrammes}
+            grants={vipGrants}
+            onClose={() => setVipFor(null)}
+            onChanged={loadVip}
+          />
 
           <PeoplePicker
             open={!!addingTo}

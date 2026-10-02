@@ -14,6 +14,7 @@ import { notice } from '../lib/confirm'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import ReaderText from '../components/ReaderText'
 
 // Every market, and whether it is yours.
 //
@@ -91,7 +92,7 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requ
             {!market.is_active && <Badge tone="grey">{tr("Closed")}</Badge>}
           </p>
           <p className="mt-1 line-clamp-2 text-sm text-smoke">
-            {market.tagline || `Challenges, briefs and rooms for ${market.name}.`}
+            {market.tagline ? <ReaderText text={market.tagline} /> : `Challenges, briefs and rooms for ${market.name}.`}
           </p>
         </div>
       </div>

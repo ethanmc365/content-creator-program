@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -12,9 +12,13 @@ import {
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
-import { PayoutSummary } from '../components/vip/payouts'
+import { VipWallet, StayInCard } from '../components/vip/wallet'
+import { TeamPulse } from '../components/vip/teamTools'
+// The team's tools are only ever drawn for the team, so creators never download them.
+const VipTools = lazy(() => import('../components/vip/VipTools'))
 import { VipPreviewContext, daysLeft, money, monthLabel, nf, rate, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
 import { useT } from '../lib/i18n'
+import ReaderText from '../components/ReaderText'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
 //
@@ -63,7 +67,14 @@ export default function VipHub() {
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
   const [staffOv, setStaffOv] = useState(undefined)
   const staffMode = own === null && access === true
-  const [teamView, setTeamView] = useState(() => { try { return localStorage.getItem(STAFF_VIEW) === 'team' } catch { return false } })
+  // THREE VIEWS FOR THE TEAM (2 Oct 2026): a creator's page, the team overview, and the VIP tools (which used to be a
+  // page of their own at /admin/vip). The view is in the URL (`mode`) so a notification can open the right one; with no
+  // `mode` the last one used is remembered.
+  const [savedMode] = useState(() => { try { return localStorage.getItem(STAFF_VIEW) || 'creator' } catch { return 'creator' } })
+  const asMode = params.get('mode')
+  const mode = ['creator', 'team', 'tools'].includes(asMode) ? asMode : (['creator', 'team'].includes(savedMode) ? savedMode : 'creator')
+  const teamView = mode !== 'creator'
+  const toolsMode = mode === 'tools'
   const [people, setPeople] = useState(undefined)
   const [who, setWho] = useState(null)
   const [previewOv, setPreviewOv] = useState(undefined)
@@ -102,9 +113,10 @@ export default function VipHub() {
     try { setPreviewOv(await vipRpcAs(who, 'vip_my_overview')) } catch { setPreviewOv(sampleOverview(staffOv)) }
   }, [who, staffOv])
   useEffect(() => { if (previewing && people !== undefined) loadPreview() }, [previewing, people, loadPreview])
-  const pickView = (team) => {
-    setTeamView(team)
-    try { localStorage.setItem(STAFF_VIEW, team ? 'team' : 'creator') } catch { /* private mode */ }
+  const pickView = (m) => {
+    if (m !== 'tools') { try { localStorage.setItem(STAFF_VIEW, m) } catch { /* private mode */ } }
+    setParams(m === 'creator' ? {} : { mode: m }, { replace: true })
+    if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // While the staff question is still being asked, keep the skeleton rather than flashing "not a VIP".
@@ -117,8 +129,7 @@ export default function VipHub() {
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].filter((k) => !(isStaff && STAFF_HIDDEN.has(k)))
   const tab = allowed.includes(asked) ? asked : 'month'
-  const go = (v) => { setParams(v === 'month' ? {} : { tab: v }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const [statements, setStatements] = useState(null)
+  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (asMode && asMode !== 'tools') n.set('mode', asMode); if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
   const [slug, setSlug] = useState('')
@@ -133,8 +144,7 @@ export default function VipHub() {
     if (!programmeId) return
     const none = Promise.resolve({ data: null })
     const sample = !!overview?.sample
-    const [st, bd, rl, cm, pr, me] = await Promise.all([
-      isStaff || sample ? Promise.resolve([]) : vipRpcAs(previewWho, 'vip_my_statements').catch(() => []),
+    const [bd, rl, cm, pr, me] = await Promise.all([
       (isStaff || sample ? vipRpc('vip_staff_board', { p_programme: programmeId }) : vipRpcAs(previewWho, 'vip_board')).catch(() => []),
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
       supabase.from('communities').select('slug, country_codes').eq('id', communityId).maybeSingle(),
@@ -142,7 +152,6 @@ export default function VipHub() {
       isStaff || sample ? none : supabase.from('vip_members').select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
     ])
     setLook({ tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
-    setStatements(st || [])
     setBoard(bd || [])
     setRules(rl.data || [])
     setSlug(cm.data?.slug || '')
@@ -205,10 +214,11 @@ export default function VipHub() {
           : <ProgrammePill name={programme.name} codes={codes} />}
       />
 
-      {staffMode && people !== null && (
+      {staffMode && (
         <PreviewBar
-          team={teamView}
-          onTeam={pickView}
+          mode={people === null ? (toolsMode ? 'tools' : 'team') : mode}
+          canPreview={people !== null}
+          onMode={pickView}
           people={people}
           who={who}
           onWho={setWho}
@@ -216,6 +226,7 @@ export default function VipHub() {
         />
       )}
 
+      {toolsMode && staffMode ? <Suspense fallback={<Skeleton className="h-72 w-full rounded-card" />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense> : (<>
       {isStaff && (
         <p className="-mt-2 mb-4 flex items-center gap-2 text-xs text-smoke animate-fade-up">
           <Icon name="eye" className="h-4 w-4 text-brand" />
@@ -236,7 +247,7 @@ export default function VipHub() {
               <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {isStaff ? tr('{m} so far, every VIP', { m: monthLabel(month.year, month.month) }) : tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
-            {(look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || look.tagline}</p>}
+            {(look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || <ReaderText text={look.tagline} />}</p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
               <CountUp value={stats.base} format={(n) => money(n, cur)} />
             </p>
@@ -269,7 +280,9 @@ export default function VipHub() {
       <div key={tab} className="min-w-0 animate-tab-in">
         {tab === 'month' && (
           <div className="space-y-5">
+            {isStaff && <TeamPulse programme={programme} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />}
             <VipAnnouncements programmeId={programme.id} />
+            {!isStaff && <StayInCard />}
             <VipChallengeCard overview={overview} />
             <div className="grid gap-5 lg:grid-cols-2">
               {isStaff ? (
@@ -345,9 +358,7 @@ export default function VipHub() {
           </div>
         )}
 
-        {tab === 'payouts' && (
-          <PayoutSummary overview={overview} statements={statements} programme={programme} />
-        )}
+        {tab === 'payouts' && <VipWallet onChanged={refresh} />}
 
         {tab === 'board' && (
           <div className="space-y-4">
@@ -402,15 +413,17 @@ export default function VipHub() {
       </aside>
       </div>
 
+      </>)}
+
       {!staffMode && <VipTermsGate open={!member.terms_ok} programme={programme} onAccepted={refresh} />}
     </div>
     </VipPreviewContext.Provider>
   )
 }
 
-// THE TEAM'S BAR OVER THE PAGE: whose page this is, or the team overview instead. The picked view is the sliding
-// gradient (Segmented); the person is the house dropdown, never the OS one.
-function PreviewBar({ team, onTeam, people, who, onWho, market }) {
+// THE TEAM'S BAR OVER THE PAGE: whose page this is, the team overview, or the VIP tools. The picked view is the sliding
+// gradient (Segmented); the person is the house dropdown, never the OS one (and it floats over the page - ui/Select).
+function PreviewBar({ mode, canPreview, onMode, people, who, onWho, market }) {
   const tr = useT()
   const options = useMemo(() => [
     ...(people || []).map((p) => ({
@@ -420,33 +433,37 @@ function PreviewBar({ team, onTeam, people, who, onWho, market }) {
     { value: '__new', label: tr('A new VIP, day one') },
   ], [people, tr])
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-2 pl-3 shadow-card animate-fade-up">
-      <Segmented
-        size="sm"
-        id="vip-preview-mode"
-        label={tr('How to see this page')}
-        value={team ? 'team' : 'creator'}
-        onChange={(v) => onTeam(v === 'team')}
-        options={[
-          { value: 'creator', label: <><Icon name="eye" className="h-3.5 w-3.5" />{tr('As a creator')}</> },
-          { value: 'team', label: <><Icon name="users" className="h-3.5 w-3.5" />{tr('Team overview')}</> },
-        ]}
-      />
-      {!team && (
-        <>
-          <span className="text-xs text-smoke">{tr('Seeing the page of')}</span>
+    <div className="relative z-20 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-2 pl-2 shadow-card animate-fade-up sm:pl-3">
+      <div className="scrollbar-none -mx-0.5 max-w-full overflow-x-auto px-0.5">
+        <Segmented
+          size="sm"
+          id="vip-preview-mode"
+          label={tr('How to see this page')}
+          value={mode}
+          onChange={onMode}
+          options={[
+            ...(canPreview ? [{ value: 'creator', label: <><Icon name="eye" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Creator')}</span><span className="hidden sm:inline">{tr('As a creator')}</span></> }] : []),
+            { value: 'team', label: <><Icon name="users" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Team')}</span><span className="hidden sm:inline">{tr('Team overview')}</span></> },
+            { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Tools')}</span><span className="hidden sm:inline">{tr('VIP tools')}</span></> },
+          ]}
+        />
+      </div>
+      {mode === 'creator' && (
+        <div className="flex min-w-0 flex-1 items-center gap-2 animate-tab-in">
+          <span className="shrink-0 text-xs text-smoke">{tr('Seeing the page of')}</span>
           <Select
             value={who || '__new'}
             onChange={(v) => onWho(v === '__new' ? null : v)}
             options={options}
             variant="chip"
-            className="w-56"
+            className="w-56 max-w-full"
             ariaLabel={tr('Whose VIP page to see')}
           />
-          <span className="ml-auto hidden text-[11px] text-gray-400 sm:block">{tr('Read only. Exactly what they see in {m}.', { m: market })}</span>
-        </>
+          <span className="ml-auto hidden text-[11px] text-gray-400 md:block">{tr('Read only. Exactly what they see in {m}.', { m: market })}</span>
+        </div>
       )}
-      {team && <span className="text-xs text-smoke">{tr('Every VIP in {m} together, this month.', { m: market })}</span>}
+      {mode === 'team' && <span className="text-xs text-smoke animate-tab-in">{tr('Every VIP in {m} together, this month.', { m: market })}</span>}
+      {mode === 'tools' && <span className="text-xs text-smoke animate-tab-in">{tr('Members, money and settings for {m}.', { m: market })}</span>}
     </div>
   )
 }

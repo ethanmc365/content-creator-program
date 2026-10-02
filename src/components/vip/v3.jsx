@@ -10,6 +10,7 @@ import DealFinder from '../DealFinder'
 import HookButton from '../HookButton'
 import Reveal from '../network/Reveal'
 import TranslatedText, { TLine } from '../TranslatedText'
+import ReaderText from '../ReaderText'
 import { CountUp } from '../network/Motion'
 import { TargetBar } from './parts'
 import { noteExcerpt, renderNote } from '../../lib/noteMarkdown'
@@ -143,7 +144,7 @@ export function MarketStandings() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink">{r.name}{r.mine && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">{tr('Your market')}</span>}</p>
-                {r.tagline && <p className="text-xs text-smoke">{r.tagline}</p>}
+                {r.tagline && <p className="text-xs text-smoke"><ReaderText text={r.tagline} /></p>}
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-xl font-bold tabular-nums text-ink"><CountUp value={Number(r.views)} format={nf} /></p>

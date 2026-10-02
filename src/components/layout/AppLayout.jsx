@@ -719,17 +719,19 @@ export default function AppLayout() {
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
             {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).
-                On a phone it lives in the avatar menu, where there is room. */}
-            {vipAccess && (
-              <Link to="/admin/vip" className="hidden items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:flex sm:px-4">
+                ON A PHONE TOO, BESIDE ADMIN (2 Oct 2026). Ethan: the VIP tools should be "accessible on mobile for admins
+                via a button at the top beside 'Admin'". It opens the VIP page on its tools view. */}
+            {vipAccess && !impersonating && (
+              // On a phone both doors are round icon buttons, so the avatar never gets pushed off the bar.
+              <Link to="/vip?mode=tools" aria-label={tr('VIP tools')} title={tr('VIP tools')} className="flex h-8 w-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-brand text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-px hover:bg-brand hover:text-white min-[440px]:h-auto min-[440px]:w-auto min-[440px]:px-3 min-[440px]:py-1.5 sm:px-4">
                 <Icon name="star" className="h-4 w-4" />
-                <span>{tr("VIP")}</span>
+                <span className="hidden min-[440px]:inline">{tr("VIP")}</span>
               </Link>
             )}
             {isAdmin && (
-              <Link to="/admin" className="flex items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:px-4">
+              <Link to="/admin" aria-label={tr('Admin')} className={cx('flex shrink-0 items-center gap-1.5 rounded-full border border-brand text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:px-4', vipAccess && !impersonating ? 'h-8 w-8 justify-center min-[440px]:h-auto min-[440px]:w-auto min-[440px]:px-3 min-[440px]:py-1.5' : 'px-3 py-1.5')}>
                 <Icon name="shield" className="h-4 w-4" />
-                <span>{tr("Admin")}</span>
+                <span className={vipAccess && !impersonating ? 'hidden min-[440px]:inline' : undefined}>{tr("Admin")}</span>
               </Link>
             )}
             <span data-tour="bell"><NotificationBell /></span>
@@ -831,7 +833,7 @@ export default function AppLayout() {
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
-                  {vipAccess && <Link to="/admin/vip" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("VIP tools")}</Link>}
+                  {vipAccess && <Link to="/vip?mode=tools" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("VIP tools")}</Link>}
                   <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">{tr("Log out")}</button>
                 </div>
               )}

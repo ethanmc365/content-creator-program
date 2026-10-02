@@ -11,7 +11,7 @@ import { makeThumbBlob } from '../lib/avatarUrl'
 import { parseDob, formatDobInput, ageFromDob, cx, MIN_AGE } from '../lib/utils'
 import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
-import { Avatar, Spinner, Select } from './ui'
+import { Avatar, Floating, Spinner, Select } from './ui'
 import Icon from './Icon'
 import AutoTextarea from './AutoTextarea'
 import PhotoCropper from './PhotoCropper'
@@ -650,10 +650,12 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef(null)
+  const btnRef = useRef(null)
+  const listRef = useRef(null)
 
   useEffect(() => {
     if (!open) return undefined
-    const onDoc = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    const onDoc = (e) => { if (rootRef.current && !rootRef.current.contains(e.target) && !listRef.current?.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
@@ -670,6 +672,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
     <div ref={rootRef} className="relative">
       <span className="label">{label || tr('Country')}{required && <span className="text-brand"> *</span>}</span>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => { setOpen((o) => !o); setQuery('') }}
         aria-haspopup="listbox"
@@ -683,8 +686,9 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
         <Icon name="chevronRight" className="h-4 w-4 shrink-0 rotate-90 text-gray-400" />
       </button>
 
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-card border border-gray-200 bg-white shadow-lift">
+      {/* Over the page, never under the next card (see ui/Floating). */}
+      <Floating anchor={btnRef} open={open} align="stretch" offset={4} innerRef={listRef} estimate={320}>
+        <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-lift animate-pop-in">
           <div className="border-b border-gray-100 p-2">
             <input
               autoFocus
@@ -717,7 +721,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
             ))}
           </ul>
         </div>
-      )}
+      </Floating>
       {hint && <p className="mt-1 text-xs text-smoke">{hint}</p>}
     </div>
   )

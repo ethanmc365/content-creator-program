@@ -43,7 +43,7 @@ export function AttentionCard({ programme }) {
         ))}
       </ul>
       <p className="mt-3 border-t border-amber-100 pt-3 text-xs leading-relaxed text-amber-900/80">
-        {tr('Views are always counted at the agreed rate ({r} per 1,000), nudge or no nudge. A nudge is only about what they still have to do: add payment details so the invoice can be paid, or accept the', { r })} <Link to="/admin/vip?tab=settings" className="font-semibold underline">{tr('VIP terms')}</Link>.
+        {tr('Views are always counted at the agreed rate ({r} per 1,000), nudge or no nudge. A nudge is only about what they still have to do: add payment details so the invoice can be paid, or accept the', { r })} <Link to="/vip?mode=tools&tab=settings" className="font-semibold underline">{tr('VIP terms')}</Link>.
       </p>
     </section>
   )

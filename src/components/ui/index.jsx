@@ -1,6 +1,6 @@
 // Small, reusable UI building blocks. Keeping them in one file makes the
 // design system easy to scan - every visual primitive lives here.
-import { Children, useEffect, useRef, useState } from 'react'
+import { Children, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cx } from '../../lib/utils'
@@ -651,6 +651,48 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
 
 
 /**
+ * A layer that floats over the page under an anchor, drawn into <body>.
+ *
+ * THE ONE ANSWER TO "THE DROPDOWN IS BEHIND THE CARD" (2 Oct 2026). Any popup positioned `absolute` inside a card lives
+ * in that card's stacking context; every card on this platform animates in and keeps a transform, so the next card down
+ * paints over the popup, and an `overflow-hidden` card slices it. Ethan has reported it on four different pages. Use
+ * this (or `Select`, which uses the same idea) for anything that opens below a control. `innerRef` is the floating
+ * element, for an outside-click check: `anchor.contains(t) || inner.contains(t)`.
+ *
+ * align: 'left' | 'right' | 'stretch' (as wide as the anchor). It flips upwards only when there is no room below.
+ */
+export function Floating({ anchor, open, align = 'left', offset = 6, innerRef, className = '', children, estimate = 260 }) {
+  const [box, setBox] = useState(null)
+  const own = useRef(null)
+  const [shift, setShift] = useState(0)
+  useLayoutEffect(() => {
+    if (!open) return undefined
+    const measure = () => { const r = anchor.current?.getBoundingClientRect(); if (r) setBox({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width }) }
+    measure()
+    window.addEventListener('scroll', measure, true)
+    window.addEventListener('resize', measure)
+    return () => { window.removeEventListener('scroll', measure, true); window.removeEventListener('resize', measure) }
+  }, [open, anchor])
+  useLayoutEffect(() => {
+    const el = own.current
+    if (!open || !el || !box) return
+    const r = el.getBoundingClientRect()
+    if (r.right > window.innerWidth - 8) setShift((x) => x - (r.right - (window.innerWidth - 8)))
+    else if (r.left < 8) setShift((x) => x + (8 - r.left))
+  }, [open, box])
+  if (!open || !box) return null
+  const up = box.bottom + estimate > window.innerHeight && box.top > estimate
+  const style = {
+    position: 'fixed', zIndex: 1000, maxWidth: 'calc(100vw - 16px)',
+    ...(up ? { bottom: window.innerHeight - box.top + offset } : { top: box.bottom + offset }),
+    ...(align === 'right' ? { right: window.innerWidth - box.right - shift } : { left: box.left + shift }),
+    ...(align === 'stretch' ? { width: box.width } : null),
+  }
+  const setRef = (el) => { own.current = el; if (innerRef) innerRef.current = el }
+  return createPortal(<div ref={setRef} style={style} className={className}>{children}</div>, document.body)
+}
+
+/**
  * A select that is ours.
  *
  * The native `<select>` opens the operating system's own menu, which on a Mac is
@@ -699,14 +741,23 @@ export function Select({
   // go over the other cards." An in-flow menu cannot be clipped but pushes the form; this renders the
   // menu into <body> at the button's position (fixed), so it floats over everything and no scroll box
   // can slice it. Re-measured on scroll and resize.
-  portal = false,
+  portal: portalProp = false,
   // `search` overrides the "more than eight options" rule: a fixed list of presets (the analytics periods) reads
   // better without a box asking you to type.
   search = null,
 }) {
   const tr = useT()
+  // EVERY FLOATING MENU IS DRAWN OVER THE PAGE, NOT INSIDE ITS CARD (2 Oct 2026). Ethan, on the VIP page's "A new VIP,
+  // day one" picker: "that drop down is hidden behind a card, this has been a recurring issue so ensure it doesn't
+  // happen again." An absolutely-positioned menu lives in its card's stacking context, and every card here animates in
+  // (`animate-fade-up` leaves a transform), so the NEXT card on the page painted over it - the same bug, once per page,
+  // each fixed by hand with `portal`. Now a menu that floats always goes to <body> at the button's position, so no card,
+  // no `overflow-hidden` and no transform can cover or clip it. `inFlow` (a menu that is part of a dialog's column) is
+  // the only one that stays where it is.
+  const portal = portalProp || !inFlow
   const [open, setOpen] = useState(false)
   const menuRef = useRef(null)
+  const [shiftX, setShiftX] = useState(0)
   const [rect, setRect] = useState(null)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
@@ -738,6 +789,15 @@ export function Select({
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
+  // A menu wider than its button (it is `min-w-max`) near the right edge would run off the screen: nudge it back in.
+  useLayoutEffect(() => {
+    if (!open || !portal) { setShiftX(0); return }
+    const el = menuRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const over = r.right - (window.innerWidth - 8)
+    if (over > 0) setShiftX((x) => Math.max(-(r.left + x - 8), x - over))
+  }, [open, portal, rect])
   useEffect(() => {
     if (!open || !portal) return undefined
     const measure = () => { const b = btnRef.current?.getBoundingClientRect(); if (b) setRect({ top: b.top, bottom: b.bottom, left: b.left, width: b.width }) }
@@ -801,17 +861,17 @@ export function Select({
         <div
           ref={menuRef}
           style={portal && rect ? {
-            position: 'fixed', left: rect.left, width: rect.width, zIndex: 1000,
+            position: 'fixed', left: rect.left + shiftX, minWidth: rect.width, maxWidth: 'calc(100vw - 16px)', zIndex: 1000,
             ...(up ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
           } : undefined}
           className={cx(
-            'z-40 flex w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white',
-            portal ? 'shadow-lift animate-pop-in' : inFlow
+            'z-40 flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white',
+            portal ? 'w-max shadow-lift animate-pop-in' : inFlow
               // In the flow: no shadow and no `min-w-max`. It is a panel that
               // belongs to the field above it rather than a thing hovering
               // over the page, and a menu wider than its own column is exactly
               // what gets clipped inside a dialog.
-              ? 'mt-2'
+              ? 'mt-2 w-full'
               : cx('absolute min-w-max shadow-lift', up ? 'bottom-full mb-2' : 'top-full mt-2'),
           )}
         >

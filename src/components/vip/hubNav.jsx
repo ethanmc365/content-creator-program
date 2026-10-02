@@ -20,7 +20,7 @@ export const VIP_SECTIONS = [
   { key: 'month', icon: 'sparkles', label: 'This month', hint: 'Your pay so far' },
   { key: 'videos', icon: 'video', label: 'My videos', hint: 'Add and track' },
   { key: 'stats', icon: 'chart', label: 'Stats', hint: 'Views over time' },
-  { key: 'payouts', icon: 'wallet', label: 'Payouts', hint: 'Statements and invoices' },
+  { key: 'payouts', icon: 'wallet', label: 'Payouts', hint: 'Balance, cash or voucher' },
   { key: 'board', icon: 'trophy', label: 'Leaderboard', hint: 'This month' },
   { key: 'perks', icon: 'plane', label: 'Perks and trips', hint: 'Unlock as you grow' },
   { key: 'earn', icon: 'trendUp', label: 'Earn more', hint: 'Bonuses running now' },
@@ -103,7 +103,7 @@ export function VipQuickLinks({ slug, className, staff = false }) {
     { to: '/global/chat/vip_global', icon: 'globe', label: tr('VIP lounge'), hint: tr('Every market') },
     !staff && { to: '/vip/recap', icon: 'sparkles', label: tr('My recap'), hint: tr('Your month as a story') },
     !staff && { to: '/portfolio', icon: 'briefcase', label: tr('My portfolio'), hint: tr('Share your numbers') },
-    staff && { to: '/admin/vip', icon: 'shield', label: tr('VIP tools'), hint: tr('Members, payouts, settings') },
+    staff && { to: '/vip?mode=tools', icon: 'shield', label: tr('VIP tools'), hint: tr('Members, payouts, settings') },
   ].filter(Boolean)
   return (
     <section className={cx('rounded-card border border-gray-100 bg-white p-3 shadow-card', className)}>

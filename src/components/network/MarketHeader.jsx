@@ -10,6 +10,7 @@ import { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
 import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
+import ReaderText from '../ReaderText'
 
 // The identity strip every page inside a market wears.
 //
@@ -93,7 +94,8 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
           </h1>
           <p className="mt-2 hidden max-w-2xl text-smoke sm:block">
             {market.tagline
-              || (market.is_active
+              ? <ReaderText text={market.tagline} />
+              : (market.is_active
                 ? `Challenges, briefs and rooms for ${market.name}. Your connections and messages stay worldwide.`
                 : 'This market is not open yet. It stays invisible to creators until the team turns it on.')}
           </p>

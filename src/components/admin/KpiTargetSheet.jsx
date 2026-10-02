@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Modal } from '../ui'
+import { Floating, Modal } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import {
@@ -359,9 +359,10 @@ function ScopePicker({ scopes, value, label, onChange }) {
   const tr = useT()
   const [open, setOpen] = useState(false)
   const box = useRef(null)
+  const list = useRef(null)
   useEffect(() => {
     if (!open) return undefined
-    const off = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    const off = (e) => { if (box.current && !box.current.contains(e.target) && !list.current?.contains(e.target)) setOpen(false) }
     // Escape closes the list, not the whole sheet: caught on the way down and stopped there.
     const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
     document.addEventListener('pointerdown', off)
@@ -386,8 +387,8 @@ function ScopePicker({ scopes, value, label, onChange }) {
         <span className="truncate text-[13px] font-bold text-ink">{label}</span>
         {many && <Icon name="chevronDown" className={cx('h-3.5 w-3.5 shrink-0 text-smoke transition-transform duration-200', open && 'rotate-180')} />}
       </button>
-      {open && (
-        <ul role="listbox" aria-label={tr('Market')} className="absolute left-0 top-full z-30 mt-1.5 max-h-72 w-56 overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-lift animate-pop-in">
+      <Floating anchor={box} open={open} innerRef={list}>
+        <ul role="listbox" aria-label={tr('Market')} className="max-h-72 w-56 overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-lift animate-pop-in">
           {scopes.map((x) => (
             <li key={x.key}>
               <button
@@ -407,7 +408,7 @@ function ScopePicker({ scopes, value, label, onChange }) {
             </li>
           ))}
         </ul>
-      )}
+      </Floating>
     </div>
   )
 }

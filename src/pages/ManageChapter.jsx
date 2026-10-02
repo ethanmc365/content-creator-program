@@ -71,7 +71,7 @@ function VipSection({ chapter }) {
   if (!on) return null
   return (
     <Section icon="star" title={tr('VIP creators')} hint={tr('Paid by views, with their own rooms. Members, bonuses, month-end payouts and numbers.')}
-      action={<Link to="/admin/vip" className="btn-primary !py-2 !px-5 !text-sm">{tr('Open the VIP tools')}</Link>}>
+      action={<Link to="/vip?mode=tools" className="btn-primary !py-2 !px-5 !text-sm">{tr('Open the VIP tools')}</Link>}>
       <p className="text-sm text-smoke">{tr('Add a VIP, send a sign-up link, set a bonus, approve the month.')}</p>
     </Section>
   )

@@ -73,7 +73,7 @@ export default function OpenMarketDialog({ open, onClose }) {
       })
       toastSuccess(tr('{m} is open. Add VIPs from its Members tab.', { m: f.name.trim() || `VIP ${picked.name}` }))
       close()
-      navigate('/admin/vip?tab=members')
+      navigate('/vip?mode=tools&tab=members')
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
 
