@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
@@ -6,7 +6,17 @@ import {
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
-import { allRows } from '../../lib/fetchAll'
+import { allRows as allRowsSeq } from '../../lib/fetchAll'
+
+// Every big table here is read four pages at a time (see lib/fetchAll).
+const allRows = (build, opts) => allRowsSeq(build, { parallel: 4, ...opts })
+
+// THE LAST READ IS KEPT FOR THE SESSION (3 Oct 2026). Ethan: "whenever I click on analytics in the admin panel, it
+// takes a while for it to show up." Every visit re-downloaded a dozen whole tables before drawing a number. Now a
+// visit within ten minutes of the last draws that read at once and refreshes it underneath; a fresh session still
+// waits for the first one.
+let RAW_CACHE = null
+const RAW_TTL_MS = 10 * 60 * 1000
 import { Floating, PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { DateField } from '../../components/DateTimeFields'
@@ -132,7 +142,8 @@ function Funnel({ stages }) {
 export default function AdminAnalytics() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const [raw, setRaw] = useState(null)
+  const [marketPending, startMarket] = useTransition()
+  const [raw, setRaw] = useState(() => RAW_CACHE)
   // Clicking any per-challenge bar opens that challenge's deep-dive page.
   const openChallenge = (data) => {
     const id = data?.activePayload?.[0]?.payload?.id
@@ -140,6 +151,7 @@ export default function AdminAnalytics() {
   }
 
   useEffect(() => {
+    if (RAW_CACHE && Date.now() - RAW_CACHE.loadedAt < RAW_TTL_MS / 3) return
     async function load() {
       // THE BIG ONES ARE PAGED. PostgREST answers with at most a thousand rows
       // and says so only in a header, so a page that COUNTS over a whole table
@@ -213,7 +225,7 @@ export default function AdminAnalytics() {
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
       // stay pure under the react-hooks purity rules.
-      setRaw({
+      const next = {
         profiles: profiles || [], challenges: challenges || [], history: history || [],
         submissions: submissions || [], rewards: rewards || [],
         messages: messages || [], results: results || [], feedback: feedback || [],
@@ -227,7 +239,9 @@ export default function AdminAnalytics() {
         marketRows: marketRows || [],
         liveStandings: Object.fromEntries(standings),
         loadedAt: Date.now(),
-      })
+      }
+      RAW_CACHE = next
+      setRaw(next)
     }
     load()
   }, [])
@@ -649,10 +663,13 @@ export default function AdminAnalytics() {
     if (next === 'custom') { q.from = from; q.to = to } else { delete q.from; delete q.to }
     setParams(q, { replace: true })
   }
+  // A MARKET SWITCH IS A TRANSITION (3 Oct 2026): every figure on the page is rebuilt for the new market, and doing
+  // that inside the click froze the chips for a moment - "it takes a while for Germany, Nordic, Portugal ... to load
+  // in". The chip now lights at once and the page dims while the numbers catch up.
   const setMarket = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next) q.market = next; else delete q.market
-    setParams(q, { replace: true })
+    startMarket(() => setParams(q, { replace: true }))
   }
 
   // ---------------------------------------------------------------------
@@ -811,7 +828,7 @@ export default function AdminAnalytics() {
       {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
           the body starts at the same height on every tab and nothing jumps. */}
       <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl)}</div>
-      <div key={tab} className="animate-tab-in">{body}</div>
+      <div key={tab} className={cx('animate-tab-in transition-opacity duration-200', marketPending && 'opacity-50')}>{body}</div>
     </div>
   )
 

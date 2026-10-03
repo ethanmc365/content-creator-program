@@ -167,7 +167,7 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
         if (r.reward_type === 'cash' && inv && inv.stage !== 'paid') {
           if (inv.stage === 'sent' && inv.sent_at) {
             const due = new Date(new Date(inv.sent_at).getTime() + 7 * 86400000)
-            return <Badge tone="amber">sent · paid {formatDate(due)}</Badge>
+            return <Badge tone="light">invoice sent · paid by {formatDate(due)}</Badge>
           }
           return <Badge tone="amber">{STAGE_WORD[inv.stage] || inv.stage}</Badge>
         }
@@ -888,7 +888,7 @@ export default function AdminRewards() {
         <MarketScope markets={markets} value={market} onChange={setMarket} />
         <StillToPay
           title="Still to pay"
-          hint="Unpaid prizes, and invoices sent but not yet marked paid (they are marked paid by themselves 7 days after sending)"
+          hint="Unpaid prizes, and invoices already sent to finance that are waiting for the transfer (nothing more to send for those: they are marked paid by themselves 7 days after sending)"
           rows={cashOutstanding}
           loading={loading}
           openInvoices={invoiceStages.filter((i) => ['approved', 'sent'].includes(i.stage) && ![...invoiceOf.values()].some((x) => x.id === i.id)).length}

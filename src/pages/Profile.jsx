@@ -524,7 +524,7 @@ export default function Profile() {
                       <Icon name="home" className="h-3.5 w-3.5 shrink-0 text-brand" />
                       {tr('Home town')}
                     </p>
-                    <p className="mt-1 truncate font-semibold text-ink" title={homeLine}>{homeLine}</p>
+                    <HomeTownValue text={homeLine} />
                   </div>
                 )}
                 {shownAge && (
@@ -1080,6 +1080,7 @@ export default function Profile() {
         {quote}
         {clock}
         {glance}
+        {portfolio}
         {worldMap}
         {headedNextSection}
         {photos}
@@ -1325,5 +1326,37 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
         <PhotoBoard creatorId={creatorId} editable={false} onCount={setDrawable} />
       )}
     </section>
+  )
+}
+
+// A HOME TOWN TOO LONG FOR ITS CELL OPENS IN PLACE (3 Oct 2026). Ethan: "if someone's hometown is longer, it doesn't
+// show the full thing ... you cannot just see it all." It still sits on one line, cut with an ellipsis, so the card
+// keeps its shape; when it IS cut, it is a button, and a press lets the whole name wrap onto as many lines as it needs.
+function HomeTownValue({ text }) {
+  const tr = useT()
+  const ref = useRef(null)
+  const [cut, setCut] = useState(false)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const check = () => setCut(el.scrollWidth > el.clientWidth + 1)
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [text])
+  if (!cut && !open) return <p ref={ref} className="mt-1 truncate font-semibold text-ink" title={text}>{text}</p>
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      aria-expanded={open}
+      aria-label={open ? tr('Show less') : tr('Show the full home town')}
+      className="mt-1 flex w-full min-w-0 items-start gap-1 text-left font-semibold text-ink transition-colors hoverable:hover:text-brand"
+    >
+      <span ref={ref} className={open ? 'min-w-0 break-words' : 'min-w-0 truncate'}>{text}</span>
+      <Icon name="chevronDown" className={cx('mt-1 h-3.5 w-3.5 shrink-0 text-brand transition-transform duration-200', open && 'rotate-180')} />
+    </button>
   )
 }

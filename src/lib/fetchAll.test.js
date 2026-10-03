@@ -108,3 +108,14 @@ describe('fetchAll', () => {
     expect(await allRows(fakeTable(many(5)), { orderBy: 'id' })).toHaveLength(5)
   })
 })
+
+describe('fetchAll in parallel', () => {
+  it('reads every row once when pages are fetched several at a time', async () => {
+    const build = fakeTable(many(5432), { cap: 1000 })
+    const { data, truncated } = await fetchAll(build, { orderBy: 'id', parallel: 4 })
+    expect(truncated).toBe(false)
+    expect(data).toHaveLength(5432)
+    expect(new Set(data.map((r) => r.id)).size).toBe(5432)
+    expect(data.map((r) => r.id)).toEqual([...Array(5432).keys()])
+  })
+})

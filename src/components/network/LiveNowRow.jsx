@@ -52,7 +52,13 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
 
   const info = (
     <>
-      {!isGlobal && market?.country_codes?.length > 0 && (
+      {/* EVERY CARD LEADS WITH ITS PLACE (3 Oct 2026). Ethan: the Global Challenge card "looks a little bit different,
+          but maybe you should also add the worldwide icon there, just because the other ones have the flags". */}
+      {isGlobal ? (
+        <span aria-hidden className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20">
+          <Icon name="globe" className="h-[18px] w-[18px] text-white" />
+        </span>
+      ) : market?.country_codes?.length > 0 && (
         <span aria-hidden className="relative shrink-0 text-lg leading-none">
           <FlagStack codes={market.country_codes} className="text-lg" />
         </span>
@@ -67,7 +73,10 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
         {/* `line-clamp-2` rather than `truncate`: the rail is 20rem wide and a
             brief title cut at one line there says less than nothing. On a phone
             a title long enough to wrap is rare and two lines is fine. */}
-        <span className="mt-1 block line-clamp-2 text-[15px] font-semibold leading-snug">{challenge.title}</span>
+        {/* ONE LINE, SO EVERY CARD IS THE SAME SIZE (3 Oct 2026). Ethan: "They're all different sizes. I want them all to
+            be the same size ... If the title's longer, you can just do the '...'" - and the card opens the challenge,
+            where the whole title is. The browser tooltip carries it on a desktop as well. */}
+        <span title={challenge.title} className="mt-1 block truncate text-[15px] font-semibold leading-snug">{challenge.title}</span>
         <span className="mt-0.5 block text-xs text-white/75">
           {days === 0 ? tr('Closes today') : days === 1 ? tr('Closes tomorrow') : tr('{n} days left', { n: days })}
           {!expanded && ` · ${tr('Submit your video')}`}
@@ -126,7 +135,7 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
     <Link
       to={`/challenges/${challenge.id}`}
       className={cx(
-        'relative flex items-center gap-3 overflow-hidden rounded-card px-4 py-3.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]',
+        'relative flex h-[5.5rem] items-center gap-3 overflow-hidden rounded-card px-4 py-3.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]',
         gradient,
       )}
     >

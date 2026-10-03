@@ -583,7 +583,7 @@ function settled() {
 function blankPortfolio(profileId, name) {
   return {
     profile_id: profileId,
-    is_public: false, slug: null, show_on_profile: false,
+    is_public: false, slug: null, show_on_profile: true,
     headline: '', intro: '', about: '',
     tools: [], extra_platforms: [], picks: [], copy: {},
     published_at: null,

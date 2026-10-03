@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
+import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import { cx, formatDate, formatMoney } from '../lib/utils'
@@ -43,7 +43,7 @@ export default function Rewards() {
   useEffect(() => {
     supabase
       .from('rewards')
-      .select('*, challenges(title), milestones(title), profiles:creator_id(name)')
+      .select('*, challenges(title), milestones(title), profiles:creator_id(name), invoices(stage, sent_at, paid_at)')
       .eq('creator_id', whose)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
@@ -96,6 +96,12 @@ export default function Rewards() {
   const earned = rewardsTotal(rewards.filter((r) => r.status === 'distributed'))
   const pending = rewardsTotal(rewards.filter((r) => r.status === 'pending'))
   const showTotal = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
+  const sources = [
+    { key: 'challenge', label: tr('Challenges'), icon: 'trophy', n: rewards.filter((r) => r.challenge_id).length },
+    { key: 'milestone', label: tr('Milestones'), icon: 'flag', n: rewards.filter((r) => r.milestone_id).length },
+    { key: 'referral', label: tr('Referrals'), icon: 'users', n: rewards.filter((r) => r.source === 'referral').length },
+    { key: 'vip', label: tr('VIP'), icon: 'star', n: rewards.filter((r) => r.source === 'vip').length },
+  ].filter((x) => x.n > 0)
 
   return (
     <div className="page max-w-4xl">
@@ -109,9 +115,33 @@ export default function Rewards() {
         <>
           {/* The two figures arrive as a pair, then the ledger under them.
               This page drew itself on one frame; see the note in Reveal. */}
-          <Reveal className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2" row stagger={0.07}>
-            <StatCard label={tr("Total received")} value={showTotal(earned)} accent />
-            <StatCard label={tr("Pending")} value={showTotal(pending)} hint={pending.amount > 0 ? tr('On its way. The team is processing it.') : tr('Nothing pending right now.')} />
+          {/* ONE CARD FOR THE TWO FIGURES (3 Oct 2026). Ethan: the rewards page "needs to be improved for the
+              creators". What you have received and what is on its way, on the brand card, with where it came from
+              underneath - challenges, milestones, referrals - so the page answers "for what" as well as "how much". */}
+          <Reveal className="mb-10">
+            <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-7">
+              <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+              <div className="relative grid gap-5 sm:grid-cols-2">
+                <div>
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="money" className="h-4 w-4" />{tr('Total received')}</p>
+                  <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">{showTotal(earned)}</p>
+                </div>
+                <div className="sm:border-l sm:border-white/25 sm:pl-6">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="clock" className="h-4 w-4" />{tr('On its way')}</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">{showTotal(pending)}</p>
+                  <p className="mt-1 text-xs text-white/85">{pending.amount > 0 ? tr('The team is processing it. Nothing for you to do.') : tr('Nothing pending right now.')}</p>
+                </div>
+              </div>
+              {sources.length > 0 && (
+                <div className="relative mt-5 flex flex-wrap gap-2">
+                  {sources.map((x) => (
+                    <span key={x.key} className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                      <Icon name={x.icon} className="h-3.5 w-3.5" />{x.label}<span className="tabular-nums text-white/85">{x.n}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
           </Reveal>
 
           {tickets.length > 0 && (
@@ -200,13 +230,17 @@ export default function Rewards() {
                     <p className="text-xs text-smoke">
                       {r.status === 'distributed'
                         ? tr('Distributed {date}', { date: formatDate(r.distributed_at) })
-                        : tr('Added {date}', { date: formatDate(r.created_at) })}
+                        : sentInvoice(r)
+                          // YOUR INVOICE HAS ALREADY GONE (3 Oct 2026). A creator asked whether they should send it to
+                          // finance themselves. The team sends every invoice; this says it has been sent and when.
+                          ? tr('Your invoice was sent to Tryp.com finance on {date}. Nothing for you to do, it is paid within 7 days.', { date: formatDate(sentInvoice(r).sent_at) })
+                          : tr('Added {date}', { date: formatDate(r.created_at) })}
                     </p>
                   </div>
                   <span className="text-base font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
                   {/* The row's own status, in words rather than the database's. */}
-                  <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>
-                    {r.status === 'distributed' ? tr('Paid out') : tr('Pending')}
+                  <Badge tone={r.status === 'distributed' ? 'green' : sentInvoice(r) ? 'light' : 'amber'}>
+                    {r.status === 'distributed' ? tr('Paid out') : sentInvoice(r) ? tr('Invoice sent') : tr('Pending')}
                   </Badge>
                 </div>
               ))}
@@ -224,4 +258,10 @@ export default function Rewards() {
 
     </div>
   )
+}
+
+// The invoice behind a cash reward once the team has sent it (creators can read their own only from 'sent' on).
+function sentInvoice(r) {
+  const list = Array.isArray(r.invoices) ? r.invoices : r.invoices ? [r.invoices] : []
+  return list.find((i) => i.stage === 'sent' && i.sent_at) || null
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { Modal } from '../ui'
@@ -28,6 +29,9 @@ import { compactViews } from '../../lib/portfolio'
 // rather click. Both drive the same scroller, so they cannot disagree.
 export default function ProfilePortfolio({ profileId }) {
   const tr = useT()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const mine = user?.id === profileId
   const [data, setData] = useState(null)
   const [holder, width] = useFluidWidth(260)
   // THE SCROLLER IS HELD IN A REF AND ITS ARRIVAL IN STATE. The effect below
@@ -62,7 +66,13 @@ export default function ProfilePortfolio({ profileId }) {
       // a creator who publishes to the web has not thereby asked for it on
       // their community profile. Two switches, two decisions - see migration
       // 223. Without this check the second one would be doing nothing.
-      if (!port?.show_on_profile) { setData(false); return }
+      //
+      // ON BY DEFAULT (3 Oct 2026). Ethan: "the portfolios are no longer showing on the profile pages ... they can
+      // still turn this off in settings, right? ... it should all be on automatically already." Somebody who never
+      // opened the portfolio page has no row at all, so a missing row now means "on, with the defaults" (migration
+      // 317 makes `show_on_profile` default true and turns it on for the rows that had never been switched).
+      // Only a row that says false keeps it off.
+      if (port && !port.show_on_profile) { setData(false); return }
       const [{ data: subs }, { data: certs }, { data: creator }] = await Promise.all([
         supabase.from('submissions')
           .select('id, platform, video_url, thumbnail_url, logged_views, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
@@ -77,8 +87,10 @@ export default function ProfilePortfolio({ profileId }) {
           .eq('id', profileId).maybeSingle(),
       ])
       if (!alive) return
+      // Nothing to show yet: no row of their own, no video and no certificate.
+      if (!port && !(subs || []).length && !(certs || []).length) { setData(false); return }
       setData({
-        portfolio: port,
+        portfolio: port || { profile_id: profileId, is_public: false, show_on_profile: true, tools: [], extra_platforms: [], picks: [], copy: {} },
         creator: creator ? { ...creator, links: {
           instagram: creator.instagram_url, tiktok: creator.tiktok_url,
           youtube: creator.youtube_url, facebook: creator.facebook_url, linkedin: creator.linkedin_url,
@@ -155,13 +167,14 @@ export default function ProfilePortfolio({ profileId }) {
             somebody tries to turn a page. This sits over the deck, is
             pointer-events:none except for itself, and leaves the scroll
             gesture alone. */}
+        {/* YOUR OWN OPENS THE EDITOR, ANYBODY ELSE'S OPENS FULL SIZE (3 Oct 2026, Ethan). */}
         <button
           type="button"
-          onClick={() => setBig(page)}
-          aria-label={tr('Open this portfolio full size')}
+          onClick={() => (mine ? navigate('/portfolio') : setBig(page))}
+          aria-label={mine ? tr('Edit your portfolio') : tr('Open this portfolio full size')}
           className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-semibold text-ink shadow-sm backdrop-blur transition-all hoverable:hover:-translate-y-px hoverable:hover:text-brand"
         >
-          <Icon name="expand" className="h-3.5 w-3.5" /> {tr('Full size')}
+          <Icon name={mine ? 'pencil' : 'expand'} className="h-3.5 w-3.5" /> {mine ? tr('Edit') : tr('Full size')}
         </button>
       </div>
 

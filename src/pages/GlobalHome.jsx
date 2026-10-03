@@ -232,7 +232,7 @@ export default function GlobalHome() {
           .eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true })
-          .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()),
+          .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
         supabase.from('challenges').select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
         // worldwide one. Somebody in the UK and Spain had no way to see either
@@ -987,6 +987,7 @@ export default function GlobalHome() {
                     label={me?.myVideos === 1 ? tr('video posted') : tr('videos posted')} />
                   )}
                 </div>
+                {profile?.is_vip && <VipHomeCard inCard />}
               </div>
             </div>
             </div>
@@ -994,13 +995,6 @@ export default function GlobalHome() {
           </section>
           </Reveal>
           )}
-
-          {/* ---------- A VIP's own month ----------
-              UNDER THE COMMUNITY CARD, NOT ABOVE IT (2 Oct 2026). Ethan: "it shows the October 2026 so far and how
-              much they have earned, but this card should actually show below the main Tryp.com Content Creator
-              Community card." It also waits for the page now, so it arrives with the sections around it rather than
-              a round trip before them. Draws nothing for anybody who is not a VIP. */}
-          {d && profile?.is_vip && <VipHomeCard delay={stepDelay()} />}
 
           {/* ---------- Global challenge ---------- */}
           {/* Above the markets on purpose. A global challenge is the one thing

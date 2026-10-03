@@ -79,7 +79,7 @@ function Row({ inv, people, busy, onDecide, onView, selectable, selected, onTogg
         <p className="text-sm font-bold tabular-nums">{formatMoney(inv.amount, inv.currency)}</p>
         <p className="text-[11px] text-smoke">
           {inv.paid_at ? `Paid ${formatDate(inv.paid_at)}`
-            : inv.sent_at ? `Sent ${formatDate(inv.sent_at)}`
+            : inv.sent_at ? `Sent to finance ${formatDate(inv.sent_at)}`
             : inv.submitted_at ? `Raised ${formatDate(inv.submitted_at)}`
             : formatDate(inv.created_at)}
         </p>
@@ -107,7 +107,7 @@ function Row({ inv, people, busy, onDecide, onView, selectable, selected, onTogg
   )
 }
 
-function Group({ title, rows, selection, ...rest }) {
+function Group({ title, hint, rows, selection, ...rest }) {
   if (!rows.length) return null
   const eligible = selection ? rows.filter((i) => payable(i)) : []
   const allSelected = selection && eligible.length > 0 && eligible.every((i) => selection.selected.has(i.id))
@@ -125,6 +125,7 @@ function Group({ title, rows, selection, ...rest }) {
           </button>
         )}
       </h3>
+      {hint && <p className="mt-1 text-xs text-smoke">{hint}</p>}
       <div className="mt-2.5 space-y-2">
         {rows.map((inv) => (
           <Row
@@ -299,7 +300,14 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
           <Group title="Approved, ready to send" rows={groups.approved} {...shared} />
           <Group title="Ready to submit" rows={groups.ready} {...shared} />
           <Group title="Waiting on bank details" rows={groups.blocked} {...shared} />
-          <Group title="Sent, not yet paid" rows={groups.out} {...shared} />
+          {/* ALREADY SENT, SAID SO PLAINLY (3 Oct 2026). Ethan: a creator asked whether they should send their
+              invoice to Francesco - it had already gone. "Sent, not yet paid" read like a to-do. */}
+          <Group
+            title="Sent to finance, waiting for the transfer"
+            hint="Nothing left to send for these. Finance has the invoice; each one is marked paid by itself 7 days after it was sent."
+            rows={groups.out}
+            {...shared}
+          />
           <Group title="Paid" rows={groups.paid.slice(0, 12)} {...shared} />
         </>
       )}

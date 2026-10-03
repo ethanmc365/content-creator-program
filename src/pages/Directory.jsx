@@ -194,6 +194,8 @@ export default function Directory() {
     [creators, fieldFilterOn, search, country, language, platform],
   )
 
+  const creatorCount = mapCreators.filter((c) => !c.is_admin).length
+
   const filtered = creators.filter((c) => {
     // YOU ARE NOT IN YOUR OWN DIRECTORY.
     //
@@ -282,14 +284,18 @@ export default function Directory() {
                     handed " creators from around the world" has no sentence to
                     put it in, and Spanish would not agree the verb the same
                     way. The number keeps its weight through a nested span. */}
+                {/* THE SAME NUMBER AS THE WORLDWIDE CARD (3 Oct 2026). Ethan: "167 creators worldwide on the main
+                    card, but on the creator network it shows 175 ... there are obviously inconsistencies." The eight
+                    were the Tryp.com team, who are on the map (pins) but are not creators. Both now count active
+                    creators only: no team, no test accounts, nobody leaving. */}
                 <span className="text-sm text-smoke">
                   {fieldFilterOn
                     ? (mapCreators.length === 1
                       ? tr('1 creator matches your filters')
                       : tr('{n} creators match your filters', { n: mapCreators.length }))
-                    : (mapCreators.length === 1
+                    : (creatorCount === 1
                       ? tr('1 creator from around the world')
-                      : tr('{n} creators from around the world', { n: mapCreators.length }))}
+                      : tr('{n} creators from around the world', { n: creatorCount }))}
                 </span>
                 {exploredOn && (
                   <span className="ml-auto text-xs font-medium text-brand">

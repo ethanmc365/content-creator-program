@@ -34,19 +34,28 @@ const PAGE = 1000
  *   runaway loop, not a limit anybody should rely on.
  * @returns {Promise<{ data: Array, error: any, truncated: boolean }>}
  */
-export async function fetchAll(build, { orderBy = 'id', pageSize = PAGE, cap = 200_000 } = {}) {
+export async function fetchAll(build, { orderBy = 'id', pageSize = PAGE, cap = 200_000, parallel = 1 } = {}) {
   const cols = Array.isArray(orderBy) ? orderBy : [orderBy]
-  const out = []
-  for (let from = 0; from < cap; from += pageSize) {
+  const page = (from) => {
     let q = build()
     for (const c of cols) q = q.order(c, { ascending: true })
-    const { data, error } = await q.range(from, from + pageSize - 1)
-    // A FAILED PAGE IS NOT A SHORT TABLE. Returning what we have so far would
-    // be the same silent under-count this function exists to prevent, so the
-    // error goes back to the caller with it.
-    if (error) return { data: out, error, truncated: true }
-    out.push(...(data ?? []))
-    if (!data || data.length < pageSize) return { data: out, error: null, truncated: false }
+    return q.range(from, from + pageSize - 1)
+  }
+  // THE FIRST PAGE ALONE, THEN THE REST SEVERAL AT A TIME (3 Oct 2026). Ethan: analytics "takes a while" to show up.
+  // It read seven tables a thousand rows at a time, ONE PAGE AFTER ANOTHER, so a 5,000-row table was five round trips
+  // in a row. Most tables fit in one page, so that page goes first on its own; a table that does not is then read in
+  // batches of `parallel` pages at once until a short page says it has ended.
+  const first = await page(0)
+  if (first.error) return { data: [], error: first.error, truncated: true }
+  const out = [...(first.data ?? [])]
+  if (!first.data || first.data.length < pageSize) return { data: out, error: null, truncated: false }
+  for (let from = pageSize; from < cap; from += pageSize * parallel) {
+    const batch = await Promise.all(Array.from({ length: parallel }, (_, i) => from + i * pageSize).filter((f) => f < cap).map(page))
+    for (const { data, error } of batch) {
+      if (error) return { data: out, error, truncated: true }
+      out.push(...(data ?? []))
+      if (!data || data.length < pageSize) return { data: out, error: null, truncated: false }
+    }
   }
   return { data: out, error: null, truncated: true }
 }
