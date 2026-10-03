@@ -25,6 +25,8 @@ import TimezonePrompt from '../components/calendar/TimezonePrompt'
 import { DeadlineReminderModal } from '../components/NotificationPreferences'
 import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
+import VipPlanCard from '../components/calendar/VipPlanCard'
+import { useVipOverview, vipRpc } from '../lib/vip'
 import Reveal from '../components/network/Reveal'
 import { cx, dateLocale } from '../lib/utils'
 import { useLocale, useT } from '../lib/i18n'
@@ -312,12 +314,28 @@ export default function Events() {
     try { localStorage.setItem(VIEW_KEY, v) } catch { /* private mode */ }
   }, [])
 
+  // A VIP's own month: the plan card at the top and their month-end dates in the grid. Nobody else fetches it.
+  const vipOn = !!profile?.is_vip && !isAdmin
+  const { overview: vipOverview } = useVipOverview({ enabled: vipOn })
+  const [vipWallet, setVipWallet] = useState(null)
+  useEffect(() => {
+    if (!vipOn) return undefined
+    let alive = true
+    vipRpc('vip_my_wallet').then((w) => { if (alive) setVipWallet(w || null) }).catch(() => {})
+    return () => { alive = false }
+  }, [vipOn])
+  // The overview plus the two facts only the wallet knows: how many videos keep a place, and the payout window.
+  const vip = useMemo(() => (vipOn && vipOverview ? {
+    ...vipOverview,
+    programme: { ...vipOverview.programme, req_videos: vipWallet?.requirement?.need_videos ?? 5 },
+    wallet: vipWallet?.window ? { open: !!vipWallet.window.open, closes_at: vipWallet.window.closes_at } : null,
+  } : null), [vipOn, vipOverview, vipWallet])
   const reload = useCallback(async () => {
     if (!user) return
-    const next = await loadCalendar({ userId: user.id, scopeIds })
+    const next = await loadCalendar({ userId: user.id, scopeIds, vip })
     setData(next)
     writePageCache(CAL_CACHE_KEY, next)
-  }, [user, scopeIds])
+  }, [user, scopeIds, vip])
 
   // WAIT FOR THE SCOPES BEFORE THE FIRST LOAD. `useMyScopes` starts at
   // `{ ids: null }`, which `inScope` treats as "could not tell, show
@@ -591,6 +609,7 @@ export default function Events() {
           {/* ---------- On now ----------
               At the very top, above the next-up strip, because a thing that is
               happening beats a thing that is going to. */}
+          {vip && <Reveal><VipPlanCard overview={vip} items={data?.items} now={now} onAdded={reload} /></Reveal>}
           {liveNow.length > 0 && (
             <Reveal as="section" className="mb-6 space-y-3" delay={0} stagger={0.06}>
               {liveNow.map((e) => <EventCard key={e.id} e={e} {...cardProps} live />)}

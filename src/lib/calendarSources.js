@@ -69,7 +69,7 @@ function middayOf(dateOnly) {
   return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0).toISOString()
 }
 
-export async function loadCalendar({ userId, scopeIds }) {
+export async function loadCalendar({ userId, scopeIds, vip = null }) {
   const [
     { data: events },
     { data: challenges },
@@ -247,6 +247,30 @@ export async function loadCalendar({ userId, scopeIds }) {
       description: inv.description || '', timezone: null, ownerId: userId,
       communityIds: [], rsvpEnabled: false, meetingUrl: '', location: '',
     })
+  }
+
+  // A VIP'S MONTH HAS DATES TOO (3 Oct 2026). Ethan: "for the calendar, we should have certain things showing up for
+  // the VIPs, like when it's coming to the end of the month." Three, all derived from their own overview and so never
+  // out of date: a week to go on the stay-in rule, the day the month closes, and - while a payout is open - the last
+  // day to take it.
+  if (vip?.month?.ends_at) {
+    const ends = new Date(vip.month.ends_at)
+    const need = Number(vip.programme?.req_videos) || 5
+    const base = { endsAt: null, link: '/vip', description: '', timezone: null, ownerId: userId, communityIds: [], rsvpEnabled: false, meetingUrl: '', location: '' }
+    const weekBefore = new Date(ends.getTime() - 7 * 86400000)
+    weekBefore.setHours(9, 0, 0, 0)
+    items.push({ ...base, id: `vip-week-${vip.month.year}-${vip.month.month}`, key: `vip:${vip.month.year}-${vip.month.month}:week`,
+      title: t('One week left: {n} VIP videos this month', { n: need }), date: weekBefore.toISOString(), type: 'milestone', kind: 'vip',
+      description: t('Videos count in the month they are posted. Add each link on your VIP page.') })
+    items.push({ ...base, id: `vip-close-${vip.month.year}-${vip.month.month}`, key: `vip:${vip.month.year}-${vip.month.month}:close`,
+      title: t('Your VIP month closes'), date: new Date(ends.getTime() - 60_000).toISOString(), type: 'deadline', kind: 'vip',
+      description: t('Views are counted up to midnight. Your statement follows a few days later.') })
+  }
+  if (vip?.wallet?.open && vip.wallet.closes_at) {
+    items.push({ id: 'vip-payout', key: `vip:payout:${vip.wallet.closes_at}`, title: t('Last day to take your VIP payout'),
+      date: vip.wallet.closes_at, endsAt: null, type: 'invoice', kind: 'vip', link: '/vip?tab=payouts',
+      description: t('Cash or a Tryp.com voucher. After this it stays in your balance for next month.'),
+      timezone: null, ownerId: userId, communityIds: [], rsvpEnabled: false, meetingUrl: '', location: '' })
   }
 
   items.sort((a, b) => new Date(a.date) - new Date(b.date))

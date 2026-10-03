@@ -71,7 +71,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
   // that gets photographed for the PDF never passes it: a hidden, off-screen page would never be "in view" and would
   // be photographed invisible.
   const Stack = reveal && !horizontal ? Reveal : 'div'
-  const stackProps = reveal && !horizontal ? { stagger: 0.12, early: 25, className: 'flex flex-col' } : {}
+  const stackProps = reveal && !horizontal ? { stagger: 0.1, delay: 0.18, early: 25, className: 'flex flex-col' } : {}
 
   return (
     // VERTICAL IS A DOCUMENT AND HORIZONTAL IS A PAGER. The pages are the same
@@ -105,7 +105,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
 function Sheet({ index = 0, scale, width, snap, still = false, setRef, children }) {
   return (
     <div
-      className={cx(!still && 'animate-fade-up', snap && 'snap-start')}
+      className={cx(!still && 'animate-rise', snap && 'snap-start')}
       style={{
         animationDelay: still ? undefined : `${Math.min(index, 5) * 70}ms`,
         width, flex: snap ? `0 0 ${width}px` : undefined,

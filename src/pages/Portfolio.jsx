@@ -328,7 +328,13 @@ export default function Portfolio() {
             you land on, which is the thing this page is for; the controls are
             under it. On a desktop the grid puts the editor on the right. */}
         <div ref={holder} className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center gap-3 animate-page-in [animation-delay:180ms]">
+          {/* ONE ENTRANCE FOR THE WHOLE PAGE (3 Oct 2026). Ethan: "Some things flash up quickly, and others float in
+              smoothly. Let's just ensure that everything comes in nicely together." The toolbar had its own CSS
+              keyframe and the editor's sections a 0.4s fade of their own INSIDE a column that was itself sliding in
+              over 0.7s - three speeds on one screen. Everything now rides Reveal: header, strip, toolbar, the first
+              page, then the editor, each a beat after the last. */}
+          <Reveal delay={0.14}>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             {/* Side by side on a phone, half the row each. */}
             <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
               <button type="button" onClick={exportPdf} disabled={!!exporting} className="btn-primary flex-1 justify-center whitespace-nowrap max-sm:px-3 sm:flex-none">
@@ -370,6 +376,7 @@ export default function Portfolio() {
               )
             )}
           </div>
+          </Reveal>
 
           <PortfolioDeck
             creator={creator}

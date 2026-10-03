@@ -82,10 +82,21 @@ function arcFor(a, b) {
   const chord = Math.hypot(dx, dy) || 1
   // The bulge is capped so a Sydney-London arc does not loop over the top of
   // the frame, and it is proportional so a Gatwick-Malaga hop still curves.
-  const bulge = Math.min(chord * 0.18, 58)
+  //
+  // CURVED LIKE THE NETWORK MAP (3 Oct 2026). Ethan: "We all have just straight lines ... I want it more like the
+  // creator network map with those nicer animations and nicer style." 0.18 of the chord read as a straight line on
+  // every short European hop; the network map's 0.3 reads as a flight.
+  const bulge = Math.min(chord * 0.3, 80)
   const cx = mx + (-dy / chord) * bulge
   const cy = my + (dx / chord) * bulge
-  return { d: `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`, ax, ay, bx, by, cx, cy, chord }
+  let len = 0, px = ax, py = ay
+  for (let i = 1; i <= 16; i += 1) {
+    const t = i / 16, u = 1 - t
+    const x = u * u * ax + 2 * u * t * cx + t * t * bx
+    const y = u * u * ay + 2 * u * t * cy + t * t * by
+    len += Math.hypot(x - px, y - py); px = x; py = y
+  }
+  return { d: `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`, ax, ay, bx, by, cx, cy, chord, len }
 }
 
 // HOW FAR A POINT IS FROM AN ARC, SO OVERLAPPING ROUTES CAN BE TOLD APART.
@@ -186,24 +197,31 @@ const PLANE_SPEED = 26 // projection units per second
 const PLANE_BASE = 0.62
 const MARKER_FALLOFF = 1.15
 const scaleAt = (base, z, min) => Math.max(min, base / Math.pow(z, MARKER_FALLOFF))
-function ArcPlane({ path, chord, size, faint = false, delay = 0 }) {
+// THE SAME SPEED ON SCREEN AT EVERY ZOOM (3 Oct 2026). Ethan: "The plane animations are going way too fast when you
+// zoom in." The duration was the arc's length in MAP units, so at 20x the same flight was crossed in the same seconds
+// over twenty times the screen - the bug the network map fixed on 10 Sep (see `flightDur` in CreatorMap). The duration
+// now follows the length ON SCREEN, rounded to a step of the zoom so a pinch does not restart every aircraft each
+// frame, and the aircraft ride a CSS motion path (`offset-path`, the network map's mechanism) rather than SMIL, which
+// pauses with the page instead of jumping when it is painted again.
+const CAN_MOTION_PATH = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+  && CSS.supports('offset-path', 'path("M 0 0 L 1 1")')
+const zoomStep = (z) => Math.pow(2, Math.round(Math.log2(Math.max(1, z)) * 2) / 2)
+function ArcPlane({ path, len, zoom = 1, size, faint = false, delay = 0 }) {
   // The second half of the top-left-corner fix: even with arcFor guarded, this
   // is the component that would park at the origin, so it declines to render
   // rather than trusting its caller.
   if (!path) return null
-  const dur = Math.max(2.4, chord / PLANE_SPEED)
+  const dur = Math.max(2.4, ((len || 0) * zoomStep(zoom)) / PLANE_SPEED)
   return (
-    <g style={{ pointerEvents: 'none' }} opacity={faint ? 0.55 : 1}>
-      <g transform={`scale(${size}) rotate(90)`}>
-        <path d={PLANE_D} fill={BRAND} stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" />
+    <g style={{ pointerEvents: 'none', opacity: faint ? 0.55 : 1 }}>
+      <g style={CAN_MOTION_PATH ? { offsetPath: `path("${path}")`, offsetRotate: 'auto', animation: `map-fly ${dur}s linear ${-delay}s infinite` } : undefined}>
+        <g transform={`scale(${size}) rotate(90)`}>
+          <path d={PLANE_D} fill={BRAND} stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" />
+        </g>
       </g>
-      <animateMotion
-        dur={`${dur}s`}
-        begin={`${delay}s`}
-        repeatCount="indefinite"
-        rotate="auto"
-        path={path}
-      />
+      {!CAN_MOTION_PATH && (
+        <animateMotion dur={`${dur}s`} begin={`${delay}s`} repeatCount="indefinite" rotate="auto" path={path} />
+      )}
     </g>
   )
 }
@@ -480,12 +498,19 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   // now: the dots, the card that opens when you press one, and the country card,
   // which has to be able to say how many airports are in a country rather than
   // how many of them you personally have used.
+  // EVERY AIRPORT IN THE WORLD WAITS FOR THE MAP (3 Oct 2026). Ethan: the flight-log maps are "a bit laggy at the
+  // moment and take a long time to load in." Eight thousand airports were fetched, projected and laid out at the same
+  // moment as the land and your own routes, so the map you came for arrived behind the scenery. They now follow once
+  // your routes have drawn in, when the browser is idle.
   const [world, setWorld] = useState([])
   useEffect(() => {
+    if (!arrived) return undefined
     let alive = true
-    loadWorldAirports().then((rows) => { if (alive) setWorld(rows) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+    const go = () => loadWorldAirports().then((rows) => { if (alive) setWorld(rows) }).catch(() => {})
+    const idle = typeof window !== 'undefined' && window.requestIdleCallback
+    const id = idle ? window.requestIdleCallback(go, { timeout: 1500 }) : setTimeout(go, 300)
+    return () => { alive = false; if (idle) window.cancelIdleCallback?.(id); else clearTimeout(id) }
+  }, [arrived])
 
   const worldPlaced = useMemo(() => {
     const out = []
@@ -786,16 +811,19 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => pickRouteAt(e, r.key)}
               />
+              {/* DASHED, IN THE LIGHTER ORANGE, LIKE THE NETWORK MAP'S THREADS - solid brand once it is the open
+                  route. The draw-on (`flight-arc`) uses the dash array itself, so the dashes take over after it. */}
               <path
                 d={r.d}
                 fill="none"
-                stroke={on ? BRAND : BRAND}
-                strokeWidth={Math.max(0.6, (on ? 2.2 : 1.1) / z)}
+                stroke={on ? BRAND : BRAND_LIGHT}
+                strokeWidth={(on ? 2.2 : 1.5) / z}
                 strokeLinecap="round"
-                opacity={selected && !on ? 0.22 : 0.75}
+                strokeDasharray={arrived && !on ? `${5 / z} ${5 / z}` : undefined}
+                opacity={selected && !on ? 0.25 : on ? 0.95 : 0.8}
                 className={arrived ? undefined : 'flight-arc'}
                 style={{
-                  '--arc-len': Math.round(r.chord * 1.15),
+                  '--arc-len': Math.round((r.len || r.chord) * 1.05),
                   pointerEvents: 'none',
                   transition: 'opacity 200ms ease-out',
                 }}
@@ -829,7 +857,8 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             <ArcPlane
               key={`fly-${r.key}`}
               path={r.d}
-              chord={r.chord}
+              len={r.len}
+              zoom={z}
               size={scaleAt(PLANE_BASE, z, 0.12)}
               faint={!!selected && r.key !== selected}
               delay={(i % 5) * 0.9}
@@ -839,7 +868,8 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             <ArcPlane
               key={`fly-${active.key}`}
               path={active.d}
-              chord={active.chord}
+              len={active.len}
+              zoom={z}
               size={scaleAt(PLANE_BASE, z, 0.12)}
             />
           )}

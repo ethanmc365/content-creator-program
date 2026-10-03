@@ -301,7 +301,9 @@ export default function FlightCommunity() {
     }
   }, [board, win])
 
-  const sharing = board?.length ?? 0
+  // Only the creators with a flight in the window. The leaderboard returns everybody who shares their log, flights or
+  // not, so this said "175 creators sharing" over 50 flights (3 Oct 2026).
+  const sharing = (board || []).filter((b) => Number(b.flights) > 0).length
 
   // THE MAP'S DATA, IN THE SHAPE `FlightMap` ALREADY TAKES.
   //
