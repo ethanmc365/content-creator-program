@@ -12,7 +12,6 @@ import { cx, downloadCsv, formatViews } from '../../lib/utils'
 import {
   BONUS_KINDS, DEFAULT_TERMS, FLAGS, MILESTONE_METRICS, SCOPES, describeRule, money, monthLabel, nf, rate, vipRpc,
 } from '../../lib/vip'
-import { TargetBar } from './parts'
 import { Stat, useMonths } from './adminA'
 import { useT } from '../../lib/i18n'
 
@@ -382,7 +381,7 @@ function StatementRow({ s, cur, editable, onChanged }) {
         </span>
       </div>
       {open && (
-        <div className="animate-fade-up space-y-2 bg-cloud/40 px-4 py-4 pl-12 text-sm">
+        <div className="animate-rise space-y-2 bg-cloud/40 px-4 py-4 pl-12 text-sm">
           <LedgerLine label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: `${cur} ${rate(s.cpm)}` })} value={money(s.base, cur)} />
           {s.cap_applied && <p className="text-xs text-smoke">{tr('The cap of {a} applied.', { a: money(s.cap, cur, { cents: false }) })}</p>}
           {Number(s.rollover_in) > 0 && <LedgerLine label={tr('Carried over from last month')} value={money(s.rollover_in, cur)} />}
@@ -511,88 +510,6 @@ export function VipCloseTab({ programme }) {
           </ul>
           <p className="text-xs text-smoke">{tr('Approving a statement adds it to the creator\'s balance and opens their payout window: cash once the balance reaches the threshold, or a Tryp.com voucher for any amount. Their invoice is raised when they ask for cash. Late corrections go on next month\'s statement or as a balance correction in Balances.')}</p>
         </>
-      )}
-    </div>
-  )
-}
-
-// ------------------------------------------------------------------------------------------ KPIs
-const KPI_METRICS = [
-  { key: 'views', label: 'Views counted', icon: 'eye', fmt: (v) => formatViews(v) },
-  { key: 'videos', label: 'Videos posted', icon: 'video', fmt: (v) => nf(v) },
-  { key: 'active_creators', label: 'Creators with views', icon: 'users', fmt: (v) => nf(v) },
-  { key: 'spend', label: 'Spend on views', icon: 'money', fmt: (v, cur) => money(v, cur, { cents: false }) },
-  { key: 'hit_target', label: 'Creators who hit their target', icon: 'trophy', fmt: (v) => nf(v) },
-]
-
-export function VipKpiTab({ programme }) {
-  const tr = useT()
-  const { profile } = useAuth()
-  const now = new Date()
-  const [ym, setYm] = useState({ year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 })
-  const [actual, setActual] = useState(null)
-  const [targets, setTargets] = useState({})
-  const [editing, setEditing] = useState(null)
-  const [val, setVal] = useState('')
-  const cur = programme.currency
-
-  const load = useCallback(async () => {
-    const [a, t] = await Promise.all([
-      vipRpc('vip_kpi_actuals', { p_programme: programme.id, p_year: ym.year, p_month: ym.month }).catch(() => null),
-      supabase.from('vip_kpi_targets').select('*').eq('programme_id', programme.id).eq('year', ym.year).eq('month', ym.month),
-    ])
-    setActual(a); setTargets(Object.fromEntries((t.data || []).map((x) => [x.metric, x])))
-  }, [programme.id, ym])
-  useEffect(() => { setActual(null); load() }, [load])
-
-  const step = (d) => setYm((p) => { const i = p.year * 12 + (p.month - 1) + d; return { year: Math.floor(i / 12), month: (i % 12) + 1 } })
-
-  async function saveTarget(metric) {
-    const n = Number(val)
-    if (val === '' || Number.isNaN(n)) {
-      if (targets[metric]) await supabase.from('vip_kpi_targets').delete().eq('id', targets[metric].id)
-    } else {
-      const { error } = await supabase.from('vip_kpi_targets').upsert({ programme_id: programme.id, year: ym.year, month: ym.month, metric, target_value: n, created_by: profile?.id }, { onConflict: 'programme_id,year,month,metric' })
-      if (error) { notice(error.message); return }
-    }
-    setEditing(null); load()
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('Goals for the VIP programme itself, month by month. The numbers are counted live from the same videos the payouts use.')}</p>
-        <div className="flex items-center gap-1 rounded-xl border border-gray-100 bg-white p-1 shadow-card">
-          <button type="button" onClick={() => step(-1)} aria-label={tr('Previous month')} className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand"><Icon name="chevronLeft" className="h-4 w-4" /></button>
-          <span className="min-w-[8.5rem] text-center text-[13px] font-bold tabular-nums text-ink">{monthLabel(ym.year, ym.month)}</span>
-          <button type="button" onClick={() => step(1)} aria-label={tr('Next month')} className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand"><Icon name="chevronRight" className="h-4 w-4" /></button>
-        </div>
-      </div>
-      {actual === null ? <Skeleton className="h-64 w-full rounded-card" /> : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {KPI_METRICS.map((m) => {
-            const v = Number(actual[m.key] || 0)
-            const t = targets[m.key]
-            return (
-              <div key={m.key} className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-                <div className="flex items-start gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name={m.icon} className="h-4 w-4" /></span>
-                  <p className="min-w-0 flex-1 pt-1 text-[14px] font-semibold text-ink">{tr(m.label)}</p>
-                  <button type="button" onClick={() => { setEditing(m.key); setVal(t ? String(t.target_value) : '') }} aria-label={tr('Set a goal')} className="flex h-7 w-7 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink"><Icon name="pencil" className="h-3.5 w-3.5" /></button>
-                </div>
-                <p className="mt-3 text-2xl font-bold tabular-nums text-ink">{m.fmt(v, cur)}</p>
-                {editing === m.key ? (
-                  <div className="mt-3 flex items-center gap-2">
-                    <input autoFocus className="input !py-2 text-sm" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveTarget(m.key) }} placeholder={tr('Goal (empty removes it)')} />
-                    <button type="button" onClick={() => saveTarget(m.key)} className="btn-primary !px-3 !py-2 text-xs">{tr('Save')}</button>
-                  </div>
-                ) : t ? (
-                  <div className="mt-3"><TargetBar label={tr('Goal')} value={v} target={Number(t.target_value)} format={(n) => m.fmt(n, cur)} /></div>
-                ) : <p className="mt-3 text-xs text-smoke">{tr('No goal set. Press the pencil to add one.')}</p>}
-              </div>
-            )
-          })}
-        </div>
       )}
     </div>
   )

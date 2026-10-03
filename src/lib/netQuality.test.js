@@ -9,9 +9,8 @@ async function fresh() {
 describe('slow-network detection', () => {
   it('stays fast until a few slow reads say otherwise, and recovers', async () => {
     const q = await fresh()
-    q.recordRequest(3000)
-    q.recordRequest(3000)
-    expect(q.isSlowNetwork()).toBe(false) // two samples are not a verdict
+    for (let i = 0; i < 4; i += 1) q.recordRequest(3000)
+    expect(q.isSlowNetwork()).toBe(false) // four samples are not a verdict
     q.recordRequest(3000)
     expect(q.isSlowNetwork()).toBe(true)
     for (let i = 0; i < 12; i += 1) q.recordRequest(80)

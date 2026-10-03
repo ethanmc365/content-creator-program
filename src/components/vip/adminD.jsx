@@ -124,10 +124,17 @@ export function VipContentTab({ programme, isOwner, part, onPart }) {
   const canManage = !!programme.can_manage
   return (
     <div className="space-y-5">
-      <Segmented value={p} onChange={onPart} label={tr('Content')}
-        options={[{ value: 'briefs', label: tr('Monthly challenges') }, { value: 'perks', label: tr('Perks and trips') }, { value: 'guides', label: tr('Guides') }]} />
+      {/* Short names on a phone: the three long ones ran off the right edge of the screen (Ethan, 3 Oct). */}
+      <div className="scrollbar-none -mx-1 max-w-full overflow-x-auto px-1">
+        <Segmented value={p} onChange={onPart} label={tr('Content')} size="sm"
+          options={[
+            { value: 'briefs', label: <><span className="sm:hidden">{tr('Challenges')}</span><span className="hidden sm:inline">{tr('Monthly challenges')}</span></> },
+            { value: 'perks', label: <><span className="sm:hidden">{tr('Perks')}</span><span className="hidden sm:inline">{tr('Perks and trips')}</span></> },
+            { value: 'guides', label: tr('Guides') },
+          ]} />
+      </div>
       {!canManage && <p className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You can see this market\'s content. Only its own lead, or the owner, can change it.')}</p>}
-      <div key={`${programme.id}:${p}`} className="animate-fade-up">
+      <div key={`${programme.id}:${p}`} className="animate-rise">
         {p === 'briefs' && <BriefsEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
         {p === 'perks' && <PerksEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
         {p === 'guides' && <GuidesEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
@@ -185,7 +192,7 @@ function BriefsEditor({ programme, isOwner, canManage }) {
       {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('No monthly challenges yet.')) : (
         <ul className="space-y-3">
           {rows.map((b, i) => (
-            <li key={b.id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+            <li key={b.id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{monthLabel(b.year, b.month)}<ScopeTag row={b} />{b.theme && <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] text-smoke">{b.theme}</span>}</p>
@@ -300,7 +307,7 @@ function PerksEditor({ programme, isOwner, canManage }) {
             const metric = PERK_METRICS.find((m) => m.key === p.metric)
             const locked = ownerLocked(p, isOwner, canManage)
             return (
-              <li key={p.id} className={cx('rounded-card border bg-white p-4 shadow-card animate-fade-up', p.active ? 'border-gray-100' : 'border-dashed border-gray-300 bg-gray-50/60')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+              <li key={p.id} className={cx('rounded-card border bg-white p-4 shadow-card animate-rise', p.active ? 'border-gray-100' : 'border-dashed border-gray-300 bg-gray-50/60')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
                 <div className="flex items-start gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={kind.icon} className="h-[18px] w-[18px]" /></span>
                   <div className="min-w-0 flex-1">

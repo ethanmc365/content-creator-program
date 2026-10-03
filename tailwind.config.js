@@ -53,6 +53,14 @@ export default {
           from: { opacity: '0', transform: 'translateX(28px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
+        // ONE ENTRANCE FOR A WHOLE PAGE (3 Oct 2026). Ethan, on the VIP pages and the portfolio: "some things flash up
+        // quickly, and others float in smoothly. Let's just ensure that everything comes in nicely together." A page
+        // that mixed fade-up (0.4s ease-out), tab-in, slide-in-right and pop-in had four speeds and four curves.
+        // `rise` is the one: a short lift on the platform's deceleration curve, staggered by its parent (.rise-stagger).
+        rise: {
+          from: { opacity: '0', transform: 'translateY(10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
         'fade-up': {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -275,6 +283,7 @@ export default {
         // centre and makes the label look unsteady.
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
+        rise: 'rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
         'tab-in': 'tab-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'selected-in': 'selected-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'slide-in-right': 'slide-in-right 0.55s cubic-bezier(0.22, 1, 0.36, 1) both',

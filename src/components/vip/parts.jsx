@@ -126,7 +126,7 @@ export function VipSubmit({ disabled, onAdded, month }) {
             className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[15px] text-ink outline-none placeholder:text-gray-400"
           />
           {looksLink && (
-            <span className={cx('mr-2.5 shrink-0 animate-pop-in rounded-full px-2.5 py-1 text-[11px] font-bold', platform ? 'bg-brand-tint text-brand' : 'bg-amber-50 text-amber-700')}>
+            <span className={cx('mr-2.5 shrink-0 animate-rise rounded-full px-2.5 py-1 text-[11px] font-bold', platform ? 'bg-brand-tint text-brand' : 'bg-amber-50 text-amber-700')}>
               {platform || tr('Unknown link')}
             </span>
           )}
@@ -136,7 +136,7 @@ export function VipSubmit({ disabled, onAdded, month }) {
           {tr('Add video')}
         </button>
       </div>
-      {err && <p role="alert" className="relative mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600 animate-fade-up"><Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />{err}</p>}
+      {err && <p role="alert" className="relative mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600 animate-rise"><Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />{err}</p>}
     </form>
   )
 }
@@ -227,7 +227,7 @@ export function VipStatementCard({ s, programmeCpm }) {
         <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className="animate-fade-up space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
+        <div className="animate-rise space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
           <Line label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: `${s.currency} ${rate(s.cpm ?? programmeCpm)}` })} value={money(s.base, s.currency)} />
           {s.cap_applied && <p className="text-xs text-smoke">{tr('Your monthly cap applied to the views pay.')}</p>}
           {Number(s.rollover_in) > 0 && <Line label={tr('Carried over from last month')} value={money(s.rollover_in, s.currency)} />}
@@ -291,7 +291,7 @@ export function VipBoardList({ rows, rules, currency }) {
         <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
         <div className="relative flex items-end justify-center gap-3 sm:gap-5">
           {order.map((r, i) => (
-            <div key={r.rank} className="flex w-1/3 max-w-[9rem] flex-col items-center animate-fade-up" style={{ animationDelay: `${i * 90}ms` }}>
+            <div key={r.rank} className="flex w-1/3 max-w-[9rem] flex-col items-center animate-rise" style={{ animationDelay: `${i * 90}ms` }}>
               <div className="relative">
                 <Avatar src={r.photo} name={r.name} size={r.rank === 1 ? 'lg' : 'md'} className="ring-4 ring-white/40" />
                 {r.rank === 1 && <Icon name="star" className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-white p-0.5 text-brand shadow" />}
@@ -307,7 +307,7 @@ export function VipBoardList({ rows, rules, currency }) {
       {rest.length > 0 && (
         <ol className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
           {rest.map((r, i) => (
-            <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-3 animate-fade-up', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
+            <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-3 animate-rise', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
               <span className="w-7 shrink-0 text-center text-sm font-bold tabular-nums text-gray-400">{r.rank}</span>
               <Avatar src={r.photo} name={r.name} size="sm" />
               <span className="min-w-0 flex-1">
@@ -353,11 +353,11 @@ export function VipEarn({ rules, overview, currency }) {
   }
   const shown = m.bonuses_on === false ? [] : (rules || [])
   if (!shown.length && !own.length) {
-    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-fade-up">{m.bonuses_on === false ? tr('Your agreement is your views pay. Market bonuses are not part of it.') : tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
+    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-rise">{m.bonuses_on === false ? tr('Your agreement is your views pay. Market bonuses are not part of it.') : tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
   }
   // Each card rises in a beat after the one above it, so switching to this section reads as the list arriving
   // rather than appearing (Ethan: clicking Earn more "doesn't have clean animations").
-  const rise = (i) => ({ className: 'animate-fade-up', style: { animationDelay: `${Math.min(i, 8) * 55}ms` } })
+  const rise = (i) => ({ className: 'animate-rise', style: { animationDelay: `${Math.min(i, 8) * 55}ms` } })
   return (
     <ul className="space-y-3">
       {own.map((o, i) => (

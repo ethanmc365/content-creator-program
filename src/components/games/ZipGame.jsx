@@ -503,6 +503,36 @@ export default function ZipGame({ onExit }) {
   }
   function onPointerUp() { draggingRef.current = false }
 
+  // KEYBOARD FLYING, DESKTOP ONLY. Arrow keys or W/A/S/D move the plane one
+  // cell; flying back onto the cell behind you retracts the trail (walkTo
+  // already does that), and Backspace / Z undo. Gated on a fine pointer so a
+  // phone with a Bluetooth keyboard or an on-screen one is left exactly as it
+  // was. The handler is re-bound every render so it always sees the live path.
+  const keyFlyRef = useRef(null)
+  function onKeyFly(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key
+    if (k === 'Backspace' || k === 'z') { e.preventDefault(); undo(); return }
+    const dir = { ArrowUp: [-1, 0], w: [-1, 0], ArrowDown: [1, 0], s: [1, 0], ArrowLeft: [0, -1], a: [0, -1], ArrowRight: [0, 1], d: [0, 1] }[k]
+    if (!dir) return
+    e.preventDefault()
+    const p = pathRef.current
+    const head = p[p.length - 1]
+    const r = Math.floor(head / size) + dir[0]
+    const c = (head % size) + dir[1]
+    if (r < 0 || c < 0 || r >= size || c >= size) { blocked(); return }
+    walkTo(r * size + c)
+  }
+  useEffect(() => { keyFlyRef.current = onKeyFly })
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return
+    const onKey = (e) => keyFlyRef.current?.(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // THE HEADING IS CLEARED FROM EXACTLY ONE PLACE. It was cleared in `walkTo`,
   // in `undo` and in `restart` - and NOT in the one remaining path that changes
   // the route, which is grabbing the trail half way along and dragging on from
@@ -809,6 +839,7 @@ export default function ZipGame({ onExit }) {
           {tr("Fly through every stop")} <span className="font-semibold text-ink">{tr("in order")}</span>, filling the whole sky.
           {walls.length > 0 && <> {tr("Orange bars are")} <span className="font-semibold text-ink">{tr("no-fly walls")}</span>.</>}
           <span className="hidden sm:inline"> {tr("Drag the plane, drag backwards to undo.")}</span>
+          <span className="hidden lg:inline"> {tr("Or fly with the arrow keys or W A S D, Backspace to undo.")}</span>
           {/* THE HINT HAS TO BE FINDABLE. A button nobody presses is a feature
               nobody has, and "Hint" next to "Undo" reads like a lesser Undo
               until somebody tells you what it actually does. */}

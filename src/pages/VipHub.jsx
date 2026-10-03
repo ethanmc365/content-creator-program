@@ -1,8 +1,8 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { EmptyState, PageHeader, Select, Skeleton } from '../components/ui'
+import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VipChipNav, VipQuickLinks, VipSideNav } from '../components/vip/hubNav'
@@ -41,7 +41,11 @@ const STAFF_PICK = 'tryp_vip_staff_programme'
 // exactly." The team view above is kept one press away, but the page now OPENS as a creator sees it: a real VIP of the
 // market (picked from a list, the test account included) through `vip_preview`, which runs that creator's own
 // database functions as them, read-only. A market with no VIPs yet shows a new VIP's first day.
-const STAFF_VIEW = 'tryp_vip_staff_view'
+// TWO VIEWS FOR THE TEAM, NOT THREE (3 Oct 2026). Ethan: "I don't really understand why we have the buttons ... As a
+// creator and Team overview ... I guess they should all be merged into one ... You can remove the 'as a creator'." So
+// the team has the VIP PAGE (the market's real page, every VIP at once) and the VIP TOOLS. Seeing one creator's exact
+// page is a tool now ("See as a VIP" in VIP tools), which opens it here as `mode=as&who=<id>` behind a banner that
+// says whose page it is and leads back. Old links with mode=creator|team land on the VIP page.
 
 // The first day of a brand new VIP in this market: the market's own rate and month, nothing posted yet.
 function sampleOverview(s) {
@@ -67,16 +71,11 @@ export default function VipHub() {
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
   const [staffOv, setStaffOv] = useState(undefined)
   const staffMode = own === null && access === true
-  // THREE VIEWS FOR THE TEAM (2 Oct 2026): a creator's page, the team overview, and the VIP tools (which used to be a
-  // page of their own at /admin/vip). The view is in the URL (`mode`) so a notification can open the right one; with no
-  // `mode` the last one used is remembered.
-  const [savedMode] = useState(() => { try { return localStorage.getItem(STAFF_VIEW) || 'creator' } catch { return 'creator' } })
   const asMode = params.get('mode')
-  const mode = ['creator', 'team', 'tools'].includes(asMode) ? asMode : (['creator', 'team'].includes(savedMode) ? savedMode : 'creator')
-  const teamView = mode !== 'creator'
+  const mode = asMode === 'tools' ? 'tools' : asMode === 'as' ? 'as' : 'page'
   const toolsMode = mode === 'tools'
+  const who = mode === 'as' ? (params.get('who') || null) : null
   const [people, setPeople] = useState(undefined)
-  const [who, setWho] = useState(null)
   const [previewOv, setPreviewOv] = useState(undefined)
   const loadStaff = useCallback(async () => {
     try {
@@ -88,39 +87,32 @@ export default function VipHub() {
   const pickProgramme = (id) => {
     setStaffPick(id)
     try { localStorage.setItem(STAFF_PICK, id) } catch { /* private mode */ }
+    if (mode === 'as') setParams({}, { replace: true })
   }
-  // Who in this market can be previewed. A database without migration 311 answers with an error, and the page then
-  // simply stays on the team view.
+  // Whose page is being looked at, for the banner's name.
   const staffProg = staffOv?.programme?.id
   useEffect(() => {
-    if (!staffMode || !staffProg) return undefined
+    if (!staffMode || !staffProg || mode !== 'as') return undefined
     let alive = true
-    setPeople(undefined)
     vipRpc('vip_preview_people', { p_programme: staffProg })
-      .then((list) => {
-        if (!alive) return
-        const rows = list || []
-        setPeople(rows)
-        const lead = rows.find((r) => r.status === 'active' && !r.test) || rows.find((r) => r.status === 'active') || null
-        setWho(lead?.id ?? null)
-      })
-      .catch(() => { if (alive) setPeople(null) })
+      .then((list) => { if (alive) setPeople(list || []) })
+      .catch(() => { if (alive) setPeople([]) })
     return () => { alive = false }
-  }, [staffMode, staffProg])
-  const previewing = staffMode && !teamView && people !== null
+  }, [staffMode, staffProg, mode])
+  const previewing = staffMode && mode === 'as'
   const loadPreview = useCallback(async () => {
     if (!who) { setPreviewOv(sampleOverview(staffOv)); return }
     try { setPreviewOv(await vipRpcAs(who, 'vip_my_overview')) } catch { setPreviewOv(sampleOverview(staffOv)) }
   }, [who, staffOv])
-  useEffect(() => { if (previewing && people !== undefined) loadPreview() }, [previewing, people, loadPreview])
+  useEffect(() => { if (previewing && staffOv) loadPreview() }, [previewing, staffOv, loadPreview])
   const pickView = (m) => {
-    if (m !== 'tools') { try { localStorage.setItem(STAFF_VIEW, m) } catch { /* private mode */ } }
-    setParams(m === 'creator' ? {} : { mode: m }, { replace: true })
+    setParams(m === 'page' ? {} : { mode: m }, { replace: true })
     if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  const whoName = who ? (people || []).find((p) => p.id === who)?.name : null
 
   // While the staff question is still being asked, keep the skeleton rather than flashing "not a VIP".
-  const staffShown = previewing ? (people === undefined ? undefined : previewOv) : staffOv
+  const staffShown = previewing ? (staffOv === undefined ? undefined : previewOv) : staffOv
   const overview = own === null ? (access === undefined || (staffMode && staffShown === undefined) ? undefined : staffMode ? staffShown : null) : own
   const reload = staffMode ? (previewing ? loadPreview : loadStaff) : reloadOwn
   const isStaff = !!overview?.staff
@@ -129,7 +121,7 @@ export default function VipHub() {
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].filter((k) => !(isStaff && STAFF_HIDDEN.has(k)))
   const tab = allowed.includes(asked) ? asked : 'month'
-  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (asMode && asMode !== 'tools') n.set('mode', asMode); if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
   const [slug, setSlug] = useState('')
@@ -214,30 +206,16 @@ export default function VipHub() {
           : <ProgrammePill name={programme.name} codes={codes} />}
       />
 
-      {staffMode && (
-        <PreviewBar
-          mode={people === null ? (toolsMode ? 'tools' : 'team') : mode}
-          canPreview={people !== null}
-          onMode={pickView}
-          people={people}
-          who={who}
-          onWho={setWho}
-          market={programme.name}
-        />
-      )}
+      {staffMode && (mode === 'as'
+        ? <PreviewBanner name={whoName} market={programme.name} onBack={() => setParams({ mode: 'tools', tab: 'preview' }, { replace: true })} />
+        : <StaffBar mode={mode} onMode={pickView} market={programme.name} />)}
 
       {toolsMode && staffMode ? <Suspense fallback={<Skeleton className="h-72 w-full rounded-card" />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense> : (<>
-      {isStaff && (
-        <p className="-mt-2 mb-4 flex items-center gap-2 text-xs text-smoke animate-fade-up">
-          <Icon name="eye" className="h-4 w-4 text-brand" />
-          {tr('The real VIP page for {m}, as the team sees it: every VIP here, this month. Your own sections stay with the creators.', { m: programme.name })}
-        </p>
-      )}
 
       {/* ---------------- this month, live ---------------- */}
       <section
         key={programme.id}
-        className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-fade-up sm:p-7"
+        className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-rise sm:p-7"
       >
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
         <span aria-hidden className="survey-orb pointer-events-none absolute -bottom-20 left-10 h-44 w-44 rounded-full bg-white/10 blur-2xl [animation-delay:-3s]" />
@@ -247,7 +225,7 @@ export default function VipHub() {
               <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {isStaff ? tr('{m} so far, every VIP', { m: monthLabel(month.year, month.month) }) : tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
-            {(look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || <ReaderText text={look.tagline} />}</p>}
+            {!isStaff && (look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || <ReaderText text={look.tagline} />}</p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
               <CountUp value={stats.base} format={(n) => money(n, cur)} />
             </p>
@@ -408,7 +386,7 @@ export default function VipHub() {
       {/* QUICK LINKS ON TOP (2 Oct 2026). Ethan: "the quick links card on the right column should be moved up to the
           top and be above the card with the other links." */}
       <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
-        <div className="animate-slide-in-right"><VipQuickLinks slug={slug} staff={isStaff} /></div>
+        <div className="animate-rise"><VipQuickLinks slug={slug} staff={isStaff} /></div>
         <VipSideNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} />
       </aside>
       </div>
@@ -421,49 +399,42 @@ export default function VipHub() {
   )
 }
 
-// THE TEAM'S BAR OVER THE PAGE: whose page this is, the team overview, or the VIP tools. The picked view is the sliding
-// gradient (Segmented); the person is the house dropdown, never the OS one (and it floats over the page - ui/Select).
-function PreviewBar({ mode, canPreview, onMode, people, who, onWho, market }) {
+// THE TEAM'S BAR: the market's VIP page, or the VIP tools. One sliding gradient, nothing else to choose.
+function StaffBar({ mode, onMode, market }) {
   const tr = useT()
-  const options = useMemo(() => [
-    ...(people || []).map((p) => ({
-      value: p.id,
-      label: p.test ? `${p.name} (${tr('test account')})` : p.status === 'paused' ? `${p.name} (${tr('paused')})` : p.status === 'left' ? `${p.name} (${tr('left')})` : p.name,
-    })),
-    { value: '__new', label: tr('A new VIP, day one') },
-  ], [people, tr])
   return (
-    <div className="relative z-20 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-2 pl-2 shadow-card animate-fade-up sm:pl-3">
-      <div className="scrollbar-none -mx-0.5 max-w-full overflow-x-auto px-0.5">
-        <Segmented
-          size="sm"
-          id="vip-preview-mode"
-          label={tr('How to see this page')}
-          value={mode}
-          onChange={onMode}
-          options={[
-            ...(canPreview ? [{ value: 'creator', label: <><Icon name="eye" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Creator')}</span><span className="hidden sm:inline">{tr('As a creator')}</span></> }] : []),
-            { value: 'team', label: <><Icon name="users" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Team')}</span><span className="hidden sm:inline">{tr('Team overview')}</span></> },
-            { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" /><span className="sm:hidden">{tr('Tools')}</span><span className="hidden sm:inline">{tr('VIP tools')}</span></> },
-          ]}
-        />
-      </div>
-      {mode === 'creator' && (
-        <div className="flex min-w-0 flex-1 items-center gap-2 animate-tab-in">
-          <span className="shrink-0 text-xs text-smoke">{tr('Seeing the page of')}</span>
-          <Select
-            value={who || '__new'}
-            onChange={(v) => onWho(v === '__new' ? null : v)}
-            options={options}
-            variant="chip"
-            className="w-56 max-w-full"
-            ariaLabel={tr('Whose VIP page to see')}
-          />
-          <span className="ml-auto hidden text-[11px] text-gray-400 md:block">{tr('Read only. Exactly what they see in {m}.', { m: market })}</span>
-        </div>
-      )}
-      {mode === 'team' && <span className="text-xs text-smoke animate-tab-in">{tr('Every VIP in {m} together, this month.', { m: market })}</span>}
-      {mode === 'tools' && <span className="text-xs text-smoke animate-tab-in">{tr('Members, money and settings for {m}.', { m: market })}</span>}
+    <div className="relative z-20 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise sm:pl-2">
+      <Segmented
+        size="sm"
+        id="vip-staff-mode"
+        label={tr('How to see this page')}
+        value={mode}
+        onChange={onMode}
+        options={[
+          { value: 'page', label: <><Icon name="star" className="h-3.5 w-3.5" />{tr('VIP page')}</> },
+          { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" />{tr('VIP tools')}</> },
+        ]}
+      />
+      <span key={mode} className="hidden min-w-0 flex-1 text-xs text-smoke animate-tab-in sm:block">
+        {mode === 'tools' ? tr('Members, money, content and settings for {m}.', { m: market }) : tr('Every VIP in {m} together, this month.', { m: market })}
+      </span>
+    </div>
+  )
+}
+
+// LOOKING AT ONE VIP'S PAGE: says whose, says it is read only, and leads back to where it was opened.
+function PreviewBanner({ name, market, onBack }) {
+  const tr = useT()
+  return (
+    <div className="relative z-20 mb-4 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-card animate-rise">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15"><Icon name="eye" className="h-4 w-4" /></span>
+      <span className="min-w-0 flex-1 text-sm">
+        <span className="block font-bold">{name ? tr('{n}\'s VIP page', { n: name }) : tr('A new VIP\'s first day in {m}', { m: market })}</span>
+        <span className="block text-xs text-white/70">{tr('Read only. Exactly what they see.')}</span>
+      </span>
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-ink transition-transform duration-200 hoverable:hover:scale-105">
+        <Icon name="chevronLeft" className="h-3.5 w-3.5" />{tr('Back to VIP tools')}
+      </button>
     </div>
   )
 }

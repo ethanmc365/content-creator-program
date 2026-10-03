@@ -47,7 +47,7 @@ export function PayoutSummary({ overview, statements, programme }) {
           { label: tr('On its way'), value: waiting, fmt: (n) => money(n, cur, { cents: false }), icon: 'clock' },
           { label: tr('Months paid'), value: months, fmt: nf, icon: 'calendar' },
         ].map((t, i) => (
-          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-3.5 py-3 shadow-card animate-fade-up sm:px-4" style={{ animationDelay: `${i * 60}ms` }}>
+          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-3.5 py-3 shadow-card animate-rise sm:px-4" style={{ animationDelay: `${i * 60}ms` }}>
             <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400"><Icon name={t.icon} className="h-3.5 w-3.5 text-brand" />{t.label}</p>
             <p className="mt-1 text-xl font-bold tabular-nums text-ink sm:text-2xl"><CountUp value={t.value} format={t.fmt} /></p>
           </div>
@@ -105,7 +105,7 @@ function Statement({ s, programmeCpm, delay }) {
   }
 
   return (
-    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
+    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise" style={{ animationDelay: `${delay}ms` }}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 pb-3 pt-4 text-left">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ function Statement({ s, programmeCpm, delay }) {
       )}
 
       {open && (
-        <div className="animate-fade-up space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
+        <div className="animate-rise space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
           <Line label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: `${s.currency} ${rate(s.cpm ?? programmeCpm)}` })} value={money(s.base, s.currency)} />
           {s.cap_applied && <p className="text-xs text-smoke">{tr('Your monthly cap applied to the views pay.')}</p>}
           {Number(s.rollover_in) > 0 && <Line label={tr('Carried over from last month')} value={money(s.rollover_in, s.currency)} />}

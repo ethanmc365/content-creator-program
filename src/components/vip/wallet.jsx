@@ -77,7 +77,7 @@ export function VipWallet({ onChanged }) {
   return (
     <div className="space-y-5">
       {/* ---------------- the balance ---------------- */}
-      <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:p-6">
+      <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise sm:p-6">
         <span aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/10 blur-2xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
@@ -124,7 +124,7 @@ export function VipWallet({ onChanged }) {
 
       {/* ---------------- automatic payout + payment details ---------------- */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-fade-up [animation-delay:60ms]">
+        <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise [animation-delay:60ms]">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="refresh" className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-ink">{tr('Pay me automatically')}</span>
@@ -132,7 +132,7 @@ export function VipWallet({ onChanged }) {
           </span>
           <Toggle on={!!w.auto_payout} onChange={setAuto} label={tr('Pay me automatically')} disabled={!!preview} />
         </div>
-        <Link to="/settings?section=payment" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card transition-all duration-200 animate-fade-up [animation-delay:120ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+        <Link to="/settings?section=payment" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card transition-all duration-200 animate-rise [animation-delay:120ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
           <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', w.payment_ready ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600')}>
             <Icon name={w.payment_ready ? 'check' : 'alert'} className="h-5 w-5" strokeWidth={w.payment_ready ? 2.4 : 1.9} />
           </span>
@@ -145,7 +145,7 @@ export function VipWallet({ onChanged }) {
       </div>
 
       {/* ---------------- the CPM panel: month by month ---------------- */}
-      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up [animation-delay:160ms]">
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise [animation-delay:160ms]">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="chart" className="h-5 w-5 text-brand" />{tr('Month by month')}</h2>
           <p className="text-xs text-smoke">{tr('Earned in total: {a}', { a: money(w.lifetime_earned, cur) })}</p>
@@ -189,14 +189,14 @@ export function VipWallet({ onChanged }) {
 
       {/* ---------------- everything that moved the balance ---------------- */}
       {(w.entries || []).length > 0 && (
-        <section className="animate-fade-up [animation-delay:200ms]">
+        <section className="animate-rise [animation-delay:200ms]">
           <h2 className="mb-3 text-[15px] font-bold text-ink">{tr('Balance history')}</h2>
           <ul className="space-y-2">
             {w.entries.map((e, i) => {
               const k = ENTRY[e.kind] || ENTRY.adjust
               const st = entryState(e, tr)
               return (
-                <li key={e.id} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-fade-up" style={{ animationDelay: `${220 + i * 40}ms` }}>
+                <li key={e.id} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise" style={{ animationDelay: `${220 + i * 40}ms` }}>
                   <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', Number(e.amount) > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-brand-tint text-brand')}><Icon name={k.icon} className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-ink">{e.year ? `${tr(k.label)}: ${monthLabel(e.year, e.month)}` : tr(k.label)}{e.auto ? ` · ${tr('automatic')}` : ''}</span>
@@ -218,7 +218,7 @@ function WindowBadge({ win }) {
   const tr = useT()
   if (win.open) {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-pop-in">
+      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-rise">
         <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
         {tr('Payouts open until {d}', { d: formatDate(win.closes_at) })}
       </span>
@@ -265,7 +265,7 @@ export function StayInCard({ compact = false }) {
   if (!r || r.on === false) return null
   const met = !!r.met
   return (
-    <section className={cx('rounded-card border bg-white p-5 shadow-card animate-fade-up', met ? 'border-emerald-100' : 'border-gray-100')}>
+    <section className={cx('rounded-card border bg-white p-5 shadow-card animate-rise', met ? 'border-emerald-100' : 'border-gray-100')}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="shield" className="h-5 w-5 text-brand" />{tr('Keep your VIP place')}</h2>
         <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide transition-colors duration-500', met ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>

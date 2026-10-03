@@ -78,7 +78,7 @@ export function VipAccessTab({ programmes }) {
         ) : (
           <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             {[...byPerson.values()].map((person) => (
-              <li key={person.profile_id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 animate-fade-up">
+              <li key={person.profile_id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 animate-rise">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar src={person.photo_url} name={person.name} size="sm" />
                   <span className="min-w-0">
@@ -118,7 +118,7 @@ export function VipAccessTab({ programmes }) {
                 <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Type a name')} autoComplete="off" />
               )}
               {!pick && (searching || found.length > 0) && (
-                <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-xl border border-gray-100 bg-white p-1 shadow-lg animate-fade-up">
+                <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-xl border border-gray-100 bg-white p-1 shadow-lg animate-rise">
                   {searching && found.length === 0 && <li className="flex items-center gap-2 px-3 py-2 text-sm text-smoke"><Spinner className="h-4 w-4" />{tr('Searching')}</li>}
                   {found.map((p) => (
                     <li key={p.id}>

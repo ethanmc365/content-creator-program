@@ -38,7 +38,7 @@ export default function TrendCard({ programmeId, mine = false, title, since = nu
   const gid = `vipTrend${mine ? 'Mine' : 'All'}`
 
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up sm:p-5">
+    <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold text-ink">{title || tr('Views gained each day')}</h2>

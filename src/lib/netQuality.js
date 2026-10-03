@@ -18,9 +18,18 @@ import { useSyncExternalStore } from 'react'
 // and globes that are a megabyte of geometry, longer polling. Nothing a creator
 // can DO is switched off - only the things that spend bandwidth on their behalf.
 
-const SLOW_MS = 1400 // a database read slower than this, on average, is a slow connection
-const FAST_MS = 700 // and faster than this is a recovered one (a gap, so it does not flicker)
-const MIN_SAMPLES = 3
+const SLOW_MS = 1800 // a database read slower than this, on average, is a slow connection
+const FAST_MS = 800 // and faster than this is a recovered one (a gap, so it does not flicker)
+const MIN_SAMPLES = 5
+// NOT AT LAUNCH, AND NOT IN A CROWD (3 Oct 2026). Ethan: "even if I open the app with a strong signal, it still
+// shows up that low Wi-Fi thing." The first seconds of a launch are a dozen reads queued behind one fresh TLS
+// connection and a token refresh, so each one LOOKED slow on perfect wifi and three of them were enough to call
+// the line weak. A read now only counts once the app has been open for a few seconds and when it was not one of a
+// burst - its time then measures the connection, not the queue in front of it.
+const WARMUP_MS = 6000
+const CROWD = 3
+let inflight = 0
+const bootAt = typeof performance !== 'undefined' ? performance.now() : 0
 
 let avg = null
 let samples = 0
@@ -30,7 +39,9 @@ const listeners = new Set()
 function hinted() {
   const c = typeof navigator !== 'undefined' ? navigator.connection : null
   if (!c) return false
-  return !!c.saveData || /(^|-)(2g|3g)$/.test(c.effectiveType || '') || (c.downlink > 0 && c.downlink < 1)
+  // Only what the browser is SURE of. Chrome reports `3g` and a sub-1Mbps downlink on perfectly usable wifi
+  // (both are rounded, privacy-bucketed estimates), which put good connections into slow mode on launch.
+  return !!c.saveData || /(^|-)2g$/.test(c.effectiveType || '')
 }
 
 function set(next) {
@@ -105,14 +116,18 @@ export async function resilientFetch(input, init = {}) {
   const method = (init.method || (typeof input !== 'string' && input?.method) || 'GET').toUpperCase()
   if (!isRetryableRead(url, method)) return fetch(input, init)
   const started = performance.now()
+  const counts = started - bootAt > WARMUP_MS && inflight < CROWD
+  inflight += 1
   try {
     const res = await withTimeout(input, init, READ_TIMEOUT_MS)
-    recordRequest(performance.now() - started)
+    if (counts) recordRequest(performance.now() - started)
     return res
   } catch (err) {
     // The caller cancelled it: that is not the network's fault, and not ours to retry.
     if (init.signal?.aborted) throw err
     recordTimeout()
     return withTimeout(input, init, READ_TIMEOUT_MS)
+  } finally {
+    inflight -= 1
   }
 }

@@ -24,14 +24,20 @@ export function VipAnnouncements({ programmeId }) {
   if (rows.length === 0) return null
   return (
     <section className="space-y-3" aria-label={tr('From the team')}>
-      {rows.map((a, i) => (
-        <article key={a.id} className={cx('rounded-card border p-4 shadow-card animate-fade-up sm:p-5', a.pinned ? 'border-brand/25 bg-brand-tint/60' : 'border-gray-100 bg-white')} style={{ animationDelay: `${i * 60}ms` }}>
-          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-brand"><Icon name="megaphone" className="h-3.5 w-3.5" />{a.pinned ? tr('Pinned by the team') : tr('From the team')}<span className="font-medium normal-case tracking-normal text-gray-400">· {formatDate(a.created_at)}</span></p>
-          <h3 className="mt-1.5 text-[15px] font-bold text-ink">{a.title}</h3>
-          <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-smoke">{a.body}</p>
-        </article>
-      ))}
+      {rows.map((a, i) => <AnnouncementCard key={a.id} a={a} delay={i * 60} />)}
     </section>
+  )
+}
+
+/** One announcement as a VIP sees it. The team's composer draws the same card as its live preview. */
+export function AnnouncementCard({ a, delay = 0, preview = false }) {
+  const tr = useT()
+  return (
+    <article className={cx('rounded-card border p-4 shadow-card animate-rise sm:p-5', a.pinned ? 'border-brand/25 bg-brand-tint/60' : 'border-gray-100 bg-white')} style={{ animationDelay: `${delay}ms` }}>
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-brand"><Icon name="megaphone" className="h-3.5 w-3.5" />{a.pinned ? tr('Pinned by the team') : tr('From the team')}<span className="font-medium normal-case tracking-normal text-gray-400">· {preview ? tr('just now') : formatDate(a.created_at)}</span></p>
+      <h3 className={cx('mt-1.5 break-words text-[15px] font-bold', a.title ? 'text-ink' : 'text-gray-300')}>{a.title || tr('Your title')}</h3>
+      <p className={cx('mt-1 whitespace-pre-line break-words text-sm leading-relaxed', a.body ? 'text-smoke' : 'text-gray-300')}>{a.body || tr('Your message to every VIP appears here.')}</p>
+    </article>
   )
 }
 
@@ -60,7 +66,7 @@ export function VipStats({ overview, rules, programmeId }) {
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map((t, i) => (
-          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
             <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><Icon name={t.icon} className="h-3.5 w-3.5 text-brand" />{t.label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-brand"><CountUp value={t.value} format={t.format} /></p>
           </div>
@@ -68,7 +74,7 @@ export function VipStats({ overview, rules, programmeId }) {
       </div>
       {/* TWO BARS, NOT ONE (1 Oct 2026): the next milestone over all time, and this month against the creator's own best
           month, so there is always something close enough to chase. */}
-      <section className="grid gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:grid-cols-2">
+      <section className="grid gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise sm:grid-cols-2">
         <div>
           <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your next milestone')}</h2>
           {next ? <TargetBar label={tr('{n} views as a VIP', { n: nf(next) })} value={life.views} target={next} />

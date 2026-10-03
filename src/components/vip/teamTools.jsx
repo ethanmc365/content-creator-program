@@ -30,7 +30,7 @@ function useRpc(fn, args) {
 
 function Tile({ icon, label, value, hint, tone = 'brand', delay = 0 }) {
   return (
-    <div className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
+    <div className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise" style={{ animationDelay: `${delay}ms` }}>
       <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><Icon name={icon} className={cx('h-3.5 w-3.5', tone === 'warn' ? 'text-amber-500' : tone === 'good' ? 'text-emerald-500' : 'text-brand')} />{label}</p>
       <p className={cx('mt-1 truncate text-2xl font-bold tabular-nums', tone === 'warn' ? 'text-amber-600' : tone === 'good' ? 'text-emerald-600' : 'text-ink')}>{value}</p>
       {hint && <p className="mt-0.5 line-clamp-2 text-[11px] text-smoke">{hint}</p>}
@@ -40,7 +40,7 @@ function Tile({ icon, label, value, hint, tone = 'brand', delay = 0 }) {
 
 function Empty({ icon, title, hint }) {
   return (
-    <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center animate-fade-up">
+    <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center animate-rise">
       <Icon name={icon} className="mx-auto h-7 w-7 text-gray-300" />
       <p className="mt-2 text-sm font-semibold text-ink">{title}</p>
       {hint && <p className="mx-auto mt-1 max-w-md text-sm text-smoke">{hint}</p>}
@@ -83,13 +83,13 @@ export function VipWalletsTab({ programme }) {
         <Tile icon="clock" label={tr('Cash not yet paid')} value={nf(unpaid.length)} hint={tr('Invoices approved or sent')} delay={150} />
       </div>
 
-      <div className="rounded-card border border-gray-100 bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-smoke animate-fade-up">
+      <div className="rounded-card border border-gray-100 bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-smoke animate-rise">
         <Icon name="bulb" className="mr-1.5 inline h-4 w-4 text-brand" />
         {tr('Approving a month adds it to each balance. For {d} days after the month ends, a VIP can take cash (from {a}) or a Tryp.com voucher (any amount). Otherwise it keeps growing.', { d: data.request_days, a: money(data.threshold, cur, { cents: false }) })}
       </div>
 
       {(data.requests || []).length > 0 && (
-        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
+        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="bell" className="h-5 w-5 text-brand" />{tr('Requests')}</h3>
             <div className="flex gap-2">
@@ -99,7 +99,7 @@ export function VipWalletsTab({ programme }) {
           </div>
           <ul className="divide-y divide-gray-50">
             {data.requests.slice(0, 12).map((q, i) => (
-              <li key={q.id} className="flex items-center gap-3 py-2.5 animate-fade-up" style={{ animationDelay: `${i * 35}ms` }}>
+              <li key={q.id} className="flex items-center gap-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
                 <Avatar src={q.photo_url} name={q.name} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-ink">{q.name}</span>
@@ -113,7 +113,7 @@ export function VipWalletsTab({ programme }) {
         </section>
       )}
 
-      <section className="rounded-card border border-gray-100 bg-white shadow-card animate-fade-up">
+      <section className="rounded-card border border-gray-100 bg-white shadow-card animate-rise">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
           <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="users" className="h-5 w-5 text-brand" />{tr('Every balance')}</h3>
           <Segmented size="sm" value={filter} onChange={setFilter} label={tr('Show')} options={[
@@ -125,7 +125,7 @@ export function VipWalletsTab({ programme }) {
             {shown.map((r, i) => {
               const pct = Math.min(1, Number(r.balance) / Math.max(1, Number(data.threshold)))
               return (
-                <li key={r.profile_id} className="flex flex-wrap items-center gap-3 px-5 py-3 animate-fade-up sm:flex-nowrap" style={{ animationDelay: `${i * 30}ms` }}>
+                <li key={r.profile_id} className="flex flex-wrap items-center gap-3 px-5 py-3 animate-rise sm:flex-nowrap" style={{ animationDelay: `${i * 30}ms` }}>
                   <Avatar src={r.photo_url} name={r.name} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -243,7 +243,7 @@ export function VipRequirementsTab({ programme }) {
       ) : (
         <ul className="space-y-2.5">
           {list.map((r, i) => (
-            <li key={r.profile_id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up" style={{ animationDelay: `${i * 35}ms` }}>
+            <li key={r.profile_id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
               <div className="flex flex-wrap items-center gap-3">
                 <Avatar src={r.photo_url} name={r.name} size="sm" />
                 <span className="min-w-0 flex-1">
@@ -328,7 +328,7 @@ export function VipSheetTab({ programme }) {
       {data.rows.length === 0 ? (
         <Empty icon="chart" title={tr('Nothing on the sheet yet')} hint={tr('Months appear as they are counted. Add the months before the platform with "Add past months".')} />
       ) : (
-        <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-fade-up">
+        <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
           <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-0 text-[13px]">
               <thead>
@@ -345,7 +345,7 @@ export function VipSheetTab({ programme }) {
               </thead>
               <tbody>
                 {data.rows.map((r, i) => (
-                  <tr key={`${r.profile_id || r.name}`} className="group animate-fade-up" style={{ animationDelay: `${Math.min(i, 15) * 25}ms` }}>
+                  <tr key={`${r.profile_id || r.name}`} className="group animate-rise" style={{ animationDelay: `${Math.min(i, 15) * 25}ms` }}>
                     <td className="sticky left-0 z-10 border-b border-gray-50 bg-white px-4 py-2.5 group-hover:bg-cloud/60">
                       <span className="block max-w-[11rem] truncate font-semibold text-ink">{r.name}</span>
                       <span className="block text-[11px] text-smoke">{cur} {rate(r.cpm)}{r.status && r.status !== 'active' ? ` · ${tr(r.status)}` : ''}{!r.profile_id ? ` · ${tr('typed in')}` : ''}</span>
@@ -481,7 +481,7 @@ export function VipRulesCard({ programme, onSaved }) {
   }
   const dis = !programme.can_manage
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
+    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
       <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="wallet" className="h-5 w-5 text-brand" />{tr('Payouts and staying in')}</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block"><span className="label">{tr('Cash payouts from ({c})', { c: programme.currency })}</span><input className="input" type="number" min="0" step="1" value={f.threshold} disabled={dis} onChange={(e) => set({ threshold: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('Below this, a VIP can only take a travel voucher or let it grow.')}</span></label>
@@ -516,7 +516,7 @@ export function TeamPulse({ programme, onTool }) {
   const ready = (wal.data?.rows || []).filter((r) => Number(r.balance) >= Number(wal.data?.threshold) && Number(r.balance) > 0).length
   const onTrackPct = rows.length ? (rows.length - behind.length) / rows.length : 0
 
-  const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-fade-up hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
+  const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <button type="button" onClick={() => onTool('requirements')} className={card}>

@@ -125,7 +125,7 @@ export function VipOverviewTab({ programme }) {
               const top = Math.max(1, Number(members[0]?.views) || 0)
               const pct = Math.round((Number(m.views) / top) * 100)
               return (
-                <li key={m.profile_id} className={cx('rounded-card border bg-white p-3.5 shadow-card animate-fade-up sm:p-4', i === 0 && Number(m.views) > 0 ? 'border-brand/30' : 'border-gray-100', m.status !== 'active' && 'opacity-60')} style={{ animationDelay: `${Math.min(i, 10) * 45}ms` }}>
+                <li key={m.profile_id} className={cx('rounded-card border bg-white p-3.5 shadow-card animate-rise sm:p-4', i === 0 && Number(m.views) > 0 ? 'border-brand/30' : 'border-gray-100', m.status !== 'active' && 'opacity-60')} style={{ animationDelay: `${Math.min(i, 10) * 45}ms` }}>
                   <div className="flex items-center gap-3">
                     <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && Number(m.views) > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
                     <Link to={`/profile/${m.profile_id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:text-brand">
@@ -373,7 +373,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
   }
 
   const section = (icon, title, children, i) => (
-    <section className="animate-fade-up rounded-2xl border border-gray-100 p-4" style={{ animationDelay: `${i * 50}ms` }}>
+    <section className="animate-rise rounded-2xl border border-gray-100 p-4" style={{ animationDelay: `${i * 50}ms` }}>
       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-light text-white"><Icon name={icon} className="h-4 w-4" /></span>
         {title}
@@ -433,7 +433,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
                 : (
                   <ul className="space-y-2">
                     {f.tiers.map((t, i) => (
-                      <li key={i} className="flex animate-fade-up items-center gap-2">
+                      <li key={i} className="flex animate-rise items-center gap-2">
                         <span className="text-xs text-smoke">{tr('From')}</span>
                         <input className="input !py-2" inputMode="numeric" value={t.from_views} placeholder="500000" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, from_views: e.target.value } : x)) })} />
                         <span className="shrink-0 text-xs text-smoke">{tr('views, {c}', { c: cur })}</span>
@@ -539,7 +539,7 @@ export function VipMembersTab({ programme }) {
         ) : (
           <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             {members.map((m, i) => (
-              <li key={m.profile_id} className="p-4 animate-fade-up" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+              <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
                 <div className="flex items-center gap-3.5">
                   <Link to={`/profile/${m.profile_id}`} className="shrink-0"><Avatar src={m.photo} name={m.name} size="md" /></Link>
                   <div className="min-w-0 flex-1">

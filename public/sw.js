@@ -2,7 +2,7 @@
    Handles web-push delivery, page-driven notifications, click routing, AND
    offline app-shell caching so the app still boots with no connection. */
 
-const CACHE = 'tryp-cache-v7'
+const CACHE = 'tryp-cache-v8'
 // The shell is what the offline screen needs and no more: the small logo and plane (1 Oct 2026 - the
 // full-size PNGs were 760kB, downloaded on install over whatever connection the creator had).
 const SHELL = ['/', '/index.html', '/brand/tryp-logo-360.png', '/brand/tryp-plane-640.png', '/manifest.webmanifest']
@@ -33,6 +33,15 @@ function isDevRequest(url) {
   )
 }
 
+async function shellIsComplete(cache, shell) {
+  try {
+    const html = await shell.clone().text()
+    const files = [...html.matchAll(/(?:href|src)="(\/assets\/[^"]+\.(?:css|js))"/g)].map((m) => m[1])
+    for (const f of files) if (!(await cache.match(f))) return false
+    return true
+  } catch { return false }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -61,7 +70,10 @@ self.addEventListener('fetch', (event) => {
         if (fresh && fresh.ok && html) await cache.put('/index.html', fresh.clone())
         return fresh
       })
-      if (!cached) return network.catch(() => Response.error())
+      // A CACHED SHELL IS ONLY A FALLBACK IF EVERYTHING IT NEEDS IS ALSO CACHED (3 Oct 2026). A shell from an
+      // older deploy names stylesheets and scripts by hash; once that deploy is gone from the server, a shell
+      // whose files are not in this cache boots a page with no styles at all (Ethan's weak-wifi screenshot).
+      if (!cached || !(await shellIsComplete(cache, cached))) return network.catch(() => cached || Response.error())
       event.waitUntil(network.catch(() => {}))
       const late = new Promise((resolve) => setTimeout(() => resolve(cached), 2500))
       return Promise.race([network.catch(() => cached), late])

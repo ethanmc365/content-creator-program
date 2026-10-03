@@ -86,16 +86,41 @@ else applyAppIcon()
 function promoteAppCss() {
   const links = [...document.querySelectorAll('link[data-app-css]')]
   if (links.length === 0) return Promise.resolve()
+  // NEVER MOUNT INTO AN UNSTYLED PAGE (3 Oct 2026). Ethan opened the app on weak wifi and got bare blue links
+  // and a giant globe icon. This waited 1.2 seconds for the stylesheet and then mounted anyway, and when the
+  // service worker had booted a cached page from an older deploy its stylesheet no longer existed at all - so
+  // the page stayed unstyled for good. Now it waits as long as the boot skeleton is showing (up to 12s), and a
+  // stylesheet that FAILS means the shell is stale: drop it from the cache and load a fresh one, once.
   return new Promise((resolve) => {
     let left = links.length
-    const tick = () => { left -= 1; if (left <= 0) resolve() }
-    setTimeout(resolve, 1200)
+    let failed = false
+    const done = () => {
+      if (failed && !sessionStorage.getItem('tryp_css_retry')) {
+        try { sessionStorage.setItem('tryp_css_retry', '1') } catch { /* private mode */ }
+        dropCachedShell().finally(() => location.reload())
+        return
+      }
+      resolve()
+    }
+    const tick = () => { left -= 1; if (left <= 0) done() }
+    setTimeout(resolve, 12000)
     for (const link of links) {
       link.addEventListener('load', tick, { once: true })
-      link.addEventListener('error', tick, { once: true })
+      link.addEventListener('error', () => { failed = true; tick() }, { once: true })
       link.rel = 'stylesheet'
     }
   })
+}
+
+async function dropCachedShell() {
+  try {
+    if (!('caches' in window)) return
+    for (const k of await caches.keys()) {
+      const c = await caches.open(k)
+      await c.delete('/index.html')
+      await c.delete('/')
+    }
+  } catch { /* best effort */ }
 }
 
 function mount() {
@@ -212,19 +237,22 @@ Promise.all([promoteAppCss(), loadLocale(getLocale()), loadOverrides(getLocale()
 // app can boot with no connection. The SW only precaches the HTML shell (it
 // can't know the content-hashed JS/CSS filenames); the page CAN see them in the
 // DOM, and writes to the same Cache Storage the SW reads from.
+// Must match CACHE in public/sw.js: the worker deletes every other cache when it activates, so writing to
+// any other name (it said v2 while the worker was on v7) caches nothing at all.
+const SW_CACHE = 'tryp-cache-v8'
 async function precacheAppShell() {
   if (!('caches' in window)) return
   try {
     const urls = new Set([new URL('/', location.origin).href, new URL('/index.html', location.origin).href])
     document
-      .querySelectorAll('script[src], link[rel="stylesheet"][href], link[rel="modulepreload"][href]')
+      .querySelectorAll('script[src], link[rel="stylesheet"][href], link[data-app-css][href], link[rel="modulepreload"][href]')
       .forEach((el) => {
         const raw = el.src || el.getAttribute('href')
         if (!raw) return
         const u = new URL(raw, location.origin)
         if (u.origin === location.origin) urls.add(u.href.split('#')[0])
       })
-    const cache = await caches.open('tryp-cache-v2')
+    const cache = await caches.open(SW_CACHE)
     await Promise.all([...urls].map(async (u) => {
       try {
         if (await cache.match(u)) return

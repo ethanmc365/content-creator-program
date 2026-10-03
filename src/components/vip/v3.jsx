@@ -65,7 +65,7 @@ function BriefCard({ brief, overview }) {
   }, [pid])
   const places = prizesByPlace(rules, tr, overview.programme?.currency)
   return (
-    <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-fade-up sm:p-6">
+    <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-rise sm:p-6">
       <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
         <Icon name="flag" className="h-3.5 w-3.5" />{tr('VIP challenge')} · {monthLabel(brief.year, brief.month)}
         {brief.theme && <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] tracking-wide text-brand shadow-sm"><TLine text={brief.theme} /></span>}
@@ -102,7 +102,7 @@ function BriefCard({ brief, overview }) {
             <Icon name="chart" className="h-3.5 w-3.5" />{open ? tr('Hide standings') : tr('See standings')}{me ? ` · ${tr('you are #{n}', { n: me.rank })}` : ''}
           </button>
           {open && (
-            <ol className="mt-3 space-y-1.5 animate-fade-up">
+            <ol className="mt-3 space-y-1.5 animate-rise">
               {standings.slice(0, 10).map((r) => (
                 <li key={`${r.rank}-${r.name}`} className={cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm', r.me ? 'bg-brand text-white' : 'bg-white')}>
                   <span className={cx('w-6 text-center text-xs font-bold tabular-nums', r.me ? 'text-white' : 'text-gray-400')}>{r.rank}</span>
@@ -135,7 +135,7 @@ export function MarketStandings() {
         const accent = safeAccent()
         const delta = Number(r.prev_views) > 0 ? Math.round(((Number(r.views) - Number(r.prev_views)) / Number(r.prev_views)) * 100) : null
         return (
-          <li key={r.programme_id} className={cx('rounded-card border bg-white p-4 shadow-card animate-fade-up sm:p-5', r.mine ? 'border-brand/40' : 'border-gray-100')} style={{ animationDelay: `${i * 70}ms` }}>
+          <li key={r.programme_id} className={cx('rounded-card border bg-white p-4 shadow-card animate-rise sm:p-5', r.mine ? 'border-brand/40' : 'border-gray-100')} style={{ animationDelay: `${i * 70}ms` }}>
             <div className="flex items-start gap-3">
               {/* THE MARKET'S FLAG, WITH ITS PLACE (1 Oct 2026). Ethan: "per-market ones ... Maybe show the flag." */}
               <span className="relative shrink-0">
@@ -201,7 +201,7 @@ export function PerksPath() {
   return (
     <div className="space-y-5">
       {next && (
-        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
+        <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name="flag" className="h-3.5 w-3.5 text-brand" />{tr('Up next')}</p>
           <h3 className="mb-4 mt-1 text-lg font-bold text-ink"><TLine text={next.title} /></h3>
           <TargetBar label={unitLabel(next.metric, next.threshold, tr)} value={Number(next.value)} target={Number(next.threshold)} format={nf} />
@@ -263,7 +263,7 @@ export function VipLibrary({ programmeId }) {
     <div className="space-y-6">
       {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE (1 Oct 2026). Ethan: "don't say 'Stuck on the first line.' I don't
           like that colour. Just have the 'Hook me up' and 'find a deal' button ... bigger ... side by side." */}
-      <section className="grid gap-3 sm:grid-cols-2 animate-fade-up">
+      <section className="grid gap-3 sm:grid-cols-2 animate-rise">
         <HookButton variant="big" />
         <DealFinder variant="big" />
       </section>
@@ -334,7 +334,7 @@ export function VipMap() {
           ? tr('No VIPs on the map yet. Creators appear once they add their town to their profile.')
           : tr('{n} VIP creators in {c} countries.', { n: list.length, c: countries })}
       </p>
-      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card animate-fade-up">
+      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card animate-rise">
         {data === undefined
           ? <Skeleton className="h-[26rem] w-full" />
           : <CreatorMap creators={list} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen />}
@@ -375,7 +375,7 @@ export function VipMySettings({ overview, onSaved }) {
   }
   const goalNum = Number(String(goal).replace(/[^\d]/g, '')) || 0
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up">
+    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
       <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="pencil" className="h-5 w-5 text-brand" />{tr('Make it yours')}</h2>
       <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Your headline and your own goal. Only you and the team can change them.')}</p>
       <div className="space-y-4">

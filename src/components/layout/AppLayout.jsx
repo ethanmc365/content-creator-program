@@ -171,7 +171,7 @@ function ChatSearchField({ target }) {
            control actually belongs. */
         placeholder={phone ? tr('Search') : tr('Search {room}', { room: target.label })}
         aria-label={`Search ${target.label}`}
-        className="no-ios-zoom min-w-0 flex-1 bg-transparent py-1.5 outline-none placeholder:text-gray-400"
+        className="no-ios-zoom min-w-0 flex-1 bg-transparent py-1.5 outline-none placeholder:text-gray-400 focus-visible:ring-0"
       />
       <button
         onClick={close}
@@ -703,19 +703,26 @@ export default function AppLayout() {
                 chrome above a conversation was costing more than it earned. See
                 lib/chatSearch: the room registers itself while it is open, so
                 this is a chat search only while there is a chat to search. */}
-            {chatSearch ? (
-              <ChatSearchField target={chatSearch} />
-            ) : (
-              <button
-                onClick={() => setPaletteOpen(true)}
-                aria-label={tr("Search")}
-                data-tour="search"
-                className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand sm:pr-2"
-              >
-                <Icon name="magnifier" className="h-4 w-4" />
-                <kbd className="hidden text-[10px] font-medium sm:block">⌘K</kbd>
-              </button>
+            {/* ONLY BELOW lg (3 Oct 2026). A desktop room already has its own search bar above the thread, so
+                the header keeps the platform-wide palette and its ⌘K there - swapping it for a second room search
+                made the header jump narrower every time Rooms opened. */}
+            {chatSearch && (
+              <div className="flex min-w-0 items-center lg:hidden">
+                <ChatSearchField target={chatSearch} />
+              </div>
             )}
+            <button
+              onClick={() => setPaletteOpen(true)}
+              aria-label={tr("Search")}
+              data-tour={chatSearch ? undefined : 'search'}
+              className={cx(
+                'items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand sm:pr-2',
+                chatSearch ? 'hidden lg:flex' : 'flex',
+              )}
+            >
+              <Icon name="magnifier" className="h-4 w-4" />
+              <kbd className="hidden text-[10px] font-medium sm:block">⌘K</kbd>
+            </button>
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
             {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).

@@ -37,7 +37,7 @@ export function VipSideNav({ value, onChange, hidden }) {
         {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s, i) => {
           const on = s.key === value
           return (
-            <li key={s.key} className="animate-slide-in-right" style={{ animationDelay: `${i * 35}ms` }}>
+            <li key={s.key} className="animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
               <button
                 type="button"
                 onClick={() => !on && onChange(s.key)}
