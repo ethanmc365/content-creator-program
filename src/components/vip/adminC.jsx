@@ -1,12 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { formatDate, formatViews } from '../../lib/utils'
-import { ATTENTION, EVENT_ICON, describeEvent, useOptionalRpc, vipRpc } from '../../lib/vip'
+import { ATTENTION, EVENT_ICON, describeEvent, money, perK, useOptionalRpc, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 import { AnnouncementCard } from './mine'
 
@@ -25,12 +25,14 @@ export function TrendCard(props) {
 export function AttentionCard({ programme }) {
   const tr = useT()
   const { data, missing } = useOptionalRpc('vip_attention', { p_programme: programme.id }, programme.id)
-  const r = programme.currency ? `${programme.currency} ${Number(programme.cpm)}` : String(programme.cpm)
+  const r = perK(programme.cpm, programme.currency || 'EUR')
   if (missing || !data || data.length === 0) return null
+  // IN THE PLATFORM'S OWN COLOURS (3 Oct 2026). Ethan: "I don't like that color of that card. It's like a weird yellow."
   return (
-    <section className="rounded-card border border-amber-200 bg-amber-50/60 p-4 shadow-card animate-rise sm:p-5">
-      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="alert" className="h-5 w-5 text-amber-600" />{tr('Needs a nudge')} <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">{data.length}</span></h2>
-      <ul className="divide-y divide-amber-100">
+    <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
+      <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="bell" className="h-5 w-5 text-brand" />{tr('Needs a nudge')} <span className="rounded-full bg-brand-tint px-2 py-0.5 text-xs font-bold text-brand">{data.length}</span></h2>
+      <ul className="divide-y divide-gray-50">
         {data.map((r, i) => (
           <li key={r.profile_id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
             <Link to={`/profile/${r.profile_id}`} className="flex min-w-0 items-center gap-2.5 hover:text-brand">
@@ -38,13 +40,13 @@ export function AttentionCard({ programme }) {
               <span className="truncate text-sm font-semibold">{r.name}</span>
             </Link>
             <span className="flex flex-wrap gap-1.5">
-              {(r.reasons || []).map((k) => <span key={k} className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">{tr(ATTENTION[k] || k)}</span>)}
+              {(r.reasons || []).map((k) => <span key={k} className="rounded-full bg-cloud px-2.5 py-0.5 text-[11px] font-semibold text-ink/80">{tr(ATTENTION[k] || k)}</span>)}
             </span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 border-t border-amber-100 pt-3 text-xs leading-relaxed text-amber-900/80">
-        {tr('Views are always counted at the agreed rate ({r} per 1,000), nudge or no nudge. A nudge is only about what they still have to do: add payment details so the invoice can be paid, or accept the', { r })} <Link to="/vip?mode=tools&tab=settings" className="font-semibold underline">{tr('VIP terms')}</Link>.
+      <p className="mt-3 border-t border-gray-100 pt-3 text-xs leading-relaxed text-smoke">
+        {tr('Views are always counted at the agreed rate ({r} per 1,000), nudge or no nudge. A nudge is only about what they still have to do: add payment details so the invoice can be paid, or accept the', { r })} <Link to="/vip?mode=tools&tab=settings" className="font-semibold text-brand hover:underline">{tr('VIP terms')}</Link>.
       </p>
     </section>
   )
@@ -149,7 +151,10 @@ export function AnnouncementsTab({ programme }) {
   async function post() {
     setBusy(true)
     try {
-      await vipRpc('vip_announce', { p_programme: programme.id, p_title: title, p_body: body, p_pinned: pinned })
+      // A TITLE IS OPTIONAL (3 Oct 2026): "they can just write a simple message that the creators will see." Without
+      // one, the notification is headed by the first words of the message.
+      const head = title.trim() || body.trim().split(/\n/)[0].slice(0, 80)
+      await vipRpc('vip_announce', { p_programme: programme.id, p_title: head, p_body: body, p_pinned: pinned })
       toastSuccess(tr('Posted. Every VIP has been notified.'))
       setTitle(''); setBody('')
       await load()
@@ -178,11 +183,11 @@ export function AnnouncementsTab({ programme }) {
             <li className="flex items-center gap-2"><Icon name="star" className="h-3.5 w-3.5 shrink-0 text-brand" />{tr('It sits at the top of their VIP page, as previewed here')}</li>
           </ul>
           <div className="space-y-3">
-            <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: New bonus for October')} /></label>
-            <label className="block"><span className="label">{tr('Message')}</span><textarea className="input min-h-[6rem] resize-y" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} /></label>
+            <label className="block"><span className="label">{tr('Message')}</span><textarea className="input min-h-[7rem] resize-y" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('Write what every VIP should know.')} /></label>
+            <label className="block"><span className="label">{tr('Title (optional)')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: New bonus for October')} /></label>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-smoke"><input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} className="h-4 w-4 accent-[#d94407]" />{tr('Pin it to the top of the VIP page')}</label>
-              <button type="button" onClick={post} disabled={busy || !title.trim() || !body.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="megaphone" className="h-4 w-4" />}{tr('Send to every VIP')}</button>
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-smoke"><Toggle on={pinned} onChange={setPinned} label={tr('Pin it to the top of the VIP page')} />{tr('Pin it to the top of the VIP page')}</label>
+              <button type="button" onClick={post} disabled={busy || !body.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="megaphone" className="h-4 w-4" />}{tr('Send to every VIP')}</button>
             </div>
           </div>
         </section>
@@ -191,7 +196,7 @@ export function AnnouncementsTab({ programme }) {
           <div className="space-y-3 rounded-card border border-gray-100 bg-cloud/60 p-3 sm:p-4">
             <div aria-hidden className="rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white shadow-card">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/80">{tr('This month so far')}</p>
-              <p className="mt-0.5 text-2xl font-bold tabular-nums">{programme.currency} 0.00</p>
+              <p className="mt-0.5 text-2xl font-bold tabular-nums">{money(0, programme.currency)}</p>
             </div>
             <AnnouncementCard a={{ title: title.trim(), body: body.trim(), pinned }} preview />
             {(list || []).filter((a) => a.pinned).slice(0, pinned ? 1 : 2).map((a) => <div key={a.id} className="opacity-60"><AnnouncementCard a={a} /></div>)}

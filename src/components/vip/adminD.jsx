@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
-import { MarketStandings, VipMap } from './v3'
+import { MarketStandings } from './v3'
 import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, monthLabel, nf, prizesByPlace, unitLabel, useOptionalRpc, vipJoinLink, vipRpc } from '../../lib/vip'
+import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
@@ -96,11 +96,6 @@ export function VipMarketsTab({ programme, isOwner, onChanged }) {
         <p className="mb-3 text-sm text-smoke">{tr('Every VIP market this month. You can see all of them; you can only change your own.')}</p>
         <MarketStandings />
       </section>
-      <section>
-        <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Every VIP creator')}</h2>
-        <p className="mb-3 text-sm text-smoke">{tr('Only creators who chose to be on the map.')}</p>
-        <VipMap />
-      </section>
       {isOwner && programmes.length > 1 && (
         <section>
           <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Where new VIPs start')}</h2>
@@ -161,7 +156,7 @@ function ScopeField({ value, onChange, programme, isOwner, disabled }) {
     <label className="block">
       <span className="label">{tr('Who it is for')}</span>
       <Select variant="field" portal value={value} disabled={disabled} onChange={onChange} ariaLabel={tr('Who it is for')}
-        options={[{ value: programme.id, label: tr('{p} only', { p: programme.name }) }, ...((isOwner || value === '') ? [{ value: '', label: tr('Every market') }] : [])]} />
+        options={[{ value: programme.id, label: tr('{p} only', { p: programme.name }) }, ...((isOwner || value === '') ? [{ value: '', label: tr('Every VIP market') }] : [])]} />
     </label>
   )
 }
@@ -171,7 +166,7 @@ const ownerLocked = (row, isOwner, canManage) => (row.programme_id == null ? !is
 
 function ScopeTag({ row }) {
   const tr = useT()
-  return <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', row.programme_id == null ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>{row.programme_id == null ? tr('Every market') : tr('This market')}</span>
+  return <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', row.programme_id == null ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>{row.programme_id == null ? tr('Every VIP market') : tr('This VIP market')}</span>
 }
 
 // ---- monthly challenges
@@ -228,23 +223,42 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   const [target, setTarget] = useState(brief.target ? String(brief.target) : '')
   const [prize, setPrize] = useState(brief.prize || '')
   const [busy, setBusy] = useState(false)
-  const [rules, setRules] = useState([])
-  const rulesFor = scope || programme.id
+  // THE PRIZES ARE SET HERE (3 Oct 2026). Ethan: "I seem to be unable to actually create the prizes. Have to change them
+  // in bonuses and it seems quite complicated. I want it to be really straightforward." The places and amounts are typed
+  // on the challenge itself and saved as that month's "most views" bonus (migration 318 plans it by calendar month), so
+  // the close pays them and every VIP sees them, with nothing to set up anywhere else.
+  const [prizeRule, setPrizeRule] = useState(undefined)
+  const [places, setPlaces] = useState(['', '', ''])
+  const [prizeKind, setPrizeKind] = useState('cash')
+  const [yy, mm] = ym.split('-').map(Number)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_bonus_rules').select('*').eq('programme_id', rulesFor).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
+    supabase.from('vip_bonus_rules').select('*').eq('programme_id', programme.id).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).maybeSingle()
+      .then(({ data }) => {
+        if (!alive) return
+        setPrizeRule(data || null)
+        if (data) { setPlaces((data.places || []).map((p) => String(p.amount))); setPrizeKind(data.reward || 'cash') }
+      })
     return () => { alive = false }
-  }, [rulesFor])
-  const autoPlaces = prizesByPlace(rules, tr, programme.currency)
+  }, [programme.id, yy, mm])
+  const sym = curSym(programme.currency)
+  async function savePrizes(label) {
+    const list = places.map((a, i) => ({ place: i + 1, amount: Number(a) || 0, reward: prizeKind })).filter((p) => p.amount > 0)
+    if (prizeRule && list.length === 0) { await supabase.from('vip_bonus_rules').delete().eq('id', prizeRule.id); return }
+    if (list.length === 0) return
+    const row = { programme_id: programme.id, kind: 'top_n', label, scope: scope === '' ? 'global' : 'market', reward: prizeKind, amount: 0, places: list, conditions: {}, for_year: yy, for_month: mm, note: 'brief', active: true }
+    const { error } = prizeRule ? await supabase.from('vip_bonus_rules').update(row).eq('id', prizeRule.id) : await supabase.from('vip_bonus_rules').insert(row)
+    if (error) throw error
+  }
   async function save() {
-    const [y, m] = ym.split('-').map(Number)
     setBusy(true)
     try {
       await vipRpc('vip_save_brief', {
-        p_id: brief.id || null, p_programme: scopeId(scope), p_year: y, p_month: m, p_title: title, p_theme: theme || null, p_body: body,
+        p_id: brief.id || null, p_programme: scopeId(scope), p_year: yy, p_month: mm, p_title: title, p_theme: theme || null, p_body: body,
         p_hooks: hooks.split('\n').map((h) => h.trim()).filter(Boolean), p_metric: metric,
         p_target: target ? Number(String(target).replace(/[^\d]/g, '')) : null, p_prize: prize || null,
       })
+      await savePrizes(tr('Prizes: {t}', { t: title.trim() || monthLabel(yy, mm) }))
       toastSuccess(brief.id ? tr('Saved') : tr('Posted. Every VIP in scope has been notified.'))
       onSaved()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
@@ -265,13 +279,26 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
           <label className="block"><span className="label">{tr('A goal everyone can aim for (optional)')}</span><input className="input" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100000" /></label>
         </div>
         <div className="rounded-xl border border-gray-100 bg-cloud/50 p-3.5">
-          <p className="label !mb-1.5">{tr('Prizes by place')}</p>
-          {autoPlaces.length ? (
-            <ul className="space-y-1 text-sm">
-              {autoPlaces.map((p) => <li key={p.place} className="flex justify-between gap-3"><span className="font-bold text-smoke">#{p.place}</span><span className="font-semibold text-ink">{p.parts.join(' + ')}</span></li>)}
-            </ul>
-          ) : <p className="text-sm text-smoke">{tr('No prizes set up yet.')}</p>}
-          <p className="mt-2 text-xs text-smoke">{tr('These come straight from the "most views" bonuses, so they are paid at month end and shown to VIPs automatically.')} <Link to={`/vip?mode=tools&tab=bonuses`} className="font-semibold text-brand hover:underline" onClick={onClose}>{tr('Change them in Bonuses')}</Link></p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="label !mb-0">{tr('Prizes by place')}</p>
+            <div className="flex gap-1.5">
+              {[['cash', tr('Cash')], ['voucher', tr('Voucher')]].map(([k, l]) => <button key={k} type="button" onClick={() => setPrizeKind(k)} aria-pressed={prizeKind === k} className={cx('rounded-full px-3 py-1 text-xs font-semibold transition-colors', prizeKind === k ? 'bg-brand text-white' : 'bg-white text-smoke')}>{l}</button>)}
+            </div>
+          </div>
+          {prizeRule === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {places.map((a, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-white text-smoke')}>{i + 1}</span>
+                  <span className="relative block flex-1"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{sym}</span><input className="input !pl-8" inputMode="decimal" value={a} onChange={(e) => setPlaces(places.map((x, j) => (j === i ? e.target.value.replace(/[^\d.]/g, '') : x)))} placeholder={['100', '50', '25'][i] || '10'} aria-label={tr('Amount for place {n}', { n: i + 1 })} /></span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            {places.length < 10 ? <button type="button" onClick={() => setPlaces([...places, ''])} className="text-xs font-semibold text-brand hover:underline">+ {tr('Add a place')}</button> : <span />}
+            <p className="text-[11px] text-smoke">{tr('Paid automatically when {m} closes. Leave empty for no prizes.', { m: monthLabel(yy, mm) })}</p>
+          </div>
         </div>
         <label className="block"><span className="label">{tr('An extra note about the prize (optional)')}</span><input className="input" maxLength={300} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder={tr('For example: the winner also gets a feature on our page')} /></label>
         <div className="flex justify-end gap-2.5"><button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr('Cancel')}</button><button type="button" onClick={save} disabled={busy || !title.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>
@@ -297,7 +324,7 @@ function PerksEditor({ programme, isOwner, canManage }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('Perks, milestones and trips VIPs can unlock. They unlock on their own as views and videos add up; you mark each one delivered. Anything marked "draft" is not shown to VIPs until you switch it on.')}</p>
+        <p className="max-w-xl text-sm text-smoke">{tr('Rewards VIPs unlock on their own as their views and videos add up. They see them on their VIP page under Perks and trips, with how close they are. A cash reward goes straight into their balance and a voucher is raised for you to send, so nothing needs doing by hand. A trip or a perk without a reward is marked delivered by you.')}</p>
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New perk or trip')}</button>}
       </div>
       {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('Nothing here yet.')) : (
@@ -309,9 +336,9 @@ function PerksEditor({ programme, isOwner, canManage }) {
             return (
               <li key={p.id} className={cx('rounded-card border bg-white p-4 shadow-card animate-rise', p.active ? 'border-gray-100' : 'border-dashed border-gray-300 bg-gray-50/60')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
                 <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={kind.icon} className="h-[18px] w-[18px]" /></span>
+                  <Icon name={kind.icon} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                   <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr(kind.label)}<ScopeTag row={p} />{!p.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Draft')}</span>}</p>
+                    <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr(kind.label)}<ScopeTag row={p} />{p.reward_kind && p.reward_kind !== 'none' && <span className={cx('rounded-full px-2 py-0.5', p.reward_kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>{p.reward_kind === 'voucher' ? tr('{a} voucher', { a: money(p.reward_amount, programme.currency, { cents: false }) }) : tr('{a} cash', { a: money(p.reward_amount, programme.currency, { cents: false }) })}</span>}{!p.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Draft')}</span>}</p>
                     <h3 className="text-[15px] font-bold leading-snug text-ink">{p.title}</h3>
                     <p className="mt-0.5 text-xs text-smoke">{p.metric === 'manual' ? tr('Given by the team') : unitLabel(p.metric, p.threshold, tr)} {p.metric !== 'manual' && metric ? '' : ''}</p>
                   </div>
@@ -356,23 +383,31 @@ function PerksEditor({ programme, isOwner, canManage }) {
 
 function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
   const tr = useT()
+  const sym = curSym(programme.currency)
   const [scope, setScope] = useState(perk.id ? (perk.programme_id || '') : programme.id)
-  const [kind, setKind] = useState(perk.kind || 'perk')
+  const [kind, setKind] = useState(perk.kind || 'milestone')
   const [title, setTitle] = useState(perk.title || '')
   const [description, setDescription] = useState(perk.description || '')
-  const [image, setImage] = useState(perk.image_url || '')
   const [metric, setMetric] = useState(perk.metric || 'lifetime_views')
   const [threshold, setThreshold] = useState(perk.threshold != null ? String(perk.threshold) : '')
-  const [sort, setSort] = useState(perk.sort != null ? String(perk.sort) : '0')
+  const [reward, setReward] = useState(perk.reward_kind || 'cash')
+  const [amount, setAmount] = useState(perk.reward_amount != null ? String(perk.reward_amount) : '')
   const [active, setActive] = useState(perk.id ? perk.active : true)
   const [busy, setBusy] = useState(false)
+  // A PERK THAT PAYS ITSELF (3 Oct 2026, migration 318). Ethan: "we want everything to be automated ... we can offer
+  // prizes that will then be automatically given out, like cash prizes or kind of like the milestone setups." No
+  // picture link ("we don't have picture links"): the reward is the picture.
   async function save() {
+    if (reward !== 'none' && !(Number(amount) > 0)) { notice(tr('Say how much the reward is worth.')); return }
     setBusy(true)
     try {
-      await vipRpc('vip_save_perk', { p_id: perk.id || null, p_programme: scopeId(scope), p_kind: kind, p_title: title, p_description: description || null, p_image: image || null, p_metric: metric, p_threshold: metric === 'manual' ? 0 : Number(String(threshold).replace(/[^\d]/g, '')) || 0, p_sort: Number(sort) || 0, p_active: active })
+      const id = await vipRpc('vip_save_perk', { p_id: perk.id || null, p_programme: scopeId(scope), p_kind: kind, p_title: title, p_description: description || null, p_image: perk.image_url || null, p_metric: metric, p_threshold: metric === 'manual' ? 0 : Number(String(threshold).replace(/[^\d]/g, '')) || 0, p_sort: perk.sort ?? 0, p_active: active })
+      const perkId = perk.id || (typeof id === 'string' ? id : id?.id)
+      if (perkId) await vipRpc('vip_set_perk_reward', { p_id: perkId, p_kind: reward, p_amount: reward === 'none' ? null : Number(amount) })
       toastSuccess(tr('Saved')); onSaved()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
+  const pill = (on, onClick, children) => <button type="button" onClick={onClick} aria-pressed={on} className={cx('rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{children}</button>
   return (
     <Modal open onClose={onClose} title={perk.id ? tr('Edit perk or trip') : tr('New perk or trip')} wide>
       <div className="space-y-4">
@@ -380,17 +415,26 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} disabled={!!perk.id} />
           <label className="block"><span className="label">{tr('Kind')}</span><Select variant="field" portal value={kind} onChange={setKind} ariaLabel={tr('Kind')} options={PERK_KINDS.map((k) => ({ value: k.key, label: tr(k.label) }))} /></label>
         </div>
-        <label className="block"><span className="label">{tr('Name')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: A trip to Lisbon')} /></label>
-        <label className="block"><span className="label">{tr('What they get')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-        <label className="block"><span className="label">{tr('Picture link (optional)')}</span><input className="input" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://" /></label>
+        <label className="block"><span className="label">{tr('Name')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: 1 million views')} /></label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block"><span className="label">{tr('Unlocked by')}</span><Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('Unlocked by')} options={PERK_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} /></label>
-          {metric !== 'manual' && <label className="block"><span className="label">{tr('Amount needed')}</span><input className="input" inputMode="numeric" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="1000000" /></label>}
+          {metric !== 'manual' && <label className="block"><span className="label">{tr('Amount needed')}</span><input className="input" inputMode="numeric" value={threshold} onChange={(e) => setThreshold(e.target.value.replace(/[^\d]/g, ''))} placeholder="1000000" /></label>}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">{tr('Order (lowest first)')}</span><input className="input" inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value)} /></label>
-          <label className="flex cursor-pointer items-end gap-2.5 pb-2.5 text-sm text-ink"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-[#d94407]" />{tr('Show it to VIPs')}</label>
+        <div className="rounded-xl border border-gray-100 bg-cloud/40 p-3.5">
+          <p className="label">{tr('The reward, given automatically')}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {pill(reward === 'cash', () => setReward('cash'), <><Icon name="cash" className="mr-1 inline h-4 w-4" />{tr('Cash')}</>)}
+            {pill(reward === 'voucher', () => setReward('voucher'), <><Icon name="ticket" className="mr-1 inline h-4 w-4" />{tr('Voucher')}</>)}
+            {pill(reward === 'none', () => setReward('none'), tr('Nothing to pay'))}
+          </div>
+          {reward !== 'none' ? (
+            <label className="mt-3 block"><span className="label">{reward === 'voucher' ? tr('Voucher worth') : tr('Amount added to their balance')}</span>
+              <span className="relative block sm:w-48"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{sym}</span><input className="input !pl-8" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="50" /></span>
+            </label>
+          ) : <p className="mt-2 text-[11px] text-smoke">{tr('For a trip or a perk the team arranges: you mark it delivered once it is sorted.')}</p>}
         </div>
+        <label className="block"><span className="label">{tr('What they get, in a line (optional)')}</span><textarea className="input min-h-[4rem] resize-y" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+        <label className="flex items-center gap-2.5 text-sm text-ink"><Toggle on={active} onChange={setActive} label={tr('Show it to VIPs')} />{tr('Show it to VIPs')}</label>
         <div className="flex justify-end gap-2.5"><button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr('Cancel')}</button><button type="button" onClick={save} disabled={busy || !title.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>
       </div>
     </Modal>
@@ -417,7 +461,7 @@ function GuidesEditor({ programme, isOwner, canManage }) {
         <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
           {rows.map((g) => (
             <li key={g.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="book" className="h-[18px] w-[18px]" /></span>
+              <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
               <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{g.category}<ScopeTag row={g} />{!g.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Hidden')}</span>}</span><span className="block truncate text-sm font-bold text-ink">{g.title}</span></span>
               {!ownerLocked(g, isOwner, canManage) && (
                 <span className="flex items-center gap-0.5">

@@ -201,6 +201,10 @@ export function AuthProvider({ children }) {
     } catch {
       return { error: 'Network error. Please try again.' }
     }
+    // WHERE TO COME BACK TO (3 Oct 2026). Ethan: "whenever I exit the creator view, it seems to take me to the admin
+    // panel. Should take me back to that VIP page I was on whenever I entered." The page is remembered here and the
+    // Exit pill returns to it.
+    try { localStorage.setItem('tryp_preview_return', window.location.pathname + window.location.search) } catch { /* ignore */ }
     // Stash the signed exit ticket (NOT the admin's tokens) BEFORE swapping, so
     // exit can always mint a fresh admin session even if the original one dies.
     try {

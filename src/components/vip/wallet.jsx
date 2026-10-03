@@ -52,9 +52,11 @@ export function VipWallet({ onChanged }) {
   const bal = Number(w.balance) || 0
   const threshold = Number(w.threshold) || 0
   const pct = threshold > 0 ? Math.min(1, bal / threshold) : 1
-  const win = w.window || {}
-  const canCash = win.open && bal >= threshold && bal > 0
-  const canVoucher = win.open && bal > 0
+  // ANY TIME, OVER A THRESHOLD (3 Oct 2026, migration 318). Ethan: a voucher "at any time over ten euro", cash "when it's
+  // over a hundred euro". There is no window to wait for any more.
+  const voucherMin = Number(w.voucher_min ?? 10) || 0
+  const canCash = bal >= threshold && bal > 0
+  const canVoucher = bal >= voucherMin && bal > 0
 
   async function ask(kind) {
     const label = kind === 'cash' ? tr('Ask for {a} in cash?', { a: money(bal, cur) }) : tr('Take {a} as a Tryp.com travel voucher?', { a: money(bal, cur) })
@@ -87,7 +89,12 @@ export function VipWallet({ onChanged }) {
               {tr('Plus {a} building up in {m}, added when the month is approved.', { a: money(w.this_month?.earned || 0, cur), m: monthLabel(w.this_month?.year, w.this_month?.month) })}
             </p>
           </div>
-          <WindowBadge win={win} />
+          {(canCash || canVoucher) && (
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-rise">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
+              {canCash ? tr('Ready to withdraw') : tr('Ready for a voucher')}
+            </span>
+          )}
         </div>
 
         {threshold > 0 && (
@@ -108,17 +115,17 @@ export function VipWallet({ onChanged }) {
         <div className="relative mt-5 grid gap-2.5 sm:grid-cols-2">
           <ChoiceButton
             icon="cash" title={tr('Cash to your bank')}
-            hint={bal < threshold ? tr('From {a}', { a: money(threshold, cur, { cents: false }) }) : !w.payment_ready ? tr('Add your payment details first') : win.open ? tr('The whole {a}', { a: money(bal, cur) }) : tr('At the end of the month')}
+            hint={bal < threshold ? tr('From {a}', { a: money(threshold, cur, { cents: false }) }) : !w.payment_ready ? tr('Add your payment details first') : tr('The whole {a}', { a: money(bal, cur) })}
             disabled={!!preview || !canCash || !w.payment_ready} busy={busy === 'cash'} onClick={() => ask('cash')} primary
           />
           <ChoiceButton
             icon="plane" title={tr('Tryp.com travel voucher')}
-            hint={bal <= 0 ? tr('Once you have a balance') : win.open ? tr('The whole {a}, any amount', { a: money(bal, cur) }) : tr('At the end of the month')}
+            hint={bal < voucherMin ? tr('From {a}', { a: money(voucherMin, cur, { cents: false }) }) : tr('The whole {a}', { a: money(bal, cur) })}
             disabled={!!preview || !canVoucher} busy={busy === 'voucher'} onClick={() => ask('voucher')}
           />
         </div>
         <p className="relative mt-3 text-xs leading-relaxed text-smoke">
-          {tr('Do nothing and it keeps growing. Cash starts at {a}; a voucher can be any amount.', { a: money(threshold, cur, { cents: false }) })}
+          {tr('Ask whenever you like. Cash starts at {a}, a Tryp.com voucher at {v}. Do nothing and it keeps growing.', { a: money(threshold, cur, { cents: false }), v: money(voucherMin, cur, { cents: false }) })}
         </p>
       </section>
 
@@ -214,24 +221,6 @@ export function VipWallet({ onChanged }) {
   )
 }
 
-function WindowBadge({ win }) {
-  const tr = useT()
-  if (win.open) {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-rise">
-        <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
-        {tr('Payouts open until {d}', { d: formatDate(win.closes_at) })}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-cloud px-3.5 py-2 text-xs font-bold text-smoke">
-      <Icon name="clock" className="h-4 w-4 text-brand" />
-      {win.waiting ? tr('Your last month is being checked') : tr('Next payout window: after {d}', { d: formatDate(win.next_at) })}
-    </span>
-  )
-}
-
 function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
   return (
     <button
@@ -264,6 +253,23 @@ export function StayInCard({ compact = false }) {
   const r = w?.requirement
   if (!r || r.on === false) return null
   const met = !!r.met
+  // SMALL, NOT THE MAIN THING (3 Oct 2026). Ethan: "it shows keep your VIP place, but I would make that card smaller
+  // rather than have that be the main thing." One row: the status, and the two ways to stay in side by side.
+  if (compact) {
+    return (
+      <section className={cx('rounded-card border bg-white px-4 py-3.5 shadow-card animate-rise', met ? 'border-emerald-100' : 'border-gray-100')}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-[13.5px] font-bold text-ink"><Icon name="shield" className="h-4 w-4 text-brand" />{tr('Keep your VIP place')}</h2>
+          <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', met ? 'bg-emerald-50 text-emerald-700' : 'bg-cloud text-smoke')}>{met ? tr('Done this month') : tr('Not yet')}</span>
+        </div>
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+          <Road small label={tr('{n} videos', { n: r.need_videos })} value={r.videos} target={r.need_videos} done={met && r.by === 'videos'} />
+          <span className="pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-300">{tr('or')}</span>
+          <Road small label={tr('A {n}-view video', { n: nf(r.need_views) })} value={r.best_views} target={r.need_views} done={met && r.by === 'views'} />
+        </div>
+      </section>
+    )
+  }
   return (
     <section className={cx('rounded-card border bg-white p-5 shadow-card animate-rise', met ? 'border-emerald-100' : 'border-gray-100')}>
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -280,15 +286,15 @@ export function StayInCard({ compact = false }) {
   )
 }
 
-function Road({ label, value, target, done }) {
+function Road({ label, value, target, done, small = false }) {
   const pct = target > 0 ? Math.min(1, value / target) : 0
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">{done && <Icon name="check" className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2.6} />}{label}</p>
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className={cx('flex min-w-0 items-center gap-1.5 truncate font-semibold text-ink', small ? 'text-[12px]' : 'text-[13px]')}>{done && <Icon name="check" className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2.6} />}{label}</p>
         <p className="text-xs tabular-nums text-smoke"><span className={cx('font-bold', value >= target ? 'text-emerald-600' : 'text-ink')}>{nf(value)}</span> / {nf(target)}</p>
       </div>
-      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-gray-100">
+      <div className={cx('overflow-hidden rounded-full bg-gray-100', small ? 'mt-1.5 h-1.5' : 'mt-2 h-2.5')}>
         <div className={cx('h-full rounded-full transition-[width] duration-1000 ease-out', value >= target ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-brand to-brand-light')} style={{ width: `${Math.max(pct > 0 ? 3 : 0, Math.round(pct * 100))}%` }} />
       </div>
     </div>

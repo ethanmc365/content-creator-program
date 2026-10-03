@@ -54,9 +54,11 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
     <>
       {/* EVERY CARD LEADS WITH ITS PLACE (3 Oct 2026). Ethan: the Global Challenge card "looks a little bit different,
           but maybe you should also add the worldwide icon there, just because the other ones have the flags". */}
+      {/* NO DISC BEHIND IT (3 Oct 2026). Ethan: "a weird greyed-out circle around it. Remove that circle and just have
+          the Worldwide icon, so it matches the way that flags for the other challenges are just on their own." */}
       {isGlobal ? (
-        <span aria-hidden className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20">
-          <Icon name="globe" className="h-[18px] w-[18px] text-white" />
+        <span aria-hidden className="relative flex shrink-0 items-center justify-center">
+          <Icon name="globe" className="h-[22px] w-[22px] text-white" />
         </span>
       ) : market?.country_codes?.length > 0 && (
         <span aria-hidden className="relative shrink-0 text-lg leading-none">

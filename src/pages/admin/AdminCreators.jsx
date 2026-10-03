@@ -742,6 +742,7 @@ export default function AdminCreators() {
                 <PageTile to={`/rewards?as=${selected.id}`} onClose={() => setSelected(null)} icon="money" label="Rewards" />
                 <PageTile to={`/milestones?as=${selected.id}`} onClose={() => setSelected(null)} icon="trophy" label="Milestones" />
                 <PageTile to={`/portfolio?as=${selected.id}`} onClose={() => setSelected(null)} icon="book" label="Portfolio" />
+                {selected.is_vip && <PageTile to={`/vip?mode=as&who=${selected.id}&from=creators`} onClose={() => setSelected(null)} icon="star" label="VIP page" />}
               </div>
             </div>
 

@@ -888,7 +888,7 @@ export default function AdminRewards() {
         <MarketScope markets={markets} value={market} onChange={setMarket} />
         <StillToPay
           title="Still to pay"
-          hint="Unpaid prizes, and invoices already sent to finance that are waiting for the transfer (nothing more to send for those: they are marked paid by themselves 7 days after sending)"
+          hint="Unpaid prizes, and invoices already sent (they are marked paid by themselves 7 days after sending)"
           rows={cashOutstanding}
           loading={loading}
           openInvoices={invoiceStages.filter((i) => ['approved', 'sent'].includes(i.stage) && ![...invoiceOf.values()].some((x) => x.id === i.id)).length}

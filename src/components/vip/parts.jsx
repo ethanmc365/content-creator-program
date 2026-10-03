@@ -12,9 +12,10 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import {
-  BONUS_KINDS, DEFAULT_TERMS, describeRule, money, monthLabel, nf, rate, useVipPreview, vipRpc,
+  BONUS_KINDS, DEFAULT_TERMS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useVipPreview, vipRpc,
 } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
+import { CountUp } from '../network/Motion'
 
 // THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
 // this month, what they are worth, what the statement says - and a screen reads best when every piece uses
@@ -142,7 +143,7 @@ export function VipSubmit({ disabled, onAdded, month }) {
 }
 
 /** One of their videos, with the three numbers that matter: all views, views counted this month, what that earns. */
-export function VipVideoRow({ video, cpm, currency, onRemoved }) {
+export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
   const tr = useT()
   const [busy, setBusy] = useState(false)
   const preview = !!useVipPreview()
@@ -159,9 +160,14 @@ export function VipVideoRow({ video, cpm, currency, onRemoved }) {
   }
 
   return (
-    <li className={cx('flex gap-3.5 rounded-card border bg-white p-3 shadow-card sm:p-3.5', out ? 'border-red-100 opacity-80' : 'border-gray-100')}>
-      <a href={video.url} target="_blank" rel="noopener noreferrer" className="block w-16 shrink-0 sm:w-20" aria-label={tr('Open the video')}>
-        <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full rounded-xl" />
+    <li className={cx('group flex gap-3.5 rounded-card border bg-white p-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-3.5', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
+      {/* THE VIDEO'S OWN COVER (3 Oct 2026), framed like a phone screen, with the platform's mark on it and a play button
+          on hover - the same frame the challenge boards use. */}
+      <a href={video.url} target="_blank" rel="noopener noreferrer" className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-xl shadow-card sm:w-20" aria-label={tr('Open the video')}>
+        <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full transition-transform duration-500 group-hover:scale-105" />
+        <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-ink/0 transition-colors duration-300 group-hover:bg-ink/25">
+          <span className="flex h-8 w-8 scale-75 items-center justify-center rounded-full bg-white/90 text-brand opacity-0 shadow transition-all duration-300 group-hover:scale-100 group-hover:opacity-100"><Icon name="playCircle" className="h-5 w-5" /></span>
+        </span>
       </a>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -228,7 +234,7 @@ export function VipStatementCard({ s, programmeCpm }) {
       </button>
       {open && (
         <div className="animate-rise space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
-          <Line label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: `${s.currency} ${rate(s.cpm ?? programmeCpm)}` })} value={money(s.base, s.currency)} />
+          <Line label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: perK(s.cpm ?? programmeCpm, s.currency) })} value={money(s.base, s.currency)} />
           {s.cap_applied && <p className="text-xs text-smoke">{tr('Your monthly cap applied to the views pay.')}</p>}
           {Number(s.rollover_in) > 0 && <Line label={tr('Carried over from last month')} value={money(s.rollover_in, s.currency)} />}
           {cash.map((b, i) => <Line key={`c${i}`} label={b.label} value={`+ ${money(b.amount, s.currency)}`} good />)}
@@ -260,18 +266,20 @@ function Line({ label, value, good }) {
   )
 }
 
-/** This month's VIPs by views: the top three as a podium, everyone else as a list, the prizes beside their places. */
-export function VipBoardList({ rows, rules, currency }) {
+/** This month's VIPs by views: the top three as a podium, everyone else as a list, the prizes beside their places.
+ *
+ * REDRAWN (3 Oct 2026). Ethan: "that leaderboard graphic I think can be improved." It was three white blocks on a slab
+ * of orange. Now it is a light stage: each of the top three stands on a step of its own height that rises in, the
+ * leader's step in the brand gradient with a crown of light behind the photo, second and third in soft tints, the views
+ * counting up and the prize as a chip under the name. The rest of the board is a list with each row's share of the
+ * leader's views drawn as a thin bar. */
+export function VipBoardList({ rows, rules, currency, month = null }) {
   const tr = useT()
   const prizes = useMemo(() => {
     const out = {}
-    for (const r of rules || []) {
-      if (r.kind !== 'top_n') continue
-      for (const p of r.places || []) (out[p.place] = out[p.place] || []).push(p.reward === 'voucher' || (!p.reward && r.reward === 'voucher')
-        ? tr('{a} voucher', { a: money(p.amount, currency, { cents: false }) }) : money(p.amount, currency, { cents: false }))
-    }
+    for (const { place, parts } of prizesByPlace(rules, tr, currency, month)) out[place] = parts
     return out
-  }, [rules, currency, tr])
+  }, [rules, currency, month, tr])
   if (!rows?.length) {
     return (
       <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center">
@@ -282,40 +290,52 @@ export function VipBoardList({ rows, rules, currency }) {
   }
   const top = rows.slice(0, 3)
   const rest = rows.slice(3)
+  const lead = Math.max(1, Number(rows[0]?.views) || 0)
   // Second, first, third: the winner in the middle and tallest.
   const order = [top[1], top[0], top[2]].filter(Boolean)
-  const height = { 1: 'h-24', 2: 'h-16', 3: 'h-12' }
+  const step = { 1: 'h-28 sm:h-32', 2: 'h-20 sm:h-24', 3: 'h-14 sm:h-16' }
+  const face = {
+    1: 'bg-gradient-to-b from-brand to-brand-light text-white shadow-lift',
+    2: 'bg-gradient-to-b from-brand-tint to-white text-brand ring-1 ring-brand/15',
+    3: 'bg-gradient-to-b from-cloud to-white text-smoke ring-1 ring-gray-200/70',
+  }
   return (
     <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 pb-0 pt-5 text-white shadow-card">
-        <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
-        <div className="relative flex items-end justify-center gap-3 sm:gap-5">
+      <div className="relative overflow-hidden rounded-card bg-gradient-to-b from-brand-tint/50 via-white to-white px-3 pt-6 sm:px-6">
+        <span aria-hidden className="pointer-events-none absolute left-1/2 top-2 h-40 w-40 -translate-x-1/2 rounded-full bg-brand/15 blur-3xl" />
+        <div className="relative flex items-end justify-center gap-2.5 sm:gap-4">
           {order.map((r, i) => (
-            <div key={r.rank} className="flex w-1/3 max-w-[9rem] flex-col items-center animate-rise" style={{ animationDelay: `${i * 90}ms` }}>
+            <div key={r.rank} className="flex w-1/3 max-w-[10rem] flex-col items-center animate-rise" style={{ animationDelay: `${120 + i * 110}ms` }}>
               <div className="relative">
-                <Avatar src={r.photo} name={r.name} size={r.rank === 1 ? 'lg' : 'md'} className="ring-4 ring-white/40" />
-                {r.rank === 1 && <Icon name="star" className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-white p-0.5 text-brand shadow" />}
+                {r.rank === 1 && <span aria-hidden className="absolute -inset-2 rounded-full bg-gradient-to-br from-brand to-brand-light opacity-30 blur-md motion-safe:animate-pulse" />}
+                <Avatar src={r.photo} name={r.name} size={r.rank === 1 ? 'lg' : 'md'} className={cx('relative ring-[3px]', r.rank === 1 ? 'ring-brand' : 'ring-white shadow-card')} />
+                <span className={cx('absolute -bottom-1.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold ring-2 ring-white', r.rank === 1 ? 'bg-ink text-white' : 'bg-white text-ink shadow')}>{r.rank}</span>
               </div>
-              <p className="mt-1.5 max-w-full truncate text-sm font-bold">{r.name}{r.me ? ` · ${tr('You')}` : ''}</p>
-              <p className="text-xs font-semibold tabular-nums text-white/85">{formatViews(r.views)}</p>
-              {prizes[r.rank] && <p className="mt-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{prizes[r.rank].join(' + ')}</p>}
-              <div className={cx('mt-2 flex w-full items-start justify-center rounded-t-xl bg-white/20 pt-1.5 text-lg font-extrabold origin-bottom animate-bar-rise', height[r.rank])}>{r.rank}</div>
+              <p className="mt-3 max-w-full truncate text-[13px] font-bold text-ink sm:text-sm">{r.name}{r.me ? <span className="ml-1 text-brand">· {tr('You')}</span> : null}</p>
+              <p className="text-xs font-semibold tabular-nums text-smoke"><CountUp value={Number(r.views) || 0} format={formatViews} /> {tr('views')}</p>
+              {prizes[r.rank] ? <p className="mt-1 max-w-full truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{prizes[r.rank].join(' + ')}</p> : <span className="mt-1 h-[18px]" />}
+              <div className={cx('mt-2.5 flex w-full items-start justify-center rounded-t-2xl pt-2 text-xl font-extrabold tabular-nums origin-bottom animate-bar-rise', step[r.rank], face[r.rank])} style={{ animationDelay: `${i * 110}ms` }}>
+                {r.rank === 1 ? <Icon name="trophy" className="h-6 w-6" /> : r.rank}
+              </div>
             </div>
           ))}
         </div>
       </div>
       {rest.length > 0 && (
-        <ol className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <ol className="overflow-hidden rounded-card border border-gray-100 bg-white">
           {rest.map((r, i) => (
-            <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-3 animate-rise', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}>
-              <span className="w-7 shrink-0 text-center text-sm font-bold tabular-nums text-gray-400">{r.rank}</span>
+            <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-2.5 animate-rise', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${400 + Math.min(i, 10) * 40}ms` }}>
+              <span className="w-6 shrink-0 text-center text-sm font-bold tabular-nums text-gray-400">{r.rank}</span>
               <Avatar src={r.photo} name={r.name} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink">{r.name}{r.me && <span className="ml-1.5 text-[11px] font-bold text-brand">{tr('You')}</span>}</span>
-                <span className="block text-[11px] text-smoke">{r.videos === 1 ? tr('1 video') : tr('{n} videos', { n: r.videos })}</span>
+                <span className="mt-1 block h-1 max-w-[12rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Math.max(3, Math.round((Number(r.views) / lead) * 100))}%` }} /></span>
               </span>
               {prizes[r.rank] && <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 sm:inline">{prizes[r.rank].join(' + ')}</span>}
-              <span className="text-right text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</span>
+              <span className="text-right">
+                <span className="block text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</span>
+                <span className="block text-[10.5px] text-smoke">{r.videos === 1 ? tr('1 video') : tr('{n} videos', { n: r.videos })}</span>
+              </span>
             </li>
           ))}
         </ol>
@@ -344,14 +364,14 @@ export function VipEarn({ rules, overview, currency }) {
   const m = overview.member || {}
   const own = []
   if (Number(m.monthly_fee) > 0) {
-    own.push({ id: 'fee', icon: 'wallet', label: tr('Your monthly fee'), text: m.fee_min_videos
+    own.push({ id: 'fee', icon: 'wallet', label: tr('Your monthly bonus'), text: m.fee_min_videos
       ? tr('{a} on top of your views pay, every month you post at least {n} videos.', { a: money(m.monthly_fee, currency, { cents: false }), n: m.fee_min_videos })
       : tr('{a} on top of your views pay, every month.', { a: money(m.monthly_fee, currency, { cents: false }) }) })
   }
   if (Array.isArray(m.tiers) && m.tiers.length) {
-    own.push({ id: 'tiers', icon: 'trendUp', label: tr('Your own rate steps'), text: m.tiers.map((t) => tr('{r} from {n} views', { r: `${currency} ${rate(t.cpm)}`, n: nf(t.from_views) })).join(' · ') })
+    own.push({ id: 'tiers', icon: 'trendUp', label: tr('Your own rate steps'), text: m.tiers.map((t) => tr('{r} per 1,000 once you pass {n} views in a month', { r: perK(t.cpm, currency), n: nf(t.from_views) })).join(' · ') })
   }
-  const shown = m.bonuses_on === false ? [] : (rules || [])
+  const shown = m.bonuses_on === false ? [] : (rules || []).filter((r) => ruleRunsIn(r, overview.month))
   if (!shown.length && !own.length) {
     return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-rise">{m.bonuses_on === false ? tr('Your agreement is your views pay. Market bonuses are not part of it.') : tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
   }

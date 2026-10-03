@@ -16,6 +16,7 @@ const allRows = (build, opts) => allRowsSeq(build, { parallel: 4, ...opts })
 // visit within ten minutes of the last draws that read at once and refreshes it underneath; a fresh session still
 // waits for the first one.
 let RAW_CACHE = null
+let MARKETS_CACHE = null
 const RAW_TTL_MS = 10 * 60 * 1000
 import { Floating, PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -144,6 +145,17 @@ export default function AdminAnalytics() {
   const [params, setParams] = useSearchParams()
   const [marketPending, startMarket] = useTransition()
   const [raw, setRaw] = useState(() => RAW_CACHE)
+  // THE MARKET CHIPS DO NOT WAIT FOR THE WHOLE LOAD (3 Oct 2026). Ethan: "it still takes a while for the analytics page to
+  // load in. It takes a while to show Germany, Nordics, Portugal, etc." The list of markets is one tiny read; it was
+  // queued behind every paged table on the page. It is asked for on its own now and drawn the moment it lands.
+  const [quickMarkets, setQuickMarkets] = useState(() => MARKETS_CACHE)
+  useEffect(() => {
+    if (MARKETS_CACHE) return undefined
+    let alive = true
+    supabase.from('communities').select('id, slug, name, kind, currency, country_codes, retired_at').order('name')
+      .then(({ data }) => { MARKETS_CACHE = data || []; if (alive) setQuickMarkets(MARKETS_CACHE) })
+    return () => { alive = false }
+  }, [])
   // Clicking any per-challenge bar opens that challenge's deep-dive page.
   const openChallenge = (data) => {
     const id = data?.activePayload?.[0]?.payload?.id
@@ -287,7 +299,7 @@ export default function AdminAnalytics() {
   // the picker existed two tabs away from the eight headline numbers everybody
   // looks at first. This block used to sit two hundred lines further down -
   // below `derived` - which is exactly why the overview could not use it.
-  const markets = (raw?.marketRows || []).filter((m) => m.kind !== 'network' && !m.retired_at)
+  const markets = (raw?.marketRows || quickMarkets || []).filter((m) => m.kind !== 'network' && !m.retired_at)
   const marketName = markets.find((m) => m.id === market)?.name || null
   const scopeLabel = marketName || 'Worldwide'
   // Scoped copy of everything. `scopeToMarket` returns the ORIGINAL object when

@@ -597,7 +597,11 @@ export default function AppLayout() {
                   const { error } = await exitCreatorPreview()
                   setExiting(false)
                   if (error) setExitError(error)
-                  else navigate('/admin')
+                  else {
+                    let back = '/admin'
+                    try { back = localStorage.getItem('tryp_preview_return') || '/admin'; localStorage.removeItem('tryp_preview_return') } catch { /* ignore */ }
+                    navigate(back.startsWith('/') && !back.startsWith('//') ? back : '/admin')
+                  }
                 }}
                 disabled={exiting}
                 className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"

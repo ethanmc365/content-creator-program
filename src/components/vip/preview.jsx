@@ -26,6 +26,7 @@ export function VipPreviewTab({ programme }) {
   const { enterCreatorPreview } = useAuth()
   const [people, setPeople] = useState(undefined)
   const [busy, setBusy] = useState(false)
+  const [q, setQ] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -45,7 +46,11 @@ export function VipPreviewTab({ programme }) {
   }
   const open = (id) => setParams(id ? { mode: 'as', who: id } : { mode: 'as' }, { replace: false })
 
-  const real = people || []
+  // FIND THE RIGHT CREATOR (3 Oct 2026). Ethan: "for that open one VIP page, we can easily like search through and find
+  // the right creator." A search over the names, test accounts last.
+  const term = q.trim().toLowerCase()
+  const real = (people || []).filter((p) => !term || String(p.name || '').toLowerCase().includes(term))
+    .sort((a, b) => Number(!!a.test) - Number(!!b.test) || String(a.name).localeCompare(String(b.name)))
   return (
     <div className="space-y-5">
       <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card animate-rise sm:p-6">
@@ -63,8 +68,18 @@ export function VipPreviewTab({ programme }) {
       </section>
 
       <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise [animation-delay:70ms] sm:p-5">
-        <h2 className="text-[15px] font-bold text-ink">{tr('Open one VIP\'s page')}</h2>
-        <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Their VIP page in {m}, read only, with their own numbers, videos and payouts.', { m: programme.name })}</p>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-ink">{tr('Open one VIP\'s page')}</h2>
+            <p className="mt-0.5 text-sm text-smoke">{tr('Their VIP page in {m}, read only, with their own numbers, videos and payouts.', { m: programme.name })}</p>
+          </div>
+          {(people || []).length > 0 && (
+            <label className="relative block w-full sm:w-64">
+              <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input className="input !py-2 !pl-9 text-sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search VIPs')} aria-label={tr('Search VIPs')} />
+            </label>
+          )}
+        </div>
         {people === undefined ? <Skeleton className="h-24 w-full rounded-xl" /> : (
           <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {real.map((p, i) => (
@@ -79,7 +94,8 @@ export function VipPreviewTab({ programme }) {
                 </button>
               </li>
             ))}
-            <li className="animate-rise" style={{ animationDelay: `${Math.min(real.length, 9) * 35}ms` }}>
+            {term && real.length === 0 && <li className="px-1 py-3 text-sm text-smoke sm:col-span-2 lg:col-span-3">{tr('Nobody matches.')}</li>}
+            {!term && <li className="animate-rise" style={{ animationDelay: `${Math.min(real.length, 9) * 35}ms` }}>
               <button type="button" onClick={() => open(null)} className="group flex w-full items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-cloud/40 p-3 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-card"><Icon name="sparkles" className="h-4 w-4" /></span>
                 <span className="min-w-0 flex-1">
@@ -88,10 +104,10 @@ export function VipPreviewTab({ programme }) {
                 </span>
                 <Icon name="chevronRight" className="h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
               </button>
-            </li>
+            </li>}
           </ul>
         )}
-        {people && real.length === 0 && <p className="mt-3 text-xs text-smoke">{tr('No VIPs in {m} yet, so a first day is what there is to see.', { m: programme.name })}</p>}
+        {people && people.length === 0 && <p className="mt-3 text-xs text-smoke">{tr('No VIPs in {m} yet, so a first day is what there is to see.', { m: programme.name })}</p>}
       </section>
     </div>
   )

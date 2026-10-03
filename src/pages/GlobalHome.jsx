@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
-import VipHomeCard from '../components/vip/VipHomeCard'
+import VipHomeCard, { VipRailCard } from '../components/vip/VipHomeCard'
+import { useVipOverview } from '../lib/vip'
 import MarketsRailCard from '../components/network/MarketsRailCard'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
@@ -193,7 +194,10 @@ let lastMe = null
 export default function GlobalHome() {
   const tr = useT()
   const pl = usePlural()
-  const { profile, session } = useAuth()
+  const { profile, session, isAdmin } = useAuth()
+  // A VIP's own month (shared cache with the VIP page). The team is never a VIP here.
+  const vipBand = !!profile?.is_vip && !isAdmin
+  const { overview: vipOverview } = useVipOverview({ enabled: vipBand })
   const { network, chapters, myChapters, error } = useCommunity()
   // SECOND AND LATER VISITS TO THIS TAB DRAW THE HUB, NOT A SCREEN OF GREY.
   // The load below still runs on every visit; this only decides what is on
@@ -495,6 +499,15 @@ export default function GlobalHome() {
           a tab in the nav. Rendering them anyway added roughly 1,200px of
           duplicate navigation to the bottom of an already long page - which is
           most of what "there is too much scrolling" was. */}
+      {/* A VIP HAS NO CHALLENGES, SO NOT "NOTHING RUNNING" (3 Oct 2026). Ethan: "it shows up the live now for them.
+          Nothing running in your market right now, but obviously there wouldn't be ... add something for the VIP in
+          that space instead. That would be important to them." Their month: the VIP challenge, how they are tracking
+          and a way to add a video. */}
+      {vipBand ? (
+        <RailCard className="hidden lg:block" icon={<Icon name="star" className="h-3.5 w-3.5 text-brand" />} title={tr('Your VIP month')}>
+          <VipRailCard overview={vipOverview} />
+        </RailCard>
+      ) : (
       <RailCard className="hidden lg:block" icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title={tr("Live now")}>
         {/* A SKELETON WHILE WE DO NOT KNOW, NOT AN ANSWER.
             THE BUG THIS FIXES: `myLive` is derived from data that arrives after
@@ -537,6 +550,7 @@ export default function GlobalHome() {
           </div>
         )}
       </RailCard>
+      )}
 
       {/* ---------- Your markets (shared with every market page) ---------- */}
       <MarketsRailCard current="worldwide" live={d?.live} />
@@ -727,6 +741,13 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
+          {/* A VIP'S MONTH, ON A PHONE, where everybody else sees the live challenge (3 Oct 2026). */}
+          {isMobile && vipBand && (
+            <Reveal from="down" delay={stepDelay()}>
+              <section><VipRailCard overview={vipOverview} /></section>
+            </Reveal>
+          )}
+
           {/* THE QUICK-ACTION GRID MOVED INTO THE AVATAR MENU.
               It existed because the rail is at the bottom of a long page on a
               phone, so the ten network destinations were a full scroll away. A
@@ -785,7 +806,7 @@ export default function GlobalHome() {
                 doesn't happen for the regular creator." A VIP sees no challenges, so the global challenge band is not
                 drawn - and the plane, parked a rem below a box that ends at the chips, rose into the kilometres
                 figure. Without the band the box keeps 3.5rem of air at its foot for the plane to fly in. */}
-            <div className={cx('relative', !globalLive && 'pb-14')}>
+            <div className={cx('relative', !globalLive && !vipBand && 'pb-14')}>
             {/* With the challenge band under it the figures' box is the plane's
                 anchor, and that box is shorter than the plane - so it drops
                 further to fly between the figures and the band, not over the
@@ -797,7 +818,7 @@ export default function GlobalHome() {
                 plane fractionally below the hint row's own baseline; 4.125rem
                 (66px) brings it level with it while staying clear of the
                 global challenge band underneath. */}
-            <TrypPlane variant="hero" id="welcome" className={globalLive ? 'translate-y-[4.125rem]' : 'translate-y-4'} />
+            <TrypPlane variant="hero" id="welcome" className={globalLive || vipBand ? 'translate-y-[4.125rem]' : 'translate-y-4'} />
             <div className="relative">
               {/* NO "WORLDWIDE" PILL. Ethan: "I think it says worldwide on the
                   top of that card - we can remove that, it doesn't necessarily
@@ -980,18 +1001,23 @@ export default function GlobalHome() {
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
                     label={me?.connections === 1 ? tr('connection') : tr('connections')} />
-                  {/* A VIP has no challenges to post to; their videos live on the VIP page. */}
-                  {!profile?.is_vip && (
+                  {/* A VIP's videos are their VIP videos (3 Oct 2026: "it shows zero connections, but I think here you can
+                      also show the amount of videos they posted in a little card"). */}
+                  {vipBand ? (
+                    <MineChip to="/vip?tab=videos" icon="video"
+                      value={vipOverview ? Number(vipOverview.lifetime?.videos ?? vipOverview.stats?.videos ?? 0) : null}
+                      label={Number(vipOverview?.lifetime?.videos) === 1 ? tr('video posted') : tr('videos posted')} />
+                  ) : !profile?.is_vip && (
                   <MineChip to="/challenges" icon="video"
                     value={me ? me.myVideos : null}
                     label={me?.myVideos === 1 ? tr('video posted') : tr('videos posted')} />
                   )}
                 </div>
-                {profile?.is_vip && <VipHomeCard inCard />}
               </div>
             </div>
             </div>
             {globalLive && <GlobalChallengeStrip challenge={globalLive} className="!mt-14" arriveDelay={0.08} />}
+            {!globalLive && vipBand && <VipHomeCard inCard className="!mt-14" />}
           </section>
           </Reveal>
           )}

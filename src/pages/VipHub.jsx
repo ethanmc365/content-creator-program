@@ -1,11 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
-import { ProgrammePill, ProgrammeSwitch, VipChipNav, VipQuickLinks, VipSideNav } from '../components/vip/hubNav'
+import { ProgrammePill, ProgrammeSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
 import { CountUp } from '../components/network/Motion'
 import {
   PaymentBanner, TargetBar, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoRow,
@@ -16,8 +16,9 @@ import { VipWallet, StayInCard } from '../components/vip/wallet'
 import { TeamPulse } from '../components/vip/teamTools'
 // The team's tools are only ever drawn for the team, so creators never download them.
 const VipTools = lazy(() => import('../components/vip/VipTools'))
-import { VipPreviewContext, daysLeft, money, monthLabel, nf, rate, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
+import { VipPreviewContext, daysLeft, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
 import { useT } from '../lib/i18n'
+import { cx } from '../lib/utils'
 import ReaderText from '../components/ReaderText'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
@@ -66,6 +67,7 @@ export default function VipHub() {
   const tr = useT()
   const { user, profile } = useAuth()
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const { overview: own, error, reload: reloadOwn } = useVipOverview()
   const access = useVipAccess(profile?.id, false)
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
@@ -109,7 +111,16 @@ export default function VipHub() {
     setParams(m === 'page' ? {} : { mode: m }, { replace: true })
     if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const whoName = who ? (people || []).find((p) => p.id === who)?.name : null
+  // The name for the banner. From the market's list when it has them, or straight from their profile - a VIP opened
+  // from the Creators page may be in another market than the one this page last showed.
+  const [whoProfile, setWhoProfile] = useState(null)
+  useEffect(() => {
+    if (!who) return undefined
+    let alive = true
+    supabase.from('profiles').select('id, name').eq('id', who).maybeSingle().then(({ data }) => { if (alive) setWhoProfile(data || null) })
+    return () => { alive = false }
+  }, [who])
+  const whoName = who ? ((people || []).find((p) => p.id === who)?.name || (whoProfile?.id === who ? whoProfile.name : null)) : null
 
   // While the staff question is still being asked, keep the skeleton rather than flashing "not a VIP".
   const staffShown = previewing ? (staffOv === undefined ? undefined : previewOv) : staffOv
@@ -121,10 +132,10 @@ export default function VipHub() {
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].filter((k) => !(isStaff && STAFF_HIDDEN.has(k)))
   const tab = allowed.includes(asked) ? asked : 'month'
-  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
-  const [slug, setSlug] = useState('')
+
   const [codes, setCodes] = useState([])
   const [boardView, setBoardView] = useState('mine')
   const [look, setLook] = useState(null)
@@ -139,14 +150,14 @@ export default function VipHub() {
     const [bd, rl, cm, pr, me] = await Promise.all([
       (isStaff || sample ? vipRpc('vip_staff_board', { p_programme: programmeId }) : vipRpcAs(previewWho, 'vip_board')).catch(() => []),
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
-      supabase.from('communities').select('slug, country_codes').eq('id', communityId).maybeSingle(),
+      supabase.from('communities').select('country_codes').eq('id', communityId).maybeSingle(),
       supabase.from('vip_programmes').select('tagline').eq('id', programmeId).maybeSingle(),
       isStaff || sample ? none : supabase.from('vip_members').select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
     ])
     setLook({ tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
     setBoard(bd || [])
     setRules(rl.data || [])
-    setSlug(cm.data?.slug || '')
+
     setCodes(cm.data?.country_codes || [])
   }, [programmeId, communityId, user.id, isStaff, previewWho, overview?.sample])
   useEffect(() => { loadMore() }, [loadMore])
@@ -207,7 +218,7 @@ export default function VipHub() {
       />
 
       {staffMode && (mode === 'as'
-        ? <PreviewBanner name={whoName} market={programme.name} onBack={() => setParams({ mode: 'tools', tab: 'preview' }, { replace: true })} />
+        ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
         : <StaffBar mode={mode} onMode={pickView} market={programme.name} />)}
 
       {toolsMode && staffMode ? <Suspense fallback={<Skeleton className="h-72 w-full rounded-card" />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense> : (<>
@@ -231,8 +242,8 @@ export default function VipHub() {
             </p>
             <p className="mt-2 text-sm text-white/90">
               {isStaff
-                ? tr('{n} views counted across {m} this month, at {r} per 1,000', { n: nf(stats.views), m: programme.name, r: `${cur} ${rate(stats.effective_cpm)}` })
-                : tr('{n} views counted this month, at {r} per 1,000', { n: nf(stats.views), r: `${cur} ${rate(stats.effective_cpm)}` })}
+                ? tr('{n} views counted across {m} this month, at {r} per 1,000', { n: nf(stats.views), m: programme.name, r: perK(stats.effective_cpm, cur) })
+                : tr('{n} views counted this month, at {r} per 1,000', { n: nf(stats.views), r: perK(stats.effective_cpm, cur) })}
             </p>
             {stats.projected_base != null && (
               <p className="mt-1 text-sm font-semibold text-white">{tr('On pace for about {a} by the end of the month.', { a: money(stats.projected_base, cur, { cents: false }) })}</p>
@@ -252,7 +263,7 @@ export default function VipHub() {
       {!overview.payment_ready && <div className="mb-4"><PaymentBanner /></div>}
 
       {/* Phones and tablets: the sections as a strip of chips. */}
-      <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} /></div>
+      <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} links={isStaff ? null : VIP_LINKS} /></div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-7">
       <div key={tab} className="min-w-0 animate-tab-in">
@@ -260,63 +271,54 @@ export default function VipHub() {
           <div className="space-y-5">
             {isStaff && <TeamPulse programme={programme} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />}
             <VipAnnouncements programmeId={programme.id} />
-            {!isStaff && <StayInCard />}
-            <VipChallengeCard overview={overview} />
-            <div className="grid gap-5 lg:grid-cols-2">
-              {isStaff ? (
-                <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                  <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Top this month')}</h2>
-                  {board === null ? <Skeleton className="h-32 w-full rounded-xl" /> : board.length === 0
-                    ? <p className="text-sm leading-relaxed text-smoke">{tr('No VIP videos counted in {m} yet this month.', { m: programme.name })}</p>
-                    : <VipBoardList rows={board.slice(0, 5)} rules={rules || []} currency={cur} />}
-                </section>
-              ) : (
-              <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Your target this month')}</h2>
-                {member.target_videos || member.target_views ? (
-                  <div className="space-y-4">
-                    {member.target_videos ? <TargetBar label={tr('Videos posted')} value={stats.videos} target={member.target_videos} /> : null}
-                    {member.target_views ? <TargetBar label={tr('Views')} value={stats.views} target={member.target_views} /> : null}
-                  </div>
-                ) : (
-                  <p className="text-sm leading-relaxed text-smoke">{tr('No target has been set for you yet. Your views pay is what counts. Ask your market lead if you would like one to aim for.')}</p>
-                )}
-              </section>
-              )}
-              {/* HOW YOU ARE PAID, IN THREE LINES (1 Oct 2026). Ethan: "How they're paid looks like a lot. It says
-                  'Videos posted in the last 60 days,' but it should only be for the month period ... There is no
-                  minimum payout ... remove that." A VIP is paid by the month, for videos posted in that month. */}
-              <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="money" className="h-5 w-5 text-brand" />{isStaff ? tr('How VIPs here are paid') : tr('How you are paid')}</h2>
-                <dl className="space-y-2.5 text-sm">
-                  <Row label={isStaff ? tr('Rate') : tr('Your rate')} value={tr('{r} per 1,000 views', { r: `${cur} ${rate(stats.effective_cpm)}` })} />
-                  {/* A creator's own ladder (migration 311) replaces the market's; a flat rate of their own has none. */}
-                  {(() => {
-                    const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
-                    return steps?.length > 0 && <Row label={tr('Higher rates')} value={steps.map((t) => tr('{r} from {n} views', { r: `${cur} ${rate(t.cpm)}`, n: nf(t.from_views) })).join(' · ')} />
-                  })()}
-                  {Number(member.monthly_fee) > 0 && <Row label={tr('Monthly fee')} value={member.fee_min_videos ? tr('{a}, with {n}+ videos', { a: money(member.monthly_fee, cur, { cents: false }), n: member.fee_min_videos }) : money(member.monthly_fee, cur, { cents: false })} />}
-                  <Row label={tr('What counts')} value={tr('Videos you post this month')} />
-                  <Row label={tr('Paid')} value={tr('Once a month')} />
-                  {(member.monthly_cap || programme.monthly_cap) && <Row label={tr('Monthly cap')} value={money(member.monthly_cap || programme.monthly_cap, cur, { cents: false })} />}
-                </dl>
-              </section>
-            </div>
-
+            {/* SUBMITTING COMES FIRST (3 Oct 2026). Ethan: "I like the submitted video thing, but maybe that should be at
+                the very top ... because that's obviously the most important thing." */}
             {!isStaff && <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />}
+            <VipChallengeCard overview={overview} />
 
-            {!isStaff && <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[15px] font-bold text-ink">{tr('Latest videos')}</h2>
-                {videosThisMonth.length > 3 && <button type="button" onClick={() => go('videos')} className="text-xs font-semibold text-brand hover:underline">{tr('See all')}</button>}
-              </div>
-              {videosThisMonth.length === 0
-                ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
-                : <ul className="space-y-3">{videosThisMonth.slice(0, 3).map((v) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} />)}</ul>}
-            </section>}
+            {isStaff ? (
+              <>
+                <PayStrip staff member={member} programme={programme} stats={stats} month={month} cur={cur} />
+                <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Top this month')}</h2>
+                    {board?.length > 5 && <button type="button" onClick={() => go('board')} className="text-xs font-semibold text-brand hover:underline">{tr('Full leaderboard')}</button>}
+                  </div>
+                  {board === null ? <Skeleton className="h-48 w-full rounded-xl" /> : board.length === 0
+                    ? <p className="rounded-xl bg-cloud/60 px-4 py-8 text-center text-sm text-smoke">{tr('No VIP videos counted in {m} yet this month.', { m: programme.name })}</p>
+                    : <VipBoardList rows={board.slice(0, 6)} rules={rules || []} currency={cur} month={month} />}
+                </section>
+              </>
+            ) : (
+              <>
+                {/* SMALL, THEN THE TARGET, THEN THE PAY (3 Oct 2026): the stay-in rule is a one-row card now. */}
+                <StayInCard compact />
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
+                    <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your target this month')}</h2>
+                    {member.target_videos || member.target_views ? (
+                      <div className="space-y-4">
+                        {member.target_videos ? <TargetBar label={tr('Videos posted')} value={stats.videos} target={member.target_videos} /> : null}
+                        {member.target_views ? <TargetBar label={tr('Views')} value={stats.views} target={member.target_views} /> : null}
+                      </div>
+                    ) : (
+                      <p className="text-sm leading-relaxed text-smoke">{tr('No target has been set for you yet. Your views pay is what counts. Ask your market lead if you would like one to aim for.')}</p>
+                    )}
+                  </section>
+                  <PayStrip member={member} programme={programme} stats={stats} month={month} cur={cur} />
+                </div>
 
-            {/* Your rooms used to be a card down here; on a desktop they are the quick links in the column. */}
-            <VipQuickLinks slug={slug} staff={isStaff} className="lg:hidden" />
+                <section className="animate-rise">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-[15px] font-bold text-ink">{tr('Latest videos')}</h2>
+                    {videosThisMonth.length > 3 && <button type="button" onClick={() => go('videos')} className="text-xs font-semibold text-brand hover:underline">{tr('See all')}</button>}
+                  </div>
+                  {videosThisMonth.length === 0
+                    ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
+                    : <ul className="space-y-3">{videosThisMonth.slice(0, 3).map((v, i) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={i * 60} />)}</ul>}
+                </section>
+              </>
+            )}
           </div>
         )}
 
@@ -325,7 +327,7 @@ export default function VipHub() {
             <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />
             {(overview.videos || []).length === 0
               ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
-              : <ul className="space-y-3">{overview.videos.map((v) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} />)}</ul>}
+              : <ul className="space-y-3">{overview.videos.map((v, i) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} />)}</ul>}
           </div>
         )}
 
@@ -352,14 +354,10 @@ export default function VipHub() {
             </div>
             {boardView === 'mine' ? (
               <div className="space-y-3">
-                <p className="text-sm text-smoke">{tr('This month\'s VIP creators in {m}, by views counted. First names only.', { m: programme.name })}</p>
-                {board === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipBoardList rows={board} rules={rules} currency={cur} />}
+                {board === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipBoardList rows={board} rules={rules} currency={cur} month={month} />}
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-smoke">{tr('Every VIP market, side by side. The same month, the same rules.')}</p>
-                <MarketStandings />
-              </div>
+              <MarketStandings />
             )}
           </div>
         )}
@@ -382,12 +380,12 @@ export default function VipHub() {
         {tab === 'map' && <VipMap />}
       </div>
 
-      {/* Desktop: the sections and the quick links, in a column that stays in view. */}
-      {/* QUICK LINKS ON TOP (2 Oct 2026). Ethan: "the quick links card on the right column should be moved up to the
-          top and be above the card with the other links." */}
+      {/* Desktop: the sections, in a column that stays in view. */}
+      {/* NO QUICK LINKS CARD (3 Oct 2026). Ethan: the links to the VIP rooms "are unnecessary. You can remove the quick
+          link card entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
       <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
-        <div className="animate-rise"><VipQuickLinks slug={slug} staff={isStaff} /></div>
-        <VipSideNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} />
+        <VipSideNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} links={isStaff ? null : VIP_LINKS} />
+        {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
       </div>
 
@@ -423,7 +421,7 @@ function StaffBar({ mode, onMode, market }) {
 }
 
 // LOOKING AT ONE VIP'S PAGE: says whose, says it is read only, and leads back to where it was opened.
-function PreviewBanner({ name, market, onBack }) {
+function PreviewBanner({ name, market, onBack, fromCreators = false }) {
   const tr = useT()
   return (
     <div className="relative z-20 mb-4 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-card animate-rise">
@@ -433,7 +431,7 @@ function PreviewBanner({ name, market, onBack }) {
         <span className="block text-xs text-white/70">{tr('Read only. Exactly what they see.')}</span>
       </span>
       <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-ink transition-transform duration-200 hoverable:hover:scale-105">
-        <Icon name="chevronLeft" className="h-3.5 w-3.5" />{tr('Back to VIP tools')}
+        <Icon name="chevronLeft" className="h-3.5 w-3.5" />{fromCreators ? tr('Back') : tr('Back to VIP tools')}
       </button>
     </div>
   )
@@ -452,11 +450,34 @@ function ProgrammeFlags({ codes }) {
   return codes?.length ? <span className="text-[13px] leading-none">{codes.slice(0, 2).map((c) => String.fromCodePoint(...[...c.toUpperCase()].map((ch) => 127397 + ch.charCodeAt(0)))).join('')}</span> : null
 }
 
-function Row({ label, value }) {
+// HOW THEY ARE PAID, AS FACTS (3 Oct 2026). Ethan: "where it shows how VIPs here are paid. It shows rate, what counts and
+// paid ... clean up the design of that ... have a lot of space in that card whenever the leaderboard shows up." For the
+// team it is one strip of tiles across the page instead of a tall card beside the leaderboard; for a VIP it is the same
+// tiles in a card beside their target. Every rate shows its cents: €0.30, never €0.3.
+function PayStrip({ member, programme, stats, month, cur, staff = false }) {
+  const tr = useT()
+  const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
+  const cap = member.monthly_cap || programme.monthly_cap
+  const facts = [
+    { icon: 'money', label: staff ? tr('Rate') : tr('Your rate'), value: perK(stats.effective_cpm, cur), hint: tr('per 1,000 views') },
+    ...(steps?.length ? steps.map((t) => ({ icon: 'trendUp', label: tr('From {n} views', { n: nf(t.from_views) }), value: perK(t.cpm, cur), hint: tr('per 1,000 views') })) : []),
+    { icon: 'video', label: tr('What counts'), value: tr('New videos'), hint: tr('posted in {m}', { m: monthLabel(month.year, month.month) }) },
+    { icon: 'calendar', label: tr('Paid'), value: tr('Monthly'), hint: tr('after the month closes') },
+    ...(Number(member.monthly_fee) > 0 ? [{ icon: 'wallet', label: tr('Monthly bonus'), value: money(member.monthly_fee, cur, { cents: false }), hint: member.fee_min_videos ? tr('with {n}+ videos', { n: member.fee_min_videos }) : tr('every month') }] : []),
+    ...(cap ? [{ icon: 'shield', label: tr('Monthly cap'), value: money(cap, cur, { cents: false }), hint: tr('on views pay') }] : []),
+  ]
   return (
-    <div className="flex items-start justify-between gap-4">
-      <dt className="shrink-0 text-smoke">{label}</dt>
-      <dd className="text-right font-semibold text-ink">{value}</dd>
-    </div>
+    <section className={cx('rounded-card border border-gray-100 bg-white shadow-card animate-rise', staff ? 'p-3 sm:p-4' : 'p-5')}>
+      <h2 className={cx('flex items-center gap-2 text-[15px] font-bold text-ink', staff ? 'mb-3 px-1' : 'mb-4')}><Icon name="money" className="h-5 w-5 text-brand" />{staff ? tr('How VIPs here are paid') : tr('How you are paid')}</h2>
+      <dl className={cx('grid gap-2', staff ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2')}>
+        {facts.map((f, i) => (
+          <div key={`${f.label}${i}`} className="rounded-xl bg-cloud/60 px-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 45}ms` }}>
+            <dt className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400"><Icon name={f.icon} className="h-3 w-3 text-brand" />{f.label}</dt>
+            <dd className="mt-0.5 truncate text-[15px] font-bold tabular-nums text-ink">{f.value}</dd>
+            <dd className="truncate text-[11px] text-smoke">{f.hint}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }

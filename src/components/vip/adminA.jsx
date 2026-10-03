@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
 import VideoThumb from '../VideoThumb'
+import FlagStack from '../network/FlagStack'
 import Icon from '../Icon'
-import { confirm, notice } from '../../lib/confirm'
+import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, formatViews } from '../../lib/utils'
-import { money, monthLabel, nf, rate, vipRpc } from '../../lib/vip'
+import { curSym, money, monthLabel, nf, perK, rate, vipRpc } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, MemberStoryModal, SuggestionsCard, TrendCard } from './adminC'
 import { VipLinkCard } from './adminD'
@@ -388,18 +389,18 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
       {opts.hint && <span className="mt-1 block text-[11px] text-smoke">{opts.hint}</span>}
     </label>
   )
-  const Switch = ({ on, onChange, label, hint }) => (
-    <div className="flex items-center gap-3">
+  // THE HOUSE SWITCH (3 Oct 2026). Ethan: the toggle "is really weird and it's incorrect". It was a switch built inside
+  // this component, so it was a new component on every keystroke and never animated; it is the shared Toggle now.
+  const switchRow = (on, onChange, label, hint) => (
+    <div className="flex items-center gap-3 rounded-xl bg-cloud/50 px-3.5 py-3">
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-ink">{label}</span>
         {hint && <span className="block text-[11px] text-smoke">{hint}</span>}
       </span>
-      <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
-        className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200', on ? 'bg-brand' : 'bg-gray-200')}>
-        <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200', on ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-      </button>
+      <Toggle on={on} onChange={onChange} label={label} />
     </div>
   )
+  const sym = curSym(cur)
 
   return (
     <Modal open onClose={onClose} title={m.name} wide>
@@ -417,36 +418,41 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
 
         {section('money', tr('Their pay'), (
           <div className="space-y-4">
+            {/* EVERY AMOUNT SAYS ITS CURRENCY (3 Oct 2026). Ethan: "Monthly cap is in euros, I assume, right? It should
+                maybe make that more clear." And the "monthly fee" is what it is: a bonus paid every month the conditions
+                are met. */}
             <div className="grid grid-cols-2 gap-3">
-              {field(tr('Own rate per 1,000 views'), f.cpm, (v) => set({ cpm: v }), { placeholder: rate(programme.cpm), hint: tr('Empty uses the programme rate.') })}
-              {field(tr('Monthly cap'), f.cap, (v) => set({ cap: v }), { placeholder: programme.monthly_cap ? String(programme.monthly_cap) : tr('None') })}
-              {field(tr('Monthly fee'), f.fee, (v) => set({ fee: v }), { placeholder: tr('None'), hint: tr('Paid on top of views, as its own line.') })}
-              {field(tr('Fee needs at least this many videos'), f.feeMin, (v) => set({ feeMin: v }), { mode: 'numeric', placeholder: '0' })}
+              {field(tr('Own rate per 1,000 views ({c})', { c: sym }), f.cpm, (v) => set({ cpm: v }), { placeholder: rate(programme.cpm), hint: tr('Empty uses the market rate.') })}
+              {field(tr('Monthly cap ({c})', { c: sym }), f.cap, (v) => set({ cap: v }), { placeholder: programme.monthly_cap ? String(programme.monthly_cap) : tr('No cap'), hint: tr('The most their views can earn in a month.') })}
+              {field(tr('Monthly bonus ({c})', { c: sym }), f.fee, (v) => set({ fee: v }), { placeholder: tr('None'), hint: tr('Paid on top of views, every month they qualify.') })}
+              {field(tr('Videos needed for the bonus'), f.feeMin, (v) => set({ feeMin: v }), { mode: 'numeric', placeholder: '0', hint: tr('0 means every month.') })}
             </div>
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="label !mb-0">{tr('Own rate steps')}</span>
-                <button type="button" onClick={() => set({ tiers: [...f.tiers, { from_views: '', cpm: '' }] })} className="text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105"><Icon name="plus" className="mr-0.5 inline h-3.5 w-3.5" />{tr('Add a step')}</button>
+            <div className="rounded-xl border border-gray-100 p-3.5">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-ink">{tr('A higher rate past a number of views')}</span>
+                <button type="button" onClick={() => set({ tiers: [...f.tiers, { from_views: '', cpm: '' }] })} className="shrink-0 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105"><Icon name="plus" className="mr-0.5 inline h-3.5 w-3.5" />{tr('Add a step')}</button>
               </div>
+              <p className="text-[11px] leading-relaxed text-smoke">{tr('Optional. For example: from 1,000,000 views in a month, pay {r} per 1,000 on the views above that number. The views below it keep the normal rate.', { r: `${sym}0.35` })}</p>
               {f.tiers.length === 0
-                ? <p className="text-[11px] text-smoke">{programme.tiers?.length ? tr('None of their own: the market\'s steps apply.') : tr('One rate for every view. Add a step to pay more past a number of views.')}</p>
+                ? <p className="mt-2 text-[11px] font-semibold text-ink/70">{programme.tiers?.length ? tr('None of their own: the market\'s steps apply.') : tr('No steps: one rate for every view.')}</p>
                 : (
-                  <ul className="space-y-2">
+                  <ul className="mt-3 space-y-2">
                     {f.tiers.map((t, i) => (
-                      <li key={i} className="flex animate-rise items-center gap-2">
-                        <span className="text-xs text-smoke">{tr('From')}</span>
-                        <input className="input !py-2" inputMode="numeric" value={t.from_views} placeholder="500000" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, from_views: e.target.value } : x)) })} />
-                        <span className="shrink-0 text-xs text-smoke">{tr('views, {c}', { c: cur })}</span>
-                        <input className="input !w-24 !py-2" inputMode="decimal" value={t.cpm} placeholder="0.35" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, cpm: e.target.value } : x)) })} />
-                        <button type="button" aria-label={tr('Remove')} onClick={() => set({ tiers: f.tiers.filter((_, j) => j !== i) })} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink"><Icon name="x" className="h-4 w-4" /></button>
+                      <li key={i} className="flex animate-rise flex-wrap items-center gap-2 rounded-xl bg-cloud/50 px-3 py-2 text-xs text-smoke">
+                        <span>{tr('From')}</span>
+                        <input className="input !w-32 !py-1.5 text-sm" inputMode="numeric" value={t.from_views} placeholder="1000000" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, from_views: e.target.value } : x)) })} aria-label={tr('Views in the month')} />
+                        <span>{tr('views a month, pay')}</span>
+                        <span className="relative"><span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">{sym}</span><input className="input !w-24 !py-1.5 !pl-6 text-sm" inputMode="decimal" value={t.cpm} placeholder="0.35" onChange={(e) => set({ tiers: f.tiers.map((x, j) => (j === i ? { ...x, cpm: e.target.value } : x)) })} aria-label={tr('Rate per 1,000 views')} /></span>
+                        <span>{tr('per 1,000')}</span>
+                        <button type="button" aria-label={tr('Remove')} onClick={() => set({ tiers: f.tiers.filter((_, j) => j !== i) })} className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-white hoverable:hover:text-ink"><Icon name="close" className="h-4 w-4" /></button>
                       </li>
                     ))}
                   </ul>
                 )}
             </div>
-            <Switch on={f.bonuses} onChange={(v) => set({ bonuses: v })} label={tr('Market bonuses apply to them')} hint={tr('Off for a deal that is views pay (and any fee) only.')} />
-            <div className="rounded-xl bg-cloud/70 px-3.5 py-3">
-              <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">{tr('What this deal pays in a month')}</p>
+            {switchRow(f.bonuses, (v) => set({ bonuses: v }), tr('Market bonuses apply to them'), tr('Off for a deal that is views pay (and their monthly bonus) only.'))}
+            <div className="rounded-xl bg-gradient-to-br from-brand-tint/70 to-white px-3.5 py-3 ring-1 ring-brand/10">
+              <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-brand">{tr('What this deal pays in a month')}</p>
               <div className="grid grid-cols-3 gap-2">
                 {example.map((x) => (
                   <div key={x.v}><p className="text-[11px] text-smoke">{tr('{n} views', { n: nf(x.v) })}</p><p className="text-sm font-bold tabular-nums text-ink">{money(x.pay, cur)}</p></div>
@@ -463,16 +469,13 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
           </div>
         ), 2)}
 
-        {section('star', tr('How they appear'), (
-          <div className="space-y-3">
-            <label className="block"><span className="label">{tr('Headline on their VIP page')}</span><input className="input" maxLength={80} value={f.headline} onChange={(e) => set({ headline: e.target.value })} placeholder={tr('For example: Budget city breaks from Madrid')} /></label>
-            <Switch on={f.onMap} onChange={(v) => set({ onMap: v })} label={tr('Show on the VIP map')} />
-          </div>
-        ), 3)}
+        {/* NO HEADLINE TO SET FOR THEM (3 Oct 2026): "I don't get why we would be setting the headline for them." A VIP
+            writes their own on their Stats page. */}
+        {section('globe', tr('On the VIP map'), switchRow(f.onMap, (v) => set({ onMap: v }), tr('Show them on the VIP map'), tr('Only once they have a town on their profile.')), 3)}
 
         {section('pencil', tr('For the team'), (
           <div className="space-y-3">
-            <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={f.review} onChange={(e) => set({ review: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('A reminder on the Members list when the date comes round. Optional.')}</span></label>
+            <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={f.review} onChange={(e) => set({ review: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('Optional. On that day you and the other managers of this market are reminded, and the Members list marks it.')}</span></label>
             <label className="block"><span className="label">{tr('Notes (only the team sees these)')}</span><textarea className="input min-h-[4rem] resize-none" value={f.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
           </div>
         ), 4)}
@@ -481,6 +484,70 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
         {m.status !== 'left' && onMoveBack && (
           <button type="button" onClick={onMoveBack} className="w-full rounded-xl border border-red-100 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hoverable:hover:bg-red-50">{tr('Move back to the community')}</button>
         )}
+      </div>
+    </Modal>
+  )
+}
+
+// BACK TO THE COMMUNITY, AND WHERE (3 Oct 2026). Ethan: "pressing that, it should show up which place to actually move
+// them in like worldwide, Spain, etc. and show the suggested one." The suggestion is their home market if they have one,
+// otherwise the market this VIP programme belongs to. Worldwide means no market of its own: they keep the ones they
+// were already in.
+export function MoveBackModal({ person, programme, onClose, onDone }) {
+  const tr = useT()
+  const [markets, setMarkets] = useState(null)
+  const [suggested, setSuggested] = useState(null)
+  const [pick, setPick] = useState(undefined)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      supabase.from('communities').select('id, name, country_codes, retired_at').eq('kind', 'chapter').order('name'),
+      supabase.from('community_members').select('community_id, is_home').eq('profile_id', person.id),
+    ]).then(([c, mine]) => {
+      if (!alive) return
+      const list = (c.data || []).filter((x) => !x.retired_at)
+      const home = (mine.data || []).find((x) => x.is_home)?.community_id
+      const sug = list.find((x) => x.id === home)?.id || list.find((x) => x.id === programme?.community_id)?.id || null
+      setMarkets(list); setSuggested(sug); setPick(sug)
+    })
+    return () => { alive = false }
+  }, [person.id, programme?.community_id])
+
+  async function go() {
+    setBusy(true)
+    try {
+      await vipRpc('vip_move_back', { p_profile: person.id, p_community: pick || null })
+      const where = pick ? markets.find((x) => x.id === pick)?.name : tr('Worldwide')
+      toastSuccess(tr('{n} is back with the community creators, in {m}.', { n: person.name, m: where }))
+      onDone?.(); onClose()
+    } catch (e) { notice(e.message) } finally { setBusy(false) }
+  }
+
+  const option = (id, label, flag) => {
+    const on = pick === id
+    return (
+      <button key={id || 'world'} type="button" onClick={() => setPick(id)} aria-pressed={on}
+        className={cx('flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-all duration-200', on ? 'border-brand bg-brand-tint/60 shadow-card' : 'border-gray-100 bg-white hoverable:hover:border-brand/40')}>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center text-lg">{flag}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{label}</span>
+        {id === suggested && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Suggested')}</span>}
+        <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors', on ? 'border-brand bg-brand text-white' : 'border-gray-300')}>{on && <Icon name="check" className="h-3 w-3" strokeWidth={3} />}</span>
+      </button>
+    )
+  }
+  return (
+    <Modal open onClose={onClose} title={tr('Move {n} back to the community', { n: person.name })}>
+      <p className="text-sm text-smoke">{tr('They see the challenges, points and leaderboard again, and are told. Their VIP balance and statements stay theirs. Which market should they join?')}</p>
+      {markets === null ? <Skeleton className="mt-4 h-40 w-full rounded-xl" /> : (
+        <div className="mt-4 max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+          {option(null, tr('Worldwide only'), <Icon name="globe" className="h-5 w-5 text-brand" />)}
+          {[...markets].sort((a, b) => Number(b.id === suggested) - Number(a.id === suggested)).map((mk) => option(mk.id, mk.name, <FlagStack codes={mk.country_codes} className="text-lg" />))}
+        </div>
+      )}
+      <div className="mt-5 flex gap-2">
+        <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">{tr('Cancel')}</button>
+        <button type="button" onClick={go} disabled={busy || pick === undefined} className="btn-primary flex-1 justify-center">{busy ? <Spinner className="h-4 w-4" /> : tr('Move back')}</button>
       </div>
     </Modal>
   )
@@ -509,10 +576,8 @@ export function VipMembersTab({ programme }) {
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
 
-  async function moveBack(m) {
-    if (!await confirm(tr('Move {n} back to the community? They see the challenges, points and leaderboard again. Statements already made stay as they are, and they are told.', { n: m.name }), { confirmLabel: tr('Move back'), danger: true })) return
-    try { await vipRpc('vip_update_member', { p_profile: m.profile_id, p_status: 'left' }); toastSuccess(tr('{n} is back with the community creators.', { n: m.name })); setStory(null); load() } catch (e) { notice(e.message) }
-  }
+  const [moving, setMoving] = useState(null)
+  const moveBack = (m) => { setStory(null); setMoving(m) }
 
   const everyone = data?.members || []
   const counts = { active: everyone.filter((m) => m.status === 'active').length, paused: everyone.filter((m) => m.status === 'paused').length, left: everyone.filter((m) => m.status === 'left').length }
@@ -553,7 +618,7 @@ export function VipMembersTab({ programme }) {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                    <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? `${cur} ${rate(m.cpm)}` : tr('Standard rate')}</span>
+                    <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
                     {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
                     {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
                     {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
@@ -562,7 +627,7 @@ export function VipMembersTab({ programme }) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button type="button" onClick={() => setStory(m)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"><Icon name="clock" className="h-3.5 w-3.5" />{tr('Story')}</button>
-                    <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-white transition-opacity hoverable:hover:opacity-85"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
+                    <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
                   </div>
                 </div>
               </li>
@@ -576,6 +641,7 @@ export function VipMembersTab({ programme }) {
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
       {editing && <EditMemberModal m={{ ...editing, ...(reviews[editing.profile_id] || {}), notes: reviews[editing.profile_id]?.notes ?? editing.notes }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}
       {story && <MemberStoryModal m={story} programme={programme} onClose={() => setStory(null)} onEdit={() => { setEditing(story); setStory(null) }} onMoveBack={() => moveBack(story)} />}
+      {moving && <MoveBackModal person={{ id: moving.profile_id, name: moving.name }} programme={programme} onClose={() => setMoving(null)} onDone={load} />}
     </div>
   )
 }
@@ -625,10 +691,7 @@ export function VipMoveBlock({ creator, onChanged }) {
     return () => { alive = false }
   }, [creator.id])
 
-  async function moveBack() {
-    if (!await confirm(tr('Move {n} back to the community? They see the challenges, points and leaderboard again. Statements already made stay as they are, and they are told.', { n: creator.name }), { confirmLabel: tr('Move back'), danger: true })) return
-    try { await vipRpc('vip_update_member', { p_profile: creator.id, p_status: 'left' }); setDone('back'); setIsVip(false); onChanged?.(); toastSuccess(tr('{n} is back with the community creators.', { n: creator.name })) } catch (e) { notice(e.message) }
-  }
+  const [moving, setMoving] = useState(false)
 
   if (staff) return <VipTeamAccess person={creator} owner={staff.platform_role === 'owner'} />
   if (programmes === null || (!programmes.length && !isVip)) return null
@@ -639,7 +702,7 @@ export function VipMoveBlock({ creator, onChanged }) {
       {isVip && done !== 'back' ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/25 bg-brand-tint/50 px-3.5 py-3">
           <p className="text-sm font-semibold text-ink"><Icon name="star" className="mr-1.5 inline h-4 w-4 text-brand" />{tr('A VIP')}{here ? ` · ${here.name.replace(/^VIP /, '')}` : ''}</p>
-          {member && <button type="button" onClick={moveBack} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
+          {member && <button type="button" onClick={() => setMoving(true)} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
         </div>
       ) : done === 'vip' ? (
         <p className="rounded-xl bg-green-50 px-3.5 py-3 text-sm font-semibold text-green-700">{tr('Done. They are a VIP now.')}</p>
@@ -652,6 +715,7 @@ export function VipMoveBlock({ creator, onChanged }) {
           ))}
         </div>
       )}
+      {moving && <MoveBackModal person={{ id: creator.id, name: creator.name }} programme={here || programmes[0]} onClose={() => setMoving(false)} onDone={() => { setDone('back'); setIsVip(false); onChanged?.() }} />}
       {pick && <AddVipModal open onClose={() => setPick(null)} programme={pick} profile={{ id: creator.id, name: creator.name, photo_url: creator.photo_url }} onAdded={() => { setDone('vip'); setIsVip(true); onChanged?.() }} />}
     </div>
   )

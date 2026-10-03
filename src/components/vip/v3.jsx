@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import CreatorMap from '../CreatorMap'
+import { geocodeCity } from '../../lib/geocode'
+import { loadMapFeatures } from '../../lib/mapCountries'
 import FlagTile from '../network/FlagTile'
 import DealFinder from '../DealFinder'
 import HookButton from '../HookButton'
@@ -63,7 +65,7 @@ function BriefCard({ brief, overview }) {
     supabase.from('vip_bonus_rules').select('*').eq('programme_id', pid).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
   }, [pid])
-  const places = prizesByPlace(rules, tr, overview.programme?.currency)
+  const places = prizesByPlace(rules, tr, overview.programme?.currency, overview.month)
   return (
     <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-rise sm:p-6">
       <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
@@ -212,8 +214,7 @@ export function PerksPath() {
           const kind = PERK_KINDS.find((k) => k.key === p.kind) || PERK_KINDS[0]
           const pct = p.metric === 'manual' ? 0 : Math.min(1, Number(p.value) / Math.max(1, Number(p.threshold)))
           return (
-            <article key={p.id} className={cx('relative flex h-full flex-col overflow-hidden rounded-card border bg-white p-5 shadow-card', p.earned ? 'border-brand/30' : 'border-gray-100')}>
-              {p.image_url && <img src={p.image_url} alt="" loading="lazy" className="-mx-5 -mt-5 mb-4 h-32 w-[calc(100%+2.5rem)] max-w-none object-cover" />}
+            <article key={p.id} className={cx('relative flex h-full flex-col overflow-hidden rounded-card border bg-white p-5 shadow-card transition-transform duration-300 hoverable:hover:-translate-y-0.5', p.earned ? 'border-brand/30' : 'border-gray-100')}>
               <div className="flex items-start gap-3">
                 <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', p.earned ? 'bg-brand text-white' : 'bg-cloud text-smoke')}><Icon name={p.earned ? 'check' : kind.icon} className="h-5 w-5" strokeWidth={p.earned ? 2.6 : 1.8} /></span>
                 <div className="min-w-0 flex-1">
@@ -221,6 +222,12 @@ export function PerksPath() {
                   <h3 className="text-[15px] font-bold leading-snug text-ink"><TLine text={p.title} /></h3>
                 </div>
               </div>
+              {p.reward_kind && p.reward_kind !== 'none' && Number(p.reward_amount) > 0 && (
+                <p className={cx('mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold', p.reward_kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>
+                  <Icon name={p.reward_kind === 'voucher' ? 'ticket' : 'cash'} className="h-3.5 w-3.5" />
+                  {p.reward_kind === 'voucher' ? tr('A {a} Tryp.com voucher', { a: money(p.reward_amount, 'EUR', { cents: false }) }) : tr('{a} added to your balance', { a: money(p.reward_amount, 'EUR', { cents: false }) })}
+                </p>
+              )}
               {p.description && <p className="mt-2.5 text-sm leading-relaxed text-smoke"><TLine text={p.description} /></p>}
               <div className="mt-auto pt-4">
                 {p.metric !== 'manual' && !p.earned && (
@@ -229,8 +236,8 @@ export function PerksPath() {
                     <p className="mt-1.5 text-xs tabular-nums text-smoke"><span className="font-bold text-ink">{nf(p.value)}</span> / {unitLabel(p.metric, p.threshold, tr)}</p>
                   </>
                 )}
-                {p.earned && p.status === 'earned' && <button type="button" onClick={() => claim(p)} disabled={busy === p.id} className="btn-primary !py-2 text-sm">{busy === p.id ? <Spinner className="h-4 w-4" /> : <Icon name="sparkles" className="h-4 w-4" />}{tr('Claim it')}</button>}
-                {p.earned && p.status === 'claimed' && <p className="flex items-center gap-1.5 text-xs font-bold text-amber-700"><Icon name="clock" className="h-3.5 w-3.5" />{tr('Claimed. The team is arranging it.')}</p>}
+                {p.earned && p.status === 'earned' && (!p.reward_kind || p.reward_kind === 'none') && <button type="button" onClick={() => claim(p)} disabled={busy === p.id} className="btn-primary !py-2 text-sm">{busy === p.id ? <Spinner className="h-4 w-4" /> : <Icon name="sparkles" className="h-4 w-4" />}{tr('Claim it')}</button>}
+                {p.earned && (p.status === 'claimed' || (p.status === 'earned' && p.reward_kind && p.reward_kind !== 'none')) && <p className="flex items-center gap-1.5 text-xs font-bold text-brand"><Icon name="clock" className="h-3.5 w-3.5" />{p.reward_kind === 'voucher' ? tr('Your voucher is on its way.') : p.reward_kind === 'cash' ? tr('Being added to your balance.') : tr('Claimed. The team is arranging it.')}</p>}
                 {p.earned && p.status === 'delivered' && <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-600"><Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.6} />{tr('Delivered')}</p>}
                 {p.earned && p.note && <p className="mt-2 text-xs text-smoke">{p.note}</p>}
               </div>
@@ -263,9 +270,9 @@ export function VipLibrary({ programmeId }) {
     <div className="space-y-6">
       {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE (1 Oct 2026). Ethan: "don't say 'Stuck on the first line.' I don't
           like that colour. Just have the 'Hook me up' and 'find a deal' button ... bigger ... side by side." */}
-      <section className="grid gap-3 sm:grid-cols-2 animate-rise">
-        <HookButton variant="big" />
-        <DealFinder variant="big" />
+      <section className="grid gap-3 sm:grid-cols-2">
+        <div className="animate-rise"><HookButton variant="big" /></div>
+        <div className="animate-rise [animation-delay:70ms]"><DealFinder variant="big" /></div>
       </section>
 
       <section>
@@ -276,25 +283,28 @@ export function VipLibrary({ programmeId }) {
         {cats.length > 1 && (
           <div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tr('Guide topics')}>
             {['all', ...cats].map((c) => (
-              <button key={c} type="button" role="tab" aria-selected={cat === c} onClick={() => setCat(c)} className={cx('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200', cat === c ? 'bg-brand text-white' : 'bg-cloud text-smoke hoverable:hover:text-ink')}>{c === 'all' ? tr('All') : <TLine text={c} />}</button>
+              <button key={c} type="button" role="tab" aria-selected={cat === c} onClick={() => setCat(c)} className={cx('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', cat === c ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:-translate-y-px hoverable:hover:text-ink')}>{c === 'all' ? tr('All') : <TLine text={c} />}</button>
             ))}
           </div>
         )}
         {guides === null ? <Skeleton className="h-40 w-full rounded-card" /> : shown.length === 0
           ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No guides yet.')}</p>
           : (
-            <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-2" stagger={0.05}>
-              {shown.map((g) => (
-                <article key={g.id} className="group flex flex-col rounded-card border border-gray-100 bg-white p-6 shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
+            // A CALMER ARRIVAL (3 Oct 2026). Ethan: the library's animations "you can improve". The cards came in on a
+            // scroll-triggered spring that fired at different moments; now they rise together in a short stagger when
+            // the section opens and when a topic is picked, and lift a little under the pointer.
+            <div key={cat} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {shown.map((g, i) => (
+                <article key={g.id} className="group flex flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-1 hoverable:hover:border-brand/25 hoverable:hover:shadow-lift sm:p-6" style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}>
                   <button type="button" onClick={() => setOpenId(g.id)} className="flex h-full flex-col text-left">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-brand"><TLine text={g.category} /></span>
-                    <h3 className="mt-1 text-lg font-semibold leading-snug text-ink"><TLine text={g.title} /></h3>
-                    <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-smoke">{noteExcerpt(g.body || '', 200)}</p>
-                    <span className="mt-auto flex items-center justify-between gap-3 border-t border-gray-50 pt-4 text-xs"><span className="text-gray-400">{formatDate(g.updated_at || g.created_at)}</span><span className="font-medium text-brand">{tr('Open →')}</span></span>
+                    <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-brand"><Icon name="book" className="h-3.5 w-3.5" /><TLine text={g.category} /></span>
+                    <h3 className="mt-1.5 text-lg font-semibold leading-snug text-ink"><TLine text={g.title} /></h3>
+                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-smoke">{noteExcerpt(g.body || '', 200)}</p>
+                    <span className="mt-auto flex items-center justify-between gap-3 border-t border-gray-50 pt-4 text-xs"><span className="text-gray-400">{formatDate(g.updated_at || g.created_at)}</span><span className="inline-flex items-center gap-1 font-semibold text-brand">{tr('Read')}<Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" /></span></span>
                   </button>
                 </article>
               ))}
-            </Reveal>
+            </div>
           )}
       </section>
       <Modal open={!!openGuide} onClose={() => setOpenId(null)} title={openGuide?.title || ''} wide>
@@ -323,23 +333,42 @@ export function VipMap() {
   const tr = useT()
   const { data, missing } = useOptionalRpc('vip_map', {}, 'map')
   const { user, isAdmin } = useAuth()
+  // ONE ARRIVAL, NOT THREE (3 Oct 2026). Ethan: "the main map when it loads in is a bit laggy: it shows a blank map and
+  // then suddenly loads one of the example creators." The world, the list and the towns without stored coordinates
+  // used to arrive one after another, each redrawing the map. Now the atlas is fetched alongside the list and any
+  // missing town is looked up first, and the map is mounted once, with every pin, and fades in.
+  const [ready, setReady] = useState(null)
+  useEffect(() => {
+    if (!data) return undefined
+    let alive = true
+    ;(async () => {
+      const filled = await Promise.all(data.map(async (c) => {
+        if (c.city_lat != null || !(c.city || c.country)) return c
+        const at = await geocodeCity(c.city, c.country).catch(() => null)
+        return at ? { ...c, city_lat: at.lat, city_lng: at.lng } : c
+      }))
+      await loadMapFeatures().catch(() => null)
+      if (alive) setReady(filled)
+    })()
+    return () => { alive = false }
+  }, [data])
   if (missing) return null
-  const list = data || []
+  const list = ready || []
   const countries = new Set(list.map((c) => c.country).filter(Boolean)).size
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-smoke">
-        {data === undefined ? ' ' : list.length === 0
+      <p className="min-h-[1.25rem] text-sm text-smoke">
+        {ready === null ? ' ' : list.length === 0
           ? tr('No VIPs on the map yet. Creators appear once they add their town to their profile.')
           : tr('{n} VIP creators in {c} countries.', { n: list.length, c: countries })}
       </p>
-      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card animate-rise">
-        {data === undefined
-          ? <Skeleton className="h-[26rem] w-full" />
-          : <CreatorMap creators={list} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen />}
+      <div className="relative overflow-hidden rounded-card border border-gray-100 shadow-card">
+        {ready === null
+          ? <Skeleton className="aspect-[2/1] min-h-[18rem] w-full" />
+          : <div className="animate-fade-up"><CreatorMap creators={list} myId={user?.id} maxFitZoom={6} controls={false} navigable allowFullscreen /></div>}
       </div>
-      {isAdmin && list.length === 0 && <p className="text-xs text-smoke">{tr('VIPs appear here once they have a town on their profile.')}</p>}
+      {isAdmin && ready && list.length === 0 && <p className="text-xs text-smoke">{tr('VIPs appear here once they have a town on their profile.')}</p>}
     </div>
   )
 }

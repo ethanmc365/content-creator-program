@@ -63,8 +63,26 @@ export function money(amount, currency = 'EUR', { cents = true } = {}) {
   } catch { return `${currency} ${n.toFixed(cents ? 2 : 0)}` }
 }
 
-/** A per-1,000 rate: 0.25, not 0.2500. */
-export const rate = (n) => String(Number(Number(n).toFixed(4)))
+/** A per-1,000 rate, always with its cents: 0.30, not 0.3; 0.257, not 0.2567 (3 Oct 2026, Ethan: "show 0.30 for a
+ *  thousand views, so it's clear ... round it to three decimal places"). */
+export const rate = (n) => {
+  const v = Number(n) || 0
+  return v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 3, useGrouping: false })
+}
+
+/** The currency's own sign: € for EUR. */
+export function curSym(currency = 'EUR') {
+  try {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((x) => x.type === 'currency')?.value || currency
+  } catch { return currency }
+}
+
+/** A rate per 1,000 views with its currency sign: €0.30. */
+export function perK(n, currency = 'EUR') {
+  try {
+    return new Intl.NumberFormat(localeTag(), { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(Number(n) || 0)
+  } catch { return `${currency} ${rate(n)}` }
+}
 
 export const nf = (n) => Number(n || 0).toLocaleString(localeTag())
 
@@ -78,13 +96,13 @@ export const BONUS_KINDS = [
   { key: 'target', label: 'Hit your target', hint: 'Each creator who reaches their own monthly target', icon: 'trophy', scope: 'creator' },
   { key: 'top_n', label: 'Top of the month', hint: 'Most views, paid by place', icon: 'chart', scope: 'ranked' },
   { key: 'best_video', label: 'Best single video', hint: 'The month\'s most-viewed video', icon: 'video', scope: 'ranked' },
-  { key: 'streak', label: 'Consistency streak', hint: 'Posted enough videos every month for a run of months', icon: 'fire', scope: 'creator' },
+  { key: 'streak', label: 'Consistency streak', hint: 'Posts enough videos every month, several months running', icon: 'fire', scope: 'creator' },
   { key: 'milestone', label: 'Milestone', hint: 'A one-off for reaching a total, such as 1M views', icon: 'flag', scope: 'creator' },
 ]
 
 export const SCOPES = [
   { key: 'market', label: 'This market\'s VIPs' },
-  { key: 'global', label: 'Every VIP, all markets' },
+  { key: 'global', label: 'Every VIP market' },
 ]
 
 export const MILESTONE_METRICS = [
@@ -111,7 +129,7 @@ export function describeRule(rule, tr, currency = 'EUR') {
     : money(amt, currency, { cents: false }))
   const c = rule.conditions || {}
   if (rule.kind === 'target') {
-    const extra = rule.multiplier ? tr('plus {x} on your views pay', { x: `x${rate(rule.multiplier)}` }) : ''
+    const extra = rule.multiplier ? tr('plus {x}% on your views pay', { x: Math.round((Number(rule.multiplier) - 1) * 100) }) : ''
     return [tr('Reach your monthly target and earn {p}', { p: pay(rule.amount, rule.reward) }), extra].filter(Boolean).join(', ')
   }
   if (rule.kind === 'top_n') {
@@ -134,12 +152,22 @@ export function describeRule(rule, tr, currency = 'EUR') {
   return tr('Reach {what}: {p}, once', { what, p: pay(rule.amount, rule.reward) })
 }
 
+/** Whether a bonus rule applies to a month ({ id, year, month }): every month, that month's row, or a calendar month
+ *  planned ahead (`for_year`/`for_month`, migration 318). */
+export function ruleRunsIn(rule, when) {
+  if (!when) return true
+  if (rule.month_id) return rule.month_id === when.id
+  if (rule.for_year) return rule.for_year === when.year && rule.for_month === when.month
+  return true
+}
+
 /** The prizes by place from a programme's running "most views" rules, so a challenge never needs them typed twice
  *  (1 Oct 2026). [{ place: 1, parts: ['EUR 100', 'EUR 50 voucher'] }, ...] in place order. */
-export function prizesByPlace(rules, tr, currency = 'EUR') {
+export function prizesByPlace(rules, tr, currency = 'EUR', when = null) {
   const out = {}
   for (const r of rules || []) {
     if (r.kind !== 'top_n' || r.active === false) continue
+    if (when && !ruleRunsIn(r, when)) continue
     for (const p of r.places || []) {
       const voucher = p.reward === 'voucher' || (!p.reward && r.reward === 'voucher')
       const text = voucher ? tr('{a} voucher', { a: money(p.amount, currency, { cents: false }) }) : money(p.amount, currency, { cents: false })

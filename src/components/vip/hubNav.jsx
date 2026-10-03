@@ -5,6 +5,8 @@ import FlagStack from '../network/FlagStack'
 import { SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { CountUp } from '../network/Motion'
+import { money, useOptionalRpc } from '../../lib/vip'
 
 // THE VIP PAGE'S OWN NAVIGATION (1 Oct 2026).
 //
@@ -29,7 +31,7 @@ export const VIP_SECTIONS = [
 ]
 
 /** The column on the right, desktop only. */
-export function VipSideNav({ value, onChange, hidden }) {
+export function VipSideNav({ value, onChange, hidden, links }) {
   const tr = useT()
   return (
     <nav aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
@@ -61,12 +63,28 @@ export function VipSideNav({ value, onChange, hidden }) {
           )
         })}
       </ul>
+      {links?.length > 0 && (
+        <ul className="mt-1 space-y-0.5 border-t border-gray-100 pt-1">
+          {links.map((l, i) => (
+            <li key={l.to} className="animate-rise" style={{ animationDelay: `${(VIP_SECTIONS.length + i) * 35}ms` }}>
+              <Link to={l.to} className="group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200 hoverable:hover:bg-cloud/70">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke transition-all duration-300 group-hover:scale-105 group-hover:text-brand"><Icon name={l.icon} className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-semibold leading-tight text-ink/85">{tr(l.label)}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-smoke">{tr(l.hint)}</span>
+                </span>
+                <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-brand group-hover:opacity-100" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </nav>
   )
 }
 
 /** The same sections as a strip of chips, phones and tablets. */
-export function VipChipNav({ value, onChange, hidden }) {
+export function VipChipNav({ value, onChange, hidden, links }) {
   const tr = useT()
   return (
     <nav aria-label={tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
@@ -90,36 +108,41 @@ export function VipChipNav({ value, onChange, hidden }) {
           </button>
         )
       })}
+      {(links || []).map((l) => (
+        <Link key={l.to} to={l.to} className="relative flex shrink-0 items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 text-[13px] font-semibold text-ink/80 shadow-card">
+          <Icon name={l.icon} className="h-4 w-4 text-brand" strokeWidth={2} />
+          <span className="whitespace-nowrap">{tr(l.label)}</span>
+        </Link>
+      ))}
     </nav>
   )
 }
 
-/** The quick links: their rooms, their recap and their portfolio. A callout in the column, a card on a phone. */
-export function VipQuickLinks({ slug, className, staff = false }) {
+/** A VIP's own pages that live elsewhere, listed with the sections (3 Oct 2026: they were the quick links card). */
+export const VIP_LINKS = [
+  { to: '/vip/recap', icon: 'sparkles', label: 'My recap', hint: 'Your month as a story' },
+  { to: '/portfolio', icon: 'briefcase', label: 'My portfolio', hint: 'Share your numbers' },
+]
+
+/** The VIP's balance, small, under the sections: what they have, and whether they can take it now. */
+export function VipBalanceMini({ onOpen }) {
   const tr = useT()
-  const rows = [
-    slug && { to: `/c/${slug}/chat/vip`, icon: 'star', label: tr('VIP room'), hint: tr('Your market') },
-    slug && { to: `/c/${slug}/chat/vip_announcements`, icon: 'megaphone', label: tr('VIP announcements'), hint: tr('From the team') },
-    { to: '/global/chat/vip_global', icon: 'globe', label: tr('VIP lounge'), hint: tr('Every market') },
-    !staff && { to: '/vip/recap', icon: 'sparkles', label: tr('My recap'), hint: tr('Your month as a story') },
-    !staff && { to: '/portfolio', icon: 'briefcase', label: tr('My portfolio'), hint: tr('Share your numbers') },
-    staff && { to: '/vip?mode=tools', icon: 'shield', label: tr('VIP tools'), hint: tr('Members, payouts, settings') },
-  ].filter(Boolean)
+  const { data: w } = useOptionalRpc('vip_my_wallet')
+  if (!w) return null
+  const bal = Number(w.balance) || 0
+  const cash = Number(w.threshold) || 0
+  const voucher = Number(w.voucher_min ?? 10) || 0
+  const ready = bal >= cash && bal > 0 ? tr('Ready to withdraw') : bal >= voucher && bal > 0 ? tr('Ready for a voucher') : tr('{a} to a voucher', { a: money(Math.max(0, voucher - bal), w.currency, { cents: false }) })
   return (
-    <section className={cx('rounded-card border border-gray-100 bg-white p-3 shadow-card', className)}>
-      <h2 className="mb-1.5 px-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gray-400">{tr('Quick links')}</h2>
-      <ul className="space-y-0.5">
-        {rows.map((r) => (
-          <li key={r.to}>
-            <Link to={r.to} className="group flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hoverable:hover:bg-cloud/70">
-              <Icon name={r.icon} className="h-4 w-4 shrink-0 text-brand transition-transform duration-200 group-hover:scale-110" />
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{r.label}</span>
-              <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <button type="button" onClick={onOpen} className="group block w-full rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise [animation-delay:200ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+      <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">
+        <span className="flex items-center gap-1.5"><Icon name="wallet" className="h-3.5 w-3.5 text-brand" />{tr('Your balance')}</span>
+        <Icon name="chevronRight" className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+      </span>
+      <span className="mt-1 block text-2xl font-bold tabular-nums text-ink"><CountUp value={bal} format={(n) => money(n, w.currency)} /></span>
+      <span className="mt-0.5 block text-xs text-smoke">{ready}</span>
+      <span className="mt-1 block text-[11px] text-smoke">{tr('Plus {a} this month so far', { a: money(w.this_month?.earned || 0, w.currency) })}</span>
+    </button>
   )
 }
 

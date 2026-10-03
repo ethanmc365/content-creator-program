@@ -745,6 +745,20 @@ export default function NetworkChat() {
   // moment the room is on screen. The write is throttled: a room you scroll
   // through for a minute should not be a minute of upserts.
   const roomKey = community && active ? scopedKey(community, active.key) : null
+  // THE ROOM'S MESSAGES FLOAT IN WHEN IT OPENS (3 Oct 2026). Ethan: "clicking on rooms in the chat opens straight away,
+  // there are no animations like the clean-in animations where the text bubbles appear really nicely. It's just
+  // everything flat once it loads." For the first moment after a room's messages arrive, the last dozen or so rise in
+  // one after another from the top of the screen down; older ones off screen and messages arriving later are not held.
+  const [introRoom, setIntroRoom] = useState(null)
+  const [introOver, setIntroOver] = useState(null)
+  const hasMessages = messages.length > 0
+  useEffect(() => {
+    if (!roomKey || loading || !hasMessages || introRoom === roomKey) return undefined
+    setIntroRoom(roomKey)
+    const t = setTimeout(() => setIntroOver(roomKey), 1100)
+    return () => clearTimeout(t)
+  }, [roomKey, loading, hasMessages, introRoom])
+  const introducing = !!roomKey && introOver !== roomKey
   // Per-room draft, so a half-written message in Spain's General is still there
   // when you come back from the UK's.
   const draftKey = `net-chat-${roomKey || 'none'}`
@@ -1361,9 +1375,9 @@ export default function NetworkChat() {
               <motion.div
                 key={m.id}
                 id={`msg-${m.id}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={SOFT_SPRING}
+                initial={introducing && visible.length - 1 - i > 14 ? false : { opacity: 0, y: introducing ? 14 : 6, scale: introducing ? 0.985 : 1 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={introducing ? { ...SOFT_SPRING, delay: Math.max(0, 14 - (visible.length - 1 - i)) * 0.035 } : SOFT_SPRING}
                 // PRESS THE BUBBLE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
                 // This used to be `if (!isMobile) return`, with a laptop given
                 // a hover state instead - two behaviours for one control, and

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -11,7 +11,7 @@ import { VipMembersTab, VipOverviewTab } from './adminA'
 import { VipAccessTab } from './access'
 import { VipContentTab, VipMarketsTab } from './adminD'
 import { AnnouncementsTab } from './adminC'
-import { VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipSettingsTab } from './adminB'
+import { SyncEvery, VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipSettingsTab } from './adminB'
 import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
@@ -32,7 +32,7 @@ const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
   { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses']] },
   { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['content', 'Briefs, perks, guides']] },
-  { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['kpis', 'KPIs'], ['analytics', 'Analytics']] },
+  { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
 const ALL = GROUPS.flatMap((g) => g.tabs.map(([k]) => k))
@@ -44,8 +44,14 @@ export default function VipTools({ programmeId }) {
   const [params, setParams] = useSearchParams()
   const [programmes, setProgrammes] = useState(null)
   const [seen, setSeen] = useState(() => new Set())
-  const [, startSwitch] = useTransition()
-  const asked = params.get('tab')
+  // THE TAB IS LOCAL STATE FIRST, THE URL SECOND (3 Oct 2026). Ethan: "a bit of delay and lag when clicking between
+  // members, overview, etc." The press used to wait for a router update (inside a transition, which React is free to
+  // put off) before anything moved. Now the pill and the panel change on the press, and the URL follows.
+  const fromUrl = params.get('tab')
+  const [picked, setPicked] = useState(fromUrl)
+  const [urlSeen, setUrlSeen] = useState(fromUrl)
+  if (urlSeen !== fromUrl) { setUrlSeen(fromUrl); setPicked(fromUrl) }
+  const asked = picked
   const tab = ALL.includes(asked) && (asked !== 'access' || isOwner) ? asked : 'overview'
   const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
 
@@ -57,7 +63,10 @@ export default function VipTools({ programmeId }) {
   }, [isOwner])
   useEffect(() => { load() }, [load])
 
-  const go = (t) => startSwitch(() => setParams((p) => { const n = new URLSearchParams(p); n.set('mode', 'tools'); if (t === 'overview') n.delete('tab'); else n.set('tab', t); n.delete('part'); return n }, { replace: true }))
+  const go = (t) => {
+    setPicked(t)
+    setParams((p) => { const n = new URLSearchParams(p); n.set('mode', 'tools'); if (t === 'overview') n.delete('tab'); else n.set('tab', t); n.delete('part'); return n }, { replace: true })
+  }
 
   if (programmes === null) return <Skeleton className="h-72 w-full rounded-card" />
   if (programmes.length === 0) {
@@ -80,7 +89,15 @@ export default function VipTools({ programmeId }) {
     content: (p) => <VipContentTab programme={p} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams((q) => { const n = new URLSearchParams(q); n.set('part', v); return n }, { replace: true })} />,
     kpis: (p) => <VipKpiTab programme={p} />,
     analytics: (p) => <VipAnalyticsTab programme={p} isAdmin={isAdmin} />,
-    settings: (p) => <div className="space-y-5"><VipRulesCard key={`${p.id}:${p.min_payout}:${p.req_videos}`} programme={p} onSaved={load} /><VipSettingsTab programme={p} onSaved={load} /></div>,
+    settings: (p) => (
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+        <VipSettingsTab programme={p} onSaved={load} />
+        <aside className="space-y-5 lg:sticky lg:top-24">
+          <VipRulesCard key={`${p.id}:${p.min_payout}:${p.voucher_min}:${p.req_videos}`} programme={p} onSaved={load} />
+          <SyncEvery />
+        </aside>
+      </div>
+    ),
     markets: (p) => <VipMarketsTab programme={p} isOwner={isOwner} onChanged={load} />,
     access: () => <VipAccessTab programmes={programmes} />,
   }
@@ -125,7 +142,7 @@ export default function VipTools({ programmeId }) {
       </div>
 
       {!programme.can_manage && !['markets', 'access', 'sheet', 'requirements', 'wallets', 'preview'].includes(tab) && (
-        <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
+        <p className="mb-4 rounded-card border border-brand/15 bg-brand-tint/40 px-4 py-3 text-sm text-ink">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
       )}
 
       {programmes.filter((p) => p.id === programme.id || [...seen].some((k) => k.startsWith(`${p.id}:`))).map((p) => {

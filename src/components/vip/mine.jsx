@@ -32,10 +32,24 @@ export function VipAnnouncements({ programmeId }) {
 /** One announcement as a VIP sees it. The team's composer draws the same card as its live preview. */
 export function AnnouncementCard({ a, delay = 0, preview = false }) {
   const tr = useT()
+  // A PINNED NOTE GLOWS (3 Oct 2026). Ethan, on the preview: "don't like the colour ... maybe have a nice gradient or
+  // something, still make it stand out, maybe it can glow." Pinned is the brand gradient with a soft orange halo and one
+  // pass of light; an unpinned note is a plain white card.
+  if (a.pinned) {
+    return (
+      <article className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand via-brand to-brand-light p-4 text-white shadow-[0_10px_34px_-10px_rgba(217,68,7,0.65)] ring-1 ring-white/20 animate-rise sm:p-5" style={{ animationDelay: `${delay}ms` }}>
+        <span aria-hidden className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+        <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
+        <p className="relative flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-white/85"><Icon name="megaphone" className="h-3.5 w-3.5" />{tr('From the team')}<span className="font-medium normal-case tracking-normal text-white/70">· {preview ? tr('just now') : formatDate(a.created_at)}</span></p>
+        {(a.title || preview) && <h3 className={cx('relative mt-1.5 break-words text-[15px] font-bold', a.title ? 'text-white' : 'text-white/50')}>{a.title || tr('Your title')}</h3>}
+        <p className={cx('relative mt-1 whitespace-pre-line break-words text-sm leading-relaxed', a.body ? 'text-white/95' : 'text-white/55')}>{a.body || tr('Your message to every VIP appears here.')}</p>
+      </article>
+    )
+  }
   return (
-    <article className={cx('rounded-card border p-4 shadow-card animate-rise sm:p-5', a.pinned ? 'border-brand/25 bg-brand-tint/60' : 'border-gray-100 bg-white')} style={{ animationDelay: `${delay}ms` }}>
-      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-brand"><Icon name="megaphone" className="h-3.5 w-3.5" />{a.pinned ? tr('Pinned by the team') : tr('From the team')}<span className="font-medium normal-case tracking-normal text-gray-400">· {preview ? tr('just now') : formatDate(a.created_at)}</span></p>
-      <h3 className={cx('mt-1.5 break-words text-[15px] font-bold', a.title ? 'text-ink' : 'text-gray-300')}>{a.title || tr('Your title')}</h3>
+    <article className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5" style={{ animationDelay: `${delay}ms` }}>
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-brand"><Icon name="megaphone" className="h-3.5 w-3.5" />{tr('From the team')}<span className="font-medium normal-case tracking-normal text-gray-400">· {preview ? tr('just now') : formatDate(a.created_at)}</span></p>
+      {(a.title || preview) && <h3 className={cx('mt-1.5 break-words text-[15px] font-bold', a.title ? 'text-ink' : 'text-gray-300')}>{a.title || tr('Your title')}</h3>}
       <p className={cx('mt-1 whitespace-pre-line break-words text-sm leading-relaxed', a.body ? 'text-smoke' : 'text-gray-300')}>{a.body || tr('Your message to every VIP appears here.')}</p>
     </article>
   )

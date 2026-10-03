@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
@@ -7,7 +8,7 @@ import { CountUp } from '../network/Motion'
 import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
-import { money, monthLabel, nf, rate, vipRpc } from '../../lib/vip'
+import { curSym, money, monthLabel, nf, perK, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (2 Oct 2026, migration 312).
@@ -53,6 +54,7 @@ export function VipWalletsTab({ programme }) {
   const tr = useT()
   const { data, error, reload } = useRpc('vip_wallets', { p_programme: programme.id })
   const [filter, setFilter] = useState('all')
+  const [person, setPerson] = useState(null)
   if (data === undefined) return <Skeleton className="h-72 w-full rounded-card" />
   if (!data) return <Empty icon="alert" title={tr('Could not load the balances')} hint={error} />
 
@@ -78,14 +80,14 @@ export function VipWalletsTab({ programme }) {
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile icon="wallet" label={tr('Held in balances')} value={<CountUp value={owed} format={(n) => money(n, cur, { cents: false })} />} hint={tr('Earned, not yet taken')} />
-        <Tile icon="cash" label={tr('Over the threshold')} value={nf(ready.length)} hint={tr('Can ask for cash ({a}+)', { a: money(data.threshold, cur, { cents: false }) })} tone="good" delay={50} />
+        <Tile icon="cash" label={tr('Ready for cash')} value={nf(ready.length)} hint={tr('Can ask for cash ({a}+)', { a: money(data.threshold, cur, { cents: false }) })} tone="good" delay={50} />
         <Tile icon="ticket" label={tr('Voucher codes to send')} value={nf(openCodes.length)} hint={tr('Asked for, no code yet')} tone={openCodes.length ? 'warn' : 'brand'} delay={100} />
         <Tile icon="clock" label={tr('Cash not yet paid')} value={nf(unpaid.length)} hint={tr('Invoices approved or sent')} delay={150} />
       </div>
 
       <div className="rounded-card border border-gray-100 bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-smoke animate-rise">
         <Icon name="bulb" className="mr-1.5 inline h-4 w-4 text-brand" />
-        {tr('Approving a month adds it to each balance. For {d} days after the month ends, a VIP can take cash (from {a}) or a Tryp.com voucher (any amount). Otherwise it keeps growing.', { d: data.request_days, a: money(data.threshold, cur, { cents: false }) })}
+        {tr('Approving a month adds it to each balance. A VIP can ask at any time: cash from {a}, a Tryp.com voucher from {v}. Otherwise it keeps growing. Press a name for their full history.', { a: money(data.threshold, cur, { cents: false }), v: money(programme.voucher_min ?? 10, cur, { cents: false }) })}
       </div>
 
       {(data.requests || []).length > 0 && (
@@ -100,10 +102,14 @@ export function VipWalletsTab({ programme }) {
           <ul className="divide-y divide-gray-50">
             {data.requests.slice(0, 12).map((q, i) => (
               <li key={q.id} className="flex items-center gap-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
-                <Avatar src={q.photo_url} name={q.name} size="sm" />
+                {/* CASH OR VOUCHER, AT A GLANCE (3 Oct 2026). Ethan: "make it more clear if it's cash or Tryp.com
+                    voucher. There's not much difference there." Each request leads with what it is. */}
+                <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-600')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-ink">{q.name}</span>
-                  <span className="block truncate text-xs text-smoke">{q.kind === 'voucher' ? tr('Tryp.com voucher') : tr('Cash')}{q.auto ? ` · ${tr('automatic')}` : ''} · {formatDate(q.at)}</span>
+                  <span className="flex items-center gap-2 text-sm font-semibold text-ink"><span className="truncate">{q.name}</span>
+                    <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', q.kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>{q.kind === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
+                  </span>
+                  <span className="block truncate text-xs text-smoke">{q.kind === 'voucher' ? tr('Tryp.com travel voucher') : tr('Bank transfer')}{q.auto ? ` · ${tr('automatic')}` : ''} · {formatDate(q.at)}</span>
                 </span>
                 <RequestState q={q} />
                 <span className="w-20 shrink-0 text-right font-bold tabular-nums text-ink">{money(q.amount, cur)}</span>
@@ -126,6 +132,7 @@ export function VipWalletsTab({ programme }) {
               const pct = Math.min(1, Number(r.balance) / Math.max(1, Number(data.threshold)))
               return (
                 <li key={r.profile_id} className="flex flex-wrap items-center gap-3 px-5 py-3 animate-rise sm:flex-nowrap" style={{ animationDelay: `${i * 30}ms` }}>
+                  <button type="button" onClick={() => setPerson(r)} className="group flex min-w-0 flex-1 items-center gap-3 text-left">
                   <Avatar src={r.photo_url} name={r.name} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -138,6 +145,7 @@ export function VipWalletsTab({ programme }) {
                       <span className={cx('block h-full rounded-full transition-[width] duration-700', pct >= 1 ? 'bg-emerald-500' : 'bg-brand')} style={{ width: `${Math.round(pct * 100)}%` }} />
                     </span>
                   </span>
+                  </button>
                   <span className="hidden text-right text-xs text-smoke sm:block">
                     <span className="block">{tr('Earned {a}', { a: money(r.earned, cur, { cents: false }) })}</span>
                     <span className="block">{tr('Taken {a}', { a: money(Number(r.paid) + Number(r.vouchers), cur, { cents: false }) })}</span>
@@ -152,7 +160,88 @@ export function VipWalletsTab({ programme }) {
           </ul>
         )}
       </section>
+      {person && <PersonMoney r={person} data={data} programme={programme} onClose={() => setPerson(null)} onAdjust={() => { const r = person; setPerson(null); adjust(r) }} />}
     </div>
+  )
+}
+
+// ONE VIP'S MONEY (3 Oct 2026). Ethan: "clicking on a person here should also show more info on them ... their all-time
+// earnings, their monthly earnings, what they currently have, and what they can withdraw." The four figures, then the
+// months, then every movement of the balance.
+function PersonMoney({ r, data, programme, onClose, onAdjust }) {
+  const tr = useT()
+  const cur = data.currency
+  const [months, setMonths] = useState(null)
+  const [moves, setMoves] = useState(null)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      supabase.from('vip_statements').select('id, views, total, status, month:month_id(year, month, starts_at)').eq('profile_id', r.profile_id).neq('status', 'void'),
+      supabase.from('vip_ledger').select('id, kind, amount, note, created_at').eq('profile_id', r.profile_id).order('created_at', { ascending: false }).limit(30),
+    ]).then(([st, lg]) => {
+      if (!alive) return
+      setMonths((st.data || []).filter((x) => x.month).sort((a, b) => String(b.month.starts_at).localeCompare(String(a.month.starts_at))))
+      setMoves(lg.data || [])
+    })
+    return () => { alive = false }
+  }, [r.profile_id])
+  const bal = Number(r.balance) || 0
+  const cash = Number(data.threshold) || 0
+  const voucher = Number(programme.voucher_min ?? 10) || 0
+  const can = bal >= cash && bal > 0 ? tr('Cash or a voucher') : bal >= voucher && bal > 0 ? tr('A voucher (cash from {a})', { a: money(cash, cur, { cents: false }) }) : tr('Nothing yet')
+  const best = Math.max(1, ...(months || []).map((m) => Number(m.total) || 0))
+  return (
+    <Modal open onClose={onClose} title={r.name} wide>
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {[
+            [tr('Earned, all time'), money(r.earned, cur), 'trophy'],
+            [tr('Balance now'), money(bal, cur), 'wallet'],
+            [tr('Taken so far'), money(Number(r.paid) + Number(r.vouchers), cur), 'check'],
+            [tr('Can withdraw'), can, 'cash'],
+          ].map(([label, value, icon], i) => (
+            <div key={label} className="rounded-xl bg-cloud/60 px-3.5 py-3 animate-rise" style={{ animationDelay: `${i * 50}ms` }}>
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400"><Icon name={icon} className="h-3.5 w-3.5 text-brand" />{label}</p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums text-ink">{value}</p>
+            </div>
+          ))}
+        </div>
+        <section>
+          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Month by month')}</h3>
+          {months === null ? <Skeleton className="h-24 w-full rounded-xl" /> : months.length === 0 ? <p className="text-sm text-smoke">{tr('No closed months yet.')}</p> : (
+            <ul className="space-y-1.5">
+              {months.map((m, i) => (
+                <li key={m.id} className="flex items-center gap-3 rounded-xl px-3 py-2 animate-rise hoverable:hover:bg-cloud/50" style={{ animationDelay: `${i * 35}ms` }}>
+                  <span className="w-24 shrink-0 text-sm font-semibold text-ink">{monthLabel(m.month.year, m.month.month, { short: true })}</span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light" style={{ width: `${Math.max(3, Math.round((Number(m.total) / best) * 100))}%` }} /></span>
+                  <span className="hidden w-24 text-right text-xs tabular-nums text-smoke sm:block">{tr('{n} views', { n: nf(m.views) })}</span>
+                  <span className="w-20 text-right text-sm font-bold tabular-nums text-ink">{money(m.total, cur)}</span>
+                  {m.status === 'draft' && <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{tr('Draft')}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section>
+          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Balance history')}</h3>
+          {moves === null ? <Skeleton className="h-20 w-full rounded-xl" /> : moves.length === 0 ? <p className="text-sm text-smoke">{tr('Nothing yet.')}</p> : (
+            <ul className="divide-y divide-gray-50 rounded-xl border border-gray-100">
+              {moves.map((e) => (
+                <li key={e.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+                  <Icon name={e.kind === 'voucher' ? 'ticket' : e.kind === 'payout' ? 'cash' : e.kind === 'adjust' ? 'pencil' : 'plus'} className="h-4 w-4 shrink-0 text-brand" />
+                  <span className="min-w-0 flex-1 truncate text-ink">{e.kind === 'earned' ? tr('Month approved') : e.kind === 'payout' ? tr('Cash payout') : e.kind === 'voucher' ? tr('Tryp.com voucher') : (e.note || tr('Correction'))}<span className="ml-2 text-xs text-smoke">{formatDate(e.created_at)}</span></span>
+                  <span className={cx('font-bold tabular-nums', Number(e.amount) > 0 ? 'text-emerald-700' : 'text-ink')}>{Number(e.amount) > 0 ? '+' : '-'}{money(Math.abs(e.amount), cur)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <div className="flex flex-wrap justify-between gap-2">
+          <Link to={`/vip?mode=as&who=${r.profile_id}`} className="btn-secondary !py-2 text-sm" onClick={onClose}><Icon name="eye" className="h-4 w-4" />{tr('Their VIP page')}</Link>
+          {programme.can_manage && <button type="button" onClick={onAdjust} className="btn-primary !py-2 text-sm"><Icon name="pencil" className="h-4 w-4" />{tr('Correct the balance')}</button>}
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -311,7 +400,7 @@ export function VipSheetTab({ programme }) {
         <Tile icon="eye" label={tr('Views, all months')} value={<CountUp value={data.total_views} format={nf} />} />
         <Tile icon="money" label={tr('Earned, all months')} value={<CountUp value={data.total_earned} format={(n) => money(n, cur, { cents: false })} />} delay={50} />
         <Tile icon="users" label={tr('Creators')} value={nf(data.rows.length)} delay={100} />
-        <Tile icon="chart" label={tr('Effective CPM')} value={`${cur} ${data.total_views ? rate((data.total_earned / data.total_views) * 1000) : rate(data.cpm)}`} hint={tr('Earned per 1,000 views')} delay={150} />
+        <Tile icon="chart" label={tr('Average per 1,000 views')} value={perK(data.total_views ? (data.total_earned / data.total_views) * 1000 : data.cpm, cur)} hint={tr('Every creator, every month shown')} delay={150} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -333,9 +422,9 @@ export function VipSheetTab({ programme }) {
             <table className="w-full border-separate border-spacing-0 text-[13px]">
               <thead>
                 <tr className="text-left text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-                  <th className="sticky left-0 z-10 border-b border-gray-100 bg-white px-4 py-2.5">{tr('Creator')}</th>
+                  <th className="sticky left-0 z-10 border-b border-gray-100 bg-cloud/70 px-4 py-3 backdrop-blur">{tr('Creator')}</th>
                   {cols.map((m) => (
-                    <th key={key(m)} className={cx('whitespace-nowrap border-b border-gray-100 px-3 py-2.5 text-right', m.live && 'bg-brand-tint/40 text-brand')}>
+                    <th key={key(m)} className={cx('whitespace-nowrap border-b border-gray-100 px-3 py-3 text-right', m.live ? 'bg-brand-tint/60 text-brand' : 'bg-cloud/70')}>
                       {monthLabel(m.year, m.month, { short: true })}{m.live ? ' ·' : ''}{m.live && <span className="ml-1 normal-case">{tr('live')}</span>}
                     </th>
                   ))}
@@ -346,14 +435,19 @@ export function VipSheetTab({ programme }) {
               <tbody>
                 {data.rows.map((r, i) => (
                   <tr key={`${r.profile_id || r.name}`} className="group animate-rise" style={{ animationDelay: `${Math.min(i, 15) * 25}ms` }}>
-                    <td className="sticky left-0 z-10 border-b border-gray-50 bg-white px-4 py-2.5 group-hover:bg-cloud/60">
-                      <span className="block max-w-[11rem] truncate font-semibold text-ink">{r.name}</span>
-                      <span className="block text-[11px] text-smoke">{cur} {rate(r.cpm)}{r.status && r.status !== 'active' ? ` · ${tr(r.status)}` : ''}{!r.profile_id ? ` · ${tr('typed in')}` : ''}</span>
+                    <td className="sticky left-0 z-10 border-b border-gray-50 bg-white px-4 py-3 group-hover:bg-cloud/60">
+                      <span className="flex items-center gap-2.5">
+                        <Avatar src={r.photo_url || r.photo} name={r.name} size="xs" />
+                        <span className="min-w-0">
+                          <span className="block max-w-[10rem] truncate font-semibold text-ink">{r.name}</span>
+                          <span className="block text-[11px] text-smoke">{tr('{r} per 1,000', { r: perK(r.cpm, cur) })}{r.status && r.status !== 'active' ? ` · ${tr(r.status)}` : ''}{!r.profile_id ? ` · ${tr('typed in')}` : ''}</span>
+                        </span>
+                      </span>
                     </td>
                     {cols.map((m) => {
                       const c = r.cells[key(m)]
                       return (
-                        <td key={key(m)} className={cx('whitespace-nowrap border-b border-gray-50 px-3 py-2.5 text-right tabular-nums group-hover:bg-cloud/60', m.live && 'bg-brand-tint/20', c?.hist && 'italic')}>
+                        <td key={key(m)} className={cx('whitespace-nowrap border-b border-gray-50 px-3 py-3 text-right tabular-nums transition-colors group-hover:bg-cloud/60', m.live && 'bg-brand-tint/25', c?.hist && 'italic')}>
                           {!c ? <span className="text-gray-300">-</span> : (
                             <>
                               {show !== 'earned' && <span className="block font-semibold text-ink">{nf(c.views)}</span>}
@@ -465,37 +559,48 @@ function ImportHistory({ open, onClose, programme, onDone }) {
 // ======================================================================== rules (on the Settings tab)
 export function VipRulesCard({ programme, onSaved }) {
   const tr = useT()
+  const sym = curSym(programme.currency)
   const [f, setF] = useState({
-    threshold: programme.min_payout ?? 100, days: programme.request_days ?? 10,
-    on: programme.req_on ?? true, videos: programme.req_videos ?? 5, views: programme.req_single_views ?? 20000,
+    threshold: String(programme.min_payout ?? 100), voucher: String(programme.voucher_min ?? 10),
+    on: programme.req_on ?? true, videos: String(programme.req_videos ?? 5), views: String(programme.req_single_views ?? 20000),
   })
   const [busy, setBusy] = useState(false)
   const set = (p) => setF((x) => ({ ...x, ...p }))
+  const digits = (v) => String(v).replace(/[^\d]/g, '')
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_set_rules', { p_programme: programme.id, p_threshold: Number(f.threshold), p_request_days: Number(f.days), p_req_on: f.on, p_req_videos: Number(f.videos), p_req_views: Number(f.views) })
+      await vipRpc('vip_set_rules', { p_programme: programme.id, p_threshold: Number(f.threshold) || 0, p_request_days: null, p_req_on: f.on, p_req_videos: Number(f.videos) || 0, p_req_views: Number(f.views) || 0, p_voucher_min: Number(f.voucher) || 0 })
       toastSuccess(tr('Saved.'))
       onSaved?.()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   const dis = !programme.can_manage
+  // TYPED, NOT SPUN (3 Oct 2026). Ethan: "rather than having those arrows where you can change it, just again have the
+  // function to type it in." Plain text boxes that take digits.
+  const box = (value, onChange, opts = {}) => (
+    <span className="relative block">
+      {opts.prefix && <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{opts.prefix}</span>}
+      <input className={cx('input', opts.prefix && '!pl-8')} inputMode="numeric" value={value} disabled={dis || opts.off} onChange={(e) => onChange(digits(e.target.value))} />
+    </span>
+  )
   return (
     <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
-      <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="wallet" className="h-5 w-5 text-brand" />{tr('Payouts and staying in')}</h3>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="block"><span className="label">{tr('Cash payouts from ({c})', { c: programme.currency })}</span><input className="input" type="number" min="0" step="1" value={f.threshold} disabled={dis} onChange={(e) => set({ threshold: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('Below this, a VIP can only take a travel voucher or let it grow.')}</span></label>
-        <label className="block"><span className="label">{tr('Days to ask after the month ends')}</span><input className="input" type="number" min="1" max="31" value={f.days} disabled={dis} onChange={(e) => set({ days: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('The payout window. Never shorter than three days after you approve.')}</span></label>
+      <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="wallet" className="h-5 w-5 text-brand" />{tr('Payouts')}</h3>
+      <p className="mt-0.5 text-xs text-smoke">{tr('A VIP can ask for their balance at any time once it reaches these amounts.')}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="block"><span className="label">{tr('Cash from')}</span>{box(f.threshold, (v) => set({ threshold: v }), { prefix: sym })}</label>
+        <label className="block"><span className="label">{tr('Voucher from')}</span>{box(f.voucher, (v) => set({ voucher: v }), { prefix: sym })}</label>
       </div>
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
         <span><span className="block text-sm font-semibold text-ink">{tr('Monthly requirement to stay in')}</span><span className="block text-xs text-smoke">{tr('Either one is enough.')}</span></span>
         <Toggle on={!!f.on} onChange={(v) => set({ on: v })} label={tr('Monthly requirement to stay in')} disabled={dis} />
       </div>
-      <div className={cx('mt-3 grid gap-4 transition-opacity sm:grid-cols-2', !f.on && 'opacity-40')}>
-        <label className="block"><span className="label">{tr('Videos in the month')}</span><input className="input" type="number" min="0" value={f.videos} disabled={dis || !f.on} onChange={(e) => set({ videos: e.target.value })} /></label>
-        <label className="block"><span className="label">{tr('Or one video with this many views')}</span><input className="input" type="number" min="0" step="1000" value={f.views} disabled={dis || !f.on} onChange={(e) => set({ views: e.target.value })} /></label>
+      <div className={cx('mt-3 grid grid-cols-2 gap-3 transition-opacity', !f.on && 'opacity-40')}>
+        <label className="block"><span className="label">{tr('Videos in the month')}</span>{box(f.videos, (v) => set({ videos: v }), { off: !f.on })}</label>
+        <label className="block"><span className="label">{tr('Or one video with')}</span>{box(f.views, (v) => set({ views: v }), { off: !f.on })}<span className="mt-1 block text-[11px] text-smoke">{tr('views')}</span></label>
       </div>
-      {!dis && <div className="mt-5 flex justify-end"><button type="button" onClick={save} disabled={busy} className="btn-primary">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>}
+      {!dis && <div className="mt-5 flex justify-end"><button type="button" onClick={save} disabled={busy} className="btn-primary !py-2 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>}
     </section>
   )
 }

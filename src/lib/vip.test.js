@@ -4,10 +4,11 @@ import { daysLeft, describeRule, money, monthLabel, monthProgress, rate } from '
 const tr = (s, v = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`))
 
 describe('vip helpers', () => {
-  it('writes a rate without trailing zeros', () => {
+  it('writes a rate with its cents, at most three decimals (3 Oct 2026: "show 0.30, not 0.3")', () => {
     expect(rate(0.25)).toBe('0.25')
-    expect(rate('0.3000')).toBe('0.3')
-    expect(rate(1)).toBe('1')
+    expect(rate('0.3000')).toBe('0.30')
+    expect(rate(1)).toBe('1.00')
+    expect(rate(0.25678)).toBe('0.257')
   })
   it('names a month', () => {
     expect(monthLabel(2026, 9)).toMatch(/2026/)
@@ -48,7 +49,7 @@ describe('describeEvent', () => {
     expect(describeEvent({ kind: 'rejoined' }, tr)).toBe('Moved from the community back to VIP')
   })
   it('writes the numbers into rate and cap changes, and says so when they are cleared', () => {
-    expect(describeEvent({ kind: 'rate_changed', detail: { to: 0.3 } }, tr, 'EUR')).toBe('Own rate set to EUR 0.3 per 1,000')
+    expect(describeEvent({ kind: 'rate_changed', detail: { to: 0.3 } }, tr, 'EUR')).toBe('Own rate set to EUR 0.30 per 1,000')
     expect(describeEvent({ kind: 'rate_changed', detail: { to: null } }, tr)).toBe('Back on the programme rate')
     expect(describeEvent({ kind: 'cap_changed', detail: { to: null } }, tr)).toBe('Monthly cap removed')
   })

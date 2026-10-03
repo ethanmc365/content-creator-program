@@ -79,7 +79,7 @@ function Row({ inv, people, busy, onDecide, onView, selectable, selected, onTogg
         <p className="text-sm font-bold tabular-nums">{formatMoney(inv.amount, inv.currency)}</p>
         <p className="text-[11px] text-smoke">
           {inv.paid_at ? `Paid ${formatDate(inv.paid_at)}`
-            : inv.sent_at ? `Sent to finance ${formatDate(inv.sent_at)}`
+            : inv.sent_at ? `Sent ${formatDate(inv.sent_at)}`
             : inv.submitted_at ? `Raised ${formatDate(inv.submitted_at)}`
             : formatDate(inv.created_at)}
         </p>
@@ -303,7 +303,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
           {/* ALREADY SENT, SAID SO PLAINLY (3 Oct 2026). Ethan: a creator asked whether they should send their
               invoice to Francesco - it had already gone. "Sent, not yet paid" read like a to-do. */}
           <Group
-            title="Sent to finance, waiting for the transfer"
+            title="Sent"
             hint="Nothing left to send for these. Finance has the invoice; each one is marked paid by itself 7 days after it was sent."
             rows={groups.out}
             {...shared}
