@@ -142,7 +142,7 @@ export default function ChallengeLeaderboard({
         <span className="w-9 shrink-0 text-center">#</span>
         <span className="min-w-0 flex-1">{tr('Creator')}</span>
         {hasPrizes && <span className={cx(prizeCol, 'shrink-0 text-right')}>{tr('Prize')}</span>}
-        {showStreaks && <span className="w-14 shrink-0 text-center">{tr('Streak')}</span>}
+        {showStreaks && <span className="w-16 shrink-0 text-center">{tr('Streak')}</span>}
         <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
         {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
       </div>
@@ -166,18 +166,11 @@ export default function ChallengeLeaderboard({
             title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
             className="group flex w-full items-center justify-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            {/* THE SAME FIRE AS THE GAMES' STREAK CARD (5 Oct 2026). Ethan: "a natural one, like the actual flame, like the one in Streaks ... the number
-                inside it in white." That card draws the warm flame (white through amber) on an orange tile with a glow, because a warm flame is
-                invisible on white. So this is a small orange tile, the real animated flame with sparks, a breathing halo, and the day count in white
-                at the heart of the fire. Waiting (not posted yet today) is a dimmer tile with an ember; lost is a grey tile with the best run. */}
-            <span className="relative flex h-12 w-12 items-center justify-center">
-              {st.state === 'live' && <span aria-hidden className="animate-flame-glow absolute inset-0 rounded-full bg-amber-300/60 blur-lg" />}
-              <span className={cx('relative flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ring-1 ring-inset', st.state === 'live' ? 'bg-gradient-to-br from-brand to-brand-light ring-white/30' : st.state === 'waiting' ? 'bg-gradient-to-br from-brand/70 to-brand-light/70 ring-white/20' : 'bg-gray-300 ring-white/30')}>
-                <Flame className="h-8 w-8" tone="warm" state={st.state === 'live' ? 'lit' : st.state === 'waiting' ? 'ember' : 'cold'} sparks={st.state === 'live'} />
-                <span className="absolute inset-x-0 bottom-[7px] text-center text-[13px] font-extrabold tabular-nums leading-none text-white [text-shadow:0_1px_3px_rgba(120,40,0,0.9)]">
-                  {st.state === 'lost' ? st.best : st.current}
-                </span>
-              </span>
+            {/* EXACTLY THE GAMES' STREAK CHIP (5 Oct 2026): the animated fire in its orange tones with the number BESIDE it, in the same pill
+                the travel games use. An inactive streak (waiting for today's post, or lost) is the unlit flame in grey, still with its number. */}
+            <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-bold leading-none', st.state === 'live' ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>
+              <Flame className="h-5 w-5" state={st.state === 'live' ? 'lit' : st.state === 'waiting' ? 'ember' : 'cold'} />
+              <span className="tabular-nums">{st.state === 'lost' ? st.best : st.current}</span>
             </span>
           </button>
         ) : null
@@ -296,7 +289,7 @@ export default function ChallengeLeaderboard({
             )}
 
             {showStreaks && (
-              <span className={cx('w-12 shrink-0 sm:w-14', !row && 'invisible')}>{streakCell}</span>
+              <span className={cx('w-14 shrink-0 text-center sm:w-16', !row && 'invisible')}>{streakCell}</span>
             )}
 
             {/* THE SCORE. On a phone the views sit under the points; from sm

@@ -200,7 +200,7 @@ function PagePreview({ programme, everywhere, draft, existing }) {
   )
 }
 
-/** The notification as it lands on a locked iPhone: wallpaper, the clock, and the banner iOS draws for it. */
+/** The notification as it lands on a locked iPhone: a plain white lock screen, the clock, and the banner iOS draws for it. */
 function PushPreview({ draft }) {
   const tr = useT()
   const head = draft.title || tr('A note from the team')
@@ -208,18 +208,17 @@ function PushPreview({ draft }) {
   const day = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   return (
     <div>
-      <PhoneFrame bare dark maxH={640}>
-        <div aria-hidden className="relative h-full w-full select-none overflow-hidden bg-gradient-to-b from-[#1b2a52] via-[#4a2f6b] to-[#d9622b]">
-          <span className="absolute -left-16 top-1/3 h-72 w-72 rounded-full bg-[#ff9a5a]/30 blur-3xl" />
-          <span className="absolute -right-20 top-10 h-64 w-64 rounded-full bg-[#7a5cff]/30 blur-3xl" />
-          <div className="relative pt-16 text-center text-white">
-            <p className="text-[19px] font-medium opacity-90">{day}</p>
+      <PhoneFrame bare maxH={640}>
+        <div aria-hidden className="relative h-full w-full select-none overflow-hidden bg-white">
+          <div className="relative pt-16 text-center text-ink">
+            <p className="text-[19px] font-medium text-ink/70">{day}</p>
             <p className="text-[96px] font-semibold leading-none tracking-tight">9:41</p>
           </div>
           <div className="absolute inset-x-3 top-[290px]">
-            <div className="rounded-[26px] bg-white/80 p-3.5 shadow-lift backdrop-blur-xl">
+            <div className="rounded-[26px] bg-gray-100/95 p-3.5 shadow-card ring-1 ring-black/5">
               <div className="flex items-start gap-3">
-                <img src="/brand/tryp-logo-360.png" alt="" className="h-10 w-10 shrink-0 rounded-[10px] bg-white object-contain p-0.5 shadow-sm" />
+                {/* The app icon, the one on a creator's home screen (not the wide logo, which turns into tiny squares at this size). */}
+                <img src="/apple-touch-icon-v4.png" alt="" className="h-10 w-10 shrink-0 rounded-[10px] shadow-sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-[15px] font-semibold text-ink">{head}</p>
@@ -229,10 +228,6 @@ function PushPreview({ draft }) {
                 </div>
               </div>
             </div>
-            <p className="mt-2 text-center text-[11px] font-medium text-white/70">Tryp.com Creators</p>
-          </div>
-          <div className="absolute inset-x-0 bottom-9 flex justify-between px-12">
-            {['flashlight', 'camera'].map((k) => <span key={k} className="h-[50px] w-[50px] rounded-full bg-black/35 backdrop-blur" />)}
           </div>
         </div>
       </PhoneFrame>

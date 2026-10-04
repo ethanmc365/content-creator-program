@@ -756,7 +756,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // offers only the ones open right now; an entry can claim one only if it was
   // submitted inside that bonus's dates, which is also what the database checks.
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
-  const collabOn = (pointRules || []).some((r) => r.kind === 'collab' && r.is_active !== false)
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
   // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
@@ -2049,16 +2048,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     </button>
                   )
                 })}
-              </div>
-            </div>
-          )}
-
-          {collabOn && detectPlatform(normaliseUrl(videoUrl)) === 'Instagram' && (
-            <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
-              <Icon name="users" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">{tr('Is this an Instagram collab post?')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('Ask the other creator to enter the same post link as well. When you have both entered it we match you automatically, you both earn the collab points, and its views count once.')}</p>
               </div>
             </div>
           )}
