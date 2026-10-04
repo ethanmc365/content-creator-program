@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 // screen, below the status bar.
 export const PHONE = { w: 393, h: 852 }
 
-export default function PhoneFrame({ children, maxH }) {
+export default function PhoneFrame({ children, maxH, bare = false, dark = false }) {
   const ref = useRef(null)
   const [room, setRoom] = useState(null)
   useEffect(() => {
@@ -24,13 +24,14 @@ export default function PhoneFrame({ children, maxH }) {
     <div ref={ref} className="mx-auto w-full" style={{ maxWidth: frameW }}>
       <div style={{ width: frameW * scale, height: (PHONE.h + 18) * scale }} className="mx-auto">
         <div className="rounded-[3.4rem] bg-ink p-[9px] shadow-lift" style={{ width: frameW, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <div className="relative overflow-hidden rounded-[2.8rem] bg-cloud" style={{ width: PHONE.w, height: PHONE.h }}>
-            <div className="relative flex items-center justify-between px-8 pb-1 pt-4 text-[15px] font-semibold text-ink" aria-hidden>
+          <div className={`relative overflow-hidden rounded-[2.8rem] ${bare ? "" : "bg-cloud"}`} style={{ width: PHONE.w, height: PHONE.h }}>
+            {bare && <div className="absolute inset-0">{children}</div>}
+            <div className={`relative z-10 flex items-center justify-between px-8 pb-1 pt-4 text-[15px] font-semibold ${dark ? "text-white" : "text-ink"}`} aria-hidden>
               <span>9:41</span>
               <span className="absolute left-1/2 top-2.5 h-[34px] w-[118px] -translate-x-1/2 rounded-full bg-ink" />
-              <span className="flex items-center gap-1.5"><span className="flex items-end gap-[2px]">{[5, 8, 11, 14].map((h) => <span key={h} className="w-[3px] rounded-sm bg-ink" style={{ height: h }} />)}</span><span className="h-3 w-6 rounded-[4px] border border-ink/70 p-[1px]"><span className="block h-full w-4/5 rounded-[2px] bg-ink" /></span></span>
+              <span className="flex items-center gap-1.5"><span className="flex items-end gap-[2px]">{[5, 8, 11, 14].map((h) => <span key={h} className={`w-[3px] rounded-sm ${dark ? "bg-white" : "bg-ink"}`} style={{ height: h }} />)}</span><span className={`h-3 w-6 rounded-[4px] border p-[1px] ${dark ? "border-white/70" : "border-ink/70"}`}><span className={`block h-full w-4/5 rounded-[2px] ${dark ? "bg-white" : "bg-ink"}`} /></span></span>
             </div>
-            <div className="px-4 pt-2">{children}</div>
+            {!bare && <div className="px-4 pt-2">{children}</div>}
           </div>
         </div>
       </div>

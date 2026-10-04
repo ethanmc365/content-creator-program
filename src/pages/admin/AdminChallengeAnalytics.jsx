@@ -135,7 +135,8 @@ export default function AdminChallengeAnalytics() {
   const d = useMemo(() => {
     if (!raw) return null
     const inView = (r) => !viewMembers || viewMembers.has(r.creator_id)
-    const subs = raw.subs.filter(inView)
+    // A collab post entered by both creators counts once: the partner's linked entry (collab_of) is left out of the totals.
+    const subs = raw.subs.filter(inView).filter((r) => !r.collab_of)
     const rewards = raw.rewards.filter(inView)
     // Out of the people who could have entered: the group, or - on a split
     // challenge - everybody on its boards, rather than the whole platform.

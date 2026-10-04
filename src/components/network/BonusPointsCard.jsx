@@ -62,7 +62,7 @@ function claimLine(r, tr) {
 function howToEarn(r, tr) {
   if (r.kind === 'per_post') return tr('For every video you post')
   if (r.kind === 'platform_spread') return tr('For each platform you post on')
-  if (r.kind === 'collab') return tr('Post an Instagram collab post with another creator and enter it. When they confirm, you both earn the points')
+  if (r.kind === 'collab') return tr('Post an Instagram collab post with another creator and both enter its link. You both earn the points')
   if (r.kind === 'consistency') {
     const d = Number(r.period_days) || 7
     return d === 1 ? tr('Post at least one video every day')

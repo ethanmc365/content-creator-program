@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { PrizeText } from '../lib/prizeText'
 import { confirm, notice } from '../lib/confirm'
+import { toastSuccess } from '../lib/toast'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
 import { SendPushButton } from '../components/admin/ChallengePush'
@@ -28,7 +29,7 @@ import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPo
 import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import CountryBoard from '../components/challenge/CountryBoard'
-import CollabCard, { PartnerPicker } from '../components/challenge/CollabCard'
+import CollabCard from '../components/challenge/CollabCard'
 import BoostCallout, { useBoost } from '../components/challenge/BoostBanner'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
@@ -214,9 +215,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [bonusClaims, setBonusClaims] = useState(seed?.bonusClaims ?? [])
   // Which bonuses the creator has ticked in the submit form, before they send.
   const [claiming, setClaiming] = useState([])
-  // An Instagram collab post: the other creator on it, picked while entering (the partner confirms afterwards).
-  const [collabPartner, setCollabPartner] = useState(null)
-  const [collabAsk, setCollabAsk] = useState(false)
   const boost = useBoost(challenge?.id, challenge?.status === 'active' && challenge?.scoring === 'points')
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
@@ -473,7 +471,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       video_url: url,
       caption: caption.trim(),
       ...(resolvedId ? { platform_video_id: resolvedId } : {}),
-    }).select('id').single()
+    }).select('id, collab_of').single()
     if (error) {
       setSubmitting(false)
       // The guard raises 23505 with its own sentence. Say it against the link,
@@ -518,13 +516,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         })),
       )
     }
-    // THE COLLAB PARTNER, ASKED AFTER THE ENTRY IS IN (4 Oct 2026). Not fatal: the entry stands whatever happens, and the partner can be added
-    // from the collab card afterwards.
-    if (entry && collabPartner && platform === 'Instagram') {
-      const { error: collabError } = await supabase.rpc('collab_request', { p_challenge: id, p_submission: entry.id, p_partner: collabPartner.id })
-      if (collabError) await notice(`Your entry is in, but the collab could not be sent: ${collabError.message}`)
-    }
     setSubmitting(false)
+    // The same Instagram post entered by both creators: the database linked this entry to the first and both earn the collab points.
+    if (entry?.collab_of) toastSuccess(tr('You both entered the same collab post, so you both earn the collab points. Its views count once.'))
 
     setShowSubmit(false)
     setVideoUrl('')
@@ -532,7 +526,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setCaptionTouched(false)
     setLinkMeta(null)
     setClaiming([])
-    setCollabPartner(null); setCollabAsk(false)
     // The reload below hasn't landed yet, so count this entry in by hand.
     const mine = submissions.filter((s) => s.creator_id === user.id).length
     setSuccess({ count: mine + 1, platform })
@@ -1454,7 +1447,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} />
         // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
         const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
-        const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} submissions={submissions} meId={user.id} /> : null
+        const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} meId={user.id} /> : null
         // THE HOOK BUTTON (24 Sep 2026, moved 26 Sep): first thing in the rail
         // and first thing on a phone, above the prizes. Ethan: "Currently, it's
         // way down at the bottom, whereas it should be at the top." Not on a
@@ -2061,24 +2054,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           )}
 
           {collabOn && detectPlatform(normaliseUrl(videoUrl)) === 'Instagram' && (
-            <div className="rounded-xl border border-gray-200 p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon name="users" className="h-4 w-4 text-brand" />{tr('Is this an Instagram collab post?')}</p>
-              <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('A collab post is one post shared by two accounts, so it shows on both profiles. If you made one with another creator, tell us who and you both earn the collab points.')}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {[[false, tr('No, just mine')], [true, tr('Yes, with a creator')]].map(([yes, label]) => {
-                  const on = yes ? !!collabAsk : !collabAsk
-                  return (
-                    <button key={label} type="button" aria-pressed={on} onClick={() => { setCollabAsk(yes); if (!yes) setCollabPartner(null) }}
-                      className={cx('rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white shadow-sm' : 'border-gray-200 bg-white text-smoke hover:border-brand/40 hover:text-ink')}>{label}</button>
-                  )
-                })}
+            <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
+              <Icon name="users" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">{tr('Is this an Instagram collab post?')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('Ask the other creator to enter the same post link as well. When you have both entered it we match you automatically, you both earn the collab points, and its views count once.')}</p>
               </div>
-              {collabAsk && (
-                <div className="mt-3 animate-tab-in space-y-2">
-                  <PartnerPicker meId={user.id} value={collabPartner} onChange={setCollabPartner} />
-                  <p className="text-[11px] leading-relaxed text-smoke">{tr('They get a notification and have to confirm it. You enter the post once, so it counts once, and they do not need an entry of their own.')}</p>
-                </div>
-              )}
             </div>
           )}
 

@@ -4335,4 +4335,11 @@ export default {
   'They get a notification and have to confirm it. You enter the post once, so it counts once, and they do not need an entry of their own.': 'Primește o notificare și trebuie să confirme. Înscrii postarea o singură dată, deci contează o dată, iar persoana nu are nevoie de o participare proprie.',
   'Create': 'Creează',
   'Earn': 'Câștigă',
+  'You both entered the same collab post, so you both earn the collab points. Its views count once.': 'Ați înscris amândoi aceeași postare în colaborare, deci amândoi primiți punctele de colaborare. Vizualizările ei contează o singură dată.',
+  'Ask the other creator to enter the same post link as well. When you have both entered it we match you automatically, you both earn the collab points, and its views count once.': 'Cere-i celuilalt creator să înscrie și el același link. Când l-ați înscris amândoi, vă potrivim automat, amândoi primiți punctele de colaborare și vizualizările contează o singură dată.',
+  'Post one Instagram collab post with another creator. You each enter its link, and you both earn +{n} points.': 'Postează o postare în colaborare pe Instagram cu alt creator. Fiecare înscrie linkul și amândoi primiți +{n} puncte.',
+  'Publish one Instagram collab post together, so it shows on both profiles.': 'Publicați împreună o postare în colaborare pe Instagram, ca să apară pe ambele profiluri.',
+  'Each of you enters that same post link as an entry.': 'Fiecare înscrie același link ca participare.',
+  'We match them by themselves. Its views count once, and you both get the points.': 'Le potrivim automat. Vizualizările contează o dată și amândoi primiți punctele.',
+  'Post an Instagram collab post with another creator and both enter its link. You both earn the points': 'Postează o postare în colaborare pe Instagram cu alt creator și înscrieți amândoi linkul. Amândoi primiți punctele',
 }

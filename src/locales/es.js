@@ -4342,4 +4342,11 @@ export default {
   'They get a notification and have to confirm it. You enter the post once, so it counts once, and they do not need an entry of their own.': 'Recibirá una notificación y tendrá que confirmarlo. Registras la publicación una vez, así que cuenta una vez, y no necesita una participación propia.',
   'Create': 'Crea',
   'Earn': 'Gana',
+  'You both entered the same collab post, so you both earn the collab points. Its views count once.': 'Los dos habéis registrado la misma colaboración, así que los dos ganáis los puntos de colaboración. Sus visualizaciones cuentan una sola vez.',
+  'Ask the other creator to enter the same post link as well. When you have both entered it we match you automatically, you both earn the collab points, and its views count once.': 'Pide al otro creador que registre también el mismo enlace. Cuando los dos lo hayáis registrado os emparejamos automáticamente, los dos ganáis los puntos de colaboración y sus visualizaciones cuentan una vez.',
+  'Post one Instagram collab post with another creator. You each enter its link, and you both earn +{n} points.': 'Publica una colaboración de Instagram con otro creador. Cada uno registra su enlace y los dos ganáis +{n} puntos.',
+  'Publish one Instagram collab post together, so it shows on both profiles.': 'Publicad juntos una colaboración de Instagram, para que aparezca en los dos perfiles.',
+  'Each of you enters that same post link as an entry.': 'Cada uno registra ese mismo enlace como participación.',
+  'We match them by themselves. Its views count once, and you both get the points.': 'Los emparejamos automáticamente. Sus visualizaciones cuentan una vez y los dos recibís los puntos.',
+  'Post an Instagram collab post with another creator and both enter its link. You both earn the points': 'Publica una colaboración de Instagram con otro creador y registrad los dos su enlace. Los dos ganáis los puntos',
 }

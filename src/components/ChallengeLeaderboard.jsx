@@ -142,7 +142,7 @@ export default function ChallengeLeaderboard({
         <span className="w-9 shrink-0 text-center">#</span>
         <span className="min-w-0 flex-1">{tr('Creator')}</span>
         {hasPrizes && <span className={cx(prizeCol, 'shrink-0 text-right')}>{tr('Prize')}</span>}
-        {showStreaks && <span className="w-12 shrink-0 text-center">{tr('Streak')}</span>}
+        {showStreaks && <span className="w-14 shrink-0 text-center">{tr('Streak')}</span>}
         <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
         {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
       </div>
@@ -166,13 +166,17 @@ export default function ChallengeLeaderboard({
             title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
             className="group flex w-full items-center justify-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            {/* THE NUMBER IS INSIDE THE FLAME (4 Oct 2026): no "days" word and nothing underneath, so a row keeps its height. */}
-            <span className="relative flex h-10 w-9 items-center justify-center">
-              <span className={cx('absolute inset-0 flex items-center justify-center', st.state === 'lost' && 'opacity-40 grayscale')}>
-                <Flame className="h-10 w-10" state={st.state === 'waiting' || st.state === 'lost' ? 'ember' : 'lit'} />
-              </span>
-              <span className={cx('relative top-[3px] text-[13px] font-extrabold tabular-nums leading-none', st.state === 'lost' ? 'text-smoke' : st.state === 'waiting' ? 'text-brand' : 'text-white [text-shadow:0_1px_3px_rgba(110,25,0,0.85)]')}>
-                {st.state === 'lost' ? st.best : st.current}
+            {/* THE SAME FIRE AS THE GAMES' STREAK CARD (5 Oct 2026). Ethan: "a natural one, like the actual flame, like the one in Streaks ... the number
+                inside it in white." That card draws the warm flame (white through amber) on an orange tile with a glow, because a warm flame is
+                invisible on white. So this is a small orange tile, the real animated flame with sparks, a breathing halo, and the day count in white
+                at the heart of the fire. Waiting (not posted yet today) is a dimmer tile with an ember; lost is a grey tile with the best run. */}
+            <span className="relative flex h-12 w-12 items-center justify-center">
+              {st.state === 'live' && <span aria-hidden className="animate-flame-glow absolute inset-0 rounded-full bg-amber-300/60 blur-lg" />}
+              <span className={cx('relative flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ring-1 ring-inset', st.state === 'live' ? 'bg-gradient-to-br from-brand to-brand-light ring-white/30' : st.state === 'waiting' ? 'bg-gradient-to-br from-brand/70 to-brand-light/70 ring-white/20' : 'bg-gray-300 ring-white/30')}>
+                <Flame className="h-8 w-8" tone="warm" state={st.state === 'live' ? 'lit' : st.state === 'waiting' ? 'ember' : 'cold'} sparks={st.state === 'live'} />
+                <span className="absolute inset-x-0 bottom-[7px] text-center text-[13px] font-extrabold tabular-nums leading-none text-white [text-shadow:0_1px_3px_rgba(120,40,0,0.9)]">
+                  {st.state === 'lost' ? st.best : st.current}
+                </span>
               </span>
             </span>
           </button>
@@ -292,7 +296,7 @@ export default function ChallengeLeaderboard({
             )}
 
             {showStreaks && (
-              <span className={cx('w-10 shrink-0 sm:w-12', !row && 'invisible')}>{streakCell}</span>
+              <span className={cx('w-12 shrink-0 sm:w-14', !row && 'invisible')}>{streakCell}</span>
             )}
 
             {/* THE SCORE. On a phone the views sit under the points; from sm

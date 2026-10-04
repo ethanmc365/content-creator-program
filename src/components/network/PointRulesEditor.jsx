@@ -387,7 +387,7 @@ const BONUS_INFO = {
   per_post: { title: 'Per video', does: 'Points for every video a creator posts, up to a ceiling.' },
   platform_spread: { title: 'Per platform', does: 'Points for each different platform a creator posts on (TikTok, Instagram, YouTube).' },
   consistency: { title: 'Posting streak', does: 'Points for posting in every day, week or number of days of the challenge.' },
-  collab: { title: 'Instagram collab post', does: 'Two creators share one Instagram collab post. One enters it and names the other, the other confirms, and both earn the points.' },
+  collab: { title: 'Instagram collab post', does: 'Two creators share one Instagram collab post. Both enter its link, we match them by themselves, and both earn the points.' },
 }
 
 function summaryOf(r, tr) {
@@ -465,9 +465,9 @@ function BonusRow({ rule, onChange, onRemove, weeks, startOpen = false }) {
               <p className="font-semibold">{tr('How creators use it')}</p>
               <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-smoke">
                 <li>{tr('Two creators publish ONE Instagram collab post together, so it shows on both profiles.')}</li>
-                <li>{tr('One of them enters that post link as their entry and picks the other creator on the submit form.')}</li>
-                <li>{tr('The other creator gets a notification and confirms. Only then do you both earn the points.')}</li>
-                <li>{tr('The post is entered once, so its views count once. The partner does not need an entry of their own.')}</li>
+                <li>{tr('Each of them enters that same post link as an entry.')}</li>
+                <li>{tr('When the second one goes in we see it is the same post, link the two and give both the points.')}</li>
+                <li>{tr('Its views count once, on the first entry. The second creator still has an entry of their own.')}</li>
               </ol>
             </div>
           )}

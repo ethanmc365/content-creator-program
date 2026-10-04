@@ -200,21 +200,42 @@ function PagePreview({ programme, everywhere, draft, existing }) {
   )
 }
 
-/** The phone notification. */
+/** The notification as it lands on a locked iPhone: wallpaper, the clock, and the banner iOS draws for it. */
 function PushPreview({ draft }) {
   const tr = useT()
   const head = draft.title || tr('A note from the team')
   const text = draft.body || tr('Your message appears here.')
+  const day = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   return (
-    <div aria-hidden className="mx-auto max-w-sm rounded-[22px] bg-gradient-to-b from-gray-700 to-gray-900 p-4">
-      <p className="mb-3 text-center text-[11px] font-semibold text-white/60">{tr('Lock screen')}</p>
-      <div className="flex items-start gap-3 rounded-2xl bg-white/90 p-3 shadow-lift backdrop-blur">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand to-brand-light text-white"><Icon name="plane" className="h-5 w-5" /></span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2"><p className="truncate text-[13px] font-bold text-ink">{head}</p><p className="shrink-0 text-[11px] text-gray-500">{tr('now')}</p></div>
-          <p className={cx('mt-0.5 line-clamp-3 text-[12.5px] leading-snug', draft.body ? 'text-ink/80' : 'text-gray-400')}>{text.slice(0, 140)}</p>
+    <div>
+      <PhoneFrame bare dark maxH={640}>
+        <div aria-hidden className="relative h-full w-full select-none overflow-hidden bg-gradient-to-b from-[#1b2a52] via-[#4a2f6b] to-[#d9622b]">
+          <span className="absolute -left-16 top-1/3 h-72 w-72 rounded-full bg-[#ff9a5a]/30 blur-3xl" />
+          <span className="absolute -right-20 top-10 h-64 w-64 rounded-full bg-[#7a5cff]/30 blur-3xl" />
+          <div className="relative pt-16 text-center text-white">
+            <p className="text-[19px] font-medium opacity-90">{day}</p>
+            <p className="text-[96px] font-semibold leading-none tracking-tight">9:41</p>
+          </div>
+          <div className="absolute inset-x-3 top-[290px]">
+            <div className="rounded-[26px] bg-white/80 p-3.5 shadow-lift backdrop-blur-xl">
+              <div className="flex items-start gap-3">
+                <img src="/brand/tryp-logo-360.png" alt="" className="h-10 w-10 shrink-0 rounded-[10px] bg-white object-contain p-0.5 shadow-sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="truncate text-[15px] font-semibold text-ink">{head}</p>
+                    <p className="shrink-0 text-[13px] text-gray-500">{tr('now')}</p>
+                  </div>
+                  <p className={cx('mt-0.5 line-clamp-4 text-[15px] leading-snug', draft.body ? 'text-ink/85' : 'text-gray-400')}>{text.slice(0, 140)}</p>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-center text-[11px] font-medium text-white/70">Tryp.com Creators</p>
+          </div>
+          <div className="absolute inset-x-0 bottom-9 flex justify-between px-12">
+            {['flashlight', 'camera'].map((k) => <span key={k} className="h-[50px] w-[50px] rounded-full bg-black/35 backdrop-blur" />)}
+          </div>
         </div>
-      </div>
+      </PhoneFrame>
     </div>
   )
 }
