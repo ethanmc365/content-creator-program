@@ -584,6 +584,10 @@ export function VipMembersTab({ programme }) {
   const members = everyone.filter((m) => (show === 'all' || m.status === show) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
   return (
     <div className="space-y-8">
+      {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST (4 Oct 2026). Ethan: "the VIP sign-up link, when I click on Members, should
+          always be at the top rather than at the bottom ... the metrics showing 0 signed up ... should also be at the top." */}
+      <VipLinkCard />
+
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP creators ({n})', { n: everyone.length })}</h2>
@@ -635,8 +639,6 @@ export function VipMembersTab({ programme }) {
           </ul>
         )}
       </section>
-
-      <VipLinkCard />
 
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
       {editing && <EditMemberModal m={{ ...editing, ...(reviews[editing.profile_id] || {}), notes: reviews[editing.profile_id]?.notes ?? editing.notes }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}

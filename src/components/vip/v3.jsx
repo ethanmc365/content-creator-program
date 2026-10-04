@@ -223,7 +223,7 @@ export function PerksPath() {
                 </div>
               </div>
               {p.reward_kind && p.reward_kind !== 'none' && Number(p.reward_amount) > 0 && (
-                <p className={cx('mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold', p.reward_kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>
+                <p className={cx('mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold', p.reward_kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>
                   <Icon name={p.reward_kind === 'voucher' ? 'ticket' : 'cash'} className="h-3.5 w-3.5" />
                   {p.reward_kind === 'voucher' ? tr('A {a} Tryp.com voucher', { a: money(p.reward_amount, 'EUR', { cents: false }) }) : tr('{a} added to your balance', { a: money(p.reward_amount, 'EUR', { cents: false }) })}
                 </p>
@@ -380,7 +380,6 @@ export function VipMySettings({ overview, onSaved }) {
   const { user } = useAuth()
   const who = useVipPreview()
   const [row, setRow] = useState(undefined)
-  const [headline, setHeadline] = useState('')
   const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -388,29 +387,29 @@ export function VipMySettings({ overview, onSaved }) {
     const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', who || user.id).maybeSingle()
     if (error || !data) { setRow(null); return }
     setRow(data)
-    setHeadline(data.headline || ''); setGoal(data.own_goal_views ? String(data.own_goal_views) : '')
+    setGoal(data.own_goal_views ? String(data.own_goal_views) : '')
   }, [user.id, who])
   useEffect(() => { load() }, [load])
-  if (row === undefined) return <Skeleton className="h-48 w-full rounded-card" />
+  if (row === undefined) return <Skeleton className="h-40 w-full rounded-card" />
   if (row === null) return null
 
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_update_my_settings', { p_headline: headline, p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: null })
+      // The headline is no longer the creator's to write (4 Oct 2026); whatever is stored stays as it was.
+      await vipRpc('vip_update_my_settings', { p_headline: row.headline || '', p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: null })
       toastSuccess(tr('Saved'))
       onSaved?.()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   const goalNum = Number(String(goal).replace(/[^\d]/g, '')) || 0
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
-      <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="pencil" className="h-5 w-5 text-brand" />{tr('Make it yours')}</h2>
-      <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Your headline and your own goal. Only you and the team can change them.')}</p>
+    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+      <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your own goal')}</h2>
+      <p className="mb-4 mt-0.5 text-sm text-smoke">{tr('Set the number of views you want this month. It shows on your page next to any target the team has set.')}</p>
       <div className="space-y-4">
-        <label className="block"><span className="label">{tr('Headline')}</span><input className="input" maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder={tr('For example: Budget city breaks from Madrid')} /></label>
-        <label className="block"><span className="label">{tr('My own monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('Optional, for example 250000')} /></label>
-        {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} />}
+        <label className="block"><span className="label">{tr('My monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('For example 250000')} /></label>
+        {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} done={tr('Goal reached')} />}
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={save} disabled={busy || !!who} title={who ? tr('Only the creator can save this') : undefined} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button>
         </div>

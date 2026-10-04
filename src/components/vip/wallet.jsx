@@ -76,8 +76,12 @@ export function VipWallet({ onChanged }) {
     try { await vipRpc('vip_set_auto_payout', { p_on: on }); reload() } catch (e) { notice(e.message) }
   }
 
+  // A MONTH WITH NOTHING IN IT IS NOT A ROW (4 Oct 2026). Ethan: it "shows being checked for September, but obviously there was
+  // nothing in September, so there's no need to show anything there."
+  const history = (w.history || []).filter((h) => Number(h.views) > 0 || Number(h.earned) > 0)
+
   return (
-    <div className="space-y-5">
+    <div className="vip-stage space-y-5">
       {/* ---------------- the balance ---------------- */}
       <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise sm:p-6">
         <span aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/10 blur-2xl" />
@@ -85,9 +89,6 @@ export function VipWallet({ onChanged }) {
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400"><Icon name="wallet" className="h-4 w-4 text-brand" />{tr('Your balance')}</p>
             <p className="mt-1.5 text-4xl font-bold tabular-nums tracking-tight text-ink sm:text-5xl"><CountUp value={bal} format={(n) => money(n, cur)} /></p>
-            <p className="mt-1.5 text-sm text-smoke">
-              {tr('Plus {a} building up in {m}, added when the month is approved.', { a: money(w.this_month?.earned || 0, cur), m: monthLabel(w.this_month?.year, w.this_month?.month) })}
-            </p>
           </div>
           {(canCash || canVoucher) && (
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-rise">
@@ -124,15 +125,12 @@ export function VipWallet({ onChanged }) {
             disabled={!!preview || !canVoucher} busy={busy === 'voucher'} onClick={() => ask('voucher')}
           />
         </div>
-        <p className="relative mt-3 text-xs leading-relaxed text-smoke">
-          {tr('Ask whenever you like. Cash starts at {a}, a Tryp.com voucher at {v}. Do nothing and it keeps growing.', { a: money(threshold, cur, { cents: false }), v: money(voucherMin, cur, { cents: false }) })}
-        </p>
       </section>
 
       {/* ---------------- automatic payout + payment details ---------------- */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise [animation-delay:60ms]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="refresh" className="h-5 w-5" /></span>
+          <Icon name="refresh" className="h-6 w-6 shrink-0 text-brand" strokeWidth={2} />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-ink">{tr('Pay me automatically')}</span>
             <span className="block text-xs text-smoke">{tr('Cash goes out by itself once a month takes you past {a}.', { a: money(threshold, cur, { cents: false }) })}</span>
@@ -177,7 +175,7 @@ export function VipWallet({ onChanged }) {
                 <td className="px-3 py-2.5 text-right tabular-nums text-smoke">{cur} {rate(w.this_month?.cpm)}</td>
                 <td className="px-5 py-2.5 text-right font-bold tabular-nums text-ink">{money(w.this_month?.earned, cur)}</td>
               </tr>
-              {(w.history || []).map((h) => (
+              {history.map((h) => (
                 <tr key={`${h.year}-${h.month}`}>
                   <td className="px-5 py-2.5 font-semibold text-ink">
                     {monthLabel(h.year, h.month)}
@@ -191,7 +189,7 @@ export function VipWallet({ onChanged }) {
             </tbody>
           </table>
         </div>
-        {(w.history || []).length === 0 && <p className="px-5 py-4 text-xs text-smoke">{tr('Your first month appears here once it closes.')}</p>}
+        {history.length === 0 && <p className="px-5 py-4 text-xs text-smoke">{tr('Your first month appears here once it closes.')}</p>}
       </section>
 
       {/* ---------------- everything that moved the balance ---------------- */}
@@ -245,49 +243,49 @@ function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
   )
 }
 
-// STAYING IN (2 Oct 2026). Ethan: the requirement "to remain in the community" is "uploading 5 videos a month or one
-// video with +20k views". Two roads, either is enough, drawn as two bars with "or" between them.
+// STAYING IN (2 Oct 2026, changed 4 Oct). Ethan: keeping a VIP place is "5 videos and 20,000 views" - both, the views added up
+// across the month - "it should properly calculate up and then obviously show when it's met."
 export function StayInCard({ compact = false }) {
   const tr = useT()
   const { data: w } = useOptionalRpc('vip_my_wallet')
   const r = w?.requirement
   if (!r || r.on === false) return null
   const met = !!r.met
-  // SMALL, NOT THE MAIN THING (3 Oct 2026). Ethan: "it shows keep your VIP place, but I would make that card smaller
-  // rather than have that be the main thing." One row: the status, and the two ways to stay in side by side.
+  const views = Number(r.views ?? r.best_views) || 0
+  // SMALL, NOT THE MAIN THING (3 Oct 2026). One row: the status, and the two things to reach side by side.
   if (compact) {
     return (
-      <section className={cx('rounded-card border bg-white px-4 py-3.5 shadow-card animate-rise', met ? 'border-emerald-100' : 'border-gray-100')}>
+      <section className={cx('rounded-card border bg-white px-4 py-3.5 shadow-card', met ? 'border-emerald-100' : 'border-gray-100')}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-[13.5px] font-bold text-ink"><Icon name="shield" className="h-4 w-4 text-brand" />{tr('Keep your VIP place')}</h2>
-          <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', met ? 'bg-emerald-50 text-emerald-700' : 'bg-cloud text-smoke')}>{met ? tr('Done this month') : tr('Not yet')}</span>
+          <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors duration-500', met ? 'bg-emerald-50 text-emerald-700' : 'bg-cloud text-smoke')}>{met ? tr('Done this month') : tr('Not yet')}</span>
         </div>
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-          <Road small label={tr('{n} videos', { n: r.need_videos })} value={r.videos} target={r.need_videos} done={met && r.by === 'videos'} />
-          <span className="pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-300">{tr('or')}</span>
-          <Road small label={tr('A {n}-view video', { n: nf(r.need_views) })} value={r.best_views} target={r.need_views} done={met && r.by === 'views'} />
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
+          <Road small label={tr('{n} videos', { n: nf(r.need_videos) })} value={r.videos} target={r.need_videos} />
+          <Road small label={tr('{n} views', { n: nf(r.need_views) })} value={views} target={r.need_views} />
         </div>
       </section>
     )
   }
   return (
-    <section className={cx('rounded-card border bg-white p-5 shadow-card animate-rise', met ? 'border-emerald-100' : 'border-gray-100')}>
+    <section className={cx('rounded-card border bg-white p-5 shadow-card', met ? 'border-emerald-100' : 'border-gray-100')}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="shield" className="h-5 w-5 text-brand" />{tr('Keep your VIP place')}</h2>
         <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide transition-colors duration-500', met ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
           {met ? tr('Done this month') : tr('Not yet')}
         </span>
       </div>
-      <Road label={tr('{n} videos this month', { n: r.need_videos })} value={r.videos} target={r.need_videos} done={met && r.by === 'videos'} />
-      <div className="my-3 flex items-center gap-3 text-[10.5px] font-bold uppercase tracking-[0.2em] text-gray-300"><span className="h-px flex-1 bg-gray-100" />{tr('or')}<span className="h-px flex-1 bg-gray-100" /></div>
-      <Road label={tr('One video with {n} views', { n: nf(r.need_views) })} value={r.best_views} target={r.need_views} done={met && r.by === 'views'} />
-      {!compact && <p className="mt-4 text-xs leading-relaxed text-smoke">{tr('Checked at the end of every month. Videos count in the month they were posted.')}</p>}
+      <Road label={tr('{n} videos this month', { n: nf(r.need_videos) })} value={r.videos} target={r.need_videos} />
+      <div className="my-3 flex items-center gap-3 text-[10.5px] font-bold uppercase tracking-[0.2em] text-gray-300"><span className="h-px flex-1 bg-gray-100" />{tr('and')}<span className="h-px flex-1 bg-gray-100" /></div>
+      <Road label={tr('{n} views this month', { n: nf(r.need_views) })} value={views} target={r.need_views} />
+      <p className="mt-4 text-xs leading-relaxed text-smoke">{tr('Checked at the end of every month. Videos count in the month they were posted.')}</p>
     </section>
   )
 }
 
-function Road({ label, value, target, done, small = false }) {
+function Road({ label, value, target, small = false }) {
   const pct = target > 0 ? Math.min(1, value / target) : 0
+  const done = target > 0 && value >= target
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">

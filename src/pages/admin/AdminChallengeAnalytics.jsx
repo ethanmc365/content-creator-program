@@ -15,6 +15,7 @@ import { loadMarkets } from '../../lib/markets'
 import { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { challengeSpend } from '../../lib/challengeSpend'
 import MarketSplit from '../../components/admin/MarketSplit'
+import ChallengeReach from '../../components/admin/ChallengeReach'
 import EntryPreview from '../../components/challenge/EntryPreview'
 import { useEntryPoints } from '../../lib/entryPoints'
 import { FILL } from '../../components/charts/chartTheme'
@@ -302,6 +303,9 @@ export default function AdminChallengeAnalytics() {
           )
         })()}
       </div>
+
+      {/* ---------- Who has not posted yet (4 Oct 2026): the funnel from the audience to the people who entered, with a nudge for each group. ---------- */}
+      {challenge.status === 'active' && <ChallengeReach challenge={challenge} />}
 
       {/* ---------- Which markets took part ----------
           ONLY WHEN MORE THAN ONE COULD (28 Sep 2026). Ethan: the UK-only

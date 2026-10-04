@@ -93,10 +93,10 @@ export function vipJoinUrl(token) {
 
 // What the rules are, as data the screens and the editor share.
 export const BONUS_KINDS = [
-  { key: 'target', label: 'Hit your target', hint: 'Each creator who reaches their own monthly target', icon: 'trophy', scope: 'creator' },
+  { key: 'target', label: 'Hit your target', hint: 'Each creator who reaches the monthly target you set for them', icon: 'trophy', scope: 'creator' },
   { key: 'top_n', label: 'Top of the month', hint: 'Most views, paid by place', icon: 'chart', scope: 'ranked' },
   { key: 'best_video', label: 'Best single video', hint: 'The month\'s most-viewed video', icon: 'video', scope: 'ranked' },
-  { key: 'streak', label: 'Consistency streak', hint: 'Posts enough videos every month, several months running', icon: 'fire', scope: 'creator' },
+  { key: 'streak', label: 'Consistency streak', hint: 'Posts enough videos in each of several months in a row', icon: 'fire', scope: 'creator' },
   { key: 'milestone', label: 'Milestone', hint: 'A one-off for reaching a total, such as 1M views', icon: 'flag', scope: 'creator' },
 ]
 
@@ -105,11 +105,29 @@ export const SCOPES = [
   { key: 'global', label: 'Every VIP market' },
 ]
 
+// WHAT A MILESTONE CAN BE (4 Oct 2026, migration 322). Ethan: "the milestone has a few options, but I would increase those
+// options." Each one is a number the database already knows how to read for a creator (vip_metric / the month's statement),
+// so a milestone on any of them is paid by itself when the month closes. `unit` says how the number is written.
 export const MILESTONE_METRICS = [
-  { key: 'lifetime_views', label: 'Total views as a VIP' },
-  { key: 'lifetime_videos', label: 'Total videos as a VIP' },
-  { key: 'month_earnings', label: 'Earnings in one month' },
+  { key: 'lifetime_views', label: 'Total views as a VIP', unit: 'views', noun: 'views in total', example: 1000000 },
+  { key: 'lifetime_videos', label: 'Total videos as a VIP', unit: 'videos', noun: 'videos in total', example: 50 },
+  { key: 'month_views', label: 'Views in a single month', unit: 'views', noun: 'views in one month', example: 100000 },
+  { key: 'month_videos', label: 'Videos in a single month', unit: 'videos', noun: 'videos in one month', example: 15 },
+  { key: 'best_video_views', label: 'Views on one video', unit: 'views', noun: 'views on a single video', example: 100000 },
+  { key: 'month_earnings', label: 'Earnings in a single month', unit: 'money', noun: 'earned in one month', example: 500 },
+  { key: 'lifetime_earnings', label: 'Total earned as a VIP', unit: 'money', noun: 'earned in total', example: 2000 },
+  { key: 'months_active', label: 'Months as a VIP', unit: 'months', noun: 'months as a VIP', example: 6 },
+  { key: 'streak_months', label: 'Months posting in a row', unit: 'months', noun: 'months posting in a row', example: 6 },
 ]
+
+/** The number of a milestone, written for its unit: "1,000,000 views", "50 videos", "EUR 500", "6 months". */
+export function metricAmount(metricKey, n, tr, currency = 'EUR') {
+  const m = MILESTONE_METRICS.find((x) => x.key === metricKey) || MILESTONE_METRICS[0]
+  if (m.unit === 'money') return money(n, currency, { cents: false })
+  if (m.unit === 'videos') return tr('{n} videos', { n: nf(n) })
+  if (m.unit === 'months') return tr('{n} months', { n: nf(n) })
+  return tr('{n} views', { n: nf(n) })
+}
 
 // Why a statement needs a second look, in words. (Views jumping overnight is normal on TikTok and is
 // deliberately NOT a flag.)
@@ -130,7 +148,7 @@ export function describeRule(rule, tr, currency = 'EUR') {
   const c = rule.conditions || {}
   if (rule.kind === 'target') {
     const extra = rule.multiplier ? tr('plus {x}% on your views pay', { x: Math.round((Number(rule.multiplier) - 1) * 100) }) : ''
-    return [tr('Reach your monthly target and earn {p}', { p: pay(rule.amount, rule.reward) }), extra].filter(Boolean).join(', ')
+    return [tr('Reach the target set for you and earn {p}', { p: pay(rule.amount, rule.reward) }), extra].filter(Boolean).join(', ')
   }
   if (rule.kind === 'top_n') {
     const places = (rule.places || []).map((p) => `#${p.place}: ${pay(p.amount, p.reward || rule.reward)}`).join(' · ')
@@ -146,9 +164,9 @@ export function describeRule(rule, tr, currency = 'EUR') {
     })
   }
   const metric = c.metric || 'lifetime_views'
-  const what = metric === 'lifetime_views' ? tr('{n} views in total', { n: nf(c.threshold) })
-    : metric === 'lifetime_videos' ? tr('{n} videos in total', { n: nf(c.threshold) })
-      : tr('{n} earned in one month', { n: money(c.threshold, currency, { cents: false }) })
+  const meta = MILESTONE_METRICS.find((x) => x.key === metric) || MILESTONE_METRICS[0]
+  const amount = meta.unit === 'money' ? money(c.threshold, currency, { cents: false }) : nf(c.threshold)
+  const what = `${amount} ${tr(meta.noun)}`
   return tr('Reach {what}: {p}, once', { what, p: pay(rule.amount, rule.reward) })
 }
 
@@ -207,7 +225,7 @@ export function useVipOverview({ enabled = true, every = 60000 } = {}) {
 }
 
 /** Forget what was loaded (sign-out, or after the team changes who is a VIP). */
-export function clearVipCache() { cache = null; cacheAt = 0; notify() }
+export function clearVipCache() { cache = null; cacheAt = 0; rpcMemo.clear(); notify() }
 
 // The terms a VIP accepts once (and again when the programme raises the version). Written as sentences so
 // each one is translated on its own; the team can replace the lot with its own text on the programme.
@@ -285,17 +303,42 @@ export const EVENT_ICON = {
  * A new (migration 298) database function, asked for politely: if the database does not have it yet the answer is
  * `missing`, and the caller simply draws nothing instead of an error. `key` re-asks when it changes.
  */
+// A READ THAT SURVIVES A RE-MOUNT (4 Oct 2026). Ethan: the VIP page's right column "comes in slower than the rest" and the
+// whole page was slow to arrive. The balance card, the stay-in card and the payouts tab each asked `vip_my_wallet` on their
+// own, every time they appeared. Now the last answer is kept per function/arguments/previewed member: a card that appears
+// again starts from it at once (and refreshes behind it), and two cards asking in the same moment share one request.
+const rpcMemo = new Map() // `${fn}|${who}|${key}` -> { data, at, pending }
+const RPC_FRESH_MS = 8000
+const rpcKey = (fn, who, key) => `${fn}|${who || ''}|${key ?? ''}`
+function readOnce(fn, args, who, key, force) {
+  const id = rpcKey(fn, who, key)
+  const hit = rpcMemo.get(id)
+  if (!force && hit?.pending) return hit.pending
+  if (!force && hit && Date.now() - hit.at < RPC_FRESH_MS && hit.ok) return Promise.resolve(hit.result)
+  const ask = who && PREVIEW_AS[fn]
+    ? supabase.rpc('vip_preview', { p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
+    : supabase.rpc(fn, args)
+  const pending = Promise.resolve(ask).then((result) => {
+    rpcMemo.set(id, { at: Date.now(), ok: !result.error, result, data: result.error ? hit?.data : result.data })
+    return result
+  })
+  rpcMemo.set(id, { ...(hit || { at: 0 }), pending })
+  return pending
+}
+
 export function useOptionalRpc(fn, args, key) {
-  const [state, setState] = useState({ data: undefined, missing: false })
-  const [tick, setTick] = useState(0)
   const who = useVipPreview()
+  const id = rpcKey(fn, who, key)
+  const [state, setState] = useState(() => {
+    const hit = rpcMemo.get(id)
+    return { data: hit && hit.data !== undefined ? hit.data : undefined, missing: false }
+  })
+  const [tick, setTick] = useState(0)
   useEffect(() => {
     let alive = true
-    setState((s) => ({ data: key === undefined ? s.data : undefined, missing: false }))
-    const ask = who && PREVIEW_AS[fn]
-      ? supabase.rpc('vip_preview', { p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
-      : supabase.rpc(fn, args)
-    ask.then(({ data, error }) => {
+    const hit = rpcMemo.get(id)
+    setState((s) => (hit && hit.data !== undefined ? { data: hit.data, missing: false } : { data: key === undefined ? s.data : undefined, missing: false }))
+    readOnce(fn, args, who, key, tick > 0).then(({ data, error }) => {
       if (!alive) return
       if (error) setState({ data: null, missing: /could not find the function|does not exist|schema cache/i.test(error.message) })
       else setState({ data, missing: false })
@@ -324,9 +367,9 @@ export const PERK_METRICS = [
 ]
 
 export const PERK_KINDS = [
-  { key: 'perk', label: 'Perk', icon: 'sparkles' },
-  { key: 'milestone', label: 'Milestone', icon: 'flag' },
-  { key: 'trip', label: 'Trip', icon: 'plane' },
+  { key: 'milestone', label: 'Milestone', icon: 'flag', hint: 'A goal to reach, such as 1 million views. Can pay out by itself.' },
+  { key: 'perk', label: 'Perk', icon: 'sparkles', hint: 'A benefit, such as a feature on our page or editing tools.' },
+  { key: 'trip', label: 'Trip', icon: 'plane', hint: 'A trip the team arranges. You mark it delivered.' },
 ]
 
 export const BRIEF_METRICS = [

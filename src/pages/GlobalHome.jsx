@@ -504,7 +504,7 @@ export default function GlobalHome() {
           that space instead. That would be important to them." Their month: the VIP challenge, how they are tracking
           and a way to add a video. */}
       {vipBand ? (
-        <RailCard className="hidden lg:block" icon={<Icon name="star" className="h-3.5 w-3.5 text-brand" />} title={tr('Your VIP month')}>
+        <RailCard className="hidden lg:block" icon={<Icon name="star" className="h-3.5 w-3.5 text-brand" />} title={tr('Your month')}>
           <VipRailCard overview={vipOverview} />
         </RailCard>
       ) : (

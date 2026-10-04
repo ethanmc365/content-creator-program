@@ -10,7 +10,7 @@ import { cx } from '../../lib/utils'
 import { VipMembersTab, VipOverviewTab } from './adminA'
 import { VipAccessTab } from './access'
 import { VipContentTab, VipMarketsTab } from './adminD'
-import { AnnouncementsTab } from './adminC'
+import { AnnouncementsTab } from './announce'
 import { SyncEvery, VipAnalyticsTab, VipBonusesTab, VipCloseTab, VipSettingsTab } from './adminB'
 import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
@@ -31,7 +31,7 @@ import { useT } from '../../lib/i18n'
 const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
   { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses']] },
-  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['content', 'Briefs, perks, guides']] },
+  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['perks', 'Milestones, perks, trips'], ['guides', 'Guides']] },
   { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
@@ -51,7 +51,8 @@ export default function VipTools({ programmeId }) {
   const [picked, setPicked] = useState(fromUrl)
   const [urlSeen, setUrlSeen] = useState(fromUrl)
   if (urlSeen !== fromUrl) { setUrlSeen(fromUrl); setPicked(fromUrl) }
-  const asked = picked
+  // The three old content links (?tab=content&part=perks) land on the tab that now holds each one.
+  const asked = picked === 'content' ? ({ briefs: 'challenges', perks: 'perks', guides: 'guides' }[params.get('part')] || 'challenges') : picked
   const tab = ALL.includes(asked) && (asked !== 'access' || isOwner) ? asked : 'overview'
   const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
 
@@ -85,8 +86,10 @@ export default function VipTools({ programmeId }) {
     close: (p) => <VipCloseTab programme={p} />,
     sheet: (p) => <VipSheetTab programme={p} />,
     bonuses: (p) => <VipBonusesTab programme={p} />,
-    announcements: (p) => <AnnouncementsTab programme={p} />,
-    content: (p) => <VipContentTab programme={p} isOwner={isOwner} part={params.get('part')} onPart={(v) => setParams((q) => { const n = new URLSearchParams(q); n.set('part', v); return n }, { replace: true })} />,
+    announcements: (p) => <AnnouncementsTab programme={p} programmes={programmes} isOwner={isOwner} />,
+    challenges: (p) => <VipContentTab programme={p} isOwner={isOwner} part="briefs" />,
+    perks: (p) => <VipContentTab programme={p} isOwner={isOwner} part="perks" />,
+    guides: (p) => <VipContentTab programme={p} isOwner={isOwner} part="guides" />,
     kpis: (p) => <VipKpiTab programme={p} />,
     analytics: (p) => <VipAnalyticsTab programme={p} isAdmin={isAdmin} />,
     settings: (p) => (
@@ -103,7 +106,7 @@ export default function VipTools({ programmeId }) {
   }
 
   return (
-    <div className="animate-rise">
+    <div>
       {/* Five groups as cards; the tools of the open group as a row of pills under them. */}
       <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
         {GROUPS.map((g) => {
@@ -124,16 +127,15 @@ export default function VipTools({ programmeId }) {
           )
         })}
       </div>
-      <div key={group.key} className="scrollbar-none -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 animate-rise sm:mx-0 sm:px-0">
-        {group.tabs.filter(([k]) => k !== 'access' || isOwner).map(([k, label], i) => {
+      <div key={group.key} className="scrollbar-none -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 animate-tab-in sm:mx-0 sm:px-0">
+        {group.tabs.filter(([k]) => k !== 'access' || isOwner).map(([k, label]) => {
           const on = k === tab
           return (
             <button
               key={k}
               type="button"
               onClick={() => !on && go(k)}
-              className={cx('shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 animate-rise', on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-px hoverable:hover:border-brand hoverable:hover:text-brand')}
-              style={{ animationDelay: `${i * 40}ms` }}
+              className={cx('shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-px hoverable:hover:border-brand hoverable:hover:text-brand')}
             >
               {tr(label)}
             </button>
@@ -150,7 +152,7 @@ export default function VipTools({ programmeId }) {
         return (
           <div key={p.id} hidden={!here}>
             {ALL.filter((t) => (here && t === tab) || seen.has(`${p.id}:${t}`)).map((t) => (
-              <div key={t} hidden={!here || t !== tab} className={here && t === tab ? 'animate-tab-in' : undefined}>{render[t](p)}</div>
+              <div key={t} hidden={!here || t !== tab} className="vip-panel">{render[t](p)}</div>
             ))}
           </div>
         )

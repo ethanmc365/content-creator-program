@@ -81,7 +81,7 @@ const scopedKey = scopedChannel
 // The face and the chevron are gone - the preview already names the speaker,
 // and a full-width row in a list of links does not need to be told it is
 // tappable.
-function RoomRow({ to, room, last, unread, dark = false, place = null }) {
+function RoomRow({ to, room, last, unread, dark = false, inVip = false, place = null }) {
   const tr = useT()
   return (
     <Link
@@ -136,7 +136,7 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
               a word had been posted, so nobody opened it. */}
           <span className={cx('min-w-0 flex-1 truncate text-[15px] leading-tight',
             dark ? (unread ? 'font-bold text-white' : 'font-semibold text-white/90') : unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
-          {room.visibility === 'vip' && !dark && (
+          {room.visibility === 'vip' && !dark && !inVip && (
             <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">VIP</span>
           )}
           {room.visibility === 'staff' && (
@@ -196,10 +196,11 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
       'overflow-hidden rounded-card p-4 transition-all duration-200',
       // THE VIP ROOMS ARE THEIR OWN MATERIAL (2 Oct 2026): the dark `.vip-surface`, not the pale orange wash Ethan
       // did not like ("I want it to be more different").
-      vip ? 'vip-surface' : cx('border bg-white', unreadCount > 0 ? 'border-brand/30' : 'border-gray-100'),
+      // Ethan, 4 Oct 2026: "make the cards the same colour ... just have them the same white".
+      cx('border bg-white', unreadCount > 0 ? 'border-brand/30' : 'border-gray-100'),
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
-      <div className={cx('-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b px-4 py-3', vip ? 'border-white/10' : 'border-gray-100')}>
+      <div className={cx('-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b px-4 py-3', 'border-gray-100')}>
         {/* The flag, at a size you can actually see. A 34px-high rounded tile
             with the flags at 19px in it - the same object the sidebar and the
             notification settings use, so all three surfaces agree about what a
@@ -219,7 +220,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
           title={place.name}
         />
         <Link to={isNetwork ? '/global' : `/c/${place.slug}`}
-          className={cx('min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] transition-colors', vip ? 'text-white' : 'text-ink hover:text-brand')}>
+          className={cx('min-w-0 flex-1 truncate text-[17px] font-bold leading-tight tracking-[-0.015em] transition-colors', 'text-ink hover:text-brand')}>
           {vip ? tr('VIP {m}', { m: place.name }) : place.name}
         </Link>
         {/* A MARKET WITH SOMETHING NEW IN IT SAYS SO ON ITS OWN HEADER, so a
@@ -227,7 +228,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
         {unreadCount > 0 ? (
           <UnreadCount n={unreadCount} />
         ) : (
-          <span className={cx('shrink-0 text-[11px] font-semibold', vip ? 'text-white/50' : 'text-gray-400')}>
+          <span className={cx('shrink-0 text-[11px] font-semibold', 'text-gray-400')}>
             {rooms.length} {rooms.length === 1 ? tr('room') : tr('rooms')}
           </span>
         )}
@@ -252,7 +253,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
             room={r}
             last={lastByChannel.get(scopedKey(place, r.key))}
             unread={unreadKeys.has(scopedKey(place, r.key))}
-            dark={vip}
+            inVip={vip}
           />
         ))}
       </div>

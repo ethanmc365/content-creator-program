@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
+import Segmented from '../../components/network/Segmented'
 import { SurveyCard } from '../../components/SurveyHost'
 import { CHART, FILL, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { confirm, notice } from '../../lib/confirm'
@@ -472,64 +474,149 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
   )
 }
 
-// THE CREATOR'S SCREEN, AS THEY WILL MEET IT (2 Oct 2026).
+// THE CREATOR'S SCREEN, AS THEY WILL MEET IT (2 Oct 2026; sized for a real phone, with a desktop twin, 4 Oct 2026).
 //
-// Ethan: "I don't like how it currently looks, and you have that black outline around it. I want it to
-// look more like the recap card, which shows the way the creators will actually see it. This one doesn't
-// really show where the screen is." It was the card floating in a black-rimmed box with nothing behind
-// it. Now it is a phone with the platform's own screen under a dimmed scrim and the card rising over it,
-// exactly the way a creator meets it - and there is no tab strip or caption: pressing a field or a
-// question in the editor is what moves the phone to that screen. "No thanks" closes the survey here just
-// as it does for a creator, and leaves a Replay to bring it back.
+// Ethan: "I want it to look more like the recap card, which shows the way the creators will actually see it" (2 Oct), and now: "the
+// preview size isn't the actual size of an iPhone, so please fix that. Also, you don't need to show the bar at the bottom to swipe up. Make
+// it the actual size so it looks good and shows everything, and it should be interactive as well ... we should have the desktop one that
+// we can click on to see it. I guess it's just a card on the screen, whereas the mobile one's just taking up the bottom half."
+//
+// So there are two screens to see it on. THE PHONE is a real iPhone's 393 x 852 points (the 15 / 16 Pro), drawn at that size and only
+// scaled down when the column or the window is smaller, with its dynamic island and no home-indicator bar; the survey rises over the
+// platform's own screen as a sheet. THE DESKTOP is a 1280 x 800 window with the platform behind a dimmed scrim and the survey as the card in
+// the middle, which is what a laptop shows. Both are the real survey card, so every button works; "No thanks" closes it the way it does
+// for a creator and leaves a Replay.
+const PHONE = { w: 393, h: 852 }
+const DESKTOP = { w: 1280, h: 800 }
+
+/** Draws children at a fixed logical size and scales the whole thing down to the room there is (never up). */
+function Fitted({ w, h, maxH, children, frameClass }) {
+  const ref = useRef(null)
+  const [room, setRoom] = useState(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const measure = () => setRoom(el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const scale = room ? Math.min(1, room / w, maxH ? maxH / h : 1) : 1
+  return (
+    <div ref={ref} className="mx-auto w-full" style={{ maxWidth: w }}>
+      <div style={{ width: w * scale, height: h * scale }} className="mx-auto">
+        <div className={frameClass} style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: 'top left' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 function SurveyPreview({ survey, stage, at }) {
   const tr = useT()
+  const [desk, setDesk] = useState(false) // the desktop screen opens big, over the page
   const [run, setRun] = useState(0)
   const [closedKey, setClosedKey] = useState(null)
-  const key = `${stage}:${at}:${run}`
+  const device = desk ? 'desktop' : 'phone'
+  const key = `${device}:${stage}:${at}:${run}`
   const closed = closedKey === key
+  const empty = survey.questions.length === 0
+  const card = empty
+    ? <p className="m-4 rounded-2xl bg-white p-5 text-center text-sm text-smoke">{tr('Word a question to see it here.')}</p>
+    : <SurveyCard key={key} survey={survey} preview stage={stage} at={at} name="Sam" className={device === 'phone' ? '!rounded-b-none !rounded-t-[28px]' : '!rounded-[28px]'} onDone={() => setClosedKey(key)} />
+  const replay = closed && (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <button type="button" onClick={() => setRun((r) => r + 1)} className="btn-primary animate-survey-rise shadow-lift"><Icon name="refresh" className="h-4 w-4" /> {tr('Play it again')}</button>
+    </div>
+  )
+  useEffect(() => {
+    if (!desk) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setDesk(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [desk])
   return (
-    <div className="mx-auto w-full max-w-[360px] animate-fade-up">
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-white shadow-lift ring-1 ring-gray-200/80">
-        <div className="relative h-[min(640px,calc(100dvh-13rem))] min-h-[500px] overflow-hidden bg-cloud">
-          {/* the platform underneath: a status bar, the header, and a few cards */}
-          <div className="absolute inset-0 select-none" aria-hidden>
-            <div className="flex items-center justify-between px-7 pb-1 pt-3.5 text-[11px] font-bold text-ink">
-              <span>9:41</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-3.5 rounded-[2px] bg-ink/70" /><span className="h-2 w-2 rounded-full bg-ink/70" /></span>
-            </div>
-            <div className="flex items-center gap-2.5 px-5 py-2">
-              <img src="/brand/tryp-logo-360.png" alt="" className="h-8 rounded-lg" />
-              <span className="h-3 w-24 rounded-full bg-gray-200" />
-              <span className="ml-auto h-8 w-8 rounded-full bg-white shadow-card" />
-            </div>
-            <div className="space-y-3 px-4 pt-2">
-              <div className="brand-drift h-24 rounded-card" />
-              <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3 w-2/3 rounded-full bg-gray-200" /><span className="mt-3 block h-2.5 w-full rounded-full bg-gray-100" /><span className="mt-2 block h-2.5 w-4/5 rounded-full bg-gray-100" /></div>
-              <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3 w-1/2 rounded-full bg-gray-200" /><span className="mt-3 block h-16 rounded-xl bg-gray-100" /></div>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-around border-t border-gray-100 bg-white px-4 pb-5 pt-3">
-              {[0, 1, 2, 3, 4].map((k) => <span key={k} className={cx('h-5 w-5 rounded-md', k === 0 ? 'bg-brand/70' : 'bg-gray-200')} />)}
-            </div>
-          </div>
-          {/* the scrim, then the card */}
-          <div className={cx('absolute inset-0 bg-ink/45 backdrop-blur-[1.5px] transition-opacity duration-300', closed ? 'opacity-0' : 'opacity-100')} />
-          <div className={cx('absolute inset-x-0 bottom-0', closed ? 'animate-survey-sink pointer-events-none' : 'animate-survey-rise')} key={closed ? 'out' : 'in'}>
-            {survey.questions.length === 0 ? (
-              <p className="m-4 rounded-2xl bg-white p-5 text-center text-sm text-smoke">{tr('Word a question to see it here.')}</p>
-            ) : (
-              <SurveyCard key={key} survey={survey} preview stage={stage} at={at} name="Sam" className="!rounded-b-none" onDone={() => setClosedKey(key)} />
-            )}
-          </div>
-          {closed && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button type="button" onClick={() => setRun((r) => r + 1)} className="btn-primary animate-survey-rise shadow-lift">
-                <Icon name="refresh" className="h-4 w-4" /> {tr('Play it again')}
-              </button>
-            </div>
-          )}
-          <span aria-hidden className="pointer-events-none absolute bottom-1.5 left-1/2 h-1 w-28 -translate-x-1/2 rounded-full bg-ink/60" />
-        </div>
+    <div className="mx-auto w-full animate-fade-up" style={{ maxWidth: 393 + 24 }}>
+      <div className="mb-3 flex justify-center">
+        <Segmented size="sm" value={desk ? 'desktop' : 'phone'} onChange={(v) => setDesk(v === 'desktop')} label={tr('Preview on')} options={[
+          { value: 'phone', label: <><Icon name="device" className="h-3.5 w-3.5" />{tr('Phone')}</> },
+          { value: 'desktop', label: <><Icon name="squares" className="h-3.5 w-3.5" />{tr('Desktop')}</> },
+        ]} />
       </div>
+
+      {/* THE PHONE: a real iPhone's 393 x 852 points, with its dynamic island and nothing at the bottom. */}
+      {!desk && (
+        <div className="rounded-[3.4rem] bg-ink p-[9px] shadow-lift">
+          <Fitted w={PHONE.w} h={PHONE.h} maxH={typeof window !== 'undefined' ? Math.max(480, window.innerHeight - 190) : undefined} frameClass="relative overflow-hidden rounded-[2.8rem] bg-cloud">
+            <div className="absolute inset-0 select-none" aria-hidden>
+              <div className="relative flex items-center justify-between px-8 pb-1 pt-4 text-[15px] font-semibold text-ink">
+                <span>9:41</span>
+                <span aria-hidden className="absolute left-1/2 top-2.5 h-[34px] w-[118px] -translate-x-1/2 rounded-full bg-ink" />
+                <span className="flex items-center gap-1.5"><span className="flex items-end gap-[2px]">{[5, 8, 11, 14].map((hh) => <span key={hh} className="w-[3px] rounded-sm bg-ink" style={{ height: hh }} />)}</span><span className="h-3 w-6 rounded-[4px] border border-ink/60 p-[1.5px]"><span className="block h-full w-4/5 rounded-[2px] bg-ink" /></span></span>
+              </div>
+              <div className="flex items-center gap-2.5 px-5 py-3">
+                <img src="/brand/tryp-logo-360.png" alt="" className="h-9 rounded-lg" />
+                <span className="h-3.5 w-28 rounded-full bg-gray-200" />
+                <span className="ml-auto h-9 w-9 rounded-full bg-white shadow-card" />
+              </div>
+              <div className="space-y-3.5 px-4 pt-2">
+                <div className="brand-drift h-28 rounded-card" />
+                <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3.5 w-2/3 rounded-full bg-gray-200" /><span className="mt-3 block h-3 w-full rounded-full bg-gray-100" /><span className="mt-2 block h-3 w-4/5 rounded-full bg-gray-100" /></div>
+                <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3.5 w-1/2 rounded-full bg-gray-200" /><span className="mt-3 block h-20 rounded-xl bg-gray-100" /></div>
+                <div className="rounded-card bg-white p-4 shadow-card"><span className="block h-3.5 w-3/5 rounded-full bg-gray-200" /><span className="mt-3 block h-3 w-full rounded-full bg-gray-100" /></div>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-around border-t border-gray-100 bg-white px-4 pb-8 pt-3">
+                {[0, 1, 2, 3, 4].map((k) => <span key={k} className={cx('h-6 w-6 rounded-md', k === 0 ? 'bg-brand/70' : 'bg-gray-200')} />)}
+              </div>
+            </div>
+            <div className={cx('absolute inset-0 bg-ink/45 backdrop-blur-[1.5px] transition-opacity duration-300', closed ? 'opacity-0' : 'opacity-100')} />
+            <div className={cx('absolute inset-x-0 bottom-0 z-10', closed ? 'animate-survey-sink pointer-events-none' : 'animate-survey-rise')} key={closed ? 'out' : 'in'}>{card}</div>
+            {replay}
+          </Fitted>
+        </div>
+      )}
+      {desk && <p className="rounded-xl bg-cloud/60 px-4 py-6 text-center text-xs text-smoke">{tr('The desktop screen is open over the page.')}</p>}
+
+      {/* THE DESKTOP: a laptop's 1280 x 800 window, big, over the page. Escape or the button puts it away. */}
+      {desk && createPortal(
+        <div role="dialog" aria-modal="true" aria-label={tr('Desktop preview')} className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/60 p-3 backdrop-blur-[2px] sm:p-8" onPointerDown={(e) => { if (e.target === e.currentTarget) setDesk(false) }}>
+          <div className="w-full max-w-[1180px] animate-survey-rise">
+            <div className="mb-3 flex items-center justify-between gap-3 text-white">
+              <p className="text-sm font-bold">{tr('How a creator sees it on a computer')}</p>
+              <button type="button" onClick={() => setDesk(false)} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-ink shadow-card"><Icon name="close" className="h-3.5 w-3.5" />{tr('Close')}</button>
+            </div>
+            <div className="overflow-hidden rounded-xl bg-ink/90 p-[3px] shadow-lift">
+              <Fitted w={DESKTOP.w} h={DESKTOP.h} maxH={typeof window !== 'undefined' ? Math.max(360, window.innerHeight - 140) : undefined} frameClass="relative overflow-hidden rounded-[9px] bg-cloud">
+                <div className="absolute inset-0 select-none" aria-hidden>
+                  <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100 px-4 py-2.5">
+                    <span className="flex gap-1.5">{['bg-red-400', 'bg-amber-400', 'bg-emerald-400'].map((c) => <span key={c} className={cx('h-3 w-3 rounded-full', c)} />)}</span>
+                    <span className="mx-auto h-6 w-96 rounded-md bg-white text-center text-[11px] leading-6 text-gray-400">trypcreators.vercel.app</span>
+                  </div>
+                  <div className="flex items-center gap-6 border-b border-gray-100 bg-white px-8 py-3">
+                    <img src="/brand/tryp-logo-360.png" alt="" className="h-9 rounded-lg" />
+                    <span className="h-3 w-48 rounded-full bg-gray-200" />
+                    <span className="ml-auto flex gap-6">{[0, 1, 2, 3, 4].map((k) => <span key={k} className={cx('h-8 w-12 rounded-md', k === 0 ? 'bg-brand/60' : 'bg-gray-200')} />)}</span>
+                  </div>
+                  <div className="mx-auto grid max-w-[1000px] grid-cols-[2fr_1fr] gap-6 px-6 pt-8">
+                    <div className="space-y-5">
+                      <div className="brand-drift h-44 rounded-card" />
+                      <div className="rounded-card bg-white p-6 shadow-card"><span className="block h-4 w-1/3 rounded-full bg-gray-200" /><span className="mt-4 block h-3 w-full rounded-full bg-gray-100" /><span className="mt-2.5 block h-3 w-4/5 rounded-full bg-gray-100" /></div>
+                      <div className="rounded-card bg-white p-6 shadow-card"><span className="block h-4 w-1/4 rounded-full bg-gray-200" /><span className="mt-4 block h-24 rounded-xl bg-gray-100" /></div>
+                    </div>
+                    <div className="space-y-5"><div className="h-40 rounded-card bg-white shadow-card" /><div className="h-56 rounded-card bg-white shadow-card" /></div>
+                  </div>
+                </div>
+                <div className={cx('absolute inset-0 bg-ink/45 backdrop-blur-[2px] transition-opacity duration-300', closed ? 'opacity-0' : 'opacity-100')} />
+                <div className="absolute inset-0 z-10 flex items-center justify-center">
+                  <div className={cx('w-[28rem]', closed ? 'animate-survey-sink pointer-events-none' : 'animate-survey-rise')} key={closed ? 'out' : 'in'}>{card}</div>
+                </div>
+                {replay}
+              </Fitted>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }

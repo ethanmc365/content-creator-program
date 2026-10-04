@@ -40,7 +40,7 @@ import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
 // views a video has to pass) opens in its own card, where there is room to say
 // it properly instead of in grey eleven-pixel type.
 
-const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calendar', bonus: 'star' }
+const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calendar', bonus: 'star', collab: 'users' }
 
 const dm = (iso) => new Date(iso).toLocaleDateString(dateTag(), { weekday: 'short', day: 'numeric', month: 'short' })
 
@@ -54,6 +54,7 @@ function claimLine(r, tr) {
   const n = Math.max(1, Math.floor(max / pts))
   const total = max
   if (r.kind === 'platform_spread') return { n, text: tr('You can claim this bonus on {n} platforms for a maximum of {p} points', { n, p: total }) }
+  if (r.kind === 'collab') return { n, text: tr('You can earn this with {n} different creators for a maximum of {p} points', { n, p: total }) }
   if (r.kind === 'consistency') return { n, text: tr('You can claim this bonus {n} times for a maximum of {p} points', { n, p: total }) }
   return { n, text: tr('You can claim this bonus on {n} videos for a maximum of {p} points', { n, p: total }) }
 }
@@ -61,6 +62,7 @@ function claimLine(r, tr) {
 function howToEarn(r, tr) {
   if (r.kind === 'per_post') return tr('For every video you post')
   if (r.kind === 'platform_spread') return tr('For each platform you post on')
+  if (r.kind === 'collab') return tr('Make a video with a creator you are connected to, then you both confirm it on the challenge')
   if (r.kind === 'consistency') {
     const d = Number(r.period_days) || 7
     return d === 1 ? tr('Post at least one video every day')

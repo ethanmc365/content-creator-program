@@ -27,6 +27,8 @@ import ScoringPanel, { usePointRules } from '../components/network/ScoringPanel'
 import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPointsCard'
 import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
+import CountryBoard from '../components/challenge/CountryBoard'
+import CollabCard from '../components/challenge/CollabCard'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
@@ -126,7 +128,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
-  const [tab, setTab] = useState('brief') // brief | leaderboard | entries
+  const [tab, setTab] = useState('brief') // brief | leaderboard | entries | countries
   // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB (28 Sep 2026). Ethan:
   // "a button for the creators ... that says 'My Entries' so they can quickly
   // see all their entries."
@@ -359,7 +361,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Reading `searchParams` rather than a flag: the question is "did the URL
   // name a tab", and the URL is the thing that knows.
   useEffect(() => {
-    if (['entries', 'brief', 'leaderboard'].includes(searchParams.get('tab'))) return
+    if (['entries', 'brief', 'leaderboard', 'countries'].includes(searchParams.get('tab'))) return
     if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
   }, [challenge, results.length, searchParams])
 
@@ -375,7 +377,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     deepLinkedRef.current = true
     if (searchParams.get('submit')) setShowSubmit(true)
     const t = searchParams.get('tab')
-    if (t === 'entries' || t === 'brief' || t === 'leaderboard') setTab(t)
+    if (t === 'entries' || t === 'brief' || t === 'leaderboard' || t === 'countries') setTab(t)
   }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function fail(field, message) {
@@ -762,6 +764,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     { key: 'brief', label: tr('The brief'), icon: 'book' },
     { key: 'leaderboard', label: tr('Leaderboard'), icon: 'trophy' },
     { key: 'entries', label: tr('Entries'), icon: 'video', count: submissions.length },
+    // COUNTRY AGAINST COUNTRY, FOR THE GLOBAL CHALLENGE ONLY (4 Oct 2026). Ethan: "a new button to the right ... called Country
+    // Leaderboard, where you can see how each country is doing."
+    ...(isGlobalChallenge ? [{ key: 'countries', label: tr('Country leaderboard'), icon: 'globe' }] : []),
   ]
 
   return (
@@ -1068,8 +1073,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
-      <SwapIn swapKey={tab === 'leaderboard' ? 'board' : 'bonus'}>
-        {tab !== 'leaderboard' ? (
+      <SwapIn swapKey={tab === 'leaderboard' || tab === 'countries' ? 'board' : 'bonus'}>
+        {tab !== 'leaderboard' && tab !== 'countries' ? (
           <LiveBonusCallout
             rules={pointRules}
             now={nowMs}
@@ -1397,6 +1402,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
         const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} />
+        // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
+        const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
+        const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} submissions={submissions} meId={user.id} /> : null
         // THE HOOK BUTTON (24 Sep 2026, moved 26 Sep): first thing in the rail
         // and first thing on a phone, above the prizes. Ethan: "Currently, it's
         // way down at the bottom, whereas it should be at the top." Not on a
@@ -1411,6 +1419,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               {rulesCard}
               {scoringCard}
               {bonusCard}
+              {collabCard}
               {platformsCard}
             </div>
           )
@@ -1426,6 +1435,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               {hookCard}
               {prizesCard}
               {bonusCard}
+              {collabCard}
               {platformsCard}
             </div>
           </div>
@@ -1673,6 +1683,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       )}
 
       {/* ---------- Tab: leaderboard ---------- */}
+      {tab === 'countries' && isGlobalChallenge && (
+        <div className="animate-fade-up">
+          <CountryBoard challenge={challenge} refreshKey={`${challenge.results_updated_at || ''}:${results.length}:${submissions.length}`} meId={user.id} />
+        </div>
+      )}
+
       {tab === 'leaderboard' && (
         <div className="space-y-5 animate-fade-up">
           {/* WHERE THE BOARD CAME FROM is the badge beside the tabs now

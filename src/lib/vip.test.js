@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { daysLeft, describeRule, money, monthLabel, monthProgress, rate } from './vip'
+import { MILESTONE_METRICS, daysLeft, describeRule, metricAmount, money, monthLabel, monthProgress, rate } from './vip'
 
 const tr = (s, v = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`))
 
@@ -28,11 +28,23 @@ describe('vip helpers', () => {
     expect(money(95, 'EUR')).toMatch(/95/)
   })
   it('says each kind of rule in a sentence', () => {
-    expect(describeRule({ kind: 'target', amount: 25, reward: 'cash' }, tr)).toMatch(/monthly target/)
+    expect(describeRule({ kind: 'target', amount: 25, reward: 'cash' }, tr)).toMatch(/target set for you/)
     const top = describeRule({ kind: 'top_n', scope: 'market', reward: 'cash', places: [{ place: 1, amount: 100 }, { place: 2, amount: 50, reward: 'voucher' }] }, tr)
     expect(top).toMatch(/#1/)
     expect(top).toMatch(/voucher/)
     expect(describeRule({ kind: 'milestone', amount: 15, reward: 'cash', conditions: { metric: 'lifetime_views', threshold: 250000 } }, tr)).toMatch(/once/)
+  })
+  // MORE THINGS A MILESTONE CAN BE (4 Oct 2026, migration 322): every metric the close can measure has a sentence and a unit.
+  it('says a milestone on every metric the database can measure, in its own unit', () => {
+    for (const m of MILESTONE_METRICS) {
+      const line = describeRule({ kind: 'milestone', amount: 20, reward: 'voucher', conditions: { metric: m.key, threshold: 6 } }, tr)
+      expect(line).toMatch(/Reach .*6/)
+      expect(line).toMatch(/voucher/)
+    }
+    expect(metricAmount('lifetime_videos', 50, tr)).toBe('50 videos')
+    expect(metricAmount('months_active', 6, tr)).toBe('6 months')
+    expect(metricAmount('best_video_views', 1000000, tr)).toMatch(/views/)
+    expect(metricAmount('month_earnings', 500, tr, 'EUR')).toMatch(/500/)
   })
 })
 

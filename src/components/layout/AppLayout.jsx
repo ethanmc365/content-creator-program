@@ -19,6 +19,7 @@ import PullToRefresh from '../PullToRefresh'
 import BankDetailsPrompt from '../BankDetailsPrompt'
 import AddToHomePrompt from '../AddToHomePrompt'
 import SurveyHost from '../SurveyHost'
+import GlobalChallengePrompt from '../GlobalChallengePrompt'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { startHeartbeat } from '../../lib/presence'
@@ -560,6 +561,8 @@ export default function AppLayout() {
           notifications, then bank details. */}
       <AddToHomePrompt />
       <BankDetailsPrompt />
+      {/* The live worldwide challenge, for a creator who has not entered it (4 Oct 2026). */}
+      <GlobalChallengePrompt />
       {/* Surveys from the team (migration 291), last in the same queue. */}
       <SurveyHost />
 

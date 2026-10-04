@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
 import Icon from '../Icon'
@@ -28,18 +29,19 @@ export const VIP_SECTIONS = [
   { key: 'earn', icon: 'trendUp', label: 'Earn more', hint: 'Bonuses running now' },
   { key: 'library', icon: 'book', label: 'Library', hint: 'Hooks and guides' },
   { key: 'map', icon: 'globe', label: 'Map', hint: 'Every VIP creator' },
+  { key: 'recap', icon: 'sparkles', label: 'My recap', hint: 'Your month as a story' },
 ]
 
 /** The column on the right, desktop only. */
 export function VipSideNav({ value, onChange, hidden, links }) {
   const tr = useT()
   return (
-    <nav aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
+    <nav aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
       <ul className="space-y-0.5">
-        {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s, i) => {
+        {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
           const on = s.key === value
           return (
-            <li key={s.key} className="animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
+            <li key={s.key}>
               <button
                 type="button"
                 onClick={() => !on && onChange(s.key)}
@@ -65,8 +67,8 @@ export function VipSideNav({ value, onChange, hidden, links }) {
       </ul>
       {links?.length > 0 && (
         <ul className="mt-1 space-y-0.5 border-t border-gray-100 pt-1">
-          {links.map((l, i) => (
-            <li key={l.to} className="animate-rise" style={{ animationDelay: `${(VIP_SECTIONS.length + i) * 35}ms` }}>
+          {links.map((l) => (
+            <li key={l.to}>
               <Link to={l.to} className="group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200 hoverable:hover:bg-cloud/70">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke transition-all duration-300 group-hover:scale-105 group-hover:text-brand"><Icon name={l.icon} className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
                 <span className="min-w-0 flex-1">
@@ -120,28 +122,28 @@ export function VipChipNav({ value, onChange, hidden, links }) {
 
 /** A VIP's own pages that live elsewhere, listed with the sections (3 Oct 2026: they were the quick links card). */
 export const VIP_LINKS = [
-  { to: '/vip/recap', icon: 'sparkles', label: 'My recap', hint: 'Your month as a story' },
   { to: '/portfolio', icon: 'briefcase', label: 'My portfolio', hint: 'Share your numbers' },
 ]
 
-/** The VIP's balance, small, under the sections: what they have, and whether they can take it now. */
+/** The VIP's balance, small, under the sections: just the number, kept up to date by itself (4 Oct 2026). Ethan: "don't say
+ *  ... EUR 10 to a feature or +EUR 100 this month so far. Just have Your Balance and actually show the current balance." */
 export function VipBalanceMini({ onOpen }) {
   const tr = useT()
-  const { data: w } = useOptionalRpc('vip_my_wallet')
-  if (!w) return null
-  const bal = Number(w.balance) || 0
-  const cash = Number(w.threshold) || 0
-  const voucher = Number(w.voucher_min ?? 10) || 0
-  const ready = bal >= cash && bal > 0 ? tr('Ready to withdraw') : bal >= voucher && bal > 0 ? tr('Ready for a voucher') : tr('{a} to a voucher', { a: money(Math.max(0, voucher - bal), w.currency, { cents: false }) })
+  const { data: w, reload } = useOptionalRpc('vip_my_wallet')
+  useEffect(() => {
+    const id = setInterval(reload, 60000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // The same box before the number arrives, so the column never grows a card late.
+  if (!w) return <div className="h-[5.25rem] w-full animate-pulse rounded-card border border-gray-100 bg-white shadow-card" />
   return (
-    <button type="button" onClick={onOpen} className="group block w-full rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise [animation-delay:200ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+    <button type="button" onClick={onOpen} className="group block w-full rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">
         <span className="flex items-center gap-1.5"><Icon name="wallet" className="h-3.5 w-3.5 text-brand" />{tr('Your balance')}</span>
         <Icon name="chevronRight" className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
       </span>
-      <span className="mt-1 block text-2xl font-bold tabular-nums text-ink"><CountUp value={bal} format={(n) => money(n, w.currency)} /></span>
-      <span className="mt-0.5 block text-xs text-smoke">{ready}</span>
-      <span className="mt-1 block text-[11px] text-smoke">{tr('Plus {a} this month so far', { a: money(w.this_month?.earned || 0, w.currency) })}</span>
+      <span className="mt-1 block text-2xl font-bold tabular-nums text-ink"><CountUp value={Number(w.balance) || 0} format={(n) => money(n, w.currency)} /></span>
     </button>
   )
 }

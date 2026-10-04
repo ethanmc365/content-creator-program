@@ -8,7 +8,7 @@ import { notice } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import { kpiStatus } from '../../lib/kpiTracker'
 import { STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
-import { money, monthLabel, nf, vipRpc } from '../../lib/vip'
+import { money, monthLabel, nf, perK, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // THE VIP KPIs, BUILT LIKE THE KPI PAGE (3 Oct 2026).
@@ -24,7 +24,25 @@ const METRICS = [
   { key: 'active_creators', label: 'VIPs with views', icon: 'users', fmt: (v) => nf(v), level: true },
   { key: 'spend', label: 'Spend on views', icon: 'money', fmt: (v, cur) => money(v, cur, { cents: false }), lower: true },
   { key: 'hit_target', label: 'VIPs who hit their target', icon: 'trophy', fmt: (v) => nf(v), level: true },
+  // MORE TO MEASURE (4 Oct 2026, migration 323). Ethan: the KPI page "needs improvement ... use some things from the main one".
+  { key: 'new_vips', label: 'New VIPs this month', icon: 'plus', fmt: (v) => nf(v) },
+  { key: 'cpm', label: 'Cost per 1,000 views', icon: 'money', fmt: (v, cur) => perK(v, cur), lower: true, level: true },
+  { key: 'stay_in', label: 'VIPs who kept their place', icon: 'shield', fmt: (v) => nf(v), level: true },
+  { key: 'videos_per_vip', label: 'Videos per VIP', icon: 'video', fmt: (v) => Number(v).toFixed(1), level: true },
 ]
+
+// A SIX-MONTH SPARK BESIDE EACH NUMBER, as the main KPI page has: the months before, in grey, and this one in the brand colour.
+function Spark({ values }) {
+  const top = Math.max(...values, 1e-9)
+  return (
+    <div className="flex h-9 items-end gap-1" aria-hidden>
+      {values.map((v, i) => (
+        <span key={i} className={cx('w-2.5 rounded-t-[3px] transition-[height] duration-700 ease-out', i === values.length - 1 ? 'bg-gradient-to-t from-brand to-brand-light' : 'bg-gray-200')} style={{ height: `${v > 0 ? Math.max(8, (v / top) * 100) : 4}%` }} />
+      ))}
+    </div>
+  )
+}
+
 const STYLE = {
   met: { chip: 'bg-emerald-50 text-emerald-600', label: 'Target met' },
   on_track: { chip: 'bg-brand-tint text-brand', label: 'On track' },
@@ -44,6 +62,7 @@ export function VipKpiTab({ programme }) {
   const today = thisMonth()
   const [ym, setYm] = useState(today)
   const [actual, setActual] = useState(null)
+  const [hist, setHist] = useState(null)
   const [targets, setTargets] = useState({})
   const [editing, setEditing] = useState(null)
   const [val, setVal] = useState('')
@@ -58,6 +77,12 @@ export function VipKpiTab({ programme }) {
     setActual(a || {}); setTargets(Object.fromEntries((t.data || []).map((x) => [x.metric, x])))
   }, [programme.id, ym])
   useEffect(() => { setActual(null); load() }, [load])
+  useEffect(() => {
+    let alive = true
+    setHist(null)
+    vipRpc('vip_kpi_history', { p_programme: programme.id, p_months: 6 }).then((h) => { if (alive) setHist(h || []) }).catch(() => { if (alive) setHist([]) })
+    return () => { alive = false }
+  }, [programme.id])
 
   const step = (d) => setYm((p) => { const i = p.year * 12 + (p.month - 1) + d; return { year: Math.floor(i / 12), month: (i % 12) + 1 } })
 
@@ -73,13 +98,25 @@ export function VipKpiTab({ programme }) {
     setEditing(null); load()
   }
 
+  // The months before the one on show (up to five), then the one on show, for the spark; and how far through the month it is.
+  const inMonth = (h) => h.year * 12 + h.month <= ym.year * 12 + ym.month
+  const shownIdx = (hist || []).findIndex((h) => h.year === ym.year && h.month === ym.month)
+  const before = (hist || []).filter(inMonth).slice(-6, shownIdx >= 0 ? shownIdx : undefined)
+  const prevMonth = before[before.length - 1] || null
+  const dim = new Date(ym.year, ym.month, 0).getDate()
+  const frac = isToday ? Math.max(0.0001, Math.min(1, (new Date().getDate() - 1 + new Date().getHours() / 24) / dim)) : 1
   const rows = METRICS.map((m) => {
     const v = Number(actual?.[m.key] || 0)
     const t = targets[m.key]
     const st = t ? kpiStatus({ target: Number(t.target_value), actual: v, year: ym.year, quarter: Math.ceil(ym.month / 3), month: ym.month, kind: m.level ? 'level' : 'sum', higherIsBetter: !m.lower }) : null
-    return { ...m, v, t, st }
+    const series = [...before.slice(-5).map((h) => Number(h.actuals?.[m.key] || 0)), v]
+    const last = prevMonth ? Number(prevMonth.actuals?.[m.key] || 0) : null
+    const pace = isToday && !m.level && frac >= 0.08 && v > 0 ? v / frac : null
+    return { ...m, v, t, st, series, last, pace }
   })
+  const view = (k) => rows.find((r) => r.key === k)
   const goals = rows.filter((r) => r.st)
+  const ordered = [...rows].sort((a, b) => Number(!!b.t) - Number(!!a.t))
   const counts = goals.reduce((a, r) => ({ ...a, [r.st.status]: (a[r.st.status] || 0) + 1 }), {})
   const good = (counts.met || 0) + (counts.on_track || 0)
   const editingRow = rows.find((r) => r.key === editing)
@@ -118,10 +155,18 @@ export function VipKpiTab({ programme }) {
                 </p>
               </>
             )}
+            <dl className="relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              {[['views', tr('Views')], ['spend', tr('Paid')], ['cpm', tr('Per 1,000')], ['active_creators', tr('VIPs with views')]].map(([k, label]) => (
+                <div key={k} className="rounded-2xl bg-white/15 px-3.5 py-2.5 backdrop-blur-sm">
+                  <dd className="text-xl font-bold tabular-nums leading-tight">{view(k).fmt(view(k).v, cur)}</dd>
+                  <dt className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-white/80">{label}</dt>
+                </div>
+              ))}
+            </dl>
           </section>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {rows.map((r, i) => {
+            {ordered.map((r, i) => {
               const st = r.st
               return (
                 <article
@@ -145,6 +190,13 @@ export function VipKpiTab({ programme }) {
                     </div>
                     {st ? <KpiProgress className="mt-2.5" status={st.status} pct={st.pct} progress={st.progress} isLevel={!!r.level} />
                       : <p className="mt-2.5 text-xs text-smoke">{tr('No goal yet. Press to set one.')}</p>}
+                  </div>
+                  <div className="flex items-end justify-between gap-3 border-t border-gray-50 pt-2.5">
+                    <div className="min-w-0 text-[11px] leading-snug text-smoke">
+                      {r.last != null && <p>{tr('Last month')}: <span className="font-semibold text-ink">{r.fmt(r.last, cur)}</span></p>}
+                      {r.pace != null && <p>{tr('On pace for')}: <span className="font-semibold text-ink">{r.fmt(r.pace, cur)}</span></p>}
+                    </div>
+                    {hist && r.series.length > 1 && <Spark values={r.series} />}
                   </div>
                   {st && (
                     <div className="mt-auto flex items-center justify-between gap-2">

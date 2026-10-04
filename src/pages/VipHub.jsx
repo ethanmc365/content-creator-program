@@ -8,12 +8,14 @@ import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
 import { CountUp } from '../components/network/Motion'
 import {
-  PaymentBanner, TargetBar, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoRow,
+  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoRow,
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
 import { VipWallet, StayInCard } from '../components/vip/wallet'
+import { HowPaidCard, LatestVideos, TargetCard } from '../components/vip/month'
 import { TeamPulse } from '../components/vip/teamTools'
+import { VipRecapPanel } from './VipRecap'
 // The team's tools are only ever drawn for the team, so creators never download them.
 const VipTools = lazy(() => import('../components/vip/VipTools'))
 import { VipPreviewContext, daysLeft, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
@@ -35,7 +37,8 @@ import ReaderText from '../components/ReaderText'
 // signed into the sandbox VIP: they stay themselves and see each market's real VIP page - the month so far
 // across every VIP there, the real leaderboard, announcements, briefs, library, map and rooms - with the
 // market switch at the top. The sections that are one person's own (videos, stats, payouts, perks) are hidden.
-const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'perks'])
+const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'perks', 'recap'])
+const PREVIEW_HIDDEN = new Set(['recap'])
 const STAFF_PICK = 'tryp_vip_staff_programme'
 // ...AND THEN EXACTLY THE CREATOR'S PAGE (2 Oct 2026, migration 311). Ethan: "the VIP page for admins is not useful,
 // as it doesn't show it up the way it should, it should show everything the creators can see, see it how they can
@@ -130,7 +133,8 @@ export default function VipHub() {
   // The member being previewed, or null for "a new VIP" / not previewing.
   const previewWho = previewing ? who : null
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
-  const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map'].filter((k) => !(isStaff && STAFF_HIDDEN.has(k)))
+  const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : null
+  const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
   const tab = allowed.includes(asked) ? asked : 'month'
   const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const [board, setBoard] = useState(null)
@@ -201,7 +205,6 @@ export default function VipHub() {
   const cur = programme.currency
   const left = daysLeft(month.ends_at)
   const paused = member.status !== 'active'
-  const videosThisMonth = (overview.videos || []).filter((v) => v.status === 'tracking')
 
   const programmes = staffOv?.programmes || overview.programmes || []
   return (
@@ -236,7 +239,7 @@ export default function VipHub() {
               <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {isStaff ? tr('{m} so far, every VIP', { m: monthLabel(month.year, month.month) }) : tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
-            {!isStaff && (look?.headline || look?.tagline) && <p className="mt-1 text-sm font-semibold text-white/90">{look.headline || <ReaderText text={look.tagline} />}</p>}
+            {!isStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-white/90"><ReaderText text={look.tagline} /></p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
               <CountUp value={stats.base} format={(n) => money(n, cur)} />
             </p>
@@ -263,12 +266,12 @@ export default function VipHub() {
       {!overview.payment_ready && <div className="mb-4"><PaymentBanner /></div>}
 
       {/* Phones and tablets: the sections as a strip of chips. */}
-      <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} links={isStaff ? null : VIP_LINKS} /></div>
+      <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} /></div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-7">
-      <div key={tab} className="min-w-0 animate-tab-in">
+      <div key={tab} className="min-w-0">
         {tab === 'month' && (
-          <div className="space-y-5">
+          <div className="vip-stage space-y-5">
             {isStaff && <TeamPulse programme={programme} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />}
             <VipAnnouncements programmeId={programme.id} />
             {/* SUBMITTING COMES FIRST (3 Oct 2026). Ethan: "I like the submitted video thing, but maybe that should be at
@@ -293,37 +296,18 @@ export default function VipHub() {
               <>
                 {/* SMALL, THEN THE TARGET, THEN THE PAY (3 Oct 2026): the stay-in rule is a one-row card now. */}
                 <StayInCard compact />
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
-                    <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your target this month')}</h2>
-                    {member.target_videos || member.target_views ? (
-                      <div className="space-y-4">
-                        {member.target_videos ? <TargetBar label={tr('Videos posted')} value={stats.videos} target={member.target_videos} /> : null}
-                        {member.target_views ? <TargetBar label={tr('Views')} value={stats.views} target={member.target_views} /> : null}
-                      </div>
-                    ) : (
-                      <p className="text-sm leading-relaxed text-smoke">{tr('No target has been set for you yet. Your views pay is what counts. Ask your market lead if you would like one to aim for.')}</p>
-                    )}
-                  </section>
-                  <PayStrip member={member} programme={programme} stats={stats} month={month} cur={cur} />
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                  <TargetCard member={member} stats={stats} onSetGoal={previewing ? null : () => go('stats')} />
+                  <HowPaidCard stats={stats} cur={cur} />
                 </div>
-
-                <section className="animate-rise">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-[15px] font-bold text-ink">{tr('Latest videos')}</h2>
-                    {videosThisMonth.length > 3 && <button type="button" onClick={() => go('videos')} className="text-xs font-semibold text-brand hover:underline">{tr('See all')}</button>}
-                  </div>
-                  {videosThisMonth.length === 0
-                    ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
-                    : <ul className="space-y-3">{videosThisMonth.slice(0, 3).map((v, i) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={i * 60} />)}</ul>}
-                </section>
+                <LatestVideos videos={overview.videos} cpm={stats.effective_cpm} currency={cur} onSeeAll={() => go('videos')} onChanged={refresh} />
               </>
             )}
           </div>
         )}
 
         {tab === 'videos' && (
-          <div className="space-y-5">
+          <div className="vip-stage space-y-5">
             <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />
             {(overview.videos || []).length === 0
               ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
@@ -332,7 +316,7 @@ export default function VipHub() {
         )}
 
         {tab === 'stats' && (
-          <div className="space-y-5">
+          <div className="vip-stage space-y-5">
             <VipStats overview={overview} rules={rules} programmeId={programme.id} />
             <VipMySettings overview={overview} onSaved={refresh} />
           </div>
@@ -341,7 +325,7 @@ export default function VipHub() {
         {tab === 'payouts' && <VipWallet onChanged={refresh} />}
 
         {tab === 'board' && (
-          <div className="space-y-4">
+          <div className="vip-stage space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
               <Segmented
@@ -363,14 +347,14 @@ export default function VipHub() {
         )}
 
         {tab === 'perks' && (
-          <div className="space-y-3">
+          <div className="vip-stage space-y-3">
             <p className="text-sm text-smoke">{tr('Unlock perks and trips as your views and videos add up. The team marks each one delivered.')}</p>
             <PerksPath />
           </div>
         )}
 
         {tab === 'earn' && (
-          <div className="space-y-3">
+          <div className="vip-stage space-y-3">
             <p className="text-sm text-smoke">{tr('On top of your views pay, these are the bonuses the team is running.')}</p>
             {rules === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipEarn rules={rules} overview={overview} currency={cur} />}
           </div>
@@ -378,13 +362,14 @@ export default function VipHub() {
 
         {tab === 'library' && <VipLibrary programmeId={programme.id} />}
         {tab === 'map' && <VipMap />}
+        {tab === 'recap' && <VipRecapPanel m={params.get('m')} onPick={(k) => setParams({ tab: 'recap', m: k }, { replace: true })} />}
       </div>
 
       {/* Desktop: the sections, in a column that stays in view. */}
       {/* NO QUICK LINKS CARD (3 Oct 2026). Ethan: the links to the VIP rooms "are unnecessary. You can remove the quick
           link card entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
       <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
-        <VipSideNav value={tab} onChange={go} hidden={isStaff ? STAFF_HIDDEN : null} links={isStaff ? null : VIP_LINKS} />
+        <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} />
         {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
       </div>

@@ -3308,3 +3308,62 @@ html[data-slow-net] [class*="backdrop-blur-["] {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* ONE ENTRANCE FOR A PAGE OF CARDS (4 Oct 2026).
+   Ethan, on the VIP page and the VIP tools: "some things animate nicely, others don't ... ensure everything animates in
+   smoothly, like when clicking from My Videos back to This Month." Every card used to carry its own `animate-rise` with its own
+   delay (or none), inside a wrapper that also faded in, so a page arrived as three or four different movements.
+   Put `vip-stage` on the element that holds a page's cards and its direct children arrive together: the same lift on the
+   same curve, 55ms apart, top to bottom. Anything deeper that asks for `animate-rise` is told to stand still - the
+   card is already arriving, and its contents moving a second time is exactly the "others don't" that read as lag.
+   `backwards` (not `both`) so that once a card has arrived it goes back to being an ordinary box: a held `transform: none`
+   would beat the hover lift on every card. */
+@keyframes stage-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.vip-stage > * {
+  animation: stage-in 460ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--stage-i, 0) * 55ms);
+}
+.vip-stage > :nth-child(1) { --stage-i: 0; }
+.vip-stage > :nth-child(2) { --stage-i: 1; }
+.vip-stage > :nth-child(3) { --stage-i: 2; }
+.vip-stage > :nth-child(4) { --stage-i: 3; }
+.vip-stage > :nth-child(5) { --stage-i: 4; }
+.vip-stage > :nth-child(6) { --stage-i: 5; }
+.vip-stage > :nth-child(7) { --stage-i: 6; }
+.vip-stage > :nth-child(n + 8) { --stage-i: 7; }
+.vip-stage * .animate-rise,
+.vip-stage * .animate-fade-up,
+.vip-stage * .animate-tab-in {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vip-stage > * { animation: none; }
+}
+html[data-slow-net] .vip-stage > * { animation: none; }
+
+/* THE SAME ENTRANCE FOR THE VIP TOOLS (4 Oct 2026). A tool's root element holds its cards, so it is the root's CHILDREN that
+   arrive together (`.vip-panel > * > *`). `!important` because deeper `animate-rise` cards are told to stand still just below,
+   and this has to win against that rule for the cards that are meant to move. */
+.vip-panel > * > * {
+  animation: stage-in 460ms cubic-bezier(0.22, 1, 0.36, 1) backwards !important;
+  animation-delay: calc(var(--stage-i, 0) * 55ms) !important;
+}
+.vip-panel > * > :nth-child(1) { --stage-i: 0; }
+.vip-panel > * > :nth-child(2) { --stage-i: 1; }
+.vip-panel > * > :nth-child(3) { --stage-i: 2; }
+.vip-panel > * > :nth-child(4) { --stage-i: 3; }
+.vip-panel > * > :nth-child(5) { --stage-i: 4; }
+.vip-panel > * > :nth-child(6) { --stage-i: 5; }
+.vip-panel > * > :nth-child(n + 7) { --stage-i: 6; }
+.vip-panel .animate-rise,
+.vip-panel .animate-fade-up,
+.vip-panel .animate-tab-in {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vip-panel > * > * { animation: none !important; }
+}
+html[data-slow-net] .vip-panel > * > * { animation: none !important; }

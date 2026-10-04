@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
-import Segmented from '../network/Segmented'
 import { MarketStandings } from './v3'
 import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -112,29 +111,45 @@ export function VipMarketsTab({ programme, isOwner, onChanged }) {
 // ------------------------------------------------------------------------------------ content
 const PARTS = ['briefs', 'perks', 'guides']
 
-/** Monthly challenges, perks and trips, and guides, in one place. */
-export function VipContentTab({ programme, isOwner, part, onPart }) {
-  const tr = useT()
+/** Monthly challenges, milestones/perks/trips, or guides. Each is a tab of its own under Content (4 Oct 2026): Ethan found "milestones"
+ *  and "guides" hard to find folded under one "Briefs, perks, guides" tab. */
+export function VipContentTab({ programme, isOwner, part }) {
   const p = PARTS.includes(part) ? part : 'briefs'
   const canManage = !!programme.can_manage
+  const tr = useT()
   return (
     <div className="space-y-5">
-      {/* Short names on a phone: the three long ones ran off the right edge of the screen (Ethan, 3 Oct). */}
-      <div className="scrollbar-none -mx-1 max-w-full overflow-x-auto px-1">
-        <Segmented value={p} onChange={onPart} label={tr('Content')} size="sm"
-          options={[
-            { value: 'briefs', label: <><span className="sm:hidden">{tr('Challenges')}</span><span className="hidden sm:inline">{tr('Monthly challenges')}</span></> },
-            { value: 'perks', label: <><span className="sm:hidden">{tr('Perks')}</span><span className="hidden sm:inline">{tr('Perks and trips')}</span></> },
-            { value: 'guides', label: tr('Guides') },
-          ]} />
-      </div>
       {!canManage && <p className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You can see this market\'s content. Only its own lead, or the owner, can change it.')}</p>}
-      <div key={`${programme.id}:${p}`} className="animate-rise">
+      <div key={`${programme.id}:${p}`} className="space-y-5">
         {p === 'briefs' && <BriefsEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
         {p === 'perks' && <PerksEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
         {p === 'guides' && <GuidesEditor programme={programme} isOwner={isOwner} canManage={canManage} />}
       </div>
     </div>
+  )
+}
+
+/** A short "how this works" strip: icon and sentence, no numbers or circles that look like buttons. Open until dismissed. */
+function HowItWorks({ id, title, lines, openByDefault = false }) {
+  const tr = useT()
+  const key = `tryp_vip_how_${id}`
+  const [open, setOpen] = useState(() => { try { const v = localStorage.getItem(key); return v == null ? openByDefault : v === '1' } catch { return openByDefault } })
+  const toggle = () => { setOpen((o) => { const n = !o; try { localStorage.setItem(key, n ? '1' : '0') } catch { /* private mode */ } return n }) }
+  return (
+    <section className="overflow-hidden rounded-card border border-brand/15 bg-brand-tint/30">
+      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2.5 px-4 py-3 text-left">
+        <Icon name="bulb" className="h-4 w-4 shrink-0 text-brand" />
+        <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{title}</span>
+        <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <ul className="animate-tab-in space-y-2 border-t border-brand/10 px-4 py-3.5">
+          {lines.map(([icon, text]) => (
+            <li key={text} className="flex items-start gap-2.5 text-[13px] leading-snug text-ink/85"><Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span>{tr(text)}</span></li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -150,13 +165,24 @@ function useScoped(table, programme, order) {
   return [rows, load]
 }
 
+// WHICH MARKET IT IS FOR (4 Oct 2026). Ethan: "I don't have the option to select a specific market. It just shows [one market]." The owner
+// can now pick any VIP market, or every market, when making content AND when editing it later (the content is moved by
+// `vip_move_content`, migration 323); a market lead sees their own market.
 function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   const tr = useT()
+  const [all, setAll] = useState([])
+  useEffect(() => {
+    if (!isOwner) return undefined
+    let alive = true
+    supabase.from('vip_programmes').select('id, name').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
+    return () => { alive = false }
+  }, [isOwner])
+  const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name }]
   return (
     <label className="block">
       <span className="label">{tr('Who it is for')}</span>
       <Select variant="field" portal value={value} disabled={disabled} onChange={onChange} ariaLabel={tr('Who it is for')}
-        options={[{ value: programme.id, label: tr('{p} only', { p: programme.name }) }, ...((isOwner || value === '') ? [{ value: '', label: tr('Every VIP market') }] : [])]} />
+        options={[...markets.map((p) => ({ value: p.id, label: tr('{p} only', { p: p.name }) })), ...((isOwner || value === '') ? [{ value: '', label: tr('Every VIP market') }] : [])]} />
     </label>
   )
 }
@@ -180,6 +206,12 @@ function BriefsEditor({ programme, isOwner, canManage }) {
   }
   return (
     <div className="space-y-4">
+      <HowItWorks id="challenges" openByDefault={(rows || []).length === 0} title={tr('How a monthly challenge runs')} lines={[
+        ['pencil', 'Write the brief: a theme, what to film and a few hook ideas. Pick the month and who it is for.'],
+        ['trophy', 'Set the prizes by place. They are saved with the challenge, so there is nothing to set up in Bonuses.'],
+        ['bell', 'When you post it, every VIP it is for gets a notification, and it sits at the top of their VIP page with live standings.'],
+        ['calendar', 'When the month closes, the places are worked out and the prizes go into the winners\' balances by themselves.'],
+      ]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-xl text-sm text-smoke">{tr('A theme, a brief, hook ideas and a goal for each month. Every VIP in scope is told, sees it at the top of their month, and gets live standings.')}</p>
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New challenge')}</button>}
@@ -253,11 +285,13 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   async function save() {
     setBusy(true)
     try {
+      const was = brief.id ? (brief.programme_id || '') : scope
       await vipRpc('vip_save_brief', {
-        p_id: brief.id || null, p_programme: scopeId(scope), p_year: yy, p_month: mm, p_title: title, p_theme: theme || null, p_body: body,
+        p_id: brief.id || null, p_programme: scopeId(was), p_year: yy, p_month: mm, p_title: title, p_theme: theme || null, p_body: body,
         p_hooks: hooks.split('\n').map((h) => h.trim()).filter(Boolean), p_metric: metric,
         p_target: target ? Number(String(target).replace(/[^\d]/g, '')) : null, p_prize: prize || null,
       })
+      if (brief.id && scope !== was) await vipRpc('vip_move_content', { p_table: 'vip_briefs', p_id: brief.id, p_programme: scopeId(scope) })
       await savePrizes(tr('Prizes: {t}', { t: title.trim() || monthLabel(yy, mm) }))
       toastSuccess(brief.id ? tr('Saved') : tr('Posted. Every VIP in scope has been notified.'))
       onSaved()
@@ -267,7 +301,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
     <Modal open onClose={onClose} title={brief.id ? tr('Edit challenge') : tr('New monthly challenge')} wide>
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} disabled={!!brief.id} />
+          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
           <label className="block"><span className="label">{tr('Month')}</span><input type="month" className="input" value={ym} onChange={(e) => setYm(e.target.value)} /></label>
         </div>
         <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: Hidden-gem city breaks')} /></label>
@@ -323,6 +357,12 @@ function PerksEditor({ programme, isOwner, canManage }) {
   }
   return (
     <div className="space-y-6">
+      <HowItWorks id="perks" openByDefault={(rows || []).length === 0} title={tr('How milestones, perks and trips work')} lines={[
+        ['flag', 'A milestone, perk or trip unlocks by itself when a VIP reaches a number: total views, total videos, months as a VIP, months posting in a row or views on one video.'],
+        ['cash', 'Give it a reward and it is paid automatically: cash goes into their balance, a voucher is raised for you to send. Pick "Nothing to pay" for a trip or a perk you arrange yourself, then mark it delivered below.'],
+        ['eye', 'VIPs see all of them under Perks and trips on their VIP page, with how close they are.'],
+        ['sparkles', 'A one-off cash bonus for a milestone can also be set in Money, Bonuses. Use this page when you want it shown as a goal to unlock.'],
+      ]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-xl text-sm text-smoke">{tr('Rewards VIPs unlock on their own as their views and videos add up. They see them on their VIP page under Perks and trips, with how close they are. A cash reward goes straight into their balance and a voucher is raised for you to send, so nothing needs doing by hand. A trip or a perk without a reward is marked delivered by you.')}</p>
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New perk or trip')}</button>}
@@ -338,7 +378,7 @@ function PerksEditor({ programme, isOwner, canManage }) {
                 <div className="flex items-start gap-3">
                   <Icon name={kind.icon} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                   <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr(kind.label)}<ScopeTag row={p} />{p.reward_kind && p.reward_kind !== 'none' && <span className={cx('rounded-full px-2 py-0.5', p.reward_kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>{p.reward_kind === 'voucher' ? tr('{a} voucher', { a: money(p.reward_amount, programme.currency, { cents: false }) }) : tr('{a} cash', { a: money(p.reward_amount, programme.currency, { cents: false }) })}</span>}{!p.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Draft')}</span>}</p>
+                    <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr(kind.label)}<ScopeTag row={p} />{p.reward_kind && p.reward_kind !== 'none' && <span className={cx('rounded-full px-2 py-0.5', p.reward_kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{p.reward_kind === 'voucher' ? tr('{a} voucher', { a: money(p.reward_amount, programme.currency, { cents: false }) }) : tr('{a} cash', { a: money(p.reward_amount, programme.currency, { cents: false }) })}</span>}{!p.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Draft')}</span>}</p>
                     <h3 className="text-[15px] font-bold leading-snug text-ink">{p.title}</h3>
                     <p className="mt-0.5 text-xs text-smoke">{p.metric === 'manual' ? tr('Given by the team') : unitLabel(p.metric, p.threshold, tr)} {p.metric !== 'manual' && metric ? '' : ''}</p>
                   </div>
@@ -401,8 +441,10 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
     if (reward !== 'none' && !(Number(amount) > 0)) { notice(tr('Say how much the reward is worth.')); return }
     setBusy(true)
     try {
-      const id = await vipRpc('vip_save_perk', { p_id: perk.id || null, p_programme: scopeId(scope), p_kind: kind, p_title: title, p_description: description || null, p_image: perk.image_url || null, p_metric: metric, p_threshold: metric === 'manual' ? 0 : Number(String(threshold).replace(/[^\d]/g, '')) || 0, p_sort: perk.sort ?? 0, p_active: active })
+      const was = perk.id ? (perk.programme_id || '') : scope
+      const id = await vipRpc('vip_save_perk', { p_id: perk.id || null, p_programme: scopeId(was), p_kind: kind, p_title: title, p_description: description || null, p_image: perk.image_url || null, p_metric: metric, p_threshold: metric === 'manual' ? 0 : Number(String(threshold).replace(/[^\d]/g, '')) || 0, p_sort: perk.sort ?? 0, p_active: active })
       const perkId = perk.id || (typeof id === 'string' ? id : id?.id)
+      if (perk.id && scope !== was) await vipRpc('vip_move_content', { p_table: 'vip_perks', p_id: perk.id, p_programme: scopeId(scope) })
       if (perkId) await vipRpc('vip_set_perk_reward', { p_id: perkId, p_kind: reward, p_amount: reward === 'none' ? null : Number(amount) })
       toastSuccess(tr('Saved')); onSaved()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
@@ -412,8 +454,19 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
     <Modal open onClose={onClose} title={perk.id ? tr('Edit perk or trip') : tr('New perk or trip')} wide>
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} disabled={!!perk.id} />
-          <label className="block"><span className="label">{tr('Kind')}</span><Select variant="field" portal value={kind} onChange={setKind} ariaLabel={tr('Kind')} options={PERK_KINDS.map((k) => ({ value: k.key, label: tr(k.label) }))} /></label>
+          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
+        </div>
+        <div>
+          <p className="label">{tr('What kind of reward is it?')}</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {PERK_KINDS.map((k) => (
+              <button key={k.key} type="button" aria-pressed={kind === k.key} onClick={() => setKind(k.key)}
+                className={cx('flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all duration-200', kind === k.key ? 'border-brand bg-brand-tint/50 shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30')}>
+                <Icon name={k.icon} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                <span className="min-w-0"><span className="block text-[13px] font-semibold text-ink">{tr(k.label)}</span><span className="block text-[11px] leading-snug text-smoke">{tr(k.hint)}</span></span>
+              </button>
+            ))}
+          </div>
         </div>
         <label className="block"><span className="label">{tr('Name')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: 1 million views')} /></label>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -453,6 +506,11 @@ function GuidesEditor({ programme, isOwner, canManage }) {
   }
   return (
     <div className="space-y-4">
+      <HowItWorks id="guides" openByDefault={(rows || []).length === 0} title={tr('How the guides work')} lines={[
+        ['book', 'Each guide is an article VIPs read in the Library on their VIP page: how to film a trip, how to write a hook, how to plan a month.'],
+        ['tag', 'Give it a topic and the guides group under it. The order number puts the lowest first.'],
+        ['globe', 'Make it for one market, or for every VIP market (owner).'],
+      ]} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-xl text-sm text-smoke">{tr('The VIP library: how to film a trip, how to write a hook, how to plan a month. The hook generator sits above them on the VIP page.')}</p>
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New guide')}</button>}
@@ -490,7 +548,9 @@ function GuideForm({ programme, isOwner, guide, cats, onClose, onSaved }) {
   async function save() {
     setBusy(true)
     try {
-      await vipRpc('vip_save_guide', { p_id: guide.id || null, p_programme: scopeId(scope), p_category: category, p_title: title, p_body: body, p_sort: Number(sort) || 0, p_active: active })
+      const was = guide.id ? (guide.programme_id || '') : scope
+      await vipRpc('vip_save_guide', { p_id: guide.id || null, p_programme: scopeId(was), p_category: category, p_title: title, p_body: body, p_sort: Number(sort) || 0, p_active: active })
+      if (guide.id && scope !== was) await vipRpc('vip_move_content', { p_table: 'vip_guides', p_id: guide.id, p_programme: scopeId(scope) })
       toastSuccess(tr('Saved')); onSaved()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
@@ -498,7 +558,7 @@ function GuideForm({ programme, isOwner, guide, cats, onClose, onSaved }) {
     <Modal open onClose={onClose} title={guide.id ? tr('Edit guide') : tr('New guide')} wide>
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} disabled={!!guide.id} />
+          <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
           <label className="block"><span className="label">{tr('Topic')}</span><input className="input" list="vip-guide-cats" maxLength={40} value={category} onChange={(e) => setCategory(e.target.value)} /><datalist id="vip-guide-cats">{cats.map((c) => <option key={c} value={c} />)}</datalist></label>
         </div>
         <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={140} value={title} onChange={(e) => setTitle(e.target.value)} /></label>

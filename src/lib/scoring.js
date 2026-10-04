@@ -94,7 +94,7 @@ export const STARTER_POINT_RULES = [
 export const RULE_USES_THRESHOLD = new Set(['views_threshold', 'total_views_threshold'])
 // `bonus` has a cap too (migration 233): "+3 a video, at most 9 from this
 // bonus". A consistency bonus is paid once, so it has no cap.
-export const RULE_USES_MAX = new Set(['per_post', 'platform_spread', 'bonus'])
+export const RULE_USES_MAX = new Set(['per_post', 'platform_spread', 'bonus', 'collab'])
 export const RULE_USES_PERIOD = new Set(['consistency'])
 
 // A rule id that is a real database row. The editor gives a rule it has just

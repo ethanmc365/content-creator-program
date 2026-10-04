@@ -1,14 +1,10 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
+import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
-import { confirm, notice } from '../../lib/confirm'
-import { toastSuccess } from '../../lib/toast'
 import { formatDate, formatViews } from '../../lib/utils'
-import { ATTENTION, EVENT_ICON, describeEvent, money, perK, useOptionalRpc, vipRpc } from '../../lib/vip'
+import { ATTENTION, EVENT_ICON, describeEvent, perK, useOptionalRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
-import { AnnouncementCard } from './mine'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART THREE (30 Sep 2026, migration 298): the things that turn the tools from
 // a set of tables into something you can read at a glance - a trend, who needs a nudge, who looks ready to be a VIP,
@@ -127,106 +123,5 @@ export function MemberStoryModal({ m, programme, onClose, onEdit, onMoveBack }) 
         </div>
       </div>
     </Modal>
-  )
-}
-
-// ------------------------------------------------------------------------------------ announcements
-/** What the team says to every VIP of a programme: a notification now, and a card on their VIP page. */
-export function AnnouncementsTab({ programme }) {
-  const tr = useT()
-  const [list, setList] = useState(null)
-  const [missing, setMissing] = useState(false)
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [pinned, setPinned] = useState(true)
-  const [busy, setBusy] = useState(false)
-  // the list itself is a plain table read (RLS decides who may see it)
-  const load = useCallback(async () => {
-    const { data: rows, error } = await supabase.from('vip_announcements').select('*').eq('programme_id', programme.id)
-      .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(30)
-    if (error) { setMissing(/does not exist|schema cache/i.test(error.message)); setList([]) } else setList(rows || [])
-  }, [programme.id])
-  useEffect(() => { setList(null); load() }, [load])
-
-  async function post() {
-    setBusy(true)
-    try {
-      // A TITLE IS OPTIONAL (3 Oct 2026): "they can just write a simple message that the creators will see." Without
-      // one, the notification is headed by the first words of the message.
-      const head = title.trim() || body.trim().split(/\n/)[0].slice(0, 80)
-      await vipRpc('vip_announce', { p_programme: programme.id, p_title: head, p_body: body, p_pinned: pinned })
-      toastSuccess(tr('Posted. Every VIP has been notified.'))
-      setTitle(''); setBody('')
-      await load()
-    } catch (e) { notice(e.message) } finally { setBusy(false) }
-  }
-  async function pin(a) { try { await vipRpc('vip_set_announcement', { p_id: a.id, p_pinned: !a.pinned }); load() } catch (e) { notice(e.message) } }
-  async function remove(a) {
-    if (!await confirm(tr('Delete this announcement? It disappears from the VIP page. Notifications already sent stay.'), { confirmLabel: tr('Delete'), danger: true })) return
-    try { await vipRpc('vip_set_announcement', { p_id: a.id, p_delete: true }); load() } catch (e) { notice(e.message) }
-  }
-
-  if (missing) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Announcements are being switched on. Try again in a minute.')}</p>
-  return (
-    <div className="space-y-6">
-      {/* WHAT IT LOOKS LIKE, WHILE YOU TYPE (3 Oct 2026). Ethan: "I don't get why we have content because this should
-          just be an announcement in the rooms ... show a preview of how that looks, and whenever I'm typing it in on top
-          of the page, I can see how it actually works." One send does three things, and the copy now says so: a
-          notification to every VIP, a post in the market's VIP announcements room, and this card at the top of their
-          VIP page (pinned ones stay there; the newest three show). */}
-      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-        <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
-          <h2 className="text-[15px] font-bold text-ink">{tr('Tell your VIPs something')}</h2>
-          <ul className="mb-4 mt-2 space-y-1.5 text-[13px] text-smoke">
-            <li className="flex items-center gap-2"><Icon name="bell" className="h-3.5 w-3.5 shrink-0 text-brand" />{tr('Every VIP in {p} gets a notification', { p: programme.name })}</li>
-            <li className="flex items-center gap-2"><Icon name="chat" className="h-3.5 w-3.5 shrink-0 text-brand" />{tr('It is posted in the VIP announcements room')}</li>
-            <li className="flex items-center gap-2"><Icon name="star" className="h-3.5 w-3.5 shrink-0 text-brand" />{tr('It sits at the top of their VIP page, as previewed here')}</li>
-          </ul>
-          <div className="space-y-3">
-            <label className="block"><span className="label">{tr('Message')}</span><textarea className="input min-h-[7rem] resize-y" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('Write what every VIP should know.')} /></label>
-            <label className="block"><span className="label">{tr('Title (optional)')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: New bonus for October')} /></label>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-smoke"><Toggle on={pinned} onChange={setPinned} label={tr('Pin it to the top of the VIP page')} />{tr('Pin it to the top of the VIP page')}</label>
-              <button type="button" onClick={post} disabled={busy || !body.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="megaphone" className="h-4 w-4" />}{tr('Send to every VIP')}</button>
-            </div>
-          </div>
-        </section>
-        <section className="animate-rise [animation-delay:80ms] lg:sticky lg:top-24">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name="eye" className="h-3.5 w-3.5 text-brand" />{tr('Live preview: the top of the VIP page')}</p>
-          <div className="space-y-3 rounded-card border border-gray-100 bg-cloud/60 p-3 sm:p-4">
-            <div aria-hidden className="rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white shadow-card">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/80">{tr('This month so far')}</p>
-              <p className="mt-0.5 text-2xl font-bold tabular-nums">{money(0, programme.currency)}</p>
-            </div>
-            <AnnouncementCard a={{ title: title.trim(), body: body.trim(), pinned }} preview />
-            {(list || []).filter((a) => a.pinned).slice(0, pinned ? 1 : 2).map((a) => <div key={a.id} className="opacity-60"><AnnouncementCard a={a} /></div>)}
-          </div>
-        </section>
-      </div>
-      <section>
-        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Sent so far')}</h2>
-        {list === null ? <Skeleton className="h-24 w-full rounded-card" /> : list.length === 0
-          ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('Nothing sent yet.')}</p>
-          : (
-            <ul className="space-y-3">
-              {list.map((a, i) => (
-                <li key={a.id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-2 text-sm font-bold text-ink">{a.title}{a.pinned && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">{tr('Pinned')}</span>}</p>
-                      <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-smoke">{a.body}</p>
-                      <p className="mt-2 text-xs text-gray-400">{formatDate(a.created_at)}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button type="button" onClick={() => pin(a)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{a.pinned ? tr('Unpin') : tr('Pin')}</button>
-                      <button type="button" onClick={() => remove(a)} aria-label={tr('Delete')} className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-      </section>
-    </div>
   )
 }

@@ -200,6 +200,8 @@ export default function AdminChallengeForm() {
     participation_reward_type: 'voucher',
     participation_amount: '',
     participation_scope: 'everyone',
+    // A WELCOME VOUCHER FOR FIRST-TIME ENTRANTS (4 Oct 2026, migration 325). Off until an amount is set.
+    welcome_amount: '', welcome_views: 5000, welcome_limit: '',
     extra_awards: [],
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
@@ -418,6 +420,9 @@ export default function AdminChallengeForm() {
             ?? (/voucher|credit|gift/i.test(data.participation_prize || '') ? 'voucher' : data.participation_prize ? 'cash' : 'voucher'),
           participation_amount: data.participation_amount ?? '',
           participation_scope: data.participation_scope ?? 'everyone',
+          welcome_amount: data.welcome_amount ?? '',
+          welcome_views: data.welcome_views ?? 5000,
+          welcome_limit: data.welcome_limit ?? '',
           extra_awards: Array.isArray(data.extra_awards) ? data.extra_awards : [],
           market: data.market ?? '',
           format: data.format ?? 'monthly',
@@ -635,6 +640,9 @@ export default function AdminChallengeForm() {
         ? form.participation_prize.trim()
         : null,
       ...participationExtras(form),
+      welcome_amount: Number(form.welcome_amount) > 0 ? Number(form.welcome_amount) : null,
+      welcome_views: Math.max(0, parseInt(form.welcome_views, 10) || 5000),
+      welcome_limit: Number(form.welcome_limit) > 0 ? Math.floor(Number(form.welcome_limit)) : null,
       extra_awards: cleanExtraAwards(form.extra_awards),
       start_date: startIso,
       end_date: endIso,
@@ -1324,6 +1332,26 @@ export default function AdminChallengeForm() {
             onExtraAwards={(next) => set({ extra_awards: next })}
             idPrefix="challenge-prize"
           />
+
+          {/* A WELCOME VOUCHER, TO GET NEW CREATORS IN (4 Oct 2026). Ethan: "a voucher for every new person that joins this challenge now,
+              posts, and gets over 5K views." Off until an amount is typed. A creator whose first-ever challenge entry is in this challenge
+              and whose entry passes the views is given a voucher reward by itself (hourly), and the voucher pipeline sends the code. */}
+          <div className="mt-5 rounded-xl border border-brand/15 bg-brand-tint/20 p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon name="ticket" className="h-4 w-4 text-brand" />Welcome voucher for first-time creators</p>
+            <p className="mt-0.5 text-xs text-smoke">A creator who enters a challenge for the first time and whose video passes the views below gets a voucher, without you doing anything. Leave the amount empty to switch it off.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="block"><span className="label">Voucher worth</span>
+                <span className="relative block"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
+                  <input className="input !pl-8" inputMode="decimal" value={form.welcome_amount} onChange={(e) => set({ welcome_amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="5" /></span>
+              </label>
+              <label className="block"><span className="label">When their video passes</span>
+                <span className="relative block"><input className="input !pr-14" inputMode="numeric" value={form.welcome_views} onChange={(e) => set({ welcome_views: e.target.value.replace(/[^\d]/g, '') })} placeholder="5000" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">views</span></span>
+              </label>
+              <label className="block"><span className="label">For the first (optional)</span>
+                <span className="relative block"><input className="input !pr-16" inputMode="numeric" value={form.welcome_limit} onChange={(e) => set({ welcome_limit: e.target.value.replace(/[^\d]/g, '') })} placeholder="No limit" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">people</span></span>
+              </label>
+            </div>
+          </div>
 
           {/* The totals, derived: cash and vouchers, with the taking-part
               reward as the range it really is. */}

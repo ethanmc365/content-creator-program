@@ -96,8 +96,8 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
     const n = p.rooms.filter((r) => !isHere(p, r) && unread.has(scopedChannel(p, r.key))).length
     return (
       <div className="flex items-center gap-2.5 px-2 pb-1.5 pt-1">
-        <FlagTile codes={p.country_codes} kind={p.kind} size="h-7 w-7" glyph="text-base" className={cx('rounded-lg', vip && 'bg-white/95')} title={p.name} />
-        <span className={cx('min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em]', vip ? 'text-white' : 'text-ink')}>
+        <FlagTile codes={p.country_codes} kind={p.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg" title={p.name} />
+        <span className={cx('min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em]', 'text-ink')}>
           {vip ? tr('VIP {m}', { m: p.name }) : p.name}
         </span>
         {n > 0 && <UnreadCount n={n} />}
@@ -152,9 +152,9 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
                 </section>
               ))}
               {vipPlaces.map((p) => (
-                <section key={`vip-${p.id}`} className="vip-surface rounded-3xl p-2">
+                <section key={`vip-${p.id}`}>
                   {placeHead(p, { vip: true })}
-                  <div className="space-y-0.5">{p.rooms.map((r) => row(p, r, { vip: true }))}</div>
+                  <div className="space-y-0.5">{p.rooms.map((r) => row(p, r))}</div>
                 </section>
               ))}
             </div>

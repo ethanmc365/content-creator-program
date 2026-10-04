@@ -108,9 +108,18 @@ self.addEventListener('fetch', (event) => {
 // notification was SHOWN and that it was TAPPED. `tag` is the notification's id. A beacon must
 // never hold up or break the notification, so every failure is swallowed.
 const TRACK_URL = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/push-track'
+//
+// SHORT ON PURPOSE (4 Oct 2026). Ethan: the app was showing 9 hours in iPhone Screen Time on days he used it for ten minutes, and this beacon
+// arrived with push analytics a few days before it started. Every push wakes this worker, and the worker stayed awake until this request
+// finished - on a slow connection or a cold edge function that is many seconds of "the app is running" per notification. It now gives up
+// after 2.5 seconds, so the worker is never held open by analytics, and a delivery whose report is lost is simply not counted.
 function track(id, e) {
   if (!id) return Promise.resolve()
-  return fetch(TRACK_URL, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ n: id, e }) }).catch(() => {})
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = ctl ? setTimeout(() => ctl.abort(), 2500) : null
+  return fetch(TRACK_URL, { method: 'POST', mode: 'no-cors', keepalive: true, signal: ctl ? ctl.signal : undefined, headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ n: id, e }) })
+    .catch(() => {})
+    .finally(() => { if (timer) clearTimeout(timer) })
 }
 
 self.addEventListener('push', (event) => {

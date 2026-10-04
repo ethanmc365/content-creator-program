@@ -53,12 +53,13 @@ function Choice({ on, onClick, children, className }) {
   return <button type="button" onClick={onClick} aria-pressed={on} className={cx('rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink', className)}>{children}</button>
 }
 
-function RuleModal({ rule, programme, month, onClose, onSaved }) {
+function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
   const tr = useT()
   const { profile } = useAuth()
   const sym = curSym(programme.currency)
   const [r, setR] = useState(() => ({ ...blankRule(rule?.kind), ...rule, amount: rule?.amount ?? '', places: rule?.places?.length ? rule.places : blankRule().places, when: rule?.id ? whenOf(rule, month) : (rule?.when || 'every') }))
   const [busy, setBusy] = useState(false)
+  const [tpl, setTpl] = useState(null)
   const kind = BONUS_KINDS.find((k) => k.key === r.kind)
   const set = (patch) => setR((x) => ({ ...x, ...patch }))
   const setCond = (patch) => setR((x) => ({ ...x, conditions: { ...x.conditions, ...patch } }))
@@ -104,14 +105,22 @@ function RuleModal({ rule, programme, month, onClose, onSaved }) {
     <Modal open onClose={onClose} title={editing ? tr('Edit this bonus') : tr('Add a bonus')} wide>
       <div className="space-y-5">
         {!editing && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {BONUS_KINDS.map((k) => (
-              <button key={k.key} type="button" onClick={() => setR({ ...blankRule(k.key), label: '', when: r.when })} aria-pressed={r.kind === k.key}
-                className={cx('flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all duration-200', r.kind === k.key ? 'border-brand bg-brand-tint/50 shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30')}>
-                <Icon name={k.icon} className="h-5 w-5 text-brand" />
-                <span className="text-[13px] font-semibold leading-tight text-ink">{tr(k.label)}</span>
-              </button>
-            ))}
+          <div>
+            <p className="label">{tr('Start from')}</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {TEMPLATES.map((t) => {
+                const on = !t.ladder && tpl === t.key
+                return (
+                  <button key={t.key} type="button" aria-pressed={on}
+                    onClick={() => { if (t.ladder) { onLadder?.(); return } setTpl(t.key); setR({ ...blankRule(t.rule.kind), ...t.rule, label: tr(t.rule.label), places: t.rule.places || blankRule().places, when: r.when }) }}
+                    className={cx('flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all duration-200', on ? 'border-brand bg-brand-tint/50 shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30')}>
+                    <Icon name={t.icon} className="h-5 w-5 text-brand" />
+                    <span className="text-[13px] font-semibold leading-tight text-ink">{tr(t.label)}</span>
+                    <span className="text-[11px] leading-snug text-smoke">{tr(t.hint)}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
         {/* ONE HEIGHT FOR EVERY KIND (3 Oct 2026): "clicking from hit a target to top of the month changes the size of
@@ -164,7 +173,7 @@ function RuleModal({ rule, programme, month, onClose, onSaved }) {
                   <label className="block"><span className="label">{tr('What counts')}</span>
                     <Select variant="field" portal value={r.conditions.metric} onChange={(v) => setCond({ metric: v })} ariaLabel={tr('What counts')} options={MILESTONE_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} />
                   </label>
-                  <label className="block"><span className="label">{tr('Reached at')}</span><input className="input" inputMode="numeric" value={r.conditions.threshold ?? ''} onChange={(e) => setCond({ threshold: e.target.value.replace(/[^\d]/g, '') })} placeholder="1000000" /></label>
+                  <label className="block"><span className="label">{tr('Reached at')}</span><input className="input" inputMode="numeric" value={r.conditions.threshold ?? ''} onChange={(e) => setCond({ threshold: e.target.value.replace(/[^\d]/g, '') })} placeholder={String((MILESTONE_METRICS.find((m) => m.key === r.conditions.metric) || MILESTONE_METRICS[0]).example)} /></label>
                 </div>
               )}
               {r.kind === 'target' && (
@@ -235,13 +244,19 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
   const [metric, setMetric] = useState('lifetime_views')
   const [reward, setReward] = useState('cash')
   const [rows, setRows] = useState([{ at: '100000', amount: '10' }, { at: '500000', amount: '25' }, { at: '1000000', amount: '50' }, { at: '5000000', amount: '150' }])
+  const pickMetric = (m) => {
+    setMetric(m)
+    const base = (MILESTONE_METRICS.find((x) => x.key === m) || MILESTONE_METRICS[0]).example
+    setRows([1, 2, 5, 10].map((k, i) => ({ at: String(Math.round(base * k / 2)), amount: String([10, 25, 50, 150][i]) })))
+  }
   const [busy, setBusy] = useState(false)
   const set = (i, patch) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
     const good = rows.map((r) => ({ at: Number(String(r.at).replace(/[^\d.]/g, '')), amount: Number(r.amount) })).filter((r) => r.at > 0 && r.amount > 0)
     if (!good.length) { notice(tr('Add at least one milestone with an amount.')); return }
     setBusy(true)
-    const label = (n) => (metric === 'lifetime_views' ? tr('{n} views in total', { n: nf(n) }) : metric === 'lifetime_videos' ? tr('{n} videos in total', { n: nf(n) }) : tr('{n} earned in one month', { n: nf(n) }))
+    const meta = MILESTONE_METRICS.find((m) => m.key === metric) || MILESTONE_METRICS[0]
+    const label = (n) => `${nf(n)} ${tr(meta.noun)}`
     const { error } = await supabase.from('vip_bonus_rules').insert(good.map((g) => ({
       programme_id: programme.id, label: label(g.at), kind: 'milestone', scope: 'creator', reward, amount: g.amount, places: [],
       conditions: { metric, threshold: g.at }, active: true, created_by: profile?.id,
@@ -257,7 +272,7 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
         <p className="text-sm text-smoke">{tr('Each milestone pays a VIP once, the month they reach it, and is added to their balance automatically.')}</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="block"><span className="label">{tr('What counts')}</span>
-            <Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('What counts')} options={MILESTONE_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} />
+            <Select variant="field" portal value={metric} onChange={pickMetric} ariaLabel={tr('What counts')} options={MILESTONE_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} />
           </label>
           <div><span className="label">{tr('Paid as')}</span>
             <div className="grid grid-cols-2 gap-2"><Choice on={reward === 'cash'} onClick={() => setReward('cash')}>{tr('Cash')}</Choice><Choice on={reward === 'voucher'} onClick={() => setReward('voucher')}>{tr('Voucher')}</Choice></div>
@@ -279,10 +294,20 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
   )
 }
 
-const PRESETS = [
+// WHERE A BONUS STARTS (4 Oct 2026). Ethan: the ready-made bonuses "should show up as options at the top because we have the 'Add a
+// bonus' button anyway." They were a row of cards above the list; now they are the first thing in the Add dialog. Each one fills the
+// form with sensible numbers to change, and everything here is worked out by itself when the month closes.
+const TEMPLATES = [
   { key: 'podium', icon: 'trophy', label: 'Monthly podium', hint: 'Prizes for the top three on views', rule: { kind: 'top_n', label: 'Most views of the month', scope: 'market', reward: 'cash', places: [{ place: 1, amount: '100', reward: 'cash' }, { place: 2, amount: '50', reward: 'cash' }, { place: 3, amount: '25', reward: 'cash' }] } },
-  { key: 'target', icon: 'flag', label: 'Hit your target', hint: 'A bonus for reaching their own monthly target', rule: { kind: 'target', label: 'Monthly target hit', scope: 'creator', reward: 'cash', amount: '25', conditions: { own: true } } },
+  { key: 'target', icon: 'flag', label: 'Hit your target', hint: 'Reach the monthly target you set for them', rule: { kind: 'target', label: 'Monthly target hit', scope: 'creator', reward: 'cash', amount: '25', conditions: { own: true } } },
   { key: 'best', icon: 'star', label: 'Best video', hint: 'The most-viewed video of the month', rule: { kind: 'best_video', label: 'Video of the month', scope: 'market', reward: 'cash', amount: '50' } },
+  { key: 'streak', icon: 'fire', label: 'Consistency streak', hint: '4+ videos in each of 3 months in a row', rule: { kind: 'streak', label: 'Three good months in a row', scope: 'creator', reward: 'cash', amount: '50', conditions: { months: 3, min_videos: 4 } } },
+  { key: 'many', icon: 'video', label: 'Post a lot', hint: 'Everyone who posts 15 videos in a month', rule: { kind: 'target', label: '15 videos in a month', scope: 'creator', reward: 'cash', amount: '30', conditions: { own: false, videos: 15 } } },
+  { key: 'big', icon: 'trendUp', label: 'A big month', hint: 'Everyone who reaches 100,000 views in a month', rule: { kind: 'target', label: '100,000 views in a month', scope: 'creator', reward: 'cash', amount: '40', conditions: { own: false, views: 100000 } } },
+  { key: 'viral', icon: 'eye', label: 'A video that took off', hint: 'One video passing 1,000,000 views', rule: { kind: 'milestone', label: 'A million-view video', scope: 'creator', reward: 'cash', amount: '150', conditions: { metric: 'best_video_views', threshold: '1000000' } } },
+  { key: 'loyal', icon: 'calendar', label: 'Loyalty', hint: 'Six months as a VIP', rule: { kind: 'milestone', label: 'Six months as a VIP', scope: 'creator', reward: 'voucher', amount: '50', conditions: { metric: 'months_active', threshold: '6' } } },
+  { key: 'milestone', icon: 'flag', label: 'A milestone', hint: 'A one-off for reaching a total', rule: { kind: 'milestone', label: '', scope: 'creator', reward: 'cash', amount: '', conditions: { metric: 'lifetime_views', threshold: '' } } },
+  { key: 'ladder', icon: 'chart', label: 'A ladder of milestones', hint: '100k, 500k, 1M views and so on, in one go', ladder: true },
 ]
 
 export function VipBonusesTab({ programme }) {
@@ -322,16 +347,6 @@ export function VipBonusesTab({ programme }) {
         <p className="max-w-2xl text-sm text-smoke">{tr('Set a bonus once and it is worked out for every VIP when the month closes, then added to their balance.')}</p>
         <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a bonus')}</button>
       </div>
-      {/* PLAIN ICONS (3 Oct 2026): "Just fix these icons. Don't like that weird background ... just normal icons." */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[...PRESETS.map((p) => ({ ...p, onClick: () => setEdit({ preset: true, ...p.rule, label: tr(p.rule.label) }) })), { key: 'ladder', icon: 'chart', label: 'Personal milestones', hint: 'A ladder: 100k, 500k, 1M views and so on', onClick: () => setLadder(true) }].map((p, i) => (
-          <button key={p.key} type="button" onClick={p.onClick} className="group flex flex-col items-start gap-1.5 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-lift" style={{ animationDelay: `${i * 50}ms` }}>
-            <Icon name={p.icon} className="h-6 w-6 text-brand transition-transform duration-200 group-hover:scale-110" />
-            <span className="text-[13.5px] font-bold text-ink">{tr(p.label)}</span>
-            <span className="text-[11.5px] leading-snug text-smoke">{tr(p.hint)}</span>
-          </button>
-        ))}
-      </div>
       {rules === null ? <Skeleton className="h-40 w-full rounded-card" /> : rules.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No bonuses yet. Start with a monthly podium, or a bonus for hitting the monthly target.')}</p>
       ) : (
@@ -350,7 +365,7 @@ export function VipBonusesTab({ programme }) {
                   <Toggle on={!!rule.active} onChange={() => toggle(rule)} label={tr('Running')} />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide">
-                  <span className={cx('rounded-full px-2 py-0.5', rule.reward === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>{rule.reward === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
+                  <span className={cx('rounded-full px-2 py-0.5', rule.reward === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{rule.reward === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
                   <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{runsLabel(rule)}</span>
                   {rule.scope === 'global' && <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Every VIP market')}</span>}
                 </div>
@@ -366,7 +381,7 @@ export function VipBonusesTab({ programme }) {
           })}
         </ul>
       )}
-      {edit && <RuleModal rule={edit.id || edit.preset ? edit : null} programme={programme} month={month} onClose={() => setEdit(null)} onSaved={load} />}
+      {edit && <RuleModal rule={edit.id ? edit : null} programme={programme} month={month} onClose={() => setEdit(null)} onSaved={load} onLadder={() => { setEdit(null); setLadder(true) }} />}
       {ladder && <MilestoneLadder programme={programme} onClose={() => setLadder(false)} onSaved={load} />}
     </div>
   )
@@ -408,14 +423,14 @@ function StatementRow({ s, cur, editable, onChanged }) {
           </span>
         </button>
         <div className="flex flex-wrap items-center gap-1.5">
-          {(s.flags || []).map((f) => <span key={f} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">{tr(FLAGS[f] || f)}</span>)}
+          {(s.flags || []).filter((f) => f !== 'no_views').map((f) => <span key={f} className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">{tr(FLAGS[f] || f)}</span>)}
         </div>
         <span className="w-24 text-right text-sm font-bold tabular-nums text-ink">{money(s.total, cur)}</span>
         <span className="w-32 text-right">
           {draft ? (
             editable ? <button type="button" onClick={approve} disabled={busy} className="btn-primary !px-3 !py-1.5 text-xs">{busy ? <Spinner className="h-3 w-3" /> : tr('Approve')}</button>
               : <span className="text-[11px] font-bold uppercase text-smoke">{tr('Draft')}</span>
-          ) : <span className={cx('text-[11px] font-bold uppercase tracking-wide', stage === 'paid' ? 'text-emerald-600' : 'text-brand')}>{stage === 'paid' ? tr('Paid') : stage === 'sent' ? tr('Sent') : s.invoice_id ? tr('Invoice approved') : Number(s.total) > 0 ? tr('In their balance') : tr('Nothing to pay')}</span>}
+          ) : <span className="text-[11px] font-bold uppercase tracking-wide text-smoke">{stage === 'paid' ? tr('Paid') : stage === 'sent' ? tr('Sent') : s.invoice_id ? tr('Invoice approved') : Number(s.total) > 0 ? tr('In their balance') : tr('Nothing to pay')}</span>}
         </span>
       </div>
       {open && (
@@ -450,7 +465,7 @@ function LedgerLine({ label, value, good }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-smoke">{label}</span>
-      <span className={cx('shrink-0 font-semibold tabular-nums', good ? 'text-emerald-700' : 'text-ink')}>{value}</span>
+      <span className={cx('shrink-0 font-semibold tabular-nums', good ? 'text-brand' : 'text-ink')}>{value}</span>
     </div>
   )
 }
@@ -461,7 +476,13 @@ export function VipCloseTab({ programme }) {
   const [monthId, setMonthId] = useState(null)
   const [review, setReview] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [programmeAuto, setProgrammeAuto] = useState(programme.auto_approve !== false)
   const cur = programme.currency
+
+  async function setAuto(on) {
+    setProgrammeAuto(on)
+    try { await vipRpc('vip_set_auto_approve', { p_programme: programme.id, p_on: on }); toastSuccess(tr('Saved')) } catch (e) { setProgrammeAuto(!on); notice(e.message) }
+  }
 
   const month = months?.find((m) => m.id === monthId) || null
   useEffect(() => {
@@ -478,7 +499,6 @@ export function VipCloseTab({ programme }) {
 
   const rows = review?.statements || []
   const drafts = rows.filter((s) => s.status === 'draft')
-  const total = rows.reduce((a, s) => a + Number(s.total || 0), 0)
   const open = month && month.status !== 'closed'
 
   async function draftNow() {
@@ -486,7 +506,7 @@ export function VipCloseTab({ programme }) {
     try { await vipRpc('vip_compute_statements', { p_month: monthId }); await load() } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   async function approveAll() {
-    if (!await confirm(tr('Approve all {n} drafts? Each one is added to the creator\'s balance, and their payout window opens.', { n: drafts.length }), { confirmLabel: tr('Approve all') })) return
+    if (!await confirm(tr('Approve all {n} that are waiting? Each one is added to the creator\'s balance.', { n: drafts.length }), { confirmLabel: tr('Approve all') })) return
     setBusy(true)
     try { const n = await vipRpc('vip_approve_month', { p_month: monthId }); toastSuccess(tr('{n} statements approved.', { n })); await load() } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
@@ -501,6 +521,9 @@ export function VipCloseTab({ programme }) {
   }
 
   if (months === null) return <Skeleton className="h-64 w-full rounded-card" />
+  const waiting = drafts
+  const added = rows.filter((s) => s.status !== 'draft')
+  const addedTotal = added.reduce((a, s) => a + Number(s.total || 0), 0)
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -524,41 +547,69 @@ export function VipCloseTab({ programme }) {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button type="button" onClick={draftNow} disabled={busy || !monthId} className="btn-secondary !py-2 text-xs"><Icon name="refresh" className="h-3.5 w-3.5" />{open ? tr('Preview this month') : tr('Recalculate')}</button>
           {rows.length > 0 && <button type="button" onClick={exportCsv} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Export CSV')}</button>}
-          {drafts.length > 0 && !open && <button type="button" onClick={approveAll} disabled={busy} className="btn-primary !py-2 text-xs">{busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />}{tr('Approve all {n}', { n: drafts.length })}</button>}
         </div>
       </div>
 
-      {/* MONTH END IN THREE STEPS (3 Oct 2026). Ethan: "some things are a bit confusing here, so really make everything
-          simple ... not really sure what [work them out again] does." The page says where the month is, in order. */}
+      {/* ONE STATUS, NOT THREE NUMBERED STEPS (4 Oct 2026). Ethan: "I chose 1, 2, 3, because currently it doesn't make sense, and it looks
+          like buttons, but they aren't even buttons ... I guess it should be added automatically, though, right? Only if they request
+          something, it should show up." So: a month closes by itself, every statement with nothing flagged goes straight into the
+          creator's balance, and this page only asks for a person where one is actually needed. One colour. */}
       {month && (
-        <ol className="grid gap-2 sm:grid-cols-3">
-          {[
-            { done: !open, now: open, title: tr('The month closes'), hint: open ? tr('By itself, at midnight on {d}', { d: formatDate(month.ends_at) }) : tr('Closed. Views were read one last time.') },
-            { done: !open && drafts.length === 0 && rows.length > 0, now: !open && drafts.length > 0, title: tr('You check and approve'), hint: drafts.length ? tr('{n} waiting for you', { n: drafts.length }) : open ? tr('After it closes') : tr('All approved') },
-            { done: !open && rows.length > 0 && drafts.length === 0, now: false, title: tr('Added to their balances'), hint: tr('They can then ask for cash or a voucher') },
-          ].map((st, i) => (
-            <li key={st.title} className={cx('flex items-start gap-3 rounded-card border px-4 py-3 animate-rise', st.now ? 'border-brand/30 bg-brand-tint/40' : 'border-gray-100 bg-white')} style={{ animationDelay: `${i * 60}ms` }}>
-              <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold', st.done ? 'bg-emerald-500 text-white' : st.now ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{st.done ? <Icon name="check" className="h-4 w-4" strokeWidth={3} /> : i + 1}</span>
-              <span className="min-w-0"><span className="block text-sm font-bold text-ink">{st.title}</span><span className="block text-xs text-smoke">{st.hint}</span></span>
-            </li>
-          ))}
-        </ol>
+        <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name={open ? 'clock' : 'check'} className="h-3.5 w-3.5 text-brand" />{open ? tr('Still open') : tr('Closed')}</p>
+              <p className="mt-1 text-[15px] font-bold text-ink">
+                {open
+                  ? tr('Closes by itself at midnight on {d}', { d: formatDate(month.ends_at) })
+                  : waiting.length > 0
+                    ? tr('{n} need a look before they are added', { n: waiting.length })
+                    : rows.length ? tr('Everyone was added to their balance') : tr('Nothing to add this month')}
+              </p>
+              <p className="mt-0.5 text-sm text-smoke">
+                {programmeAuto
+                  ? tr('When a month closes, every statement with nothing flagged goes straight into the creator\'s balance. Only the ones that need a person wait here.')
+                  : tr('Automatic adding is off. Approve each statement below to add it to the creator\'s balance.')}
+              </p>
+            </div>
+            <label className="flex items-center gap-3 text-sm font-semibold text-ink">
+              {tr('Add to balances automatically')}
+              <Toggle on={programmeAuto} onChange={setAuto} label={tr('Add to balances automatically')} />
+            </label>
+          </div>
+        </section>
       )}
-      {open && <p className="text-xs text-smoke">{tr('What you see below is a preview of {m} so far. Recalculate re-reads the numbers; nothing is paid until you approve.', { m: monthLabel(month.year, month.month) })}</p>}
+      {open && <p className="text-xs text-smoke">{tr('What you see below is a preview of {m} so far. Recalculate re-reads the numbers; nothing is added until the month closes.', { m: monthLabel(month.year, month.month) })}</p>}
 
       {review === null ? <Skeleton className="h-48 w-full rounded-card" /> : rows.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No statements for this month yet.')}</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">
-            <Stat label={tr('Statements')} value={String(rows.length)} hint={tr('{n} still to approve', { n: drafts.length })} />
-            <Stat label={tr('Added to balances')} value={money(total, cur, { cents: false })} />
-            <Stat label={tr('Flagged')} value={String(rows.filter((s) => (s.flags || []).some((f) => f !== 'no_views')).length)} hint={tr('worth a look')} tone={rows.some((s) => (s.flags || []).includes('no_payment_details')) ? 'warn' : undefined} />
+            <Stat label={tr('Statements')} value={String(rows.length)} />
+            <Stat label={tr('In balances')} value={money(addedTotal, cur, { cents: false })} hint={tr('{n} added', { n: added.length })} />
+            <Stat label={tr('Need a look')} value={String(waiting.length)} hint={waiting.length ? tr('flagged or waiting') : tr('all clear')} />
           </div>
-          <ul className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-            {rows.map((s) => <StatementRow key={s.id} s={s} cur={cur} editable={!open} onChanged={load} />)}
-          </ul>
-          <p className="text-xs text-smoke">{tr('Approving adds the amount to the creator\'s balance. Their invoice is raised when they ask for cash. A late correction goes in Balances.')}</p>
+          {waiting.length > 0 && (
+            <section>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{open ? tr('So far') : tr('Waiting for a look')}</h3>
+                {!open && <button type="button" onClick={approveAll} disabled={busy} className="btn-primary !py-2 text-xs">{busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />}{tr('Add all {n} to balances', { n: waiting.length })}</button>}
+              </div>
+              <ul className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+                {waiting.map((s) => <StatementRow key={s.id} s={s} cur={cur} editable={!open} onChanged={load} />)}
+              </ul>
+            </section>
+          )}
+          {added.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Added to balances')}</h3>
+              <ul className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+                {added.map((s) => <StatementRow key={s.id} s={s} cur={cur} editable={false} onChanged={load} />)}
+              </ul>
+            </section>
+          )}
+          <p className="text-xs text-smoke">{tr('Their invoice is raised when they ask for cash. A late correction goes in Balances.')}</p>
         </>
       )}
     </div>
@@ -590,6 +641,7 @@ export function VipAnalyticsTab({ programme, isAdmin }) {
     key: `${m.year}-${m.month}`, year: m.year, month: m.month,
     label: monthLabel(m.year, m.month, { short: true }), views: Number(m.views) || 0, cost: Number(m.cost) || 0,
     cpm: m.cpm == null ? null : Number(m.cpm), members: Number(m.members) || 0, videos: Number(m.videos) || 0,
+    base: Number(m.base) || 0, bonus: Number(m.bonus) || 0, fresh: Number(m.new_members) || 0, top: m.top || null,
   })), [data])
   const last = series[series.length - 1]
   const prev = series[series.length - 2]
@@ -664,40 +716,16 @@ export function VipAnalyticsTab({ programme, isAdmin }) {
 
           {view === 'compare' && <MonthCompare series={series} cur={cur} />}
 
-          {view === 'creators' && (
-            <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-              <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_5.5rem_5.5rem] gap-3 border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-                <span>#</span><span>{tr('Creator')}</span><span className="text-right">{tr('Months')}</span><span className="text-right">{tr('Views')}</span><span className="text-right">{tr('Earned')}</span>
-              </div>
-              <ul className="divide-y divide-gray-50">
-                {(data.top || []).map((t, i) => {
-                  const lead = Math.max(1, Number(data.top[0]?.views) || 0)
-                  return (
-                    <li key={t.profile_id} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_5.5rem_5.5rem] items-center gap-3 px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}>
-                      <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
-                      <Link to={`/vip?mode=as&who=${t.profile_id}`} className="group flex min-w-0 items-center gap-2.5">
-                        <Avatar src={t.photo} name={t.name} size="sm" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand">{t.name}</span>
-                          <span className="mt-1 block h-1 max-w-[10rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light" style={{ width: `${Math.max(3, Math.round((Number(t.views) / lead) * 100))}%` }} /></span>
-                        </span>
-                      </Link>
-                      <span className="text-right text-xs tabular-nums text-smoke">{nf(t.months)}</span>
-                      <span className="text-right text-sm font-bold tabular-nums text-ink">{formatViews(t.views)}</span>
-                      <span className="text-right text-sm tabular-nums text-smoke">{money(t.earned, cur, { cents: false })}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          )}
+          {view === 'creators' && <CreatorsCost data={data} cur={cur} />}
         </div>
       )}
     </div>
   )
 }
 
-// ANY TWO MONTHS, SIDE BY SIDE: the last two by default, each figure with how it moved.
+// ANY TWO MONTHS, SIDE BY SIDE (redrawn 4 Oct 2026). Ethan: "I would improve the UI of this month-versus-month interface and show more
+// details in it." Two month cards on top (what each cost and brought in, and who led), then every figure as a pair of bars you can
+// compare by eye, with how it moved. More figures than before: the views pay and the bonuses apart, new VIPs, cost per VIP.
 function MonthCompare({ series, cur }) {
   const tr = useT()
   const opts = series.map((m) => ({ value: m.key, label: monthLabel(m.year, m.month) })).reverse()
@@ -706,43 +734,133 @@ function MonthCompare({ series, cur }) {
   const A = series.find((m) => m.key === a)
   const B = series.find((m) => m.key === b)
   if (!A || !B) return null
+  const per = (n, d) => (d ? n / d : 0)
   const rows = [
     { label: tr('Views counted'), a: A.views, b: B.views, f: nf },
-    { label: tr('Paid'), a: A.cost, b: B.cost, f: (n) => money(n, cur), low: true },
+    { label: tr('Total paid'), a: A.cost, b: B.cost, f: (n) => money(n, cur, { cents: false }), low: true },
+    { label: tr('Views pay'), a: A.base, b: B.base, f: (n) => money(n, cur, { cents: false }), low: true },
+    { label: tr('Bonuses'), a: A.bonus, b: B.bonus, f: (n) => money(n, cur, { cents: false }), low: true },
     { label: tr('Cost per 1,000 views'), a: A.cpm ?? 0, b: B.cpm ?? 0, f: (n) => perK(n, cur), low: true },
     { label: tr('Active VIPs'), a: A.members, b: B.members, f: nf },
+    { label: tr('New VIPs'), a: A.fresh, b: B.fresh, f: nf },
     { label: tr('Videos'), a: A.videos, b: B.videos, f: nf },
-    { label: tr('Views per VIP'), a: A.members ? A.views / A.members : 0, b: B.members ? B.views / B.members : 0, f: (n) => nf(Math.round(n)) },
-    { label: tr('Views per video'), a: A.videos ? A.views / A.videos : 0, b: B.videos ? B.views / B.videos : 0, f: (n) => nf(Math.round(n)) },
+    { label: tr('Views per VIP'), a: per(A.views, A.members), b: per(B.views, B.members), f: (n) => nf(Math.round(n)) },
+    { label: tr('Views per video'), a: per(A.views, A.videos), b: per(B.views, B.videos), f: (n) => nf(Math.round(n)) },
+    { label: tr('Cost per VIP'), a: per(A.cost, A.members), b: per(B.cost, B.members), f: (n) => money(n, cur, { cents: false }), low: true },
   ]
+  const head = (M, first) => (
+    <div className={cx('rounded-card p-4 shadow-card', first ? 'brand-drift text-white' : 'border border-gray-100 bg-white')}>
+      <p className={cx('text-[11px] font-bold uppercase tracking-wide', first ? 'text-white/85' : 'text-gray-400')}>{monthLabel(M.year, M.month)}</p>
+      <p className={cx('mt-1 text-3xl font-bold tabular-nums', first ? 'text-white' : 'text-ink')}>{formatViews(M.views)}<span className={cx('ml-1.5 text-sm font-semibold', first ? 'text-white/80' : 'text-smoke')}>{tr('views')}</span></p>
+      <p className={cx('mt-0.5 text-sm', first ? 'text-white/90' : 'text-smoke')}>{tr('{a} paid', { a: money(M.cost, cur, { cents: false }) })}{M.cpm != null ? ` · ${perK(M.cpm, cur)}` : ''}</p>
+      {M.top && Number(M.top.views) > 0 && <p className={cx('mt-2 flex items-center gap-1.5 text-xs font-semibold', first ? 'text-white' : 'text-ink')}><Icon name="trophy" className={cx('h-3.5 w-3.5', first ? 'text-white' : 'text-brand')} />{tr('Led by {n}, {v} views', { n: M.top.name, v: formatViews(M.top.views) })}</p>}
+    </div>
+  )
   return (
-    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-4 py-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Select variant="chip" value={a} onChange={setA} options={opts} ariaLabel={tr('Month')} search={false} className="w-44" />
         <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('against')}</span>
         <Select variant="chip" value={b} onChange={setB} options={opts} ariaLabel={tr('Month to compare with')} search={false} className="w-44" />
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_5rem] gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-        <span />
-        <span className="text-right text-brand">{monthLabel(A.year, A.month, { short: true })}</span>
-        <span className="text-right">{monthLabel(B.year, B.month, { short: true })}</span>
-        <span className="text-right">{tr('Change')}</span>
+      <div className="grid gap-3 sm:grid-cols-2">{head(A, true)}{head(B, false)}</div>
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
+          <span>{tr('Figure')}</span>
+          <span className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand" />{monthLabel(A.year, A.month, { short: true })}</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-gray-300" />{monthLabel(B.year, B.month, { short: true })}</span>
+          </span>
+        </div>
+        <ul className="divide-y divide-gray-50">
+          {rows.map((r) => {
+            const pct = pctMove(r.a, r.b)
+            const top = Math.max(r.a, r.b, 1e-9)
+            const good = pct == null || pct === 0 ? null : (pct > 0) !== !!r.low
+            return (
+              <li key={r.label} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-ink">{r.label}</span>
+                  {pct == null ? <span className="text-xs text-gray-300">-</span> : <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', good == null ? 'bg-cloud text-smoke' : good ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600')}>{pct > 0 ? '+' : ''}{pct}%</span>}
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  {[[r.a, 'bg-gradient-to-r from-brand to-brand-light', 'text-ink font-bold'], [r.b, 'bg-gray-300', 'text-smoke']].map(([v, bar, text], i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className={cx('h-full rounded-full transition-[width] duration-700 ease-out', bar)} style={{ width: `${v > 0 ? Math.max(2, (v / top) * 100) : 0}%` }} /></div>
+                      <span className={cx('w-24 shrink-0 text-right text-sm tabular-nums', text)}>{r.f(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    </div>
+  )
+}
+
+// WHAT EACH CREATOR COSTS (4 Oct 2026). Ethan: "It should show their CPM here as well, their average CPM, coming out of everything: how
+// much we're giving them and how much it is actually costing us." Every VIP's views, what they were paid in all (views pay and
+// bonuses), and the cost per 1,000 views that works out to, against the average for everyone. Dearer than average is flagged.
+function CreatorsCost({ data, cur }) {
+  const tr = useT()
+  const rows = (data.top || []).map((t) => ({ ...t, v: Number(t.views) || 0, cost: Number(t.earned) || 0, bonus: Number(t.bonus) || 0 }))
+    .map((t) => ({ ...t, cpm: t.v > 0 ? (t.cost / t.v) * 1000 : null }))
+  const totals = data.totals || { views: 0, cost: 0, videos: 0 }
+  const avg = Number(totals.views) > 0 ? (Number(totals.cost) / Number(totals.views)) * 1000 : null
+  const priced = rows.filter((r) => r.cpm != null)
+  const cheapest = priced.length ? priced.reduce((m, r) => (r.cpm < m.cpm ? r : m)) : null
+  const lead = Math.max(1, rows[0]?.v || 0)
+  const [sort, setSort] = useState('views')
+  const list = [...rows].sort((a, b) => (sort === 'cost' ? b.cost - a.cost : sort === 'cpm' ? (b.cpm ?? -1) - (a.cpm ?? -1) : b.v - a.v))
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label={tr('Paid in all')} value={money(totals.cost, cur, { cents: false })} hint={tr('views pay and bonuses')} />
+        <Stat label={tr('Views in all')} value={formatViews(totals.views)} hint={tr('{n} videos', { n: nf(totals.videos) })} />
+        <Stat label={tr('Average cost per 1,000')} value={avg != null ? perK(avg, cur) : '-'} hint={tr('across every VIP')} />
+        <Stat label={tr('Best value')} value={cheapest ? perK(cheapest.cpm, cur) : '-'} hint={cheapest ? cheapest.name : ''} />
       </div>
-      <ul className="divide-y divide-gray-50">
-        {rows.map((r, i) => {
-          const pct = pctMove(r.a, r.b)
-          const good = pct == null || pct === 0 ? null : (pct > 0) !== !!r.low
-          return (
-            <li key={r.label} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_5rem] items-center gap-3 px-4 py-3 text-sm animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
-              <span className="font-semibold text-ink">{r.label}</span>
-              <span className="text-right font-bold tabular-nums text-ink">{r.f(r.a)}</span>
-              <span className="text-right tabular-nums text-smoke">{r.f(r.b)}</span>
-              <span className="text-right">{pct == null ? <span className="text-xs text-gray-300">-</span> : <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', good == null ? 'bg-cloud text-smoke' : good ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600')}>{pct > 0 ? '+' : ''}{pct}%</span>}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
+          <p className="text-[13.5px] font-bold text-ink">{tr('Creators, and what each one costs')}</p>
+          <Segmented size="sm" value={sort} onChange={setSort} label={tr('Sort by')} options={[
+            { value: 'views', label: tr('Views') }, { value: 'cost', label: tr('Cost') }, { value: 'cpm', label: tr('Cost per 1,000') },
+          ]} />
+        </div>
+        <div className="hidden grid-cols-[2rem_minmax(0,1fr)_4rem_5rem_5.5rem_6rem] gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400 sm:grid">
+          <span>#</span><span>{tr('Creator')}</span><span className="text-right">{tr('Videos')}</span><span className="text-right">{tr('Views')}</span><span className="text-right">{tr('Paid')}</span><span className="text-right">{tr('Per 1,000')}</span>
+        </div>
+        {list.length === 0 ? <p className="px-4 py-8 text-center text-sm text-smoke">{tr('Nobody has been paid yet.')}</p> : (
+          <ul className="divide-y divide-gray-50">
+            {list.map((t, i) => {
+              const dear = avg != null && t.cpm != null && t.cpm > avg * 1.25
+              return (
+                <li key={t.profile_id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_4rem_5rem_5.5rem_6rem]">
+                  <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <Link to={`/vip?mode=as&who=${t.profile_id}`} className="group flex min-w-0 items-center gap-2.5">
+                    <Avatar src={t.photo} name={t.name} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand">{t.name}</span>
+                      <span className="mt-1 block h-1 max-w-[10rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light" style={{ width: `${Math.max(3, Math.round((t.v / lead) * 100))}%` }} /></span>
+                    </span>
+                  </Link>
+                  <span className="hidden text-right text-xs tabular-nums text-smoke sm:block">{nf(t.videos)}</span>
+                  <span className="hidden text-right text-sm font-bold tabular-nums text-ink sm:block">{formatViews(t.v)}</span>
+                  <span className="hidden text-right text-sm tabular-nums text-smoke sm:block">{money(t.cost, cur, { cents: false })}{t.bonus > 0 ? <span className="block text-[10px] text-gray-400">{tr('{a} bonus', { a: money(t.bonus, cur, { cents: false }) })}</span> : null}</span>
+                  <span className="text-right">
+                    <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums', t.cpm == null ? 'text-gray-300' : dear ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{t.cpm == null ? '-' : perK(t.cpm, cur)}</span>
+                    <span className="mt-0.5 block text-[10px] text-smoke sm:hidden">{formatViews(t.v)} · {money(t.cost, cur, { cents: false })}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+      <p className="text-xs text-smoke">{tr('Per 1,000 is everything paid to a creator (views pay and bonuses) divided by their views. A tinted figure costs over a quarter more than the average.')}</p>
+    </div>
   )
 }
 

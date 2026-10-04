@@ -21,6 +21,24 @@ let ctx = null
 // context that never resumes on some engines. So it is built on the first
 // sound - which by definition follows a tap - and resumed if the browser
 // suspended it since (Safari suspends on tab hide and does not tell you).
+//
+// AND IT IS PUT BACK TO SLEEP (4 Oct 2026). Ethan: "I've noticed whenever I go on my iPhone and go to Screen Time, the app is showing up for 9
+// hours, even if I only used it for 10 minutes that day ... I think it could also be possibly draining the battery a bit."
+//
+// A WebAudio context that has been resumed stays RUNNING for ever: the audio hardware stays awake with nothing playing, and on an iPhone a
+// page holding a running audio session is treated as in use even once it is out of sight. Every chime in the app resumed this one context
+// and nothing ever suspended it again. So now it sleeps again `IDLE_MS` after the last sound was asked for, and at once when the app is
+// hidden; the next sound wakes it as before. (Same release for the push-delivery beacon in public/sw.js, which is kept short for the same reason.)
+const IDLE_MS = 6000
+let idleTimer = null
+let hooked = false
+
+function sleep() {
+  clearTimeout(idleTimer)
+  idleTimer = null
+  if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {})
+}
+
 export function audio() {
   if (typeof window === 'undefined') return null
   const AC = window.AudioContext || window.webkitAudioContext
@@ -28,7 +46,14 @@ export function audio() {
   if (!ctx) {
     try { ctx = new AC() } catch { return null }
   }
+  if (!hooked) {
+    hooked = true
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sleep() })
+    window.addEventListener('pagehide', sleep)
+  }
   if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  clearTimeout(idleTimer)
+  idleTimer = setTimeout(sleep, IDLE_MS)
   return ctx
 }
 

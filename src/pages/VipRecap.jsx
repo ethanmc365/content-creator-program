@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import YearInReview from '../components/wrapped/YearInReview'
 import { buildVipCards, VipShareCard } from '../components/wrapped/vipStory'
 import { Card, Eyebrow, Line } from '../components/wrapped/cards'
 import Icon from '../components/Icon'
-import BackLink from '../components/BackLink'
 import { Spinner } from '../components/ui'
 import { monthLabel, vipRpc } from '../lib/vip'
 import { useT } from '../lib/i18n'
@@ -14,11 +13,18 @@ import { useT } from '../lib/i18n'
 // THE VIP MONTH RECAP PAGE (30 Sep 2026, migration 299 `vip_my_recap`). The same story runner as the Year in Review
 // and the challenge recap, told about a month of views. `?m=2026-08` picks a month; with none, the latest closed
 // month they were paid for, or this one so far.
+// THE RECAP IS A SECTION OF THE VIP PAGE NOW (4 Oct 2026). Ethan: "whenever you click on My Recap, the thing disappears ... the
+// recap card should just be in that big left column, and the right column and the stuff above should still say 'stay' like the
+// other pages." The story lives in VipHub's left column (`tab=recap`); the old address brings you there.
 export default function VipRecap() {
+  const [params] = useSearchParams()
+  const m = params.get('m')
+  return <Navigate to={m ? `/vip?tab=recap&m=${encodeURIComponent(m)}` : '/vip?tab=recap'} replace />
+}
+
+export function VipRecapPanel({ m, onPick }) {
   const tr = useT()
   const { profile } = useAuth()
-  const [params, setParams] = useSearchParams()
-  const m = params.get('m')
   const [state, setState] = useState({ status: 'loading' })
   const [months, setMonths] = useState([])
 
@@ -43,12 +49,11 @@ export default function VipRecap() {
   const current = state.status === 'ready' ? `${state.recap.month.year}-${state.recap.month.month}` : ''
 
   return (
-    <div className="page max-w-3xl">
-      <BackLink to="/vip" label={tr('Back to VIP')} />
+    <div className="vip-stage space-y-4">
       {/* A HEADING AND A MONTH STRIP (1 Oct 2026). Ethan: the recap's "current design definitely needs to be improved".
           It opened on a bare row of grey pills over the story. Now it says what it is, the months are a strip of
           cards with the open one in the brand gradient, and the story sits centred under them. */}
-      <header className="mb-4 flex items-end justify-between gap-4 animate-rise">
+      <header className="flex items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{tr('VIP recap')}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-3xl">{tr('Your month, as a story')}</h1>
@@ -56,14 +61,13 @@ export default function VipRecap() {
         </div>
       </header>
       {months.length > 1 && (
-        <div className="scrollbar-none -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1" role="tablist" aria-label={tr('Month')}>
-          {months.map((mm, i) => {
+        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="tablist" aria-label={tr('Month')}>
+          {months.map((mm) => {
             const key = `${mm.year}-${mm.month}`
             const on = current === key
             return (
-              <button key={key} type="button" role="tab" aria-selected={on} onClick={() => setParams({ m: key }, { replace: true })}
-                style={{ animationDelay: `${i * 40}ms` }}
-                className={`flex shrink-0 animate-rise flex-col items-start rounded-2xl px-4 py-2.5 text-left transition-all duration-200 ${on ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'border border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-0.5'}`}>
+              <button key={key} type="button" role="tab" aria-selected={on} onClick={() => onPick?.(key)}
+                className={`flex shrink-0 flex-col items-start rounded-2xl px-4 py-2.5 text-left transition-all duration-200 ${on ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'border border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-0.5'}`}>
                 <span className="text-sm font-bold">{monthLabel(mm.year, mm.month, { short: true })}</span>
                 <span className={`text-[10px] font-bold uppercase tracking-wide ${on ? 'text-white/80' : 'text-gray-400'}`}>{mm.status === 'closed' ? tr('Closed') : tr('So far')}</span>
               </button>

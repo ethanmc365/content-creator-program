@@ -5,6 +5,7 @@ import { adoptTestDataVisibility } from '../lib/testData'
 import { clearPageCache } from '../lib/pageCache'
 import { resetNotifications } from '../lib/notifications'
 import { clearScopeCache } from '../lib/scope'
+import { clearVipAccess, clearVipCache } from '../lib/vip'
 import { identifyForMonitoring } from '../lib/monitoring'
 
 // AuthContext is the single source of truth for "who is logged in".
@@ -223,6 +224,11 @@ export function AuthProvider({ children }) {
     // lib/pageCache - the caches are keyed by page, not by account.
     clearPageCache()
     clearScopeCache()
+    // THE VIP ANSWERS ARE ACCOUNTS' TOO (4 Oct 2026). Ethan: "whenever I click See it as a VIP ... I have to always refresh" and, on
+    // the way out, the VIP tools door stayed missing. The VIP overview and the "has VIP tools" answer are module caches kept
+    // for the session; the previous account's survived the swap.
+    clearVipCache()
+    clearVipAccess()
     setImpersonating(true)
     return {}
   }, [IMPERSONATE_URL])
@@ -268,6 +274,8 @@ export function AuthProvider({ children }) {
     // And the creator's pages go with the creator. See lib/pageCache.
     clearPageCache()
     clearScopeCache()
+    clearVipCache()
+    clearVipAccess()
     setImpersonating(false)
     return {}
   }, [IMPERSONATE_URL])

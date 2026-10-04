@@ -1226,7 +1226,7 @@ export default function NetworkChat() {
           >
             <span className={cx(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-              active?.visibility === 'vip' ? 'vip-surface text-brand-light' : 'bg-brand-tint text-brand',
+              'bg-brand-tint text-brand',
             )}>
               <Icon name={active?.icon || 'chat'} className="h-[18px] w-[18px]" />
             </span>
@@ -1950,11 +1950,11 @@ export default function NetworkChat() {
                             to={`${roomBase}/${c.key}`}
                             aria-current={on ? 'page' : undefined}
                             className={cx(
-                              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-200',
-                              on ? 'bg-brand-tint font-semibold text-brand' : 'text-ink hover:bg-cloud',
+                              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200',
+                              on ? ROOM_ON : 'text-ink hover:bg-cloud',
                             )}
                           >
-                            <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : isNew ? 'text-brand' : 'text-smoke')} />
+                            <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand' : 'text-smoke')} />
                             <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                             {c.visibility === 'vip' && <VipChip />}
                             {c.visibility === 'staff' && (
@@ -1980,13 +1980,13 @@ export default function NetworkChat() {
                     // don't like the colour, I want it to be more different." The pale orange wash read as a
                     // slightly-off market card. Now it is the dark VIP surface (index.css `.vip-surface`: ink into a
                     // warm ember, an orange glow in the corner), the same material as the VIP application banner.
-                    <div key={place.id} className="vip-surface rounded-card p-2 shadow-card animate-fade-up">
-                      <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 px-1 pb-2 pt-1">
-                        <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg bg-white/95" title={place.name} />
-                        <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em] text-white">
+                    <div key={place.id} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up">
+                      <div className="mb-1.5 flex items-center gap-2 border-b border-gray-100 px-1 pb-2 pt-1">
+                        <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg" title={place.name} />
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em] text-ink">
                           {tr('VIP {m}', { m: place.name })}
                         </span>
-                        <VipChip dark />
+                        <VipChip />
                       </div>
                       <div className="flex flex-col gap-0.5">
                         {place.rooms.map((c) => {
@@ -1995,8 +1995,8 @@ export default function NetworkChat() {
                           const isNew = key !== roomKey && unread.has(key)
                           return (
                             <Link key={c.id} to={`${roomBase}/${c.key}`} aria-current={on ? 'page' : undefined}
-                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200', on ? 'bg-gradient-to-r from-brand to-brand-light font-semibold text-white shadow-card' : 'text-white/85 hover:bg-white/10 hover:text-white')}>
-                              <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand-light' : 'text-white/55')} />
+                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200', on ? ROOM_ON : 'text-ink hover:bg-cloud')}>
+                              <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand' : 'text-smoke')} />
                               <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                               {isNew && <UnreadDot size="sm" />}
                             </Link>
@@ -2072,6 +2072,10 @@ export default function NetworkChat() {
     </NetworkMotion>
   )
 }
+
+// THE SELECTED ROOM, EVERYWHERE (4 Oct 2026). Ethan: the room you are in should wear the VIP rooms' orange gradient, not a flat
+// orange wash - on every room, desktop and phone. The phone sheet (chat/RoomSwitcherSheet) uses the same classes.
+const ROOM_ON = 'bg-gradient-to-r from-brand to-brand-light font-semibold text-white shadow-card'
 
 // The small "VIP" mark on a VIP room: a dark pill on a white card, a light one on the dark VIP material.
 function VipChip({ dark = false }) {

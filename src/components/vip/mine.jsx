@@ -5,7 +5,7 @@ import { CountUp } from '../network/Motion'
 import { TargetBar } from './parts'
 import { TrendCard } from './adminC'
 import { cx, formatDate } from '../../lib/utils'
-import { money, nf, useOptionalRpc } from '../../lib/vip'
+import { metricAmount, money, nf, useOptionalRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // THE VIP'S OWN SIDE, ADDED IN THE SECOND PASS (30 Sep 2026, migration 298): what the team has said, and how they are doing.
@@ -17,6 +17,7 @@ export function VipAnnouncements({ programmeId }) {
   useEffect(() => {
     let alive = true
     supabase.from('vip_announcements').select('*').eq('programme_id', programmeId)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(3)
       .then(({ data, error }) => { if (alive && !error) setRows(data || []) })
     return () => { alive = false }
@@ -57,16 +58,48 @@ export function AnnouncementCard({ a, delay = 0, preview = false }) {
 
 const LADDER = [10000, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000, 10000000]
 
-/** Lifetime numbers, a streak, the next milestone, and the last weeks as a chart. */
+// Where a creator stands on each thing a milestone can measure (migration 322 added most of these).
+function milestoneValue(metric, { life, stats, videos, mine, joined, earnedTotal }) {
+  switch (metric) {
+    case 'lifetime_views': return life.views
+    case 'lifetime_videos': return life.videos
+    case 'month_views': return Number(stats?.views) || 0
+    case 'month_videos': return Number(stats?.videos) || 0
+    case 'month_earnings': return Number(stats?.base) || 0
+    case 'lifetime_earnings': return earnedTotal
+    case 'best_video_views': return Math.max(0, ...(videos || []).filter((v) => v.status === 'tracking').map((v) => Number(v.views_total) || 0))
+    case 'streak_months': return Number(mine?.streak_months) || 0
+    case 'months_active': return joined ? Math.max(0, Math.floor((Date.now() - new Date(joined).getTime()) / (30.4375 * 86400000))) : 0
+    default: return 0
+  }
+}
+
+/** Lifetime numbers, the next milestone the team has set, this month against the best one, and the last weeks as a chart. */
 export function VipStats({ overview, rules, programmeId }) {
   const tr = useT()
   const cur = overview.programme.currency
   const life = overview.lifetime || { views: 0, videos: 0, best_month: 0 }
   const { data: mine } = useOptionalRpc('vip_my_trends', { p_days: 30 }, programmeId)
-  // the team's own milestone rules first (they may pay for them); the round-number ladder otherwise
-  const ruleSteps = (rules || []).filter((r) => r.kind === 'milestone' && (r.conditions?.metric || 'lifetime_views') === 'lifetime_views').map((r) => Number(r.conditions?.threshold)).filter((n) => n > 0)
-  const steps = (ruleSteps.length ? ruleSteps : LADDER).sort((a, b) => a - b)
-  const next = steps.find((n) => n > life.views)
+  const { data: wallet } = useOptionalRpc('vip_my_wallet')
+  const ctx = {
+    life, stats: overview.stats, videos: overview.videos, mine, joined: overview.member?.joined_on,
+    earnedTotal: (Number(wallet?.lifetime_earned) || 0) + (Number(overview.stats?.base) || 0),
+  }
+  // THE TEAM'S MILESTONES FIRST (4 Oct 2026). Ethan: "if there's a milestone set up, then it will show the next milestone being
+  // reached." Every milestone rule the team is running is measured on its own number; the nearest one still to reach is the
+  // headline and the rest wait underneath. No rules at all: the round-number ladder on total views, as before.
+  const set = (rules || [])
+    .filter((r) => r.kind === 'milestone' && r.active !== false && Number(r.conditions?.threshold) > 0)
+    .map((r) => {
+      const metric = r.conditions?.metric || 'lifetime_views'
+      const target = Number(r.conditions.threshold)
+      const value = milestoneValue(metric, ctx)
+      return { id: r.id, rule: r, metric, target, value, pct: Math.min(1, value / target), reached: value >= target }
+    })
+  const ahead = set.filter((m) => !m.reached).sort((a, b) => b.pct - a.pct)
+  const reachedCount = set.length - ahead.length
+  const ladderNext = LADDER.find((n) => n > life.views)
+  const next = ahead[0] || null
   // The best month's VIEWS, if the overview carries them; otherwise worked back from its pay at the creator's rate.
   const bestMonthViews = Number(life.best_month_views) || (Number(life.best_month) > 0 && Number(overview.stats?.effective_cpm) > 0
     ? Math.round((Number(life.best_month) / Number(overview.stats.effective_cpm)) * 1000) : 0)
@@ -76,29 +109,46 @@ export function VipStats({ overview, rules, programmeId }) {
     { label: tr('Best month'), value: Number(life.best_month), format: (n) => money(n, cur, { cents: false }), icon: 'trophy' },
     { label: tr('Months in a row'), value: mine?.streak_months ?? 0, format: nf, icon: 'fire' },
   ]
+  const rewardOf = (r) => (Number(r.amount) > 0 ? (r.reward === 'voucher' ? tr('a {a} voucher', { a: money(r.amount, cur, { cents: false }) }) : money(r.amount, cur, { cents: false })) : null)
   return (
-    <div className="space-y-5">
+    <div className="vip-stage space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tiles.map((t, i) => (
-          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+        {tiles.map((t) => (
+          <div key={t.label} className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card">
             <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><Icon name={t.icon} className="h-3.5 w-3.5 text-brand" />{t.label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-brand"><CountUp value={t.value} format={t.format} /></p>
           </div>
         ))}
       </div>
-      {/* TWO BARS, NOT ONE (1 Oct 2026): the next milestone over all time, and this month against the creator's own best
-          month, so there is always something close enough to chase. */}
-      <section className="grid gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise sm:grid-cols-2">
+      <section className="grid gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card sm:grid-cols-2">
         <div>
           <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />{tr('Your next milestone')}</h2>
-          {next ? <TargetBar label={tr('{n} views as a VIP', { n: nf(next) })} value={life.views} target={next} />
-            : <p className="text-sm text-smoke">{tr('You have passed every milestone. Remarkable.')}</p>}
+          {next ? (
+            <>
+              <TargetBar label={metricAmount(next.metric, next.target, tr, cur)} value={next.value} target={next.target} format={next.metric.endsWith('earnings') ? (n) => money(n, cur, { cents: false }) : nf} />
+              {rewardOf(next.rule) && <p className="mt-2 text-xs font-semibold text-brand">{tr('Reach it and earn {p}', { p: rewardOf(next.rule) })}</p>}
+              {ahead.length > 1 && (
+                <ul className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+                  {ahead.slice(1, 4).map((m) => (
+                    <li key={m.id} className="flex items-center justify-between gap-3 text-xs">
+                      <span className="min-w-0 truncate text-smoke">{metricAmount(m.metric, m.target, tr, cur)}</span>
+                      <span className="shrink-0 font-semibold tabular-nums text-ink">{Math.round(m.pct * 100)}%{rewardOf(m.rule) ? <span className="ml-2 font-medium text-brand">{rewardOf(m.rule)}</span> : null}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : set.length > 0 ? (
+            <p className="text-sm text-smoke">{tr('You have reached all {n} milestones the team has set. Remarkable.', { n: reachedCount })}</p>
+          ) : ladderNext ? (
+            <TargetBar label={tr('{n} views as a VIP', { n: nf(ladderNext) })} value={life.views} target={ladderNext} />
+          ) : <p className="text-sm text-smoke">{tr('You have passed every milestone. Remarkable.')}</p>}
         </div>
         <div>
           <h2 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="fire" className="h-5 w-5 text-brand" />{tr('This month against your best')}</h2>
           {bestMonthViews > 0
             ? <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={bestMonthViews} done={tr('A new best month')} />
-            : <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={Math.max(10000, next || 10000)} />}
+            : <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={Math.max(10000, ladderNext || 10000)} />}
         </div>
       </section>
       <TrendCard programmeId={programmeId} mine since={overview.member?.joined_on} title={tr('Your views, day by day')} />

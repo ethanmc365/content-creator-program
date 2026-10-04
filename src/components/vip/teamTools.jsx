@@ -14,7 +14,7 @@ import { useT } from '../../lib/i18n'
 // THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (2 Oct 2026, migration 312).
 //
 //   Balances  - every VIP's balance against the cash threshold, who asked for what, and the voucher codes still owed.
-//   Stay-in   - the monthly rule (5 videos, or one video of 20,000 views): live for this month, and for a closed month
+//   Stay-in   - the monthly rule (5 videos AND 20,000 views, 4 Oct 2026): live for this month, and for a closed month
 //               the list written down at close, with keep / warn / pause / remove.
 //   CPM sheet - the Spanish manager's spreadsheet, generated: creators down the side, months across, views and money.
 
@@ -104,10 +104,10 @@ export function VipWalletsTab({ programme }) {
               <li key={q.id} className="flex items-center gap-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
                 {/* CASH OR VOUCHER, AT A GLANCE (3 Oct 2026). Ethan: "make it more clear if it's cash or Tryp.com
                     voucher. There's not much difference there." Each request leads with what it is. */}
-                <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-600')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
+                <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-semibold text-ink"><span className="truncate">{q.name}</span>
-                    <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', q.kind === 'voucher' ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700')}>{q.kind === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
+                    <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', q.kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{q.kind === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
                   </span>
                   <span className="block truncate text-xs text-smoke">{q.kind === 'voucher' ? tr('Tryp.com travel voucher') : tr('Bank transfer')}{q.auto ? ` · ${tr('automatic')}` : ''} · {formatDate(q.at)}</span>
                 </span>
@@ -294,7 +294,7 @@ export function VipRequirementsTab({ programme }) {
 
   function exportCsv() {
     downloadCsv(`vip-requirements-${programme.name}-${data.month.year}-${data.month.month}.csv`, rows.map((r) => ({
-      name: r.name, videos: r.videos, best_video_views: r.best_views, met: r.met ? 'yes' : 'no', months_missed_in_a_row: r.missed_in_row, decision: r.decision || '', note: r.note || '',
+      name: r.name, videos: r.videos, views: r.views ?? r.best_views, met: r.met ? 'yes' : 'no', months_missed_in_a_row: r.missed_in_row, decision: r.decision || '', note: r.note || '',
     })))
   }
 
@@ -306,7 +306,7 @@ export function VipRequirementsTab({ programme }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{tr('To stay in: {v} videos in the month, or one video with {n} views.', { v: rule.videos, n: nf(rule.views) })}</p>
+          <p className="text-sm font-semibold text-ink">{tr('To stay in: {v} videos and {n} views in the month.', { v: rule.videos, n: nf(rule.views) })}</p>
           <p className="text-xs text-smoke">{live ? tr('Live for this month. The list is written down when the month closes, and you are told who missed it.') : tr('As it stood when {m} closed.', { m: monthLabel(data.month.year, data.month.month) })}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -343,7 +343,7 @@ export function VipRequirementsTab({ programme }) {
                   </span>
                   <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-smoke">
                     <span className={cx(r.videos >= rule.videos && 'font-semibold text-emerald-700')}>{tr('{n} of {t} videos', { n: r.videos, t: rule.videos })}</span>
-                    <span className={cx(r.best_views >= rule.views && 'font-semibold text-emerald-700')}>{tr('Best video {n} views', { n: nf(r.best_views) })}</span>
+                    <span className={cx((r.views ?? r.best_views) >= rule.views && 'font-semibold text-emerald-700')}>{tr('{n} of {t} views', { n: nf(r.views ?? r.best_views), t: nf(rule.views) })}</span>
                   </span>
                 </span>
                 {r.met
@@ -576,31 +576,45 @@ export function VipRulesCard({ programme, onSaved }) {
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   const dis = !programme.can_manage
-  // TYPED, NOT SPUN (3 Oct 2026). Ethan: "rather than having those arrows where you can change it, just again have the
-  // function to type it in." Plain text boxes that take digits.
-  const box = (value, onChange, opts = {}) => (
-    <span className="relative block">
-      {opts.prefix && <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{opts.prefix}</span>}
-      <input className={cx('input', opts.prefix && '!pl-8')} inputMode="numeric" value={value} disabled={dis || opts.off} onChange={(e) => onChange(digits(e.target.value))} />
-    </span>
+  // EVERY BOX THE SAME, THE UNIT INSIDE IT (4 Oct 2026). Ethan: "the UI is a bit weird, and things are misaligned." The payout boxes
+  // had a prefix, the stay-in boxes had a label above and a unit under, and the two rows did not line up. Now one field shape: a
+  // label above, the number typed in a box that carries its unit (EUR, videos, views) on the right or left, all one height.
+  const field = (label, value, onChange, { prefix, suffix, off } = {}) => (
+    <label className="block min-w-0">
+      <span className="label">{label}</span>
+      <span className={cx('relative flex items-center', off && 'opacity-40')}>
+        {prefix && <span className="pointer-events-none absolute left-3.5 text-sm font-semibold text-gray-400">{prefix}</span>}
+        <input className={cx('input w-full', prefix && '!pl-8', suffix && '!pr-16')} inputMode="numeric" value={value} disabled={dis || off} onChange={(e) => onChange(digits(e.target.value))} />
+        {suffix && <span className="pointer-events-none absolute right-3.5 text-xs font-semibold text-gray-400">{suffix}</span>}
+      </span>
+    </label>
   )
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
-      <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="wallet" className="h-5 w-5 text-brand" />{tr('Payouts')}</h3>
-      <p className="mt-0.5 text-xs text-smoke">{tr('A VIP can ask for their balance at any time once it reaches these amounts.')}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block"><span className="label">{tr('Cash from')}</span>{box(f.threshold, (v) => set({ threshold: v }), { prefix: sym })}</label>
-        <label className="block"><span className="label">{tr('Voucher from')}</span>{box(f.voucher, (v) => set({ voucher: v }), { prefix: sym })}</label>
+    <section className="space-y-5 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
+      <div>
+        <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="wallet" className="h-5 w-5 text-brand" />{tr('Payouts')}</h3>
+        <p className="mt-0.5 text-xs text-smoke">{tr('A VIP can ask for their balance at any time once it reaches these amounts.')}</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {field(tr('Cash from'), f.threshold, (v) => set({ threshold: v }), { prefix: sym })}
+          {field(tr('Voucher from'), f.voucher, (v) => set({ voucher: v }), { prefix: sym })}
+        </div>
       </div>
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
-        <span><span className="block text-sm font-semibold text-ink">{tr('Monthly requirement to stay in')}</span><span className="block text-xs text-smoke">{tr('Either one is enough.')}</span></span>
-        <Toggle on={!!f.on} onChange={(v) => set({ on: v })} label={tr('Monthly requirement to stay in')} disabled={dis} />
+      <div className="border-t border-gray-100 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="shield" className="h-5 w-5 text-brand" />{tr('Staying in')}</h3>
+            <p className="mt-0.5 text-xs text-smoke">{tr('Each month a VIP needs both.')}</p>
+          </div>
+          <Toggle on={!!f.on} onChange={(v) => set({ on: v })} label={tr('Monthly requirement to stay in')} disabled={dis} />
+        </div>
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2.5">
+          {field(tr('Videos'), f.videos, (v) => set({ videos: v }), { suffix: tr('videos'), off: !f.on })}
+          <span className={cx('pb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300 transition-opacity', !f.on && 'opacity-40')}>{tr('and')}</span>
+          {field(tr('Views'), f.views, (v) => set({ views: v }), { suffix: tr('views'), off: !f.on })}
+        </div>
+        <p className={cx('mt-2 text-[11px] text-smoke', !f.on && 'opacity-40')}>{tr('The views are added up across all their videos in the month.')}</p>
       </div>
-      <div className={cx('mt-3 grid grid-cols-2 gap-3 transition-opacity', !f.on && 'opacity-40')}>
-        <label className="block"><span className="label">{tr('Videos in the month')}</span>{box(f.videos, (v) => set({ videos: v }), { off: !f.on })}</label>
-        <label className="block"><span className="label">{tr('Or one video with')}</span>{box(f.views, (v) => set({ views: v }), { off: !f.on })}<span className="mt-1 block text-[11px] text-smoke">{tr('views')}</span></label>
-      </div>
-      {!dis && <div className="mt-5 flex justify-end"><button type="button" onClick={save} disabled={busy} className="btn-primary !py-2 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>}
+      {!dis && <div className="flex justify-end"><button type="button" onClick={save} disabled={busy} className="btn-primary !py-2 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>}
     </section>
   )
 }
@@ -632,7 +646,7 @@ export function TeamPulse({ programme, onTool }) {
         {req.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
           <>
             <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink">{tr('{a} of {b}', { a: nf(rows.length - behind.length), b: nf(rows.length) })}</span>
-            <span className="text-xs text-smoke">{tr('on track for {v} videos or a {n}-view video', { v: req.data?.rule?.videos ?? 5, n: nf(req.data?.rule?.views ?? 20000) })}</span>
+            <span className="text-xs text-smoke">{tr('on track for {v} videos and {n} views', { v: req.data?.rule?.videos ?? 5, n: nf(req.data?.rule?.views ?? 20000) })}</span>
             <span className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-1000" style={{ width: `${Math.round(onTrackPct * 100)}%` }} /></span>
             {behind.length > 0 && (
               <span className="mt-2.5 flex items-center gap-2">

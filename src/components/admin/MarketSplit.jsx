@@ -124,7 +124,8 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
               <span className="flex min-w-0 items-center gap-2">
                 {r.codes.length > 0
                   ? <FlagTile codes={r.codes} size="h-6 w-6" />
-                  : <span className="h-6 w-6 shrink-0 rounded-md bg-cloud" />}
+                  // A creator with no home market is somebody everywhere and nowhere: the globe, not an empty square (Ethan, 4 Oct 2026).
+                  : <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cloud text-sm leading-none" aria-hidden>🌍</span>}
                 <span className={cx('truncate text-sm font-medium', none ? 'text-smoke' : 'text-ink')}>{r.name}</span>
               </span>
               <span className="relative h-7 overflow-hidden rounded-lg bg-cloud/70">
