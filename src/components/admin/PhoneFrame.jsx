@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 // A REAL IPHONE TO PREVIEW ON (4 Oct 2026). 393 x 852 points (the 15 / 16 Pro), drawn at that size with its dynamic island and a clock and
 // signal in the status bar, and scaled down as one piece when the column is narrower, so what is inside is laid out exactly as it is on a phone.
