@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Modal, Skeleton, Spinner } from '../ui'
+import { Modal, SaveButton, Skeleton, Spinner, useSavedFlash } from '../ui'
 import Icon from '../Icon'
 import CreatorMap from '../CreatorMap'
 import { geocodeCity } from '../../lib/geocode'
@@ -382,6 +382,7 @@ export function VipMySettings({ overview, onSaved }) {
   const [row, setRow] = useState(undefined)
   const [goal, setGoal] = useState('')
   const [busy, setBusy] = useState(false)
+  const [saved, flash] = useSavedFlash()
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', who || user.id).maybeSingle()
@@ -398,7 +399,7 @@ export function VipMySettings({ overview, onSaved }) {
     try {
       // The headline is no longer the creator's to write (4 Oct 2026); whatever is stored stays as it was.
       await vipRpc('vip_update_my_settings', { p_headline: row.headline || '', p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: null })
-      toastSuccess(tr('Saved'))
+      flash()
       onSaved?.()
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
@@ -411,7 +412,7 @@ export function VipMySettings({ overview, onSaved }) {
         <label className="block"><span className="label">{tr('My monthly view goal')}</span><input className="input" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tr('For example 250000')} /></label>
         {goalNum > 0 && <TargetBar label={tr('Views this month')} value={overview.stats.views} target={goalNum} done={tr('Goal reached')} />}
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={save} disabled={busy || !!who} title={who ? tr('Only the creator can save this') : undefined} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button>
+          <SaveButton saved={saved} busy={busy} onClick={save} disabled={!!who} title={who ? tr('Only the creator can save this') : undefined} />
         </div>
       </div>
     </section>

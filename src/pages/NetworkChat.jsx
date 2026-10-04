@@ -1950,10 +1950,11 @@ export default function NetworkChat() {
                             to={`${roomBase}/${c.key}`}
                             aria-current={on ? 'page' : undefined}
                             className={cx(
-                              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200',
-                              on ? ROOM_ON : 'text-ink hover:bg-cloud',
+                              'relative isolate flex items-center gap-2.5 rounded-xl px-3 py-2.5 active:scale-[0.99]',
+                              on ? 'font-semibold text-white' : 'text-ink hover:bg-cloud',
                             )}
                           >
+                            {on && <RoomOnBg />}
                             <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand' : 'text-smoke')} />
                             <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                             {c.visibility === 'vip' && <VipChip />}
@@ -1995,7 +1996,8 @@ export default function NetworkChat() {
                           const isNew = key !== roomKey && unread.has(key)
                           return (
                             <Link key={c.id} to={`${roomBase}/${c.key}`} aria-current={on ? 'page' : undefined}
-                              className={cx('flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200', on ? ROOM_ON : 'text-ink hover:bg-cloud')}>
+                              className={cx('relative isolate flex items-center gap-2.5 rounded-xl px-3 py-2.5 active:scale-[0.99]', on ? 'font-semibold text-white' : 'text-ink hover:bg-cloud')}>
+                              {on && <RoomOnBg />}
                               <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand' : 'text-smoke')} />
                               <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
                               {isNew && <UnreadDot size="sm" />}
@@ -2075,7 +2077,13 @@ export default function NetworkChat() {
 
 // THE SELECTED ROOM, EVERYWHERE (4 Oct 2026). Ethan: the room you are in should wear the VIP rooms' orange gradient, not a flat
 // orange wash - on every room, desktop and phone. The phone sheet (chat/RoomSwitcherSheet) uses the same classes.
-const ROOM_ON = 'bg-gradient-to-r from-brand to-brand-light font-semibold text-white shadow-card'
+// SMOOTH BETWEEN ROOMS (4 Oct 2026). The row used to ease its label from ink to white (`transition-all`) while the gradient -
+// a background-image, which cannot be transitioned - snapped in, so dark text sat on white for a beat. Now the label flips at
+// once and ONE gradient (a shared layoutId) slides from the old room to the new one underneath it, behind the content (-z-10
+// inside the row's own stacking context), the same trick as the filter chips and Segmented.
+function RoomOnBg() {
+  return <motion.span layoutId="room-on" transition={SOFT_SPRING} className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-brand to-brand-light shadow-card" />
+}
 
 // The small "VIP" mark on a VIP room: a dark pill on a white card, a light one on the dark VIP material.
 function VipChip({ dark = false }) {

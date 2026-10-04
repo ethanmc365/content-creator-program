@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, Skeleton } from '../ui'
@@ -10,6 +10,7 @@ import { kpiStatus } from '../../lib/kpiTracker'
 import { STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
 import { money, monthLabel, nf, perK, vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
+import VipScopeSwitch from './scope'
 
 // THE VIP KPIs, BUILT LIKE THE KPI PAGE (3 Oct 2026).
 //
@@ -51,48 +52,90 @@ const STYLE = {
   upcoming: { chip: 'bg-gray-100 text-smoke', label: 'Not started' },
 }
 
+// ALL MARKETS TOGETHER (4 Oct 2026). Every figure is a count or an amount, so the combined number is the sum - except the two that are
+// ratios, which are worked out again from the sums (cost per 1,000 from the combined spend and views; videos per VIP weighted by how many
+// VIPs each market had).
+function combineActuals(list) {
+  const sum = (k) => list.reduce((a, x) => a + (Number(x?.[k]) || 0), 0)
+  const active = sum('active_creators')
+  return {
+    views: sum('views'), videos: sum('videos'), active_creators: active, spend: sum('spend'), hit_target: sum('hit_target'),
+    new_vips: sum('new_vips'), stay_in: sum('stay_in'),
+    cpm: sum('views') > 0 ? sum('spend') / (sum('views') / 1000) : 0,
+    videos_per_vip: active > 0 ? list.reduce((a, x) => a + (Number(x?.videos_per_vip) || 0) * (Number(x?.active_creators) || 0), 0) / active : 0,
+  }
+}
+function combineTargets(rows) {
+  const by = {}
+  for (const t of rows) (by[t.metric] ||= []).push(Number(t.target_value))
+  return Object.fromEntries(Object.entries(by).map(([metric, vals]) => [
+    metric,
+    { metric, target_value: metric === 'cpm' || metric === 'videos_per_vip' ? vals.reduce((a, b) => a + b, 0) / vals.length : vals.reduce((a, b) => a + b, 0) },
+  ]))
+}
+
 function thisMonth() {
   const d = new Date()
   return { year: d.getFullYear(), month: d.getMonth() + 1 }
 }
 
-export function VipKpiTab({ programme }) {
+export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
   const tr = useT()
   const { profile } = useAuth()
   const today = thisMonth()
+  // OVERALL FIRST, THEN ONE MARKET AT A TIME (4 Oct 2026): the combined numbers are the first page, and the chips move to a single market.
+  const mine = useMemo(() => (programmes.length ? programmes : [programme]), [programmes, programme])
+  const canAll = !!isAdmin && mine.length > 1
+  const [scope, setScope] = useState(canAll ? 'all' : programme.id)
+  const all = canAll && scope === 'all'
+  const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
+  const ids = all ? mine.map((p) => p.id) : [shown.id]
+  const idsKey = ids.join(',')
+  const scopeName = all ? tr('All VIP markets') : shown.name
   const [ym, setYm] = useState(today)
   const [actual, setActual] = useState(null)
   const [hist, setHist] = useState(null)
   const [targets, setTargets] = useState({})
   const [editing, setEditing] = useState(null)
   const [val, setVal] = useState('')
-  const cur = programme.currency
+  const cur = (shown || mine[0] || programme).currency
   const isToday = ym.year === today.year && ym.month === today.month
 
   const load = useCallback(async () => {
+    const list = idsKey.split(',')
     const [a, t] = await Promise.all([
-      vipRpc('vip_kpi_actuals', { p_programme: programme.id, p_year: ym.year, p_month: ym.month }).catch(() => ({})),
-      supabase.from('vip_kpi_targets').select('*').eq('programme_id', programme.id).eq('year', ym.year).eq('month', ym.month),
+      Promise.all(list.map((id) => vipRpc('vip_kpi_actuals', { p_programme: id, p_year: ym.year, p_month: ym.month }).catch(() => ({})))),
+      supabase.from('vip_kpi_targets').select('*').in('programme_id', list).eq('year', ym.year).eq('month', ym.month),
     ])
-    setActual(a || {}); setTargets(Object.fromEntries((t.data || []).map((x) => [x.metric, x])))
-  }, [programme.id, ym])
+    setActual(list.length > 1 ? combineActuals(a) : (a[0] || {}))
+    setTargets(list.length > 1 ? combineTargets(t.data || []) : Object.fromEntries((t.data || []).map((x) => [x.metric, x])))
+  }, [idsKey, ym])
   useEffect(() => { setActual(null); load() }, [load])
   useEffect(() => {
     let alive = true
     setHist(null)
-    vipRpc('vip_kpi_history', { p_programme: programme.id, p_months: 6 }).then((h) => { if (alive) setHist(h || []) }).catch(() => { if (alive) setHist([]) })
+    const list = idsKey.split(',')
+    Promise.all(list.map((id) => vipRpc('vip_kpi_history', { p_programme: id, p_months: 6 }).catch(() => [])))
+      .then((all6) => {
+        if (!alive) return
+        if (list.length === 1) { setHist(all6[0] || []); return }
+        const months = new Map()
+        for (const h of all6) for (const m of h || []) { const k = `${m.year}-${m.month}`; (months.get(k) || months.set(k, { year: m.year, month: m.month, parts: [] }).get(k)).parts.push(m.actuals) }
+        setHist([...months.values()].sort((x, y) => x.year * 12 + x.month - (y.year * 12 + y.month)).map((m) => ({ year: m.year, month: m.month, actuals: combineActuals(m.parts) })))
+      })
     return () => { alive = false }
-  }, [programme.id])
+  }, [idsKey])
 
   const step = (d) => setYm((p) => { const i = p.year * 12 + (p.month - 1) + d; return { year: Math.floor(i / 12), month: (i % 12) + 1 } })
 
   async function save() {
+    if (all) return
     const metric = editing
     const n = Number(String(val).replace(/[\s,]/g, ''))
     if (val === '' || Number.isNaN(n)) {
       if (targets[metric]) await supabase.from('vip_kpi_targets').delete().eq('id', targets[metric].id)
     } else {
-      const { error } = await supabase.from('vip_kpi_targets').upsert({ programme_id: programme.id, year: ym.year, month: ym.month, metric, target_value: n, created_by: profile?.id }, { onConflict: 'programme_id,year,month,metric' })
+      const { error } = await supabase.from('vip_kpi_targets').upsert({ programme_id: shown.id, year: ym.year, month: ym.month, metric, target_value: n, created_by: profile?.id }, { onConflict: 'programme_id,year,month,metric' })
       if (error) { notice(error.message); return }
     }
     setEditing(null); load()
@@ -124,7 +167,7 @@ export function VipKpiTab({ programme }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('Goals for {p}, month by month, counted live from the same videos the payouts use.', { p: programme.name })}</p>
+        <p className="max-w-xl text-sm text-smoke">{all ? tr('Every VIP market added together, month by month. Pick a market to see its own goals and to change them.') : tr('Goals for {p}, month by month, counted live from the same videos the payouts use.', { p: scopeName })}</p>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setYm(today)} tabIndex={isToday ? -1 : 0} aria-hidden={isToday} className={cx('inline-flex h-8 items-center gap-1.5 rounded-full bg-brand px-3.5 text-[12.5px] font-bold text-white shadow-card transition-all duration-300', isToday ? 'pointer-events-none scale-95 opacity-0' : 'opacity-100 hoverable:hover:scale-[1.04]')}>
             <Icon name="chevronLeft" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('This month')}
@@ -137,13 +180,15 @@ export function VipKpiTab({ programme }) {
         </div>
       </div>
 
+      {mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
+
       {actual === null ? <><Skeleton className="h-32 w-full rounded-card" /><Skeleton className="h-64 w-full rounded-card" /></> : (
         <>
           <section key={`${ym.year}-${ym.month}`} className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card animate-rise sm:p-6">
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full bg-white/15 blur-2xl" />
-            <p className="relative text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">{programme.name} · {monthLabel(ym.year, ym.month)}</p>
+            <p className="relative text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">{scopeName} · {monthLabel(ym.year, ym.month)}</p>
             {goals.length === 0 ? (
-              <p className="relative mt-2 text-lg font-bold">{tr('No goals set for this month yet. Press a card below to set one.')}</p>
+              <p className="relative mt-2 text-lg font-bold">{all ? tr('No goals set for this month in any market yet.') : tr('No goals set for this month yet. Press a card below to set one.')}</p>
             ) : (
               <>
                 <p className="relative mt-1.5 text-3xl font-bold tabular-nums">{tr('{a} of {b} goals on track', { a: good, b: goals.length })}</p>
@@ -171,17 +216,17 @@ export function VipKpiTab({ programme }) {
               return (
                 <article
                   key={`${ym.year}-${ym.month}-${r.key}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => { setEditing(r.key); setVal(r.t ? String(Number(r.t.target_value)) : '') }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(r.key); setVal(r.t ? String(Number(r.t.target_value)) : '') } }}
+                  role={all ? undefined : 'button'}
+                  tabIndex={all ? -1 : 0}
+                  onClick={() => { if (all) return; setEditing(r.key); setVal(r.t ? String(Number(r.t.target_value)) : '') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !all) { setEditing(r.key); setVal(r.t ? String(Number(r.t.target_value)) : '') } }}
                   style={{ animationDelay: `${i * 50}ms` }}
                   className={cx('group flex cursor-pointer flex-col gap-3 rounded-card border bg-white p-4 shadow-card transition-[box-shadow,border-color,transform] duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift', r.t ? 'border-gray-100' : 'border-dashed border-gray-200')}
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name={r.icon} className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1 pt-1 text-[15px] font-semibold leading-snug text-ink">{tr(r.label)}</span>
-                    <Icon name="pencil" className="mt-1.5 h-3.5 w-3.5 text-gray-300 transition-colors group-hover:text-brand" />
+                    {!all && <Icon name="pencil" className="mt-1.5 h-3.5 w-3.5 text-gray-300 transition-colors group-hover:text-brand" />}
                   </div>
                   <div>
                     <div className="flex items-baseline justify-between gap-2">
@@ -189,7 +234,7 @@ export function VipKpiTab({ programme }) {
                       {r.t && <span className="text-sm text-smoke">{r.lower ? tr('aim for under') : tr('of')} <strong className="font-semibold text-ink">{r.fmt(Number(r.t.target_value), cur)}</strong></span>}
                     </div>
                     {st ? <KpiProgress className="mt-2.5" status={st.status} pct={st.pct} progress={st.progress} isLevel={!!r.level} />
-                      : <p className="mt-2.5 text-xs text-smoke">{tr('No goal yet. Press to set one.')}</p>}
+                      : <p className="mt-2.5 text-xs text-smoke">{all ? tr('No goal set.') : tr('No goal yet. Press to set one.')}</p>}
                   </div>
                   <div className="flex items-end justify-between gap-3 border-t border-gray-50 pt-2.5">
                     <div className="min-w-0 text-[11px] leading-snug text-smoke">
@@ -214,7 +259,7 @@ export function VipKpiTab({ programme }) {
       <Modal open={!!editingRow} onClose={() => setEditing(null)} title={editingRow ? tr(editingRow.label) : ''}>
         {editingRow && (
           <div className="space-y-4">
-            <p className="text-sm text-smoke">{tr('The goal for {p} in {m}. Leave it empty to remove it.', { p: programme.name, m: monthLabel(ym.year, ym.month) })}</p>
+            <p className="text-sm text-smoke">{tr('The goal for {p} in {m}. Leave it empty to remove it.', { p: scopeName, m: monthLabel(ym.year, ym.month) })}</p>
             <input autoFocus className="input" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} placeholder={tr('For example: {n}', { n: editingRow.key === 'views' ? '2,000,000' : editingRow.key === 'spend' ? '600' : '40' })} />
             <p className="text-xs text-smoke">{tr('So far this month: {v}', { v: editingRow.fmt(editingRow.v, cur) })}</p>
             <button type="button" onClick={save} className="btn-primary w-full justify-center">{tr('Save goal')}</button>

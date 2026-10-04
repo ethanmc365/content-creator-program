@@ -403,7 +403,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
           </div>
           <div className="h-64">
             <ResponsiveContainer>
-              <ComposedChart data={data.weeks} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <ComposedChart data={data.weeks} margin={{ top: 16, right: 12, left: -8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                 <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
                 <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
@@ -432,7 +432,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
         </div>
         <div className="h-64">
           <ResponsiveContainer>
-            <AreaChart data={data.weeks} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <AreaChart data={data.weeks} margin={{ top: 16, right: 12, left: -8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />

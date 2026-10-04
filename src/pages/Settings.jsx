@@ -599,7 +599,7 @@ export default function Settings() {
           </p>
         )}
         {/* VIPs: the VIP map's switch lives here now, not on the map (2 Oct 2026). Draws nothing for anybody else. */}
-        <div className="mt-4 border-t border-gray-50 pt-4 empty:hidden"><VipMapSetting /></div>
+        <div className="mt-4 border-t border-gray-50 pt-4 empty:hidden"><VipMapSetting publicOn={showOnMap} /></div>
       </Panel>
 
       {/* DELETING YOUR ACCOUNT IS ITS OWN CARD, AT THE VERY BOTTOM.

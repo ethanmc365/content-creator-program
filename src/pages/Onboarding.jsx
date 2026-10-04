@@ -1401,7 +1401,7 @@ function VipMarketCard({ home, country }) {
     <div key={home.programme_id} className="onb-market relative overflow-hidden rounded-card bg-gradient-to-r from-brand to-brand-light px-4 py-3.5 text-white shadow-card">
       <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/15 blur-xl" />
       <div className="relative flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-xl leading-none">{(home.country_codes || []).map(flagFromIso).join('') || '⭐'}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-xl leading-none">{home.worldwide ? '🌍' : ((home.country_codes || []).map(flagFromIso).join('') || '⭐')}</span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-wide text-white/85">{tr('Your VIP market')}</p>
           <p className="truncate text-[15px] font-bold">{home.name}</p>
@@ -1635,8 +1635,8 @@ function BucketList({ rows = [], onChange }) {
                 pin here was the same data in two different clothes. It falls
                 back to the pin while the box is empty or the name does not
                 resolve - a blank square would read as a broken image. */}
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint/60 text-brand" aria-hidden>
-              {flagFromIso(isoForCountryName(b.country)) || <Icon name="pin" className="h-4 w-4" />}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center text-xl leading-none text-brand" aria-hidden>
+              {flagFromIso(isoForCountryName(b.country)) || <Icon name="pin" className="h-5 w-5" />}
             </span>
             <span className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-3">
               <input
@@ -1745,7 +1745,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo, vipHo
 
       {vipHome ? (
         <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
-          <span className="text-xl leading-none" aria-hidden>{(vipHome.country_codes || []).map(flagFromIso).join('') || '⭐'}</span>
+          <span className="text-xl leading-none" aria-hidden>{vipHome.worldwide ? '🌍' : ((vipHome.country_codes || []).map(flagFromIso).join('') || '⭐')}</span>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-smoke">{tr('Your VIP market')}</p>
             <p className="text-sm font-bold text-brand">{vipHome.name}</p>

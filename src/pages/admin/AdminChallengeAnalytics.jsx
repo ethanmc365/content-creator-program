@@ -304,9 +304,6 @@ export default function AdminChallengeAnalytics() {
         })()}
       </div>
 
-      {/* ---------- Who has not posted yet (4 Oct 2026): the funnel from the audience to the people who entered, with a nudge for each group. ---------- */}
-      {challenge.status === 'active' && <ChallengeReach challenge={challenge} />}
-
       {/* ---------- Which markets took part ----------
           ONLY WHEN MORE THAN ONE COULD (28 Sep 2026). Ethan: the UK-only
           Creative Challenge still showed "participation by market", which
@@ -403,7 +400,7 @@ export default function AdminChallengeAnalytics() {
               <p className="flex h-full items-center justify-center text-sm text-smoke">No entries yet.</p>
             ) : (
               <ResponsiveContainer>
-                <BarChart data={d.platforms} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <BarChart data={d.platforms} margin={{ top: 16, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
@@ -425,7 +422,7 @@ export default function AdminChallengeAnalytics() {
               <p className="flex h-full items-center justify-center text-sm text-smoke">No views logged yet.</p>
             ) : (
               <ResponsiveContainer>
-                <BarChart data={d.platforms} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+                <BarChart data={d.platforms} margin={{ top: 16, right: 12, left: -2, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
@@ -437,6 +434,9 @@ export default function AdminChallengeAnalytics() {
           </div>
         </section>
       </div>
+
+      {/* ---------- Who has not posted yet: moved down to sit just above the leaderboard (4 Oct 2026), with participation by market back at the top. ---------- */}
+      {challenge.status === 'active' && <ChallengeReach challenge={challenge} />}
 
       {/* ---------- Leaderboard ---------- */}
       {results.length > 0 && (
@@ -923,7 +923,7 @@ function EntriesOverTime({ subs, challenge }) {
           <p className="flex h-full items-center justify-center text-sm text-smoke">No entries yet.</p>
         ) : (
           <ResponsiveContainer>
-            <ComposedChart data={data} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 16, right: 8, left: -6, bottom: 0 }}>
               <defs>
                 <linearGradient id="viewsFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={BRAND_LIGHT} stopOpacity={0.35} />

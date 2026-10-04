@@ -36,9 +36,9 @@ const KINDS = {
   bonus: { icon: 'star', label: 'Bonus' },
   // Migration 233. "+5 at the end for posting a video in all 4 weeks."
   consistency: { icon: 'calendar', label: 'Consistency bonus' },
-  // Migration 325. Two creators who are CONNECTED on the platform make a video together; one claims it on their entry, the other
-  // confirms, and both earn these points (see components/challenge/CollabCard).
-  collab: { icon: 'users', label: 'Collab bonus' },
+  // Migration 325, reshaped in 334: an INSTAGRAM COLLAB POST. One creator enters it and names the other, the other confirms, and both
+  // earn these points (see components/challenge/CollabCard).
+  collab: { icon: 'users', label: 'Instagram collab bonus' },
 }
 
 let tempId = 0
@@ -49,7 +49,7 @@ const DEFAULTS = {
   platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
   bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '', min_views: null },
   consistency: { label: 'Posted every week', points: 5, threshold: null, max_points: null, period_days: 7 },
-  collab: { label: 'Made a video together with a connected creator', points: 10, threshold: null, max_points: 30 },
+  collab: { label: 'Posted an Instagram collab post with another creator', points: 10, threshold: null, max_points: 30 },
 }
 
 const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || DEFAULTS.bonus) })
@@ -659,7 +659,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           {addButton('per_post', tr('Per video'))}
           {addButton('platform_spread', tr('Per platform'))}
           {addButton('consistency', tr('Posting streak'))}
-          {addButton('collab', tr('Collab with a creator'))}
+          {addButton('collab', tr('Instagram collab post'))}
         </div>
       </section>
     </div>

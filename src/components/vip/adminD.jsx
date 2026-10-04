@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import { MarketStandings } from './v3'
+import Reorderable from '../network/Reorderable'
+import { flagFromIso } from '../../lib/flags'
 import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
@@ -130,7 +132,7 @@ export function VipContentTab({ programme, isOwner, part }) {
 }
 
 /** A short "how this works" strip: icon and sentence, no numbers or circles that look like buttons. Open until dismissed. */
-function HowItWorks({ id, title, lines, openByDefault = false }) {
+export function HowItWorks({ id, title, lines, openByDefault = false }) {
   const tr = useT()
   const key = `tryp_vip_how_${id}`
   const [open, setOpen] = useState(() => { try { const v = localStorage.getItem(key); return v == null ? openByDefault : v === '1' } catch { return openByDefault } })
@@ -174,15 +176,18 @@ function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   useEffect(() => {
     if (!isOwner) return undefined
     let alive = true
-    supabase.from('vip_programmes').select('id, name').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
+    supabase.from('vip_programmes').select('id, name, community:community_id(country_codes)').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
     return () => { alive = false }
   }, [isOwner])
-  const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name }]
+  const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name, community: programme.community }]
+  // A flag for a market, the GLOBE for the Worldwide VIP market and a STAR for every VIP market: those are different things (one
+  // market, or all of them), and the list says so before the words do (4 Oct 2026).
+  const iconOf = (p) => (p.community?.country_codes?.length ? p.community.country_codes.slice(0, 2).map(flagFromIso).join('') : '🌍')
   return (
     <label className="block">
       <span className="label">{tr('Who it is for')}</span>
       <Select variant="field" portal value={value} disabled={disabled} onChange={onChange} ariaLabel={tr('Who it is for')}
-        options={[...markets.map((p) => ({ value: p.id, label: tr('{p} only', { p: p.name }) })), ...((isOwner || value === '') ? [{ value: '', label: tr('Every VIP market') }] : [])]} />
+        options={[...markets.map((p) => ({ value: p.id, icon: iconOf(p), label: p.name })), ...((isOwner || value === '') ? [{ value: '', icon: '⭐', label: tr('Every VIP market'), hint: tr('All VIPs') }] : [])]} />
     </label>
   )
 }
@@ -212,8 +217,7 @@ function BriefsEditor({ programme, isOwner, canManage }) {
         ['bell', 'When you post it, every VIP it is for gets a notification, and it sits at the top of their VIP page with live standings.'],
         ['calendar', 'When the month closes, the places are worked out and the prizes go into the winners\' balances by themselves.'],
       ]} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('A theme, a brief, hook ideas and a goal for each month. Every VIP in scope is told, sees it at the top of their month, and gets live standings.')}</p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New challenge')}</button>}
       </div>
       {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('No monthly challenges yet.')) : (
@@ -361,10 +365,9 @@ function PerksEditor({ programme, isOwner, canManage }) {
         ['flag', 'A milestone, perk or trip unlocks by itself when a VIP reaches a number: total views, total videos, months as a VIP, months posting in a row or views on one video.'],
         ['cash', 'Give it a reward and it is paid automatically: cash goes into their balance, a voucher is raised for you to send. Pick "Nothing to pay" for a trip or a perk you arrange yourself, then mark it delivered below.'],
         ['eye', 'VIPs see all of them under Perks and trips on their VIP page, with how close they are.'],
-        ['sparkles', 'A one-off cash bonus for a milestone can also be set in Money, Bonuses. Use this page when you want it shown as a goal to unlock.'],
+        ['sparkles', 'Monthly bonuses (the podium, best video, a target) are on the other side of the switch above. Use this side for goals VIPs unlock once and see on their page.'],
       ]} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('Rewards VIPs unlock on their own as their views and videos add up. They see them on their VIP page under Perks and trips, with how close they are. A cash reward goes straight into their balance and a voucher is raised for you to send, so nothing needs doing by hand. A trip or a perk without a reward is marked delivered by you.')}</p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New perk or trip')}</button>}
       </div>
       {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('Nothing here yet.')) : (
@@ -495,55 +498,87 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
 }
 
 // ---- guides
+// DRAG TO ORDER, SWITCH ON AND OFF (4 Oct 2026). Ethan: "Show it to the VIPs" is obvious - a guide you write is for the VIPs - so the tick is
+// gone; what he wants is one switch beside Edit to turn a guide off and on. And "Order: lowest first" was a number to type; the guides are
+// now dragged into the order he wants by the grip, saved as he lets go.
 function GuidesEditor({ programme, isOwner, canManage }) {
   const tr = useT()
-  const [rows, load] = useScoped('vip_guides', programme, [['category', true], ['sort', true]])
+  const [rows, load] = useScoped('vip_guides', programme, [['sort', true], ['category', true]])
   const [edit, setEdit] = useState(null)
+  const [order, setOrder] = useState(null) // the list as dragged, until the server agrees
+  const list = order || rows
   const cats = useMemo(() => [...new Set((rows || []).map((g) => g.category))], [rows])
+  useEffect(() => { setOrder(null) }, [rows])
   async function remove(g) {
     if (!await confirm(tr('Delete "{t}"?', { t: g.title }), { confirmLabel: tr('Delete'), danger: true })) return
     try { await vipRpc('vip_delete_guide', { p_id: g.id }); load() } catch (e) { notice(e.message) }
   }
+  async function flip(g) {
+    setOrder((list || []).map((x) => (x.id === g.id ? { ...x, active: !x.active } : x)))
+    try {
+      await vipRpc('vip_save_guide', { p_id: g.id, p_programme: g.programme_id, p_category: g.category, p_title: g.title, p_body: g.body, p_sort: g.sort, p_active: !g.active })
+      load()
+    } catch (e) { setOrder(null); notice(e.message) }
+  }
+  async function reorder(next) {
+    setOrder(next)
+    try { await vipRpc('vip_reorder_guides', { p_ids: next.map((g) => g.id) }); load() } catch (e) { setOrder(null); notice(e.message) }
+  }
   return (
     <div className="space-y-4">
       <HowItWorks id="guides" openByDefault={(rows || []).length === 0} title={tr('How the guides work')} lines={[
-        ['book', 'Each guide is an article VIPs read in the Library on their VIP page: how to film a trip, how to write a hook, how to plan a month.'],
-        ['tag', 'Give it a topic and the guides group under it. The order number puts the lowest first.'],
-        ['globe', 'Make it for one market, or for every VIP market (owner).'],
+        ['book', 'A guide is a short article VIPs read in the Library on their VIP page: how to film a trip, how to open a video, how to plan a month.'],
+        ['tag', 'Give each guide a topic and the Library groups them under it.'],
+        ['grip', 'Drag a guide by the dots to put it where you want it. VIPs read them in that order.'],
+        ['eye', 'A guide is shown the moment you save it. Use the switch beside Edit to hide one without deleting it.'],
       ]} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-smoke">{tr('The VIP library: how to film a trip, how to write a hook, how to plan a month. The hook generator sits above them on the VIP page.')}</p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New guide')}</button>}
       </div>
-      {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('No guides yet.')) : (
-        <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-          {rows.map((g) => (
-            <li key={g.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
-              <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{g.category}<ScopeTag row={g} />{!g.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Hidden')}</span>}</span><span className="block truncate text-sm font-bold text-ink">{g.title}</span></span>
-              {!ownerLocked(g, isOwner, canManage) && (
-                <span className="flex items-center gap-0.5">
-                  <button type="button" onClick={() => setEdit(g)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Edit')}</button>
-                  <button type="button" onClick={() => remove(g)} aria-label={tr('Delete')} className="flex h-8 w-8 items-center justify-center rounded-full text-smoke hoverable:hover:bg-red-50 hoverable:hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
+      {list === null ? <Skeleton className="h-32 w-full rounded-card" /> : list.length === 0 ? empty(tr('No guides yet.')) : (
+        <Reorderable
+          items={list}
+          onReorder={reorder}
+          handleLabel={tr('Drag to reorder')}
+          className="flex flex-col gap-2"
+          renderItem={(g, { handleProps, dragging }) => {
+            const locked = ownerLocked(g, isOwner, canManage)
+            return (
+              <div className={cx('group flex flex-wrap items-center gap-3 rounded-card border bg-white px-3 py-3 transition-shadow duration-200 sm:px-4', dragging ? 'border-brand/30 shadow-lift' : 'border-gray-100 shadow-card', !g.active && 'opacity-70')}>
+                <span {...handleProps} title={tr('Drag to reorder')} className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-gray-300 transition-colors hover:text-smoke active:cursor-grabbing">
+                  <Icon name="grip" className="h-4 w-4" />
                 </span>
-              )}
-            </li>
-          ))}
-        </ul>
+                <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{g.category}<ScopeTag row={g} />{!g.active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('Hidden')}</span>}</span>
+                  <span className="block truncate text-sm font-semibold text-ink">{g.title}</span>
+                </span>
+                {!locked && (
+                  <span className="flex items-center gap-2">
+                    <Toggle on={!!g.active} onChange={() => flip(g)} label={g.active ? tr('Shown to VIPs. Switch off to hide') : tr('Hidden. Switch on to show')} />
+                    <button type="button" onClick={() => setEdit(g)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Edit')}</button>
+                    <button type="button" onClick={() => remove(g)} aria-label={tr('Delete')} className="flex h-8 w-8 items-center justify-center rounded-full text-smoke hoverable:hover:bg-red-50 hoverable:hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
+                  </span>
+                )}
+              </div>
+            )
+          }}
+        />
       )}
-      {edit && <GuideForm programme={programme} isOwner={isOwner} guide={edit} cats={cats} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load() }} />}
+      {edit && <GuideForm programme={programme} isOwner={isOwner} guide={edit} cats={cats} nextSort={((rows || []).reduce((m, g) => Math.max(m, Number(g.sort) || 0), 0)) + 10} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load() }} />}
     </div>
   )
 }
 
-function GuideForm({ programme, isOwner, guide, cats, onClose, onSaved }) {
+function GuideForm({ programme, isOwner, guide, cats, nextSort = 10, onClose, onSaved }) {
   const tr = useT()
   const [scope, setScope] = useState(guide.id ? (guide.programme_id || '') : programme.id)
   const [category, setCategory] = useState(guide.category || 'Filming')
   const [title, setTitle] = useState(guide.title || '')
   const [body, setBody] = useState(guide.body || '')
-  const [sort, setSort] = useState(guide.sort != null ? String(guide.sort) : '0')
-  const [active, setActive] = useState(guide.id ? guide.active : true)
+  // A NEW GUIDE GOES AT THE END; an existing one keeps its place. The order is changed by dragging, not by typing a number.
+  const sort = guide.id ? guide.sort : nextSort
+  const active = guide.id ? guide.active : true
   const [busy, setBusy] = useState(false)
   async function save() {
     setBusy(true)
@@ -563,10 +598,6 @@ function GuideForm({ programme, isOwner, guide, cats, onClose, onSaved }) {
         </div>
         <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={140} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="block"><span className="label">{tr('The guide')}</span><textarea className="input min-h-[14rem] resize-y" maxLength={12000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('Use - for lists, 1. for steps, **bold** for emphasis and a blank line between paragraphs.')} /></label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">{tr('Order (lowest first)')}</span><input className="input" inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value)} /></label>
-          <label className="flex cursor-pointer items-end gap-2.5 pb-2.5 text-sm text-ink"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-[#d94407]" />{tr('Show it to VIPs')}</label>
-        </div>
         <div className="flex justify-end gap-2.5"><button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr('Cancel')}</button><button type="button" onClick={save} disabled={busy || !title.trim()} className="btn-primary !py-2.5 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>
       </div>
     </Modal>

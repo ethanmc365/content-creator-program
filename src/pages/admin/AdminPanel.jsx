@@ -9,6 +9,7 @@ import Reveal from '../../components/network/Reveal'
 import OpenMarketDialog from '../../components/admin/OpenMarketDialog'
 import { cx } from '../../lib/utils'
 import { useVipAccess } from '../../lib/vip'
+import { awaitingCode } from '../../lib/wallet'
 
 // The admin hub.
 //
@@ -497,7 +498,12 @@ export default function AdminPanel() {
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
         supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-        supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        // ROWS, NOT A COUNT (4 Oct 2026). "1 reward still to pay" sent Ethan to Cash & Invoices, where
+        // nothing was owed: the one reward was a VOUCHER waiting for its code, which lives on the
+        // Vouchers tab. A voucher needs a code, cash needs paying, and the desk has to say which.
+        supabase.from('rewards').select('id, reward_type, status, source, voucher_code, issued_via')
+          .or('status.eq.pending,and(reward_type.eq.voucher,status.eq.distributed)'),
+        supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'approved'),
         // A PRIZE NOBODY CAN PAY IS WORK, and it is work of a different kind:
         // an invoice waiting for approval needs a decision from an admin, an
         // invoice with no bank details on it needs somebody to go and ask the
@@ -518,14 +524,15 @@ export default function AdminPanel() {
       ])
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
-        { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
-        { data: blockedRows }, { count: openErrors },
+        { count: newFeedback }, { count: newSuggestions }, { data: rewardRows },
+        { count: toSend }, { data: blockedRows }, { count: openErrors },
       ] = answers
       // A COUNT THAT FAILED IS NOT A ZERO. The desk is always drawn now, and an
       // empty desk says "all clear" - which a query that errored would say too
       // if its null count were read as nothing waiting. So a failure is its own
       // row, and the card can only claim all clear when every question landed.
       const unchecked = answers.filter((a) => a?.error).length
+      const owed = (rewardRows ?? []).filter((r) => r.status === 'pending' || awaitingCode(r))
       const blocked = (blockedRows ?? []).filter(
         (i) => !(i.payment?.name && (i.payment?.iban || i.payment?.accountNumber))).length
       setStats({
@@ -537,7 +544,11 @@ export default function AdminPanel() {
         openReports: openReports ?? 0,
         newFeedback: newFeedback ?? 0,
         newSuggestions: newSuggestions ?? 0,
-        pendingRewards: pendingRewards ?? 0,
+        toSend: toSend ?? 0,
+        // Same predicates as the Money page's own Overview, so the desk and the page cannot disagree.
+        vouchersToCode: owed.filter((r) => r.reward_type === 'voucher' && r.source !== 'referral').length,
+        referralsOwed: owed.filter((r) => r.reward_type === 'voucher' && r.source === 'referral').length,
+        cashToPay: owed.filter((r) => r.reward_type !== 'voucher').length,
       })
     }
     load()
@@ -588,7 +599,10 @@ export default function AdminPanel() {
     stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}` },
     stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'bug', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },
     stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators` },
-    stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay` },
+    stats.toSend > 0 && { to: '/admin/rewards?tab=cash', icon: 'money', count: stats.toSend, label: `approved invoice${stats.toSend === 1 ? '' : 's'} to send` },
+    stats.cashToPay > 0 && { to: '/admin/rewards?tab=cash', icon: 'wallet', count: stats.cashToPay, label: `cash prize${stats.cashToPay === 1 ? '' : 's'} still to pay` },
+    stats.vouchersToCode > 0 && { to: '/admin/rewards?tab=vouchers', icon: 'ticket', count: stats.vouchersToCode, label: `voucher${stats.vouchersToCode === 1 ? '' : 's'} that need a code` },
+    stats.referralsOwed > 0 && { to: '/admin/rewards?tab=vouchers', icon: 'share', count: stats.referralsOwed, label: `referral voucher${stats.referralsOwed === 1 ? '' : 's'} owed` },
     stats.blocked > 0 && { to: '/admin/rewards?tab=invoices', icon: 'alert', count: stats.blocked, label: `prize${stats.blocked === 1 ? '' : 's'} waiting on bank details` },
     // Last in the list, first in importance is a tension, and the list wins:
     // these rows are ordered by how often they have something in them, and

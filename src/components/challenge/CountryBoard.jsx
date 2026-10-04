@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
+import { motion } from 'motion/react'
+import { SPRING } from '../../lib/motion'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
 import { CountUp } from '../network/Motion'
@@ -40,6 +42,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
   const [data, setData] = useState(undefined)
   const [measure, setMeasure] = useState(scoring === 'points' ? 'points' : 'views')
   const [open, setOpen] = useState(null)
+  // The bars grow from nothing ONCE, when the numbers first arrive. Switching the measure afterwards moves them from where they are.
   const [grown, setGrown] = useState(false)
 
   useEffect(() => {
@@ -57,13 +60,11 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
       .sort((a, b) => ((b[measure] || 0) - (a[measure] || 0)) || (b.creators - a.creators) || String(a.name).localeCompare(String(b.name)))
   }, [data, measure])
 
-  // The bars grow from nothing once the numbers are in and again when the measure changes, so the switch reads as the data moving.
   useEffect(() => {
     if (!data) return undefined
-    setGrown(false)
     const t = setTimeout(() => setGrown(true), 60)
     return () => clearTimeout(t)
-  }, [data, measure])
+  }, [data])
 
   if (data === undefined) {
     return <div className="space-y-3" aria-busy="true">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-card" />)}</div>
@@ -75,7 +76,6 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
   const max = Math.max(1, ...rows.map((r) => r[measure] || 0))
   const total = rows.reduce((n, r) => n + (r[measure] || 0), 0)
   const taking = rows.filter((r) => r.creators > 0 && !r.none).length
-  const countries = rows.filter((r) => !r.none).length
   const lead = rows.find((r) => (r[measure] || 0) > 0)
   const mine = rows.find((r) => r.mine)
 
@@ -88,9 +88,6 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="globe" className="h-4 w-4" />{tr('Country against country')}</p>
             <p className="mt-1.5 text-2xl font-bold leading-tight sm:text-3xl">
               {lead ? tr('{n} leads', { n: lead.name }) : tr('Nobody has entered yet')}
-            </p>
-            <p className="mt-1.5 text-sm text-white/90">
-              {tr('{a} of {b} countries have entered. Just for fun, there is no prize: every creator counts for their home country, so each video you post moves yours up.', { a: taking, b: countries })}
             </p>
           </div>
           <dl className="grid grid-cols-3 gap-2.5">
@@ -114,33 +111,49 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
           const value = r[measure] || 0
           const w = value / max
           const share = total ? value / total : 0
+          const others = measures.filter((m) => m.value !== measure)
           return (
-            <li key={r.id || 'none'} className="animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+            <motion.li key={r.id || 'none'} layout="position" transition={{ layout: SPRING }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <button
                 type="button"
                 onClick={() => setOpen(r)}
                 className={cx(
-                  'group w-full rounded-card border bg-white p-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-4',
-                  r.mine ? 'border-brand/40 ring-1 ring-brand/20' : 'border-gray-100 hoverable:hover:border-brand/30',
+                  'group relative w-full overflow-hidden rounded-card border p-3.5 text-left shadow-card transition-[box-shadow,border-color,transform,background-color] duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-4',
+                  // YOUR HOME COUNTRY IS THE LOUD ONE (4 Oct 2026): a solid brand edge and a wash of brand. A market you belong to without it being
+                  // your home gets a quiet brand outline, so you can find both at a glance.
+                  r.mine ? 'border-brand bg-brand-tint/50 shadow-[0_6px_22px_-10px_rgba(217,68,7,0.55)]'
+                    : r.also ? 'border-brand/35 bg-white' : 'border-gray-100 bg-white hoverable:hover:border-brand/30',
                 )}
               >
+                {r.mine && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-brand to-brand-light" />}
                 <div className="flex items-center gap-3">
-                  <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums transition-colors duration-300', i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
                   <Badge market={r} />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="truncate text-[15px] font-bold text-ink">{r.none ? tr('No home market') : r.name}</span>
-                      {r.mine && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('Your country')}</span>}
+                      <span className="truncate text-[15px] font-bold text-ink">{r.none ? tr('Rest of the world') : r.name}</span>
+                      {r.mine && <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"><Icon name="home" className="h-3 w-3" />{tr('Your home market')}</span>}
+                      {r.also && <span className="rounded-full border border-brand/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Also yours')}</span>}
                     </span>
                     <span className="block truncate text-xs text-smoke">
                       {r.creators > 0
-                        ? `${r.creators === 1 ? tr('1 creator') : tr('{c} creators', { c: r.creators })} · ${r.entries === 1 ? tr('1 entry') : tr('{e} entries', { e: r.entries })} · ${tr('{v} views', { v: formatViews(r.views) })}`
-                        : r.none ? tr('Not placed in a market yet') : tr('Nobody has entered yet. Be the first.')}
+                        ? `${r.creators === 1 ? tr('1 creator') : tr('{c} creators', { c: r.creators })} · ${r.entries === 1 ? tr('1 entry') : tr('{e} entries', { e: r.entries })}`
+                        : r.none ? tr('Creators who are not placed in a market') : tr('Nobody has entered yet. Be the first.')}
                     </span>
+                  </span>
+                  {/* THE MEASURE ON SHOW IS THE BIG NUMBER; the other ones sit small beside it, so points, views, entries and creators are
+                      all readable without switching (4 Oct 2026). */}
+                  <span className="hidden shrink-0 items-center gap-4 border-r border-gray-100 pr-4 sm:flex">
+                    {others.map((m) => (
+                      <span key={m.value} className="text-right">
+                        <span className="block text-[13px] font-semibold tabular-nums leading-tight text-ink/80">{fmt(m.value, r[m.value])}</span>
+                        <span className="block text-[9px] font-bold uppercase tracking-wide text-gray-400">{tr(m.label)}</span>
+                      </span>
+                    ))}
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="block text-xl font-bold tabular-nums leading-tight text-ink"><CountUp value={value} format={(n) => fmt(measure, Math.round(n))} /></span>
-                    <span className="block text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr(measures.find((m) => m.value === measure)?.label || '')}</span>
+                    <span className="block text-[10px] font-bold uppercase tracking-wide text-brand">{tr(measures.find((m) => m.value === measure)?.label || '')}</span>
                   </span>
                   <Icon name="chevronRight" className="hidden h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand sm:block" />
                 </div>
@@ -148,7 +161,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                   <span className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-cloud">
                     <span
                       className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out"
-                      style={{ width: grown ? `${value > 0 ? Math.max(2.5, w * 100) : 0}%` : '0%', transitionDelay: `${Math.min(i, 8) * 55}ms` }}
+                      style={{ width: grown ? `${value > 0 ? Math.max(2.5, w * 100) : 0}%` : '0%', transitionDelay: grown ? '0ms' : `${Math.min(i, 8) * 55}ms` }}
                     />
                   </span>
                   <span className="w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums text-smoke">{value > 0 ? `${Math.round(share * 100)}%` : ''}</span>
@@ -157,7 +170,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                   <p className="mt-2 text-[11px] text-smoke">{tr('{a} of {b} members have entered', { a: r.creators, b: r.members })}</p>
                 ) : null}
               </button>
-            </li>
+            </motion.li>
           )
         })}
       </ol>
@@ -169,7 +182,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
         </div>
       )}
 
-      <Modal open={!!open} onClose={() => setOpen(null)} title={open ? (open.none ? tr('No home market') : open.name) : ''} wide>
+      <Modal open={!!open} onClose={() => setOpen(null)} title={open ? (open.none ? tr('Rest of the world') : open.name) : ''} wide>
         {open && <CountryPeople market={open} measure={measure} rank={rows.findIndex((r) => (r.id || 'none') === (open.id || 'none')) + 1} meId={meId} challengeId={challenge.id} scoring={scoring} />}
       </Modal>
     </div>

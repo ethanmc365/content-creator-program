@@ -1015,9 +1015,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
           onClick={() => fileRef.current?.click()}
           className="flex w-full flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-gray-200 px-6 py-12 text-center transition-colors duration-200 hover:border-brand/40 hover:bg-brand-tint/20"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-tint text-brand">
-            <Icon name="image" className="h-5 w-5" />
-          </span>
+          <Icon name="image" className="h-9 w-9 text-brand" />
           <span className="text-sm font-semibold">{tr('Add your first travel photo')}</span>
           <span className="max-w-xs text-xs text-smoke">
             {tr('Up to {n} photos. Drag them into any order, press the corner button to make one bigger, and type the caption straight onto it.', { n: MAX_PHOTOS })}

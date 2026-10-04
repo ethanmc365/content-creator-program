@@ -175,10 +175,6 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
       <div className="brand-drift relative overflow-hidden px-6 pb-6 pt-5 text-white">
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
         <span aria-hidden className="survey-orb pointer-events-none absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/10 blur-2xl [animation-delay:-3s]" />
-        {/* a few slow stars of light, so the header is never quite still */}
-        {[['right-8 top-14', '0ms'], ['right-20 top-24', '900ms'], ['left-[46%] top-5', '1700ms'], ['right-4 top-32', '2300ms']].map(([pos, d]) => (
-          <span key={pos} aria-hidden className={cx('survey-twinkle pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-white', pos)} style={{ '--d': d }} />
-        ))}
         <div className="relative flex items-center gap-3">
           {stage === 'questions' ? (
             <>
@@ -241,9 +237,9 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
         {stage === 'intro' && (
           <div key="intro" className="animate-survey-in">
             {survey.intro && <p className="text-[15px] leading-relaxed text-smoke"><TLine text={survey.intro} /></p>}
-            <div className="mt-4 flex flex-wrap gap-2 text-[12px] font-semibold text-ink">
-              <span className="survey-word inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '160ms' }}><Icon name="poll" className="h-3.5 w-3.5 text-brand" />{questions.length === 1 ? tr('1 question') : tr('{n} questions', { n: questions.length })}</span>
-              <span className="survey-word inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '260ms' }}><Icon name="clock" className="h-3.5 w-3.5 text-brand" />{mins === 1 ? tr('About 1 minute') : tr('About {n} minutes', { n: mins })}</span>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-[12px] font-semibold text-ink">
+              <span className="survey-word inline-flex items-center justify-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '160ms' }}><Icon name="poll" className="h-3.5 w-3.5 text-brand" />{questions.length === 1 ? tr('1 question') : tr('{n} questions', { n: questions.length })}</span>
+              <span className="survey-word inline-flex items-center justify-center gap-1.5 rounded-full bg-cloud px-3 py-1.5" style={{ '--d': '260ms' }}><Icon name="clock" className="h-3.5 w-3.5 text-brand" />{mins === 1 ? tr('About 1 minute') : tr('About {n} minutes', { n: mins })}</span>
             </div>
             <button type="button" onClick={() => { setDir(1); setStage('questions') }} className="btn-primary survey-shine mt-6 w-full justify-center !py-3.5 text-[15px] transition-transform duration-200 active:scale-[0.98] hoverable:hover:scale-[1.02]">
               {tr("Let's go")}
@@ -333,8 +329,14 @@ function RatingAnswer({ q, value, onChange }) {
       </svg>
       <div className="flex items-center justify-between gap-1" role="radiogroup" aria-label={q.prompt} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => {
-          const on = (value || 0) >= n
+          // THREE STATES, NO LOOP (4 Oct 2026). Ethan: the stars "constantly go from smaller to bigger, and some of them lose their colour
+          // and appear in their colour again". Two causes: every empty star pulsed forever (`survey-twinkle`), and a star's element was
+          // swapped for a new one whenever it changed state, so it blinked. Now an empty star is still; the gold star is a layer ABOVE
+          // a grey one and only its opacity changes, so brightening is a cross-fade that cascades from the first star to the last. A
+          // hovered star shows the gold at 55%, a chosen one at full strength, and only the star you press pops.
+          const chosen = (value || 0) >= n
           const lit = shown >= n
+          const bright = chosen && (!hover || hover >= n) ? 1 : lit ? 0.55 : 0
           return (
             <button
               key={n}
@@ -351,13 +353,17 @@ function RatingAnswer({ q, value, onChange }) {
               {value === n && SPARKS.map((sp, k) => (
                 <span key={`${value}-${k}`} aria-hidden className="survey-spark" style={{ '--x': `${sp.x}px`, '--y': `${sp.y}px`, background: sp.c }} />
               ))}
-              <span
-                key={on ? `on${value}` : 'off'}
-                className={cx('block', on ? 'survey-star-in' : 'survey-twinkle')}
-                style={{ '--d': on ? `${(n - 1) * 60}ms` : `${n * 280}ms` }}
-              >
-                <svg viewBox="0 0 24 24" className="h-10 w-10 transition-all duration-300 sm:h-11 sm:w-11" style={{ filter: on ? 'drop-shadow(0 5px 7px rgba(217,68,7,0.35))' : 'none', opacity: lit && !on ? 0.6 : 1 }} aria-hidden>
-                  <path d={STAR} fill={lit ? `url(#${gid}-on)` : '#e5e7eb'} stroke={lit ? '#d94407' : '#d1d5db'} strokeWidth="0.6" strokeLinejoin="round" style={{ transition: 'fill 0.25s' }} />
+              <span className={cx('relative block', value === n && 'survey-star-in')} style={{ '--d': '0ms' }}>
+                <svg viewBox="0 0 24 24" className="h-10 w-10 sm:h-11 sm:w-11" aria-hidden>
+                  <path d={STAR} fill="#e5e7eb" stroke="#d1d5db" strokeWidth="0.6" strokeLinejoin="round" />
+                </svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="absolute inset-0 h-10 w-10 sm:h-11 sm:w-11"
+                  style={{ opacity: bright, transform: `scale(${bright === 1 ? 1 : 0.92})`, transition: `opacity 260ms ease, transform 260ms ease`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms', filter: bright === 1 ? 'drop-shadow(0 5px 7px rgba(217,68,7,0.35))' : 'none' }}
+                  aria-hidden
+                >
+                  <path d={STAR} fill={`url(#${gid}-on)`} stroke="#d94407" strokeWidth="0.6" strokeLinejoin="round" />
                 </svg>
               </span>
             </button>

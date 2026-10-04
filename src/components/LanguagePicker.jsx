@@ -81,10 +81,10 @@ export default function LanguagePicker({ className, tone = 'soft', align = 'righ
           'inline-flex h-10 items-center gap-2 rounded-full pl-3 pr-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.97]',
           tone === 'soft'
             ? 'bg-white/80 text-ink shadow-card ring-1 ring-black/5 backdrop-blur hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
-            // `brand` (1 Oct 2026): the landing page's picker, in an orange pill beside "Join us" so it reads as a
-            // control and not as a stray word. Outlined, so "Join us" stays the one solid button in the bar.
+            // `brand` (4 Oct 2026): the landing page's picker as the lighter orange gradient with white text (Ethan did not like the
+            // outlined version). It sits beside "Join us" so it reads as a control and not as a stray word.
             : tone === 'brand'
-              ? 'border-2 border-brand bg-brand-tint/60 text-brand shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand hoverable:hover:text-white'
+              ? 'border-0 bg-gradient-to-r from-brand to-brand-light text-white shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
               : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',
           className,
         )}

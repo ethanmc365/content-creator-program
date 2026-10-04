@@ -149,7 +149,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
           months.map((m) => ({ month: m.month, joined: m.joined, left: m.left, net: m.net, total: m.total })))}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chart} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+          <ComposedChart data={chart} margin={{ top: 16, right: 12, left: -6, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8A8A8F" />
             <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />
@@ -198,7 +198,7 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
               output.map((m) => ({ month: m.month, creators_posting: m.creators, videos: m.videos })))}
           >
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={output} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+              <ComposedChart data={output} margin={{ top: 16, right: 12, left: -6, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8A8A8F" />
                 <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />

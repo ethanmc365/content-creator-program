@@ -4,6 +4,7 @@ import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 're
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
+import { flagForCountry } from '../lib/flags'
 import CountryPanel from './CountryPanel'
 import { lockScroll } from '../lib/scrollLock'
 import { thumbUrl } from '../lib/avatarUrl'
@@ -247,10 +248,20 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
         : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}
     >
-        {/* Country name tooltip on hover */}
+        {/* THE COUNTRY CARD (4 Oct 2026). Ethan: the name came up in a dark pill over the map and the pinned country in a flat
+            orange; he wanted it like the language buttons - a white card with the flag and the name. On a map you are pinning
+            it also says what a tap will do (or has just done), so a country is never added without it saying so. */}
         {tooltip && (
-          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
-            {place.country(tooltip)}
+          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 animate-pop-in">
+            <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-ink shadow-lift">
+              <span aria-hidden className="text-base leading-none">{flagForCountry(tooltip)}</span>
+              {place.country(tooltip)}
+              {selectable && (
+                <span className={selectedSet.has(tooltip) ? 'text-xs font-semibold text-brand' : 'text-xs font-medium text-smoke'}>
+                  {selectedSet.has(tooltip) ? tr('Added ✓') : tr('Tap to add')}
+                </span>
+              )}
+            </span>
           </div>
         )}
 
@@ -381,7 +392,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                       geography={geo}
                       onClick={
                         selectable && onToggle
-                          ? () => onToggle(name)
+                          ? () => { onToggle(name); setTooltip(name); setTimeout(() => setTooltip(''), 1800) }
                           : owner
                             ? () => setCountry(name)
                             : undefined
@@ -470,11 +481,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </ZoomableGroup>
         </ComposableMap>
 
-        {selectable && (
-          <p className="absolute bottom-2 left-3 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
-            {tr("Search above, or tap the map · use + / − to zoom")}
-          </p>
-        )}
+        {/* The "Search above, or tap the map" caption that sat bottom-left is gone (4 Oct 2026): the search box is right above. */}
 
         {/* THE "TAP A COUNTRY" HINT IS GONE. A coloured country on a map you
             can tap is already an affordance; a label explaining it sat over the

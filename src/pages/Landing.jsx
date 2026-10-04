@@ -1076,7 +1076,7 @@ export default function Landing() {
       <footer className="pb-8 pt-0 sm:pb-10 sm:pt-1">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-1.5 px-5 text-center text-xs text-smoke sm:flex-row sm:justify-center sm:gap-0 sm:px-8">
           <p>
-            © {new Date().getFullYear()} Tryp.com Content Creator Community
+            © {new Date().getFullYear()} {tr('Tryp.com Content Creator Community')}
             <span className="px-2" aria-hidden>·</span>
             <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("tryp.com ↗")}</a>
           </p>
@@ -1175,6 +1175,7 @@ function StepIcon({ name, align = 'center' }) {
 // of the page uses - and a rail is one screen wide, which is exactly the case
 // where Reveal's container mode is correct (see the note in Reveal.jsx).
 function Rail({ children, className = '', itemClassName = '', gap = 'gap-4', stagger = 0.09, label }) {
+  const tr = useT()
   const ref = useRef(null)
   // `Reveal` publishes its container through a CALLBACK rather than by writing
   // into a ref it was handed - see the note on `innerRef` there - so this is
@@ -1308,7 +1309,10 @@ function Rail({ children, className = '', itemClassName = '', gap = 'gap-4', sta
         role="group"
         aria-label={label}
         className={cx(
-          '-mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 pb-3 pt-4 sm:-mx-8 sm:px-8',
+          // THE TOP PADDING IS THE ROOM THE HOVER NEEDS (4 Oct 2026). A card lifts 5px and grows 2% on hover, and the step badge
+          // already hangs 12px above it; a scroller clips whatever leaves it, so with 16px the top of the badge was cut off.
+          // The -mt-3 gives the extra padding back, so the page layout is exactly what it was.
+          '-mx-5 -mt-3 flex snap-x snap-mandatory overflow-x-auto px-5 pb-3 pt-7 sm:-mx-8 sm:px-8',
           // SCROLL PADDING, OR THE RAIL EATS ITS OWN LEFT GUTTER.
           //
           // A snap point aligns against the scrollport, and the scrollport is
@@ -1341,7 +1345,7 @@ function Rail({ children, className = '', itemClassName = '', gap = 'gap-4', sta
           type="button"
           onClick={() => page(dir)}
           disabled={atEnd}
-          aria-label={key === 'prev' ? 'Scroll left' : 'Scroll right'}
+          aria-label={key === 'prev' ? tr('Scroll left') : tr('Scroll right')}
           className={cx(
             'absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-ink shadow-card ring-1 ring-black/5 transition-all duration-200 hoverable:flex',
             'hoverable:hover:-translate-y-1/2 hoverable:hover:scale-110 hoverable:hover:shadow-lift',

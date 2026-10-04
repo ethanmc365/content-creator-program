@@ -463,6 +463,9 @@ export function LanguageSelect({ selected = [], onChange }) {
   const tr = useT()
   const place = usePlaceNames()
   const [query, setQuery] = useState('')
+  // THE SEARCH IS BEHIND A BUTTON (4 Oct 2026). Ethan: the common languages looked like the only choices. The box is hidden
+  // until "Another language" is pressed, which says outright that there are more, then opens with the cursor in it.
+  const [searching, setSearching] = useState(false)
 
   function toggle(lang) {
     onChange(selected.includes(lang) ? selected.filter((l) => l !== lang) : [...selected, lang])
@@ -500,21 +503,24 @@ export function LanguageSelect({ selected = [], onChange }) {
         </div>
       )}
 
-      <input
-        type="text"
-        className="input"
-        placeholder={tr("Search for your language…")}
-        value={query}
-        maxLength={40}
-        aria-label={tr("Search languages")}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== 'Enter') return
-          e.preventDefault()
-          if (suggestions.length === 1) toggle(suggestions[0])
-          else if (canAddCustom) toggle(query.trim())
-        }}
-      />
+      {searching && (
+        <input
+          autoFocus
+          type="text"
+          className="input"
+          placeholder={tr("Search for your language…")}
+          value={query}
+          maxLength={40}
+          aria-label={tr("Search languages")}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            if (suggestions.length === 1) toggle(suggestions[0])
+            else if (canAddCustom) toggle(query.trim())
+          }}
+        />
+      )}
 
       <div className="flex flex-wrap gap-2">
         {canAddCustom && (
@@ -537,8 +543,18 @@ export function LanguageSelect({ selected = [], onChange }) {
             {place.language(lang)}
           </button>
         ))}
-        {suggestions.length === 0 && !canAddCustom && (
-          <p className="text-xs text-smoke">{q ? tr("Nothing left to add.") : tr('Search above for any other language.')}</p>
+        {!searching && (
+          <button
+            type="button"
+            onClick={() => setSearching(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-brand/60 px-3.5 py-2 text-[13px] font-semibold text-brand transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-tint/50"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            {tr('Another language')}
+          </button>
+        )}
+        {searching && suggestions.length === 0 && !canAddCustom && (
+          <p className="text-xs text-smoke">{q ? tr("Nothing left to add.") : tr('Type above to find any other language.')}</p>
         )}
       </div>
     </div>

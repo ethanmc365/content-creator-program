@@ -70,7 +70,7 @@ export default function ChallengeLeaderboard({
   platformsFor = () => [], linkProfiles = true, wide = false, scoreLabel = 'views',
   startAt = 1, className = '',
   // POSTING STREAKS AND VIDEO COUNTS (28 Sep 2026). `streaks` is creatorId ->
-  // { weeks, live } from lib/postingStreak; drawn only while the challenge is
+  // { current, best, live, state } from lib/dailyStreak; drawn only while the challenge is
   // running (`showStreaks`), because a streak is about what happens next.
   streaks = null, showStreaks = false, showVideos = false,
 }) {
@@ -142,6 +142,7 @@ export default function ChallengeLeaderboard({
         <span className="w-9 shrink-0 text-center">#</span>
         <span className="min-w-0 flex-1">{tr('Creator')}</span>
         {hasPrizes && <span className={cx(prizeCol, 'shrink-0 text-right')}>{tr('Prize')}</span>}
+        {showStreaks && <span className="w-16 shrink-0 text-center">{tr('Daily streak')}</span>}
         <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
         {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
       </div>
@@ -156,20 +157,26 @@ export default function ChallengeLeaderboard({
         const vids = subCountByCreator[row?.creator_id] || 0
         const plats = row ? platformsFor(row.creator_id) : []
         const st = showStreaks && row ? streaks?.get(row.creator_id) : null
-        const streakChip = st?.weeks > 0 && (
+        // THE DAILY STREAK HAS ITS OWN COLUMN (4 Oct 2026): a big flame and the number of days in a row. Lit while the creator has posted
+        // today, a dimmer flame while the run is waiting for today's post, and GREY with their best run when it has been lost.
+        const streakCell = st && st.state !== 'none' ? (
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAboutStreaks(true) }}
-            title={tr('{n}-week posting streak. What is this?', { n: st.weeks })}
-            className={cx(
-              'inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums transition-transform duration-200 hover:-translate-y-0.5',
-              st.live ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
-            )}
+            title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
+            className="group flex w-full flex-col items-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            <Flame className="h-3.5 w-3.5" state={st.live ? 'lit' : 'ember'} />
-            {st.weeks} {st.weeks === 1 ? tr('week') : tr('weeks')}
+            <span className={cx('relative flex h-10 w-10 items-center justify-center', st.state === 'lost' && 'opacity-45 grayscale')}>
+              <Flame className="h-10 w-10" state={st.state === 'waiting' ? 'ember' : st.state === 'lost' ? 'ember' : 'lit'} />
+            </span>
+            <span className={cx('-mt-0.5 text-sm font-extrabold tabular-nums leading-none', st.state === 'live' ? 'text-brand' : 'text-smoke')}>
+              {st.state === 'lost' ? st.best : st.current}
+            </span>
+            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-smoke">
+              {st.state === 'lost' ? tr('best') : (st.current === 1 ? tr('day') : tr('days'))}
+            </span>
           </button>
-        )
+        ) : null
         const prizePill = prize && (
           <span
             title={tr('Prize for this place')}
@@ -208,7 +215,6 @@ export default function ChallengeLeaderboard({
                 {(showVideos || plats.length > 0) && vids > 0 && (
                   <span className="font-medium tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>
                 )}
-                {streakChip}
                 {/* THE VOUCHER SITS WITH THE PRIZES (2 Oct 2026). Ethan: "the
                     participation vouchers should show below in that same column
                     for prize rather than over to the left." With a prize column
@@ -285,6 +291,10 @@ export default function ChallengeLeaderboard({
               </span>
             )}
 
+            {showStreaks && (
+              <span className={cx('w-12 shrink-0 sm:w-16', !row && 'invisible')}>{streakCell}</span>
+            )}
+
             {/* THE SCORE. On a phone the views sit under the points; from sm
                 they have a column of their own. */}
             <span className={cx('shrink-0 text-right sm:w-20', row ? 'w-16' : 'w-4')}>
@@ -321,26 +331,26 @@ export default function ChallengeLeaderboard({
           </div>
         )
       })}
-      <Modal open={aboutStreaks} onClose={() => setAboutStreaks(false)} title={tr('Posting streaks')}>
+      <Modal open={aboutStreaks} onClose={() => setAboutStreaks(false)} title={tr('Daily streaks')}>
         <div className="space-y-4">
           <div className="flex items-center gap-4 rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card">
             <Flame className="h-12 w-12 shrink-0" tone="warm" sparks />
             <p className="text-sm font-medium leading-relaxed">
-              {tr('Post at least one video every 7 days and your streak grows by a week.')}
+              {tr('Post at least one video every day and your streak grows by a day. The longer it runs, the bigger the flame.')}
             </p>
           </div>
           <ul className="space-y-2.5 text-sm text-ink/85">
             <li className="flex gap-2.5">
               <Flame className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{tr('A lit flame means you have posted in the last 7 days.')}</span>
+              <span>{tr('A bright flame means you have posted today.')}</span>
             </li>
             <li className="flex gap-2.5">
               <Flame className="mt-0.5 h-5 w-5 shrink-0" state="ember" />
-              <span>{tr('An unlit flame means your streak is still alive, but you need to post this week to keep it.')}</span>
+              <span>{tr('A dim flame means your streak is still alive, but you need to post today to keep it.')}</span>
             </li>
             <li className="flex gap-2.5">
-              <Icon name="refresh" className="mt-0.5 h-5 w-5 shrink-0 text-smoke" />
-              <span>{tr('Miss a whole week and it starts again from your next video.')}</span>
+              <Flame className="mt-0.5 h-5 w-5 shrink-0 opacity-45 grayscale" state="ember" />
+              <span>{tr('A grey flame means the streak was lost. It shows your best run, and starts again from your next video.')}</span>
             </li>
           </ul>
           <p className="rounded-xl bg-cloud/70 px-4 py-3 text-xs text-smoke">

@@ -12,7 +12,7 @@ import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
-import { streaksByCreator } from '../lib/postingStreak'
+import { dailyStreaksByCreator } from '../lib/dailyStreak'
 import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
 import { useEntryPoints } from '../lib/entryPoints'
@@ -28,7 +28,8 @@ import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPo
 import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import CountryBoard from '../components/challenge/CountryBoard'
-import CollabCard from '../components/challenge/CollabCard'
+import CollabCard, { PartnerPicker } from '../components/challenge/CollabCard'
+import BoostBanner from '../components/challenge/BoostBanner'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
@@ -111,7 +112,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const { id: routeId } = useParams()
   const id = challengeId || routeId
   const [searchParams] = useSearchParams()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, profile } = useAuth()
   const { networkId } = useMyScopes()
 
   // THE LAST COPY OF THIS CHALLENGE PAINTS FIRST (1 Oct 2026, slow wifi): a
@@ -182,6 +183,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [captionTouched, setCaptionTouched] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [errorField, setErrorField] = useState('') // 'url' | 'caption' - rings the offending input
+  // A video that is already in a challenge: { title, same } - drawn as its own card, not a red line.
+  const [dupInfo, setDupInfo] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(null) // { count, platform } once an entry lands
   const deepLinkedRef = useRef(false) // ?submit=/?tab= are consumed once, not on every reload
@@ -211,6 +214,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [bonusClaims, setBonusClaims] = useState(seed?.bonusClaims ?? [])
   // Which bonuses the creator has ticked in the submit form, before they send.
   const [claiming, setClaiming] = useState([])
+  // An Instagram collab post: the other creator on it, picked while entering (the partner confirms afterwards).
+  const [collabPartner, setCollabPartner] = useState(null)
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
   const [board, setBoard] = useState(null)
@@ -381,6 +386,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function fail(field, message) {
+    setDupInfo(null)
     setErrorField(field)
     setSubmitError(message)
   }
@@ -417,7 +423,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
   async function submitEntry(e) {
     e.preventDefault()
-    setSubmitError('')
+    setSubmitError(''); setDupInfo(null)
     setErrorField('')
 
     const urlError = urlProblem(videoUrl)
@@ -470,10 +476,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       setSubmitting(false)
       // The guard raises 23505 with its own sentence. Say it against the link,
       // which is the field they can do something about.
-      return fail(
-        /already been entered/i.test(error.message) ? 'url' : '',
-        error.message,
-      )
+      // migration 328: DETAIL is the title of the challenge it is already in, HINT is 'same' or 'other'.
+      if (error.code === '23505' && /already been (submitted|entered)/i.test(error.message)) {
+        setSubmitError('')
+        setErrorField('url')
+        setDupInfo({ title: error.details || '', same: error.hint !== 'other' })
+        return
+      }
+      return fail('', error.message)
     }
 
     // THE COVER IS STORED THE MOMENT THE ROW EXISTS, NOT THE FIRST TIME
@@ -506,6 +516,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         })),
       )
     }
+    // THE COLLAB PARTNER, ASKED AFTER THE ENTRY IS IN (4 Oct 2026). Not fatal: the entry stands whatever happens, and the partner can be added
+    // from the collab card afterwards.
+    if (entry && collabPartner && platform === 'Instagram') {
+      const { error: collabError } = await supabase.rpc('collab_request', { p_challenge: id, p_submission: entry.id, p_partner: collabPartner.id })
+      if (collabError) await notice(`Your entry is in, but the collab could not be sent: ${collabError.message}`)
+    }
     setSubmitting(false)
 
     setShowSubmit(false)
@@ -514,6 +530,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setCaptionTouched(false)
     setLinkMeta(null)
     setClaiming([])
+    setCollabPartner(null)
     // The reload below hasn't landed yet, so count this entry in by hand.
     const mine = submissions.filter((s) => s.creator_id === user.id).length
     setSuccess({ count: mine + 1, platform })
@@ -574,7 +591,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
   const isGlobalChallenge = !!networkId && challenge.community_id === networkId
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
-  const streaks = streaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
+  const streaks = dailyStreaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
   const normName = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const entryQ = normName(entryQuery.trim())
   const shownEntries = entryScope === 'mine'
@@ -744,6 +761,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // offers only the ones open right now; an entry can claim one only if it was
   // submitted inside that bonus's dates, which is also what the database checks.
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
+  const collabOn = (pointRules || []).some((r) => r.kind === 'collab' && r.is_active !== false)
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
   // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
@@ -1073,6 +1091,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
+      {challenge.status === 'active' && challenge.scoring === 'points' && <BoostBanner challengeId={challenge.id} />}
       <SwapIn swapKey={tab === 'leaderboard' || tab === 'countries' ? 'board' : 'bonus'}>
         {tab !== 'leaderboard' && tab !== 'countries' ? (
           <LiveBonusCallout
@@ -1279,6 +1298,38 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       <div className="h-2 overflow-hidden rounded-full bg-cloud">
                         <div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${pct}%` }} />
                       </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+            {/* THE WELCOME VOUCHER, WHERE THE PRIZES ARE (4 Oct 2026). Ethan: "a welcome voucher for first-time creators ... show it to a new
+                creator when they pass 5,000 views. Improve that and the UI of it." For a creator who joined after the challenge began it shows
+                what they have to do and, once they have entered, a bar towards the views; for everybody else it is simply listed. */}
+            {Number(challenge?.welcome_amount) > 0 && (() => {
+              const need = Number(challenge.welcome_views) || 5000
+              const isNew = !!profile?.created_at && !!challenge.start_date && Date.parse(profile.created_at) >= Date.parse(challenge.start_date)
+              const best = Math.max(0, ...myEntries.map((e) => Number(e.logged_views) || 0))
+              const pctW = Math.min(100, Math.round((best / need) * 100))
+              return (
+                <div className="border-t border-gray-100 px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr('Welcome voucher for new creators')}</p>
+                      <p className="mt-0.5 text-[15px] font-bold leading-snug text-ink">{formatMoney(challenge.welcome_amount, challenge.prize_currency || 'EUR')} {tr('Tryp.com voucher')}</p>
+                      <p className="mt-0.5 text-xs leading-snug text-smoke">
+                        {tr('Joined after this challenge started? Your first video that passes {n} views earns it, with nothing else to do.', { n: need.toLocaleString() })}
+                      </p>
+                    </div>
+                  </div>
+                  {isLive && isNew && myEntries.length > 0 && (
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
+                        <span className="font-semibold text-ink">{best >= need ? tr('You have earned it.') : tr('{n} more views to go.', { n: (need - best).toLocaleString() })}</span>
+                        <span className="shrink-0 font-bold tabular-nums text-brand">{formatViews(Math.min(best, need))}/{formatViews(need)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${pctW}%` }} /></div>
                     </div>
                   )}
                 </div>
@@ -1875,7 +1926,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 value={videoUrl}
                 onChange={(e) => {
                   setVideoUrl(e.target.value)
-                  if (errorField === 'url') { setSubmitError(''); setErrorField('') }
+                  if (errorField === 'url') { setSubmitError(''); setErrorField(''); setDupInfo(null) }
                 }}
               />
               {!videoUrl.trim() && typeof navigator !== 'undefined' && navigator.clipboard?.readText && (
@@ -2010,6 +2061,37 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </div>
           )}
 
+          {collabOn && detectPlatform(normaliseUrl(videoUrl)) === 'Instagram' && (
+            <div>
+              <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
+                <Icon name="users" className="h-4 w-4 text-brand" />
+                {tr('Instagram collab post?')}
+              </p>
+              <p className="mb-3 text-xs text-smoke">{tr('Posted this with another creator as an Instagram collab post? Pick them and you both earn the collab points once they confirm. It counts as one entry.')}</p>
+              <PartnerPicker meId={user.id} value={collabPartner} onChange={setCollabPartner} />
+            </div>
+          )}
+
+          {dupInfo && (
+            <div id="submit-error" role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
+              <div className="flex items-start gap-3">
+                <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-semibold">{tr('This video has already been submitted')}</p>
+                  <p className="mt-1 leading-relaxed text-amber-900/85">
+                    {dupInfo.same
+                      ? tr('It is already in {c}, which is this challenge.', { c: dupInfo.title || tr('this challenge') })
+                      : tr('It is already in {c}. A video can only count in one challenge.', { c: dupInfo.title || tr('another challenge') })}
+                  </p>
+                  {!dupInfo.same && (
+                    <p className="mt-1.5 leading-relaxed text-amber-900/85">
+                      {tr('Meant it for this one? Remove it from {c} first, then submit it here. If that challenge has finished, message the team.', { c: dupInfo.title || tr('the other challenge') })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {submitError && (
             <div
               id="submit-error"

@@ -60,7 +60,7 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
           onClick={onClose}
           aria-current={on ? 'page' : undefined}
           className={cx(
-            'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-200 active:scale-[0.99]',
+            'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-[transform,background-color] duration-200 active:scale-[0.99]',
             on ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card'
               : vip ? 'text-white/90 active:bg-white/10' : 'text-ink active:bg-cloud',
           )}

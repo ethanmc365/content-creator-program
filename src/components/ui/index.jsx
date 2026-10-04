@@ -593,6 +593,43 @@ export function StreakChip({ n, title }) {
   )
 }
 
+/**
+ * A SAVE BUTTON THAT SAYS IT WORKED (4 Oct 2026). Ethan: pressing Save on the VIP goal changed nothing on screen, so it
+ * looked as if nothing had happened. `flash()` turns the button green with a tick for a few seconds, then it goes back to
+ * orange. Usage: `const [saved, flash] = useSavedFlash()` ... `<SaveButton saved={saved} busy={busy} onClick={...} />`.
+ */
+export function useSavedFlash(ms = 3000) {
+  const [saved, setSaved] = useState(false)
+  const timer = useRef(null)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  const flash = () => {
+    setSaved(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setSaved(false), ms)
+  }
+  return [saved, flash]
+}
+
+export function SaveButton({ saved = false, busy = false, onClick, disabled = false, title, label, savedLabel, className = '', type = 'button' }) {
+  const tr = useT()
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={busy || disabled}
+      title={title}
+      className={cx(
+        'btn-primary !py-2.5 text-sm transition-[background-color,box-shadow,transform] duration-300',
+        saved && '!bg-green-600 !bg-none !from-green-600 !to-green-600 hover:!bg-green-600',
+        className,
+      )}
+    >
+      {busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className={cx('h-4 w-4 transition-transform duration-300', saved && 'scale-125')} />}
+      {saved ? (savedLabel || tr('Saved')) : (label || tr('Save'))}
+    </button>
+  )
+}
+
 /** An on/off switch. Controlled: pass `on` and an `onChange(next)` handler. */
 export function Toggle({ on, onChange, label, disabled = false }) {
   return (

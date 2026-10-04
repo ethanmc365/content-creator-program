@@ -81,7 +81,10 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // challenge that is still running still shows the budget it set out with
   // rather than a row of dashes.
   const planned = convert(row.prize_amount, row.prize_currency || 'GBP', currency, rates)
-  const spend = awarded > 0 ? cashSpend : planned
+  // A RUNNING CHALLENGE carries `live_spend` (pot + awards + vouchers earned so far, the same sum its own page uses), so its CPM in a list
+  // and on its page cannot differ.
+  const liveSpend = row.live_spend != null ? conv(Number(row.live_spend)) : null
+  const spend = liveSpend != null ? liveSpend : (awarded > 0 ? cashSpend : planned)
   // "NOT MEASURED" AND "MEASURED AS NONE" ARE DIFFERENT NUMBERS (7 Sep 2026).
   //
   // This was `Number(row.total_views) || 0`, which collapses the two, and the

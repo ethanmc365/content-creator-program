@@ -15,6 +15,8 @@ import {
   BONUS_KINDS, DEFAULT_TERMS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
 } from '../../lib/vip'
 import { Stat, useMonths } from './adminA'
+import { HowItWorks, VipContentTab } from './adminD'
+import VipScopeSwitch from './scope'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
@@ -297,12 +299,12 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
 // WHERE A BONUS STARTS (4 Oct 2026). Ethan: the ready-made bonuses "should show up as options at the top because we have the 'Add a
 // bonus' button anyway." They were a row of cards above the list; now they are the first thing in the Add dialog. Each one fills the
 // form with sensible numbers to change, and everything here is worked out by itself when the month closes.
+// "Consistency streak" and "Post a lot" are gone from the list (4 Oct 2026): posting steadily is what a VIP is expected to do (the stay-in
+// rule asks for it), so it is not something to pay a bonus for. A streak rule that already exists still shows and still pays.
 const TEMPLATES = [
   { key: 'podium', icon: 'trophy', label: 'Monthly podium', hint: 'Prizes for the top three on views', rule: { kind: 'top_n', label: 'Most views of the month', scope: 'market', reward: 'cash', places: [{ place: 1, amount: '100', reward: 'cash' }, { place: 2, amount: '50', reward: 'cash' }, { place: 3, amount: '25', reward: 'cash' }] } },
   { key: 'target', icon: 'flag', label: 'Hit your target', hint: 'Reach the monthly target you set for them', rule: { kind: 'target', label: 'Monthly target hit', scope: 'creator', reward: 'cash', amount: '25', conditions: { own: true } } },
   { key: 'best', icon: 'star', label: 'Best video', hint: 'The most-viewed video of the month', rule: { kind: 'best_video', label: 'Video of the month', scope: 'market', reward: 'cash', amount: '50' } },
-  { key: 'streak', icon: 'fire', label: 'Consistency streak', hint: '4+ videos in each of 3 months in a row', rule: { kind: 'streak', label: 'Three good months in a row', scope: 'creator', reward: 'cash', amount: '50', conditions: { months: 3, min_videos: 4 } } },
-  { key: 'many', icon: 'video', label: 'Post a lot', hint: 'Everyone who posts 15 videos in a month', rule: { kind: 'target', label: '15 videos in a month', scope: 'creator', reward: 'cash', amount: '30', conditions: { own: false, videos: 15 } } },
   { key: 'big', icon: 'trendUp', label: 'A big month', hint: 'Everyone who reaches 100,000 views in a month', rule: { kind: 'target', label: '100,000 views in a month', scope: 'creator', reward: 'cash', amount: '40', conditions: { own: false, views: 100000 } } },
   { key: 'viral', icon: 'eye', label: 'A video that took off', hint: 'One video passing 1,000,000 views', rule: { kind: 'milestone', label: 'A million-view video', scope: 'creator', reward: 'cash', amount: '150', conditions: { metric: 'best_video_views', threshold: '1000000' } } },
   { key: 'loyal', icon: 'calendar', label: 'Loyalty', hint: 'Six months as a VIP', rule: { kind: 'milestone', label: 'Six months as a VIP', scope: 'creator', reward: 'voucher', amount: '50', conditions: { metric: 'months_active', threshold: '6' } } },
@@ -310,7 +312,29 @@ const TEMPLATES = [
   { key: 'ladder', icon: 'chart', label: 'A ladder of milestones', hint: '100k, 500k, 1M views and so on, in one go', ladder: true },
 ]
 
-export function VipBonusesTab({ programme }) {
+// MILESTONES, PERKS AND TRIPS LIVE WITH THE BONUSES (4 Oct 2026). Ethan: they "seem very similar and overlapping ... combine this, milestone
+// perks and trips, into the bonuses section under money, and remove it from content." Both are rewards a VIP earns, and both pay by
+// themselves, so there is one place for them: a switch at the top of Bonuses between the monthly bonuses and the goals VIPs unlock.
+export function VipBonusesTab({ programme, isOwner = false, initialPart = 'monthly' }) {
+  const tr = useT()
+  const [part, setPart] = useState(initialPart === 'perks' ? 'perks' : 'monthly')
+  return (
+    <div className="space-y-5">
+      <Segmented
+        id="vip-bonus-part"
+        label={tr('Kind of reward')}
+        value={part}
+        onChange={setPart}
+        options={[{ value: 'monthly', label: tr('Monthly bonuses') }, { value: 'perks', label: tr('Milestones, perks and trips') }]}
+      />
+      {part === 'perks'
+        ? <VipContentTab programme={programme} isOwner={isOwner} part="perks" />
+        : <MonthlyBonuses programme={programme} />}
+    </div>
+  )
+}
+
+function MonthlyBonuses({ programme }) {
   const tr = useT()
   const [rules, setRules] = useState(null)
   const [members, setMembers] = useState([])
@@ -430,7 +454,7 @@ function StatementRow({ s, cur, editable, onChanged }) {
           {draft ? (
             editable ? <button type="button" onClick={approve} disabled={busy} className="btn-primary !px-3 !py-1.5 text-xs">{busy ? <Spinner className="h-3 w-3" /> : tr('Approve')}</button>
               : <span className="text-[11px] font-bold uppercase text-smoke">{tr('Draft')}</span>
-          ) : <span className="text-[11px] font-bold uppercase tracking-wide text-smoke">{stage === 'paid' ? tr('Paid') : stage === 'sent' ? tr('Sent') : s.invoice_id ? tr('Invoice approved') : Number(s.total) > 0 ? tr('In their balance') : tr('Nothing to pay')}</span>}
+          ) : <span className="text-[11px] font-bold uppercase tracking-wide text-smoke">{stage === 'paid' ? tr('Paid') : stage === 'sent' ? tr('Sent') : s.invoice_id ? tr('Invoice approved') : Number(s.total) > 0 ? tr('In their balance') : Number(s.rollover_out) > 0 ? tr('Carried over') : tr('No earnings')}</span>}
         </span>
       </div>
       {open && (
@@ -450,8 +474,8 @@ function StatementRow({ s, cur, editable, onChanged }) {
           {Number(s.rollover_out) > 0 && <p className="text-xs text-smoke">{tr('Below the minimum payout, so {a} carries to next month.', { a: money(s.rollover_out, cur) })}</p>}
           {draft && editable && (
             <div className="flex flex-wrap items-end gap-2 border-t border-gray-200 pt-3">
-              <label className="block min-w-[10rem] flex-1"><span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Adjust (a correction or a goodwill amount)')}</span><input className="input !py-2 text-[13px]" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={tr('What for?')} /></label>
-              <label className="block w-28"><span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Amount (- to take off)')}</span><input className="input !py-2 text-[13px]" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="10" /></label>
+              <label className="block min-w-[10rem] flex-1"><span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Correction or bonus')}</span><input className="input !py-2 text-[13px]" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={tr('What for?')} /></label>
+              <label className="block w-28"><span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Amount (- takes off)')}</span><input className="input !py-2 text-[13px]" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="10" /></label>
               <button type="button" onClick={adjust} disabled={busy || !label.trim() || !Number(amount)} className="btn-secondary !py-2 text-xs disabled:opacity-50">{tr('Add')}</button>
             </div>
           )}
@@ -568,8 +592,8 @@ export function VipCloseTab({ programme }) {
               </p>
               <p className="mt-0.5 text-sm text-smoke">
                 {programmeAuto
-                  ? tr('When a month closes, every statement with nothing flagged goes straight into the creator\'s balance. Only the ones that need a person wait here.')
-                  : tr('Automatic adding is off. Approve each statement below to add it to the creator\'s balance.')}
+                  ? tr('Clean statements go straight into balances. Only flagged ones wait here.')
+                  : tr('Automatic adding is off. Approve each statement to add it to a balance.')}
               </p>
             </div>
             <label className="flex items-center gap-3 text-sm font-semibold text-ink">
@@ -579,6 +603,17 @@ export function VipCloseTab({ programme }) {
           </div>
         </section>
       )}
+      <HowItWorks
+        id="month-end"
+        title={tr('How month end works')}
+        lines={[
+          ['calendar', 'At midnight on the last day, the month closes by itself and every VIP\'s views are counted.'],
+          ['money', 'Each creator gets one statement: views times their rate, plus any bonuses, minus any correction.'],
+          ['check', 'A clean statement is added to their balance straight away. One that is flagged waits here for you.'],
+          ['pencil', 'While a statement waits you can add a correction (a minus takes money off) or a bonus (a plus adds some).'],
+          ['wallet', 'Creators ask for their cash from their balance; an invoice is raised then. Vouchers are handed over as codes.'],
+        ]}
+      />
       {open && <p className="text-xs text-smoke">{tr('What you see below is a preview of {m} so far. Recalculate re-reads the numbers; nothing is added until the month closes.', { m: monthLabel(month.year, month.month) })}</p>}
 
       {review === null ? <Skeleton className="h-48 w-full rounded-card" /> : rows.length === 0 ? (
@@ -624,18 +659,23 @@ export function VipCloseTab({ programme }) {
 // charts, a month-against-month table for any two months, the creators, and every VIP market side by side.
 const pctMove = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 100) : null)
 
-export function VipAnalyticsTab({ programme, isAdmin }) {
+export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
   const tr = useT()
-  const [all, setAll] = useState(false)
+  // OVERALL FIRST, THEN ONE MARKET AT A TIME (4 Oct 2026). Everyone who may see all the markets opens on the combined numbers.
+  const mine = programmes.length ? programmes : [programme]
+  const canAll = !!isAdmin && mine.length > 1
+  const [scope, setScope] = useState(canAll ? 'all' : programme.id)
+  const all = canAll && scope === 'all'
+  const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
   const [data, setData] = useState(null)
   const [view, setView] = useState('overview')
-  const cur = programme.currency
+  const cur = (shown || mine[0] || programme).currency
   useEffect(() => {
     let alive = true
     setData(null)
-    vipRpc('vip_analytics', { p_programme: all ? null : programme.id }).then((d) => { if (alive) setData(d) }).catch((e) => notice(e.message))
+    vipRpc('vip_analytics', { p_programme: all ? null : shown.id }).then((d) => { if (alive) setData(d) }).catch((e) => notice(e.message))
     return () => { alive = false }
-  }, [programme.id, all])
+  }, [shown?.id, all])
 
   const series = useMemo(() => (data?.months || []).map((m) => ({
     key: `${m.year}-${m.month}`, year: m.year, month: m.month,
@@ -658,12 +698,8 @@ export function VipAnalyticsTab({ programme, isAdmin }) {
             { value: 'markets', label: tr('Markets') },
           ]} />
         </div>
-        {isAdmin && (
-          <Segmented size="sm" value={all ? 'all' : 'one'} onChange={(v) => setAll(v === 'all')} label={tr('Which VIP community')} options={[
-            { value: 'one', label: programme.name }, { value: 'all', label: tr('Every VIP community') },
-          ]} />
-        )}
       </div>
+      {mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
 
       {view === 'markets' ? <MarketStandings /> : data === null ? (
         <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>

@@ -22,6 +22,10 @@ import { useT } from '../lib/i18n'
 // welcome voucher for a first video that passes the views.
 const KEY = (id) => `tryp_gc_prompt_${id}`
 const MAX_SHOWS = 6
+// A ONE-TIME LOOK FOR THE TEAM (4 Oct 2026). Ethan: "push that to me one time whenever I next open the app, so I can see it and how it looks."
+// The prompt is for creators who have not entered, so an admin never saw it. Once per browser, an admin sees it too (and nothing is recorded).
+const ADMIN_PREVIEW = 'tryp_gc_prompt_admin_preview_v1'
+const adminPreviewDone = () => { try { return !!localStorage.getItem(ADMIN_PREVIEW) } catch { return true } }
 const GAP_MS = 20 * 3600 * 1000
 
 function seen(id) { try { return JSON.parse(localStorage.getItem(KEY(id)) || 'null') || { n: 0, last: 0 } } catch { return { n: 0, last: 0 } } }
@@ -38,7 +42,8 @@ export default function GlobalChallengePrompt() {
   const blocked = /^\/(login|signup|onboarding|admin|challenges\/)/.test(pathname)
   useEffect(() => {
     if (card || blocked) return undefined
-    if (!user?.id || !profile || profile.status !== 'active' || profile.is_admin || profile.is_test || !profile.tour_completed_at) return undefined
+    const preview = !!profile?.is_admin && !profile?.is_test && !adminPreviewDone()
+    if (!user?.id || !profile || profile.status !== 'active' || (profile.is_admin && !preview) || profile.is_test || (!preview && !profile.tour_completed_at)) return undefined
     let alive = true
     const id = setTimeout(async () => {
       // Which worldwide challenge is live?
@@ -49,18 +54,18 @@ export default function GlobalChallengePrompt() {
         .eq('community_id', net.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle()
       if (!alive || !ch) return
       const s = seen(ch.id)
-      if (s.stop || s.n >= MAX_SHOWS || Date.now() - s.last < GAP_MS) return
+      if (!preview && (s.stop || s.n >= MAX_SHOWS || Date.now() - s.last < GAP_MS)) return
       if (new Date(ch.end_date).getTime() < Date.now()) return
       const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', ch.id).eq('creator_id', user.id)
       if (!alive) return
-      if (count > 0) { mark(ch.id, { stop: true }); return }
+      if (count > 0 && !preview) { mark(ch.id, { stop: true }); return }
       if (tourRunning()) return
       if (document.querySelector('[role="dialog"]')) { setTimeout(() => alive && setTurn((n) => n + 1), 8000); return }
       if (!claimNag('global-challenge')) return
       // Where the creator's country stands, for the card. A failure only costs the line.
       const { data: board } = await supabase.rpc('challenge_market_board', { p_challenge: ch.id })
       if (!alive) { releaseNag('global-challenge'); return }
-      mark(ch.id, { n: s.n + 1, last: Date.now() })
+      if (preview) { try { localStorage.setItem(ADMIN_PREVIEW, '1') } catch { /* private mode */ } } else mark(ch.id, { n: s.n + 1, last: Date.now() })
       setCard({ ch, board, left: Math.max(0, Math.ceil((new Date(ch.end_date).getTime() - Date.now()) / 86400000)) })
     }, 2200)
     return () => { alive = false; clearTimeout(id) }

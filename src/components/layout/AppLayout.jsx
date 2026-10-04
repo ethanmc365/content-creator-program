@@ -732,12 +732,14 @@ export default function AppLayout() {
             </button>
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
+            {/* PHONE AND TABLET ONLY (4 Oct 2026). On a desktop the VIP tab beside Calendar is the same door, so this
+                second VIP button next to Admin was a duplicate and is gone there. */}
             {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).
                 ON A PHONE TOO, BESIDE ADMIN (2 Oct 2026). Ethan: the VIP tools should be "accessible on mobile for admins
                 via a button at the top beside 'Admin'". It opens the VIP page on its tools view. */}
             {vipAccess && !impersonating && (
               // On a phone both doors are round icon buttons, so the avatar never gets pushed off the bar.
-              <Link to="/vip?mode=tools" aria-label={tr('VIP tools')} title={tr('VIP tools')} className="flex h-8 w-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-brand text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-px hover:bg-brand hover:text-white min-[440px]:h-auto min-[440px]:w-auto min-[440px]:px-3 min-[440px]:py-1.5 sm:px-4">
+              <Link to="/vip?mode=tools" aria-label={tr('VIP tools')} title={tr('VIP tools')} className="flex h-8 w-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-brand text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-px hover:bg-brand hover:text-white min-[440px]:h-auto min-[440px]:w-auto min-[440px]:px-3 min-[440px]:py-1.5 sm:px-4 lg:hidden">
                 <Icon name="star" className="h-4 w-4" />
                 <span className="hidden min-[440px]:inline">{tr("VIP")}</span>
               </Link>

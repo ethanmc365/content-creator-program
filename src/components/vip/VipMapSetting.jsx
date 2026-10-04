@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
+import { Toggle } from '../ui'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { notice } from '../../lib/confirm'
-import { cx } from '../../lib/utils'
 import { vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
 // Its own file so Settings does not load the VIP page (and its map) to draw one switch.
 /** Settings > Account, for a VIP: whether other VIPs see them on the VIP map. Draws nothing for anybody else. */
-export default function VipMapSetting() {
+export default function VipMapSetting({ publicOn = true }) {
   const tr = useT()
   const { user, profile } = useAuth()
   const [me, setMe] = useState(undefined)
@@ -23,13 +23,17 @@ export default function VipMapSetting() {
     return () => { alive = false }
   }, [user?.id, profile?.is_vip])
   if (!profile?.is_vip || !me) return null
-  const on = me.show_on_map !== false
+  // ONE SWITCH, TWO FLAGS (4 Oct 2026). The public-pages switch above governs this map too (the map hides anyone whose profile
+  // is off the maps), so when that one is off THIS one has to read off as well - it stayed on, which said the opposite of what
+  // the map did. It keeps its own saved choice underneath, and comes back to it when the public switch goes back on.
+  const saved = me.show_on_map !== false
+  const on = saved && publicOn
   const hasTown = profile?.city_lat != null && profile?.city_lng != null
   const profileHidden = profile?.show_on_map === false
 
   async function toggle() {
     setBusy(true)
-    try { await vipRpc('vip_set_on_map', { p_on: !on }); setMe({ show_on_map: !on }) }
+    try { await vipRpc('vip_set_on_map', { p_on: !saved }); setMe({ show_on_map: !saved }) }
     catch (e) { notice(e.message) } finally { setBusy(false) }
   }
 
@@ -40,14 +44,11 @@ export default function VipMapSetting() {
         <span className="block text-sm font-semibold text-ink">{tr('Show me on the VIP map')}</span>
         <span className="block text-xs text-smoke">
           {!hasTown ? <>{tr('Add your town to your profile to appear.')} <Link to="/profile/edit" className="font-semibold text-brand hover:underline">{tr('Add it')}</Link></>
-            : profileHidden ? tr('Your profile is hidden from maps, so this map hides you too.')
+            : (profileHidden || !publicOn) ? tr('You are hidden from the public pages, so this map hides you too. Turn that on to choose.')
               : on ? tr('Other VIPs can see where you are based.') : tr('You are hidden from this map.')}
         </span>
       </span>
-      <button type="button" role="switch" aria-checked={on} aria-label={tr('Show me on the VIP map')} disabled={busy} onClick={toggle}
-        className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60', on ? 'bg-brand' : 'bg-gray-200')}>
-        <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200', on ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-      </button>
+      <Toggle on={on} onChange={toggle} label={tr('Show me on the VIP map')} disabled={busy || !publicOn || profileHidden} />
     </div>
   )
 }

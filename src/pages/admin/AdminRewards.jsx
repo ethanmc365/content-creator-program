@@ -852,7 +852,12 @@ export default function AdminRewards() {
           rather than filled buttons competing to look like the action on the
           page. A tab is navigation; a button does something. */}
       <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
-        {[['overview', 'Overview'], ['cash', 'Cash & Invoices'], ['vouchers', 'Vouchers'], ['details', 'Payment details']].map(([key, label]) => (
+        {[['overview', 'Overview'], ['cash', 'Cash & Invoices'], ['vouchers', 'Vouchers'], ['details', 'Payment details']].map(([key, label]) => {
+          // A DOT ON A TAB THAT HAS A JOB IN IT (4 Oct 2026), so nobody opens Cash to find only a voucher.
+          const todo = key === 'cash'
+            ? invoiceStages.filter((i) => i.stage === 'awaiting_approval' || i.stage === 'approved').length + cashOutstanding.length
+            : key === 'vouchers' ? vouchersNeedCode.length + referralPending.length : 0
+          return (
           <button
             key={key}
             type="button"
@@ -863,8 +868,10 @@ export default function AdminRewards() {
             )}
           >
             {label}
+            {todo > 0 && <span className="absolute right-1.5 top-2 h-2 w-2 rounded-full bg-brand" aria-label={`${todo} to do`} />}
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {/* ---------- Overview ---------- */}

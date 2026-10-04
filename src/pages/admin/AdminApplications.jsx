@@ -13,6 +13,7 @@ import { useMarkets, resolveMarketForCountryName } from '../../lib/markets'
 import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { socialHref, linkHref } from '../../lib/socialLinks'
+import { flagFromIso } from '../../lib/flags'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -166,6 +167,10 @@ export default function AdminApplications() {
   // means the worldwide community only, which is a real answer rather than a
   // missing one. See migration 190 for why this is a list.
   const [placeIn, setPlaceIn] = useState({})
+  // A VIP APPLICANT IS APPROVED INTO A VIP MARKET (4 Oct 2026): VIP Spain, VIP Romania, VIP Worldwide ... not into a community market, which
+  // is what "Approved in Germany" was. `vipOptions` is the list (migration 329) and `vipPick` is each applicant's choice, seeded from their country.
+  const [vipOptions, setVipOptions] = useState(null)
+  const [vipPick, setVipPick] = useState({})
   // 'applied' - finished the form, waiting on a decision.
   // 'incomplete' - signed up and never finished. Nobody has anything to review
   //   here, so it is a separate list rather than a filter on the same one.
@@ -223,6 +228,22 @@ export default function AdminApplications() {
   }
 
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (!apps?.some((a) => a.is_vip && !a.team_application) || vipOptions) return
+    supabase.rpc('vip_programme_options').then(({ data }) => setVipOptions(data || []))
+  }, [apps, vipOptions])
+  const vipDefault = (a) => {
+    const opts = vipOptions || []
+    const code = String(a.country_code || '').toUpperCase()
+    return (opts.find((o) => !o.worldwide && (o.country_codes || []).includes(code)) || opts.find((o) => o.is_default) || opts.find((o) => o.worldwide) || opts[0])?.id || null
+  }
+  const vipChoice = (a) => vipPick[a.id] ?? vipDefault(a)
+  async function approveVip(a) {
+    const opt = (vipOptions || []).find((o) => o.id === vipChoice(a))
+    if (!opt) { flash('Pick a VIP market first.'); return false }
+    const { error } = await supabase.rpc('admin_approve_vip_application', { target: a.id, p_programme: opt.id })
+    return error ? error.message : true
+  }
 
   // ONE TOAST HOST FOR THE WHOLE APP, AND THIS PAGE HAD ITS OWN (4 Sep 2026).
   //
@@ -335,6 +356,17 @@ export default function AdminApplications() {
     .map((m) => m.name)
 
   async function approve(app) {
+    if (app.is_vip && !app.team_application) {
+      const opt = (vipOptions || []).find((o) => o.id === vipChoice(app))
+      if (!await confirm(`Approve ${app.name} into ${opt?.name ?? 'their VIP market'}?`)) return
+      setBusyId(app.id)
+      const res = await approveVip(app)
+      setBusyId(null)
+      if (res !== true) { if (res) flash(`Something went wrong: ${res}`); return }
+      flash(`${app.name} approved into ${opt.name}.`)
+      setApps((prev) => prev.filter((a) => a.id !== app.id))
+      return
+    }
     const slugs = placeIn[app.id] ?? []
     const names = slugs.map((sl) => markets.find((m) => m.slug === sl)?.name ?? sl)
     const where = names.length
@@ -484,10 +516,9 @@ export default function AdminApplications() {
     const failed = []
     for (const app of list) {
       setRunning({ verb: 'Approving', done, total: list.length })
-      const { error } = await supabase.rpc('admin_approve_application', {
-        target: app.id,
-        p_market_slugs: placeIn[app.id] ?? [],
-      })
+      const error = app.is_vip && !app.team_application
+        ? ((await approveVip(app)) === true ? null : true)
+        : (await supabase.rpc('admin_approve_application', { target: app.id, p_market_slugs: placeIn[app.id] ?? [] })).error
       if (error) failed.push(app.name)
       else done++
     }
@@ -794,6 +825,9 @@ export default function AdminApplications() {
                 languageHints={languageMatches(a)}
                 marketsSpeaking={marketsSpeaking}
                 markets={(markets ?? []).filter((m) => m.kind === 'chapter' && m.is_active)}
+                vipOptions={a.is_vip && !a.team_application ? vipOptions : null}
+                vipPicked={vipChoice(a)}
+                onVipPick={(id) => setVipPick((p) => ({ ...p, [a.id]: id }))}
                 placeIn={placeIn[a.id] ?? []}
                 onPlaceIn={(slugs) => setPlaceIn((p) => ({ ...p, [a.id]: slugs }))}
                 open={openId === a.id}
@@ -916,7 +950,7 @@ function EmailRow({ email }) {
 
 export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
-  marketsSpeaking,
+  marketsSpeaking, vipOptions = null, vipPicked = null, onVipPick,
   placeIn, onPlaceIn, open, onToggle, busy, onApprove, onApproveTeam, onDecline, onZoom, onZoomPhoto,
   selected, onSelect, inviteLabel,
 }) {
@@ -951,7 +985,7 @@ export function ApplicationCard({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-black px-4 py-2.5 text-white sm:px-6">
           <Icon name="star" className="h-4 w-4 shrink-0 text-brand-light" />
           <span className="text-sm font-bold">VIP creator application</span>
-          <span className="text-xs text-white/80">Signed up with the VIP link and already placed in their VIP market.</span>
+          <span className="text-xs text-white/80">Signed up with the VIP link. Pick the VIP market to approve them into.</span>
         </div>
       )}
       {/* A TEAM APPLICATION LOOKS LIKE ONE (29 Sep 2026). Ethan: on the applications page
@@ -1190,6 +1224,26 @@ export function ApplicationCard({
             <p className="flex items-center gap-2 font-semibold text-brand"><Icon name="shield" className="h-4 w-4" /> Adding them to the team gives them admin access</p>
             <p className="mt-1 text-xs leading-relaxed text-smoke">
               They will be able to open the admin panel. They are not placed in a market as a creator. Check who they are before you approve, and change their title any time on the Team page.
+            </p>
+          </div>
+        ) : app.is_vip ? (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Approve into</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(vipOptions || []).map((o) => {
+                const on = vipPicked === o.id
+                const flags = o.worldwide ? '🌍' : (o.country_codes || []).slice(0, 2).map(flagFromIso).join('')
+                return (
+                  <button key={o.id} type="button" aria-pressed={on} onClick={() => onVipPick?.(o.id)}
+                    className={cx('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand')}>
+                    <span aria-hidden>{flags}</span>{o.name}
+                  </button>
+                )
+              })}
+              {vipOptions === null && <span className="text-xs text-smoke">Loading the VIP markets…</span>}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-smoke">
+              {app.country ? `Picked from their country, ${app.country}. ` : ''}A country with no VIP market of its own goes to VIP Worldwide until one opens.
             </p>
           </div>
         ) : (

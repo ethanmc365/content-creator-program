@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { challengeSpend } from '../../../lib/challengeSpend'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import {
@@ -136,9 +137,20 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
     // Surface a failed load rather than falling through to the empty state: an
     // RPC that errors and a programme with no challenges look identical
     // otherwise, and the first one is a bug worth seeing.
-    supabase.rpc('admin_challenge_metrics').then(({ data, error }) => {
+    // A RUNNING CHALLENGE'S COST IS WORKED OUT THE SAME WAY HERE AS ON ITS OWN PAGE (4 Oct 2026). Ethan: the list said "Running now" with one
+    // CPM and clicking in showed 23. The list priced a live challenge at its planned cash pot; the page prices it at the pot PLUS the
+    // awards and taking-part vouchers earned so far (lib/challengeSpend). They are now the one figure: each running challenge's standings are
+    // read here and its spend replaced by the same `challengeSpend`.
+    supabase.rpc('admin_challenge_metrics').then(async ({ data, error }) => {
       if (error) setLoadError(error.message)
-      setRows(data ?? [])
+      const list = data ?? []
+      const live = list.filter((r) => r.status === 'active')
+      const spends = await Promise.all(live.map((r) =>
+        supabase.rpc('challenge_prize_standings', { p_challenge: r.id })
+          .then(({ data: st }) => [r.id, challengeSpend({ prize_amount: r.prize_amount, participation_amount: r.participation_amount }, st || [], r.total_views)])
+          .catch(() => [r.id, null])))
+      const byId = new Map(spends)
+      setRows(list.map((r) => (byId.get(r.id) ? { ...r, live_spend: byId.get(r.id).spend } : r)))
     })
     // Live FX where the network allows; the fallback table keeps the page
     // rendering if it doesn't (same source the invoice tool uses).
@@ -428,7 +440,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                 sub={`Prize spend (bars) and views (line) per month`}
                 onExport={() => downloadCsv('monthly-performance.csv', data.monthly)}
               >
-                <ComposedChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <ComposedChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} />
@@ -441,10 +453,10 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
               </Card>
 
               <Card title="CPM against target" sub="Blended cost per 1,000 views each month. Under the line is the goal.">
-                <BarChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <BarChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => money(v, currency, 2)} width={60} />
+                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => money(v, currency, 2)} width={64} domain={[0, (max) => Math.max(0.6, Math.ceil(max * 1.15 * 100) / 100)]} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => money(v, currency, 2)} />
                   <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" label={{ value: 'target', fontSize: 10, fill: GOOD, position: 'right' }} />
                   <Bar animationDuration={600} dataKey="cpm" name="Blended CPM" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={32} />
@@ -461,7 +473,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                 sub="Every month is the whole programme to date, not that month alone"
                 onExport={() => downloadCsv('cumulative-programme.csv', data.cumulative)}
               >
-                <ComposedChart data={data.cumulative} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <ComposedChart data={data.cumulative} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
                   <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
@@ -481,7 +493,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                 sub="Creator entries and the posts they made"
                 onExport={() => downloadCsv('participation-by-month.csv', data.monthly.map(({ month: m, creators, posts, challenges }) => ({ month: m, creators, posts, challenges })))}
               >
-                <AreaChart data={data.monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <AreaChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />

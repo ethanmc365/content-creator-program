@@ -35,7 +35,6 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
   const cards = useMemo(() => build(data, tr), [data, build, tr])
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(!autoplay)
-  const [finished, setFinished] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [shotCard, setShotCard] = useState(null)   // which card the hidden node is holding
@@ -49,7 +48,6 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
   const go = useCallback((n) => {
     setI(() => {
       const next = Math.max(0, Math.min(total - 1, n))
-      if (next >= total - 1) setFinished(true)
       return next
     })
   }, [total])
@@ -389,7 +387,9 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       {/* THE SHARE IS OFFERED FROM THE MOMENT THEY HAVE SEEN IT ALL, not only
           on the last screen - somebody who watched to the end and scrolled back
           to their favourite card should not have to skip forward again. */}
-      {(onShare || finished) && (
+      {/* ALWAYS THERE (4 Oct 2026). Ethan: the save buttons only showed after clicking through to the last card; they are
+          part of the recap from the first card now, so a creator can save one and share it straight away. */}
+      {(
         <div className="mt-4 flex flex-col items-center gap-2">
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button

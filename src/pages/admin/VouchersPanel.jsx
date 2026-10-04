@@ -16,7 +16,6 @@ import { rewardsTotal } from '../../lib/programme'
 // used on their behalf. So a voucher here can be:
 //
 //   given a code        the code is what the creator sees on their ticket
-//   marked sent by chat for the old ones that went out by DM before codes lived here
 //   combined            tick two or more of one creator's unspent vouchers, type the
 //                       new code, and they become one ticket worth the sum
 //   marked used / not   on the creator's behalf, or to undo a mistaken tick
@@ -189,9 +188,9 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
       <CodeModal
         ticket={editing}
         onClose={() => setEditing(null)}
-        onSave={async (code, viaChat) => {
+        onSave={async (code) => {
           const ok = await run(editing.id, () => supabase.rpc('admin_set_voucher_code', {
-            p_reward: editing.id, p_code: viaChat ? '' : code, p_via: viaChat ? 'chat' : null,
+            p_reward: editing.id, p_code: code, p_via: null,
           }))
           if (ok) setEditing(null)
         }}
@@ -317,10 +316,9 @@ function CodeModal({ ticket, onClose, onSave }) {
 
 function CodeForm({ ticket, onSave }) {
   const [code, setCode] = useState(ticket.voucher_code || '')
-  const [chat, setChat] = useState(false)
   const [saving, setSaving] = useState(false)
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave(code, chat); setSaving(false) }} className="space-y-5">
+    <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave(code); setSaving(false) }} className="space-y-5">
       <p className="text-sm text-smoke">
         A {formatMoney(ticket.amount, ticket.currency)} voucher for <span className="font-semibold text-ink">{ticket.profiles?.name}</span>.
         {ticket.parts && ' It is a combined voucher, so the new code replaces the code on every part of it.'}
@@ -328,22 +326,18 @@ function CodeForm({ ticket, onSave }) {
       <div>
         <label htmlFor="vc-code" className="label">Voucher code <span className="font-normal text-smoke">(shown to the creator)</span></label>
         <input
-          id="vc-code" type="text" className="input font-mono tracking-wider" value={code} disabled={chat}
+          id="vc-code" type="text" className="input font-mono tracking-wider" value={code}
           onChange={(e) => setCode(e.target.value)} placeholder="e.g. TRYP-10-ABCD"
           autoComplete="off" autoCapitalize="characters" spellCheck={false}
         />
       </div>
-      {code.trim() && !chat && (
+      {code.trim() && (
         <div>
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
           <VoucherTicket reward={{ ...ticket, voucher_code: code.trim(), used_at: null }} />
         </div>
       )}
-      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
-        <input type="checkbox" checked={chat} onChange={(e) => setChat(e.target.checked)} className="mt-1 h-4 w-4 accent-[#d94407]" />
-        <span>I sent this one by chat instead. <span className="text-smoke">Their ticket will say it was issued by chat, with no code.</span></span>
-      </label>
-      <button type="submit" disabled={saving || (!chat && !code.trim())} className="btn-primary w-full disabled:opacity-60">
+      <button type="submit" disabled={saving || !code.trim()} className="btn-primary w-full disabled:opacity-60">
         {saving ? <Spinner /> : 'Save'}
       </button>
     </form>

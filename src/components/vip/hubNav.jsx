@@ -182,7 +182,8 @@ export function ProgrammeSwitch({ programmes, value, onChange }) {
 export function ProgrammePill({ name, codes }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-ink shadow-card">
-      <FlagStack codes={codes} className="text-[15px]" />
+      {/* null = not loaded yet: hold the space, draw nothing, so the globe never flashes before the real flag. */}
+      {codes === null ? <span className="inline-block h-[15px] w-[19px] shrink-0" aria-hidden /> : <FlagStack codes={codes} className="text-[15px]" />}
       {name}
     </span>
   )

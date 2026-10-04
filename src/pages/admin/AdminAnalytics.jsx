@@ -29,6 +29,7 @@ import Referrals from './analytics/Referrals'
 import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
+import VipAnalytics from './analytics/VipAnalytics'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
 import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, periodHeadline, periodRange } from '../../lib/analyticsPeriod'
@@ -59,6 +60,8 @@ const TABS = [
   // does and answers the question straight after it - "and how does that split
   // by market" - so it sits next to it rather than at the far end of the strip.
   { key: 'markets', label: 'Market league' },
+  // THE VIP PROGRAMME'S OWN NUMBERS, all markets together and then each market (4 Oct 2026).
+  { key: 'vip', label: 'VIP' },
   { key: 'growth', label: 'Growth' },
   // REFERRALS, ITS OWN TAB (22 Sep 2026): it was a card at the foot of the
   // Overview, which Ethan had to scroll to find.
@@ -844,6 +847,7 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'vip') return shell(<VipAnalytics />, { filters: false })
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
   if (tab === 'referrals') return shell(<Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)

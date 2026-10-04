@@ -11,10 +11,11 @@ import SocialMark from '../../components/SocialMark'
 // that were here included four nothing has ever been priced in.
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
+import BoostsEditor from '../../components/admin/BoostsEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
 import PrizeBreakdownFields, { PrizeSummary, combineBudgets, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
-import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
+import { PageHeader, Skeleton, Spinner, Select, Toggle } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule, isSavedRuleId } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
@@ -1058,6 +1059,8 @@ export default function AdminChallengeForm() {
               />
             </div>
           )}
+          {form.scoring === 'points' && editing && <BoostsEditor challengeId={id} />}
+          {form.scoring === 'points' && !editing && <p className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-smoke">Point boosts (double points for a few hours) can be added once the challenge is saved.</p>}
 
           {/* NOTHING HERE FOR THE VIEW-RANKED MODES.
               Picking "best single video" used to print a paragraph explaining
@@ -1333,24 +1336,38 @@ export default function AdminChallengeForm() {
             idPrefix="challenge-prize"
           />
 
-          {/* A WELCOME VOUCHER, TO GET NEW CREATORS IN (4 Oct 2026). Ethan: "a voucher for every new person that joins this challenge now,
-              posts, and gets over 5K views." Off until an amount is typed. A creator whose first-ever challenge entry is in this challenge
-              and whose entry passes the views is given a voucher reward by itself (hourly), and the voucher pipeline sends the code. */}
-          <div className="mt-5 rounded-xl border border-brand/15 bg-brand-tint/20 p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon name="ticket" className="h-4 w-4 text-brand" />Welcome voucher for first-time creators</p>
-            <p className="mt-0.5 text-xs text-smoke">A creator who enters a challenge for the first time and whose video passes the views below gets a voucher, without you doing anything. Leave the amount empty to switch it off.</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="block"><span className="label">Voucher worth</span>
-                <span className="relative block"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
-                  <input className="input !pl-8" inputMode="decimal" value={form.welcome_amount} onChange={(e) => set({ welcome_amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="5" /></span>
-              </label>
-              <label className="block"><span className="label">When their video passes</span>
-                <span className="relative block"><input className="input !pr-14" inputMode="numeric" value={form.welcome_views} onChange={(e) => set({ welcome_views: e.target.value.replace(/[^\d]/g, '') })} placeholder="5000" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">views</span></span>
-              </label>
-              <label className="block"><span className="label">For the first (optional)</span>
-                <span className="relative block"><input className="input !pr-16" inputMode="numeric" value={form.welcome_limit} onChange={(e) => set({ welcome_limit: e.target.value.replace(/[^\d]/g, '') })} placeholder="No limit" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">people</span></span>
-              </label>
+          {/* A WELCOME VOUCHER FOR NEW CREATORS (4 Oct 2026, reshaped the same day). Ethan: it was built but "I don't see where that actually is"
+              - it sat at the foot of the prizes in a pale orange box - "add it to the prize section ... don't like the colour of the card". And:
+              "I could add this in the middle of the challenge. Creators who have already entered won't get it. It's just for new creators that
+              joined in the challenge late." So it is a plain card with a switch, and the rule is stated on it: an account made after this
+              challenge started, no earlier entries anywhere, and a first entry posted after the voucher was switched on. */}
+          <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4">
+            <div className="flex items-start gap-3">
+              <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">Welcome voucher for new creators</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-smoke">A voucher for a creator who joined after this challenge started, once their first video passes the views below. Creators who had already entered, or who were already on the platform, do not get it.</p>
+              </div>
+              <Toggle
+                on={form.welcome_amount !== '' && Number(form.welcome_amount) > 0}
+                onChange={(on) => set({ welcome_amount: on ? (Number(form.welcome_amount) > 0 ? form.welcome_amount : '5') : '' })}
+                label="Welcome voucher for new creators"
+              />
             </div>
+            {Number(form.welcome_amount) > 0 && (
+              <div className="mt-4 grid gap-3 border-t border-gray-100 pt-4 sm:grid-cols-3 animate-tab-in">
+                <label className="block"><span className="label">Voucher worth</span>
+                  <span className="relative block"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
+                    <input className="input !pl-8" inputMode="decimal" value={form.welcome_amount} onChange={(e) => set({ welcome_amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="5" /></span>
+                </label>
+                <label className="block"><span className="label">When their video passes</span>
+                  <span className="relative block"><input className="input !pr-14" inputMode="numeric" value={form.welcome_views} onChange={(e) => set({ welcome_views: e.target.value.replace(/[^\d]/g, '') })} placeholder="5000" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">views</span></span>
+                </label>
+                <label className="block"><span className="label">For the first (optional)</span>
+                  <span className="relative block"><input className="input !pr-16" inputMode="numeric" value={form.welcome_limit} onChange={(e) => set({ welcome_limit: e.target.value.replace(/[^\d]/g, '') })} placeholder="No limit" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">people</span></span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* The totals, derived: cash and vouchers, with the taking-part

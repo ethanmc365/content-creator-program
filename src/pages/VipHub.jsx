@@ -140,12 +140,15 @@ export default function VipHub() {
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
 
-  const [codes, setCodes] = useState([])
+  // THE FLAGS BELONG TO A COMMUNITY AND ARE NULL UNTIL THAT ONE LOADS (4 Oct 2026). They started as an empty list, and an empty
+  // list draws the globe - so "VIP Spain" opened with a globe that swapped to the Spanish flag a moment later.
+  const [codesFor, setCodesFor] = useState({ id: null, codes: null })
   const [boardView, setBoardView] = useState('mine')
   const [look, setLook] = useState(null)
 
   const programmeId = overview?.programme?.id
   const communityId = overview?.programme?.community_id
+  const codes = codesFor.id === communityId ? codesFor.codes : null
 
   const loadMore = useCallback(async () => {
     if (!programmeId) return
@@ -162,7 +165,7 @@ export default function VipHub() {
     setBoard(bd || [])
     setRules(rl.data || [])
 
-    setCodes(cm.data?.country_codes || [])
+    setCodesFor({ id: communityId, codes: cm.data?.country_codes || [] })
   }, [programmeId, communityId, user.id, isStaff, previewWho, overview?.sample])
   useEffect(() => { loadMore() }, [loadMore])
 

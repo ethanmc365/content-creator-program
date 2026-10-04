@@ -30,8 +30,8 @@ import { useT } from '../../lib/i18n'
 // that market, so going back to it is instant.
 const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
-  { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses']] },
-  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['perks', 'Milestones, perks, trips'], ['guides', 'Guides']] },
+  { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses and perks']] },
+  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['guides', 'Guides']] },
   { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
@@ -52,7 +52,10 @@ export default function VipTools({ programmeId }) {
   const [urlSeen, setUrlSeen] = useState(fromUrl)
   if (urlSeen !== fromUrl) { setUrlSeen(fromUrl); setPicked(fromUrl) }
   // The three old content links (?tab=content&part=perks) land on the tab that now holds each one.
-  const asked = picked === 'content' ? ({ briefs: 'challenges', perks: 'perks', guides: 'guides' }[params.get('part')] || 'challenges') : picked
+  const asked0 = picked === 'content' ? ({ briefs: 'challenges', perks: 'perks', guides: 'guides' }[params.get('part')] || 'challenges') : picked
+  // Milestones, perks and trips moved into Bonuses (4 Oct 2026); an old link to them lands there, on the perks side.
+  const asked = asked0 === 'perks' ? 'bonuses' : asked0
+  const bonusPart = asked0 === 'perks' || params.get('part') === 'perks' ? 'perks' : 'monthly'
   const tab = ALL.includes(asked) && (asked !== 'access' || isOwner) ? asked : 'overview'
   const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
 
@@ -85,13 +88,12 @@ export default function VipTools({ programmeId }) {
     wallets: (p) => <VipWalletsTab programme={p} />,
     close: (p) => <VipCloseTab programme={p} />,
     sheet: (p) => <VipSheetTab programme={p} />,
-    bonuses: (p) => <VipBonusesTab programme={p} />,
+    bonuses: (p) => <VipBonusesTab programme={p} isOwner={isOwner} initialPart={bonusPart} />,
     announcements: (p) => <AnnouncementsTab programme={p} programmes={programmes} isOwner={isOwner} />,
     challenges: (p) => <VipContentTab programme={p} isOwner={isOwner} part="briefs" />,
-    perks: (p) => <VipContentTab programme={p} isOwner={isOwner} part="perks" />,
     guides: (p) => <VipContentTab programme={p} isOwner={isOwner} part="guides" />,
-    kpis: (p) => <VipKpiTab programme={p} />,
-    analytics: (p) => <VipAnalyticsTab programme={p} isAdmin={isAdmin} />,
+    kpis: (p) => <VipKpiTab programme={p} programmes={programmes} isAdmin={isAdmin} />,
+    analytics: (p) => <VipAnalyticsTab programme={p} programmes={programmes} isAdmin={isAdmin} />,
     settings: (p) => (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
         <VipSettingsTab programme={p} onSaved={load} />
@@ -127,7 +129,9 @@ export default function VipTools({ programmeId }) {
           )
         })}
       </div>
-      <div key={group.key} className="scrollbar-none -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 animate-tab-in sm:mx-0 sm:px-0">
+      {/* The pills lift 1px on hover, and a row that scrolls sideways clips whatever pokes out of it - so the top of "Members"
+          was cut off on hover. The padding above the pills is the room the lift needs. */}
+      <div key={group.key} className="scrollbar-none -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1.5 pt-1.5 animate-tab-in sm:mx-0 sm:px-0">
         {group.tabs.filter(([k]) => k !== 'access' || isOwner).map(([k, label]) => {
           const on = k === tab
           return (
