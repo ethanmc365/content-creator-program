@@ -166,11 +166,11 @@ export default function ChallengeLeaderboard({
             title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
             className="group flex w-full items-center justify-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            {/* EXACTLY THE GAMES' STREAK CHIP (5 Oct 2026): the animated fire in its orange tones with the number BESIDE it, in the same pill
-                the travel games use. An inactive streak (waiting for today's post, or lost) is the unlit flame in grey, still with its number. */}
-            <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-bold leading-none', st.state === 'live' ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>
-              <Flame className="h-5 w-5" state={st.state === 'live' ? 'lit' : st.state === 'waiting' ? 'ember' : 'cold'} />
-              <span className="tabular-nums">{st.state === 'lost' ? st.best : st.current}</span>
+            {/* THE GAMES' ANIMATED FLAME, WITH THE NUMBER BESIDE IT AND NO BOX (5 Oct 2026). Always the full fire - the orange tones and the
+                animation. When the streak is inactive (waiting for today's post, or lost) it is the same fire GREYED OUT, with its number. */}
+            <span className="inline-flex items-center gap-1">
+              <Flame className={cx('h-7 w-7', st.state !== 'live' && 'opacity-60 grayscale')} sparks={st.state === 'live'} />
+              <span className={cx('text-lg font-extrabold tabular-nums leading-none', st.state === 'live' ? 'text-brand' : 'text-smoke')}>{st.state === 'lost' ? st.best : st.current}</span>
             </span>
           </button>
         ) : null

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // A REAL IPHONE TO PREVIEW ON (4 Oct 2026). 393 x 852 points (the 15 / 16 Pro), drawn at that size with its dynamic island and a clock and
 // signal in the status bar, and scaled down as one piece when the column is narrower, so what is inside is laid out exactly as it is on a phone.
@@ -9,7 +9,9 @@ export const PHONE = { w: 393, h: 852 }
 export default function PhoneFrame({ children, maxH, bare = false, dark = false }) {
   const ref = useRef(null)
   const [room, setRoom] = useState(null)
-  useEffect(() => {
+  // MEASURED BEFORE THE FIRST PAINT (5 Oct 2026). It used to draw once at full size and then shrink to fit, which flashed a giant phone across
+  // the screen whenever the preview was switched. Now it is measured in a layout effect and stays invisible until it knows its size.
+  useLayoutEffect(() => {
     const el = ref.current
     if (!el) return undefined
     const measure = () => setRoom(el.clientWidth)
@@ -21,7 +23,7 @@ export default function PhoneFrame({ children, maxH, bare = false, dark = false 
   const frameW = PHONE.w + 18
   const scale = room ? Math.min(1, room / frameW, maxH ? maxH / (PHONE.h + 18) : 1) : 1
   return (
-    <div ref={ref} className="mx-auto w-full" style={{ maxWidth: frameW }}>
+    <div ref={ref} className="mx-auto w-full" style={{ maxWidth: frameW, visibility: room ? 'visible' : 'hidden' }}>
       <div style={{ width: frameW * scale, height: (PHONE.h + 18) * scale }} className="mx-auto">
         <div className="rounded-[3.4rem] bg-ink p-[9px] shadow-lift" style={{ width: frameW, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <div className={`relative overflow-hidden rounded-[2.8rem] ${bare ? "" : "bg-cloud"}`} style={{ width: PHONE.w, height: PHONE.h }}>
