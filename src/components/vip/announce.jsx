@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import FlagStack from '../network/FlagStack'
 import { AnnouncementCard } from './mine'
+import PhoneFrame from '../admin/PhoneFrame'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
@@ -160,7 +161,7 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
 
 const isEnded = (a, now = new Date()) => !!a.expires_at && new Date(a.expires_at) <= now
 
-/** A VIP's This-month page on a phone, drawn small, with the note where it really sits: full width, first under the month card. */
+/** A VIP's This-month page on a real iPhone, with the note where it really sits: full width, first under the month card. */
 function PagePreview({ programme, everywhere, draft, existing }) {
   const tr = useT()
   const now = new Date()
@@ -168,31 +169,32 @@ function PagePreview({ programme, everywhere, draft, existing }) {
   const codes = programme.community?.country_codes
   return (
     <div>
-      <div aria-hidden className="mx-auto w-full max-w-[300px] overflow-hidden rounded-[28px] border-[6px] border-ink bg-cloud shadow-lift">
-        <div className="space-y-2 p-2.5">
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[13px] font-bold text-ink">{tr('VIP')}</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[9px] font-bold text-ink">
-              {everywhere ? <span className="text-[10px] leading-none">⭐</span> : worldwide ? <span className="text-[10px] leading-none">🌍</span> : <FlagStack codes={codes} className="text-[10px]" />}
+      <PhoneFrame maxH={640}>
+        <div aria-hidden className="space-y-3.5">
+          <div className="flex items-center justify-between px-0.5 pt-1">
+            <span className="text-2xl font-bold tracking-tight text-ink">{tr('VIP')}</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-ink shadow-card">
+              {everywhere ? <span className="text-[15px] leading-none">⭐</span> : worldwide ? <span className="text-[15px] leading-none">🌍</span> : <FlagStack codes={codes} className="text-[15px]" />}
               {everywhere ? tr('Every VIP market') : programme.name}
             </span>
           </div>
-          <div className="brand-drift rounded-xl p-2.5 text-white">
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-white/85">{tr('{m} so far', { m: monthLabel(now.getFullYear(), now.getMonth() + 1) })}</p>
-            <div className="mt-1.5 h-4 w-20 rounded bg-white/30" />
-            <div className="mt-1.5 h-1.5 w-32 rounded bg-white/20" />
+          <div className="brand-drift rounded-card p-4 text-white shadow-card">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/85">{tr('{m} so far', { m: monthLabel(now.getFullYear(), now.getMonth() + 1) })}</p>
+            <div className="mt-2.5 h-7 w-32 rounded-lg bg-white/30" />
+            <div className="mt-2.5 h-2.5 w-48 rounded bg-white/20" />
+            <div className="mt-4 grid grid-cols-3 gap-2">{[0, 1, 2].map((k) => <div key={k} className="h-12 rounded-xl bg-white/15" />)}</div>
           </div>
-          <div className="relative rounded-2xl ring-2 ring-ink/70 ring-offset-2 ring-offset-cloud">
-            <span className="absolute -top-2.5 left-3 z-10 rounded-full bg-ink px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">{tr('Your note')}</span>
-            <div className="origin-top scale-[0.92]"><AnnouncementCard a={draft} preview /></div>
+          <div className="relative">
+            <span className="absolute -top-2.5 left-4 z-10 rounded-full bg-ink px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">{tr('Your note')}</span>
+            <AnnouncementCard a={draft} preview />
           </div>
-          {existing.map((a) => <div key={a.id} className="origin-top scale-[0.92] opacity-45"><AnnouncementCard a={a} /></div>)}
-          <div className="flex items-center gap-2 rounded-xl bg-white p-2 shadow-card">
-            <span className="h-6 w-6 rounded-lg bg-gradient-to-br from-brand to-brand-light" />
-            <div className="space-y-1"><div className="h-1.5 w-16 rounded bg-gray-200" /><div className="h-1.5 w-28 rounded bg-gray-100" /></div>
+          {existing.map((a) => <div key={a.id} className="opacity-50"><AnnouncementCard a={a} /></div>)}
+          <div className="flex items-center gap-3 rounded-card bg-white p-4 shadow-card">
+            <span className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand to-brand-light" />
+            <div className="space-y-1.5"><div className="h-2.5 w-28 rounded bg-gray-200" /><div className="h-2 w-44 rounded bg-gray-100" /></div>
           </div>
         </div>
-      </div>
+      </PhoneFrame>
       <p className="mx-auto mt-3 max-w-xs text-center text-[11.5px] leading-relaxed text-smoke">{tr('It is a full-width card at the top of This month, right under the month card and above the video box.')}</p>
     </div>
   )

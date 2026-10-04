@@ -142,7 +142,7 @@ export default function ChallengeLeaderboard({
         <span className="w-9 shrink-0 text-center">#</span>
         <span className="min-w-0 flex-1">{tr('Creator')}</span>
         {hasPrizes && <span className={cx(prizeCol, 'shrink-0 text-right')}>{tr('Prize')}</span>}
-        {showStreaks && <span className="w-16 shrink-0 text-center">{tr('Daily streak')}</span>}
+        {showStreaks && <span className="w-12 shrink-0 text-center">{tr('Streak')}</span>}
         <span className="w-20 shrink-0 text-right">{scoreLabel === 'points' ? tr('Points') : tr('Views')}</span>
         {scoreLabel === 'points' && <span className="w-20 shrink-0 text-right">{tr('Views')}</span>}
       </div>
@@ -164,16 +164,16 @@ export default function ChallengeLeaderboard({
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAboutStreaks(true) }}
             title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
-            className="group flex w-full flex-col items-center transition-transform duration-200 hover:-translate-y-0.5"
+            className="group flex w-full items-center justify-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            <span className={cx('relative flex h-10 w-10 items-center justify-center', st.state === 'lost' && 'opacity-45 grayscale')}>
-              <Flame className="h-10 w-10" state={st.state === 'waiting' ? 'ember' : st.state === 'lost' ? 'ember' : 'lit'} />
-            </span>
-            <span className={cx('-mt-0.5 text-sm font-extrabold tabular-nums leading-none', st.state === 'live' ? 'text-brand' : 'text-smoke')}>
-              {st.state === 'lost' ? st.best : st.current}
-            </span>
-            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-smoke">
-              {st.state === 'lost' ? tr('best') : (st.current === 1 ? tr('day') : tr('days'))}
+            {/* THE NUMBER IS INSIDE THE FLAME (4 Oct 2026): no "days" word and nothing underneath, so a row keeps its height. */}
+            <span className="relative flex h-10 w-9 items-center justify-center">
+              <span className={cx('absolute inset-0 flex items-center justify-center', st.state === 'lost' && 'opacity-40 grayscale')}>
+                <Flame className="h-10 w-10" state={st.state === 'waiting' || st.state === 'lost' ? 'ember' : 'lit'} />
+              </span>
+              <span className={cx('relative top-[3px] text-[13px] font-extrabold tabular-nums leading-none', st.state === 'lost' ? 'text-smoke' : st.state === 'waiting' ? 'text-brand' : 'text-white [text-shadow:0_1px_3px_rgba(110,25,0,0.85)]')}>
+                {st.state === 'lost' ? st.best : st.current}
+              </span>
             </span>
           </button>
         ) : null
@@ -292,7 +292,7 @@ export default function ChallengeLeaderboard({
             )}
 
             {showStreaks && (
-              <span className={cx('w-12 shrink-0 sm:w-16', !row && 'invisible')}>{streakCell}</span>
+              <span className={cx('w-10 shrink-0 sm:w-12', !row && 'invisible')}>{streakCell}</span>
             )}
 
             {/* THE SCORE. On a phone the views sit under the points; from sm

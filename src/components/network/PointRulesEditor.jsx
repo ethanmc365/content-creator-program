@@ -136,7 +136,7 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
 // phone and stacking them is the honest answer there.
 const ROW_GRID = 'sm:grid sm:grid-cols-[2.25rem_minmax(6rem,1fr)_6.5rem_12rem_2.25rem] sm:items-center'
 
-function Row({ rule, onChange, onRemove, weeks }) {
+function Row({ rule, onChange, onRemove }) {
   const tr = useT()
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
@@ -277,8 +277,16 @@ function Row({ rule, onChange, onRemove, weeks }) {
         lands by itself on the sync that carries the video past the number.
         THE CAP: "for each one they can only get a max of 9 extra points from
         this bonus" - first qualifying entries by submission time. */}
-    {rule.kind === 'bonus' && (
-      <div className="mt-2.5 space-y-3 rounded-xl bg-cloud/70 p-3 sm:ml-[2.875rem]">
+    </div>
+  )
+}
+
+
+// THE SETTINGS OF A SPECIAL BONUS, moved out of the row (4 Oct 2026) so the bonus section can show one tidy line per bonus and open the detail only when it is wanted.
+function BonusSettings({ rule, onChange, weeks }) {
+  const tr = useT()
+  return (
+    <div className="space-y-3">
       {/* HOW IT IS EARNED, AS A CHOICE (26 Sep 2026). Ethan: "the bonus thing
           with all those different things seems a bit confusing ... make it more
           user-friendly to the admins." It used to be a question box whose
@@ -365,8 +373,140 @@ function Row({ rule, onChange, onRemove, weeks }) {
         </p>
       )}
       <BonusWindow rule={rule} onChange={onChange} weeks={weeks} />
+    </div>
+  )
+}
+
+
+// THE BONUS SECTION, REBUILT (4 Oct 2026). Ethan: "make it better than off-cards, side cards and weird UI, but much more functional."
+// Each bonus is ONE line - what it is called, what it pays - with a plain sentence under it saying what a creator has to do, and a
+// "Settings" press that opens everything else (the cap, how it is earned, when it runs). Nothing sits in a card inside a card, and
+// adding one is a list of options that each say what they do, so no label is cut off.
+const BONUS_INFO = {
+  bonus: { title: 'Special bonus', does: 'A one-off for something specific, like a theme. The creator ticks a box, or you award it.' },
+  per_post: { title: 'Per video', does: 'Points for every video a creator posts, up to a ceiling.' },
+  platform_spread: { title: 'Per platform', does: 'Points for each different platform a creator posts on (TikTok, Instagram, YouTube).' },
+  consistency: { title: 'Posting streak', does: 'Points for posting in every day, week or number of days of the challenge.' },
+  collab: { title: 'Instagram collab post', does: 'Two creators share one Instagram collab post. One enters it and names the other, the other confirms, and both earn the points.' },
+}
+
+function summaryOf(r, tr) {
+  const pts = Number(r.points) || 0
+  const cap = Number(r.max_points) || 0
+  const capText = cap > 0 ? tr(', up to {n} points', { n: cap }) : ''
+  if (r.kind === 'per_post') return tr('{n} points for every video{c}', { n: pts, c: capText })
+  if (r.kind === 'platform_spread') return tr('{n} points for each platform{c}', { n: pts, c: capText })
+  if (r.kind === 'collab') return tr('{n} points each for an Instagram collab post{c}', { n: pts, c: capText })
+  if (r.kind === 'consistency') {
+    const d = Number(r.period_days) || 7
+    return tr('{n} points for posting {w}', { n: pts, w: d === 1 ? tr('every day') : d === 7 ? tr('every week') : tr('every {d} days', { d }) })
+  }
+  return r.prompt != null ? tr('{n} points when the creator ticks the box{c}', { n: pts, c: capText }) : tr('{n} points when you award it{c}', { n: pts, c: capText })
+}
+
+function BonusRow({ rule, onChange, onRemove, weeks, startOpen = false }) {
+  const tr = useT()
+  const meta = KINDS[rule.kind] || KINDS.bonus
+  const [open, setOpen] = useState(startOpen)
+  const hasSettings = true
+  return (
+    <div className={cx('rounded-xl border bg-white transition-colors duration-200', open ? 'border-brand/40 shadow-card' : 'border-gray-200 hover:border-brand/30')}>
+      <div className="flex items-center gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4">
+        <Icon name={meta.icon} className="h-5 w-5 shrink-0 text-brand" />
+        <div className="min-w-0 flex-1">
+          <input
+            className="w-full truncate border-0 bg-transparent p-0 text-sm font-semibold text-ink outline-none placeholder:text-gray-300 focus:ring-0"
+            value={rule.label}
+            onChange={(e) => onChange({ ...rule, label: e.target.value })}
+            aria-label={tr('Rule name')}
+          />
+          <p className="truncate text-[11.5px] text-smoke">{summaryOf(rule, tr)}</p>
+        </div>
+        <label className="flex shrink-0 items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 shadow-sm">
+          <NumberBox value={rule.points} onChange={(v) => onChange({ ...rule, points: v })} width="w-8 sm:w-10" decimal dark ariaLabel="Points" />
+          <span className="text-xs font-semibold text-white/90">pts</span>
+        </label>
+        {hasSettings && (
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={tr('Settings')}
+            className={cx('flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition-colors duration-200', open ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink')}>
+            <span className="hidden sm:inline">{tr('Settings')}</span>
+            <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-200', open && 'rotate-180')} />
+          </button>
+        )}
+        <button type="button" onClick={onRemove} aria-label={`Remove ${rule.label}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+          <Icon name="trash" className="h-4 w-4" />
+        </button>
       </div>
-    )}
+      {open && (
+        <div className="animate-tab-in space-y-4 border-t border-gray-100 px-3 py-4 sm:px-4">
+          {rule.kind === 'bonus' && <BonusSettings rule={rule} onChange={onChange} weeks={weeks} />}
+          {(rule.kind === 'per_post' || rule.kind === 'platform_spread' || rule.kind === 'collab') && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Most points one creator can earn from this')}</span>
+                <span className="flex h-[38px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3">
+                  <NumberBox value={rule.max_points ?? null} onChange={(v) => onChange({ ...rule, max_points: v })} width="w-full min-w-0 !text-left" decimal placeholder="no limit" ariaLabel="Maximum points" />
+                  <span className="shrink-0 text-xs text-smoke">pts</span>
+                </span>
+              </label>
+              {Number(rule.max_points) > 0 && Number(rule.points) > 0 && (
+                <p className="self-end rounded-lg bg-cloud/70 px-3 py-2 text-xs leading-relaxed text-ink">
+                  {rule.kind === 'platform_spread'
+                    ? tr('Creators can claim this on {n} platforms for a maximum of {p} points', { n: Math.max(1, Math.floor(Number(rule.max_points) / Number(rule.points))), p: Number(rule.max_points) })
+                    : rule.kind === 'collab'
+                      ? tr('Creators can earn this with {n} different posts for a maximum of {p} points', { n: Math.max(1, Math.floor(Number(rule.max_points) / Number(rule.points))), p: Number(rule.max_points) })
+                      : tr('Creators can claim this on {n} videos for a maximum of {p} points', { n: Math.max(1, Math.floor(Number(rule.max_points) / Number(rule.points))), p: Number(rule.max_points) })}
+                </p>
+              )}
+            </div>
+          )}
+          {rule.kind === 'collab' && (
+            <div className="rounded-xl bg-cloud/70 px-3.5 py-3 text-xs leading-relaxed text-ink">
+              <p className="font-semibold">{tr('How creators use it')}</p>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-smoke">
+                <li>{tr('Two creators publish ONE Instagram collab post together, so it shows on both profiles.')}</li>
+                <li>{tr('One of them enters that post link as their entry and picks the other creator on the submit form.')}</li>
+                <li>{tr('The other creator gets a notification and confirms. Only then do you both earn the points.')}</li>
+                <li>{tr('The post is entered once, so its views count once. The partner does not need an entry of their own.')}</li>
+              </ol>
+            </div>
+          )}
+          {rule.kind === 'consistency' && (
+            <div className="max-w-sm">
+              <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('How often they have to post')}</span>
+              <ConsistencyPeriod rule={rule} onChange={onChange} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddBonus({ onAdd }) {
+  const tr = useT()
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-3">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="btn-secondary !py-2.5 text-sm">
+        <Icon name={open ? 'close' : 'plus'} className="h-4 w-4" strokeWidth={2.4} />{open ? tr('Cancel') : tr('Add a bonus')}
+      </button>
+      {open && (
+        <ul className="mt-3 grid animate-tab-in gap-2 sm:grid-cols-2">
+          {Object.keys(BONUS_INFO).map((k) => (
+            <li key={k}>
+              <button type="button" onClick={() => { onAdd(k); setOpen(false) }}
+                className="flex h-full w-full items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/50 hoverable:hover:shadow-card">
+                <Icon name={KINDS[k].icon} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{tr(BONUS_INFO[k].title)}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-smoke">{tr(BONUS_INFO[k].does)}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -586,7 +726,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
         </div>
         <div className="space-y-2">
           {milestones.map(({ r, i }) => (
-            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
+            <Row key={r.id ?? i} rule={r} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
           ))}
         </div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -638,8 +778,8 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
         </div>
       )}
 
-      <section className="rounded-2xl border border-brand/15 bg-brand-tint/20 p-3 max-sm:!rounded-none max-sm:!border-0 max-sm:!border-t max-sm:!bg-transparent max-sm:!px-0 max-sm:!pb-0 max-sm:pt-5 sm:p-4">
-        <div className="mb-2 flex items-baseline justify-between gap-3">
+      <section className="border-t border-gray-100 pt-5">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <Icon name="star" className="h-4 w-4 text-brand" />
             {tr("Bonus points")}
@@ -648,19 +788,13 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
         </div>
         <div className="space-y-2">
           {extras.length === 0 && (
-            <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-center text-xs text-smoke">{tr("No bonuses yet. Add one below.")}</p>
+            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-xs text-smoke">{tr("No bonuses yet. Add one below.")}</p>
           )}
           {extras.map(({ r, i }) => (
-            <Row key={r.id ?? i} rule={r} weeks={weeks} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
+            <BonusRow key={r.id ?? i} rule={r} weeks={weeks} startOpen={String(r.id).startsWith('new-')} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
           ))}
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {addButton('bonus', tr('Special bonus'))}
-          {addButton('per_post', tr('Per video'))}
-          {addButton('platform_spread', tr('Per platform'))}
-          {addButton('consistency', tr('Posting streak'))}
-          {addButton('collab', tr('Instagram collab post'))}
-        </div>
+        <AddBonus onAdd={add} />
       </section>
     </div>
   )

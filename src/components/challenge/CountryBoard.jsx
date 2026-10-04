@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
-import { motion } from 'motion/react'
-import { SPRING } from '../../lib/motion'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
-import { CountUp } from '../network/Motion'
 import { formatViews, cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
@@ -28,6 +25,56 @@ const MEASURES = [
   { value: 'creators', label: 'Creators' },
 ]
 
+
+// A NUMBER THAT CHANGES WITHOUT RE-RENDERING THE CARD (4 Oct 2026). Ethan: switching to Views "on mobile these cards are extremely laggy and moving all
+// over the place ... the animation should be quicker and smoother, not like shaking the entire card." The old count-up set React state on every frame
+// for four numbers on every row, so a dozen cards re-rendered sixty times a second, and the changing digit widths nudged the layout. This writes the
+// text straight into one element with requestAnimationFrame (no React render per frame), for 280ms, in a box that keeps its width.
+function FastNumber({ value, measure }) {
+  const format = (n) => fmt(measure, Math.round(n))
+  const ref = useRef(null)
+  const from = useRef(value)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const start = from.current
+    const delta = value - start
+    if (!delta || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { el.textContent = format(value); from.current = value; return undefined }
+    const t0 = performance.now()
+    let raf = 0
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / 280)
+      const eased = 1 - (1 - k) ** 3
+      el.textContent = format(start + delta * eased)
+      if (k < 1) raf = requestAnimationFrame(tick); else from.current = value
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = value }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, measure])
+  return <span ref={ref} className="inline-block min-w-[4.5rem] text-right tabular-nums">{format(value)}</span>
+}
+
+// REORDER BY SLIDING, WITHOUT A LAYOUT LIBRARY. When the measure changes the rows change order; each row remembers where it was, and after the
+// change plays one transform from the old place to the new (the "FLIP" technique). Only transforms animate, so nothing else is re-laid out.
+function useFlip(listRef, order) {
+  const tops = useRef(new Map())
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const next = new Map()
+    for (const el of list.children) next.set(el.dataset.key, el.getBoundingClientRect().top)
+    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      for (const el of list.children) {
+        const was = tops.current.get(el.dataset.key)
+        const dy = was == null ? 0 : was - next.get(el.dataset.key)
+        if (dy) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' })
+      }
+    }
+    tops.current = next
+  }, [listRef, order])
+}
+
 const fmt = (measure, n) => (measure === 'views' ? formatViews(n) : Number(n || 0).toLocaleString())
 
 /** The badge before a country's name: its flags, or a globe for the creators who have no home market. */
@@ -42,6 +89,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
   const [data, setData] = useState(undefined)
   const [measure, setMeasure] = useState(scoring === 'points' ? 'points' : 'views')
   const [open, setOpen] = useState(null)
+  const listRef = useRef(null)
   // The bars grow from nothing ONCE, when the numbers first arrive. Switching the measure afterwards moves them from where they are.
   const [grown, setGrown] = useState(false)
 
@@ -60,6 +108,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
       .sort((a, b) => ((b[measure] || 0) - (a[measure] || 0)) || (b.creators - a.creators) || String(a.name).localeCompare(String(b.name)))
   }, [data, measure])
 
+  useFlip(listRef, rows.map((r) => r.id || 'none').join(','))
   useEffect(() => {
     if (!data) return undefined
     const t = setTimeout(() => setGrown(true), 60)
@@ -106,14 +155,14 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
         <Segmented value={measure} onChange={setMeasure} size="sm" label={tr('Measure')} options={measures.map((m) => ({ value: m.value, label: tr(m.label) }))} />
       </div>
 
-      <ol className="space-y-2.5">
+      <ol ref={listRef} className="space-y-2.5">
         {rows.map((r, i) => {
           const value = r[measure] || 0
           const w = value / max
           const share = total ? value / total : 0
           const others = measures.filter((m) => m.value !== measure)
           return (
-            <motion.li key={r.id || 'none'} layout="position" transition={{ layout: SPRING }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <li key={r.id || 'none'} data-key={r.id || 'none'}>
               <button
                 type="button"
                 onClick={() => setOpen(r)}
@@ -152,7 +201,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                     ))}
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="block text-xl font-bold tabular-nums leading-tight text-ink"><CountUp value={value} format={(n) => fmt(measure, Math.round(n))} /></span>
+                    <span className="block text-xl font-bold tabular-nums leading-tight text-ink"><FastNumber value={value} measure={measure} /></span>
                     <span className="block text-[10px] font-bold uppercase tracking-wide text-brand">{tr(measures.find((m) => m.value === measure)?.label || '')}</span>
                   </span>
                   <Icon name="chevronRight" className="hidden h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand sm:block" />
@@ -170,7 +219,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                   <p className="mt-2 text-[11px] text-smoke">{tr('{a} of {b} members have entered', { a: r.creators, b: r.members })}</p>
                 ) : null}
               </button>
-            </motion.li>
+            </li>
           )
         })}
       </ol>

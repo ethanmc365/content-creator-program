@@ -87,21 +87,19 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
   const ended = bonuses.filter((r) => stateOf(r) === 'ended')
 
-  // A PLAIN WHITE CARD (4 Oct 2026). Ethan: "that UI there seems to have so many cards inside cards inside buttons, and it's really
-  // overwhelming ... I don't like that light-coloured orange that the bonus point card currently is." It was an orange gradient holding white
-  // buttons, each holding a tinted icon disc, a pill and a badge. Now it is one white card and one list: an orange icon, the name, when it
-  // runs in grey words, and the points in orange. Nothing sits inside anything else.
   return (
-    <section id="bonus-points" className={cx('scroll-mt-24 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', className)}>
-      <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <Icon name="star" className="h-5 w-5 shrink-0 text-brand" />
+    <section id="bonus-points" className={cx('scroll-mt-24 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light text-white shadow-card', className)}>
+      <div className="flex items-center gap-2.5 px-5 pb-3 pt-4">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+          <Icon name="star" className="h-4 w-4" />
+        </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold text-ink">{tr('Bonus points')}</h2>
-          <p className="text-xs text-smoke">{tr('On top of your view points')}</p>
+          <h2 className="text-sm font-bold uppercase tracking-wider">{tr('Bonus points')}</h2>
+          <p className="text-xs text-white/80">{tr('On top of your view points')}</p>
         </div>
         <TranslateSwitch t={tx} className="shrink-0" />
       </div>
-      <ul className="divide-y divide-gray-50">
+      <ul className="space-y-1.5 px-3 pb-3">
         {[...current, ...ended].map((r) => {
           const state = stateOf(r)
           const done = state === 'ended'
@@ -111,21 +109,32 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
                 type="button"
                 onClick={() => setOpen(r)}
                 aria-label={tr('How {label} works', { label: r.label.trim() })}
-                className={cx('group flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition-colors duration-200 hoverable:hover:bg-cloud/60', done && 'opacity-60')}
+                className={cx(
+                  'group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left shadow-sm transition-transform duration-200',
+                  done ? 'bg-white/70 opacity-70' : 'bg-white hoverable:hover:-translate-y-0.5',
+                )}
               >
-                <Icon name={ICON[r.kind] || 'star'} className="h-5 w-5 shrink-0 text-brand" />
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{tx.pick(r.label.trim())}</span>
                   {state !== 'always' && (
-                    <span className={cx('mt-0.5 flex items-center gap-1 text-[11.5px] font-medium', done ? 'text-smoke' : 'text-brand')}>
-                      <Icon name="clock" className="h-3 w-3 shrink-0" />
+                    <span className={cx(
+                      'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                      done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
+                    )}>
+                      <Icon name="clock" className="h-3 w-3" />
                       {state === 'ended' ? tr('Ended {d}, points kept', { d: dm(r.ends_at) })
                         : state === 'upcoming' ? tr('Starts {d}', { d: dm(r.starts_at) })
                           : r.ends_at ? tr('Until {d}', { d: dm(r.ends_at) }) : tr('Running now')}
                     </span>
                   )}
                 </span>
-                <span className={cx('shrink-0 text-base font-extrabold tabular-nums', done ? 'text-smoke' : 'text-brand')}>+{Number(r.points)}</span>
+                <span className={cx(
+                  'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums',
+                  done ? 'bg-cloud text-smoke' : 'bg-brand text-white',
+                )}>
+                  +{Number(r.points)}
+                </span>
                 <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
             </li>
@@ -176,13 +185,20 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   return (
     <Modal open onClose={onClose} title={tr('Bonus points')}>
       <div className="space-y-5">
-        <div className="flex items-start gap-3 rounded-card border border-gray-100 p-4">
-          <Icon name={ICON[rule.kind] || 'star'} className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
-          <div className="min-w-0 flex-1">
-            <p className="text-base font-bold leading-snug text-ink [overflow-wrap:anywhere]">{pick(rule.label.trim())}</p>
-            <p className="mt-0.5 text-xs text-smoke">{tr('On top of your view points')}</p>
+        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card">
+          <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+              <Icon name={ICON[rule.kind] || 'star'} className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{pick(rule.label.trim())}</p>
+              <p className="mt-0.5 text-xs text-white/80">{tr('On top of your view points')}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold tabular-nums text-brand shadow-card">
+              +{Number(rule.points)}
+            </span>
           </div>
-          <span className="shrink-0 text-2xl font-extrabold tabular-nums text-brand">+{Number(rule.points)}</span>
         </div>
 
         <ul className="space-y-3">

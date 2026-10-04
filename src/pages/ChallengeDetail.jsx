@@ -29,7 +29,7 @@ import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import CountryBoard from '../components/challenge/CountryBoard'
 import CollabCard, { PartnerPicker } from '../components/challenge/CollabCard'
-import BoostBanner from '../components/challenge/BoostBanner'
+import BoostCallout, { useBoost } from '../components/challenge/BoostBanner'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
@@ -216,6 +216,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [claiming, setClaiming] = useState([])
   // An Instagram collab post: the other creator on it, picked while entering (the partner confirms afterwards).
   const [collabPartner, setCollabPartner] = useState(null)
+  const [collabAsk, setCollabAsk] = useState(false)
+  const boost = useBoost(challenge?.id, challenge?.status === 'active' && challenge?.scoring === 'points')
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
   const [board, setBoard] = useState(null)
@@ -530,7 +532,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setCaptionTouched(false)
     setLinkMeta(null)
     setClaiming([])
-    setCollabPartner(null)
+    setCollabPartner(null); setCollabAsk(false)
     // The reload below hasn't landed yet, so count this entry in by hand.
     const mine = submissions.filter((s) => s.creator_id === user.id).length
     setSuccess({ count: mine + 1, platform })
@@ -1091,18 +1093,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
-      {challenge.status === 'active' && challenge.scoring === 'points' && <BoostBanner challengeId={challenge.id} />}
       <SwapIn swapKey={tab === 'leaderboard' || tab === 'countries' ? 'board' : 'bonus'}>
-        {tab !== 'leaderboard' && tab !== 'countries' ? (
-          <LiveBonusCallout
+        {tab !== 'leaderboard' && tab !== 'countries' ? (boost ? <BoostCallout boost={boost} /> : <LiveBonusCallout
             rules={pointRules}
             now={nowMs}
             onOpen={() => {
               setTab('brief')
               setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
             }}
-          />
-        ) : (
+          />) : (
           <BoardStatus
             key={challenge.results_status}
             status={challenge.results_status}
@@ -2062,13 +2061,24 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           )}
 
           {collabOn && detectPlatform(normaliseUrl(videoUrl)) === 'Instagram' && (
-            <div>
-              <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
-                <Icon name="users" className="h-4 w-4 text-brand" />
-                {tr('Instagram collab post?')}
-              </p>
-              <p className="mb-3 text-xs text-smoke">{tr('Posted this with another creator as an Instagram collab post? Pick them and you both earn the collab points once they confirm. It counts as one entry.')}</p>
-              <PartnerPicker meId={user.id} value={collabPartner} onChange={setCollabPartner} />
+            <div className="rounded-xl border border-gray-200 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon name="users" className="h-4 w-4 text-brand" />{tr('Is this an Instagram collab post?')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('A collab post is one post shared by two accounts, so it shows on both profiles. If you made one with another creator, tell us who and you both earn the collab points.')}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[[false, tr('No, just mine')], [true, tr('Yes, with a creator')]].map(([yes, label]) => {
+                  const on = yes ? !!collabAsk : !collabAsk
+                  return (
+                    <button key={label} type="button" aria-pressed={on} onClick={() => { setCollabAsk(yes); if (!yes) setCollabPartner(null) }}
+                      className={cx('rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white shadow-sm' : 'border-gray-200 bg-white text-smoke hover:border-brand/40 hover:text-ink')}>{label}</button>
+                  )
+                })}
+              </div>
+              {collabAsk && (
+                <div className="mt-3 animate-tab-in space-y-2">
+                  <PartnerPicker meId={user.id} value={collabPartner} onChange={setCollabPartner} />
+                  <p className="text-[11px] leading-relaxed text-smoke">{tr('They get a notification and have to confirm it. You enter the post once, so it counts once, and they do not need an entry of their own.')}</p>
+                </div>
+              )}
             </div>
           )}
 
