@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { COUNTRIES, countryMatches } from './countries'
+import { countryMatches } from './countries'
+import { ALL_COUNTRIES as COUNTRIES } from './allCountries'
 import { supabase } from './supabase'
 import { useCommunity } from '../context/CommunityContext'
 import { t } from './i18n'

@@ -11,7 +11,8 @@ import { uploadFile } from '../lib/upload'
 import { makeThumbBlob } from '../lib/avatarUrl'
 import { parseDob, formatDobInput, ageFromDob, cx, MIN_AGE } from '../lib/utils'
 import { DIAL_CODES, flagEmoji, splitInternational } from '../lib/dialCodes'
-import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
+import { normalize as normalizeCountry } from '../lib/countries'
+import { ALL_COUNTRIES } from '../lib/allCountries'
 import { Avatar, Floating, Spinner, Select } from './ui'
 import Icon from './Icon'
 import AutoTextarea from './AutoTextarea'
@@ -125,12 +126,9 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     if (!file) return
     const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
     if (!looksImage) return setError(tr('Please choose an image.'))
-    // THE LIMIT IS ON WHAT WE SEND, NOT WHAT THEY PICK (5 Oct 2026). This said "under 15MB"
-    // about the ORIGINAL, and a straight-from-the-camera or exported JPEG is routinely 15-30MB -
-    // the same photo failed on a laptop and a phone for one of the team. The photo is shrunk to
-    // ~2048px in the browser before anything is uploaded, so the cap only has to stop a file the
-    // browser cannot hold in memory.
-    if (file.size > 100 * 1024 * 1024) return setError(tr('Please choose an image under 100MB.'))
+    // NO SIZE GATE ON THE PICKED FILE (5 Oct 2026). A photo is shrunk to 2048px right here, in the browser, and then cropped to a ~1080px
+    // square before anything is uploaded (a few hundred kB), so a 20MB original never travels. Refusing big originals only turned a
+    // camera JPEG into an error; the decode deadlines in lib/image already stop anything that cannot be processed.
     setError('')
 
     setBusy('reading')
@@ -711,11 +709,11 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
 
   const q = normalizeCountry(query)
   const list = q
-    ? COUNTRIES.filter((c) => normalizeCountry(c.name).includes(q)
+    ? ALL_COUNTRIES.filter((c) => normalizeCountry(c.name).includes(q)
         || normalizeCountry(place.country(c.name)).includes(q)
         || (c.aliases || []).some((a) => normalizeCountry(a).includes(q)))
-    : COUNTRIES
-  const picked = code ? COUNTRIES.find((c) => c.iso2 === code) : null
+    : ALL_COUNTRIES
+  const picked = code ? ALL_COUNTRIES.find((c) => c.iso2 === code) : null
 
   return (
     <div ref={rootRef} className="relative">

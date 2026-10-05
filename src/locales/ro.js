@@ -4347,5 +4347,4 @@ export default {
   'votes': 'voturi',
   'vote to see who picked what': 'votează ca să vezi cine a ales ce',
   'I make': 'Fac',
-  'Please choose an image under 100MB.': 'Alege o imagine sub 100 MB.',
 }

@@ -26,3 +26,14 @@ describe('dial codes', () => {
     expect(splitInternational('+359')).toBeNull()
   })
 })
+
+describe('the country pickers', async () => {
+  const { ALL_COUNTRIES } = await import('./allCountries')
+  const { isoForCountryName } = await import('./markets')
+  it('offer Bulgaria, which the geography game list never had', () => {
+    expect(ALL_COUNTRIES.find((c) => c.iso2 === 'BG')?.name).toBe('Bulgaria')
+    expect(isoForCountryName('Bulgaria')).toBe('BG')
+    expect(isoForCountryName('United Kingdom')).toBe('GB')
+    expect(ALL_COUNTRIES.length).toBeGreaterThan(220)
+  })
+})

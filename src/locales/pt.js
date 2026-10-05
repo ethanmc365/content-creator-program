@@ -4348,5 +4348,4 @@ export default {
   'votes': 'votos',
   'vote to see who picked what': 'vota para ver quem escolheu o quê',
   'I make': 'Eu faço',
-  'Please choose an image under 100MB.': 'Escolhe uma imagem com menos de 100 MB.',
 }

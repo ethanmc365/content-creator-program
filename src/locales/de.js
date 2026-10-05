@@ -4354,5 +4354,4 @@ export default {
   'votes': 'Stimmen',
   'vote to see who picked what': 'stimme ab, um zu sehen, wer was gewählt hat',
   'I make': 'Ich mache',
-  'Please choose an image under 100MB.': 'Bitte wähle ein Bild unter 100 MB.',
 }
