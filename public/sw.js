@@ -3,6 +3,7 @@
    offline app-shell caching so the app still boots with no connection. */
 
 const CACHE = 'tryp-cache-v8'
+const RECEIPTS = 'tryp-receipts-v1'
 // The shell is what the offline screen needs and no more: the small logo and plane (1 Oct 2026 - the
 // full-size PNGs were 760kB, downloaded on install over whatever connection the creator had).
 const SHELL = ['/', '/index.html', '/brand/tryp-logo-360.png', '/brand/tryp-plane-640.png', '/manifest.webmanifest']
@@ -15,7 +16,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys()
-    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    await Promise.all(keys.filter((k) => k !== CACHE && k !== RECEIPTS).map((k) => caches.delete(k)))
     await self.clients.claim()
   })())
 })
@@ -122,6 +123,18 @@ function track(id, e) {
     .finally(() => { if (timer) clearTimeout(timer) })
 }
 
+// 5 Oct 2026: A PUSH NOW DOES NO NETWORK WORK AT ALL. Ethan's Screen Time still showed ~4 hours for the app on a day he barely used it,
+// mostly in the morning with the phone untouched, and the server logs show the page itself sent no heartbeats then (it was not on screen).
+// The only thing left that wakes the app with the phone idle is a push arriving, so the worker now shows the notification and nothing else:
+// the "delivered" receipt is parked in a tiny cache entry and the PAGE sends it the next time the app is opened (lib/push.flushReceipts).
+async function parkReceipt(id) {
+  if (!id) return
+  try {
+    const c = await caches.open(RECEIPTS)
+    await c.put(new Request('/__receipt/' + id), new Response('delivered'))
+  } catch { /* a lost receipt is only a missing analytics row */ }
+}
+
 self.addEventListener('push', (event) => {
   let data
   try { data = event.data ? event.data.json() : {} } catch { data = { body: event.data && event.data.text() } }
@@ -133,7 +146,7 @@ self.addEventListener('push', (event) => {
       data: { link: data.link || '/', id: data.tag || '' },
       tag: data.tag,
     }),
-    track(data.tag, 'delivered'),
+    parkReceipt(data.tag),
   ]))
 })
 

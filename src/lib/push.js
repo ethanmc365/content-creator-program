@@ -137,3 +137,19 @@ export async function showLocalNotification({ title, body, link, tag }) {
     })
   } catch { /* ignore */ }
 }
+
+// Delivery receipts parked by public/sw.js (the worker does no network work on a push, so the phone is not kept awake).
+// Sent from the page the next time it is on screen.
+const TRACK_URL = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/push-track'
+export async function flushReceipts() {
+  if (typeof caches === 'undefined') return
+  try {
+    const c = await caches.open('tryp-receipts-v1')
+    const keys = await c.keys()
+    for (const req of keys.slice(0, 50)) {
+      const id = new URL(req.url).pathname.replace('/__receipt/', '')
+      await fetch(TRACK_URL, { method: 'POST', mode: 'no-cors', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ n: id, e: 'delivered' }) }).catch(() => {})
+      await c.delete(req)
+    }
+  } catch { /* best-effort analytics */ }
+}

@@ -5,7 +5,7 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { CommunityProvider } from './context/CommunityContext'
 import { UnreadProvider } from './context/UnreadContext'
-import { registerServiceWorker } from './lib/push'
+import { registerServiceWorker, flushReceipts } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
 import { clearBootLayer, releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
@@ -266,6 +266,8 @@ async function precacheAppShell() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     registerServiceWorker()
+    setTimeout(flushReceipts, 4000)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(flushReceipts, 2000) })
     // Give the browser a moment to settle, then cache the shell + assets.
     setTimeout(precacheAppShell, 1500)
   })
