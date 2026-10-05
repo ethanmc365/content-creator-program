@@ -26,33 +26,11 @@ const MEASURES = [
 ]
 
 
-// A NUMBER THAT CHANGES WITHOUT RE-RENDERING THE CARD (4 Oct 2026). Ethan: switching to Views "on mobile these cards are extremely laggy and moving all
-// over the place ... the animation should be quicker and smoother, not like shaking the entire card." The old count-up set React state on every frame
-// for four numbers on every row, so a dozen cards re-rendered sixty times a second, and the changing digit widths nudged the layout. This writes the
-// text straight into one element with requestAnimationFrame (no React render per frame), for 280ms, in a box that keeps its width.
-function FastNumber({ value, measure }) {
-  const format = (n) => fmt(measure, Math.round(n))
-  const ref = useRef(null)
-  const from = useRef(value)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return undefined
-    const start = from.current
-    const delta = value - start
-    if (!delta || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { el.textContent = format(value); from.current = value; return undefined }
-    const t0 = performance.now()
-    let raf = 0
-    const tick = (now) => {
-      const k = Math.min(1, (now - t0) / 280)
-      const eased = 1 - (1 - k) ** 3
-      el.textContent = format(start + delta * eased)
-      if (k < 1) raf = requestAnimationFrame(tick); else from.current = value
-    }
-    raf = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(raf); from.current = value }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, measure])
-  return <span ref={ref} className="inline-block min-w-[4.5rem] text-right tabular-nums">{format(value)}</span>
+// THE NUMBERS DO NOT ANIMATE (5 Oct 2026). Ethan: "the animation isn't necessarily needed for the numbers, but for the cards moving positions."
+// A count-up on four figures per row, all running while the cards slid, is what made switching measure look frantic. The figure now simply
+// changes (rounded the same way every leaderboard rounds it - see formatViews) and the CARDS are what move.
+function Figure({ value, measure }) {
+  return <span className="inline-block min-w-[4.5rem] text-right tabular-nums">{fmt(measure, value)}</span>
 }
 
 // REORDER BY SLIDING, WITHOUT A LAYOUT LIBRARY. When the measure changes the rows change order; each row remembers where it was, and after the
@@ -68,14 +46,26 @@ function useFlip(listRef, order) {
       for (const el of list.children) {
         const was = tops.current.get(el.dataset.key)
         const dy = was == null ? 0 : was - next.get(el.dataset.key)
-        if (dy) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' })
+        if (!dy) continue
+        // SLOWER, AND THE MOVING CARD IS ON TOP (5 Oct 2026). 320ms read as a jump; ~0.85s with a long, soft landing reads as cards finding
+        // their new places. A card climbing the board passes OVER the ones it overtakes instead of vanishing behind them, and the further a
+        // card travels the slightly longer it takes, so a big climb does not look rushed next to a one-place swap.
+        const travel = Math.min(1, Math.abs(dy) / 600)
+        el.setAttribute('data-moving', '') // lifted above its neighbours while it travels (index.css)
+        const anim = el.animate(
+          [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+          { duration: 700 + Math.round(travel * 350), easing: 'cubic-bezier(0.33, 1, 0.68, 1)' },
+        )
+        const done = () => el.removeAttribute('data-moving')
+        anim.onfinish = done
+        anim.oncancel = done
       }
     }
     tops.current = next
   }, [listRef, order])
 }
 
-const fmt = (measure, n) => (measure === 'views' ? formatViews(n) : Number(n || 0).toLocaleString())
+const fmt = (measure, n) => (measure === 'views' ? formatViews(Math.round(Number(n) || 0)) : Math.round(Number(n) || 0).toLocaleString())
 
 /** The badge before a country's name: its flags, or a globe for the creators who have no home market. */
 function Badge({ market, size = 'h-9 w-9', glyph = 'text-xl' }) {
@@ -168,23 +158,23 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                 onClick={() => setOpen(r)}
                 className={cx(
                   'group relative w-full overflow-hidden rounded-card border p-3.5 text-left shadow-card transition-[box-shadow,border-color,transform,background-color] duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-4',
-                  // YOUR HOME COUNTRY IS THE LOUD ONE (4 Oct 2026): a solid brand edge and a wash of brand. A market you belong to without it being
-                  // your home gets a quiet brand outline, so you can find both at a glance.
-                  r.mine ? 'border-brand bg-brand-tint/50 shadow-[0_6px_22px_-10px_rgba(217,68,7,0.55)]'
+                  // YOUR HOME COUNTRY IS SOLID BRAND, WITH WHITE ON IT (5 Oct 2026). Ethan: "I don't like that light orangey-yellow colour and just
+                  // the little small orange bar." A picked thing on this platform is solid brand, never a tint; a market you belong to without it
+                  // being your home keeps a quiet brand outline.
+                  r.mine ? 'border-transparent bg-gradient-to-br from-brand to-brand-light text-white shadow-[0_10px_28px_-12px_rgba(217,68,7,0.7)]'
                     : r.also ? 'border-brand/35 bg-white' : 'border-gray-100 bg-white hoverable:hover:border-brand/30',
                 )}
               >
-                {r.mine && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-brand to-brand-light" />}
                 <div className="flex items-center gap-3">
-                  <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums transition-colors duration-300', i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums transition-colors duration-300', r.mine ? 'bg-white text-brand' : i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
                   <Badge market={r} />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="truncate text-[15px] font-bold text-ink">{r.none ? tr('Rest of the world') : r.name}</span>
-                      {r.mine && <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"><Icon name="home" className="h-3 w-3" />{tr('Your home market')}</span>}
+                      <span className={cx('truncate text-[15px] font-bold', r.mine ? 'text-white' : 'text-ink')}>{r.none ? tr('Rest of the world') : r.name}</span>
+                      {r.mine && <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand"><Icon name="home" className="h-3 w-3" />{tr('Your home market')}</span>}
                       {r.also && <span className="rounded-full border border-brand/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Also yours')}</span>}
                     </span>
-                    <span className="block truncate text-xs text-smoke">
+                    <span className={cx('block truncate text-xs', r.mine ? 'text-white/85' : 'text-smoke')}>
                       {r.creators > 0
                         ? `${r.creators === 1 ? tr('1 creator') : tr('{c} creators', { c: r.creators })} · ${r.entries === 1 ? tr('1 entry') : tr('{e} entries', { e: r.entries })}`
                         : r.none ? tr('Creators who are not placed in a market') : tr('Nobody has entered yet. Be the first.')}
@@ -192,31 +182,31 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                   </span>
                   {/* THE MEASURE ON SHOW IS THE BIG NUMBER; the other ones sit small beside it, so points, views, entries and creators are
                       all readable without switching (4 Oct 2026). */}
-                  <span className="hidden shrink-0 items-center gap-4 border-r border-gray-100 pr-4 sm:flex">
+                  <span className={cx('hidden shrink-0 items-center gap-4 border-r pr-4 sm:flex', r.mine ? 'border-white/25' : 'border-gray-100')}>
                     {others.map((m) => (
                       <span key={m.value} className="text-right">
-                        <span className="block text-[13px] font-semibold tabular-nums leading-tight text-ink/80">{fmt(m.value, r[m.value])}</span>
-                        <span className="block text-[9px] font-bold uppercase tracking-wide text-gray-400">{tr(m.label)}</span>
+                        <span className={cx('block text-[13px] font-semibold tabular-nums leading-tight', r.mine ? 'text-white' : 'text-ink/80')}>{fmt(m.value, r[m.value])}</span>
+                        <span className={cx('block text-[9px] font-bold uppercase tracking-wide', r.mine ? 'text-white/75' : 'text-gray-400')}>{tr(m.label)}</span>
                       </span>
                     ))}
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="block text-xl font-bold tabular-nums leading-tight text-ink"><FastNumber value={value} measure={measure} /></span>
-                    <span className="block text-[10px] font-bold uppercase tracking-wide text-brand">{tr(measures.find((m) => m.value === measure)?.label || '')}</span>
+                    <span className={cx('block text-xl font-bold tabular-nums leading-tight', r.mine ? 'text-white' : 'text-ink')}><Figure value={value} measure={measure} /></span>
+                    <span className={cx('block text-[10px] font-bold uppercase tracking-wide', r.mine ? 'text-white/85' : 'text-brand')}>{tr(measures.find((m) => m.value === measure)?.label || '')}</span>
                   </span>
-                  <Icon name="chevronRight" className="hidden h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand sm:block" />
+                  <Icon name="chevronRight" className={cx('hidden h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 sm:block', r.mine ? 'text-white/80' : 'text-gray-300 group-hover:text-brand')} />
                 </div>
                 <div className="mt-3 flex items-center gap-3">
-                  <span className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-cloud">
+                  <span className={cx('relative h-2.5 flex-1 overflow-hidden rounded-full', r.mine ? 'bg-white/25' : 'bg-cloud')}>
                     <span
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out"
+                      className={cx('absolute inset-y-0 left-0 rounded-full transition-[width] duration-[900ms] ease-[cubic-bezier(0.33,1,0.68,1)]', r.mine ? 'bg-white' : 'bg-gradient-to-r from-brand to-brand-light')}
                       style={{ width: grown ? `${value > 0 ? Math.max(2.5, w * 100) : 0}%` : '0%', transitionDelay: grown ? '0ms' : `${Math.min(i, 8) * 55}ms` }}
                     />
                   </span>
-                  <span className="w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums text-smoke">{value > 0 ? `${Math.round(share * 100)}%` : ''}</span>
+                  <span className={cx('w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums', r.mine ? 'text-white/90' : 'text-smoke')}>{value > 0 ? `${Math.round(share * 100)}%` : ''}</span>
                 </div>
                 {r.members ? (
-                  <p className="mt-2 text-[11px] text-smoke">{tr('{a} of {b} members have entered', { a: r.creators, b: r.members })}</p>
+                  <p className={cx('mt-2 text-[11px]', r.mine ? 'text-white/85' : 'text-smoke')}>{tr('{a} of {b} members have entered', { a: r.creators, b: r.members })}</p>
                 ) : null}
               </button>
             </li>

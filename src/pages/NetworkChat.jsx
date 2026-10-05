@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PendingLabel from '../components/PendingLabel'
 import { Link, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
@@ -1516,7 +1516,7 @@ export default function NetworkChat() {
                         )}
                         {seen.length > 0 && (
                           <div className={cx('mt-0.5 flex', mine && 'justify-end')}>
-                            <SeenBy readers={seen} align={mine ? 'right' : 'left'} />
+                            <SeenBy readers={seen} align={mine ? 'right' : 'left'} pollId={m.poll_id || null} />
                           </div>
                         )}
                       </>
@@ -1934,7 +1934,7 @@ export default function NetworkChat() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      {place.rooms.map((c) => {
+                      {place.rooms.map((c, ci) => {
                         // The row you are reading. Only ever a highlight - the
                         // row does not move, and neither does its card.
                         const on = here && active?.key === c.key
@@ -1945,8 +1945,12 @@ export default function NetworkChat() {
                         const key = scopedKey(place, c.key)
                         const isNew = key !== roomKey && unread.has(key)
                         return (
+                          <Fragment key={c.id}>
+                          {/* THE SPLIT BETWEEN EVERYDAY AND VIP ROOMS IS A QUIET GREY LINE (5 Oct 2026), not a black "VIP" pill on each row. */}
+                          {c.visibility === 'vip' && ci > 0 && place.rooms[ci - 1].visibility !== 'vip' && (
+                            <div role="separator" aria-hidden className="mx-3 my-1 h-px bg-gray-200" />
+                          )}
                           <Link
-                            key={c.id}
                             to={`${roomBase}/${c.key}`}
                             aria-current={on ? 'page' : undefined}
                             className={cx(
@@ -1957,12 +1961,12 @@ export default function NetworkChat() {
                             {on && <RoomOnBg />}
                             <Icon name={c.icon || 'chat'} className={cx('h-4 w-4 shrink-0', on ? 'text-white' : isNew ? 'text-brand' : 'text-smoke')} />
                             <span className={cx('min-w-0 flex-1 truncate text-[13.5px]', isNew && !on && 'font-bold')}>{tr(c.label)}</span>
-                            {c.visibility === 'vip' && <VipChip />}
                             {c.visibility === 'staff' && (
                               <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">{tr("Staff")}</span>
                             )}
                             {isNew && <UnreadDot size="sm" />}
                           </Link>
+                          </Fragment>
                         )
                       })}
                     </div>
@@ -1987,7 +1991,6 @@ export default function NetworkChat() {
                         <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.01em] text-ink">
                           {tr('VIP {m}', { m: place.name })}
                         </span>
-                        <VipChip />
                       </div>
                       <div className="flex flex-col gap-0.5">
                         {place.rooms.map((c) => {

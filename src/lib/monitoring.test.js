@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { CONTEXT_MARK, describeReason, installGlobalHandlers, resetReportedForTests, sentryHome, sentryIssues, sentryLink, sentryOrg, sentryProjectId } from './monitoring'
+import { CONTEXT_MARK, describeReason, isForeignRejection, installGlobalHandlers, resetReportedForTests, sentryHome, sentryIssues, sentryLink, sentryOrg, sentryProjectId } from './monitoring'
 import { explain, GUIDE_ENTRIES } from './errorGuide'
 import { splitDetail } from '../components/admin/ErrorWatch'
 
@@ -244,5 +244,17 @@ describe('sentry links', () => {
     expect(sentryLink('')).toBe(KNOWN_GOOD)
     expect(sentryLink(null)).toBe(KNOWN_GOOD)
     expect(sentryLink('   ')).toBe(KNOWN_GOOD)
+  })
+})
+
+describe('a rejection that never touched our code', () => {
+  it('drops a non-Error thrown out of the browser translator (stack has no /assets/ frame), keeps ours', () => {
+    const translator = { name: 'Object', message: 'La', stack: '@https://trypcreators.vercel.app/auth/callback:475:363\nVi@https://trypcreators.vercel.app/auth/callback:194:41' }
+    expect(isForeignRejection(translator)).toBe(true)
+    const ours = { name: 'Object', message: 'La', stack: 'f@https://trypcreators.vercel.app/assets/Onboarding-abc.js:1:2' }
+    expect(isForeignRejection(ours)).toBe(false)
+    expect(isForeignRejection(new Error('real'))).toBe(false)
+    expect(isForeignRejection({ message: 'no stack at all' })).toBe(false)
+    expect(isForeignRejection('a string')).toBe(false)
   })
 })

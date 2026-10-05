@@ -57,6 +57,9 @@ export default function CreatorSpotlight() {
         .select('id, name, photo_url, bio, about, city, country, countries_visited')
         .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null)
+        // ONLY SOMEBODY WHO HAS BEEN AROUND LATELY (5 Oct 2026). The spotlight is "a creator to go and say hello to"; featuring one who
+        // has not opened the app in months is a connection request into the void. Last seen within 30 days.
+        .gte('last_seen_at', new Date(Date.now() - 30 * 86400000).toISOString())
         .order('created_at', { ascending: true })
       if (!alive) return
       const list = pool ?? []

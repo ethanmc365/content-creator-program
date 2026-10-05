@@ -74,7 +74,7 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className={cx('truncate text-[15px] leading-tight', isNew ? 'font-bold' : 'font-semibold')}>{tr(r.label)}</span>
-              {r.visibility === 'vip' && !vip && <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">VIP</span>}
+              
               {r.visibility === 'staff' && <span className={cx('shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold', on ? 'bg-white/20 text-white' : 'bg-cloud text-smoke')}>{tr('Staff')}</span>}
             </span>
             {(showPlace || last) && (
@@ -148,7 +148,15 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
               {places.map((p) => (
                 <section key={p.id}>
                   {placeHead(p)}
-                  <div className="space-y-0.5">{p.rooms.map((r) => row(p, r))}</div>
+                  <div className="space-y-0.5">
+                    {p.rooms.map((r, i) => (
+                      <div key={r.id}>
+                        {/* The split between the everyday rooms and the VIP ones: one quiet grey line, not a pill on every row (5 Oct 2026). */}
+                        {r.visibility === 'vip' && i > 0 && p.rooms[i - 1].visibility !== 'vip' && <div role="separator" aria-hidden className="mx-3 my-1.5 h-px bg-gray-200" />}
+                        {row(p, r)}
+                      </div>
+                    ))}
+                  </div>
                 </section>
               ))}
               {vipPlaces.map((p) => (

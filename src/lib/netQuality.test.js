@@ -7,10 +7,11 @@ async function fresh() {
 }
 
 describe('slow-network detection', () => {
-  it('stays fast until a few slow reads say otherwise, and recovers', async () => {
+  it('stays fast until a few slow probes say otherwise, and recovers', async () => {
     const q = await fresh()
-    for (let i = 0; i < 4; i += 1) q.recordRequest(3000)
-    expect(q.isSlowNetwork()).toBe(false) // four samples are not a verdict
+    q.recordRequest(3000)
+    q.recordRequest(3000)
+    expect(q.isSlowNetwork()).toBe(false) // two samples are not a verdict
     q.recordRequest(3000)
     expect(q.isSlowNetwork()).toBe(true)
     for (let i = 0; i < 12; i += 1) q.recordRequest(80)
@@ -21,6 +22,16 @@ describe('slow-network detection', () => {
     const q = await fresh()
     for (let i = 0; i < 6; i += 1) q.recordRequest(120)
     q.recordRequest(2500)
+    expect(q.isSlowNetwork()).toBe(false)
+  })
+
+  it('a slow DATABASE READ never makes the connection weak', async () => {
+    const q = await fresh()
+    // Reads no longer feed the verdict: only the probe does. Ten heavy selects through the real fetch wrapper:
+    const realFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() => new Promise((r) => setTimeout(() => r(new Response('[]')), 5)))
+    for (let i = 0; i < 10; i += 1) await q.resilientFetch('https://x.supabase.co/rest/v1/submissions?select=*', { method: 'GET' })
+    globalThis.fetch = realFetch
     expect(q.isSlowNetwork()).toBe(false)
   })
 })

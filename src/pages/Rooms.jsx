@@ -81,7 +81,7 @@ const scopedKey = scopedChannel
 // The face and the chevron are gone - the preview already names the speaker,
 // and a full-width row in a list of links does not need to be told it is
 // tappable.
-function RoomRow({ to, room, last, unread, dark = false, inVip = false, place = null }) {
+function RoomRow({ to, room, last, unread, dark = false, place = null }) {
   const tr = useT()
   return (
     <Link
@@ -136,9 +136,9 @@ function RoomRow({ to, room, last, unread, dark = false, inVip = false, place = 
               a word had been posted, so nobody opened it. */}
           <span className={cx('min-w-0 flex-1 truncate text-[15px] leading-tight',
             dark ? (unread ? 'font-bold text-white' : 'font-semibold text-white/90') : unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
-          {room.visibility === 'vip' && !dark && !inVip && (
-            <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">VIP</span>
-          )}
+          {/* NO BLACK "VIP" PILL BESIDE A VIP ROOM (5 Oct 2026). Ethan: "rather than showing the VIP in a black button beside each of those
+              rooms ... just a small grey line, a split between them, to show that there is a split there." The split is drawn in the list
+              (a hairline between the everyday rooms and the VIP ones), not stamped on every row. */}
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
@@ -246,15 +246,19 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
         )}
       </div>
       <div className="space-y-0.5">
-        {rooms.map((r) => (
-          <RoomRow
-            key={r.id}
-            to={`${base}/${r.key}`}
-            room={r}
-            last={lastByChannel.get(scopedKey(place, r.key))}
-            unread={unreadKeys.has(scopedKey(place, r.key))}
-            inVip={vip}
-          />
+        {rooms.map((r, i) => (
+          <div key={r.id}>
+            {/* THE SPLIT: one quiet grey line where the everyday rooms end and the VIP rooms begin. */}
+            {r.visibility === 'vip' && i > 0 && rooms[i - 1].visibility !== 'vip' && (
+              <div role="separator" aria-hidden className="mx-2 my-1.5 h-px bg-gray-200" />
+            )}
+            <RoomRow
+              to={`${base}/${r.key}`}
+              room={r}
+              last={lastByChannel.get(scopedKey(place, r.key))}
+              unread={unreadKeys.has(scopedKey(place, r.key))}
+            />
+          </div>
         ))}
       </div>
     </section>

@@ -3367,3 +3367,6 @@ html[data-slow-net] .vip-stage > * { animation: none; }
   .vip-panel > * > * { animation: none !important; }
 }
 html[data-slow-net] .vip-panel > * > * { animation: none !important; }
+
+/* A leaderboard card that is sliding to its new place rides above the cards it passes (CountryBoard's FLIP). */
+[data-moving] { position: relative; z-index: 2; }

@@ -6,10 +6,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
+import { captureError } from '../lib/monitoring'
 import { uploadFile } from '../lib/upload'
 import { makeThumbBlob } from '../lib/avatarUrl'
 import { parseDob, formatDobInput, ageFromDob, cx, MIN_AGE } from '../lib/utils'
-import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
+import { DIAL_CODES, flagEmoji, splitInternational } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Floating, Spinner, Select } from './ui'
 import Icon from './Icon'
@@ -80,6 +81,16 @@ export const languageFlag = (lang) => LANGUAGE_FLAG[lang] || '🌐'
  *   and needs more: it draws at 316px on a 1280px slide and the PDF photographs
  *   that at 2x, so 512 would be upscaled in a document somebody sends a brand.
  */
+// A photo that will not go through is told to the creator AND recorded, with the facts that
+// decide it (type, size, which step). A handled failure never reaches window.onerror, so until
+// now "my JPEG errors every time" left nothing to look at.
+function reportPhotoFailure(err, file, step) {
+  try {
+    const e = new Error(`Photo ${step} failed: ${err?.message || err}`)
+    captureError(e, { step, type: file?.type || '', kb: Math.round((file?.size || 0) / 1024), ext: String(file?.name || '').split('.').pop().slice(0, 6) })
+  } catch { /* reporting must never throw */ }
+}
+
 export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim = 1080 }) {
   const tr = useT()
   const { user } = useAuth()
@@ -114,7 +125,12 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     if (!file) return
     const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
     if (!looksImage) return setError(tr('Please choose an image.'))
-    if (file.size > 15 * 1024 * 1024) return setError(tr('Please choose an image under 15MB.'))
+    // THE LIMIT IS ON WHAT WE SEND, NOT WHAT THEY PICK (5 Oct 2026). This said "under 15MB"
+    // about the ORIGINAL, and a straight-from-the-camera or exported JPEG is routinely 15-30MB -
+    // the same photo failed on a laptop and a phone for one of the team. The photo is shrunk to
+    // ~2048px in the browser before anything is uploaded, so the cap only has to stop a file the
+    // browser cannot hold in memory.
+    if (file.size > 100 * 1024 * 1024) return setError(tr('Please choose an image under 100MB.'))
     setError('')
 
     setBusy('reading')
@@ -124,6 +140,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
       // keeps twice the final size (or 2048px) of detail to crop into.
       decoded = await compressImage(file, { maxDim: Math.max(2048, maxDim * 2), quality: 0.92 })
     } catch (err) {
+      reportPhotoFailure(err, file, 'read')
       setError(err.message); setBusy('')
       return
     }
@@ -176,6 +193,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
       setBusy('')
       return url
     } catch (err) {
+      reportPhotoFailure(err, blob, 'upload')
       setError(err.message)
       dropPreview()
       setPreview('')
@@ -369,6 +387,11 @@ export function PhoneInput({ value, onChange, required }) {
   const tr = useT()
   const country = value.phone_country || ''
   const number = value.phone || ''
+  // Options are keyed by COUNTRY, not by code: US and Canada share +1, and a
+  // code-keyed list ticked both. What is stored is still the code.
+  const iso = DIAL_CODES.some((c) => c.iso2 === value.phone_iso && c.code === country)
+    ? value.phone_iso
+    : (DIAL_CODES.find((c) => c.code === country)?.iso2 ?? '')
   return (
     <div>
       <label htmlFor="phone" className="label">{tr('Phone number')}{required && <span className="text-brand"> *</span>}</label>
@@ -386,11 +409,15 @@ export function PhoneInput({ value, onChange, required }) {
           ariaLabel="Country dialling code"
           variant="field"
           className="w-full sm:w-52 sm:shrink-0"
-          value={country}
+          value={iso}
           placeholder={tr("Country code")}
-          onChange={(v) => onChange({ ...value, phone_country: v })}
+          search
+          onChange={(v) => {
+            const row = DIAL_CODES.find((c) => c.iso2 === v)
+            if (row) onChange({ ...value, phone_country: row.code, phone_iso: row.iso2 })
+          }}
           options={DIAL_CODES.map((c) => ({
-            value: c.code,
+            value: c.iso2,
             label: c.name,
             icon: flagEmoji(c.iso2),
             hint: c.code,
@@ -404,7 +431,13 @@ export function PhoneInput({ value, onChange, required }) {
           className="input w-full sm:flex-1"
           placeholder="7700 900123"
           value={number}
-          onChange={(e) => onChange({ ...value, phone: e.target.value })}
+          onChange={(e) => {
+            // A full international number ("+359 88 123 4567") picks its own code.
+            const hit = splitInternational(e.target.value)
+            onChange(hit
+              ? { ...value, phone_country: hit.code, phone_iso: hit.iso2, phone: hit.national }
+              : { ...value, phone: e.target.value })
+          }}
         />
       </div>
       <p className="mt-1 text-xs text-smoke">{tr("Private. Only the Tryp.com Team can see this, never other creators.")}</p>

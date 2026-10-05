@@ -115,7 +115,15 @@ export function preloadWhenIdle(importers, delay = 1200) {
 
 export function lazyRoute(importer) {
   return lazy(() =>
-    importer().catch((err) => {
+    importer().then(
+      // WHEN `vite:preloadError` IS preventDefault()ed (main.jsx does, because it
+      // is reloading), Vite's preload helper SWALLOWS the failure and resolves
+      // with NOTHING - and React then reads `undefined.default`. That was the
+      // "Cannot read properties of undefined (reading 'default')" crash on
+      // /milestones and /admin/videos, right after a deploy. A module that is
+      // undefined means a reload is already under way: wait for it.
+      (m) => (m === undefined ? new Promise(() => {}) : m),
+    ).catch((err) => {
       let last = 0
       try {
         last = Number(sessionStorage.getItem(RELOAD_KEY) || 0)

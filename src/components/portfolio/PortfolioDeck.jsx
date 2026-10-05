@@ -46,7 +46,7 @@ export function buildPages({ videos = [], certificates = [] } = {}) {
 }
 
 const PortfolioDeck = forwardRef(function PortfolioDeck(
-  { creator, portfolio, videos, certificates, width, pageRefs, gap = 28, horizontal = false, onPageCount, reveal = false },
+  { creator, portfolio, videos, certificates, width, pageRefs, gap = 28, horizontal = false, onPageCount, reveal = false, only = null },
   ref,
 ) {
   const all = videos || []
@@ -86,7 +86,7 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
         ? { display: 'flex', gap, width: 'max-content' }
         : { display: 'flex', flexDirection: 'column', gap, width }}
     >
-      {pages.map((p, i) => (
+      {(only ? pages.slice(0, only) : pages).map((p, i) => (
         <Sheet key={p.key} index={i} scale={scale} width={width} snap={horizontal} still={reveal && !horizontal} setRef={(el) => { if (pageRefs) pageRefs.current[i] = el }}>
           {p.key === 'cover' && <Cover {...common} />}
           {p.key === 'about' && <About {...common} n={i + 1} />}

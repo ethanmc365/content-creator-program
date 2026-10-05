@@ -1,4 +1,7 @@
 import { prefetchForPath } from './routeChunks'
+import { supabase } from './supabase'
+import { loadRelationship } from './connections'
+import { readPageCache, writePageCache } from './pageCache'
 
 // FETCH THE PAGE WHILE THE THUMB IS STILL MOVING.
 //
@@ -38,6 +41,28 @@ function hrefFrom(target) {
   return href.split('?')[0].split('#')[0]
 }
 
+// THE PROFILE ITSELF, TOO (5 Oct 2026). Ethan: opening a profile on a phone "takes a little while for the animation to kick in". The chunk was
+// already warm; what was left was the data - the person's row and your connection to them. The same 80-300ms of warning that fetches the code
+// fetches those, into the page cache the profile reads from on its first frame (pages/Profile). Only ever fills an EMPTY cache entry and never
+// throws: a miss just means the profile fetches for itself as before.
+const warming = new Set()
+const PROFILE_PATH = /^\/profile\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+function warmProfile(id) {
+  const key = `profile:${id}`
+  if (readPageCache(key) || warming.has(id)) return
+  warming.add(id)
+  Promise.resolve().then(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const me = session?.user?.id
+    if (!me) return
+    const [{ data: p }, rel] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', id).single(),
+      me === id ? Promise.resolve(null) : loadRelationship(me, id),
+    ])
+    if (p && !readPageCache(key)) writePageCache(key, { ready: false, creator: p, relation: rel, submissions: [], trips: [], upcoming: [], challengeCount: 0 })
+  }).catch(() => { /* a miss, never an error */ }).finally(() => { warming.delete(id) })
+}
+
 let installed = false
 
 /** Install the delegated prefetch listeners. Idempotent; returns a cleanup. */
@@ -47,7 +72,10 @@ export function installLinkPrefetch() {
 
   const onIntent = (e) => {
     const path = hrefFrom(e.target)
-    if (path) prefetchForPath(path)
+    if (!path) return
+    prefetchForPath(path)
+    const m = PROFILE_PATH.exec(path)
+    if (m) warmProfile(m[1])
   }
   const opts = { capture: true, passive: true }
   document.addEventListener('pointerover', onIntent, opts)

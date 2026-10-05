@@ -21,7 +21,7 @@ const RAW_TTL_MS = 10 * 60 * 1000
 import { Floating, PageHeader, Select, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { DateField } from '../../components/DateTimeFields'
-import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
+import { downloadCsv, formatMoney, formatViewsTotal, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
 import CommunityHealth from './analytics/CommunityHealth'
@@ -898,11 +898,11 @@ export default function AdminAnalytics() {
               : 'live and logged'}
             onClick={() => setTab('programme')}
           />
-          <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
+          <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViewsTotal(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
           <StatCard
             label="Total views"
-            value={formatViews(derived.totalViews)}
-            hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
+            value={formatViewsTotal(derived.totalViews)}
+            hint={derived.verifiedViews > 0 ? `${formatViewsTotal(derived.verifiedViews)} verified` : 'logged by creators'}
           />
           <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" accent onClick={() => navigate('/admin/rewards')} />
           <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
@@ -1088,8 +1088,8 @@ export default function AdminAnalytics() {
             <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
+              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViewsTotal(v)} />
               <Bar animationDuration={600} dataKey="totalViews" name="Total views" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={40} />
               <Bar animationDuration={600} dataKey="avgViews" name="Avg per entry" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={40} />
             </BarChart>
@@ -1260,7 +1260,7 @@ function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreato
         <StatCard label="New creators" value={now.newCreators} delta={d('newCreators')} hint={`${members} members in total`} onClick={onCreators} />
         <StatCard label="Challenges running" value={now.challenges} delta={d('challenges')} hint="open at any point in it" onClick={onChallenges} />
         <StatCard label="Videos submitted" value={now.submissions} delta={d('submissions')} />
-        <StatCard label="Views" value={formatViews(now.views)} delta={d('views')} hint="on videos submitted in it" />
+        <StatCard label="Views" value={formatViewsTotal(now.views)} delta={d('views')} hint="on videos submitted in it" />
         <StatCard label="Cash prizes paid" value={formatMoney(now.cash, currency)} delta={d('cash')} accent onClick={onMoney} />
         <StatCard label="Voucher value given" value={formatMoney(now.vouchers, currency)} delta={d('vouchers')} onClick={onMoney} />
         <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 views" />

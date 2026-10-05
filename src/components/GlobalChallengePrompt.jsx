@@ -50,7 +50,7 @@ export default function GlobalChallengePrompt() {
       const { data: net } = await supabase.from('communities').select('id').eq('kind', 'network').maybeSingle()
       if (!alive || !net) return
       const { data: ch } = await supabase.from('challenges')
-        .select('id, title, end_date, scoring, prize_amount, prize_currency, welcome_amount, welcome_views, status, community_id')
+        .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id')
         .eq('community_id', net.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle()
       if (!alive || !ch) return
       const s = seen(ch.id)
@@ -93,7 +93,8 @@ function PromptCard({ card, name, onClose }) {
   const mine = ranked.findIndex((m) => m.mine)
   const mineRow = mine >= 0 ? ranked[mine] : null
   const total = (board?.markets || []).reduce((n, m) => n + (Number(m.creators) || 0), 0)
-  const welcome = Number(ch.welcome_amount) > 0
+  // The welcome voucher for new creators is switched off for now (5 Oct 2026).
+  const welcome = false
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={ch.title} className="fixed inset-0 z-[90] flex items-end justify-center p-3 sm:items-center sm:p-6">

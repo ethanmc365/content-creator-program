@@ -339,8 +339,8 @@ export default function PrizeBreakdownFields({
   participationThreshold = '',
   participationPrize = '',
   onParticipation,
-  // Challenge-level only (the group editor leaves these out): the cap, the
-  // cash/voucher choice, the value and who can earn it, plus Most committed.
+  // The cap, the cash/voucher choice, the value and who can earn it, plus Most committed.
+  // The challenge AND every group pass these (a group since 5 Oct 2026).
   participationExtra = null,
   onParticipationExtra = null,
   // A points challenge can pay the taking-part reward on a points total
@@ -351,7 +351,8 @@ export default function PrizeBreakdownFields({
   idPrefix = 'prize',
   dense = false,
   // A GROUP's taking-part reward (1 Oct 2026): its own value, cash or voucher, and videos or points like the
-  // challenge's - but the cap and who can earn it stay the challenge's, so those two rows are left out.
+  // challenge's. Since 5 Oct (migration 338) it also has its own cap and "who can earn it", and its own Most
+  // committed; only videos-or-points stays the challenge's one setting, which this flag explains.
   groupMode = false,
 }) {
   // The taking-part card is open when it holds anything, or once "Add" has been
@@ -505,7 +506,6 @@ export default function PrizeBreakdownFields({
               {/* THE CAP. Ethan: "only the first 30 creators can actually earn
                   that, so we're not giving out theoretically unlimited
                   vouchers." First = whoever's Nth entry went in first. */}
-              {!groupMode && (<>
               <SettingRow
                 label="How many"
                 note={participationExtra.cap && Number(participationExtra.cap) > 0
@@ -532,7 +532,6 @@ export default function PrizeBreakdownFields({
                   ]}
                 />
               </SettingRow>
-              </>)}
               {groupMode && pointsBasisAllowed && (
                 <p className="text-[11px] text-smoke">Videos or points is set once for the whole challenge, so every group earns it the same way.</p>
               )}

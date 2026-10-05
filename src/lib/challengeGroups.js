@@ -151,6 +151,7 @@ export function prizeForGroup(group, challenge) {
   // so a group only overrides the reward when it has stated both.
   const ownPart = group.participation_threshold != null
     && !!String(group.participation_prize ?? '').trim()
+  const ownAwards = Array.isArray(group.extra_awards) && group.extra_awards.length > 0
   return {
     prize_amount: group.prize_amount ?? challenge?.prize_amount ?? null,
     prize_currency: group.prize_currency ?? challenge?.prize_currency ?? 'EUR',
@@ -163,9 +164,18 @@ export function prizeForGroup(group, challenge) {
     // spend and the payout read these (migration 307's group columns).
     participation_amount: ownPart ? (group.participation_amount ?? null) : (challenge?.participation_amount ?? null),
     participation_reward_type: ownPart ? (group.participation_reward_type ?? null) : (challenge?.participation_reward_type ?? null),
+    // A board with its own reward has its own cap and who-can-earn-it (migration 338); one without shares the challenge's.
+    participation_cap: ownPart ? (group.participation_cap ?? null) : (challenge?.participation_cap ?? null),
+    participation_scope: ownPart
+      ? (group.participation_scope ?? challenge?.participation_scope ?? 'everyone')
+      : (challenge?.participation_scope ?? 'everyone'),
+    // Most committed: the board's own when it has any, otherwise the challenge's.
+    extra_awards: ownAwards ? group.extra_awards : (challenge?.extra_awards ?? []),
+    own_awards: ownAwards,
+    own_part: ownPart,
     // Which of the two the answer came from, for anything that wants to say
     // "this board has its own prize" without re-deriving the rule.
-    own: ownPrizes || ownPart,
+    own: ownPrizes || ownPart || ownAwards,
   }
 }
 

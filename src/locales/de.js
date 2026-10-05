@@ -4349,4 +4349,10 @@ export default {
   'Each of you enters that same post link as an entry.': 'Jeder von euch trägt denselben Link als Beitrag ein.',
   'We match them by themselves. Its views count once, and you both get the points.': 'Wir ordnen sie automatisch zu. Die Views zählen einmal und ihr bekommt beide die Punkte.',
   'Post an Instagram collab post with another creator and both enter its link. You both earn the points': 'Poste einen Instagram-Collab-Beitrag mit einem anderen Creator und tragt beide den Link ein. Ihr bekommt beide die Punkte',
+  'Poll · closed': 'Umfrage · beendet',
+  'vote': 'Stimme',
+  'votes': 'Stimmen',
+  'vote to see who picked what': 'stimme ab, um zu sehen, wer was gewählt hat',
+  'I make': 'Ich mache',
+  'Please choose an image under 100MB.': 'Bitte wähle ein Bild unter 100 MB.',
 }

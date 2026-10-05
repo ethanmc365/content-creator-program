@@ -10,7 +10,7 @@ import { format, startOfMonth } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
 import { EmptyState, Skeleton, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
-import { downloadCsv, formatViews, cx } from '../../../lib/utils'
+import { downloadCsv, formatViewsTotal, cx } from '../../../lib/utils'
 import {
   challengeEconomics, blendEconomics, groupBy, label, filterChallenges,
   runningChallenges, FALLBACK_RATES, publishFxRates,
@@ -428,7 +428,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
               <Ratio label="Cost / post" value={money(b.costPerPost, currency, 2)} />
               <Ratio label="Cost / creator" value={money(b.costPerCreator, currency, 2)} />
               <Ratio label="Posts / creator" value={num(b.postsPerCreator, 1)} />
-              <Ratio label="Views / post" value={b.viewsPerPost ? formatViews(Math.round(b.viewsPerPost)) : '-'} />
+              <Ratio label="Views / post" value={b.viewsPerPost ? formatViewsTotal(Math.round(b.viewsPerPost)) : '-'} />
             </div>
           </div>
 
@@ -444,7 +444,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
+                  <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar animationDuration={600} yAxisId="l" dataKey="spend" name={`Prize spend (${currency})`} fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={32} />
@@ -476,7 +476,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
                 <ComposedChart data={data.cumulative} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
-                  <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
+                  <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
                   <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -746,7 +746,7 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
     // `formatViews` shortens: 4,200,000 -> 4.2m. A challenge with real reach
     // prints eight digits otherwise, which is the number nobody can read at a
     // glance and the one most worth reading.
-    { label: 'Views', value: r.views > 0 ? formatViews(r.views) : '-' },
+    { label: 'Views', value: r.views > 0 ? formatViewsTotal(r.views) : '-' },
     { label: 'Creators', value: r.creators ? r.creators.toLocaleString() : '-' },
     { label: 'Posts', value: r.posts ? r.posts.toLocaleString() : '-' },
   ]
@@ -878,7 +878,7 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
   const cpmVsTarget = ratio != null ? Math.min(2, ratio) : null
   const facts = [
     ['Spend', money(r.spend, currency, 0)],
-    ['Views', r.views > 0 ? formatViews(r.views) : '-'],
+    ['Views', r.views > 0 ? formatViewsTotal(r.views) : '-'],
     ['Creators', r.creators ? r.creators.toLocaleString() : '-'],
     ['Posts', r.posts ? r.posts.toLocaleString() : '-'],
   ]
@@ -890,7 +890,7 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
     r.costPerCreator != null && ['Cost per creator', money(r.costPerCreator, currency, 2)],
     r.postsPerCreator && ['Posts per creator', num(r.postsPerCreator, 1)],
     r.viewsPerPost && ['Views per post', Math.round(r.viewsPerPost).toLocaleString()],
-    r.medianViews != null && ['Median video', formatViews(r.medianViews)],
+    r.medianViews != null && ['Median video', formatViewsTotal(r.medianViews)],
     r.topVideoShare != null && ['Best video share', `${Math.round(r.topVideoShare * 100)}%`],
     r.winners_count && ['Winners', String(r.winners_count)],
   ].filter(Boolean)
@@ -991,7 +991,7 @@ function Breakdown({ title, rows, currency }) {
             <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
               <span className="min-w-0 truncate font-medium">{g.key}</span>
               <span className="shrink-0 tabular-nums text-xs text-smoke">
-                {money(g.blended.spend, currency, 0)} · {formatViews(g.blended.views)} views
+                {money(g.blended.spend, currency, 0)} · {formatViewsTotal(g.blended.views)} views
               </span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-cloud">

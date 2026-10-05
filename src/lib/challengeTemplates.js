@@ -92,6 +92,11 @@ function groupShape(group) {
     prize_structure: Array.isArray(group?.prize_structure) ? group.prize_structure : [],
     participation_threshold: group?.participation_threshold ?? '',
     participation_prize: group?.participation_prize ?? '',
+    participation_amount: group?.participation_amount ?? '',
+    participation_reward_type: group?.participation_reward_type ?? null,
+    participation_cap: group?.participation_cap ?? '',
+    participation_scope: group?.participation_scope || 'everyone',
+    extra_awards: Array.isArray(group?.extra_awards) ? group.extra_awards : [],
   }
 }
 

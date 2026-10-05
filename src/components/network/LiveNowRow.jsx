@@ -34,7 +34,7 @@ import { useT } from '../../lib/i18n'
 //
 // `expanded` IS THE MOBILE "LIVE NOW" CARD, GETTING TWO DOORS (23 Sep 2026).
 // Ethan: "make that card a bit vertically longer on mobile and add two
-// buttons side by side, one for read brief and one to submit." Everywhere
+// buttons side by side, one for read brief and one to submit." (The first now reads "View all details".) Everywhere
 // else (the desktop rail) this stays the single-link row it always was - the
 // whole row IS the link there, and adding two more targets inside it would
 // be three links doing two people's worth of thinking in a 20rem column.
@@ -115,16 +115,19 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now, e
             point of the challenge being here at all, so it gets the solid,
             louder button and reading gets the quieter outline one - the same
             pairing GlobalChallengeStrip already uses on desktop. */}
+        {/* "VIEW ALL DETAILS", NOT "READ BRIEF" (5 Oct 2026). What sits behind it is the whole challenge, not just the brief, and the desktop
+            card already says so. Both buttons now wear exactly the desktop card's look: the outline one with the 50% white border, the solid one
+            lifted with the same soft shadow, both with the same press. `!px-3` is what lets the longer label fit two to a row at 320px. */}
         <div className="relative mt-3.5 grid grid-cols-2 gap-2.5">
           <Link
             to={`/challenges/${challenge.id}`}
-            className="btn justify-center whitespace-nowrap border border-white/50 !text-white hover:bg-white/10"
+            className="btn justify-center whitespace-nowrap border border-white/50 !px-3 !text-white hover:bg-white/10 active:scale-[0.98] max-[400px]:!text-[13px]"
           >
-            {tr('Read brief')}
+            {tr('View all details')}
           </Link>
           <Link
             to={`/challenges/${challenge.id}?submit=1`}
-            className="btn justify-center whitespace-nowrap border border-white bg-white !text-brand hover:bg-white/90"
+            className="btn justify-center whitespace-nowrap border border-white bg-white !px-3 !text-brand shadow-[0_8px_20px_rgba(40,10,0,0.25)] hover:bg-white/90 active:scale-[0.98] max-[400px]:!text-[13px]"
           >
             {tr('Submit your video')}
           </Link>

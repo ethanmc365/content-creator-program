@@ -4,7 +4,7 @@ import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { chunk } from './lib/routeChunks'
 import { installLinkPrefetch } from './lib/prefetchLinks'
-import { isSlowNetwork, onSlowNetworkChange } from './lib/netQuality'
+import { isSlowNetwork, onSlowNetworkChange, startNetProbe } from './lib/netQuality'
 import { toast } from './lib/toast'
 import { t } from './lib/i18n'
 import { breadcrumb } from './lib/breadcrumbs'
@@ -33,23 +33,14 @@ import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import Terms from './pages/legal/Terms'
 
 // Creator pages
-import Onboarding from './pages/Onboarding'
 import Profile from './pages/Profile'
-import EditProfile from './pages/EditProfile'
-import Directory from './pages/Directory'
-import Messages from './pages/Messages'
 import Challenges from './pages/Challenges'
-import ChallengeDetail from './pages/ChallengeDetail'
 import Rewards from './pages/Rewards'
 import Resources from './pages/Resources'
-import Events from './pages/Events'
 import Notifications from './pages/Notifications'
-import Settings from './pages/Settings'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
-import Collab from './pages/Collab'
-import Connections from './pages/Connections'
 import Feedback from './pages/Feedback'
 
 // Heavier / rarely-visited pages are code-split so they don't ship in the
@@ -57,6 +48,15 @@ import Feedback from './pages/Feedback'
 // is never needed by regular creators, so it loads on demand only.
 // The global network shell. Code-split: with the preview flag off nobody ever
 // navigates here, so it must not add a byte to a creator's initial bundle.
+const Onboarding = lazyRoute(chunk.Onboarding)
+const EditProfile = lazyRoute(chunk.EditProfile)
+const Directory = lazyRoute(chunk.Directory)
+const Messages = lazyRoute(chunk.Messages)
+const ChallengeDetail = lazyRoute(chunk.ChallengeDetail)
+const Events = lazyRoute(chunk.Events)
+const Collab = lazyRoute(chunk.Collab)
+const Connections = lazyRoute(chunk.Connections)
+const Settings = lazyRoute(chunk.Settings)
 const GlobalHome = lazyRoute(chunk.GlobalHome)
 const ChapterHome = lazyRoute(chunk.ChapterHome)
 const MarketChallenges = lazyRoute(chunk.MarketChallenges)
@@ -201,7 +201,7 @@ export default function App() {
     // On a slow connection only the tabs: the games can load when they are opened.
     preloadWhenIdle(isSlowNetwork()
       ? [chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat]
-      : [chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat, chunk.Game, chunk.Leaderboard])
+      : [chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat, chunk.ChallengeDetail, chunk.Messages, chunk.Game, chunk.Leaderboard])
   }, [])
   // The outbox listens for the connection coming back, once, for the whole app.
   // It is mounted here rather than in a chat page on purpose: a message queued
@@ -217,6 +217,8 @@ export default function App() {
     toast(t('Weak signal: loading the essentials first'), { icon: 'refresh', duration: 4500 })
   }), [])
   useEffect(() => startOutbox(), [])
+  // Judge the connection by a probe of our own, not by how long database reads take. See lib/netQuality.
+  useEffect(() => startNetProbe(), [])
   // `beforeinstallprompt` fires early and exactly once, so it has to be caught
   // at startup rather than when a screen that wants it happens to mount. See
   // lib/install - there is no equivalent on iOS and there never has been.

@@ -10,9 +10,26 @@ describe('chunkForPath', () => {
   it('leaves the pages that are already in the bundle alone', () => {
     // Eagerly imported in App.jsx. A prefetch here would be a miss on every
     // pointer that crossed the tab bar.
-    for (const p of ['/challenges', '/messages', '/events', '/creators', '/settings', '/notifications']) {
+    for (const p of ['/challenges', '/notifications', '/dashboard', '/rewards']) {
       expect(chunkForPath(p), p).toBeNull()
     }
+  })
+
+  it('splits the big creator pages out of the entry and still prefetches them (5 Oct 2026)', () => {
+    expect(chunkForPath('/messages')).toBe(chunk.Messages)
+    expect(chunkForPath('/messages/abc')).toBe(chunk.Messages)
+    expect(chunkForPath('/events')).toBe(chunk.Events)
+    expect(chunkForPath('/creators')).toBe(chunk.Directory)
+    expect(chunkForPath('/settings')).toBe(chunk.Settings)
+    expect(chunkForPath('/onboarding')).toBe(chunk.Onboarding)
+    expect(chunkForPath('/profile/edit')).toBe(chunk.EditProfile)
+    expect(chunkForPath('/collab')).toBe(chunk.Collab)
+    expect(chunkForPath('/connections')).toBe(chunk.Connections)
+    // A challenge's page, but not its list and not its recap.
+    expect(chunkForPath('/challenges/93c6a3c9')).toBe(chunk.ChallengeDetail)
+    expect(chunkForPath('/challenges/93c6a3c9/recap')).toBe(chunk.ChallengeRecap)
+    // A profile is still in the entry; only its editor is split.
+    expect(chunkForPath('/profile/93c6a3c9')).toBeNull()
   })
 
   it('matches the five bottom tabs that are split', () => {

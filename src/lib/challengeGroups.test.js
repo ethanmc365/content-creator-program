@@ -186,3 +186,19 @@ describe('prizeForGroup carries the taking-part value (1 Oct 2026)', () => {
     expect(p.participation_reward_type).toBe('cash')
   })
 })
+
+describe('a board has every feature the challenge has (migration 338)', () => {
+  const challenge = { participation_threshold: 3, participation_prize: '10 EUR voucher', participation_cap: 30, participation_scope: 'outside_prizes', extra_awards: [{ id: 'c1', prize: '20 EUR' }] }
+  it('shares the challenge\'s cap, scope and Most committed when it has no reward of its own', () => {
+    const p = prizeForGroup({ id: 'g1' }, challenge)
+    expect(p.participation_cap).toBe(30)
+    expect(p.participation_scope).toBe('outside_prizes')
+    expect(p.extra_awards).toEqual(challenge.extra_awards)
+    expect(p.own_awards).toBe(false)
+  })
+  it('uses its OWN cap and scope once it has its own reward, and its own awards when it has them', () => {
+    const p = prizeForGroup({ id: 'g1', participation_threshold: 5, participation_prize: '15 EUR voucher', participation_cap: 10, participation_scope: 'everyone', extra_awards: [{ id: 'g1a', prize: '30 EUR' }] }, challenge)
+    expect(p).toMatchObject({ participation_cap: 10, participation_scope: 'everyone', own_awards: true, own_part: true, own: true })
+    expect(p.extra_awards).toEqual([{ id: 'g1a', prize: '30 EUR' }])
+  })
+})

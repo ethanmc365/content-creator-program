@@ -273,7 +273,18 @@ export default function EditProfile() {
             <AvatarUpload
               photoUrl={form.photo_url}
               name={form.name}
-              onUploaded={(url) => { uploadedPhoto.current = url; set({ photo_url: url }) }}
+              onUploaded={(url) => {
+                uploadedPhoto.current = url
+                set({ photo_url: url })
+                // WRITTEN THE MOMENT IT LANDS, ON ITS OWN. The photo used to ride along with the
+                // whole form, so one field the save would not take (or a Save never pressed) left
+                // the picture on the old one - Marta uploaded four times and her profile still
+                // shows the first photo. Now the picture is saved by itself; Save still sends it too.
+                supabase.from('profiles').update({ photo_url: url }).eq('id', user.id).then(({ error }) => {
+                  if (error) { setSaveError(error.message); return }
+                  refreshProfile()
+                })
+              }}
               onUploadStart={trackPhoto}
             />
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

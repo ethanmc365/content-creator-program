@@ -15,7 +15,7 @@ import BoostsEditor from '../../components/admin/BoostsEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
 import PrizeBreakdownFields, { PrizeSummary, combineBudgets, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
-import { PageHeader, Skeleton, Spinner, Select, Toggle } from '../../components/ui'
+import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule, isSavedRuleId } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
@@ -201,8 +201,6 @@ export default function AdminChallengeForm() {
     participation_reward_type: 'voucher',
     participation_amount: '',
     participation_scope: 'everyone',
-    // A WELCOME VOUCHER FOR FIRST-TIME ENTRANTS (4 Oct 2026, migration 325). Off until an amount is set.
-    welcome_amount: '', welcome_views: 5000, welcome_limit: '',
     extra_awards: [],
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
@@ -328,6 +326,10 @@ export default function AdminChallengeForm() {
         participation_prize: g.participation_prize ?? '',
         participation_amount: g.participation_amount ?? '',
         participation_reward_type: g.participation_reward_type ?? null,
+        // A board's own cap, who can earn it, and its own Most committed (migration 338).
+        participation_cap: g.participation_cap ?? '',
+        participation_scope: g.participation_scope ?? 'everyone',
+        extra_awards: Array.isArray(g.extra_awards) ? g.extra_awards : [],
         members: members.filter((m) => m.group_id === g.id).map((m) => m.creator_id),
       })))
       setGroupsLoaded(true)
@@ -421,9 +423,6 @@ export default function AdminChallengeForm() {
             ?? (/voucher|credit|gift/i.test(data.participation_prize || '') ? 'voucher' : data.participation_prize ? 'cash' : 'voucher'),
           participation_amount: data.participation_amount ?? '',
           participation_scope: data.participation_scope ?? 'everyone',
-          welcome_amount: data.welcome_amount ?? '',
-          welcome_views: data.welcome_views ?? 5000,
-          welcome_limit: data.welcome_limit ?? '',
           extra_awards: Array.isArray(data.extra_awards) ? data.extra_awards : [],
           market: data.market ?? '',
           format: data.format ?? 'monthly',
@@ -554,6 +553,9 @@ export default function AdminChallengeForm() {
         participation_prize: hasPart ? String(g.participation_prize).trim() : null,
         participation_amount: hasPart && String(g.participation_amount ?? '').trim() !== '' && Number(g.participation_amount) >= 0 ? Number(g.participation_amount) : null,
         participation_reward_type: hasPart ? (g.participation_reward_type === 'cash' ? 'cash' : 'voucher') : null,
+        participation_cap: hasPart && Number(g.participation_cap) > 0 ? Math.floor(Number(g.participation_cap)) : null,
+        participation_scope: hasPart ? (g.participation_scope === 'outside_prizes' ? 'outside_prizes' : 'everyone') : null,
+        extra_awards: cleanExtraAwards(g.extra_awards),
       }
     }
 
@@ -641,9 +643,6 @@ export default function AdminChallengeForm() {
         ? form.participation_prize.trim()
         : null,
       ...participationExtras(form),
-      welcome_amount: Number(form.welcome_amount) > 0 ? Number(form.welcome_amount) : null,
-      welcome_views: Math.max(0, parseInt(form.welcome_views, 10) || 5000),
-      welcome_limit: Number(form.welcome_limit) > 0 ? Math.floor(Number(form.welcome_limit)) : null,
       extra_awards: cleanExtraAwards(form.extra_awards),
       start_date: startIso,
       end_date: endIso,
@@ -813,16 +812,19 @@ export default function AdminChallengeForm() {
     scope: form.participation_scope,
     basis: form.scoring === 'points' ? form.participation_basis : 'entries',
   }
+  // The challenge's own Most committed is paid once, to the boards that have none of their own.
+  const firstSharedAwards = groups.findIndex((g) => !(g.extra_awards || []).some((a) => String(a?.prize || '').trim()))
   const groupsBudget = groups.length === 0 ? null : combineBudgets(groups.map((g, i) => {
     const own = cleanPrizes(g.prize_structure)
     const ownPart = !!(String(g.participation_threshold ?? '').trim() && String(g.participation_prize ?? '').trim())
+    const ownAwards = (g.extra_awards || []).filter((a) => String(a?.prize || '').trim())
     return {
       label: (g.name || '').trim() || `Group ${String.fromCharCode(65 + i)}`,
       budget: prizeBudget({
         prizes: own.length ? own : form.prize_structure,
-        awards: i === 0 ? form.extra_awards : [],
+        awards: ownAwards.length ? ownAwards : (i === firstSharedAwards ? form.extra_awards : []),
         participation: ownPart
-          ? { threshold: g.participation_threshold, prize: g.participation_prize, amount: g.participation_amount, type: g.participation_reward_type, cap: null, scope: form.participation_scope, basis: challengeParticipation.basis }
+          ? { threshold: g.participation_threshold, prize: g.participation_prize, amount: g.participation_amount, type: g.participation_reward_type, cap: g.participation_cap, scope: g.participation_scope || 'everyone', basis: challengeParticipation.basis }
           : challengeParticipation,
         creators: g.members.length || null,
       }),
@@ -1335,40 +1337,6 @@ export default function AdminChallengeForm() {
             onExtraAwards={(next) => set({ extra_awards: next })}
             idPrefix="challenge-prize"
           />
-
-          {/* A WELCOME VOUCHER FOR NEW CREATORS (4 Oct 2026, reshaped the same day). Ethan: it was built but "I don't see where that actually is"
-              - it sat at the foot of the prizes in a pale orange box - "add it to the prize section ... don't like the colour of the card". And:
-              "I could add this in the middle of the challenge. Creators who have already entered won't get it. It's just for new creators that
-              joined in the challenge late." So it is a plain card with a switch, and the rule is stated on it: an account made after this
-              challenge started, no earlier entries anywhere, and a first entry posted after the voucher was switched on. */}
-          <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-start gap-3">
-              <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-ink">Welcome voucher for new creators</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-smoke">A voucher for a creator who joined after this challenge started, once their first video passes the views below. Creators who had already entered, or who were already on the platform, do not get it.</p>
-              </div>
-              <Toggle
-                on={form.welcome_amount !== '' && Number(form.welcome_amount) > 0}
-                onChange={(on) => set({ welcome_amount: on ? (Number(form.welcome_amount) > 0 ? form.welcome_amount : '5') : '' })}
-                label="Welcome voucher for new creators"
-              />
-            </div>
-            {Number(form.welcome_amount) > 0 && (
-              <div className="mt-4 grid gap-3 border-t border-gray-100 pt-4 sm:grid-cols-3 animate-tab-in">
-                <label className="block"><span className="label">Voucher worth</span>
-                  <span className="relative block"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
-                    <input className="input !pl-8" inputMode="decimal" value={form.welcome_amount} onChange={(e) => set({ welcome_amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="5" /></span>
-                </label>
-                <label className="block"><span className="label">When their video passes</span>
-                  <span className="relative block"><input className="input !pr-14" inputMode="numeric" value={form.welcome_views} onChange={(e) => set({ welcome_views: e.target.value.replace(/[^\d]/g, '') })} placeholder="5000" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">views</span></span>
-                </label>
-                <label className="block"><span className="label">For the first (optional)</span>
-                  <span className="relative block"><input className="input !pr-16" inputMode="numeric" value={form.welcome_limit} onChange={(e) => set({ welcome_limit: e.target.value.replace(/[^\d]/g, '') })} placeholder="No limit" /><span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">people</span></span>
-                </label>
-              </div>
-            )}
-          </div>
 
           {/* The totals, derived: cash and vouchers, with the taking-part
               reward as the range it really is. */}

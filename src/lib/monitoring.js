@@ -265,6 +265,24 @@ function firstTime(key) {
   return true
 }
 
+/**
+ * A REJECTION THAT NEVER TOUCHED OUR CODE IS NOT OURS (5 Oct 2026).
+ *
+ * "Non-Error thrown: La" (and "Pa" before it) hit three creators, always on a
+ * machine-translated page in Safari on iOS, always with a stack whose frames are
+ * the DOCUMENT's own inline script (`.../auth/callback:475:363`) and not one
+ * file under /assets/. That is Safari's built-in page translator throwing a
+ * minified string out of the script it injects. Nothing in the bundle is on the
+ * stack, so there is nothing to fix and every row is a creator wrongly counted as
+ * having hit a fault. A non-Error with a stack and NO frame of ours is dropped; an
+ * Error, or anything with no stack at all, is still reported.
+ */
+export function isForeignRejection(reason) {
+  if (reason == null || reason instanceof Error || typeof reason !== 'object') return false
+  const stack = typeof reason.stack === 'string' ? reason.stack : ''
+  return stack.length > 0 && !/\/assets\//.test(stack)
+}
+
 /** Reasons never worth a row. Same list Sentry is given, applied to our own. */
 function worthReporting(message) {
   const m = String(message || '')
@@ -301,6 +319,7 @@ export function installGlobalHandlers({ report = captureError } = {}) {
     // Error. `describeReason` is what keeps whatever identity it had.
     const d = describeReason(reason)
     if (!worthReporting(d.message) || !firstTime(`reject:${d.message}`)) return
+    if (isForeignRejection(reason)) return
 
     // THE OLD LINE HERE THREW THE EVIDENCE AWAY, AND ONE OF THE TWO ERRORS ON
     // THE PANEL IS THE PROOF (12 Sep 2026).

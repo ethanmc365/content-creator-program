@@ -81,7 +81,8 @@ function CompactStanding({ challenge, rows }) {
   const allPart = rows.filter((r) => r.slot === 'participation')
   const part = allPart.filter((r) => r.status !== 'excluded')
   const earned = part.filter((r) => r.status === 'earned')
-  const cap = challenge?.participation_cap
+  // Each board of a split challenge can carry its own cap, so one number only describes an unsplit one.
+  const cap = allPart.every((r) => r.label === 'Participation') ? challenge?.participation_cap : null
   const awards = [...new Set(rows.filter((r) => r.slot.startsWith('award:')).map((r) => r.slot))]
 
   if (allPart.length === 0 && awards.length === 0) return null
@@ -173,7 +174,8 @@ function FullStandings({ challenge, rows, embedded = false }) {
   const part = allPart.filter((r) => r.status !== 'excluded')
   const placed = allPart.filter((r) => r.status === 'excluded')
   const earned = part.filter((r) => r.status === 'earned')
-  const cap = challenge?.participation_cap
+  // Each board of a split challenge can carry its own cap, so one number only describes an unsplit one.
+  const cap = allPart.every((r) => r.label === 'Participation') ? challenge?.participation_cap : null
   const awards = [...new Set(rows.filter((r) => r.slot.startsWith('award:')).map((r) => r.slot))]
   const money = (r) => (r.amount ? formatMoney(r.amount, r.currency) : '')
 

@@ -30,6 +30,7 @@ import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { readPageCache, writePageCache } from '../lib/pageCache'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -41,12 +42,20 @@ export default function Profile() {
   const isMe = id === user?.id
   const viewerIsAdmin = !!profile?.is_admin
 
-  const [creator, setCreator] = useState(null)
-  const [submissions, setSubmissions] = useState([])
-  const [challengeCount, setChallengeCount] = useState(0)
-  const [relation, setRelation] = useState(null)
-  const [trips, setTrips] = useState([])
-  const [upcoming, setUpcoming] = useState([])
+  // A PROFILE YOU HAVE OPENED BEFORE PAINTS ON THE FIRST FRAME (5 Oct 2026). Ethan: on a phone "it takes a little while for the animation to
+  // kick in" when you open a profile. The page held back until FIVE queries had all come home, and on a phone the slowest sets the pace. Now
+  // (1) the last copy of this profile is drawn at once while it refreshes - see lib/pageCache - and (2) a first visit paints as soon as the
+  // profile row and your connection to them are in, with the trips, flights and entries filling in behind it.
+  const cacheKey = `profile:${id}`
+  const [seed] = useState(() => readPageCache(cacheKey))
+  const [creator, setCreator] = useState(seed?.creator ?? null)
+  const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
+  // False until the entries have actually been read, so a profile that painted early does not claim "hasn't submitted yet" about somebody who has.
+  const [subsReady, setSubsReady] = useState(!!seed?.ready)
+  const [challengeCount, setChallengeCount] = useState(seed?.challengeCount ?? 0)
+  const [relation, setRelation] = useState(seed?.relation ?? null)
+  const [trips, setTrips] = useState(seed?.trips ?? [])
+  const [upcoming, setUpcoming] = useState(seed?.upcoming ?? [])
   const [todayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [mutual, setMutual] = useState({ people: [], total: 0 })
   const [reporting, setReporting] = useState(false)
@@ -60,7 +69,7 @@ export default function Profile() {
   // Which showcase card has its caption open. One at a time: two open cards in
   // a three-across grid pushes the row below them down twice.
   const [openCaption, setOpenCaption] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!seed)
   const [deciding, setDeciding] = useState(false)
 
   // This is an application profile if an admin is viewing a creator still
@@ -83,7 +92,17 @@ export default function Profile() {
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
+      // The last copy of THIS profile if there is one (navigating from one profile to another reuses this component, so the seed above
+      // is only right for the first); otherwise the skeleton.
+      const cached = readPageCache(cacheKey)
+      if (cached?.creator) {
+        setCreator(cached.creator); setRelation(cached.relation ?? null); setSubmissions(cached.submissions ?? []); setSubsReady(!!cached.ready)
+        setChallengeCount(cached.challengeCount ?? 0); setTrips(cached.trips ?? []); setUpcoming(cached.upcoming ?? [])
+        setLoading(false)
+      } else {
+        setLoading(true)
+        setSubsReady(false)
+      }
       const today = format(new Date(), 'yyyy-MM-dd')
       // WHAT IS COMING UP COMES FROM TWO PLACES, NOT ONE.
       //
@@ -105,27 +124,36 @@ export default function Profile() {
         .limit(12)
       if (!isMe) upcomingFlights = upcomingFlights.eq('share_with_community', true)
 
-      const [{ data: p }, { data: subs }, rel, { data: tripsData }, { data: flightsData }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase
-          .from('submissions')
-          .select('*, challenges(title)')
-          .eq('creator_id', id)
-          .order('submitted_at', { ascending: false }),
-        isMe ? Promise.resolve(null) : loadRelationship(user.id, id),
-        supabase.from('collab_posts').select('id, city, country, city_lat, city_lng, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true }),
-        upcomingFlights,
-      ])
+      const profileQ = supabase.from('profiles').select('*').eq('id', id).single()
+      const subsQ = supabase
+        .from('submissions')
+        .select('*, challenges(title)')
+        .eq('creator_id', id)
+        .order('submitted_at', { ascending: false })
+      const relQ = isMe ? Promise.resolve(null) : loadRelationship(user.id, id)
+      const tripsQ = supabase.from('collab_posts').select('id, city, country, city_lat, city_lng, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true })
+      // All five go out together; the page only waits for the first two.
+      const [{ data: p }, rel] = await Promise.all([profileQ, relQ])
+      if (cancelled) return
       setCreator(p)
-      setSubmissions(subs ?? [])
-      setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setRelation(rel)
+      setLoading(false)
+      const [{ data: subs }, { data: tripsData }, { data: flightsData }] = await Promise.all([subsQ, tripsQ, upcomingFlights])
+      if (cancelled) return
+      setSubmissions(subs ?? [])
+      setSubsReady(true)
+      setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setTrips(tripsData ?? [])
       setUpcoming(flightsData ?? [])
-      setLoading(false)
+      writePageCache(cacheKey, {
+        ready: true, creator: p, relation: rel, submissions: subs ?? [], trips: tripsData ?? [], upcoming: flightsData ?? [],
+        challengeCount: new Set((subs ?? []).map((s) => s.challenge_id)).size,
+      })
     }
+    let cancelled = false
     load()
-  }, [id, user.id, isMe])
+    return () => { cancelled = true }
+  }, [id, user.id, isMe, cacheKey])
 
   // Mutual connections (people you both know), shown on other people's profiles.
   useEffect(() => {
@@ -399,7 +427,9 @@ export default function Profile() {
         {!creator.is_admin && (
         <section>
           <h2 className="mb-4 text-lg font-semibold">{tr("Content showcase")}</h2>
-          {submissions.length === 0 ? (
+          {!subsReady ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3" aria-busy="true">{[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/14] w-full rounded-card" />)}</div>
+          ) : submissions.length === 0 ? (
             <EmptyState
               icon={<Icon name="video" className="h-7 w-7" />}
               title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
@@ -563,7 +593,7 @@ export default function Profile() {
               ['Member since', formatDate(creator.accepted_at || creator.created_at)],
               ['Countries visited', creator.countries_visited?.length || 0],
               ['Challenges entered', challengeCount],
-              ['Videos submitted', submissions.length],
+              ['Videos submitted', subsReady ? submissions.length : '-'],
             ].map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-3">
                 <dt className="text-xs text-smoke">{k}</dt>
@@ -1113,7 +1143,7 @@ export default function Profile() {
           {photos}
           {showcase}
         </Reveal>
-        <Reveal as="aside" from="right" className="min-w-0 space-y-4" stagger={0.05} delay={0.08}>
+        <Reveal as="aside" from="right" className="min-w-0 space-y-4" stagger={0.05} delay={0.03}>
           {clock}
           {glance}
           {portfolio}

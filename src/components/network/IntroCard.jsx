@@ -8,45 +8,50 @@ import { socialHref } from '../../lib/socialLinks'
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 
-// AN INTRODUCTION, DRAWN AS A CARD (24 Sep 2026). See lib/intro for the shape
-// and the reasons. It replaces the grey bubble of "Label: value." lines in the
-// introductions room - for new intros (messages.intro) and old ones alike,
-// which the room reads back with parseLegacyIntro - and it ends in the two
-// things somebody reading it actually wants to do: connect, or say hello.
+// AN INTRODUCTION, DRAWN AS A MESSAGE (5 Oct 2026; first drawn as a card on 24 Sep). See lib/intro for the shape and the reasons.
+//
+// Ethan: "I do like the current style, but it looks like something that was just automated, not something someone's actually filled in. Rather
+// than being like a card inside it, it appears like an actual message, but it still has the cool flags UI ... the profile picture, the connect
+// button." So it is a MESSAGE BUBBLE now - the same shape and the same colours as every other message in the room, tail corner and all - and
+// what is inside it reads as somebody talking: their own paragraph first, then short lines that lead with a bold word the way a person would
+// write them ("Next trip: Tokyo in May"), instead of a grid of upper-case field labels with an icon each. What stays from the card is what
+// made it useful: the face, the flags, the one-line facts, and Connect and Message at the foot.
+//
+// IT SITS ON THE SAME GROUND AS A NORMAL BUBBLE: someone else's is the grey `bg-cloud`, your own is the brand bubble with white on it
+// (`onDark`), exactly as NetworkChat draws a plain message. The room no longer strips the bubble off for an intro.
 
-function Flags({ list, max = 14 }) {
+function Flags({ list, max = 14, onDark }) {
   const shown = list.filter((c) => c.iso).slice(0, max)
   const more = list.filter((c) => c.iso).length - shown.length
   if (!shown.length) return null
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 align-middle">
       {shown.map((c) => (
         <span key={c.iso + c.name} title={c.name} className="text-[19px] leading-none">{flagEmoji(c.iso)}</span>
       ))}
-      {more > 0 && <span className="ml-1 text-[11px] font-semibold text-smoke">+{more}</span>}
-    </div>
+      {more > 0 && <span className={cx('ml-1 text-[11px] font-semibold', onDark ? 'text-white/80' : 'text-smoke')}>+{more}</span>}
+    </span>
   )
 }
 
-function Row({ icon, label, children }) {
+/** One line of the message: a bold lead-in, then what they said. A person's sentence, not a form field. */
+function Line({ lead, children, onDark }) {
   return (
-    <div className="flex items-start gap-2.5">
-      {/* THE ICON, IN THE BRAND, ON NOTHING (28 Sep 2026). Ethan: "I don't
-          like how the icons are in a weird-coloured background. Just have the
-          icons be a Tryp.com orange, like the worldwide icon and the heart
-          icon." */}
-      <span className="mt-[3px] flex w-5 shrink-0 justify-center text-brand">
-        <Icon name={icon} className="h-[18px] w-[18px]" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-smoke">{label}</p>
-        <div className="mt-0.5 text-[13px] leading-snug text-ink [overflow-wrap:anywhere]">{children}</div>
-      </div>
-    </div>
+    <p className="text-[14px] leading-relaxed [overflow-wrap:anywhere]">
+      <span className={cx('font-bold', onDark ? 'text-white' : 'text-ink')}>{lead}</span>{' '}
+      <span className={onDark ? 'text-white/95' : 'text-ink/90'}>{children}</span>
+    </p>
   )
 }
 
 const SOCIALS = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', 'YouTube'], ['facebook', 'Facebook']]
+
+/** ["a", "b", "c"] -> "a, b and c", in the reader's language. */
+function sentenceList(items, tr) {
+  const xs = items.map((x) => tr(x))
+  if (xs.length <= 1) return xs.join('')
+  return `${xs.slice(0, -1).join(', ')} ${tr('and')} ${xs[xs.length - 1]}`
+}
 
 /**
  * @param {object} intro    the structured intro (lib/intro)
@@ -58,7 +63,8 @@ const SOCIALS = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', '
 export default function IntroCard({ intro, sender, myId, relation, onRelation, className }) {
   const tr = useT()
   if (!intro) return null
-  const mine = sender?.id && sender.id === myId
+  const mine = !!(sender?.id && sender.id === myId)
+  const onDark = mine
   const where = [intro.city, intro.country].filter(Boolean).join(', ')
   const stats = intro.stats && [
     intro.stats.countries > 0 && { icon: 'globe', value: intro.stats.countries, label: intro.stats.countries === 1 ? tr('country') : tr('countries') },
@@ -66,118 +72,104 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
     intro.stats.videos > 0 && { icon: 'video', value: intro.stats.videos, label: intro.stats.videos === 1 ? tr('challenge video') : tr('challenge videos') },
   ].filter(Boolean)
   const socials = SOCIALS.filter(([k]) => intro.socials?.[k])
+  const muted = onDark ? 'text-white/80' : 'text-smoke'
 
   return (
-    <article className={cx('w-full max-w-[26rem] overflow-hidden rounded-card border border-gray-100 bg-white text-ink shadow-card', className)}>
-      {/* The band: who and where, on the brand. */}
-      <div className="relative bg-gradient-to-br from-brand to-brand-light px-4 pb-4 pt-4 text-white">
-        <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
-        <div className="relative flex items-center gap-3">
-          <Link to={sender?.id ? `/profile/${sender.id}` : '#'} className="shrink-0">
-            <Avatar src={sender?.photo_url} name={sender?.name || intro.first} size="md" className="ring-2 ring-white/70" />
-          </Link>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">{tr('Say hello to')}</p>
-            <p className="truncate text-lg font-bold leading-tight">{sender?.name || intro.first}</p>
+    <article
+      className={cx(
+        'w-full max-w-[26rem] rounded-2xl px-3.5 py-3 text-left shadow-card [hyphens:none]',
+        mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
+        className,
+      )}
+    >
+      {/* WHO IS TALKING: the face, the name, where they are, and how long they have been creating. */}
+      <div className="flex items-center gap-2.5">
+        <Link to={sender?.id ? `/profile/${sender.id}` : '#'} className="shrink-0" aria-label={sender?.name || intro.first}>
+          <Avatar src={sender?.photo_url} name={sender?.name || intro.first} size="md" className={onDark ? 'ring-2 ring-white/70' : 'ring-2 ring-white'} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <p className={cx('truncate text-[15px] font-bold leading-tight', onDark ? 'text-white' : 'text-ink')}>{sender?.name || intro.first}</p>
+          <p className={cx('mt-0.5 text-xs leading-snug', muted)}>
             {where && (
-              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs font-medium text-white/90">
-                {intro.iso && <span className="text-sm leading-none">{flagEmoji(intro.iso)}</span>}
+              <>
+                {intro.iso && <span className="mr-1 text-sm leading-none">{flagEmoji(intro.iso)}</span>}
                 {where}
-              </p>
+              </>
             )}
-          </div>
-        </div>
-        {(stats?.length > 0 || intro.since || intro.platform) && (
-          <div className="relative mt-3 flex flex-wrap gap-1.5">
             {intro.since && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand">
-                <Icon name="clock" className="h-3 w-3" />
-                {intro.since === 'Just starting' ? tr('Just starting out') : tr('Creating {t}', { t: tr(intro.since).toLowerCase() })}
-              </span>
+              <>
+                {where ? ' · ' : ''}{intro.since === 'Just starting' ? tr('Just starting out') : tr('Creating {t}', { t: tr(intro.since).toLowerCase() })}
+              </>
             )}
-            {intro.platform && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold">
-                <SocialMark brand={intro.platform.toLowerCase()} className="h-3 w-3" />
-                {tr('Mostly on {p}', { p: intro.platform })}
-              </span>
-            )}
-            {(stats || []).map((s) => (
-              <span key={s.label} className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold">
-                <Icon name={s.icon} className="h-3 w-3" />
-                <span className="tabular-nums">{s.value}</span> {s.label}
-              </span>
-            ))}
-          </div>
+          </p>
+        </div>
+        {intro.platform && (
+          <span className={cx('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold', onDark ? 'bg-white/20 text-white' : 'bg-white text-ink')}>
+            <SocialMark brand={intro.platform.toLowerCase()} className="h-3 w-3" />
+            {intro.platform}
+          </span>
         )}
       </div>
 
-      <div className="space-y-3 px-4 py-3.5">
-        {/* IN THEIR OWN WORDS FIRST (28 Sep 2026): the paragraph about
-            themselves, as they wrote it, line breaks and all. */}
-        {intro.about && (
-          <p className="whitespace-pre-line rounded-xl bg-brand-tint/50 px-3.5 py-3 text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">
-            {intro.about}
-          </p>
-        )}
-        {intro.makes?.length > 0 && (
-          <Row icon="video" label={tr('Makes')}>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {intro.makes.map((m) => (
-                <span key={m} className="rounded-full bg-cloud px-2.5 py-0.5 text-[12px] font-medium">{tr(m)}</span>
-              ))}
-            </div>
-          </Row>
-        )}
+      {/* THEIR OWN WORDS FIRST: the paragraph about themselves, as they wrote it, line breaks and all - as the body of the message. */}
+      {intro.about && (
+        <p className={cx('mt-3 whitespace-pre-line text-[15px] leading-relaxed [overflow-wrap:anywhere]', onDark ? 'text-white' : 'text-ink')}>
+          {intro.about}
+        </p>
+      )}
+
+      {/* THE FACTS, ONE LINE EACH, in the order somebody would say them. */}
+      <div className={cx('space-y-1.5', intro.about ? 'mt-2.5' : 'mt-3')}>
+        {intro.makes?.length > 0 && <Line onDark={onDark} lead={`${tr('I make')}:`}>{sentenceList(intro.makes, tr)}.</Line>}
         {intro.next?.text && (
-          <Row icon="plane" label={tr('Next trip')}>
-            {intro.next.iso && <span className="mr-1.5 text-base leading-none">{flagEmoji(intro.next.iso)}</span>}
+          <Line onDark={onDark} lead={`${tr('Next trip')}:`}>
+            {intro.next.iso && <span className="mr-1 text-base leading-none">{flagEmoji(intro.next.iso)}</span>}
             {intro.next.text}
-          </Row>
+          </Line>
         )}
         {intro.visited?.some((c) => c.iso) && (
-          <Row icon="globe" label={tr('Been to')}>
-            <Flags list={intro.visited} />
-          </Row>
+          <Line onDark={onDark} lead={`${tr('Been to')}:`}><Flags list={intro.visited} onDark={onDark} /></Line>
         )}
         {intro.dreams?.some((c) => c.iso) && (
-          <Row icon="heart" label={tr('Dream trips')}>
-            <Flags list={intro.dreams} max={10} />
-          </Row>
+          <Line onDark={onDark} lead={`${tr('Dream trips')}:`}><Flags list={intro.dreams} max={10} onDark={onDark} /></Line>
         )}
-        {intro.fav && <Row icon="star" label={tr('Best trip so far')}>{intro.fav}</Row>}
-        {intro.ask && <Row icon="chat" label={tr('Ask me about')}>{intro.ask}</Row>}
-        {intro.hack && <Row icon="bulb" label={tr('Best travel hack')}>{intro.hack}</Row>}
-        {intro.local && <Row icon="pin" label={tr('Favourite spot at home')}>{intro.local}</Row>}
-        {intro.fact && <Row icon="sparkles" label={tr('Fun fact')}>{intro.fact}</Row>}
+        {intro.fav && <Line onDark={onDark} lead={`${tr('Best trip so far')}:`}>{intro.fav}</Line>}
+        {intro.ask && <Line onDark={onDark} lead={`${tr('Ask me about')}:`}>{intro.ask}</Line>}
+        {intro.hack && <Line onDark={onDark} lead={`${tr('Best travel hack')}:`}>{intro.hack}</Line>}
+        {intro.local && <Line onDark={onDark} lead={`${tr('Favourite spot at home')}:`}>{intro.local}</Line>}
+        {intro.fact && <Line onDark={onDark} lead={`${tr('Fun fact')}:`}>{intro.fact}</Line>}
         {intro.more && (
-          <Row icon="chat" label={tr('Also')}>
-            <span className="whitespace-pre-line [overflow-wrap:anywhere]">{intro.more}</span>
-          </Row>
+          <p className={cx('whitespace-pre-line text-[14px] leading-relaxed [overflow-wrap:anywhere]', onDark ? 'text-white/95' : 'text-ink/90')}>{intro.more}</p>
         )}
-        {intro.wants?.length > 0 && (
-          <Row icon="users" label={tr('Here for')}>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {intro.wants.map((w) => (
-                <span key={w} className="rounded-full border border-brand/30 px-2.5 py-0.5 text-[12px] font-medium text-brand">{tr(w)}</span>
-              ))}
-            </div>
-          </Row>
-        )}
-        {socials.length > 0 && (
-          <div className="flex items-center gap-2 pt-0.5">
-            {socials.map(([k, label]) => (
-              <a key={k} href={socialHref(intro.socials[k], k)} target="_blank" rel="noopener noreferrer" aria-label={label}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-100 bg-white shadow-card transition-transform duration-200 hover:-translate-y-0.5">
-                <SocialMark brand={k} colored className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
-        )}
+        {intro.wants?.length > 0 && <Line onDark={onDark} lead={`${tr('Here for')}:`}>{sentenceList(intro.wants, tr)}.</Line>}
       </div>
 
-      {/* CONNECT, RIGHT HERE. Not on your own intro. */}
+      {/* THE CARD'S FLAGS-AND-NUMBERS, KEPT AS ONE QUIET LINE. */}
+      {stats?.length > 0 && (
+        <p className={cx('mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-medium', muted)}>
+          {stats.map((s) => (
+            <span key={s.label} className="inline-flex items-center gap-1">
+              <Icon name={s.icon} className="h-3.5 w-3.5" />
+              <span className={cx('font-bold tabular-nums', onDark ? 'text-white' : 'text-ink')}>{s.value}</span> {s.label}
+            </span>
+          ))}
+        </p>
+      )}
+
+      {socials.length > 0 && (
+        <div className="mt-3 flex items-center gap-2">
+          {socials.map(([k, label]) => (
+            <a key={k} href={socialHref(intro.socials[k], k)} target="_blank" rel="noopener noreferrer" aria-label={label}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-card transition-transform duration-200 hover:-translate-y-0.5">
+              <SocialMark brand={k} colored className="h-4 w-4" />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* CONNECT AND MESSAGE, RIGHT HERE. Not on your own intro. */}
       {!mine && sender?.id && myId && (
-        <div className="flex gap-2 border-t border-gray-100 px-4 py-3">
+        <div className="mt-3 flex gap-2">
           <ConnectButton
             myId={myId}
             targetId={sender.id}
@@ -186,7 +178,7 @@ export default function IntroCard({ intro, sender, myId, relation, onRelation, c
             onChange={(next) => onRelation?.(sender.id, next)}
             className="flex-1 !py-2 text-[13px]"
           />
-          <Link to={`/messages?to=${sender.id}`} className="btn-secondary flex-1 justify-center !py-2 text-[13px]">
+          <Link to={`/messages?to=${sender.id}`} className="btn-secondary flex-1 justify-center !bg-white !py-2 text-[13px]">
             <Icon name="chat" className="h-4 w-4" /> {tr('Message')}
           </Link>
         </div>

@@ -42,6 +42,20 @@
 // `import()` per chunk - a computed specifier defeats the bundler - so these
 // are written out rather than generated.
 export const chunk = {
+  // THE BIG CREATOR PAGES, SPLIT OUT OF THE ENTRY (5 Oct 2026). Ethan: "it's taking a long time for all the pages to load on the platform, even
+  // with a decent Wi-Fi signal." The entry chunk was 1.35 MB (382 kB gzipped) because these nine pages - about twelve thousand lines, most of
+  // them pages a creator opens once a day or once ever (Onboarding, Settings, Edit profile) - were imported eagerly, so every cold start paid
+  // for all of them before a single pixel. They are fetched on intent (a finger or pointer touching a link) and on idle, exactly as the
+  // tabs are, so the cost moves out of the first paint rather than into a loading screen.
+  Onboarding: () => import('../pages/Onboarding'),
+  EditProfile: () => import('../pages/EditProfile'),
+  Directory: () => import('../pages/Directory'),
+  Messages: () => import('../pages/Messages'),
+  ChallengeDetail: () => import('../pages/ChallengeDetail'),
+  Events: () => import('../pages/Events'),
+  Collab: () => import('../pages/Collab'),
+  Connections: () => import('../pages/Connections'),
+  Settings: () => import('../pages/Settings'),
   GlobalHome: () => import('../pages/GlobalHome'),
   ChapterHome: () => import('../pages/ChapterHome'),
   MarketChallenges: () => import('../pages/MarketChallenges'),
@@ -97,12 +111,21 @@ export const chunk = {
 // Path -> chunk, most specific first. Only the split routes are listed; a path
 // that matches nothing here is already in the main bundle and needs no help.
 const ROUTES = [
+  [/^\/onboarding/, 'Onboarding'],
+  [/^\/profile\/edit/, 'EditProfile'],
+  [/^\/creators/, 'Directory'],
+  [/^\/messages/, 'Messages'],
+  [/^\/events/, 'Events'],
+  [/^\/collab/, 'Collab'],
+  [/^\/connections/, 'Connections'],
+  [/^\/settings(?!\/notifications)/, 'Settings'],
   [/^\/global\/markets/, 'ExploreMarkets'],
   [/^\/global\/settings/, 'GlobalSettings'],
   [/^\/global\/chat/, 'NetworkChat'],
   [/^\/global/, 'GlobalHome'],
   [/^\/rooms/, 'Rooms'],
   [/^\/challenges\/[^/]+\/recap/, 'ChallengeRecap'],
+  [/^\/challenges\/[^/]+$/, 'ChallengeDetail'],
   [/^\/board/, 'Board'],
   [/^\/milestones/, 'Milestones'],
   [/^\/flights\/aircraft/, 'AircraftCollection'],

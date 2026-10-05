@@ -4342,4 +4342,10 @@ export default {
   'Each of you enters that same post link as an entry.': 'Fiecare înscrie același link ca participare.',
   'We match them by themselves. Its views count once, and you both get the points.': 'Le potrivim automat. Vizualizările contează o dată și amândoi primiți punctele.',
   'Post an Instagram collab post with another creator and both enter its link. You both earn the points': 'Postează o postare în colaborare pe Instagram cu alt creator și înscrieți amândoi linkul. Amândoi primiți punctele',
+  'Poll · closed': 'Sondaj · închis',
+  'vote': 'vot',
+  'votes': 'voturi',
+  'vote to see who picked what': 'votează ca să vezi cine a ales ce',
+  'I make': 'Fac',
+  'Please choose an image under 100MB.': 'Alege o imagine sub 100 MB.',
 }

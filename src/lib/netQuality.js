@@ -18,17 +18,19 @@ import { useSyncExternalStore } from 'react'
 // and globes that are a megabyte of geometry, longer polling. Nothing a creator
 // can DO is switched off - only the things that spend bandwidth on their behalf.
 
-const SLOW_MS = 1800 // a database read slower than this, on average, is a slow connection
-const FAST_MS = 800 // and faster than this is a recovered one (a gap, so it does not flicker)
-const MIN_SAMPLES = 5
-// NOT AT LAUNCH, AND NOT IN A CROWD (3 Oct 2026). Ethan: "even if I open the app with a strong signal, it still
-// shows up that low Wi-Fi thing." The first seconds of a launch are a dozen reads queued behind one fresh TLS
-// connection and a token refresh, so each one LOOKED slow on perfect wifi and three of them were enough to call
-// the line weak. A read now only counts once the app has been open for a few seconds and when it was not one of a
-// burst - its time then measures the connection, not the queue in front of it.
-const WARMUP_MS = 6000
-const CROWD = 3
-let inflight = 0
+// THE CONNECTION IS MEASURED WITH A PROBE, NOT BY TIMING THE APP'S OWN QUERIES (5 Oct 2026). Ethan: "the weak signal pop-up is still showing up
+// even when my Wi-Fi is actually good." Every fix before this kept judging the line by how long a database READ took - and a read is slow for a
+// dozen reasons that have nothing to do with the line: a heavy select, a cold database, an RLS policy walking a big table, an edge function waking
+// up. A creator on perfect wifi opening a heavy page was "on a weak signal". So the verdict now comes from a tiny static file on our own origin
+// (a few hundred bytes from a CDN edge): if THAT is slow or fails, the line is weak; if it is quick, nothing a query does can say otherwise.
+const SLOW_MS = 1200 // a tiny CDN file taking longer than this, on average, is a slow connection
+const FAST_MS = 500 // and quicker than this is a recovered one (a gap, so it does not flicker)
+const MIN_SAMPLES = 3
+const PROBE_URL = '/favicon.svg'
+const PROBE_TIMEOUT_MS = 6000
+// NOT AT LAUNCH. The first seconds of a launch are a dozen requests queued behind one fresh TLS connection and a token refresh.
+const WARMUP_MS = 8000
+const PROBE_EVERY_MS = 25000
 const bootAt = typeof performance !== 'undefined' ? performance.now() : 0
 
 let avg = null
@@ -65,6 +67,56 @@ export function recordRequest(ms) {
 
 /** A request that never came back counts as a very slow one. */
 export function recordTimeout() { recordRequest(SLOW_MS * 3) }
+
+// ---------------------------------------------------------------------------
+// THE PROBE. Three quick measurements once the app has settled, then one every ~25 seconds while the tab is visible, and again the moment the
+// connection comes back or the tab is reopened. It is a GET of a static file with `no-store`, so it is a real round trip every time.
+let probing = false
+async function probeOnce() {
+  if (probing || typeof fetch === 'undefined') return
+  probing = true
+  const started = performance.now()
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${PROBE_URL}?p=${Date.now()}`, { cache: 'no-store', signal: ctrl.signal })
+    await res.arrayBuffer()
+    recordRequest(performance.now() - started)
+  } catch {
+    // Offline is its own screen, not "weak signal"; only a probe that failed while the browser still thinks it is online counts.
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) recordRequest(PROBE_TIMEOUT_MS)
+  } finally {
+    clearTimeout(timer)
+    probing = false
+  }
+}
+
+let probeTimer = null
+function scheduleProbe(ms) {
+  clearTimeout(probeTimer)
+  probeTimer = setTimeout(async () => {
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') await probeOnce()
+    scheduleProbe(PROBE_EVERY_MS)
+  }, ms)
+}
+
+/** Start measuring. Called once from the app shell; idempotent, returns a stop function. */
+export function startNetProbe() {
+  if (typeof window === 'undefined' || probeTimer) return () => {}
+  const wait = Math.max(500, WARMUP_MS - (performance.now() - bootAt))
+  // An initial burst so a genuinely weak line is noticed in seconds, not after three quiet intervals.
+  const burst = setTimeout(async () => { await probeOnce(); await probeOnce(); await probeOnce() }, wait)
+  scheduleProbe(wait + 6000)
+  const kick = () => { if (document.visibilityState === 'visible' && performance.now() - bootAt > WARMUP_MS) probeOnce() }
+  window.addEventListener('online', kick)
+  document.addEventListener('visibilitychange', kick)
+  return () => {
+    clearTimeout(burst)
+    clearTimeout(probeTimer); probeTimer = null
+    window.removeEventListener('online', kick)
+    document.removeEventListener('visibilitychange', kick)
+  }
+}
 
 export function isSlowNetwork() { return slow || hinted() }
 
@@ -115,19 +167,15 @@ export async function resilientFetch(input, init = {}) {
   const url = typeof input === 'string' ? input : input?.url || ''
   const method = (init.method || (typeof input !== 'string' && input?.method) || 'GET').toUpperCase()
   if (!isRetryableRead(url, method)) return fetch(input, init)
-  const started = performance.now()
-  const counts = started - bootAt > WARMUP_MS && inflight < CROWD
-  inflight += 1
   try {
-    const res = await withTimeout(input, init, READ_TIMEOUT_MS)
-    if (counts) recordRequest(performance.now() - started)
-    return res
+    // How long a read took is NOT recorded: that is the database's time as much as the line's (see PROBE_URL above).
+    return await withTimeout(input, init, READ_TIMEOUT_MS)
   } catch (err) {
     // The caller cancelled it: that is not the network's fault, and not ours to retry.
     if (init.signal?.aborted) throw err
-    recordTimeout()
+    // Only a request that FAILED counts against the line, not one that was merely slow to be answered: a read that ran out its fifteen
+    // seconds was most often a heavy query, and the probe is what judges the connection.
+    if (!(err instanceof DOMException && err.name === 'TimeoutError')) recordTimeout()
     return withTimeout(input, init, READ_TIMEOUT_MS)
-  } finally {
-    inflight -= 1
   }
 }

@@ -54,6 +54,9 @@ const BLANK_GROUP = () => ({
   prize_structure: [],
   participation_threshold: '',
   participation_prize: '',
+  participation_cap: '',
+  participation_scope: 'everyone',
+  extra_awards: [],
   members: [],
 })
 
@@ -77,6 +80,7 @@ const SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 
 const ownPrize = (g) => g.prize_own ?? !!(
   (Array.isArray(g.prize_structure) && g.prize_structure.length > 0)
   || String(g.participation_prize ?? '').trim()
+  || (Array.isArray(g.extra_awards) && g.extra_awards.length > 0)
 )
 
 // `audience` is who can be ADDED (the market's roster). `people` is everybody
@@ -282,6 +286,9 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                       participation_prize: '',
                       participation_amount: '',
                       participation_reward_type: null,
+                      participation_cap: '',
+                      participation_scope: 'everyone',
+                      extra_awards: [],
                     })}
                   className={cx(
                     'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03]',
@@ -318,16 +325,22 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                   amount: g.participation_amount ?? '',
                   reward_type: g.participation_reward_type || 'voucher',
                   basis,
-                  cap: '',
-                  scope: 'everyone',
+                  // A board decides its own cap and who can earn it (migration 338), same as the challenge.
+                  cap: g.participation_cap ?? '',
+                  scope: g.participation_scope || 'everyone',
                 }}
                 onParticipationExtra={(patch) => {
-                  if ('basis' in patch && onBasis) onBasis(patch.basis)
+                  if ('basis' in patch && onBasis && !('cap' in patch)) onBasis(patch.basis) // not when the card is being removed
                   const own = {}
                   if ('amount' in patch) own.participation_amount = patch.amount
                   if ('reward_type' in patch) own.participation_reward_type = patch.reward_type
+                  if ('cap' in patch) own.participation_cap = patch.cap
+                  if ('scope' in patch) own.participation_scope = patch.scope
                   if (Object.keys(own).length) setGroup(i, { ...own, prize_own: true })
                 }}
+                // ITS OWN "MOST COMMITTED" too: the most videos on THIS board.
+                extraAwards={g.extra_awards ?? []}
+                onExtraAwards={(next) => setGroup(i, { extra_awards: next, prize_own: true })}
               />
               {/* Derived, and shown for the same reason the challenge shows it:
                   so nobody has to add up their own prize rows to check the

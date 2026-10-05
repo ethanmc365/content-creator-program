@@ -163,12 +163,40 @@ export function shortAgo(date) {
   return `${Math.round(days / 365)}y`
 }
 
-/** 184230 → "184.2k" - used for logged view counts. */
+/**
+ * A view count, the way every leaderboard and card prints it (5 Oct 2026).
+ *
+ *   under 1,000        as it is                     842
+ *   1,000 - 9,999      one decimal                  4.3k
+ *   10,000 - 999,999   NEAREST THOUSAND, no decimal 48k, 638k
+ *   a million or more  one decimal                  1.3M
+ *
+ * Ethan: "Noelia has 638.5k ... if it's over 10k it should just be rounded to the
+ * nearest thousand: 638k, Anna 48.3k should be 48k." A decimal on a figure that
+ * large is false precision, and it made the board harder to scan.
+ */
 export function formatViews(n) {
   if (n == null) return '-'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
-  return String(n)
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '-'
+  const abs = Math.abs(v)
+  if (abs >= 999_500) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (abs >= 10_000) return Math.round(v / 1_000) + 'k'
+  if (abs >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(Math.round(v))
+}
+
+/**
+ * A TOTAL, to the nearest thousand at any size. A headline total of 3,422,000 views printed
+ * as "3.4M" hides 22,000 of them (Ethan: "it shows 3.4 million, but I wanted it rounded to the
+ * thousand - 420k or 422k, not just 0.4"). So a million or more keeps three decimals: 3.422M.
+ */
+export function formatViewsTotal(n) {
+  if (n == null) return '-'
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '-'
+  if (Math.abs(v) >= 1_000_000) return (Math.round(v / 1_000) / 1_000).toFixed(3).replace(/\.?0+$/, '') + 'M'
+  return formatViews(v)
 }
 
 // Prizes we handed out running challenges on WhatsApp before this platform

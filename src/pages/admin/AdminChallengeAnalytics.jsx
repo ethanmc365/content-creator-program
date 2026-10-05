@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
-import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv, timeAgo, cx } from '../../lib/utils'
+import { formatViewsTotal, formatMoney, formatDate, formatDateTimeTz, downloadCsv, timeAgo, cx } from '../../lib/utils'
 import { compareBoards, prizeForGroup } from '../../lib/challengeGroups'
 import Icon from '../../components/Icon'
 import HistoryForm from '../../components/admin/HistoryForm'
@@ -281,13 +281,13 @@ export default function AdminChallengeAnalytics() {
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Entries" value={d.submissions} hint={`${d.uniqueCreators} creators`} />
         <StatCard label="Participation" value={`${d.participation}%`} hint={viewGroup ? `of ${viewGroup.name}` : groups.length ? 'of everyone in its groups' : 'of all creators'} />
-        <StatCard label="Total views" value={formatViews(d.totalViews)} accent />
+        <StatCard label="Total views" value={formatViewsTotal(d.totalViews)} accent />
         <StatCard label="Prize money paid" value={formatMoney(d.prizesPaid)} hint={d.prizesPending ? `${formatMoney(d.prizesPending)} pending` : 'all settled'} />
       </div>
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Avg views / entry" value={formatViews(d.avgViews)} />
-        <StatCard label="Median views" value={formatViews(d.medianViews)} />
-        <StatCard label="Top entry" value={formatViews(d.topViews)} />
+        <StatCard label="Avg views / entry" value={formatViewsTotal(d.avgViews)} />
+        <StatCard label="Median views" value={formatViewsTotal(d.medianViews)} />
+        <StatCard label="Top entry" value={formatViewsTotal(d.topViews)} />
         {/* CPM IN THE ECONOMICS TOO, NOT ONLY IN THE BAND (22 Sep 2026). Ethan
             could not find it under the band. Same `challengeSpend` as the band,
             so the two cannot disagree, and it stays once the challenge ends. */}
@@ -370,9 +370,9 @@ export default function AdminChallengeAnalytics() {
                         )}
                       </td>
                       <td className="py-3 pr-4 text-right tabular-nums">{r.entries}</td>
-                      <td className="py-3 pr-4 text-right font-semibold tabular-nums text-brand">{formatViews(r.views)}</td>
-                      <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.perEntry)}</td>
-                      <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.best)}</td>
+                      <td className="py-3 pr-4 text-right font-semibold tabular-nums text-brand">{formatViewsTotal(r.views)}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{formatViewsTotal(r.perEntry)}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{formatViewsTotal(r.best)}</td>
                       <td className="py-3 pr-4 text-right tabular-nums">{sp ? formatMoney(sp.spend, ccy) : '-'}</td>
                       <td className="py-3 pr-4 text-right tabular-nums">{sp?.cpm != null ? formatMoney(Math.round(sp.cpm * 100) / 100, ccy) : '-'}</td>
                       <td className="py-3 text-right">
@@ -426,8 +426,8 @@ export default function AdminChallengeAnalytics() {
                 <BarChart data={d.platforms} margin={{ top: 16, right: 12, left: -2, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
+                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViewsTotal(v)} />
                   <Bar animationDuration={600} dataKey="views" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
@@ -466,10 +466,10 @@ export default function AdminChallengeAnalytics() {
                       {challenge.scoring === 'points' ? (
                         <span className="text-right">
                           <span className="block text-sm font-bold tabular-nums">{Number(r.final_views || 0).toLocaleString()} pts</span>
-                          <span className="block text-[11px] tabular-nums text-smoke">{formatViews(r.total_views || 0)} views</span>
+                          <span className="block text-[11px] tabular-nums text-smoke">{formatViewsTotal(r.total_views || 0)} views</span>
                         </span>
                       ) : (
-                        <span className="text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
+                        <span className="text-sm font-bold tabular-nums">{formatViewsTotal(r.final_views)}</span>
                       )}
                     </Link>
                   ))}
@@ -608,7 +608,7 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Prize money" value={dash(row.prize_total, (v) => formatMoney(v, row.prize_currency || 'EUR'))} hint={row.prize_type || undefined} />
-        <StatCard label="Total views" value={dash(row.total_views, formatViews)} accent />
+        <StatCard label="Total views" value={dash(row.total_views, formatViewsTotal)} accent />
         <StatCard label="Creators" value={dash(row.creators, (v) => v.toLocaleString())} />
         <StatCard label="Posts" value={dash(row.posts, (v) => v.toLocaleString())} />
       </div>
@@ -624,8 +624,8 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
           every page was a constant printed as a measurement. Winners moved down
           to "How it was run", beside the prize type it belongs with. */}
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Views / post" value={dash(m.viewsPerPost, (v) => formatViews(Math.round(v)))} />
-        <StatCard label="Views / creator" value={dash(m.viewsPerCreator, (v) => formatViews(Math.round(v)))} />
+        <StatCard label="Views / post" value={dash(m.viewsPerPost, (v) => formatViewsTotal(Math.round(v)))} />
+        <StatCard label="Views / creator" value={dash(m.viewsPerCreator, (v) => formatViewsTotal(Math.round(v)))} />
       </div>
 
       {/* A DASH IS A FACT, AND IT IS WORTH ONE SENTENCE. Fourteen imported rows
@@ -744,7 +744,7 @@ function LiveEconomics({ challenge, subs, standings, totalViews }) {
   // on the gradient, split by hairlines, and the explanatory footnote is gone.
   const tiles = [
     { label: live ? 'Current CPM' : 'CPM', value: spend.cpm == null ? '—' : formatMoney(Math.round(spend.cpm * 100) / 100, ccy), hint: 'per 1,000 views', big: true },
-    { label: 'Total views', value: formatViews(totalViews), hint: `${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`, big: true },
+    { label: 'Total views', value: formatViewsTotal(totalViews), hint: `${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`, big: true },
     { label: 'Prize pot', value: formatMoney(spend.pot, ccy), hint: spend.awards ? `incl. ${formatMoney(spend.awards, ccy)} awards` : `${challenge.winners_count || ''} paid places`.trim() },
     {
       label: 'Taking-part vouchers',
@@ -934,11 +934,11 @@ function EntriesOverTime({ subs, challenge }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6B7280' }} interval="preserveStartEnd" minTickGap={24} />
               <YAxis yAxisId="e" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <YAxis yAxisId="v" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
+              <YAxis yAxisId="v" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
               <Tooltip
                 contentStyle={tooltipStyle}
                 cursor={{ fill: 'rgba(217,68,7,0.06)' }}
-                formatter={(v, name) => (name === 'views' ? [formatViews(v), 'Views so far'] : [v, 'Entries'])}
+                formatter={(v, name) => (name === 'views' ? [formatViewsTotal(v), 'Views so far'] : [v, 'Entries'])}
               />
               <Area animationDuration={600} yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />
               <Bar animationDuration={600} yAxisId="e" dataKey="entries" fill={FILL.brand} radius={[6, 6, 0, 0]} maxBarSize={22} />

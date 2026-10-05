@@ -5,6 +5,7 @@ import {
   formatMoney,
   detectPlatform,
   formatViews,
+  formatViewsTotal,
   toCsv,
   csvCell,
   csvHeader,
@@ -62,10 +63,23 @@ describe('detectPlatform', () => {
 })
 
 describe('formatViews', () => {
-  it('compacts large numbers', () => {
-    expect(formatViews(1_500_000)).toBe('1.5M')
+  it('prints a view count the way the leaderboards do', () => {
+    expect(formatViews(842)).toBe('842')
+    expect(formatViews(4_320)).toBe('4.3k')
     expect(formatViews(2_000)).toBe('2k')
-    expect(formatViews(950)).toBe('950')
+    expect(formatViews(48_300)).toBe('48k')
+    expect(formatViews(638_500)).toBe('639k')
+    expect(formatViews(638_499)).toBe('638k')
+    expect(formatViews(999_700)).toBe('1M')
+    expect(formatViews(1_300_000)).toBe('1.3M')
+    expect(formatViews(null)).toBe('-')
+  })
+  it('keeps a total to the nearest thousand even in the millions', () => {
+    expect(formatViewsTotal(3_422_000)).toBe('3.422M')
+    expect(formatViewsTotal(3_400_000)).toBe('3.4M')
+    expect(formatViewsTotal(3_422_499)).toBe('3.422M')
+    expect(formatViewsTotal(422_300)).toBe('422k')
+    expect(formatViewsTotal(950)).toBe('950')
   })
 })
 

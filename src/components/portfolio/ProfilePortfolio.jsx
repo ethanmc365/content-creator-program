@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { Modal } from '../ui'
 import { cx } from '../../lib/utils'
+import { lockScroll } from '../../lib/scrollLock'
+import { useIsMobile } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 import PortfolioDeck, { useFluidWidth } from './PortfolioDeck'
 import { compactViews } from '../../lib/portfolio'
@@ -34,14 +37,6 @@ export default function ProfilePortfolio({ profileId }) {
   const mine = user?.id === profileId
   const [data, setData] = useState(null)
   const [holder, width] = useFluidWidth(260)
-  // THE SCROLLER IS HELD IN A REF AND ITS ARRIVAL IN STATE. The effect below
-  // has to re-run when the element appears (it is null on the first render -
-  // see the note on `useFluidWidth` for the bug that costs), and `scrollLeft`
-  // has to be WRITTEN, which is not something to do to a state value.
-  const railRef = useRef(null)
-  const [railReady, setRailReady] = useState(false)
-  const setRail = useCallback((el) => { railRef.current = el; setRailReady(!!el) }, [])
-  const [page, setPage] = useState(0)
   // THE SAME DECK, FULL SCREEN. Ethan: "whenever you click on this, it should
   // actually open up on like the big screen, like a big pop-up that you can go
   // through and see it bigger rather than just that small screen."
@@ -108,34 +103,16 @@ export default function ProfilePortfolio({ profileId }) {
     return () => { alive = false }
   }, [profileId])
 
-  // Which page is in view, read off the scroller rather than tracked in state
-  // by the buttons - so a swipe and a click agree about where you are.
-  useEffect(() => {
-    const el = railRef.current
-    if (!el) return undefined
-    const onScroll = () => setPage(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [railReady])
-
   if (!data) return null
 
   const { portfolio, creator, videos, certificates } = data
-  const go = (by) => {
-    const rail = railRef.current
-    if (!rail) return
-    // Assigned, never `scrollTo({behavior})`: this app sets `scroll-behavior:
-    // smooth` platform-wide, so a repositioning here would animate. Inside a
-    // horizontal rail that reads as a lurch. See lib/scrollBehaviour.test.js.
-    rail.scrollLeft = Math.max(0, (page + by)) * rail.clientWidth
-  }
-
   return (
     <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
       <div className="mb-3 flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
-          <Icon name="book" className="h-4 w-4" />
-        </span>
+        {/* THE BARE ICON, IN BRAND ORANGE - NO TINTED SQUARE BEHIND IT (5 Oct 2026). Ethan: "a book with a weird square, light-coloured orange
+            around it ... I just want it to be the icon in orange. This has been a recurring issue." Every other section on the profile heads
+            itself with a plain brand glyph; so does this one. */}
+        <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-bold text-ink">{tr('Portfolio')}</h2>
           <p className="truncate text-[11px] text-smoke">
@@ -144,37 +121,33 @@ export default function ProfilePortfolio({ profileId }) {
               : tr('Shared with the community')}
           </p>
         </div>
-        <Pager page={page} onGo={go} />
       </div>
 
+      {/* ONLY THE COVER, AS A PICTURE (5 Oct 2026). Ethan: "I wanted to just show the first card there." The embed used to be a
+          five-page pager squeezed into one section of a profile; it is now the cover alone, and pressing it opens the whole
+          document full size. One press target over the whole card (a click on a still picture cannot be mistaken for a swipe
+          any more) with the small "Full size" badge kept as the label. */}
       <div ref={holder} className="group/deck relative">
-        <div
-          ref={setRail}
-          className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <PagedDeck
+        <div className="overflow-hidden rounded-[14px]">
+          <PortfolioDeck
             creator={creator}
             portfolio={portfolio}
             videos={videos}
             certificates={certificates}
             width={width}
+            only={1}
           />
         </div>
-
-        {/* AN OVERLAY BUTTON, NOT AN onClick ON THE RAIL. The rail is a
-            horizontal scroller and a click handler on it would fire at the end
-            of every swipe - which on a phone means the pop-up opens whenever
-            somebody tries to turn a page. This sits over the deck, is
-            pointer-events:none except for itself, and leaves the scroll
-            gesture alone. */}
         {/* YOUR OWN OPENS THE EDITOR, ANYBODY ELSE'S OPENS FULL SIZE (3 Oct 2026, Ethan). */}
         <button
           type="button"
-          onClick={() => (mine ? navigate('/portfolio') : setBig(page))}
+          onClick={() => (mine ? navigate('/portfolio') : setBig(0))}
           aria-label={mine ? tr('Edit your portfolio') : tr('Open this portfolio full size')}
-          className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-semibold text-ink shadow-sm backdrop-blur transition-all hoverable:hover:-translate-y-px hoverable:hover:text-brand"
+          className="absolute inset-0 z-10 flex items-start justify-end rounded-[14px] p-2 transition-colors hoverable:hover:bg-ink/5"
         >
-          <Icon name={mine ? 'pencil' : 'expand'} className="h-3.5 w-3.5" /> {mine ? tr('Edit') : tr('Full size')}
+          <span className="flex items-center gap-1.5 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-semibold text-ink shadow-sm backdrop-blur transition-all group-hover/deck:text-brand">
+            <Icon name={mine ? 'pencil' : 'expand'} className="h-3.5 w-3.5" /> {mine ? tr('Edit') : tr('Full size')}
+          </span>
         </button>
       </div>
 
@@ -231,7 +204,18 @@ export default function ProfilePortfolio({ profileId }) {
  * somebody will immediately try to page through with a keyboard.
  */
 function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, tr }) {
-  const [holder, width] = useFluidWidth(320)
+  const isMobile = useIsMobile()
+  // ON A DESKTOP IT IS THE WHOLE SCREEN (5 Oct 2026). Ethan: "I like how it opens up on mobile when you click into full screen, but on desktop it
+  // has the ability to fill up the screen even more." The pages are 16:9, so the biggest one that fits is bounded by the width of the window AND by
+  // its height (less room for the title above and the pager below) - whichever runs out first. A phone keeps the sheet it already had.
+  const [deskW, setDeskW] = useState(() => (typeof window === 'undefined' ? 960 : fitDeck()))
+  useEffect(() => {
+    const on = () => setDeskW(fitDeck())
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  const [holder, measured] = useFluidWidth(320)
+  const width = isMobile ? measured : Math.min(measured, deskW)
   const railRef = useRef(null)
   const [ready, setReady] = useState(false)
   const setRail = useCallback((el) => { railRef.current = el; setReady(!!el) }, [])
@@ -267,14 +251,18 @@ function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, t
     const onKey = (e) => {
       if (e.key === 'ArrowRight') { e.preventDefault(); go(1) }
       if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
+      if (e.key === 'Escape' && !isMobile) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go])
+  }, [go, isMobile, onClose])
 
-  return (
-    <Modal open onClose={onClose} title={creator?.name ? tr('{name}’s portfolio', { name: creator.name }) : tr('Portfolio')} wide>
-      <div ref={holder} className="min-w-0">
+  useEffect(() => (isMobile ? undefined : lockScroll()), [isMobile])
+
+  const title = creator?.name ? tr('{name}’s portfolio', { name: creator.name }) : tr('Portfolio')
+  const deck = (
+    <>
+      <div ref={holder} className="mx-auto min-w-0" style={isMobile ? undefined : { width: deskW }}>
         <div
           ref={setRail}
           className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -295,7 +283,8 @@ function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, t
       <div className="mt-4 flex items-center justify-center gap-4">
         <button type="button" onClick={() => go(-1)} disabled={page === 0}
           aria-label={tr('Previous page')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-30">
+          className={cx('flex h-9 w-9 items-center justify-center rounded-xl border transition-all hoverable:hover:-translate-y-px disabled:opacity-30',
+            isMobile ? 'border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand' : 'border-white/25 text-white hoverable:hover:bg-white/10')}>
           <Icon name="arrow-down" className="h-4 w-4 rotate-90" />
         </button>
         {/* Dots, not "3 / 6". At six pages the dots say the same thing and also
@@ -305,46 +294,40 @@ function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, t
             <span
               key={i}
               className={cx('h-1.5 rounded-full transition-all duration-200',
-                i === page ? 'w-5 bg-brand' : 'w-1.5 bg-gray-200')}
+                i === page ? 'w-5 bg-brand' : isMobile ? 'w-1.5 bg-gray-200' : 'w-1.5 bg-white/30')}
             />
           ))}
         </div>
         <button type="button" onClick={() => go(1)} disabled={count > 0 && page >= count - 1}
           aria-label={tr('Next page')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-30">
+          className={cx('flex h-9 w-9 items-center justify-center rounded-xl border transition-all hoverable:hover:-translate-y-px disabled:opacity-30',
+            isMobile ? 'border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand' : 'border-white/25 text-white hoverable:hover:bg-white/10')}>
           <Icon name="arrow-down" className="h-4 w-4 -rotate-90" />
         </button>
       </div>
-    </Modal>
+    </>
+  )
+
+  if (isMobile) {
+    return <Modal open onClose={onClose} title={title} wide>{deck}</Modal>
+  }
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex flex-col items-center justify-center px-6" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" aria-label={tr('Close')} onClick={onClose} className="scrim-in absolute inset-0 bg-ink/90 backdrop-blur-sm" />
+      <div className="relative flex w-full items-center justify-between pb-4" style={{ maxWidth: deskW }}>
+        <h2 className="truncate text-lg font-semibold text-white">{title}</h2>
+        <button type="button" onClick={onClose} aria-label={tr('Close dialog')}
+          className="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div className="sheet-in relative w-full" style={{ maxWidth: deskW }}>{deck}</div>
+    </div>,
+    document.body,
   )
 }
 
-/** The deck, with every page a snap target of the rail's own width. */
-function PagedDeck({ creator, portfolio, videos, certificates, width }) {
-  return (
-    <PortfolioDeck
-      creator={creator}
-      portfolio={portfolio}
-      videos={videos}
-      certificates={certificates}
-      width={width}
-      gap={12}
-      horizontal
-    />
-  )
-}
-
-function Pager({ page, onGo }) {
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <button type="button" onClick={() => onGo(-1)} disabled={page === 0} aria-label="Previous page"
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke disabled:opacity-30">
-        <Icon name="arrow-down" className="h-4 w-4 rotate-90" />
-      </button>
-      <button type="button" onClick={() => onGo(1)} aria-label="Next page"
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke">
-        <Icon name="arrow-down" className="h-4 w-4 -rotate-90" />
-      </button>
-    </div>
-  )
+// The largest 16:9 page that fits the window, less ~190px for the title above and the pager below, and 120px of margin at the sides.
+function fitDeck() {
+  return Math.round(Math.max(480, Math.min(window.innerWidth - 120, (window.innerHeight - 190) * (16 / 9), 2000)))
 }

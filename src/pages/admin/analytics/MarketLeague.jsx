@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { flagEmoji } from '../../../lib/countries'
-import { downloadCsv, formatViews, formatMoney, cx } from '../../../lib/utils'
+import { downloadCsv, formatViewsTotal, formatMoney, cx } from '../../../lib/utils'
 import { marketStandings, monthsInRecord, monthLabel, previousRanks } from '../../../lib/marketStandings'
 import Icon from '../../../components/Icon'
 
@@ -31,7 +31,7 @@ import Icon from '../../../components/Icon'
 // the bar, and the column header says which way is good.
 
 const METRICS = [
-  { key: 'views', label: 'Views', icon: 'eye', fmt: (r) => formatViews(r.views), value: (r) => r.views },
+  { key: 'views', label: 'Views', icon: 'eye', fmt: (r) => formatViewsTotal(r.views), value: (r) => r.views },
   { key: 'members', label: 'Creators', icon: 'users', fmt: (r) => String(r.members), value: (r) => r.members },
   { key: 'challenges', label: 'Challenges', icon: 'flag', fmt: (r) => String(r.challenges), value: (r) => r.challenges },
   { key: 'posts', label: 'Videos', icon: 'video', fmt: (r) => String(r.posts), value: (r) => r.posts },
@@ -80,7 +80,7 @@ function Spark({ byMonth, months }) {
       {vals.map((v, i) => (
         <span
           key={months[i]}
-          title={`${monthLabel(months[i])}: ${formatViews(v)}`}
+          title={`${monthLabel(months[i])}: ${formatViewsTotal(v)}`}
           className={cx('w-[5px] rounded-sm transition-all duration-300', v > 0 ? 'bg-brand/70' : 'bg-gray-200')}
           style={{ height: `${Math.max(2, Math.round((v / max) * 24))}px` }}
         />
@@ -334,7 +334,7 @@ export default function MarketLeague({ raw, currency }) {
                 <div className="relative mt-3 border-t border-gray-100 pt-3">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
                     {[
-                      { k: 'Views', v: formatViews(r.views) },
+                      { k: 'Views', v: formatViewsTotal(r.views) },
                       { k: 'Videos', v: r.posts },
                       { k: 'Creators', v: r.members },
                       { k: 'Challenges', v: r.challenges },
@@ -365,7 +365,7 @@ export default function MarketLeague({ raw, currency }) {
                           {monthRows(r).map(([key, m]) => (
                             <tr key={key} className="border-t border-gray-50">
                               <td className="py-1 font-semibold text-ink">{monthLabel(key)}</td>
-                              <td className="py-1 text-right">{formatViews(m.views)}</td>
+                              <td className="py-1 text-right">{formatViewsTotal(m.views)}</td>
                               <td className="py-1 text-right">{m.challenges}</td>
                               <td className="py-1 text-right">{formatMoney(m.spend, currency)}</td>
                             </tr>
@@ -411,7 +411,7 @@ export default function MarketLeague({ raw, currency }) {
             All markets {month ? `· ${monthLabel(month)}` : 'together'}
           </span>
           <span className="flex flex-wrap items-center gap-x-5 gap-y-1">
-            <span><b className="text-ink">{formatViews(totals.views)}</b> views</span>
+            <span><b className="text-ink">{formatViewsTotal(totals.views)}</b> views</span>
             <span><b className="text-ink">{totals.members}</b> creators</span>
             <span><b className="text-ink">{totals.challenges}</b> challenges</span>
             <span><b className="text-ink">{totals.posts}</b> videos</span>

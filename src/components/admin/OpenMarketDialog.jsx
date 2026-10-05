@@ -20,13 +20,13 @@ import { useT } from '../../lib/i18n'
 // So the link is a choice of two. A COMMUNITY MARKET goes to the existing five-step wizard (/global/settings, opened
 // straight onto it): one `create_market` call makes the market, its rooms, its leads and its flag. A VIP MARKET is
 // one short form here, because a VIP market lives INSIDE a community market: `vip_open_programme` makes the programme,
-// its VIP room, its VIP announcements room, the worldwide VIP lounge if it is missing and the current month - and the
+// its VIP room, its VIP announcements room and the current month (the worldwide VIP lounge is gone, 5 Oct 2026) - and the
 // month-end, view-reading, nudges, digest, milestones and perks jobs pick it up on their next tick, because they
 // walk every programme rather than naming them. The one VIP sign-up link already sends a creator to the VIP market of
 // the country they live in, so a new market needs no link of its own.
 const AUTOMATIC = [
   'A VIP room and a VIP announcements room for the market',
-  'The worldwide VIP lounge, shared by every VIP market',
+  'The worldwide VIP room and announcements, shared by every VIP market',
   'This month opened, with views read every few hours',
   'Month end: a final reading, statements drafted, invoices once approved',
   'Nudges, the weekly digest, milestones and perks, every day',

@@ -113,7 +113,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const { id: routeId } = useParams()
   const id = challengeId || routeId
   const [searchParams] = useSearchParams()
-  const { user, isAdmin, profile } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { networkId } = useMyScopes()
 
   // THE LAST COPY OF THIS CHALLENGE PAINTS FIRST (1 Oct 2026, slow wifi): a
@@ -122,11 +122,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const cacheKey = `challenge:${id}`
   const [seed] = useState(() => readPageCache(cacheKey))
   const [challenge, setChallenge] = useState(seed?.challenge ?? null)
+  const [groups, setGroups] = useState(seed?.groups ?? [])
   // The admin push composer, which lives behind the button beside Edit.
   // Who is earning the capped participation prize (migration 233). Same
   // function the payout reads, so "you have earned it" is never a promise the
   // payout then breaks.
-  const prizeStandings = usePrizeStandings(challenge?.participation_cap || challenge?.participation_scope === 'outside_prizes' ? challenge?.id : null)
+  const capped = (x) => !!(x?.participation_cap || x?.participation_scope === 'outside_prizes')
+  const prizeStandings = usePrizeStandings(capped(challenge) || groups.some(capped) ? challenge?.id : null)
   const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
@@ -209,7 +211,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Both are opt-in per challenge and both are empty on almost every one, so
   // every read path below falls through to exactly the behaviour that existed
   // before them. See lib/challengeGroups and migration 155.
-  const [groups, setGroups] = useState(seed?.groups ?? [])
   const [groupMembers, setGroupMembers] = useState(seed?.groupMembers ?? [])
   const [bonusRules, setBonusRules] = useState(seed?.bonusRules ?? [])
   const [bonusClaims, setBonusClaims] = useState(seed?.bonusClaims ?? [])
@@ -683,7 +684,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // challenge's basis, a group's own threshold included.
   const partBasis = challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries'
   const participationOf = (p) => (p?.participation_threshold && p?.participation_prize
-    ? { threshold: p.participation_threshold, prize: p.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
+    ? { threshold: p.participation_threshold, prize: p.participation_prize, basis: partBasis, scope: p.participation_scope ?? challenge?.participation_scope, cap: p.participation_cap ?? null, ownPart: !!p.own_part }
     : parseParticipationPrize(Array.isArray(p?.prize_structure) ? p.prize_structure : []))
   const participation = participationOf(myPrize)
   // Where I stand against that number: my entries, or my points on the board.
@@ -704,7 +705,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     : prizes
   const boardParticipation = shownPrize
     ? (shownPrize.participation_threshold && shownPrize.participation_prize
-      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize, basis: partBasis, scope: challenge?.participation_scope }
+      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize, basis: partBasis, scope: shownPrize.participation_scope ?? challenge?.participation_scope, cap: shownPrize.participation_cap ?? null, ownPart: !!shownPrize.own_part }
       : parseParticipationPrize(shownPrize.prize_structure ?? []))
     : participation
   // THE TOP THREE, AS A PODIUM. Built from `boardRows` and `boardPrizes` - the
@@ -1057,8 +1058,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           it to the right of the three buttons, it would fit nicely, more
           compact." It is a badge on the same row from `sm` up (under the tabs
           on a phone), and it slides in when the Leaderboard tab opens. */}
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="-mx-4 -mt-1.5 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:gap-2 sm:px-0" role="tablist">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      {/* `sm:overflow-visible shrink-0`: with the roomier pills the four tabs plus the board badge no longer fit one line, and a scrolling row beside the
+          badge was clipping the last tab ("Clasific..."). The row now keeps its full width and the BADGE wraps underneath instead (5 Oct 2026). */}
+      <div className="-mx-4 -mt-1.5 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:shrink-0 sm:gap-2 sm:overflow-visible sm:px-0" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -1066,7 +1069,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             className={cx(
-              'flex shrink-0 grow basis-auto items-center justify-center gap-1 rounded-full px-2 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:grow-0 sm:gap-2 sm:px-4 sm:text-sm',
+              // ROOM ON EITHER SIDE OF THE WORDS (5 Oct 2026): the four tabs were crowded - wider pills, more air between glyph, word and count.
+              'flex shrink-0 grow basis-auto items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:grow-0 sm:gap-2 sm:px-6 sm:text-sm',
               tab === t.key
                 ? 'bg-brand text-white shadow-card'
                 : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
@@ -1178,7 +1182,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </>
         )
         // ONE PRIZE CARD, DRAWN ONCE FOR A CREATOR AND ONCE PER GROUP FOR THE TEAM.
-        const prizeCardFor = ({ key, list, potLabel, part, groupName = null, showProgress = true, withAwards = true }) => (
+        const prizeCardFor = ({ key, list, potLabel, part, groupName = null, showProgress = true, withAwards = true, awards = null }) => (
           <section key={key} className="card !p-0 overflow-hidden">
             <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-4">
               <Icon name="trophy" className="h-5 w-5 shrink-0 text-brand" />
@@ -1244,8 +1248,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               const byPoints = participation.basis === 'points'
               const pct = Math.min(100, Math.round((partHave / participation.threshold) * 100))
               const mine = prizeStandings?.find((r) => r.slot === 'participation' && r.creator_id === user?.id)
-              const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned').length ?? 0
-              const cap = challenge?.participation_cap
+              // A board with its own reward has its own queue, so only its own earners count against its cap.
+              const onThisBoard = (r) => !(participation.ownPart && groupName) || r.label === `Participation - ${groupName}`
+              const earned = prizeStandings?.filter((r) => r.slot === 'participation' && r.status === 'earned' && onThisBoard(r)).length ?? 0
+              const cap = participation.cap ?? null
               const left = cap ? Math.max(0, cap - earned) : null
               const short = participation.threshold - partHave
               let status
@@ -1273,7 +1279,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         {byPoints
                           ? tr("Reach {n} points", { n: participation.threshold })
                           : tr("Post {n} videos", { n: participation.threshold })}
-                        {challenge?.participation_scope === 'outside_prizes' ? ` · ${tr("outside the prize places")}` : ''}
+                        {participation.scope === 'outside_prizes' ? ` · ${tr("outside the prize places")}` : ''}
                         {cap ? ` · ${tr("first {n} creators", { n: cap })}` : ''}
                       </p>
                     </div>
@@ -1294,39 +1300,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </div>
               )
             })()}
-            {/* THE WELCOME VOUCHER, WHERE THE PRIZES ARE (4 Oct 2026). Ethan: "a welcome voucher for first-time creators ... show it to a new
-                creator when they pass 5,000 views. Improve that and the UI of it." For a creator who joined after the challenge began it shows
-                what they have to do and, once they have entered, a bar towards the views; for everybody else it is simply listed. */}
-            {Number(challenge?.welcome_amount) > 0 && (() => {
-              const need = Number(challenge.welcome_views) || 5000
-              const isNew = !!profile?.created_at && !!challenge.start_date && Date.parse(profile.created_at) >= Date.parse(challenge.start_date)
-              const best = Math.max(0, ...myEntries.map((e) => Number(e.logged_views) || 0))
-              const pctW = Math.min(100, Math.round((best / need) * 100))
-              return (
-                <div className="border-t border-gray-100 px-5 py-4">
-                  <div className="flex items-start gap-3">
-                    <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr('Welcome voucher for new creators')}</p>
-                      <p className="mt-0.5 text-[15px] font-bold leading-snug text-ink">{formatMoney(challenge.welcome_amount, challenge.prize_currency || 'EUR')} {tr('Tryp.com voucher')}</p>
-                      <p className="mt-0.5 text-xs leading-snug text-smoke">
-                        {tr('Joined after this challenge started? Your first video that passes {n} views earns it, with nothing else to do.', { n: need.toLocaleString() })}
-                      </p>
-                    </div>
-                  </div>
-                  {isLive && isNew && myEntries.length > 0 && (
-                    <div className="mt-3">
-                      <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
-                        <span className="font-semibold text-ink">{best >= need ? tr('You have earned it.') : tr('{n} more views to go.', { n: (need - best).toLocaleString() })}</span>
-                        <span className="shrink-0 font-bold tabular-nums text-brand">{formatViews(Math.min(best, need))}/{formatViews(need)}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${pctW}%` }} /></div>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-            {withAwards && Array.isArray(challenge?.extra_awards) && challenge.extra_awards.filter((a) => a?.prize).map((a) => (
+            {withAwards && (Array.isArray(awards) ? awards : (Array.isArray(challenge?.extra_awards) ? challenge.extra_awards : [])).filter((a) => a?.prize).map((a) => (
               <div key={a.id} className="border-t border-gray-100 px-5 py-4">
                 <div className="flex items-start gap-3">
                   <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
@@ -1387,7 +1361,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   groupName: g.name,
                   // The team is on no board, so there is no "your progress" to draw.
                   showProgress: false,
-                  withAwards: i === groups.length - 1,
+                  // A board's own Most committed on its own card; the challenge's once, on the first board that has none.
+                  awards: gp.own_awards ? gp.extra_awards : (i === groups.findIndex((x) => !(x.extra_awards || []).length) ? gp.extra_awards : []),
                 })
               })}
             </div>
@@ -1397,6 +1372,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             potLabel: prizePotLabel,
             part: participation,
             groupName: myGroup?.name ?? null,
+            awards: myPrize?.extra_awards ?? null,
           })}
           </>
         )
