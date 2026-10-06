@@ -4384,4 +4384,6 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Acercar',
   'Zoom out': 'Alejar',
+  'Or one video with': 'O un vídeo con',
+  'The views are those of a single video.': 'Las visualizaciones son las de un solo vídeo.',
 }

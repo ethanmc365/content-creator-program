@@ -4377,4 +4377,6 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Mărește',
   'Zoom out': 'Micșorează',
+  'Or one video with': 'Sau un videoclip cu',
+  'The views are those of a single video.': 'Vizualizările sunt cele ale unui singur videoclip.',
 }

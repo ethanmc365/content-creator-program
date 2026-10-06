@@ -344,15 +344,18 @@ export default function VipHub() {
           <div className="vip-stage space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
-              <Segmented
-                value={boardView}
-                onChange={setBoardView}
-                label={tr('Leaderboard view')}
-                size="sm"
-                options={[{ value: 'mine', label: <><ProgrammeFlags codes={codes} />{isStaff ? programme.name : tr('My market')}</> }, { value: 'markets', label: <><Icon name="globe" className="h-3.5 w-3.5" />{tr('All markets')}</> }]}
-              />
+              {/* ONLY THE TEAM COMPARES MARKETS (6 Oct 2026). A VIP sees their own market's board and nothing from other countries. */}
+              {isStaff && (
+                <Segmented
+                  value={boardView}
+                  onChange={setBoardView}
+                  label={tr('Leaderboard view')}
+                  size="sm"
+                  options={[{ value: 'mine', label: <><ProgrammeFlags codes={codes} />{programme.name}</> }, { value: 'markets', label: <><Icon name="globe" className="h-3.5 w-3.5" />{tr('All markets')}</> }]}
+                />
+              )}
             </div>
-            {boardView === 'mine' ? (
+            {boardView === 'mine' || !isStaff ? (
               <div className="space-y-3">
                 {board === null ? <Skeleton className="h-48 w-full rounded-card" /> : <VipBoardList rows={board} rules={rules} currency={cur} month={month} />}
               </div>

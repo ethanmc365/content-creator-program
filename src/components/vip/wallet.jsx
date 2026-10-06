@@ -243,15 +243,15 @@ function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
   )
 }
 
-// STAYING IN (2 Oct 2026, changed 4 Oct). Ethan: keeping a VIP place is "5 videos and 20,000 views" - both, the views added up
-// across the month - "it should properly calculate up and then obviously show when it's met."
+// STAYING IN (2 Oct 2026; AND on 4 Oct; back to OR on 6 Oct). Ethan: keeping a VIP place is "5 videos or 1 video with 20k+ views" -
+// two roads, either is enough, drawn as two bars with "or" between them. `views` is the best single video's.
 export function StayInCard({ compact = false }) {
   const tr = useT()
   const { data: w } = useOptionalRpc('vip_my_wallet')
   const r = w?.requirement
   if (!r || r.on === false) return null
   const met = !!r.met
-  const views = Number(r.views ?? r.best_views) || 0
+  const views = Number(r.best_video ?? r.views ?? r.best_views) || 0
   // SMALL, NOT THE MAIN THING (3 Oct 2026). One row: the status, and the two things to reach side by side.
   if (compact) {
     return (
@@ -262,7 +262,7 @@ export function StayInCard({ compact = false }) {
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
           <Road small label={tr('{n} videos', { n: nf(r.need_videos) })} value={r.videos} target={r.need_videos} />
-          <Road small label={tr('{n} views', { n: nf(r.need_views) })} value={views} target={r.need_views} />
+          <Road small label={tr('One video with {n} views', { n: nf(r.need_views) })} value={views} target={r.need_views} />
         </div>
       </section>
     )
@@ -276,8 +276,8 @@ export function StayInCard({ compact = false }) {
         </span>
       </div>
       <Road label={tr('{n} videos this month', { n: nf(r.need_videos) })} value={r.videos} target={r.need_videos} />
-      <div className="my-3 flex items-center gap-3 text-[10.5px] font-bold uppercase tracking-[0.2em] text-gray-300"><span className="h-px flex-1 bg-gray-100" />{tr('and')}<span className="h-px flex-1 bg-gray-100" /></div>
-      <Road label={tr('{n} views this month', { n: nf(r.need_views) })} value={views} target={r.need_views} />
+      <div className="my-3 flex items-center gap-3 text-[10.5px] font-bold uppercase tracking-[0.2em] text-gray-300"><span className="h-px flex-1 bg-gray-100" />{tr('or')}<span className="h-px flex-1 bg-gray-100" /></div>
+      <Road label={tr('One video with {n} views', { n: nf(r.need_views) })} value={views} target={r.need_views} />
       <p className="mt-4 text-xs leading-relaxed text-smoke">{tr('Checked at the end of every month. Videos count in the month they were posted.')}</p>
     </section>
   )

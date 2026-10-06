@@ -38,7 +38,9 @@ import { useT } from '../lib/i18n'
 
 export default function Leaderboard() {
   const tr = useT()
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
+  // A VIP reads their own market's board only; the database holds them to it, so there is nothing to pick.
+  const lockedToOwn = !!profile?.is_vip && !isAdmin
   const [rows, setRows] = useState(null)
   const [markets, setMarkets] = useState([])
   const [market, setMarket] = useState('')
@@ -110,7 +112,7 @@ export default function Leaderboard() {
           community somebody opening a leaderboard is asking about - but a UK
           creator wanting to know where they stand among their own is asking a
           different, equally fair question. */}
-      {markets.length > 1 && (
+      {markets.length > 1 && !lockedToOwn && (
         <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
           <button
             type="button"

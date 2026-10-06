@@ -306,7 +306,7 @@ export function VipRequirementsTab({ programme }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{tr('To stay in: {v} videos and {n} views in the month.', { v: rule.videos, n: nf(rule.views) })}</p>
+          <p className="text-sm font-semibold text-ink">{tr('To stay in: {v} videos in the month, or one video with {n} views.', { v: rule.videos, n: nf(rule.views) })}</p>
           <p className="text-xs text-smoke">{live ? tr('Live for this month. The list is written down when the month closes, and you are told who missed it.') : tr('As it stood when {m} closed.', { m: monthLabel(data.month.year, data.month.month) })}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -632,16 +632,16 @@ export function VipRulesCard({ programme, onSaved }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="shield" className="h-5 w-5 text-brand" />{tr('Staying in')}</h3>
-            <p className="mt-0.5 text-xs text-smoke">{tr('Each month a VIP needs both.')}</p>
+            <p className="mt-0.5 text-xs text-smoke">{tr('Either one is enough.')}</p>
           </div>
           <Toggle on={!!f.on} onChange={(v) => set({ on: v })} label={tr('Monthly requirement to stay in')} disabled={dis} />
         </div>
         <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2.5">
           {field(tr('Videos'), f.videos, (v) => set({ videos: v }), { suffix: tr('videos'), off: !f.on })}
-          <span className={cx('pb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300 transition-opacity', !f.on && 'opacity-40')}>{tr('and')}</span>
-          {field(tr('Views'), f.views, (v) => set({ views: v }), { suffix: tr('views'), off: !f.on })}
+          <span className={cx('pb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300 transition-opacity', !f.on && 'opacity-40')}>{tr('or')}</span>
+          {field(tr('Or one video with'), f.views, (v) => set({ views: v }), { suffix: tr('views'), off: !f.on })}
         </div>
-        <p className={cx('mt-2 text-[11px] text-smoke', !f.on && 'opacity-40')}>{tr('The views are added up across all their videos in the month.')}</p>
+        <p className={cx('mt-2 text-[11px] text-smoke', !f.on && 'opacity-40')}>{tr('The views are those of a single video.')}</p>
       </div>
       {!dis && <div className="flex justify-end"><button type="button" onClick={save} disabled={busy} className="btn-primary !py-2 text-sm">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save')}</button></div>}
     </section>
@@ -675,7 +675,7 @@ export function TeamPulse({ programme, onTool }) {
         {req.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
           <>
             <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink">{tr('{a} of {b}', { a: nf(rows.length - behind.length), b: nf(rows.length) })}</span>
-            <span className="text-xs text-smoke">{tr('on track for {v} videos and {n} views', { v: req.data?.rule?.videos ?? 5, n: nf(req.data?.rule?.views ?? 20000) })}</span>
+            <span className="text-xs text-smoke">{tr('on track for {v} videos or a {n}-view video', { v: req.data?.rule?.videos ?? 5, n: nf(req.data?.rule?.views ?? 20000) })}</span>
             <span className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-[width] duration-1000" style={{ width: `${Math.round(onTrackPct * 100)}%` }} /></span>
             {behind.length > 0 && (
               <span className="mt-2.5 flex items-center gap-2">
