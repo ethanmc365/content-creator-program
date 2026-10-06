@@ -62,7 +62,7 @@ function BriefCard({ brief, overview }) {
   useEffect(() => {
     if (!pid) return undefined
     let alive = true
-    supabase.from('vip_bonus_rules').select('*').eq('programme_id', pid).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
+    supabase.from('vip_bonus_rules').select('*').or(`programme_id.eq.${pid},audience.eq.all`).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
   }, [pid])
   const places = prizesByPlace(rules, tr, overview.programme?.currency, overview.month)

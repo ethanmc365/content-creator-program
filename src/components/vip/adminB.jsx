@@ -1,22 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Modal, Select, Skeleton, Spinner, StatCard, Toggle } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
-import { MarketStandings } from './v3'
 import Icon from '../Icon'
-import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { cx, downloadCsv, formatDate, formatViews } from '../../lib/utils'
+import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import {
   BONUS_KINDS, DEFAULT_TERMS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
 } from '../../lib/vip'
 import { Stat, useMonths } from './adminA'
 import { HowItWorks, VipContentTab } from './adminD'
-import VipScopeSwitch from './scope'
 import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
@@ -73,7 +68,10 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
     const label = r.label.trim() || tr(kind.label)
     const ym = months.find((m) => m.key === r.when)
     const row = {
-      programme_id: programme.id, label, kind: r.kind, scope: r.scope, reward: r.reward,
+      programme_id: programme.id, label, kind: r.kind, reward: r.reward,
+      // A bonus for every VIP creator (only VIP Worldwide can set one) ranks everybody together.
+      audience: programme.is_default && r.audience === 'all' ? 'all' : 'market',
+      scope: programme.is_default && r.audience === 'all' && (r.kind === 'top_n' || r.kind === 'best_video') ? 'global' : r.scope,
       month_id: r.when === 'old' ? rule.month_id : null,
       for_year: ym ? ym.year : null, for_month: ym ? ym.month : null,
       amount: Number(r.amount) || 0, multiplier: null,
@@ -139,6 +137,19 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
               </div>
             </div>
           </div>
+
+          {/* WHO GETS IT (6 Oct 2026). VIP Worldwide is shared by every market, so a bonus set there can be for every VIP creator or only for
+              the Worldwide creators who are in no other VIP market. */}
+          {programme.is_default && (
+            <div>
+              <p className="label">{tr('Who gets it')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Choice on={r.audience !== 'all'} onClick={() => set({ audience: 'market' })}><Icon name="globe" className="mr-1 inline h-4 w-4" />{tr('Worldwide VIPs only')}</Choice>
+                <Choice on={r.audience === 'all'} onClick={() => set({ audience: 'all' })}><Icon name="star" className="mr-1 inline h-4 w-4" />{tr('Every VIP creator')}</Choice>
+              </div>
+              <p className="mt-1.5 text-[11px] text-smoke">{r.audience === 'all' ? tr('Every VIP in every market can earn it, ranked together, on top of their own market\'s bonuses.') : tr('Only VIPs who are not in another VIP market, like Spain or Romania.')}</p>
+            </div>
+          )}
 
           {r.kind === 'top_n' ? (
             <div>
@@ -391,7 +402,9 @@ function MonthlyBonuses({ programme }) {
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide">
                   <span className={cx('rounded-full px-2 py-0.5', rule.reward === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{rule.reward === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
                   <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{runsLabel(rule)}</span>
-                  {rule.scope === 'global' && <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Every VIP market')}</span>}
+                  {rule.audience === 'all' ? <span className="rounded-full bg-brand-tint px-2 py-0.5 text-brand">{tr('Every VIP creator')}</span>
+                    : programme.is_default ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Worldwide VIPs only')}</span>
+                      : rule.scope === 'global' && <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('Ranked across every VIP market')}</span>}
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-2 border-t border-gray-50 pt-3 mt-3">
                   <p className="text-xs font-semibold text-brand">{cost ? tr('If the month ended now: {n} earn it, {a}', { n: cost.n, a: money(cost.amount, cur, { cents: false }) }) : ''}</p>
@@ -462,7 +475,7 @@ function StatementRow({ s, cur, editable, onChanged }) {
           <LedgerLine label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: perK(s.cpm, cur) })} value={money(s.base, cur)} />
           {s.cap_applied && <p className="text-xs text-smoke">{tr('The cap of {a} applied.', { a: money(s.cap, cur, { cents: false }) })}</p>}
           {Number(s.rollover_in) > 0 && <LedgerLine label={tr('Carried over from last month')} value={money(s.rollover_in, cur)} />}
-          {(s.bonuses || []).map((b, i) => <Line key={i} label={`${b.label}${b.reward === 'voucher' ? ` (${tr('voucher, not on the invoice')})` : ''}`} value={`+ ${money(b.amount, cur)}`} good />)}
+          {(s.bonuses || []).map((b, i) => <LedgerLine key={i} label={`${b.label}${b.reward === 'voucher' ? ` (${tr('voucher, not on the invoice')})` : ''}`} value={`+ ${money(b.amount, cur)}`} good />)}
           {(s.adjustments || []).map((a, i) => (
             <div key={i} className="flex items-baseline justify-between gap-3">
               <span className="text-smoke">{a.label}{a.reason ? ` (${a.reason})` : ''}</span>
@@ -647,264 +660,6 @@ export function VipCloseTab({ programme }) {
           <p className="text-xs text-smoke">{tr('Their invoice is raised when they ask for cash. A late correction goes in Balances.')}</p>
         </>
       )}
-    </div>
-  )
-}
-
-// ------------------------------------------------------------------------------------- analytics
-// VIP ANALYTICS, IN TABS (3 Oct 2026). Ethan: "I want also easily be able to compare month over month ... instead of
-// saying every programme, just say every VIP community ... I like the graph, just improve it ... take some information
-// and formats from the main analytics page and build it into this VIP analytics one. Have different tabs." So: the
-// month at a glance with how it moved against the month before (the main page's StatCard and DeltaPill), the trend
-// charts, a month-against-month table for any two months, the creators, and every VIP market side by side.
-const pctMove = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 100) : null)
-
-export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
-  const tr = useT()
-  // OVERALL FIRST, THEN ONE MARKET AT A TIME (4 Oct 2026). Everyone who may see all the markets opens on the combined numbers.
-  const mine = programmes.length ? programmes : [programme]
-  const canAll = !!isAdmin && mine.length > 1
-  const [scope, setScope] = useState(canAll ? 'all' : programme.id)
-  const all = canAll && scope === 'all'
-  const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
-  const [data, setData] = useState(null)
-  const [view, setView] = useState('overview')
-  const cur = (shown || mine[0] || programme).currency
-  useEffect(() => {
-    let alive = true
-    setData(null)
-    vipRpc('vip_analytics', { p_programme: all ? null : shown.id }).then((d) => { if (alive) setData(d) }).catch((e) => notice(e.message))
-    return () => { alive = false }
-  }, [shown?.id, all])
-
-  const series = useMemo(() => (data?.months || []).map((m) => ({
-    key: `${m.year}-${m.month}`, year: m.year, month: m.month,
-    label: monthLabel(m.year, m.month, { short: true }), views: Number(m.views) || 0, cost: Number(m.cost) || 0,
-    cpm: m.cpm == null ? null : Number(m.cpm), members: Number(m.members) || 0, videos: Number(m.videos) || 0,
-    base: Number(m.base) || 0, bonus: Number(m.bonus) || 0, fresh: Number(m.new_members) || 0, top: m.top || null,
-  })), [data])
-  const last = series[series.length - 1]
-  const prev = series[series.length - 2]
-  const prevLabel = prev ? monthLabel(prev.year, prev.month) : null
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="scrollbar-none -mx-1 max-w-full overflow-x-auto px-1">
-          <Segmented size="sm" value={view} onChange={setView} label={tr('Analytics view')} options={[
-            { value: 'overview', label: tr('Overview') },
-            { value: 'compare', label: tr('Month vs month') },
-            { value: 'creators', label: tr('Creators') },
-            { value: 'markets', label: tr('Markets') },
-          ]} />
-        </div>
-      </div>
-      {mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
-
-      {view === 'markets' ? <MarketStandings /> : data === null ? (
-        <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
-      ) : series.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('Nothing to chart yet. The first month appears once it has been drafted.')}</p>
-      ) : (
-        <div key={view} className="animate-tab-in">
-          {view === 'overview' && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard label={tr('Views, {m}', { m: monthLabel(last.year, last.month, { short: true }) })} value={formatViews(last.views)} delta={prev ? { pct: pctMove(last.views, prev.views), vs: prevLabel } : null} accent />
-                <StatCard label={tr('Paid, {m}', { m: monthLabel(last.year, last.month, { short: true }) })} value={money(last.cost, cur, { cents: false })} delta={prev ? { pct: pctMove(last.cost, prev.cost), vs: prevLabel, lowerIsBetter: true } : null} />
-                <StatCard label={tr('Cost per 1,000 views')} value={last.cpm != null ? perK(last.cpm, cur) : '-'} delta={prev && last.cpm != null && prev.cpm ? { pct: pctMove(last.cpm, prev.cpm), vs: prevLabel, lowerIsBetter: true } : null} />
-                <StatCard label={tr('Active VIPs')} value={nf(data.members)} hint={tr('{n} videos in {m}', { n: nf(last.videos), m: monthLabel(last.year, last.month, { short: true }) })} />
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <ChartCard title={tr('Views counted, month by month')} total={tr('{n} in all', { n: formatViews(series.reduce((a, m) => a + m.views, 0)) })}>
-                  <ComposedChart data={series} margin={{ top: 8, right: 6, left: -10, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={CHART.grid} />
-                    <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
-                    <YAxis tick={axisTick} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => formatViews(v)} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [nf(v), tr('Views')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
-                    <Bar dataKey="views" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
-                  </ComposedChart>
-                </ChartCard>
-                <ChartCard title={tr('What it cost, and the cost per 1,000 views')} total={tr('{a} in all', { a: money(series.reduce((a, m) => a + m.cost, 0), cur, { cents: false }) })}>
-                  <ComposedChart data={series} margin={{ top: 8, right: 6, left: -10, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={CHART.grid} />
-                    <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="l" tick={axisTick} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => money(v, cur, { cents: false })} />
-                    <YAxis yAxisId="r" orientation="right" tick={axisTick} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => Number(v).toFixed(2)} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [k === 'cost' ? money(v, cur) : perK(v, cur), k === 'cost' ? tr('Cost') : tr('Per 1,000 views')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
-                    <Bar yAxisId="l" dataKey="cost" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
-                    <Line yAxisId="r" type="monotone" dataKey="cpm" stroke={CHART.brand} strokeWidth={2.5} dot={{ r: 3.5, fill: '#fff', stroke: CHART.brand, strokeWidth: 2 }} activeDot={{ r: 5 }} animationDuration={800} connectNulls />
-                  </ComposedChart>
-                </ChartCard>
-              </div>
-              <ChartCard title={tr('VIPs and videos, month by month')}>
-                <ComposedChart data={series} margin={{ top: 8, right: 6, left: -10, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke={CHART.grid} />
-                  <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
-                  <YAxis tick={axisTick} axisLine={false} tickLine={false} width={40} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'videos' ? tr('Videos') : tr('VIPs')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
-                  <Bar dataKey="videos" fill={FILL.pale} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
-                  <Line type="monotone" dataKey="members" stroke={CHART.ink} strokeWidth={2} dot={{ r: 3 }} animationDuration={800} />
-                </ComposedChart>
-              </ChartCard>
-            </div>
-          )}
-
-          {view === 'compare' && <MonthCompare series={series} cur={cur} />}
-
-          {view === 'creators' && <CreatorsCost data={data} cur={cur} />}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ANY TWO MONTHS, SIDE BY SIDE (redrawn 4 Oct 2026). Ethan: "I would improve the UI of this month-versus-month interface and show more
-// details in it." Two month cards on top (what each cost and brought in, and who led), then every figure as a pair of bars you can
-// compare by eye, with how it moved. More figures than before: the views pay and the bonuses apart, new VIPs, cost per VIP.
-function MonthCompare({ series, cur }) {
-  const tr = useT()
-  const opts = series.map((m) => ({ value: m.key, label: monthLabel(m.year, m.month) })).reverse()
-  const [a, setA] = useState(series[series.length - 1]?.key)
-  const [b, setB] = useState(series[series.length - 2]?.key || series[series.length - 1]?.key)
-  const A = series.find((m) => m.key === a)
-  const B = series.find((m) => m.key === b)
-  if (!A || !B) return null
-  const per = (n, d) => (d ? n / d : 0)
-  const rows = [
-    { label: tr('Views counted'), a: A.views, b: B.views, f: nf },
-    { label: tr('Total paid'), a: A.cost, b: B.cost, f: (n) => money(n, cur, { cents: false }), low: true },
-    { label: tr('Views pay'), a: A.base, b: B.base, f: (n) => money(n, cur, { cents: false }), low: true },
-    { label: tr('Bonuses'), a: A.bonus, b: B.bonus, f: (n) => money(n, cur, { cents: false }), low: true },
-    { label: tr('Cost per 1,000 views'), a: A.cpm ?? 0, b: B.cpm ?? 0, f: (n) => perK(n, cur), low: true },
-    { label: tr('Active VIPs'), a: A.members, b: B.members, f: nf },
-    { label: tr('New VIPs'), a: A.fresh, b: B.fresh, f: nf },
-    { label: tr('Videos'), a: A.videos, b: B.videos, f: nf },
-    { label: tr('Views per VIP'), a: per(A.views, A.members), b: per(B.views, B.members), f: (n) => nf(Math.round(n)) },
-    { label: tr('Views per video'), a: per(A.views, A.videos), b: per(B.views, B.videos), f: (n) => nf(Math.round(n)) },
-    { label: tr('Cost per VIP'), a: per(A.cost, A.members), b: per(B.cost, B.members), f: (n) => money(n, cur, { cents: false }), low: true },
-  ]
-  const head = (M, first) => (
-    <div className={cx('rounded-card p-4 shadow-card', first ? 'brand-drift text-white' : 'border border-gray-100 bg-white')}>
-      <p className={cx('text-[11px] font-bold uppercase tracking-wide', first ? 'text-white/85' : 'text-gray-400')}>{monthLabel(M.year, M.month)}</p>
-      <p className={cx('mt-1 text-3xl font-bold tabular-nums', first ? 'text-white' : 'text-ink')}>{formatViews(M.views)}<span className={cx('ml-1.5 text-sm font-semibold', first ? 'text-white/80' : 'text-smoke')}>{tr('views')}</span></p>
-      <p className={cx('mt-0.5 text-sm', first ? 'text-white/90' : 'text-smoke')}>{tr('{a} paid', { a: money(M.cost, cur, { cents: false }) })}{M.cpm != null ? ` · ${perK(M.cpm, cur)}` : ''}</p>
-      {M.top && Number(M.top.views) > 0 && <p className={cx('mt-2 flex items-center gap-1.5 text-xs font-semibold', first ? 'text-white' : 'text-ink')}><Icon name="trophy" className={cx('h-3.5 w-3.5', first ? 'text-white' : 'text-brand')} />{tr('Led by {n}, {v} views', { n: M.top.name, v: formatViews(M.top.views) })}</p>}
-    </div>
-  )
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select variant="chip" value={a} onChange={setA} options={opts} ariaLabel={tr('Month')} search={false} className="w-44" />
-        <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('against')}</span>
-        <Select variant="chip" value={b} onChange={setB} options={opts} ariaLabel={tr('Month to compare with')} search={false} className="w-44" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">{head(A, true)}{head(B, false)}</div>
-      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-        <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-          <span>{tr('Figure')}</span>
-          <span className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand" />{monthLabel(A.year, A.month, { short: true })}</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-gray-300" />{monthLabel(B.year, B.month, { short: true })}</span>
-          </span>
-        </div>
-        <ul className="divide-y divide-gray-50">
-          {rows.map((r) => {
-            const pct = pctMove(r.a, r.b)
-            const top = Math.max(r.a, r.b, 1e-9)
-            const good = pct == null || pct === 0 ? null : (pct > 0) !== !!r.low
-            return (
-              <li key={r.label} className="px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-ink">{r.label}</span>
-                  {pct == null ? <span className="text-xs text-gray-300">-</span> : <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', good == null ? 'bg-cloud text-smoke' : good ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600')}>{pct > 0 ? '+' : ''}{pct}%</span>}
-                </div>
-                <div className="mt-2 space-y-1.5">
-                  {[[r.a, 'bg-gradient-to-r from-brand to-brand-light', 'text-ink font-bold'], [r.b, 'bg-gray-300', 'text-smoke']].map(([v, bar, text], i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className={cx('h-full rounded-full transition-[width] duration-700 ease-out', bar)} style={{ width: `${v > 0 ? Math.max(2, (v / top) * 100) : 0}%` }} /></div>
-                      <span className={cx('w-24 shrink-0 text-right text-sm tabular-nums', text)}>{r.f(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      </section>
-    </div>
-  )
-}
-
-// WHAT EACH CREATOR COSTS (4 Oct 2026). Ethan: "It should show their CPM here as well, their average CPM, coming out of everything: how
-// much we're giving them and how much it is actually costing us." Every VIP's views, what they were paid in all (views pay and
-// bonuses), and the cost per 1,000 views that works out to, against the average for everyone. Dearer than average is flagged.
-function CreatorsCost({ data, cur }) {
-  const tr = useT()
-  const rows = (data.top || []).map((t) => ({ ...t, v: Number(t.views) || 0, cost: Number(t.earned) || 0, bonus: Number(t.bonus) || 0 }))
-    .map((t) => ({ ...t, cpm: t.v > 0 ? (t.cost / t.v) * 1000 : null }))
-  const totals = data.totals || { views: 0, cost: 0, videos: 0 }
-  const avg = Number(totals.views) > 0 ? (Number(totals.cost) / Number(totals.views)) * 1000 : null
-  const priced = rows.filter((r) => r.cpm != null)
-  const cheapest = priced.length ? priced.reduce((m, r) => (r.cpm < m.cpm ? r : m)) : null
-  const lead = Math.max(1, rows[0]?.v || 0)
-  const [sort, setSort] = useState('views')
-  const list = [...rows].sort((a, b) => (sort === 'cost' ? b.cost - a.cost : sort === 'cpm' ? (b.cpm ?? -1) - (a.cpm ?? -1) : b.v - a.v))
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label={tr('Paid in all')} value={money(totals.cost, cur, { cents: false })} hint={tr('views pay and bonuses')} />
-        <Stat label={tr('Views in all')} value={formatViews(totals.views)} hint={tr('{n} videos', { n: nf(totals.videos) })} />
-        <Stat label={tr('Average cost per 1,000')} value={avg != null ? perK(avg, cur) : '-'} hint={tr('across every VIP')} />
-        <Stat label={tr('Best value')} value={cheapest ? perK(cheapest.cpm, cur) : '-'} hint={cheapest ? cheapest.name : ''} />
-      </div>
-      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-          <p className="text-[13.5px] font-bold text-ink">{tr('Creators, and what each one costs')}</p>
-          <Segmented size="sm" value={sort} onChange={setSort} label={tr('Sort by')} options={[
-            { value: 'views', label: tr('Views') }, { value: 'cost', label: tr('Cost') }, { value: 'cpm', label: tr('Cost per 1,000') },
-          ]} />
-        </div>
-        <div className="hidden grid-cols-[2rem_minmax(0,1fr)_4rem_5rem_5.5rem_6rem] gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400 sm:grid">
-          <span>#</span><span>{tr('Creator')}</span><span className="text-right">{tr('Videos')}</span><span className="text-right">{tr('Views')}</span><span className="text-right">{tr('Paid')}</span><span className="text-right">{tr('Per 1,000')}</span>
-        </div>
-        {list.length === 0 ? <p className="px-4 py-8 text-center text-sm text-smoke">{tr('Nobody has been paid yet.')}</p> : (
-          <ul className="divide-y divide-gray-50">
-            {list.map((t, i) => {
-              const dear = avg != null && t.cpm != null && t.cpm > avg * 1.25
-              return (
-                <li key={t.profile_id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_4rem_5rem_5.5rem_6rem]">
-                  <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
-                  <Link to={`/vip?mode=as&who=${t.profile_id}`} className="group flex min-w-0 items-center gap-2.5">
-                    <Avatar src={t.photo} name={t.name} size="sm" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand">{t.name}</span>
-                      <span className="mt-1 block h-1 max-w-[10rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light" style={{ width: `${Math.max(3, Math.round((t.v / lead) * 100))}%` }} /></span>
-                    </span>
-                  </Link>
-                  <span className="hidden text-right text-xs tabular-nums text-smoke sm:block">{nf(t.videos)}</span>
-                  <span className="hidden text-right text-sm font-bold tabular-nums text-ink sm:block">{formatViews(t.v)}</span>
-                  <span className="hidden text-right text-sm tabular-nums text-smoke sm:block">{money(t.cost, cur, { cents: false })}{t.bonus > 0 ? <span className="block text-[10px] text-gray-400">{tr('{a} bonus', { a: money(t.bonus, cur, { cents: false }) })}</span> : null}</span>
-                  <span className="text-right">
-                    <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums', t.cpm == null ? 'text-gray-300' : dear ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{t.cpm == null ? '-' : perK(t.cpm, cur)}</span>
-                    <span className="mt-0.5 block text-[10px] text-smoke sm:hidden">{formatViews(t.v)} · {money(t.cost, cur, { cents: false })}</span>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-      <p className="text-xs text-smoke">{tr('Per 1,000 is everything paid to a creator (views pay and bonuses) divided by their views. A tinted figure costs over a quarter more than the average.')}</p>
-    </div>
-  )
-}
-
-function ChartCard({ title, total, children }) {
-  return (
-    <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
-      <div className="mb-3 flex items-baseline justify-between gap-3"><p className="text-[13.5px] font-bold text-ink">{title}</p>{total && <p className="text-xs font-semibold text-smoke">{total}</p>}</div>
-      <div className="h-64"><ResponsiveContainer>{children}</ResponsiveContainer></div>
     </div>
   )
 }

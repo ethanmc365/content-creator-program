@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Skeleton } from '../ui'
 import { CHART, axisTick, tooltipStyle } from '../charts/chartTheme'
@@ -11,17 +11,27 @@ import { useT } from '../../lib/i18n'
 // hoisted by the bundler into the entry chunk - which put the whole charting library on every creator's first load
 // (the bundle-graph test caught it). adminC now loads this on demand instead, so it stays out of the entry.
 
-const RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days'], ['all', 'All time']]
+const RANGES = [[3, '3 days'], [7, '7 days'], [30, '30 days'], [90, '90 days'], ['all', 'All time']]
 
 /** Views gained per day, a platform split and the best videos. `mine` swaps the team's numbers for the creator's own. */
-export default function TrendCard({ programmeId, mine = false, title, since = null }) {
+export default function TrendCard({ programmeId, mine = false, title, since = null, refreshKey = null }) {
   const tr = useT()
   const [range, setRange] = useState(30)
   // "All time" is every day since the creator joined (or the programme's first year for the team), never a fixed number.
   const [now] = useState(() => Date.now())
   const allDays = since ? Math.max(30, Math.ceil((now - new Date(since).getTime()) / 864e5) + 1) : 365
   const days = range === 'all' ? Math.min(730, allDays) : range
-  const { data: fresh, missing } = useOptionalRpc(mine ? 'vip_my_trends' : 'vip_trends', mine ? { p_days: days } : { p_programme: programmeId, p_days: days }, `${programmeId}:${days}`)
+  const { data: fresh, missing, reload } = useOptionalRpc(mine ? 'vip_my_trends' : 'vip_trends', mine ? { p_days: days } : { p_programme: programmeId, p_days: days }, `${programmeId}:${days}`)
+  // IT KEEPS ITSELF CURRENT (6 Oct 2026). Ethan: the views-gained-each-day graph "is not updating correctly ... ensure it always updates
+  // immediately and accurately." The chart asked once and then sat there. Now it asks again when the page's own numbers move
+  // (`refreshKey`: a video was read or added), every minute, and the moment the tab is looked at again.
+  useEffect(() => { if (refreshKey != null) reload() }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const id = setInterval(reload, 60000)
+    const vis = () => { if (document.visibilityState === 'visible') reload() }
+    document.addEventListener('visibilitychange', vis)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', vis) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // NO JUMP BETWEEN RANGES (1 Oct 2026). Ethan: "clicking between them causes lag and the character changes size."
   // The chart was swapped for a grey block while the next range loaded, and back. Now the last chart stays, a little
   // faded, until the new one is here, so nothing on the card changes size.

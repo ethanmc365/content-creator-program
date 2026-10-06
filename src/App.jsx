@@ -103,6 +103,7 @@ const ChallengeRecap = lazyRoute(chunk.ChallengeRecap)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
 const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
+const Updates = lazyRoute(chunk.Updates)
 const Portfolio = lazyRoute(chunk.Portfolio)
 const PublicPortfolio = lazyRoute(chunk.PublicPortfolio)
 const VerifyCertificate = lazyRoute(chunk.VerifyCertificate)
@@ -335,6 +336,7 @@ export default function App() {
               has in their pocket. */}
           <Route path="/calendar" element={<Navigate to="/events" replace />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/updates" element={<Updates />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* ---------- Global network (behind the preview flag) ---------- */}

@@ -30,7 +30,7 @@ export default function VipScopeSwitch({ programmes, value, onChange, allowAll =
             role="radio"
             aria-checked={on}
             onClick={() => !on && onChange(o.value)}
-            className={cx('relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-200', on ? 'border-transparent text-white' : 'border-gray-200 bg-white text-ink/80 hoverable:hover:border-brand/40 hoverable:hover:text-ink')}
+            className={cx('relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-200', on ? 'z-10 border-transparent text-white' : 'border-gray-200 bg-white text-ink/80 hoverable:hover:border-brand/40 hoverable:hover:text-ink')}
           >
             {on && <motion.span layoutId="vip-scope-pill" transition={SPRING} className="absolute inset-0 rounded-full bg-gradient-to-r from-brand to-brand-light shadow-card" />}
             <span aria-hidden className="relative text-[14px] leading-none">{o.icon}</span>

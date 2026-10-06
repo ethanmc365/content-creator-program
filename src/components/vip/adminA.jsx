@@ -10,7 +10,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { curSym, money, monthLabel, nf, perK, rate, vipRpc } from '../../lib/vip'
 import { TargetBar } from './parts'
-import { ActivityFeed, AttentionCard, MemberStoryModal, SuggestionsCard, TrendCard } from './adminC'
+import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './adminC'
 import { VipLinkCard } from './adminD'
 import { useT } from '../../lib/i18n'
 
@@ -102,7 +102,7 @@ export function VipOverviewTab({ programme }) {
         </div>
       ) : null}
 
-      <TrendCard programmeId={programme.id} />
+      <TrendCard programmeId={programme.id} refreshKey={Number(totals.views) || 0} />
 
       <div className="grid gap-5 lg:grid-cols-2 [&:empty]:hidden">
         <AttentionCard programme={programme} />
@@ -559,7 +559,6 @@ export function VipMembersTab({ programme }) {
   const [data, setData] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [story, setStory] = useState(null)
   const [query, setQuery] = useState('')
   const [show, setShow] = useState('active')
   const cur = programme.currency
@@ -577,7 +576,7 @@ export function VipMembersTab({ programme }) {
   useEffect(() => { setData(null); load() }, [load])
 
   const [moving, setMoving] = useState(null)
-  const moveBack = (m) => { setStory(null); setMoving(m) }
+  const moveBack = (m) => setMoving(m)
 
   const everyone = data?.members || []
   const counts = { active: everyone.filter((m) => m.status === 'active').length, paused: everyone.filter((m) => m.status === 'paused').length, left: everyone.filter((m) => m.status === 'left').length }
@@ -610,7 +609,7 @@ export function VipMembersTab({ programme }) {
             {members.map((m, i) => (
               <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
                 <div className="flex items-center gap-3.5">
-                  <Link to={`/profile/${m.profile_id}`} className="shrink-0"><Avatar src={m.photo} name={m.name} size="md" /></Link>
+                  <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
@@ -630,7 +629,6 @@ export function VipMembersTab({ programme }) {
                     {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setStory(m)} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"><Icon name="clock" className="h-3.5 w-3.5" />{tr('Story')}</button>
                     <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
                   </div>
                 </div>
@@ -642,7 +640,6 @@ export function VipMembersTab({ programme }) {
 
       <AddVipModal open={adding} onClose={() => setAdding(false)} programme={programme} onAdded={load} />
       {editing && <EditMemberModal m={{ ...editing, ...(reviews[editing.profile_id] || {}), notes: reviews[editing.profile_id]?.notes ?? editing.notes }} programme={programme} onClose={() => setEditing(null)} onSaved={load} onMoveBack={() => { const m = editing; setEditing(null); moveBack(m) }} />}
-      {story && <MemberStoryModal m={story} programme={programme} onClose={() => setStory(null)} onEdit={() => { setEditing(story); setStory(null) }} onMoveBack={() => moveBack(story)} />}
       {moving && <MoveBackModal person={{ id: moving.profile_id, name: moving.name }} programme={programme} onClose={() => setMoving(null)} onDone={load} />}
     </div>
   )

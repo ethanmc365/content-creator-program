@@ -378,7 +378,18 @@ export function VipSheetTab({ programme }) {
   const { data, error, reload } = useRpc('vip_cpm_sheet', { p_programme: programme.id, p_months: months })
   const [show, setShow] = useState('both')
   const [importing, setImporting] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('views')
   const cols = useMemo(() => [...(data?.months || [])].reverse(), [data])
+  // THE SHEET, REDRAWN (6 Oct 2026). Ethan: "for the CPM sheet improve the UI and ensure it shows creator profile etc." Each creator is
+  // their face and name (a link to their profile), their rate and status; every month's cell is shaded by how big it is next to the
+  // biggest, so the busy months read at a glance; and the cost per 1,000 each creator has actually come to sits beside their total.
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = (data?.rows || []).filter((r) => !q || r.name.toLowerCase().includes(q))
+    return list.sort((a, b) => (sort === 'earned' ? b.earned - a.earned : sort === 'name' ? a.name.localeCompare(b.name) : b.views - a.views))
+  }, [data, query, sort])
+  const peak = useMemo(() => Math.max(1, ...(data?.rows || []).flatMap((r) => Object.values(r.cells || {}).map((c) => Number(c?.views) || 0))), [data])
 
   if (data === undefined) return <Skeleton className="h-72 w-full rounded-card" />
   if (!data) return <Empty icon="chart" title={tr('Could not load the sheet')} hint={error} />
@@ -404,10 +415,16 @@ export function VipSheetTab({ programme }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented size="sm" value={show} onChange={setShow} label={tr('Show')} options={[
-          { value: 'both', label: tr('Views and money') }, { value: 'views', label: tr('Views') }, { value: 'earned', label: tr('Money') },
-        ]} />
         <div className="flex flex-wrap items-center gap-2">
+          <Segmented size="sm" value={show} onChange={setShow} label={tr('Show')} options={[
+            { value: 'both', label: tr('Views and money') }, { value: 'views', label: tr('Views') }, { value: 'earned', label: tr('Money') },
+          ]} />
+          <Segmented size="sm" value={sort} onChange={setSort} label={tr('Sort by')} options={[
+            { value: 'views', label: tr('Most views') }, { value: 'earned', label: tr('Most paid') }, { value: 'name', label: tr('A to Z') },
+          ]} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {data.rows.length > 5 && <input className="input !w-44 !py-1.5 text-xs" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr('Search creators')} aria-label={tr('Search creators')} />}
           <Select variant="chip" value={months} onChange={setMonths} search={false} ariaLabel={tr('Months shown')} className="w-36" options={[6, 12, 24, 36].map((n) => ({ value: n, label: tr('Last {n} months', { n }) }))} />
           {programme.can_manage && <button type="button" onClick={() => setImporting(true)} className="btn-secondary !py-1.5 text-xs"><Icon name="plus" className="h-3.5 w-3.5" />{tr('Add past months')}</button>}
           <button type="button" onClick={exportCsv} disabled={!data.rows.length} className="btn-secondary !py-1.5 text-xs"><Icon name="download" className="h-3.5 w-3.5" />CSV</button>
@@ -429,25 +446,35 @@ export function VipSheetTab({ programme }) {
                     </th>
                   ))}
                   <th className="whitespace-nowrap border-b border-l border-gray-100 bg-cloud/60 px-4 py-2.5 text-right">{tr('Total')}</th>
+                  <th className="whitespace-nowrap border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-right">{tr('Per 1,000')}</th>
                   <th className="whitespace-nowrap border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-right">{tr('Balance')}</th>
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((r, i) => (
+                {rows.map((r, i) => (
                   <tr key={`${r.profile_id || r.name}`} className="group animate-rise" style={{ animationDelay: `${Math.min(i, 15) * 25}ms` }}>
                     <td className="sticky left-0 z-10 border-b border-gray-50 bg-white px-4 py-3 group-hover:bg-cloud/60">
-                      <span className="flex items-center gap-2.5">
-                        <Avatar src={r.photo_url || r.photo} name={r.name} size="xs" />
-                        <span className="min-w-0">
-                          <span className="block max-w-[10rem] truncate font-semibold text-ink">{r.name}</span>
-                          <span className="block text-[11px] text-smoke">{tr('{r} per 1,000', { r: perK(r.cpm, cur) })}{r.status && r.status !== 'active' ? ` · ${tr(r.status)}` : ''}{!r.profile_id ? ` · ${tr('typed in')}` : ''}</span>
-                        </span>
-                      </span>
+                      {(() => {
+                        const face = (
+                          <span className="flex items-center gap-3">
+                            <Avatar src={r.photo_url || r.photo} name={r.name} size="sm" className="shrink-0 transition-transform duration-200 group-hover/who:scale-105" />
+                            <span className="min-w-0">
+                              <span className="block max-w-[11rem] truncate text-[13.5px] font-bold text-ink group-hover/who:text-brand">{r.name}</span>
+                              <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10.5px] font-semibold">
+                                <span className="rounded-full bg-cloud px-1.5 py-0.5 text-smoke">{perK(r.cpm, cur)}</span>
+                                {r.status && r.status !== 'active' && <span className="rounded-full bg-gray-100 px-1.5 py-0.5 uppercase text-smoke">{tr(r.status)}</span>}
+                                {!r.profile_id && <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-amber-700">{tr('typed in')}</span>}
+                              </span>
+                            </span>
+                          </span>
+                        )
+                        return r.profile_id ? <Link to={`/profile/${r.profile_id}`} className="group/who block" aria-label={tr('Open {n}\'s profile', { n: r.name })}>{face}</Link> : face
+                      })()}
                     </td>
                     {cols.map((m) => {
                       const c = r.cells[key(m)]
                       return (
-                        <td key={key(m)} className={cx('whitespace-nowrap border-b border-gray-50 px-3 py-3 text-right tabular-nums transition-colors group-hover:bg-cloud/60', m.live && 'bg-brand-tint/25', c?.hist && 'italic')}>
+                        <td key={key(m)} style={c && Number(c.views) > 0 ? { backgroundColor: `rgba(217, 68, 7, ${(0.04 + 0.2 * Math.sqrt(Number(c.views) / peak)).toFixed(3)})` } : undefined} className={cx('whitespace-nowrap border-b border-gray-50 px-3 py-3 text-right tabular-nums transition-colors', !c && 'group-hover:bg-cloud/60', m.live && !c && 'bg-brand-tint/25', c?.hist && 'italic')}>
                           {!c ? <span className="text-gray-300">-</span> : (
                             <>
                               {show !== 'earned' && <span className="block font-semibold text-ink">{nf(c.views)}</span>}
@@ -461,6 +488,7 @@ export function VipSheetTab({ programme }) {
                       {show !== 'earned' && <span className="block font-bold text-ink">{nf(r.views)}</span>}
                       {show !== 'views' && <span className={cx('block', show === 'earned' ? 'font-bold text-ink' : 'text-[11px] font-semibold text-brand')}>{money(r.earned, cur)}</span>}
                     </td>
+                    <td className="whitespace-nowrap border-b border-gray-50 bg-cloud/40 px-4 py-2.5 text-right tabular-nums text-smoke">{r.views > 0 ? perK((r.earned / r.views) * 1000, cur) : '-'}</td>
                     <td className="whitespace-nowrap border-b border-gray-50 bg-cloud/40 px-4 py-2.5 text-right font-semibold tabular-nums text-ink">{r.balance == null ? '-' : money(r.balance, cur)}</td>
                   </tr>
                 ))}
@@ -478,6 +506,7 @@ export function VipSheetTab({ programme }) {
                     {show !== 'earned' && <span className="block text-ink">{nf(data.total_views)}</span>}
                     {show !== 'views' && <span className={cx('block', show === 'earned' ? 'text-ink' : 'text-[11px] text-brand')}>{money(data.total_earned, cur)}</span>}
                   </td>
+                  <td className="whitespace-nowrap bg-cloud px-4 py-3 text-right tabular-nums text-smoke">{data.total_views ? perK((data.total_earned / data.total_views) * 1000, cur) : '-'}</td>
                   <td className="bg-cloud" />
                 </tr>
               </tfoot>

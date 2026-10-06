@@ -30,6 +30,7 @@ import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import TranslateText from '../components/TranslateText'
 import { readPageCache, writePageCache } from '../lib/pageCache'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
@@ -341,9 +342,16 @@ export default function Profile() {
   // not be the faintest thing on it. Named here so the two running orders can
   // place it: beside the header on a desktop, under About on a phone.
   const quote = creator.favourite_quote ? (
-    <p className="mt-3 border-l-[3px] border-brand pl-3.5 text-left text-[17px] italic leading-relaxed text-ink/80">
-      &ldquo;{creator.favourite_quote}&rdquo;
-    </p>
+    <div className="mt-3">
+      <TranslateText
+        text={creator.favourite_quote}
+        render={(shown) => (
+          <p className="border-l-[3px] border-brand pl-3.5 text-left text-[17px] italic leading-relaxed text-ink/80">
+            &ldquo;{shown}&rdquo;
+          </p>
+        )}
+      />
+    </div>
   ) : null
 
   // THE YEAR IN REVIEW, ON ITS WAY (1 Oct 2026). Every creator's profile, above everything else in
@@ -363,7 +371,7 @@ export default function Profile() {
         {creator.about && (
           <section className="card">
             <h2 className="mb-3 text-lg font-semibold">{tr('About {name}', { name: creator.name.split(' ')[0] })}</h2>
-            <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
+            <TranslateText text={creator.about} render={(shown) => <p className="whitespace-pre-line leading-relaxed text-smoke">{shown}</p>} />
           </section>
         )}
         </>
@@ -901,7 +909,7 @@ export default function Profile() {
               Keeping either here as well would be the same sentence twice on
               one screen, which is exactly why the clock was taken OUT of this
               header when the rail card was built. */}
-          {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
+          {creator.bio && <TranslateText text={creator.bio} align={isMobile ? 'center' : 'start'} render={(shown) => <p className="mt-2 text-lg text-smoke">{shown}</p>} />}
           {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP.
               On a phone the header is already the avatar, the name, the role,
               the age and the town stacked and centred, and a three-line pull
@@ -1248,9 +1256,15 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
 
         {hasCaption ? (
           <>
-            <p className={cx('mt-2 whitespace-pre-line text-sm leading-5 text-ink', !expanded && 'line-clamp-2 h-10')}>
-              {s.caption}
-            </p>
+            <TranslateText
+              text={s.caption}
+              className="!mt-1"
+              render={(shown) => (
+                <p className={cx('mt-2 whitespace-pre-line text-sm leading-5 text-ink', !expanded && 'line-clamp-2 h-10')}>
+                  {shown}
+                </p>
+              )}
+            />
             {/* The control only appears when there is genuinely something
                 hidden. Measuring the text is the honest test, but a clamp of
                 two lines at this size is about 110 characters and measuring on

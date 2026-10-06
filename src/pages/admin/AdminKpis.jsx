@@ -191,7 +191,20 @@ export default function AdminKpis() {
     const key = `${scope}:${basis}:${year}:${quarter}:${month ?? ''}`
     const hit = cacheRef.current.get(key)
     if (hit) apply(hit, key); else setFetching(true)
-    const res = await fetchSet(scope, basis, year, quarter, month)
+    // THE PAGE IS DIMMED AND UNCLICKABLE WHILE THIS RUNS (7 Oct 2026 fix). Ethan: "everything became greyed out and I was not able to click
+    // on any of the KPIs or make any changes." `fetching` was only ever cleared on the happy path, so a request that FAILED (a dropped
+    // connection, a phone waking up, a realtime refresh mid-flight) or never answered left the whole grid grey and dead until a reload.
+    // Now it is always cleared by whoever owns the latest load, and a request that has not answered in 15 seconds counts as failed.
+    let res
+    try {
+      res = await Promise.race([
+        fetchSet(scope, basis, year, quarter, month),
+        new Promise((_, reject) => { setTimeout(() => reject(new Error(tr('The KPIs took too long to load. Check your connection and try again.'))), 15000) }),
+      ])
+    } catch (e) {
+      if (mine === loadSeq.current) { setFetching(false); setErr(e?.message || tr('The KPIs could not be loaded.')) }
+      return
+    }
     if (mine !== loadSeq.current) return
     if (!res.t.error) cacheRef.current.set(key, res)
     setFetching(false)
@@ -212,8 +225,10 @@ export default function AdminKpis() {
         if (!r.t.error) cacheRef.current.set(k, r)
       })
     })
-  }, [scope, isTotal, basis, year, quarter, month, byMonth, fetchSet, apply])
+  }, [scope, isTotal, basis, year, quarter, month, byMonth, fetchSet, apply, tr])
   useEffect(() => { load() }, [load])
+  // Leaving a market (or the page) never leaves the grid dimmed behind it.
+  useEffect(() => { if (isTotal) setFetching(false) }, [isTotal])
 
   // EVERYTHING ON THE PAGE MOVES TOGETHER (1 Oct 2026). Ethan: Germany showed "0 out of 500k" with
   // no KPI set, and the UK "showing up once, then deleted. Everything should update." The per-scope
@@ -466,7 +481,7 @@ export default function AdminKpis() {
         </div>
       ) : (
         <>
-          <div key={shownKey} className={cx('transition-opacity duration-200', fetching && 'pointer-events-none opacity-60')}>
+          <div key={shownKey} className={cx('transition-opacity duration-200', fetching && 'opacity-60')}>
             {/* ---------- the period at a glance ---------- */}
             {merged.length > 0 && (
               <div className="brand-drift mb-6 overflow-hidden rounded-card px-5 py-4 text-white shadow-card animate-fade-up sm:px-6 sm:py-5">

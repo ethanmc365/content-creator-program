@@ -278,6 +278,7 @@ export default function AppLayout() {
   const roomsUnread = unreadRooms.size
   const [connReqs, setConnReqs] = useState(0)
   const [newResources, setNewResources] = useState(false)
+  const [newUpdates, setNewUpdates] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [exitError, setExitError] = useState('')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -441,6 +442,25 @@ export default function AppLayout() {
       })
     return () => { alive = false }
   }, [user, profile])
+
+  // "What's new" dot: the newest published update is later than the one this browser last saw on the page.
+  useEffect(() => {
+    if (!user) return undefined
+    let alive = true
+    const check = () => {
+      supabase.from('app_updates').select('id, published_on').eq('published', true).order('published_on', { ascending: false }).order('created_at', { ascending: false }).limit(1)
+        .then(({ data }) => {
+          if (!alive || !data?.[0]) return
+          let seen = ''
+          try { seen = localStorage.getItem('tryp_updates_seen_v1') || '' } catch { /* private mode */ }
+          // A browser that has never opened the page is not shown a dot for the whole back catalogue.
+          setNewUpdates(!!seen && `${data[0].published_on}|${data[0].id}` > seen)
+        })
+    }
+    check()
+    window.addEventListener('tryp:updates-seen', check)
+    return () => { alive = false; window.removeEventListener('tryp:updates-seen', check) }
+  }, [user])
 
   // READING THE THING CLEARS ITS NOTIFICATION.
   //
@@ -760,7 +780,7 @@ export default function AppLayout() {
                   missing attribute rather than a new one. */}
               <button onClick={() => setMenuOpen((o) => !o)} aria-label={tr("Account menu")} aria-haspopup="menu" aria-expanded={menuOpen} data-tour="avatar-menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
-                {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
+                {(connReqs > 0 || newResources || newUpdates) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
               {menuOpen && (
                 <div data-ptr-ignore data-tour-keepout className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
@@ -845,6 +865,10 @@ export default function AppLayout() {
                       case anyone's struggling and doesn't want to ask in the
                       chat." Get help leads, because somebody stuck is in more
                       of a hurry than somebody with an idea. */}
+                  <Link to="/updates" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                    {tr("What's new")}
+                    {newUpdates && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />}
+                  </Link>
                   <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Get help")}</Link>
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />

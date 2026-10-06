@@ -86,7 +86,7 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
   const startsIn = daysUntil(period)
 
   return (
-    <div className={cx('space-y-6 transition-opacity duration-200', stale && 'pointer-events-none opacity-60')}>
+    <div className={cx('space-y-6 transition-opacity duration-200', stale && 'opacity-60')}>
       {/* ---------- 1. the headline ---------- */}
       <div className="brand-drift animate-fade-up overflow-hidden rounded-card px-5 py-5 text-white shadow-card sm:px-6">
         {allRows.length === 0 ? (

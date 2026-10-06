@@ -56,8 +56,11 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
   const choices = useMemo(() => {
     const mine = programmes.filter((p) => p.can_manage || p.id === programme.id)
     return [
-      ...mine.map((p) => ({ value: p.id, icon: programmeIcon(p), label: p.name, hint: isWorldwide(p) ? tr('Worldwide VIPs') : undefined })),
-      ...(isOwner && programmes.length > 1 ? [{ value: '__all', icon: '⭐', label: tr('Every VIP market'), hint: tr('All VIPs') }] : []),
+      ...mine.map((p) => (isWorldwide(p)
+        ? { value: p.id, icon: programmeIcon(p), label: tr('{n} only', { n: p.name }), hint: tr('Not in another VIP market') }
+        : { value: p.id, icon: programmeIcon(p), label: p.name })),
+      // The owner, and whoever leads VIP Worldwide, can reach every VIP creator at once.
+      ...((isOwner || programmes.some((p) => p.can_manage && isWorldwide(p))) && programmes.length > 1 ? [{ value: '__all', icon: '⭐', label: tr('Every VIP creator'), hint: tr('All VIP markets') }] : []),
     ]
   }, [programmes, programme.id, isOwner, tr])
   const everywhere = audience === '__all'
@@ -77,7 +80,7 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
         p_programme: everywhere ? programme.id : audience, p_title: title.trim() || null, p_body: body, p_pinned: true,
         p_days: Number(days) || null, p_everywhere: everywhere,
       })
-      toastSuccess(everywhere ? tr('Posted to every VIP market.') : tr('Posted. Every VIP in {p} has been told.', { p: target.name }))
+      toastSuccess(everywhere ? tr('Posted to every VIP creator.') : tr('Posted. Every VIP in {p} has been told.', { p: target.name }))
       setTitle(''); setBody('')
       await load()
     } catch (e) { notice(e.message) } finally { setBusy(false) }

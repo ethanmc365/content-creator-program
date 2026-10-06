@@ -479,7 +479,7 @@ export default function Rooms() {
                       // Now the label flips at once and ONE shared gradient slides under it (Segmented's layoutId trick).
                       className={cx(
                         'relative flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-transform duration-150 active:scale-95',
-                        on ? 'border-transparent text-white' : 'border-gray-200 bg-white text-ink/80',
+                        on ? 'z-10 border-transparent text-white' : 'border-gray-200 bg-white text-ink/80',
                       )}
                     >
                       {on && <motion.span layoutId="rooms-chip" transition={SPRING} className="absolute -inset-px rounded-full bg-gradient-to-r from-brand to-brand-light shadow-card" />}

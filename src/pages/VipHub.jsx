@@ -8,7 +8,7 @@ import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
 import { CountUp } from '../components/network/Motion'
 import {
-  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoRow,
+  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoCard,
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
@@ -156,7 +156,8 @@ export default function VipHub() {
     const sample = !!overview?.sample
     const [bd, rl, cm, pr, me] = await Promise.all([
       (isStaff || sample ? vipRpc('vip_staff_board', { p_programme: programmeId }) : vipRpcAs(previewWho, 'vip_board')).catch(() => []),
-      supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at'),
+      // What runs in this market, plus whatever is for EVERY VIP creator (set on VIP Worldwide).
+      supabase.from('vip_bonus_rules').select('*').or(`programme_id.eq.${programmeId},audience.eq.all`).eq('active', true).order('created_at'),
       supabase.from('communities').select('country_codes').eq('id', communityId).maybeSingle(),
       supabase.from('vip_programmes').select('tagline').eq('id', programmeId).maybeSingle(),
       isStaff || sample ? none : supabase.from('vip_members').select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
@@ -208,6 +209,11 @@ export default function VipHub() {
   const cur = programme.currency
   const left = daysLeft(month.ends_at)
   const paused = member.status !== 'active'
+  // EVERY VIDEO EVER, in cards: the first rows sit beside the section column (three across); once the column has ended the rest take
+  // the whole width (four across).
+  const allVideos = (overview.videos || []).filter((v) => v.status !== 'removed')
+  const videosBeside = allVideos.slice(0, 6)
+  const videosBelow = allVideos.slice(6)
 
   const programmes = staffOv?.programmes || overview.programmes || []
   return (
@@ -312,9 +318,16 @@ export default function VipHub() {
         {tab === 'videos' && (
           <div className="vip-stage space-y-5">
             <VipSubmit disabled={paused || previewing} month={month} onAdded={refresh} />
-            {(overview.videos || []).length === 0
+            {allVideos.length === 0
               ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No videos yet. Paste a link above and it starts counting.')}</p>
-              : <ul className="space-y-3">{overview.videos.map((v, i) => <VipVideoRow key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} />)}</ul>}
+              : (
+                <>
+                  <h2 className="flex items-baseline gap-2 text-[15px] font-bold text-ink">{tr('Every video you have added')}<span className="text-xs font-semibold text-smoke">{allVideos.length}</span></h2>
+                  <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+                    {videosBeside.map((v, i) => <VipVideoCard key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} />)}
+                  </ul>
+                </>
+              )}
           </div>
         )}
 
@@ -371,10 +384,15 @@ export default function VipHub() {
       {/* Desktop: the sections, in a column that stays in view. */}
       {/* NO QUICK LINKS CARD (3 Oct 2026). Ethan: the links to the VIP rooms "are unnecessary. You can remove the quick
           link card entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
-      <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
+      <aside className={cx('hidden space-y-4 lg:block', tab !== 'videos' && 'lg:sticky lg:top-24')}>
         <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} />
         {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
+      {tab === 'videos' && videosBelow.length > 0 && (
+        <ul className="mt-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:col-span-2 lg:grid-cols-4">
+          {videosBelow.map((v, i) => <VipVideoCard key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} />)}
+        </ul>
+      )}
       </div>
 
       </>)}

@@ -101,7 +101,7 @@ export function VipChipNav({ value, onChange, hidden, links }) {
             ref={(el) => { if (el && on) el.scrollIntoView?.({ block: 'nearest', inline: 'center' }) }}
             className={cx(
               'relative flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-[13px] font-semibold transition-colors duration-200',
-              on ? 'border-transparent text-white' : 'border-gray-100 bg-white text-ink/80 shadow-card',
+              on ? 'z-10 border-transparent text-white' : 'border-gray-100 bg-white text-ink/80 shadow-card',
             )}
           >
             {on && <motion.span layoutId="vip-chip-nav" transition={SPRING} className="absolute inset-0 rounded-2xl bg-gradient-to-r from-brand to-brand-light shadow-card" />}

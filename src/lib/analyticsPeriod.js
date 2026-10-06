@@ -22,6 +22,7 @@ export const PERIODS = [
   { key: 'all', label: 'All time' },
   { key: 'today', label: 'Today' },
   { key: 'this_week', label: 'This week' },
+  { key: 'last_3', label: 'Last 3 days' },
   { key: 'last_7', label: 'Last 7 days' },
   { key: 'last_week', label: 'Last week' },
   { key: 'this_month', label: 'This month' },
@@ -64,10 +65,11 @@ export function periodRange(key, now, custom = null) {
       const s = subWeeks(e, 1)
       return mk(s, e, { start: subWeeks(s, 1), end: s }, 'Last week', 'the week before')
     }
+    case 'last_3':
     case 'last_7':
     case 'last_30':
     case 'last_90': {
-      const n = { last_7: 7, last_30: 30, last_90: 90 }[key]
+      const n = { last_3: 3, last_7: 7, last_30: 30, last_90: 90 }[key]
       const e = addDays(today, 1)
       const s = subDays(e, n)
       return mk(s, e, { start: subDays(s, n), end: s }, `Last ${n} days`, `the ${n} days before`)

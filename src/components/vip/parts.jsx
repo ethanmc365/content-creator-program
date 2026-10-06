@@ -161,13 +161,10 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
 
   return (
     <li className={cx('group flex gap-3.5 rounded-card border bg-white p-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-3.5', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
-      {/* THE VIDEO'S OWN COVER (3 Oct 2026), framed like a phone screen, with the platform's mark on it and a play button
-          on hover - the same frame the challenge boards use. */}
+      {/* THE VIDEO'S OWN COVER (3 Oct 2026), framed like a phone screen, with the platform's mark on it. On hover it only grows a
+          little and stays clickable: no play button (6 Oct 2026, Ethan). */}
       <a href={video.url} target="_blank" rel="noopener noreferrer" className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-xl shadow-card sm:w-20" aria-label={tr('Open the video')}>
         <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full transition-transform duration-500 group-hover:scale-105" />
-        <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-ink/0 transition-colors duration-300 group-hover:bg-ink/25">
-          <span className="flex h-8 w-8 scale-75 items-center justify-center rounded-full bg-white/90 text-brand opacity-0 shadow transition-all duration-300 group-hover:scale-100 group-hover:opacity-100"><Icon name="playCircle" className="h-5 w-5" /></span>
-        </span>
       </a>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -187,6 +184,62 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
       {!preview && <button type="button" onClick={remove} disabled={busy} aria-label={tr('Remove')} title={tr('Remove')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
         <Icon name="trash" className="h-4 w-4" />
       </button>}
+    </li>
+  )
+}
+
+/**
+ * A VIDEO AS A SMALL CARD (6 Oct 2026). Ethan: "for My videos it should show them but it should be smaller cards and a better interface so 3
+ * videos fit per line ... hovering over the videos shouldn't show a play button, just magnify slightly and be clickable." The cover leads,
+ * the numbers sit under it, and the whole card opens the video.
+ */
+export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0 }) {
+  const tr = useT()
+  const [busy, setBusy] = useState(false)
+  const preview = !!useVipPreview()
+  const out = video.status === 'disqualified'
+  const reading = !video.synced_at && !video.error && !out
+  const earned = (Number(video.views_counted) / 1000) * Number(cpm || 0)
+
+  async function remove() {
+    if (!await confirm(tr('Remove this video from your VIP page? Views already counted in a closed month stay counted.'), { confirmLabel: tr('Remove'), danger: true })) return
+    setBusy(true)
+    try { await vipRpc('vip_remove_video', { p_video: video.id }); onRemoved?.() }
+    catch (e) { notice(vipError(e.message, tr)) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <li className={cx('group relative flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:z-10 hoverable:hover:scale-[1.04] hoverable:hover:shadow-lift', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
+      <a href={video.url} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden" aria-label={tr('Open the video')}>
+        <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full rounded-none" />
+        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/40 to-transparent px-2.5 pb-2 pt-9 text-white">
+          <span className="block text-lg font-bold tabular-nums leading-none">{formatViews(video.views_total)}</span>
+          <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">{tr('views in all')}</span>
+        </span>
+        <span className="absolute left-2 top-2 flex flex-wrap gap-1">
+          {out && <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Not counted')}</span>}
+          {reading && <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke shadow-sm"><Spinner className="h-2.5 w-2.5" />{tr('Reading')}</span>}
+          {video.error && !out && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">{tr('Could not read')}</span>}
+        </span>
+      </a>
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-[12px] font-bold text-ink">{video.platform}</span>
+          <span className="shrink-0 text-[10.5px] text-smoke">{formatDate(video.posted_at || video.submitted_at)}</span>
+        </div>
+        {out && video.reason && <p className="text-[11px] leading-snug text-red-600">{video.reason}</p>}
+        <dl className="mt-auto grid grid-cols-2 gap-2">
+          <div><dt className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400">{tr('This month')}</dt><dd className="text-[13.5px] font-bold tabular-nums text-brand">{formatViews(video.views_counted)}</dd></div>
+          <div><dt className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400">{tr('Earns')}</dt><dd className="text-[13.5px] font-bold tabular-nums text-ink">{money(earned, currency)}</dd></div>
+        </dl>
+      </div>
+      {!preview && (
+        <button type="button" onClick={remove} disabled={busy} aria-label={tr('Remove')} title={tr('Remove')}
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-smoke opacity-100 shadow-sm transition-all duration-200 hoverable:opacity-0 hoverable:group-hover:opacity-100 hoverable:focus-visible:opacity-100 hoverable:hover:bg-red-50 hoverable:hover:text-red-500">
+          <Icon name="trash" className="h-3.5 w-3.5" />
+        </button>
+      )}
     </li>
   )
 }
@@ -300,8 +353,11 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
     3: 'bg-gradient-to-b from-cloud to-white text-smoke ring-1 ring-gray-200/70',
   }
   return (
-    <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-card bg-gradient-to-b from-brand-tint/50 via-white to-white px-3 pt-6 sm:px-6">
+    // ONE CARD, FULLY ROUNDED (6 Oct 2026). Ethan: the podium was "kind of a half visible gradient card and the bottom edges are sharp." The
+    // gradient used to fade out into the page with nothing round it, and the steps were cut flat at the bottom. Now the podium and the list
+    // are one white card with a border and a soft shadow; the gradient lives inside it, and every step is rounded all the way round.
+    <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+      <div className="relative bg-gradient-to-b from-brand-tint via-brand-tint/30 to-white px-3 pb-5 pt-7 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute left-1/2 top-2 h-40 w-40 -translate-x-1/2 rounded-full bg-brand/15 blur-3xl" />
         <div className="relative flex items-end justify-center gap-2.5 sm:gap-4">
           {order.map((r, i) => (
@@ -314,7 +370,7 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
               <p className="mt-3 max-w-full truncate text-[13px] font-bold text-ink sm:text-sm">{r.name}{r.me ? <span className="ml-1 text-brand">· {tr('You')}</span> : null}</p>
               <p className="text-xs font-semibold tabular-nums text-smoke"><CountUp value={Number(r.views) || 0} format={formatViews} /> {tr('views')}</p>
               {prizes[r.rank] ? <p className="mt-1 max-w-full truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{prizes[r.rank].join(' + ')}</p> : <span className="mt-1 h-[18px]" />}
-              <div className={cx('mt-2.5 flex w-full items-start justify-center rounded-t-2xl pt-2 text-xl font-extrabold tabular-nums origin-bottom animate-bar-rise', step[r.rank], face[r.rank])} style={{ animationDelay: `${i * 110}ms` }}>
+              <div className={cx('mt-2.5 flex w-full items-start justify-center rounded-2xl pt-2 text-xl font-extrabold tabular-nums origin-bottom animate-bar-rise', step[r.rank], face[r.rank])} style={{ animationDelay: `${i * 110}ms` }}>
                 {r.rank === 1 ? <Icon name="trophy" className="h-6 w-6" /> : r.rank}
               </div>
             </div>
@@ -322,7 +378,7 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
         </div>
       </div>
       {rest.length > 0 && (
-        <ol className="overflow-hidden rounded-card border border-gray-100 bg-white">
+        <ol className="border-t border-gray-100 bg-white">
           {rest.map((r, i) => (
             <li key={r.rank} className={cx('flex items-center gap-3 px-4 py-2.5 animate-rise', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${400 + Math.min(i, 10) * 40}ms` }}>
               <span className="w-6 shrink-0 text-center text-sm font-bold tabular-nums text-gray-400">{r.rank}</span>

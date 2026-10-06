@@ -173,21 +173,31 @@ function useScoped(table, programme, order) {
 function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   const tr = useT()
   const [all, setAll] = useState([])
+  // WHO LEADS VIP WORLDWIDE MAY ALSO POST TO EVERY VIP CREATOR (6 Oct 2026, migration 341). Ethan: "when setting rewards, prizes and
+  // challenges for the VIP Worldwide there should always be the option on everything to decide if this is for every VIP creator or only
+  // the Worldwide creators that are not in another VIP market." Worldwide's own VIPs are, by construction, the ones in no other market,
+  // so "Worldwide only" and "every VIP creator" are the two answers, and the second is what reaches Spain, Romania and the rest too.
+  const canEvery = isOwner || !!programme.is_default
   useEffect(() => {
     if (!isOwner) return undefined
     let alive = true
-    supabase.from('vip_programmes').select('id, name, community:community_id(country_codes)').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
+    supabase.from('vip_programmes').select('id, name, is_default, community:community_id(country_codes)').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
     return () => { alive = false }
   }, [isOwner])
-  const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name, community: programme.community }]
-  // A flag for a market, the GLOBE for the Worldwide VIP market and a STAR for every VIP market: those are different things (one
+  const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name, is_default: programme.is_default, community: programme.community }]
+  // A flag for a market, the GLOBE for the Worldwide VIP market and a STAR for every VIP creator: those are different things (one
   // market, or all of them), and the list says so before the words do (4 Oct 2026).
   const iconOf = (p) => (p.community?.country_codes?.length ? p.community.country_codes.slice(0, 2).map(flagFromIso).join('') : '🌍')
   return (
     <label className="block">
       <span className="label">{tr('Who it is for')}</span>
       <Select variant="field" portal value={value} disabled={disabled} onChange={onChange} ariaLabel={tr('Who it is for')}
-        options={[...markets.map((p) => ({ value: p.id, icon: iconOf(p), label: p.name })), ...((isOwner || value === '') ? [{ value: '', icon: '⭐', label: tr('Every VIP market'), hint: tr('All VIPs') }] : [])]} />
+        options={[
+          ...markets.map((p) => (p.is_default
+            ? { value: p.id, icon: iconOf(p), label: tr('{n} only', { n: p.name }), hint: tr('Not in another VIP market') }
+            : { value: p.id, icon: iconOf(p), label: p.name })),
+          ...((canEvery || value === '') ? [{ value: '', icon: '⭐', label: tr('Every VIP creator'), hint: tr('All VIP markets') }] : []),
+        ]} />
     </label>
   )
 }
@@ -197,7 +207,7 @@ const ownerLocked = (row, isOwner, canManage) => (row.programme_id == null ? !is
 
 function ScopeTag({ row }) {
   const tr = useT()
-  return <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', row.programme_id == null ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>{row.programme_id == null ? tr('Every VIP market') : tr('This VIP market')}</span>
+  return <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', row.programme_id == null ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>{row.programme_id == null ? tr('Every VIP creator') : tr('This VIP market')}</span>
 }
 
 // ---- monthly challenges
@@ -267,22 +277,34 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   const [places, setPlaces] = useState(['', '', ''])
   const [prizeKind, setPrizeKind] = useState('cash')
   const [yy, mm] = ym.split('-').map(Number)
+  // THE PRIZES LIVE WHERE THE CHALLENGE REACHES (6 Oct 2026). A challenge for every VIP creator keeps its prizes on VIP Worldwide, marked
+  // for everyone (so a VIP in Spain is ranked and paid with the rest); a challenge for one market keeps them on that market.
+  const [defaultId, setDefaultId] = useState(programme.is_default ? programme.id : null)
+  useEffect(() => {
+    if (defaultId) return undefined
+    let alive = true
+    supabase.from('vip_programmes').select('id').eq('is_default', true).maybeSingle().then(({ data }) => { if (alive && data) setDefaultId(data.id) })
+    return () => { alive = false }
+  }, [defaultId])
+  const everyone = scope === ''
+  const ruleProgramme = everyone ? (defaultId || programme.id) : scope
   useEffect(() => {
     let alive = true
-    supabase.from('vip_bonus_rules').select('*').eq('programme_id', programme.id).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).maybeSingle()
+    setPrizeRule(undefined)
+    supabase.from('vip_bonus_rules').select('*').eq('programme_id', ruleProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', everyone ? 'all' : 'market').maybeSingle()
       .then(({ data }) => {
         if (!alive) return
         setPrizeRule(data || null)
         if (data) { setPlaces((data.places || []).map((p) => String(p.amount))); setPrizeKind(data.reward || 'cash') }
       })
     return () => { alive = false }
-  }, [programme.id, yy, mm])
+  }, [ruleProgramme, everyone, yy, mm])
   const sym = curSym(programme.currency)
   async function savePrizes(label) {
     const list = places.map((a, i) => ({ place: i + 1, amount: Number(a) || 0, reward: prizeKind })).filter((p) => p.amount > 0)
     if (prizeRule && list.length === 0) { await supabase.from('vip_bonus_rules').delete().eq('id', prizeRule.id); return }
     if (list.length === 0) return
-    const row = { programme_id: programme.id, kind: 'top_n', label, scope: scope === '' ? 'global' : 'market', reward: prizeKind, amount: 0, places: list, conditions: {}, for_year: yy, for_month: mm, note: 'brief', active: true }
+    const row = { programme_id: ruleProgramme, audience: everyone ? 'all' : 'market', kind: 'top_n', label, scope: everyone ? 'global' : 'market', reward: prizeKind, amount: 0, places: list, conditions: {}, for_year: yy, for_month: mm, note: 'brief', active: true }
     const { error } = prizeRule ? await supabase.from('vip_bonus_rules').update(row).eq('id', prizeRule.id) : await supabase.from('vip_bonus_rules').insert(row)
     if (error) throw error
   }
@@ -295,7 +317,12 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
         p_hooks: hooks.split('\n').map((h) => h.trim()).filter(Boolean), p_metric: metric,
         p_target: target ? Number(String(target).replace(/[^\d]/g, '')) : null, p_prize: prize || null,
       })
-      if (brief.id && scope !== was) await vipRpc('vip_move_content', { p_table: 'vip_briefs', p_id: brief.id, p_programme: scopeId(scope) })
+      if (brief.id && scope !== was) {
+        await vipRpc('vip_move_content', { p_table: 'vip_briefs', p_id: brief.id, p_programme: scopeId(scope) })
+        // The prizes follow the challenge: the old ones (kept where it used to reach) go, and savePrizes writes them where it reaches now.
+        const oldProgramme = was === '' ? defaultId : was
+        if (oldProgramme) await supabase.from('vip_bonus_rules').delete().eq('programme_id', oldProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', was === '' ? 'all' : 'market')
+      }
       await savePrizes(tr('Prizes: {t}', { t: title.trim() || monthLabel(yy, mm) }))
       toastSuccess(brief.id ? tr('Saved') : tr('Posted. Every VIP in scope has been notified.'))
       onSaved()

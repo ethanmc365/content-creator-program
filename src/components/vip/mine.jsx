@@ -151,7 +151,7 @@ export function VipStats({ overview, rules, programmeId }) {
             : <TargetBar label={tr('Views this month')} value={Number(overview.stats?.views) || 0} target={Math.max(10000, ladderNext || 10000)} />}
         </div>
       </section>
-      <TrendCard programmeId={programmeId} mine since={overview.member?.joined_on} title={tr('Your views, day by day')} />
+      <TrendCard programmeId={programmeId} mine since={overview.member?.joined_on} title={tr('Your views, day by day')} refreshKey={(overview.videos || []).reduce((a, v) => a + (Number(v.views_total) || 0), 0)} />
     </div>
   )
 }
