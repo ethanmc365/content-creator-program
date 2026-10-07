@@ -846,7 +846,7 @@ export default function AdminChallengeForm() {
     const verb = { ended: 'close entries on', archived: 'archive' }[status]
     if (!await confirm(`Really ${verb} "${form.title || 'this challenge'}"?`)) return
     setBusy(true)
-    const { error: err } = await supabase.from('challenges').update({ status }).eq('id', editing)
+    const { error: err } = await supabase.from('challenges').update({ status }).eq('id', id)
     setBusy(false)
     if (err) { notice(`Could not update: ${err.message}`); return }
     setForm((f) => ({ ...f, status }))
@@ -854,13 +854,13 @@ export default function AdminChallengeForm() {
 
   async function destroy() {
     const { count } = await supabase
-      .from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', editing)
+      .from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', id)
     const entries = count ?? 0
     if (!await confirm(
       `Permanently delete "${form.title || 'this challenge'}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`,
     )) return
     setBusy(true)
-    const { error: err } = await supabase.rpc('admin_delete_challenge', { target: editing })
+    const { error: err } = await supabase.rpc('admin_delete_challenge', { target: id })
     setBusy(false)
     if (err) { setError(`Could not delete: ${err.message}`); return }
     navigate('/challenges')
