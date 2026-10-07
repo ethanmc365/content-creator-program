@@ -38,12 +38,44 @@ const GROUPS = [
 ]
 const ALL = GROUPS.flatMap((g) => g.tabs.map(([k]) => k))
 
+// THE MARKETS ARE ASKED FOR ONCE A SESSION (7 Oct 2026). Ethan: going from the VIP page to VIP tools "the screen just
+// appears, and it's really flashy. Everything loads in." The list of markets (and which ones you can manage) is one
+// query plus one per market, and it was asked again on every switch, behind a grey block. It is kept here, and the
+// VIP page warms it (and this file) while the team is still looking at the page, so the switch has nothing to wait for.
+let programmesCache = null
+let programmesInflight = null
+async function fetchProgrammes(isOwner) {
+  const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug, country_codes)').order('name')
+  const shown = (data || []).filter((p) => p.active || isOwner)
+  const oks = await Promise.all(shown.map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
+  return shown.map((p, i) => ({ ...p, can_manage: oks[i] }))
+}
+/** Load the markets in the background, for the VIP page to call before anybody presses "VIP tools". */
+export function warmVipTools(isOwner) {
+  if (programmesCache || programmesInflight) return programmesInflight
+  programmesInflight = fetchProgrammes(isOwner).then((list) => { programmesCache = { isOwner, list }; return list }).finally(() => { programmesInflight = null })
+  return programmesInflight
+}
+
+/** The tools' own outline while the first load runs: the same five cards, a row of pills, a panel - so nothing jumps. */
+export function VipToolsSkeleton() {
+  return (
+    <div className="vip-mode-in" aria-busy="true">
+      <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
+        {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-11 rounded-xl" />)}
+      </div>
+      <div className="mb-4 flex gap-2 pt-1.5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-24 rounded-full" />)}</div>
+      <Skeleton className="h-72 w-full rounded-card" />
+    </div>
+  )
+}
+
 export default function VipTools({ programmeId }) {
   const tr = useT()
   const { isAdmin, profile } = useAuth()
   const isOwner = profile?.platform_role === 'owner'
   const [params, setParams] = useSearchParams()
-  const [programmes, setProgrammes] = useState(null)
+  const [programmes, setProgrammes] = useState(() => (programmesCache && programmesCache.isOwner === isOwner ? programmesCache.list : null))
   const [seen, setSeen] = useState(() => new Set())
   // THE TAB IS LOCAL STATE FIRST, THE URL SECOND (3 Oct 2026). Ethan: "a bit of delay and lag when clicking between
   // members, overview, etc." The press used to wait for a router update (inside a transition, which React is free to
@@ -61,10 +93,9 @@ export default function VipTools({ programmeId }) {
   const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug, country_codes)').order('name')
-    const shown = (data || []).filter((p) => p.active || isOwner)
-    const oks = await Promise.all(shown.map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
-    setProgrammes(shown.map((p, i) => ({ ...p, can_manage: oks[i] })))
+    const list = await fetchProgrammes(isOwner)
+    programmesCache = { isOwner, list }
+    setProgrammes(list)
   }, [isOwner])
   useEffect(() => { load() }, [load])
 
@@ -73,7 +104,7 @@ export default function VipTools({ programmeId }) {
     setParams((p) => { const n = new URLSearchParams(p); n.set('mode', 'tools'); if (t === 'overview') n.delete('tab'); else n.set('tab', t); n.delete('part'); return n }, { replace: true })
   }
 
-  if (programmes === null) return <Skeleton className="h-72 w-full rounded-card" />
+  if (programmes === null) return <VipToolsSkeleton />
   if (programmes.length === 0) {
     return <EmptyState icon={<Icon name="star" className="h-7 w-7" />} title={tr('Nothing to manage here')} hint={tr('The VIP tools are for the owner and the managers they have added to a VIP programme.')} />
   }

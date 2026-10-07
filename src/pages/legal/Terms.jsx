@@ -20,9 +20,20 @@ export default function Terms() {
   const updated = new Date(doc.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   return (
     <LegalShell title={doc.title} updated={`${updated} (version ${doc.version})`}>
-      {renderNote(doc.body.replace(/^#\s+.*\n+/, ''))}
+      {renderNote(publicText(doc.body).replace(/^#\s+.*\n+/, ''))}
     </LegalShell>
   )
+}
+
+// THE PUBLIC COPY HAS NOBODY'S NAME IN IT (7 Oct 2026). The terms carry fill-ins ({{creator_name}} and friends) that
+// are completed for each creator when they read and accept them in the app; on the public page they read generically.
+export function publicText(md = '') {
+  return String(md || '')
+    .replaceAll('{{creator_name}}', 'the Creator')
+    .replaceAll('{{creator_market}}', 'your market')
+    .replaceAll('{{creator_country}}', 'your country')
+    .replace(/\n---\n+Accepted in the app by[^\n]*\n?/, '\n')
+    .replace(/\{\{[a-z_]+\}\}/g, '')
 }
 
 // TERMS OF SERVICE, REWRITTEN 4 SEP 2026.
@@ -67,7 +78,7 @@ function LegacyTerms() {
       <p>
         These terms govern your use of the Tryp.com Content Creator Community ("the Programme"). By
         creating an account you agree to them. The Programme is operated by{' '}
-        <strong>Tryp.com LDA</strong>, Rua da Prata, nr. 80, 5.º piso, 1100-420 Lisbon, Portugal
+        <strong>Tryp.com ApS</strong> (CVR 42533165), Drewsensvej 3, st. th, 5000 Odense C, Denmark
         ("we", "us"). It is free to join and free to take part in.
       </p>
 
@@ -217,7 +228,7 @@ function LegacyTerms() {
 
       <H2>13. Governing law</H2>
       <p>
-        These terms are governed by Portuguese law and the courts of Lisbon have jurisdiction. If you
+        These terms are governed by Danish law and the courts of Denmark have jurisdiction. If you
         are a consumer resident elsewhere in the EU or in the UK, you keep the protection of the
         mandatory consumer law of the country you live in, and you may bring proceedings there.
       </p>

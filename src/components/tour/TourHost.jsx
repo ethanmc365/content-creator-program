@@ -81,7 +81,7 @@ function findAnchor(name) {
 // not drag the box behind the page.
 const TRAVEL_MS = 950
 
-export default function TourHost({ onFinish, network = false, layout = 'desktop', required = false }) {
+export default function TourHost({ onFinish, network = false, layout = 'desktop', required = false, variant = null }) {
   const tr = useT()
   const isPhone = useIsPhone()
   // IS SOMEBODY TYPING. Only the payment step cares (see `keepClear` in
@@ -91,7 +91,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const navigate = useNavigate()
   const location = useLocation()
   const { user, profile, isAdmin } = useAuth()
-  const vip = !!profile?.is_vip && !isAdmin
+  // WHICH WALK. A VIP gets the VIP walk; the Testing Centre can ask for either one by name (7 Oct 2026).
+  const vip = variant ? variant === 'vip' : (!!profile?.is_vip && !isAdmin)
+  // The team walking the VIP walk is not a VIP, so the VIP page it walks is a new VIP's first day (`mode=as`), which
+  // draws exactly the creator's page: the add-a-video box, the payouts section, the earnings card.
+  const vipPreview = vip && !profile?.is_vip
 
   const steps = useMemo(() => stepsFor({ network, vip }), [network, vip])
   // RESUME, RATHER THAN RESTART. See `savedStep` in lib/tour: a walkthrough
@@ -374,7 +378,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
     // Put them where the step happens, unless the goal is to navigate somewhere
     // and they are already there.
-    const to = stepAt(step, network)
+    const raw = stepAt(step, network)
+    const to = vipPreview && raw && /^\/vip(\?|$)/.test(raw) ? `/vip?mode=as${raw.includes('?') ? `&${raw.split('?')[1]}` : ''}` : raw
     const g = stepGoal(step, network)
     const alreadyAtGoal = g?.kind === 'route' && location.pathname.startsWith(g.to)
     if (to && !alreadyAtGoal) {

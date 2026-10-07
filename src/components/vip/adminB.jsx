@@ -3,12 +3,13 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
+import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import {
-  BONUS_KINDS, DEFAULT_TERMS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
+  BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
 } from '../../lib/vip'
 import { Stat, useMonths } from './adminA'
 import { HowItWorks, VipContentTab } from './adminD'
@@ -709,7 +710,7 @@ export function VipSettingsTab({ programme, onSaved }) {
   const sym = curSym(programme.currency)
   const [f, setF] = useState(() => ({
     cpm: programme.cpm, monthly_cap: programme.monthly_cap ?? '',
-    terms: programme.terms || DEFAULT_TERMS.map((p) => p.replace('{days}', String(programme.window_days || 60))).join('\n\n'), tiers: programme.tiers || [], reaccept: false,
+    tiers: programme.tiers || [],
     tagline: programme.tagline || '', welcome_message: programme.welcome_message || '',
   }))
   const [busy, setBusy] = useState(false)
@@ -722,9 +723,7 @@ export function VipSettingsTab({ programme, onSaved }) {
     const row = {
       cpm: Number(f.cpm) || 0,
       monthly_cap: f.monthly_cap === '' ? null : Number(f.monthly_cap),
-      terms: (f.terms.trim() === DEFAULT_TERMS.map((p) => p.replace('{days}', String(programme.window_days || 60))).join('\n\n') ? '' : f.terms.trim()) || null,
       tiers: f.tiers.filter((t) => Number(t.from_views) > 0 && Number(t.cpm) >= 0).map((t) => ({ from_views: Number(t.from_views), cpm: Number(t.cpm) })).sort((a, b) => a.from_views - b.from_views),
-      ...(f.reaccept ? { terms_version: programme.terms_version + 1 } : {}),
       tagline: f.tagline.trim() || null, welcome_message: f.welcome_message.trim() || null,
     }
     const { error } = await supabase.from('vip_programmes').update(row).eq('id', programme.id)
@@ -786,20 +785,17 @@ export function VipSettingsTab({ programme, onSaved }) {
         <label className="block"><span className="label">{tr('Welcome note, shown to every new VIP')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={f.welcome_message} disabled={dis} onChange={(e) => set({ welcome_message: e.target.value })} placeholder={tr('Leave empty for the standard welcome.')} /></label>
       </section>
 
-      <section className="space-y-3 rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise [animation-delay:120ms]">
-        <div>
-          <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="book" className="h-5 w-5 text-brand" />{tr('The terms VIPs accept')}</h3>
-          <p className="text-sm text-smoke">{tr('This is exactly what a VIP reads and agrees to before they are paid. Separate the points with a blank line.')}</p>
-        </div>
-        <textarea className="input min-h-[14rem] resize-y text-[13px] leading-relaxed" value={f.terms} disabled={dis} onChange={(e) => set({ terms: e.target.value })} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-2.5 text-sm text-ink"><Toggle on={f.reaccept} onChange={(v) => set({ reaccept: v })} label={tr('Ask every VIP to accept the terms again')} disabled={dis} />{tr('Ask every VIP to accept them again')}</label>
-          <span className="flex items-center gap-3 text-xs text-smoke">
-            {!dis && <button type="button" onClick={() => set({ terms: DEFAULT_TERMS.map((p) => p.replace('{days}', String(programme.window_days || 60))).join('\n\n') })} className="font-semibold hover:text-ink">{tr('Put the standard terms back')}</button>}
-            {tr('Version {v}', { v: programme.terms_version })}
-          </span>
-        </div>
-      </section>
+      {/* THE VIP TERMS LIVE ON ADMIN > AGREEMENTS NOW (7 Oct 2026). This box edited `vip_programmes.terms`, which a
+          sheet on the VIP page asked VIPs to accept. Ethan: only the agreement from Admin > Agreements should be shown, once
+          it is switched on - so the old sheet is gone and this points at the one place the VIP agreement is written. */}
+      <Link to="/admin/agreements" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-5 shadow-card transition-all duration-200 animate-rise [animation-delay:120ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+        <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold text-ink">{tr('The VIP agreement')}</span>
+          <span className="block text-sm text-smoke">{tr('Written, previewed and switched on in Admin, Agreements. VIPs sign it before they are paid.')}</span>
+        </span>
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand transition-transform group-hover:translate-x-0.5" />
+      </Link>
       {!dis && (
         <div className="sticky bottom-4 z-10 flex justify-end">
           <button type="button" onClick={save} disabled={busy} className="btn-primary shadow-lift">{busy ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}{tr('Save the settings')}</button>

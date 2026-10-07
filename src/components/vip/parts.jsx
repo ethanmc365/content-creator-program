@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Spinner } from '../ui'
+import { Avatar, Spinner } from '../ui'
 import Icon from '../Icon'
 import VideoThumb from '../VideoThumb'
 import SocialMark from '../SocialMark'
@@ -12,7 +12,7 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import {
-  BONUS_KINDS, DEFAULT_TERMS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useVipPreview, vipRpc,
+  BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useVipPreview, vipRpc,
 } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 import { CountUp } from '../network/Motion'
@@ -93,7 +93,7 @@ export function VipSubmit({ disabled, onAdded, month }) {
   }
 
   return (
-    <form onSubmit={add} noValidate className="relative overflow-clip rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+    <form onSubmit={add} noValidate data-tour="vip-submit" className="relative overflow-clip rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
       <span aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />
       <div className="relative flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card"><Icon name="video" className="h-5 w-5" /></span>
@@ -472,42 +472,6 @@ export function VipEarn({ rules, overview, currency }) {
         )
       })}
     </ul>
-  )
-}
-
-/** The terms, accepted once in the programme's own words (or ours), and again when the version goes up. */
-export function VipTermsGate({ open, programme, onAccepted }) {
-  const tr = useT()
-  const [ticked, setTicked] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const paragraphs = programme?.terms
-    ? String(programme.terms).split(/\n{2,}/).filter(Boolean)
-    : DEFAULT_TERMS.map((p) => tr(p, { days: programme?.window_days || 60 }))
-  async function accept() {
-    setBusy(true); setErr('')
-    try { await vipRpc('vip_accept_terms'); onAccepted?.() } catch (e) { setErr(e.message) } finally { setBusy(false) }
-  }
-  return (
-    <Modal open={open} onClose={() => {}} dismissible={false} title={tr('Before you start')}>
-      <p className="text-sm text-smoke">{tr('These are the terms of the VIP programme. Read them once; you will not be asked again unless they change.')}</p>
-      <ol className="mt-4 space-y-3">
-        {paragraphs.map((p, i) => (
-          <li key={i} className="flex gap-3 text-[13.5px] leading-relaxed text-ink">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">{i + 1}</span>
-            <span>{p}</span>
-          </li>
-        ))}
-      </ol>
-      <label className="mt-5 flex items-start gap-3 text-sm text-ink">
-        <input type="checkbox" checked={ticked} onChange={(e) => setTicked(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-brand" />
-        <span>{tr('I have read the VIP terms and I agree to them.')}</span>
-      </label>
-      {err && <p className="mt-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600">{err}</p>}
-      <button type="button" onClick={accept} disabled={!ticked || busy} className="btn-primary mt-5 w-full justify-center disabled:opacity-50">
-        {busy ? <Spinner className="h-4 w-4" /> : tr('Accept and continue')}
-      </button>
-    </Modal>
   )
 }
 

@@ -87,8 +87,17 @@ function start(key, challengeId, groupId) {
   const channel = supabase
     .channel(`live-board-${key}-${Math.random().toString(36).slice(2, 8)}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'challenges', filter: `id=eq.${challengeId}` }, (payload) => {
+      // A results stamp that has not moved used to mean "nothing to redraw",
+      // and that is how an edited prize list never reached the board: editing
+      // the brief does not touch `results_updated_at`. So the skip also needs
+      // everything the board DRAWS from the challenge row to be unchanged.
       const stamp = payload.new?.results_updated_at
-      if (stamp && stamp === entry.state.updatedAt && payload.new?.winners_published_at === entry.state.challenge?.winners_published_at) return
+      const prev = entry.state.challenge
+      const drawn = (c) => JSON.stringify([c?.title, c?.end_date, c?.status, c?.prize_structure, c?.winners_count,
+        c?.prize_currency, c?.participation_threshold, c?.participation_prize, c?.scoring])
+      if (stamp && stamp === entry.state.updatedAt
+        && payload.new?.winners_published_at === prev?.winners_published_at
+        && drawn(payload.new) === drawn(prev)) return
       clearTimeout(debounce)
       debounce = setTimeout(load, 600)
     })

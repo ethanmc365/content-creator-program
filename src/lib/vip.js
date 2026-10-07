@@ -203,6 +203,8 @@ const notify = () => subs.forEach((fn) => fn())
 const snapshot = () => cache
 
 /** The signed-in VIP's overview. `undefined` while loading, `null` when they are not a VIP. */
+let retryTimer = 0
+let lastReload = null
 export function useVipOverview({ enabled = true, every = 60000 } = {}) {
   const data = useSyncExternalStore((fn) => { subs.add(fn); return () => subs.delete(fn) }, snapshot, () => undefined)
   const [error, setError] = useState('')
@@ -213,9 +215,15 @@ export function useVipOverview({ enabled = true, every = 60000 } = {}) {
       cacheAt = Date.now()
       setError('')
       notify()
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      setError(e.message)
+      // A first read that fails (the session still restoring after a reload) is asked again in a moment, not in a
+      // minute: until it lands the page has nothing to draw.
+      if (!cache) { clearTimeout(retryTimer); retryTimer = setTimeout(() => { retryTimer = 0; if (!cache) lastReload?.() }, 2000) }
+    }
   }, [])
   useEffect(() => {
+    lastReload = reload
     if (!enabled) return undefined
     if (!cache || Date.now() - cacheAt > 15000) reload()
     const id = setInterval(reload, every)
@@ -240,31 +248,54 @@ export const DEFAULT_TERMS = [
 // WHO HAS THE VIP TOOLS (30 Sep 2026, migration 296). The owner and anyone on the access list; the database is
 // the judge (`vip_has_access`), this only remembers the answer for the session so the header and the admin
 // panel do not each ask. `undefined` while loading, then true/false.
-let accessCache = { uid: null, value: undefined }
+let accessCache = { uid: null, value: undefined, fresh: false }
 const accessSubs = new Set()
 // `fallback` is what to show if the question itself cannot be answered (a network blip, or the database not yet
 // carrying migration 296): the door is only a convenience, the data behind it is fenced by the database either way.
+//
+// THE LAST ANSWER IS REMEMBERED ACROSS A RELOAD (7 Oct 2026). Ethan: "sometime after I refreshed the page ... the VIP
+// page temporarily disappeared and then came back." Every reload started from `undefined`, so the VIP link in the
+// header was not drawn and the page sat on a skeleton until `vip_has_access` came back - and a slow or failed first
+// answer (the session still restoring) was cached as "no" for the whole session. Now the previous answer for this
+// account is used straight away while the real one is asked, an error is retried instead of believed, and only a real
+// answer is stored.
+const ACCESS_KEY = (uid) => `tryp_vip_access_${uid}`
+function rememberedAccess(uid) {
+  if (!uid) return undefined
+  try {
+    const v = localStorage.getItem(ACCESS_KEY(uid))
+    return v === '1' ? true : v === '0' ? false : undefined
+  } catch { return undefined }
+}
 export function useVipAccess(uid, fallback = false) {
   const value = useSyncExternalStore(
     (fn) => { accessSubs.add(fn); return () => accessSubs.delete(fn) },
-    () => (accessCache.uid === uid ? accessCache.value : undefined),
+    () => (accessCache.uid === uid && accessCache.fresh ? accessCache.value : rememberedAccess(uid)),
     () => undefined,
   )
   useEffect(() => {
-    if (!uid || (accessCache.uid === uid && accessCache.value !== undefined)) return
+    if (!uid || (accessCache.uid === uid && accessCache.fresh)) return undefined
     let alive = true
-    supabase.rpc('vip_has_access').then(({ data, error }) => {
-      if (!alive) return
-      accessCache = { uid, value: error ? fallback : !!data }
-      accessSubs.forEach((fn) => fn())
-    })
-    return () => { alive = false }
+    let tries = 0
+    let timer = 0
+    const ask = () => {
+      supabase.rpc('vip_has_access').then(({ data, error }) => {
+        if (!alive) return
+        if (error && tries < 3) { tries += 1; timer = setTimeout(ask, 1500 * tries); return }
+        const v = error ? (rememberedAccess(uid) ?? fallback) : !!data
+        accessCache = { uid, value: v, fresh: true }
+        if (!error) { try { localStorage.setItem(ACCESS_KEY(uid), v ? '1' : '0') } catch { /* private mode */ } }
+        accessSubs.forEach((fn) => fn())
+      })
+    }
+    ask()
+    return () => { alive = false; clearTimeout(timer) }
   }, [uid, fallback])
   return value
 }
 
 /** Forget the answer (after the owner changes who has access). */
-export function clearVipAccess() { accessCache = { uid: null, value: undefined }; accessSubs.forEach((fn) => fn()) }
+export function clearVipAccess() { accessCache = { uid: null, value: undefined, fresh: false }; accessSubs.forEach((fn) => fn()) }
 
 // ---------------------------------------------------------------- VIP v2 (migration 298)
 

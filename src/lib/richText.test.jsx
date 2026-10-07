@@ -83,3 +83,13 @@ describe('blank lines', () => {
     expect(blocks[1].className).toContain('h-[1.25em]')
   })
 })
+
+describe('stripMarkup for notifications (7 Oct 2026)', () => {
+  it('shows a bold or heading line as plain words', () => {
+    expect(stripMarkup('**Ya podéis ganar +2 puntos!!**\n\nSi tenéis duda')).toBe('Ya podéis ganar +2 puntos!!\n\nSi tenéis duda')
+    expect(stripMarkup('## Big news\n> quoted [link](https://x.com) ~~old~~ `code`')).toBe('Big news\nquoted link old code')
+  })
+  it('keeps snake_case words and maths', () => {
+    expect(stripMarkup('snake_case_name and 2*3')).toBe('snake_case_name and 2*3')
+  })
+})

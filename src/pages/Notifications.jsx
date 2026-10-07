@@ -8,6 +8,7 @@ import Reveal from '../components/network/Reveal'
 import { timeAgo, cx } from '../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../lib/notifications'
 import { useT } from '../lib/i18n'
+import { stripMarkup } from '../lib/richText'
 
 // THE WHOLE HISTORY, AND THE SAME CENTRE THE BELL IS.
 //
@@ -58,8 +59,8 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
           <Icon name={meta.icon} className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className={cx('block text-sm', n.read ? 'font-medium' : 'font-semibold')}>{n.type === 'vip' ? tr(n.title) : n.title}</span>
-          {n.body && <span className={`mt-0.5 block text-sm leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : ''}`}>{n.type === 'vip' ? tr(n.body) : n.body}</span>}
+          <span className={cx('block text-sm', n.read ? 'font-medium' : 'font-semibold')}>{n.type === 'vip' ? tr(n.title) : stripMarkup(n.title)}</span>
+          {n.body && <span className={`mt-0.5 block text-sm leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : ''}`}>{n.type === 'vip' ? tr(n.body) : stripMarkup(n.body)}</span>}
           <span className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
             <span className="font-medium uppercase tracking-wide">{meta.label}</span>
             <span aria-hidden>·</span>

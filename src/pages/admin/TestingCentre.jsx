@@ -36,7 +36,7 @@ const InvoiceLab = lazyRoute(() => import('./testing/InvoiceLab'))
 const ViewsLab = lazyRoute(() => import('./testing/ViewsLab'))
 const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
 const RecapLab = lazyRoute(() => import('./testing/RecapLab'))
-const AgreementLab = lazyRoute(() => import('./testing/AgreementLab'))
+const WalkthroughLab = lazyRoute(() => import('./testing/WalkthroughLab'))
 
 export const LABS = [
   {
@@ -52,11 +52,12 @@ export const LABS = [
     element: <OnboardingLab />,
   },
   {
-    // The terms pop-up and the signature pad, exactly as a creator gets them, filled in for any VIP market (7 Oct 2026).
-    key: 'agreements', title: 'Agreements and signatures', icon: 'key', group: 'Joining the programme',
-    blurb: 'The terms pop-up and the VIP signature, filled in for any market, on a phone or here. Nothing is saved.',
-    tags: ['Live components', 'Inert'],
-    element: <AgreementLab />,
+    // Both guided tours, the community one and the VIP one, started over the live app (7 Oct 2026). The agreements
+    // lab that sat here is gone: Admin > Agreements previews the real pop-up for any version and market.
+    key: 'walkthroughs', title: 'Walkthroughs', icon: 'sparkles', group: 'Joining the programme',
+    blurb: 'The first-open guided tour in both versions, community and VIP. One press runs it over the app from the start.',
+    tags: ['2 walks', 'Live'],
+    element: <WalkthroughLab />,
   },
   {
     key: 'invoice', title: 'Automatic invoicing', icon: 'money', group: 'Money',

@@ -8,7 +8,7 @@ import RichEditable from '../../components/RichEditable'
 import RichToolbar from '../../components/RichToolbar'
 import AgreementSheet from '../../components/agreements/AgreementSheet'
 import { SignatureImage } from '../../components/agreements/SignaturePad'
-import { renderNote } from '../../lib/noteMarkdown'
+import AgreementDoc from '../../components/agreements/AgreementDoc'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, dateTag } from '../../lib/utils'
@@ -26,16 +26,25 @@ const AUD = { creator: 'Community Terms', vip: 'VIP Creator Agreement' }
 // THE PLACEHOLDERS A TEMPLATE CAN USE (migration 357). Filled in from each reader's own VIP market when they read or
 // sign, so one shared VIP agreement can say EUR 0.20 to Spain and EUR 0.40 to Romania.
 export const PLACEHOLDERS = [
-  ['{{creator_name}}', 'The creator\'s name'],
-  ['{{market}}', 'Their VIP market, for example VIP Spain'],
-  ['{{rate}}', 'Their rate per 1,000 views'],
-  ['{{min_payout}}', 'The market\'s minimum cash payout'],
-  ['{{voucher_min}}', 'The smallest voucher they can take'],
-  ['{{window_days}}', 'How many days a video keeps counting'],
-  ['{{payment_cap}}', 'A sentence about the monthly cap (or that there is none)'],
-  ['{{stay_in}}', 'A sentence about the stay-in requirement (or that there is none)'],
-  ['{{today}}', 'The date they sign'],
+  ['{{creator_name}}', 'The creator\'s name', 'all'],
+  ['{{creator_market}}', 'Their community market, for example Spain', 'all'],
+  ['{{creator_country}}', 'The country on their profile', 'all'],
+  ['{{market}}', 'Their VIP market, for example VIP Spain', 'vip'],
+  ['{{rate}}', 'Their rate per 1,000 views', 'vip'],
+  ['{{min_payout}}', 'The market\'s minimum cash payout', 'vip'],
+  ['{{voucher_min}}', 'The smallest voucher they can take', 'vip'],
+  ['{{window_days}}', 'How many days a video keeps counting', 'vip'],
+  ['{{payment_cap}}', 'A sentence about the monthly cap (or that there is none)', 'vip'],
+  ['{{stay_in}}', 'A sentence about the stay-in requirement (or that there is none)', 'vip'],
+  ['{{today}}', 'The date they accept or sign', 'all'],
 ]
+
+// The person the team's previews are filled in for. A real-looking name shows how the personal lines read.
+const SAMPLE = { name: 'Alex Morgan', market: 'Spain', country: 'Spain' }
+const sampleFill = (t = '') => String(t || '')
+  .replaceAll('{{creator_name}}', SAMPLE.name)
+  .replaceAll('{{creator_market}}', SAMPLE.market)
+  .replaceAll('{{creator_country}}', SAMPLE.country)
 
 export default function AdminAgreements() {
   const { profile } = useAuth()
@@ -45,6 +54,7 @@ export default function AdminAgreements() {
   const [docs, setDocs] = useState(undefined)
   const [openId, setOpenId] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [registerKey, setRegisterKey] = useState(0)
   const load = useCallback(async () => {
     const { data } = await supabase.from('agreements').select('*').order('version', { ascending: false })
     setDocs(data || [])
@@ -75,14 +85,24 @@ export default function AdminAgreements() {
     await load(); setOpenId(data.id)
   }
 
-  // The real sheet, with this market's numbers in it.
-  async function openPreview(d) {
+  // The real sheet, with this market's numbers and a sample creator in it. `minor` shows the under-18 version.
+  async function openPreview(d, minor = false) {
     const programme = audience === 'vip' ? (market || null) : null
     const [{ data: body }, { data: summary }] = await Promise.all([
-      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: d.body }),
-      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: d.summary || '' }),
+      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.body) }),
+      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.summary || '') }),
     ])
-    setPreview({ ...d, body: body ?? d.body, summary: summary ?? d.summary })
+    setPreview({ ...d, body: body ?? d.body, summary: summary ?? d.summary, minor })
+  }
+
+  async function publishDoc(d) {
+    const who = d.audience === 'vip' ? 'every active VIP' : 'every creator'
+    if (!await confirm(`Switch on v${d.version}? ${who[0].toUpperCase()}${who.slice(1)} will have to ${d.requires_signature ? 'sign' : 'accept'} it before they can use the app, the next time they open it${live ? ', and will be told in a notification' : ''}. A published version cannot be edited.`, { confirmLabel: 'Publish' })) return false
+    const { error } = await supabase.rpc('publish_agreement', { p_agreement: d.id, p_notify: true })
+    if (error) { notice(error.message); return false }
+    toastSuccess('Published. Creators are asked the next time they open the app.')
+    await load(); setOpenId(d.id); setRegisterKey((k) => k + 1)
+    return true
   }
 
   return (
@@ -108,15 +128,20 @@ export default function AdminAgreements() {
         </p>
       )}
 
+      {docs !== undefined && (list.length > 0 || audience === 'creator' || !market) && (
+        <StatusBanner audience={audience} live={live} draft={draft} market={marketName} sharedLive={audience === 'vip' && market ? sharedLive : null}
+          onPublish={() => draft && publishDoc(draft)} onPreview={(d, minor) => openPreview(d, minor)} onOpen={(d) => setOpenId(d.id)} />
+      )}
+
       {docs === undefined ? <Skeleton className="h-64 w-full rounded-card" /> : !selected ? (
         !(audience === 'vip' && market) && <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 space-y-5">
             {selected.published_at
-              ? <PublishedView doc={selected} onPreview={() => openPreview(selected)} />
-              : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d) => openPreview(d)} />}
-            {selected.published_at && <Register doc={selected} />}
+              ? <PublishedView doc={selected} onPreview={(minor) => openPreview(selected, minor)} />
+              : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d, minor) => openPreview(d, minor)} onPublish={publishDoc} />}
+            {selected.published_at && <Register key={`${selected.id}-${registerKey}`} doc={selected} />}
           </div>
           <aside className="space-y-2">
             <p className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Versions</p>
@@ -130,17 +155,18 @@ export default function AdminAgreements() {
                 </span>
               </button>
             ))}
-            {audience === 'vip' && <PlaceholderGuide programme={market || null} />}
+            <PlaceholderGuide programme={market || null} audience={audience} />
           </aside>
         </div>
       )}
-      {preview && <AgreementSheet preview doc={preview} onClose={() => setPreview(null)} onAccepted={() => setPreview(null)} />}
+      {preview && <AgreementSheet preview previewMinor={!!preview.minor} doc={preview} onClose={() => setPreview(null)} onAccepted={() => setPreview(null)} />}
     </div>
   )
 }
 
 /** What each placeholder turns into for the chosen market, so the team can write the template with the answers in front of them. */
-function PlaceholderGuide({ programme }) {
+function PlaceholderGuide({ programme, audience }) {
+  const shown = PLACEHOLDERS.filter(([, , who]) => who === 'all' || audience === 'vip')
   const [values, setValues] = useState(null)
   useEffect(() => {
     let alive = true
@@ -148,21 +174,21 @@ function PlaceholderGuide({ programme }) {
     supabase.from('agreements').select('id').limit(1).maybeSingle().then(async ({ data: one }) => {
       if (!one) return
       const sep = '\u0001'
-      const { data } = await supabase.rpc('agreement_preview', { p_agreement: one.id, p_programme: programme, p_body: PLACEHOLDERS.map(([k]) => k).join(sep) })
-      if (alive && typeof data === 'string') setValues(data.split(sep))
+      const { data } = await supabase.rpc('agreement_preview', { p_agreement: one.id, p_programme: programme, p_body: sampleFill(PLACEHOLDERS.map(([k]) => k).join(sep)) })
+      if (alive && typeof data === 'string') setValues(Object.fromEntries(data.split(sep).map((v, i) => [PLACEHOLDERS[i][0], v])))
     })
     return () => { alive = false }
   }, [programme])
   return (
     <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Fill-ins</p>
-      <p className="mt-1 text-[11.5px] leading-snug text-smoke">Type these into the text and each VIP sees their own market's value.</p>
+      <p className="mt-1 text-[11.5px] leading-snug text-smoke">{audience === 'vip' ? 'Type these into the text and each VIP sees their own name and their market\'s values.' : 'Type these into the text and each creator sees their own details. Shown here for a sample creator.'}</p>
       <ul className="mt-3 space-y-2">
-        {PLACEHOLDERS.map(([k, label], i) => (
+        {shown.map(([k, label]) => (
           <li key={k} className="text-[11.5px] leading-snug">
             <code className="rounded bg-cloud px-1.5 py-0.5 font-semibold text-brand">{k}</code>
             <span className="ml-1.5 text-smoke">{label}</span>
-            {values?.[i] && values[i] !== k && <span className="mt-0.5 block text-ink/80 [overflow-wrap:anywhere]">= {values[i]}</span>}
+            {values?.[k] && values[k] !== k && <span className="mt-0.5 block text-ink/80 [overflow-wrap:anywhere]">= {values[k]}</span>}
           </li>
         ))}
       </ul>
@@ -171,26 +197,72 @@ function PlaceholderGuide({ programme }) {
 }
 
 function PublishedView({ doc, onPreview }) {
+  const [open, setOpen] = useState(false)
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-6 shadow-card">
+    <section className="rounded-card border border-gray-100 bg-white p-6 shadow-card animate-rise">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Published · v{doc.version}{doc.requires_signature ? ' · signature' : ' · tick to accept'}</p>
           <h2 className="mt-1 text-xl font-bold text-ink">{doc.title}</h2>
-          <p className="mt-1 text-sm text-smoke">{doc.summary}</p>
+          <p className="mt-1 text-sm text-smoke">{sampleFill(doc.summary)}</p>
         </div>
-        <button type="button" onClick={onPreview} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />See it as a creator</button>
+        <PreviewButtons doc={doc} onPreview={(minor) => onPreview(minor)} />
       </div>
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm font-bold text-brand">Read the text</summary>
-        <div className="agreement-text mt-3 text-[14px]">{renderNote(doc.body)}</div>
-      </details>
+      <button type="button" onClick={() => setOpen((o) => !o)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand">
+        <Icon name={open ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />{open ? 'Hide the text' : 'Read the text'}
+      </button>
+      {open && <div className="mt-2 animate-rise"><AgreementDoc body={sampleFill(doc.body)} /></div>}
       <p className="mt-4 break-all font-mono text-[10px] text-gray-400">SHA-256 {doc.body_sha256}</p>
     </section>
   )
 }
 
-function DraftEditor({ doc, hasLive, onSaved, onPreview }) {
+/** "See it as a creator", and for the community terms the under-18 version too. */
+function PreviewButtons({ doc, onPreview, label = 'See it as a creator' }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button type="button" onClick={() => onPreview(false)} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{label}</button>
+      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="How it looks for a creator aged 16 or 17, who adds a parent or guardian">Under 18</button>}
+    </div>
+  )
+}
+
+/**
+ * IS IT ON? (7 Oct 2026). Ethan: "There should also be a link for me to turn this on because currently it says
+ * 'Draft', but at the bottom it says 'Publish V1'." The answer to "are creators being asked?" is now the first thing
+ * on the page, with the button that changes it beside it.
+ */
+function StatusBanner({ audience, live, draft, market, sharedLive, onPublish, onPreview, onOpen }) {
+  const who = audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
+  if (!live && !draft && sharedLive) return null
+  const on = !!live
+  return (
+    <section className={cx('mb-5 overflow-hidden rounded-card border shadow-card animate-rise', on ? 'border-gray-100 bg-white' : 'border-brand/30 bg-white')}>
+      <div className="flex flex-wrap items-center gap-4 p-5">
+        <span className={cx('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full', on ? 'bg-brand text-white' : 'bg-cloud text-brand')}>
+          {on && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/30 [animation-duration:2.4s]" />}
+          <Icon name={on ? 'check' : 'shield'} className="relative h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold text-ink">
+            {on ? `On: v${live.version} is live` : 'Not switched on yet'}
+          </p>
+          <p className="text-sm text-smoke">
+            {on
+              ? `${who[0].toUpperCase()}${who.slice(1)} has to ${live.requires_signature ? 'sign' : 'accept'} it before using the app. It is the first thing they see, before any other pop-up.${draft ? ` v${draft.version} is a draft waiting to replace it.` : ''}`
+              : `Nobody is being asked yet. Publish v${draft?.version ?? 1} and ${who} will have to ${draft?.requires_signature ? 'sign' : 'accept'} it the next time they open the app, before anything else.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {draft && <button type="button" onClick={() => onPreview(draft, false)} className="btn-secondary !py-2.5 text-sm"><Icon name="eye" className="h-4 w-4" />Preview v{draft.version}</button>}
+          {draft && <button type="button" onClick={() => { onOpen(draft); onPublish() }} className="btn-primary !py-2.5 text-sm"><Icon name="megaphone" className="h-4 w-4" />{on ? `Publish v${draft.version}` : `Switch on: publish v${draft.version}`}</button>}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   const editor = useRef(null)
   const [title, setTitle] = useState(doc.title)
   const [summary, setSummary] = useState(doc.summary)
@@ -210,14 +282,10 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview }) {
     return true
   }
   async function publish() {
-    const who = doc.audience === 'vip' ? 'every active VIP' : 'every creator'
-    if (!await confirm(`Publish v${doc.version}? ${who[0].toUpperCase()}${who.slice(1)} will be asked to ${sig ? 'sign' : 'accept'} it the next time they open the app${hasLive ? ', and told in a notification' : ''}. A published version cannot be edited.`, { confirmLabel: 'Publish' })) return
     if (dirty && !await save(true)) return
     setBusy(true)
-    const { error } = await supabase.rpc('publish_agreement', { p_agreement: doc.id, p_notify: true })
+    await onPublish({ ...doc, title, summary, body, requires_signature: sig })
     setBusy(false)
-    if (error) { notice(error.message); return }
-    toastSuccess('Published.')
     onSaved()
   }
   async function discard() {
@@ -231,7 +299,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Draft · v{doc.version}</p>
         <div className="flex gap-2">
-          <button type="button" onClick={() => onPreview({ ...doc, title, summary, body, change_note: note, requires_signature: sig, id: doc.id })} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />Preview</button>
+          <PreviewButtons doc={doc} label="Preview" onPreview={(minor) => onPreview({ ...doc, title, summary, body, change_note: note, requires_signature: sig, id: doc.id }, minor)} />
           <button type="button" onClick={discard} className="btn-secondary !py-2 text-sm text-red-600">Delete draft</button>
         </div>
       </div>
@@ -267,8 +335,8 @@ function Register({ doc }) {
     .filter((r) => !q.trim() || (r.name || '').toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q])
 
   function csv() {
-    const head = ['name', 'status', 'accepted_at', 'method', 'signed_name', 'email', 'ip', 'user_agent', 'text_sha256']
-    const lines = (rows || []).map((r) => [r.name, r.status, r.accepted_at || '', r.method || '', r.signed_name || '', r.account_email || '', r.ip || '', r.user_agent || '', r.body_sha256 || '']
+    const head = ['name', 'status', 'accepted_at', 'method', 'signed_name', 'email', 'guardian_name', 'guardian_email', 'ip', 'user_agent', 'text_sha256']
+    const lines = (rows || []).map((r) => [r.name, r.status, r.accepted_at || '', r.method || '', r.signed_name || '', r.account_email || '', r.guardian_name || '', r.guardian_email || '', r.ip || '', r.user_agent || '', r.body_sha256 || '']
       .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -302,6 +370,7 @@ function Register({ doc }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                 <span className="block truncate text-[11px] text-smoke">{r.accepted_at ? `${when(r.accepted_at)} · ${r.method === 'click' ? 'ticked' : r.method === 'typed' ? 'typed signature' : 'drawn signature'}${r.ip ? ` · ${r.ip}` : ''}` : 'Not yet'}</span>
+                {r.guardian_name && <span className="block truncate text-[11px] font-semibold text-ink/80">Parent or guardian: {r.guardian_name} · {r.guardian_email}</span>}
               </span>
               {r.method && r.method !== 'click' && <SignatureImage svg={r.signature_svg} method={r.method} name={r.signed_name} className="max-h-9 max-w-[140px]" textClass="text-[20px]" />}
               {!r.accepted_at && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">Waiting</span>}

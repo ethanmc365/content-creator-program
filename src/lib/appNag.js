@@ -59,8 +59,35 @@ export function onNagChange(fn) {
   return () => subs.delete(fn)
 }
 
+// ------------------------------------------------------ the agreements ---
+//
+// THE TERMS COME BEFORE EVERYTHING ELSE (7 Oct 2026). Ethan: "because we have
+// multiple pop-ups that will come up for certain creators at certain times,
+// ensure this one always shows up first, and then the other appropriate ones".
+//
+// AgreementGate raises this while it is still asking the database whether
+// anything is waiting, and keeps it up until everything waiting is accepted.
+// Nothing else can claim the slot meanwhile, and the walkthrough does not
+// start. Raised DURING RENDER (a plain module assignment, no subscribers are
+// called) so it is up before any sibling prompt's effect runs; lowering it
+// wakes the queue, so the next prompt opens straight after.
+let agreementOn = false
+
+export function setAgreementHold(on) {
+  if (agreementOn === on) return
+  agreementOn = on
+  if (!on) {
+    announce()
+    for (const fn of [...tourSubs]) fn()
+  }
+}
+
+/** Is a terms sheet up, or about to be? */
+export function agreementHolding() { return agreementOn }
+
 /** Try to claim this app open for `who`. True if nothing else is asking. */
 export function claimNag(who) {
+  if (agreementOn && who !== 'agreement') return false
   try {
     const held = sessionStorage.getItem(KEY)
     if (held && held !== who) return false

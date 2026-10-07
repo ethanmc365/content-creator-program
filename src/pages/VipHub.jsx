@@ -9,7 +9,7 @@ import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
 import { CountUp } from '../components/network/Motion'
 import {
-  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipTermsGate, VipVideoCard,
+  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipVideoCard,
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
@@ -19,7 +19,8 @@ import { TeamPulse } from '../components/vip/teamTools'
 import { VipLockedPage } from '../components/vip/VipLocked'
 import { VipRecapPanel } from './VipRecap'
 // The team's tools are only ever drawn for the team, so creators never download them.
-const VipTools = lazyRoute(() => import('../components/vip/VipTools'))
+const loadVipTools = () => import('../components/vip/VipTools')
+const VipTools = lazyRoute(loadVipTools)
 const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
 import { VipPreviewContext, daysLeft, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
 import { useT } from '../lib/i18n'
@@ -92,6 +93,11 @@ export default function VipHub() {
     } catch { setStaffOv(null) }
   }, [staffPick])
   useEffect(() => { if (staffMode) loadStaff() }, [staffMode, loadStaff])
+  // The tools are one press away for the team, so their code and their market list load now, in the background.
+  useEffect(() => {
+    if (!staffMode) return
+    loadVipTools().then((m) => m.warmVipTools?.(profile?.platform_role === 'owner')).catch(() => {})
+  }, [staffMode, profile?.platform_role])
   const pickProgramme = (id) => {
     setStaffPick(id)
     try { localStorage.setItem(STAFF_PICK, id) } catch { /* private mode */ }
@@ -226,11 +232,16 @@ export default function VipHub() {
         ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
         : <StaffBar mode={mode} onMode={pickView} market={programme.name} />)}
 
-      {toolsMode && staffMode ? <Suspense fallback={<Skeleton className="h-72 w-full rounded-card" />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense> : (<>
+      {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT (7 Oct 2026). Ethan: "whenever I click from the VIP page to VIP
+          tools, the screen just appears, and it's really flashy." Each view arrives in its own keyed wrapper with a
+          short fade and lift (`vip-mode-in`), the tools' code and markets are already warm (above), and the fallback
+          is the tools' own outline rather than one grey block. */}
+      {toolsMode && staffMode ? <div key="tools" className="vip-mode-in"><Suspense fallback={<VipToolsFallback />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense></div> : (<div key="page" className="vip-mode-in">
 
       {/* ---------------- this month, live ---------------- */}
       <section
         key={programme.id}
+        data-tour="vip-earnings"
         className="brand-drift relative mb-5 overflow-hidden rounded-card p-5 text-white shadow-card animate-rise sm:p-7"
       >
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
@@ -392,11 +403,24 @@ export default function VipHub() {
       )}
       </div>
 
-      </>)}
+      </div>)}
 
-      {!staffMode && <VipTermsGate open={!member.terms_ok} programme={programme} onAccepted={refresh} />}
+      {/* NO TERMS SHEET HERE ANY MORE (7 Oct 2026). Ethan: the VIP page's own terms "shouldn't be here anymore if we have
+          the other one" - the signed VIP agreement, asked for by AgreementGate once it is published on Admin >
+          Agreements. `terms_ok` now means "signed the published VIP agreement" (vip_terms_ok, migration 360). */}
     </div>
     </VipPreviewContext.Provider>
+  )
+}
+
+function VipToolsFallback() {
+  return (
+    <div aria-busy="true">
+      <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
+        {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-11 rounded-xl" />)}
+      </div>
+      <Skeleton className="h-72 w-full rounded-card" />
+    </div>
   )
 }
 

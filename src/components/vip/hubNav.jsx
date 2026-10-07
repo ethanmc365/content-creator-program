@@ -45,6 +45,7 @@ export function VipSideNav({ value, onChange, hidden, links }) {
             <li key={s.key}>
               <button
                 type="button"
+                data-tour={`vip-section-${s.key}`}
                 onClick={() => !on && onChange(s.key)}
                 aria-current={on ? 'page' : undefined}
                 className={cx('group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200', !on && 'hoverable:hover:bg-cloud/70')}
@@ -97,6 +98,7 @@ export function VipChipNav({ value, onChange, hidden, links }) {
           <button
             key={s.key}
             type="button"
+            data-tour={`vip-section-${s.key}`}
             onClick={() => !on && onChange(s.key)}
             aria-current={on ? 'page' : undefined}
             ref={(el) => { if (el && on) el.scrollIntoView?.({ block: 'nearest', inline: 'center' }) }}

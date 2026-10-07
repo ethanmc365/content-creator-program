@@ -23,7 +23,9 @@ import LegalShell, { H2 } from './LegalShell'
 //    Google Fonts for the typeface, the four social platforms the view sync
 //    reads from).
 //
-// The controller is Tryp.com LDA, the entity on tryp.com's own public policy.
+// The controller is Tryp.com ApS (CVR 42533165, Odense), corrected 7 Oct 2026: it is the company on the signed VIP
+// contract and in the Danish business register (parent: Tryp.com Holding ApS). Every legal page and both
+// agreements now name the same company.
 // THIS IS A TEMPLATE WRITTEN CAREFULLY, NOT LEGAL ADVICE - have a lawyer read
 // it before it is relied on, and keep the "last updated" date honest.
 export default function PrivacyPolicy() {
@@ -37,9 +39,9 @@ export default function PrivacyPolicy() {
 
       <H2>1. Who we are</H2>
       <p>
-        The data controller is <strong>Tryp.com LDA</strong>, Rua da Prata, nr. 80, 5.º piso,
-        1100-420 Lisbon, Portugal. For any privacy question, or to exercise any of the rights in
-        section 8, contact us at <strong>ethan@tryp.com</strong>. We will answer within one month.
+        The data controller is <strong>Tryp.com ApS</strong> (CVR 42533165), Drewsensvej 3, st. th,
+        5000 Odense C, Denmark, part of the Tryp.com group. For any privacy question, or to exercise any of the rights in section 9, contact
+        us at <strong>ethan@tryp.com</strong>. We will answer within one month.
       </p>
 
       <H2>2. The data we collect</H2>
@@ -54,6 +56,7 @@ export default function PrivacyPolicy() {
         <li><strong>Activity in the Programme:</strong> challenge results and points, prizes and vouchers awarded, milestones reached, game scores and streaks, connections with other creators, and when you were last active.</li>
         <li><strong>Performance data about your entries:</strong> the public view count of each video you submit, read automatically from the link you gave us (see section 5).</li>
         <li><strong>Agreements you accept or sign:</strong> which version of the Community Terms or the VIP Creator Agreement you accepted, when, a fingerprint of its exact text, how you accepted it (a tick, a typed name or a drawn signature, and that signature itself), the email on your account, and the IP address and browser you used at that moment.</li>
+        <li><strong>If you are under 18:</strong> the name and email of the parent or guardian who agreed to the Community Terms with you, kept with that acceptance.</li>
         <li><strong>Questions you ask</strong> on the Questions and answers page, and the team's replies. A question is only shown to other creators if the team chooses to publish it with its answer, without your name.</li>
         <li><strong>VIP programme:</strong> if you are a VIP creator, the videos you add, their view readings over time, your monthly statements, balance and payouts.</li>
         <li><strong>Technical:</strong> IP address and rate-limiting records kept briefly for security, your browser's timezone, device push-notification tokens if you turn notifications on, and essential storage in your browser to keep you signed in.</li>
@@ -120,7 +123,7 @@ export default function PrivacyPolicy() {
         <li><strong>Your account and profile:</strong> for as long as your account is open.</li>
         <li><strong>If you delete your account:</strong> it is scheduled for permanent deletion after a 30-day grace period, during which you can restore it yourself. After that it is gone.</li>
         <li><strong>Messages in shared rooms:</strong> a conversation belongs to everyone in it, so messages you have posted may remain in the thread after you leave, shown without your profile.</li>
-        <li><strong>Invoices and payment records:</strong> kept for as long as accounting and tax law requires, which in Portugal is ten years. This applies even after you close your account, and it is a legal obligation rather than a choice.</li>
+        <li><strong>Invoices and payment records:</strong> kept for as long as accounting and tax law requires: five years from the end of the financial year under the Danish Bookkeeping Act, or longer where another country's tax law requires it. This applies even after you close your account, and it is a legal obligation rather than a choice.</li>
         <li><strong>Records of agreements you accepted or signed:</strong> for as long as your account is open. Payouts made under the VIP Creator Agreement stay in the invoice records above.</li>
         <li><strong>Security records</strong> such as rate-limiting logs: days, not months.</li>
       </ul>
@@ -140,9 +143,9 @@ export default function PrivacyPolicy() {
       </ul>
       <p>
         Anything not covered by a button, write to <strong>ethan@tryp.com</strong>. You also have the
-        right to complain to a supervisory authority - in Portugal the Comissão Nacional de Proteção
-        de Dados (CNPD), in the UK the Information Commissioner's Office (ICO), or the authority
-        where you live.
+        right to complain to a supervisory authority - in Denmark, where we are established, the
+        Datatilsynet (Danish Data Protection Agency); in the UK the Information Commissioner's Office
+        (ICO); or the authority in the country where you live.
       </p>
 
       <H2>10. Security</H2>
@@ -164,8 +167,11 @@ export default function PrivacyPolicy() {
 
       <H2>12. Children</H2>
       <p>
-        The Programme is for people aged 16 and over. We ask for your date of birth in order to
-        enforce that. If we learn that an account belongs to somebody younger, we delete it.
+        The Programme is for people aged 16 and over, and the VIP programme for people aged 18 and
+        over. We ask for your date of birth in order to enforce that. A creator aged 16 or 17 accepts
+        the Community Terms together with a parent or guardian, whose name and email we keep with
+        that acceptance and use only about the membership. If we learn that an account belongs to
+        somebody younger than 16, we delete it.
       </p>
 
       <H2>13. Changes</H2>

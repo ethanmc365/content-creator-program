@@ -64,11 +64,22 @@ export default function SignaturePad({ defaultName = '', onChange }) {
     const r = svgRef.current.getBoundingClientRect()
     return [Math.round(((e.clientX - r.left) / r.width) * 600), Math.round(((e.clientY - r.top) / r.height) * 200)]
   }
-  const down = (e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); live.current = [pt(e)]; setStrokes((s) => [...s, live.current]) }
+  // THE STROKE IS COPIED INTO A LOCAL BEFORE IT GOES INTO AN UPDATER (7 Oct 2026). React runs a state updater
+  // later, and by then a pointerup may have set `live.current` to null - so a quick stroke stored `null` as a line
+  // and the next render crashed in pathOf ("Cannot read properties of null (reading 'length')"), which is the
+  // "Mayday" page Ethan hit while signing in the Testing Centre.
+  const down = (e) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    const stroke = [pt(e)]
+    live.current = stroke
+    setStrokes((s) => [...s, stroke])
+  }
   const move = (e) => {
     if (!live.current) return
-    live.current = [...live.current, pt(e)]
-    setStrokes((s) => [...s.slice(0, -1), live.current])
+    const stroke = [...live.current, pt(e)]
+    live.current = stroke
+    setStrokes((s) => [...s.slice(0, -1), stroke])
   }
   const up = () => { live.current = null }
 
@@ -104,7 +115,7 @@ export default function SignaturePad({ defaultName = '', onChange }) {
             onPointerCancel={up}
             onPointerLeave={up}
           >
-            {strokes.map((s, i) => <path key={i} d={pathOf(s)} fill="none" stroke="#111" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />)}
+            {strokes.filter(Boolean).map((s, i) => <path key={i} d={pathOf(s)} fill="none" stroke="#111" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />)}
             {!strokes.length && <text x="300" y="110" textAnchor="middle" fill="#c4c4c4" fontSize="22">{tr('Sign here with your finger or mouse')}</text>}
           </svg>
         )}
@@ -118,11 +129,11 @@ export default function SignaturePad({ defaultName = '', onChange }) {
 }
 
 function pathOf(points) {
-  if (!points.length) return ''
+  if (!Array.isArray(points) || !points.length) return ''
   if (points.length === 1) return `M${points[0][0]} ${points[0][1]} l0.1 0`
   return points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ')
 }
 
 function drawnSvg(strokes) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200">${strokes.map((s) => `<path d="${pathOf(s)}" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200">${strokes.filter(Boolean).map((s) => `<path d="${pathOf(s)}" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</svg>`
 }

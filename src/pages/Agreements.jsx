@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Modal, PageHeader, Skeleton } from '../components/ui'
+import { PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
-import AgreementSheet, { headingsOf } from '../components/agreements/AgreementSheet'
+import AgreementSheet from '../components/agreements/AgreementSheet'
 import { SignatureImage } from '../components/agreements/SignaturePad'
-import { renderNote } from '../lib/noteMarkdown'
 import { dateTag, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -43,6 +42,7 @@ export default function Agreements() {
 
   const acceptanceOf = (doc) => mine.find((m) => m.agreement_id === doc.id)
 
+  const accepted = (current || []).filter((d) => acceptanceOf(d)).length
   return (
     <div className="page max-w-3xl">
       <PageHeader back={{ to: '/settings', label: tr('Settings') }} title={tr('Agreements')} subtitle={tr('The terms you accepted and the agreements you signed.')} />
@@ -50,44 +50,74 @@ export default function Agreements() {
       {current === undefined ? (
         <div className="space-y-3"><Skeleton className="h-36 w-full rounded-card" /><Skeleton className="h-36 w-full rounded-card" /></div>
       ) : current.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">{tr('Nothing to sign yet.')}</p>
-      ) : (
-        <div className="space-y-4">
-          {current.map((doc, i) => {
-            const acc = acceptanceOf(doc)
-            const isPending = pending.some((p) => p.id === doc.id)
-            return (
-              <section key={doc.id} className="overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-card animate-rise" style={{ animationDelay: `${i * 80}ms` }}>
-                <div className={cx('relative px-6 py-5 text-white', doc.audience === 'vip' ? 'vip-locked-hero' : 'faq-hero')}>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">{doc.audience === 'vip' ? tr('VIP agreement') : tr('Community terms')} · v{doc.version}</p>
-                  <h2 className="mt-1 text-xl font-extrabold">{doc.title}</h2>
-                  <p className="mt-1 text-sm text-white/85">{doc.summary}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-4 px-6 py-4">
-                  <div className="min-w-0 flex-1">
-                    {acc ? (
-                      <>
-                        <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Icon name="check" className="h-4 w-4 text-brand" />{acc.method === 'click' ? tr('Accepted') : tr('Signed')}</p>
-                        <p className="text-xs text-smoke">{when(acc.accepted_at)}</p>
-                        {acc.method !== 'click' && <SignatureImage svg={acc.signature_svg} method={acc.method} name={acc.signed_name} className="mt-2 max-h-14 max-w-[220px]" textClass="text-[28px]" />}
-                      </>
-                    ) : (
-                      <p className="flex items-center gap-1.5 text-sm font-bold text-brand"><Icon name="alert" className="h-4 w-4" />{isPending ? tr('Waiting for you') : tr('Not accepted yet')}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setReading({ doc, acc })} className="btn-secondary !py-2 text-sm"><Icon name="book" className="h-4 w-4" />{tr('Read')}</button>
-                    {!acc && <button type="button" onClick={() => setSigning(doc)} className="btn-primary !py-2 text-sm"><Icon name={doc.requires_signature ? 'pencil' : 'check'} className="h-4 w-4" />{doc.requires_signature ? tr('Sign') : tr('Accept')}</button>}
-                  </div>
-                </div>
-              </section>
-            )
-          })}
+        <div className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-12 text-center animate-rise">
+          <Icon name="shield" className="mx-auto h-8 w-8 text-brand" />
+          <p className="mt-3 text-sm font-semibold text-ink">{tr('Nothing to sign yet.')}</p>
+          <p className="mt-1 text-xs text-smoke">{tr('When the team publishes terms, they appear here.')}</p>
         </div>
+      ) : (
+        <>
+          {/* WHERE YOU STAND, IN ONE LINE (7 Oct 2026). */}
+          <div className="mb-4 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card animate-rise">
+            <span className="relative h-11 w-11 shrink-0">
+              <svg viewBox="0 0 36 36" className="h-11 w-11 -rotate-90">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#f1f1f3" strokeWidth="3.5" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#d94407" strokeWidth="3.5" strokeLinecap="round"
+                  strokeDasharray={`${(accepted / current.length) * 97.4} 97.4`} className="transition-[stroke-dasharray] duration-700" />
+              </svg>
+              <Icon name={accepted === current.length ? 'check' : 'shield'} className="absolute inset-0 m-auto h-4 w-4 text-brand" />
+            </span>
+            <p className="min-w-0 text-sm text-ink">
+              <strong>{accepted === current.length ? tr('You are all up to date.') : tr('{n} waiting for you', { n: current.length - accepted })}</strong>
+              <span className="block text-xs text-smoke">{tr('{a} of {b} accepted', { a: accepted, b: current.length })}</span>
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {current.map((doc, i) => {
+              const acc = acceptanceOf(doc)
+              const isPending = pending.some((p) => p.id === doc.id)
+              const vip = doc.audience === 'vip'
+              return (
+                <section key={doc.id} className="group overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${80 + i * 80}ms` }}>
+                  <div className={cx('relative overflow-hidden px-6 py-5 text-white', vip ? 'vip-locked-hero' : 'faq-hero')}>
+                    <span aria-hidden className="ideas-orb ideas-orb-a !h-40 !w-40 opacity-50" />
+                    <div className="relative flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">{vip ? tr('VIP agreement') : tr('Community terms')} · v{doc.version}</p>
+                        <h2 className="mt-1 text-xl font-extrabold">{doc.title}</h2>
+                      </div>
+                      <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold', acc ? 'bg-white text-brand' : 'bg-white/20 text-white')}>
+                        {acc ? (acc.method === 'click' ? tr('Accepted') : tr('Signed')) : tr('Waiting')}
+                      </span>
+                    </div>
+                    <p className="relative mt-1.5 text-sm leading-relaxed text-white/90">{doc.summary}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 px-6 py-4">
+                    <div className="min-w-0 flex-1">
+                      {acc ? (
+                        <>
+                          <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Icon name="check" className="h-4 w-4 text-brand" />{acc.method === 'click' ? tr('Accepted') : tr('Signed')} {when(acc.accepted_at)}</p>
+                          {acc.method !== 'click' && <SignatureImage svg={acc.signature_svg} method={acc.method} name={acc.signed_name} className="mt-2 max-h-14 max-w-[220px]" textClass="text-[28px]" />}
+                        </>
+                      ) : (
+                        <p className="flex items-center gap-1.5 text-sm font-bold text-brand"><Icon name="alert" className="h-4 w-4" />{isPending ? tr('Waiting for you') : tr('Not accepted yet')}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setReading({ doc, acc })} className="btn-secondary !py-2 text-sm"><Icon name="book" className="h-4 w-4" />{tr('Read')}</button>
+                      {!acc && <button type="button" onClick={() => setSigning(doc)} className="btn-primary !py-2 text-sm"><Icon name={doc.requires_signature ? 'pencil' : 'check'} className="h-4 w-4" />{doc.requires_signature ? tr('Sign') : tr('Accept')}</button>}
+                    </div>
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {mine.filter((m) => !m.is_current).length > 0 && (
-        <section className="mt-8">
+        <section className="mt-8 animate-rise" style={{ animationDelay: '240ms' }}>
           <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">{tr('Earlier versions you accepted')}</h2>
           <ul className="divide-y divide-gray-50 rounded-card border border-gray-100 bg-white shadow-card">
             {mine.filter((m) => !m.is_current).map((m) => (
@@ -97,38 +127,15 @@ export default function Agreements() {
                   <span className="block text-sm font-semibold text-ink">{m.title} · v{m.version}</span>
                   <span className="block text-xs text-smoke">{when(m.accepted_at)}</span>
                 </span>
-                <button type="button" onClick={() => setReading({ doc: { id: m.agreement_id, title: m.title, version: m.version, body: m.rendered_body || '' }, acc: m })} className="text-sm font-bold text-brand">{tr('Read')}</button>
+                <button type="button" onClick={() => setReading({ doc: { id: m.agreement_id, title: m.title, version: m.version, audience: m.audience, summary: '', body: m.rendered_body || '' }, acc: m })} className="text-sm font-bold text-brand">{tr('Read')}</button>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      {reading && <ReadModal doc={reading.doc} acc={reading.acc} onClose={() => setReading(null)} />}
+      {reading && <AgreementSheet readOnly doc={reading.doc} acceptance={reading.acc} onClose={() => setReading(null)} />}
       {signing && <AgreementSheet doc={signing} onClose={() => setSigning(null)} onAccepted={() => { setSigning(null); load() }} />}
     </div>
-  )
-}
-
-function ReadModal({ doc, acc, onClose }) {
-  const tr = useT()
-  const sections = headingsOf(doc.body)
-  return (
-    <Modal open onClose={onClose} title={`${doc.title} · v${doc.version}`} wide>
-      <div id="agreement-print" className="agreement-text text-[14px]">
-        <p className="mb-3 text-xs text-smoke">{tr('{n} sections', { n: sections.length })}{doc.published_at ? ` · ${tr('published {d}', { d: when(doc.published_at) })}` : ''}</p>
-        {renderNote(doc.body)}
-        {acc && (
-          <div className="mt-6 rounded-2xl border border-gray-100 bg-cloud/50 p-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">{acc.method === 'click' ? tr('Accepted') : tr('Signed')}</p>
-            {acc.method !== 'click' && <SignatureImage svg={acc.signature_svg} method={acc.method} name={acc.signed_name} className="mt-2 max-h-20 max-w-[280px]" />}
-            {acc.signed_name && <p className="mt-1 text-sm font-semibold text-ink">{acc.signed_name}</p>}
-            <p className="text-xs text-smoke">{when(acc.accepted_at)}</p>
-            <p className="mt-1 break-all font-mono text-[10px] text-gray-400">SHA-256 {acc.body_sha256}</p>
-          </div>
-        )}
-      </div>
-      <button type="button" onClick={() => window.print()} className="btn-secondary mt-5 w-full justify-center"><Icon name="download" className="h-4 w-4" />{tr('Print or save as PDF')}</button>
-    </Modal>
   )
 }

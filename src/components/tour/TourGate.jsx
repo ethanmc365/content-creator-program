@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { lazyRoute } from '../../lib/lazyRoute'
@@ -9,6 +9,7 @@ import {
   setTourScope, shouldAutoStart, tourEnabled, tourKey, walkIsOpen,
 } from '../../lib/tour'
 import { isMobileDevice, isStandalone } from '../../lib/install'
+import { agreementHolding, onTourRunning } from '../../lib/appNag'
 
 // WHETHER THE WALKTHROUGH RUNS, DECIDED IN ONE PLACE.
 //
@@ -42,10 +43,26 @@ const setRequiredHint = (on) => {
   } catch { /* private mode */ }
 }
 
-/** Start the walkthrough from anywhere. Returns false if the shell is not up. */
-export function startTour() {
+// WHICH WALK IS OPEN, when somebody asked for one by name (the Testing Centre's "community" or "VIP" button). Kept
+// beside the open flag so a reload mid-walk reopens the same walk. Null means "the one this person would get".
+const VARIANT_KEY = () => tourKey('variant')
+const savedVariant = () => {
+  try { return localStorage.getItem(VARIANT_KEY()) || null } catch { return null }
+}
+const setSavedVariant = (v) => {
+  try {
+    if (v) localStorage.setItem(VARIANT_KEY(), v)
+    else localStorage.removeItem(VARIANT_KEY())
+  } catch { /* private mode */ }
+}
+
+/**
+ * Start the walkthrough from anywhere. Returns false if the shell is not up.
+ * `variant` ('community' | 'vip') picks a walk by name, from the start; without it the person's own walk resumes.
+ */
+export function startTour(variant = null) {
   if (!openDeliberately) return false
-  openDeliberately()
+  openDeliberately(variant)
   return true
 }
 
@@ -98,18 +115,25 @@ export default function TourGate() {
   // the same flag, so a resumed first run is still a first run.
   const navigate = useNavigate()
   const [required, setRequired] = useState(() => walkIsOpen(isPhone ? 'mobile' : 'desktop') && REQUIRED_HINT())
+  const [variant, setVariant] = useState(() => (walkIsOpen(isPhone ? 'mobile' : 'desktop') ? savedVariant() : null))
 
   useEffect(() => {
     // Asking for it explicitly (Settings, the Testing Centre) undoes a
     // dismissal - otherwise "Show me round again" would do nothing at all for
     // anybody who had closed it earlier in the same session. A walk somebody
     // asked for is always escapable, whatever the first run was.
-    openDeliberately = () => {
+    openDeliberately = (v = null) => {
       dismissedHere.current = false
       setRequired(false)
       setRequiredHint(false)
+      // A walk asked for by name starts at its first step: the saved step belongs to whichever walk ran last.
+      if (v) clearStep(layout)
+      setVariant(v)
+      setSavedVariant(v)
+      // Already open (one walk started over another): close it for a frame so the host remounts on step one.
+      setOpen(false)
       markWalkOpen(layout)
-      setOpen(true)
+      requestAnimationFrame(() => setOpen(true))
     }
     return () => { openDeliberately = null }
   }, [layout])
@@ -121,9 +145,11 @@ export default function TourGate() {
   // Migration 107 backfilled every creator who was already here as done, so the
   // existing community cannot be walked round by accident even if the setting
   // is flipped.
+  // THE TERMS FIRST (7 Oct 2026): a walk does not start under an agreement sheet; it starts once that is accepted.
+  const agreementUp = useSyncExternalStore(onTourRunning, agreementHolding, () => false)
   useEffect(() => {
     let alive = true
-    if (dismissedHere.current) return undefined
+    if (dismissedHere.current || agreementUp) return undefined
     // A PHONE IN A BROWSER IS ABOUT TO BE WALLED, SO DO NOT WALK IT ROUND.
     // AddToHomePrompt shows a non-dismissible "add it to your home screen"
     // screen there, and the walkthrough is per-layout and runs once - spending
@@ -144,10 +170,13 @@ export default function TourGate() {
       setOpen(true)
     })
     return () => { alive = false }
-  }, [profile, layout])
+  }, [profile, layout, agreementUp])
 
   const finish = useCallback(async (reason) => {
     setOpen(false)
+    const wasVariant = variant
+    setVariant(null)
+    setSavedVariant(null)
     // The overlay is down, so it must not be restored by the next reload.
     clearWalkOpen(layout)
     setRequiredHint(false)
@@ -176,14 +205,15 @@ export default function TourGate() {
     // Only on a real completion, never on 'dismissed': somebody who walked away
     // half way through is somewhere they chose to be, and moving them would be
     // the walkthrough taking the wheel on the way out.
-    navigate(network ? '/global' : '/home')
-    await markTourComplete(user?.id)
-  }, [layout, user?.id, navigate, network])
+    navigate(wasVariant === 'vip' || (!wasVariant && profile?.is_vip) ? '/vip' : network ? '/global' : '/home')
+    // A walk the team previewed by name is not the team finishing their own.
+    if (!wasVariant) await markTourComplete(user?.id)
+  }, [layout, user?.id, navigate, network, variant, profile?.is_vip])
 
   if (!open) return null
   return (
     <Suspense fallback={null}>
-      <TourHost onFinish={finish} network={network} layout={layout} required={required} />
+      <TourHost onFinish={finish} network={network} layout={layout} required={required} variant={variant} />
     </Suspense>
   )
 }

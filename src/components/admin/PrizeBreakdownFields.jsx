@@ -43,6 +43,64 @@ export function prizeKind(prizes = []) {
   return hasCash && hasVoucher ? 'cash_voucher' : hasVoucher ? 'voucher' : 'cash'
 }
 
+const EN_SUFFIX = (n) => {
+  const t = n % 100
+  if (t >= 11 && t <= 13) return 'th'
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th'
+}
+
+/**
+ * A numbered place re-labelled as `n`, in the style it was typed in: "4º" ->
+ * "2º", "4th" -> "2nd", "4" -> "2". A label with no leading number ("Best
+ * edit") is not a rank and is returned untouched.
+ */
+export function relabelPlace(label, n) {
+  const s = String(label ?? '')
+  const m = s.match(/^(\s*)(\d+)(st|nd|rd|th|º|ª|°|\.)?(.*)$/i)
+  if (!m) return s
+  const [, lead, , suffix, rest] = m
+  const sfx = !suffix ? '' : /^(st|nd|rd|th)$/i.test(suffix) ? EN_SUFFIX(n) : suffix
+  return `${lead}${n}${sfx}${rest}`
+}
+
+/**
+ * NUMBERED PLACES FOLLOW THE ROWS (7 Oct 2026).
+ *
+ * Ethan removed 2nd and 3rd from the Portugal brief and the boards still paid
+ * "4º" and "5º", with nothing on 2nd and 3rd: every leaderboard places a prize
+ * by the number in its label (`placeNumber`), and deleting a row never touched
+ * the labels below it. So after a row goes, the numbered rows are counted
+ * again from the top and keep whatever style they were written in.
+ */
+export function renumberPlaces(prizes = []) {
+  let k = 0
+  return (Array.isArray(prizes) ? prizes : []).map((p) => {
+    if (!/^\s*\d+/.test(String(p?.place ?? ''))) return p
+    k += 1
+    return { ...p, place: relabelPlace(p.place, k) }
+  })
+}
+
+/** The label a new row gets: the next number, in the style of the last one. */
+export function nextPlaceLabel(prizes = []) {
+  const numbered = (Array.isArray(prizes) ? prizes : []).filter((p) => /^\s*\d+/.test(String(p?.place ?? '')))
+  const last = numbered[numbered.length - 1]
+  const n = numbered.length + 1
+  return last ? relabelPlace(last.place, n) : `${n}${EN_SUFFIX(n)}`
+}
+
+/** Numbered places that skip a number ("1st, 4th, 5th"), or null if none do. */
+export function placeGap(prizes = []) {
+  const nums = (Array.isArray(prizes) ? prizes : [])
+    .map((p) => String(p?.place ?? '').match(/^\s*(\d+)/))
+    .filter(Boolean)
+    .map((m) => parseInt(m[1], 10))
+  for (let i = 0; i < nums.length; i += 1) {
+    if (nums[i] !== i + 1) return { at: i + 1, found: nums[i] }
+  }
+  return null
+}
+
 /** Rows worth saving: a place and something to win. */
 export const cleanPrizes = (prizes = []) =>
   (Array.isArray(prizes) ? prizes : []).filter((p) => p.place && p.prize)
@@ -403,7 +461,7 @@ export default function PrizeBreakdownFields({
           />
           <div className="order-4 col-span-2 flex items-center justify-between gap-2 sm:contents">
             <TypeToggle value={rowType(p)} onChange={(t) => setPrize(i, { type: t })} label={`Prize ${i + 1} type`} />
-            <RemoveButton onClick={() => onPrizes(prizes.filter((_, j) => j !== i))} label={`Remove prize ${i + 1}`} />
+            <RemoveButton onClick={() => onPrizes(renumberPlaces(prizes.filter((_, j) => j !== i)))} label={`Remove prize ${i + 1}`} />
           </div>
         </div>
       ))}
@@ -416,11 +474,22 @@ export default function PrizeBreakdownFields({
       <div>
         <button
           type="button" className={ADD_BTN} id={`${idPrefix}-add`}
-          onClick={() => onPrizes([...prizes, { place: '', prize: '', amount: '', type: 'cash' }])}
+          onClick={() => onPrizes([...prizes, { place: nextPlaceLabel(prizes), prize: '', amount: '', type: 'cash' }])}
         >
           <Icon name="plus" className="h-4 w-4" /> Add a prize
         </button>
       </div>
+
+      {placeGap(prizes) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand/30 bg-white px-3 py-2 text-xs text-ink">
+          <span>
+            The places skip from {placeGap(prizes).at - 1 || 'the start'} to {placeGap(prizes).found}, so place {placeGap(prizes).at} would show no prize on the leaderboard.
+          </span>
+          <button type="button" className="font-semibold text-brand hover:underline" onClick={() => onPrizes(renumberPlaces(prizes))}>
+            Renumber 1, 2, 3...
+          </button>
+        </div>
+      )}
 
       {/* THE REWARD FOR TAKING PART, AS A PRIZE. Same row as a place: the
           threshold where a place would be, then what they get, its value and

@@ -276,3 +276,19 @@ describe('the local "seen" flag is scoped to the account', () => {
     expect(tourKey('required')).not.toBe(a)
   })
 })
+
+describe('the VIP walk (7 Oct 2026)', () => {
+  it('never mentions challenges and ends with notifications then the sign-off', async () => {
+    const { stepsFor } = await import('./tour')
+    const vip = stepsFor({ network: true, vip: true })
+    expect(vip.some((s) => /challenge/i.test(`${s.title} ${s.body} ${s.do || ''}`))).toBe(false)
+    expect(vip[vip.length - 2].key).toBe('notifications')
+    expect(vip[vip.length - 2].required).toBe(true)
+    expect(vip.map((s) => s.key)).toContain('vip-submit')
+    expect(new Set(vip.map((s) => s.key)).size).toBe(vip.length)
+  })
+  it('leaves the community walk as it was', async () => {
+    const { stepsFor } = await import('./tour')
+    expect(stepsFor({ network: true }).map((s) => s.key)).toEqual(['welcome', 'challenges', 'rooms', 'payment', 'notifications', 'done'])
+  })
+})

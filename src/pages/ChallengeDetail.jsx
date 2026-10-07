@@ -345,6 +345,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     const ch = supabase
       .channel(`challenge-board-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `challenge_id=eq.${id}` }, soon)
+      // An edit to the brief (prizes, places, dates) redraws the board too.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'challenges', filter: `id=eq.${id}` }, soon)
       .subscribe()
     const onVisible = () => { if (document.visibilityState === 'visible') soon() }
     document.addEventListener('visibilitychange', onVisible)

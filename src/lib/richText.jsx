@@ -152,11 +152,19 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
 }
 
 // Plain text for previews and notifications: drop markdown markers, keep @names.
+// Also the notification bell and page (7 Oct 2026): Marta's bold and heading lines showed as stars and hashes there.
+// The database strips new notifications at write (md_plain, migration 360); this covers anything older on a device.
 export function stripMarkup(body) {
   if (!body) return ''
   return healInlineRuns(body)
-    .replace(/^#{1,3}\s+/gm, '')
-    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/!?\[([^\]\n]*)\]\(([^)\s]+)\)/g, '$1')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/`([^`\n]+)`/g, '$1')
     .replace(/\*([^*\n]+)\*/g, '$1')
-    .replace(/_([^_\n]+)_/g, '$1')
+    .replace(/(^|[^\w])_([^_\n]+)_/g, '$1$2')
+    .replace(/\*{2,}/g, '')
 }

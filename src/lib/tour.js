@@ -256,26 +256,97 @@ export const TOUR_STEPS = [
  * percentage is computed off THIS list, never off TOUR_STEPS, or a creator on
  * the legacy shell tops out at sixty per cent.
  */
-// A VIP's walk swaps the challenges step for their own page (2 Oct 2026): they are paid by views and never
-// see the challenges, so the tour points at the VIP tab instead.
-const VIP_STEP = {
-  key: 'vip',
-  part: 'start',
-  title: 'This is your page',
-  body: 'Add your videos, watch what this month is earning, and find every payout and your VIP rooms here.',
-  do: 'Tap VIP',
-  anchor: 'nav-challenges',
-  goal: { kind: 'route', to: '/vip' },
-  on: ALL,
-}
+// THE VIP WALK (7 Oct 2026). Ethan: "we now also have VIP members. We obviously don't want them seeing the exact same
+// walkthrough because it's not showing challenges. It'll be showing the VIP room." A VIP is paid by views and never
+// sees a challenge, so their walk is built round their own page: what this month is earning, where a video is added
+// (the one thing they must do for every post), where the money goes, their rooms, and then the same two account
+// steps every creator does, with the words about pay written for pay by views. Same shape, same parts, same rules:
+// every stop is a press, notifications is the one required step and comes last before the sign-off.
+const byKey = (k) => TOUR_STEPS.find((s) => s.key === k)
+export const VIP_TOUR_STEPS = [
+  {
+    key: 'vip-welcome',
+    part: 'start',
+    title: 'Welcome to VIP',
+    body: 'You are paid for the views your Tryp.com videos earn. Let me show you where everything lives.',
+    do: null,
+    anchor: null,
+    at: '/vip',
+    goal: { kind: 'begin' },
+    on: ALL,
+  },
+  {
+    key: 'vip-earnings',
+    part: 'start',
+    title: 'What this month is earning',
+    body: 'The views your videos gain this month, times your rate. It counts up as the views come in and starts again on the 1st.',
+    do: 'Tap your earnings',
+    anchor: 'vip-earnings',
+    at: '/vip',
+    goal: { kind: 'click', anchor: 'vip-earnings' },
+    on: ALL,
+  },
+  {
+    key: 'vip-submit',
+    part: 'start',
+    title: 'Add every video here',
+    body: 'Paste the link as soon as a video is live. We read its views every day, and only videos added here are paid.',
+    do: 'Tap the box to add a video',
+    anchor: 'vip-submit',
+    at: '/vip',
+    goal: { kind: 'click', anchor: 'vip-submit' },
+    on: ALL,
+  },
+  {
+    key: 'vip-payouts',
+    part: 'start',
+    title: 'Where your pay goes',
+    body: 'Each month lands in your balance. Take it as cash once it reaches the minimum, or as a Tryp.com voucher.',
+    do: 'Tap Payouts',
+    anchor: 'vip-section-payouts',
+    at: '/vip',
+    goal: { kind: 'click', anchor: 'vip-section-payouts' },
+    on: ALL,
+  },
+  {
+    key: 'vip-rooms',
+    part: 'start',
+    title: 'Your VIP rooms',
+    body: 'Talk to the other VIPs and the Tryp.com team, and catch every VIP announcement first.',
+    do: 'Tap Rooms',
+    anchor: 'nav-chat',
+    goal: { kind: 'route', to: '/chat' },
+    goalNet: { kind: 'route', to: '/rooms' },
+    on: ALL,
+  },
+  {
+    ...byKey('payment'),
+    title: 'So we can pay you',
+    body: 'Your VIP pay is sent by bank transfer against an invoice we raise for you. Without these details we cannot send it.',
+  },
+  {
+    ...byKey('notifications'),
+    title: 'So you never miss a bonus',
+    body: 'This is how you hear about a new bonus, your monthly statement and every payout.',
+  },
+  {
+    ...byKey('done'),
+    key: 'vip-done',
+    body: 'Now add your first video and watch this month count up. Say hi in your VIP room too!',
+    at: '/vip',
+    atNet: '/vip',
+  },
+]
+
+/** Which walk: the community one, or the VIP one. */
+export const TOUR_VARIANTS = ['community', 'vip']
 
 export function stepsFor({ network = false, vip = false } = {}) {
   // Every step applies on both shells now. The filter stays because the
   // `on: 'network'` escape hatch is worth keeping for a step that genuinely
   // only exists in one of them, and because the percentage MUST be computed off
   // this list rather than off TOUR_STEPS.
-  return TOUR_STEPS
-    .map((s) => (vip && s.key === 'challenges' ? VIP_STEP : s))
+  return (vip ? VIP_TOUR_STEPS : TOUR_STEPS)
     .filter((s) => s.on === ALL || (s.on === 'network' && network))
 }
 
