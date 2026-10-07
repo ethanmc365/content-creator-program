@@ -355,10 +355,13 @@ export default function AdminChallengeForm() {
     let alive = true
     supabase
       .from('community_members')
-      .select('profile_id, profiles!inner(id, name, photo_url, city, country, is_admin, is_test, status)')
+      .select('profile_id, profiles!inner(id, name, photo_url, city, country, is_admin, is_test, is_vip, status)')
       .eq('community_id', form.community_id)
       .eq('status', 'active')
       .eq('profiles.is_admin', false)
+      // VIPS ARE NOT IN CHALLENGES (7 Oct 2026). Marta could not save RETO OCTUBRE ESPAÑA: "15 creators are not in a
+      // group" - the Spanish VIPs, who are on the market's roster but are never dealt onto a board (migration 344).
+      .eq('profiles.is_vip', false)
       .in('profiles.is_test', testFlags())
       .eq('profiles.status', 'active')
       .then(({ data }) => {
