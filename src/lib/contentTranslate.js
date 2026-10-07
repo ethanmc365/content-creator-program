@@ -21,25 +21,72 @@ export async function sha256Hex(s) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-const memo = new Map() // `${locale}\n${text}` -> row | 'pending' promise
+const memo = new Map() // `${locale}\n${text}` -> row
+const inflight = new Map() // `${locale}\n${text}` -> Promise<row | undefined>, while it is being fetched
 const key = (locale, text) => `${locale}\n${text}`
+
+// ONE CACHE LOOKUP PER PAGE, NOT ONE PER TEXT (7 Oct 2026). Every TranslatedText / ReaderText on a page
+// used to send its own `content_translations` request - the busiest endpoint on the platform, ~9,000 a
+// day, and the one at the front of the queue when the database ran out of room and the platform went
+// down. Lookups asked for within the same 25ms are now merged into one request (chunked so the URL
+// stays short), and a text already on its way is waited for rather than asked for again.
+const LOOKUP_WAIT_MS = 25
+const LOOKUP_CHUNK = 60
+const lookups = new Map() // locale -> { hashes: Set, waiters: [{ resolve }], timer }
+
+function lookupRows(locale, hashes) {
+  return new Promise((resolve) => {
+    let q = lookups.get(locale)
+    if (!q) {
+      q = { hashes: new Set(), waiters: [], timer: null }
+      lookups.set(locale, q)
+      q.timer = setTimeout(async () => {
+        lookups.delete(locale)
+        const all = [...q.hashes]
+        const byHash = new Map()
+        await Promise.all(Array.from({ length: Math.ceil(all.length / LOOKUP_CHUNK) }, async (_, i) => {
+          try {
+            const { data } = await supabase.from('content_translations')
+              .select('source_hash, value, same, auto, src_lang').eq('locale', locale)
+              .in('source_hash', all.slice(i * LOOKUP_CHUNK, (i + 1) * LOOKUP_CHUNK))
+            for (const r of data || []) byHash.set(r.source_hash, r)
+          } catch { /* a missing chunk is the original text */ }
+        }))
+        q.waiters.forEach((w) => w(byHash))
+      }, LOOKUP_WAIT_MS)
+    }
+    hashes.forEach((h) => q.hashes.add(h))
+    q.waiters.push(resolve)
+  })
+}
 
 /** One row per text: { value, same, auto, src_lang } - or null if it could not be had. */
 export async function translateTexts(texts, locale) {
   const wanted = [...new Set(texts.filter((t) => t && t.trim()))]
   const out = {}
   const need = []
+  const waiting = []
   for (const t of wanted) {
     const hit = memo.get(key(locale, t))
-    if (hit && !(hit instanceof Promise)) out[t] = hit
+    if (hit) out[t] = hit
+    else if (inflight.has(key(locale, t))) waiting.push([t, inflight.get(key(locale, t))])
     else need.push(t)
   }
-  if (need.length === 0) return out
+  if (need.length === 0 && waiting.length === 0) return out
+  const work = need.length ? fetchTexts(need, locale) : Promise.resolve({})
+  for (const t of need) inflight.set(key(locale, t), work.then((res) => res[t]))
+  const [fetched, ...waited] = await Promise.all([work, ...waiting.map(([, p]) => p)])
+  for (const t of need) inflight.delete(key(locale, t))
+  Object.assign(out, fetched)
+  waiting.forEach(([t], i) => { if (waited[i]) out[t] = waited[i] })
+  return out
+}
+
+async function fetchTexts(need, locale) {
+  const out = {}
   try {
     const hashes = await Promise.all(need.map((t) => sha256Hex(`${locale}\n${t}`)))
-    const { data } = await supabase.from('content_translations')
-      .select('source_hash, value, same, auto, src_lang').eq('locale', locale).in('source_hash', hashes)
-    const byHash = new Map((data || []).map((r) => [r.source_hash, r]))
+    const byHash = await lookupRows(locale, hashes)
     const missing = []
     need.forEach((t, i) => {
       const row = byHash.get(hashes[i])
