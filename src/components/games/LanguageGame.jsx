@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { dailyLanguageRound, DAILY_LANGUAGE_ROUNDS } from '../../lib/languages'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
@@ -196,7 +197,7 @@ export default function LanguageGame({ onExit }) {
     supabase.from('game_scores').insert({
       player_id: user.id, mode: 'languages', region: 'Daily', day_key: day,
       correct: finalCorrect, total: questions.length, time_ms: timeMs,
-    }).then(() => {})
+    }).then(() => announceScore())
   }, [day, questions.length, user.id])
 
   const choose = (lang) => {

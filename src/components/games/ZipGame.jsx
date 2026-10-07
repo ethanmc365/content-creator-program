@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
@@ -423,7 +424,7 @@ export default function ZipGame({ onExit }) {
     supabase.from('game_scores').insert({
       player_id: user.id, mode: 'zip', region: 'Daily', day_key: day,
       correct: 1, total: 1, time_ms,
-    }).then(() => {})
+    }).then(() => announceScore())
   }
 
   // Walk toward `target`, interpolating straight-line drags, enforcing every

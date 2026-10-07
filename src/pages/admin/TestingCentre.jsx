@@ -36,6 +36,7 @@ const InvoiceLab = lazyRoute(() => import('./testing/InvoiceLab'))
 const ViewsLab = lazyRoute(() => import('./testing/ViewsLab'))
 const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
 const RecapLab = lazyRoute(() => import('./testing/RecapLab'))
+const AgreementLab = lazyRoute(() => import('./testing/AgreementLab'))
 
 export const LABS = [
   {
@@ -49,6 +50,13 @@ export const LABS = [
     blurb: 'All nine screens a new creator fills in after signing up, and everything the platform writes when they finish.',
     tags: ['9 screens', 'Live components'],
     element: <OnboardingLab />,
+  },
+  {
+    // The terms pop-up and the signature pad, exactly as a creator gets them, filled in for any VIP market (7 Oct 2026).
+    key: 'agreements', title: 'Agreements and signatures', icon: 'key', group: 'Joining the programme',
+    blurb: 'The terms pop-up and the VIP signature, filled in for any market, on a phone or here. Nothing is saved.',
+    tags: ['Live components', 'Inert'],
+    element: <AgreementLab />,
   },
   {
     key: 'invoice', title: 'Automatic invoicing', icon: 'money', group: 'Money',

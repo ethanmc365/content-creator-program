@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
 import { Modal, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import AgreementSheet, { headingsOf } from '../components/agreements/AgreementSheet'
@@ -17,27 +16,29 @@ const when = (iso) => new Date(iso).toLocaleString(dateTag(), { day: 'numeric', 
 
 export default function Agreements() {
   const tr = useT()
-  const { profile } = useAuth()
   const [current, setCurrent] = useState(undefined)
   const [pending, setPending] = useState([])
   const [mine, setMine] = useState([])
   const [reading, setReading] = useState(null)
   const [signing, setSigning] = useState(null)
 
+  // EVERYTHING HERE IS THE TEXT AS THIS READER SEES IT (migration 357): the market's numbers filled in. Waiting documents
+  // come from my_pending_agreements; signed ones show the exact filled-in text that was signed (`rendered_body`).
   const load = useCallback(async () => {
-    const [{ data: docs }, { data: pend }, { data: had }] = await Promise.all([
-      supabase.from('agreements').select('*').not('published_at', 'is', null).order('version', { ascending: false }),
+    const [{ data: pend }, { data: had }] = await Promise.all([
       supabase.rpc('my_pending_agreements'),
       supabase.rpc('my_agreements'),
     ])
-    // The newest published version of each document that applies to this person.
-    const latest = {}
-    for (const d of docs || []) if (!latest[d.audience]) latest[d.audience] = d
-    const mineVip = !!profile?.is_vip
-    setCurrent(Object.values(latest).filter((d) => d.audience === 'creator' || mineVip || (had || []).some((h) => h.agreement_id === d.id)))
+    const signedNow = (had || []).filter((h) => h.is_current)
+    const docs = await Promise.all(signedNow.map(async (h) => {
+      const { data } = await supabase.rpc('agreement_for_me', { p_agreement: h.agreement_id })
+      const d = (Array.isArray(data) ? data[0] : data) || { id: h.agreement_id, title: h.title, audience: h.audience, version: h.version, summary: '' }
+      return { ...d, body: h.rendered_body || d.body }
+    }))
+    setCurrent([...(pend || []), ...docs].sort((a, b) => (a.audience === 'creator' ? -1 : 1) - (b.audience === 'creator' ? -1 : 1)))
     setPending(pend || [])
     setMine(had || [])
-  }, [profile?.is_vip])
+  }, [])
   useEffect(() => { load() }, [load])
 
   const acceptanceOf = (doc) => mine.find((m) => m.agreement_id === doc.id)
@@ -96,10 +97,7 @@ export default function Agreements() {
                   <span className="block text-sm font-semibold text-ink">{m.title} · v{m.version}</span>
                   <span className="block text-xs text-smoke">{when(m.accepted_at)}</span>
                 </span>
-                <button type="button" onClick={async () => {
-                  const { data } = await supabase.from('agreements').select('*').eq('id', m.agreement_id).maybeSingle()
-                  if (data) setReading({ doc: data, acc: m })
-                }} className="text-sm font-bold text-brand">{tr('Read')}</button>
+                <button type="button" onClick={() => setReading({ doc: { id: m.agreement_id, title: m.title, version: m.version, body: m.rendered_body || '' }, acc: m })} className="text-sm font-bold text-brand">{tr('Read')}</button>
               </li>
             ))}
           </ul>

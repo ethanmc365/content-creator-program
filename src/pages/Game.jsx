@@ -4,6 +4,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures } from '../lib/mapCountries'
 import { supabase } from '../lib/supabase'
+import { announceScore, onScore } from '../lib/gameScores'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
 import StreakCard from '../components/games/StreakCard'
@@ -883,7 +884,7 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
     supabase.from('game_scores').insert({
       player_id: userId, mode, region, correct: result.correct, total: result.total,
       time_ms: result.time_ms, event_id: eventId || null,
-    }).then(() => setSaving(false))
+    }).then(() => { setSaving(false); announceScore() })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // THE END-OF-ROUND SOUND, ONCE. A fanfare for a good round and something
@@ -983,6 +984,10 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   }, [mode, region, eventId, daily])
 
   useEffect(() => { load() }, [load])
+  // YOUR SCORE SHOWS THE MOMENT IT IS SAVED (7 Oct 2026). Ethan finished a daily puzzle and his row only appeared after
+  // leaving and coming back: the boards waited for a realtime INSERT event, which does not always arrive. Every save
+  // now announces itself on this page, and the boards reload on it.
+  useEffect(() => onScore(load), [load])
   useEffect(() => {
     // Channel topic must be unique per mounted board - the daily screens mount
     // TWO leaderboards for the same mode (today + all-time), and duplicate

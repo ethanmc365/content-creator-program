@@ -23,9 +23,25 @@ import { cx, dateTag } from '../../lib/utils'
 const when = (iso) => (iso ? new Date(iso).toLocaleString(dateTag(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
 const AUD = { creator: 'Community Terms', vip: 'VIP Creator Agreement' }
 
+// THE PLACEHOLDERS A TEMPLATE CAN USE (migration 357). Filled in from each reader's own VIP market when they read or
+// sign, so one shared VIP agreement can say EUR 0.20 to Spain and EUR 0.40 to Romania.
+export const PLACEHOLDERS = [
+  ['{{creator_name}}', 'The creator\'s name'],
+  ['{{market}}', 'Their VIP market, for example VIP Spain'],
+  ['{{rate}}', 'Their rate per 1,000 views'],
+  ['{{min_payout}}', 'The market\'s minimum cash payout'],
+  ['{{voucher_min}}', 'The smallest voucher they can take'],
+  ['{{window_days}}', 'How many days a video keeps counting'],
+  ['{{payment_cap}}', 'A sentence about the monthly cap (or that there is none)'],
+  ['{{stay_in}}', 'A sentence about the stay-in requirement (or that there is none)'],
+  ['{{today}}', 'The date they sign'],
+]
+
 export default function AdminAgreements() {
   const { profile } = useAuth()
   const [audience, setAudience] = useState('creator')
+  const [market, setMarket] = useState('') // '' = every VIP market (the shared version), else a programme id
+  const [programmes, setProgrammes] = useState([])
   const [docs, setDocs] = useState(undefined)
   const [openId, setOpenId] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -34,38 +50,72 @@ export default function AdminAgreements() {
     setDocs(data || [])
   }, [])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    supabase.from('vip_programmes').select('id, name, active').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
+  }, [])
 
-  const list = (docs || []).filter((d) => d.audience === audience)
+  const inScope = (d) => d.audience === audience && (audience !== 'vip' || (d.programme_id || '') === market)
+  const list = (docs || []).filter(inScope)
   const live = list.find((d) => d.published_at)
   const draft = list.find((d) => !d.published_at)
   const selected = list.find((d) => d.id === openId) || draft || live
+  const sharedLive = (docs || []).find((d) => d.audience === 'vip' && !d.programme_id && d.published_at)
+  const sharedLatest = (docs || []).find((d) => d.audience === 'vip' && !d.programme_id)
+  const marketName = programmes.find((p) => p.id === market)?.name
 
   async function newVersion() {
-    const base = live || list[0]
+    // A market's first version starts as a copy of the shared one.
+    const base = live || list[0] || (audience === 'vip' && market ? (sharedLive || sharedLatest) : null)
     const { data, error } = await supabase.from('agreements').insert({
-      audience, version: (list[0]?.version || 0) + 1, title: base?.title || AUD[audience], summary: base?.summary || '',
+      audience, programme_id: audience === 'vip' && market ? market : null,
+      version: (list[0]?.version || 0) + 1, title: base?.title || AUD[audience], summary: base?.summary || '',
       body: base?.body || `# ${AUD[audience]}\n\n`, requires_signature: base ? base.requires_signature : audience === 'vip', created_by: profile.id,
     }).select('id').single()
     if (error) { notice(error.message); return }
     await load(); setOpenId(data.id)
   }
 
+  // The real sheet, with this market's numbers in it.
+  async function openPreview(d) {
+    const programme = audience === 'vip' ? (market || null) : null
+    const [{ data: body }, { data: summary }] = await Promise.all([
+      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: d.body }),
+      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: d.summary || '' }),
+    ])
+    setPreview({ ...d, body: body ?? d.body, summary: summary ?? d.summary })
+  }
+
   return (
     <div className="page max-w-5xl">
       <PageHeader back="/admin" title="Agreements" subtitle="The terms creators accept and the agreement VIPs sign. Publish a version and everyone it applies to is asked to accept it." />
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <Segmented value={audience} onChange={(v) => { setAudience(v); setOpenId(null) }} options={[{ value: 'creator', label: 'Community Terms' }, { value: 'vip', label: 'VIP agreement' }]} />
-        {!draft && <button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />New version</button>}
+        {!draft && <button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />{audience === 'vip' && market && !list.length ? `Make one for ${marketName}` : 'New version'}</button>}
       </div>
+      {audience === 'vip' && (
+        <div className="mb-5 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+          {[{ id: '', name: 'Every VIP market' }, ...programmes].map((p) => (
+            <button key={p.id || 'all'} type="button" onClick={() => { setMarket(p.id); setOpenId(null) }} aria-pressed={market === p.id}
+              className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', market === p.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {audience === 'vip' && market && !list.length && (
+        <p className="mb-5 rounded-card border border-brand/20 bg-white px-5 py-4 text-sm text-ink shadow-card">
+          <strong>{marketName}</strong> uses the shared VIP agreement, with {marketName}'s own numbers filled in. Make a version just for {marketName} only if its wording has to differ.
+        </p>
+      )}
 
       {docs === undefined ? <Skeleton className="h-64 w-full rounded-card" /> : !selected ? (
-        <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
+        !(audience === 'vip' && market) && <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 space-y-5">
             {selected.published_at
-              ? <PublishedView doc={selected} onPreview={() => setPreview(selected)} />
-              : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d) => setPreview(d)} />}
+              ? <PublishedView doc={selected} onPreview={() => openPreview(selected)} />
+              : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d) => openPreview(d)} />}
             {selected.published_at && <Register doc={selected} />}
           </div>
           <aside className="space-y-2">
@@ -80,10 +130,42 @@ export default function AdminAgreements() {
                 </span>
               </button>
             ))}
+            {audience === 'vip' && <PlaceholderGuide programme={market || null} />}
           </aside>
         </div>
       )}
       {preview && <AgreementSheet preview doc={preview} onClose={() => setPreview(null)} onAccepted={() => setPreview(null)} />}
+    </div>
+  )
+}
+
+/** What each placeholder turns into for the chosen market, so the team can write the template with the answers in front of them. */
+function PlaceholderGuide({ programme }) {
+  const [values, setValues] = useState(null)
+  useEffect(() => {
+    let alive = true
+    // Any agreement id will do for the preview call; the body is passed in.
+    supabase.from('agreements').select('id').limit(1).maybeSingle().then(async ({ data: one }) => {
+      if (!one) return
+      const sep = '\u0001'
+      const { data } = await supabase.rpc('agreement_preview', { p_agreement: one.id, p_programme: programme, p_body: PLACEHOLDERS.map(([k]) => k).join(sep) })
+      if (alive && typeof data === 'string') setValues(data.split(sep))
+    })
+    return () => { alive = false }
+  }, [programme])
+  return (
+    <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Fill-ins</p>
+      <p className="mt-1 text-[11.5px] leading-snug text-smoke">Type these into the text and each VIP sees their own market's value.</p>
+      <ul className="mt-3 space-y-2">
+        {PLACEHOLDERS.map(([k, label], i) => (
+          <li key={k} className="text-[11.5px] leading-snug">
+            <code className="rounded bg-cloud px-1.5 py-0.5 font-semibold text-brand">{k}</code>
+            <span className="ml-1.5 text-smoke">{label}</span>
+            {values?.[i] && values[i] !== k && <span className="mt-0.5 block text-ink/80 [overflow-wrap:anywhere]">= {values[i]}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

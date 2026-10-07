@@ -857,8 +857,8 @@ export default function Settings() {
                   would be built once, at module load, in whatever language the
                   page happened to open in - and would then never change when
                   somebody switched. */}
-              <span className="block font-semibold">{tr(s.label)}</span>
-              <span className="block text-xs text-smoke">{tr(s.hint)}</span>
+              <span className="block truncate font-semibold">{tr(s.label)}</span>
+              <span className="block truncate text-xs text-smoke">{tr(s.hint)}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>
@@ -868,7 +868,7 @@ export default function Settings() {
           <span className="flex w-11 shrink-0 items-center justify-center text-brand"><Icon name="shield" className="h-6 w-6" /></span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{tr('Agreements')}</span>
-            <span className="block text-xs text-smoke">{tr('The terms you accepted, and your signed agreements')}</span>
+            <span className="block truncate text-xs text-smoke">{tr('The terms you accepted, and your signed agreements')}</span>
           </span>
           <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
         </Link>
@@ -882,7 +882,7 @@ export default function Settings() {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">{tr('Admin settings')}</span>
-              <span className="block text-xs text-smoke">{tr('Team alerts and admin tools')}</span>
+              <span className="block truncate text-xs text-smoke">{tr('Team alerts and admin tools')}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
@@ -133,7 +134,7 @@ export default function PinpointGame({ onExit }) {
     supabase.from('game_scores').insert({
       player_id: user.id, mode: 'pinpoint', region: 'Daily', day_key: day,
       correct: result === 'won' ? maxClues + 1 - guessed : 0, total: maxClues, time_ms,
-    }).then(() => {})
+    }).then(() => announceScore())
   }
 
   function submit(e) {
