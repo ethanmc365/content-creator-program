@@ -1,4 +1,5 @@
-import { Suspense, lazy } from 'react'
+import { Suspense } from 'react'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
@@ -12,7 +13,7 @@ import { useT } from '../../lib/i18n'
 // does not have the function yet the block draws nothing rather than an error.
 
 // The chart is loaded on demand (see TrendCard.jsx for why it lives apart from this file).
-const TrendCardChart = lazy(() => import('./TrendCard'))
+const TrendCardChart = lazyRoute(() => import('./TrendCard'))
 export function TrendCard(props) {
   return <Suspense fallback={<Skeleton className="h-72 w-full rounded-card" />}><TrendCardChart {...props} /></Suspense>
 }

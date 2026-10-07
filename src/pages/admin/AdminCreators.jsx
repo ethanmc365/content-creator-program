@@ -13,8 +13,6 @@ import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '.
 import { isOnlineAt } from '../../lib/presence'
 import { isHiddenTestRow } from '../../lib/testData'
 import { VipMoveBlock } from '../../components/vip/adminA'
-import VipCreatorsView from '../../components/vip/creatorsView'
-import Segmented from '../../components/network/Segmented'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -80,7 +78,10 @@ export default function AdminCreators() {
   const [marketOf, setMarketOf] = useState({}) // creator id -> [market name]
   const [marketFilter, setMarketFilter] = useState('')
   const [toast, setToast] = useState('')
-  const [view, setView] = useState('everyone') // the two tabs: every creator, or the VIPs
+  // WHO, AS WELL AS WHERE (7 Oct 2026). Ethan: "Everyone and VIPs should be separated ... The VIP should actually look
+  // the same as the current worldwide, Spain, UK and Ireland toggle." The VIPs used to be a second tab with its own
+  // card UI; now they are a filter on the same roster, in the same pill row as the markets: Total, Community, VIPs.
+  const [group, setGroup] = useState('all')
   // Turnstile gate for sending a password reset (Auth rejects token-less calls).
   const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
   const [pwToken, setPwToken] = useState('')
@@ -414,6 +415,8 @@ export default function AdminCreators() {
   // it - so picking "Spain" up top scopes the segment counts to Spain too,
   // not just the table rows underneath them.
   const inMarket = (c) => {
+    if (group === 'vip' && !c.is_vip) return false
+    if (group === 'community' && c.is_vip) return false
     if (marketFilter === '__none') return !(marketOf[c.id] ?? []).length
     if (marketFilter) return (marketOf[c.id] ?? []).includes(marketFilter)
     return true
@@ -430,7 +433,7 @@ export default function AdminCreators() {
       { key: 'admin', label: 'Team', count: scoped.filter((c) => c.is_admin).length },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf])
+  }, [creators, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group])
 
   // Every market that has somebody in it, with its count, newest question first:
   // "how many of mine are there".
@@ -473,7 +476,7 @@ export default function AdminCreators() {
       })
       .sort(sorters[sort] || sorters.active)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf])
+  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group])
 
   return (
     <div className="page">
@@ -489,13 +492,21 @@ export default function AdminCreators() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
-      <div className="mb-5">
-        <Segmented shape="tabs" id="creators-view" label="Creators" value={view} onChange={setView} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'vip', label: 'VIPs' }]} />
+      <div className="mb-3 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+        {[
+          { key: 'all', label: 'Total', n: creators.length },
+          { key: 'community', label: 'Community', n: creators.filter((c) => !c.is_vip).length },
+          { key: 'vip', label: 'VIPs', n: creators.filter((c) => c.is_vip).length },
+        ].map((g) => (
+          <button key={g.key} type="button" onClick={() => setGroup(g.key)} aria-pressed={group === g.key}
+            className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', group === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
+            {g.key === 'vip' && <Icon name="star" className="h-3 w-3" />}{g.label}
+            <span className={cx('tabular-nums', group === g.key ? 'text-white/80' : 'text-gray-400')}>{g.n}</span>
+          </button>
+        ))}
       </div>
 
-      {view === 'vip' && <VipCreatorsView creators={creators} onOpen={setSelected} />}
-
-      {view === 'everyone' && (
+      {(
         <>
       {/* THE MARKET IS A ROW OF PILLS AGAIN, AND IT IS THE SAME ONE EVERY OTHER
           ADMIN PAGE USES (10 Sep 2026).
@@ -636,6 +647,7 @@ export default function AdminCreators() {
                     <p className="flex min-w-0 max-w-full items-center gap-2 text-left text-sm font-semibold">
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
+                      {c.is_vip && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
                     </p>
                     {/* Copy-email icon sits directly to the right of the email, not
                         pushed out to the far edge of the row. */}

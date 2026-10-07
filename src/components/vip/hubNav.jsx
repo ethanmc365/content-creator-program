@@ -27,6 +27,7 @@ export const VIP_SECTIONS = [
   { key: 'board', icon: 'trophy', label: 'Leaderboard', hint: 'This month' },
   { key: 'perks', icon: 'plane', label: 'Perks and trips', hint: 'Unlock as you grow' },
   { key: 'earn', icon: 'trendUp', label: 'Earn more', hint: 'Bonuses running now' },
+  { key: 'ideas', icon: 'bulb', label: 'Video ideas', hint: 'Hooks from 50k+ videos' },
   { key: 'library', icon: 'book', label: 'Library', hint: 'Hooks and guides' },
   { key: 'map', icon: 'globe', label: 'Map', hint: 'Every VIP creator' },
   { key: 'recap', icon: 'sparkles', label: 'My recap', hint: 'Your month as a story' },

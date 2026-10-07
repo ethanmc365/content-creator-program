@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import { SLOT, SLOT_ICON } from './SwapIn'
+import { SLOT } from './SwapIn'
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
+import { windowPhrase } from '../../lib/boostWindow'
 
 // A POINT BOOST, IN THE SAME PLACE AS A LIVE BONUS (4 Oct 2026, migration 334).
 //
@@ -40,18 +41,31 @@ export function useBoost(challengeId, enabled = true) {
   return b ? { ...b, live: !!live, left: Date.parse(b.ends_at) - now } : null
 }
 
+// THE MULTIPLIER IS THE LOUDEST THING ON THE CARD (7 Oct 2026). Ethan: "The 2x or 3x ... should be highlighted more and
+// more vibrantly. Currently it's just a 2x in a grey circle." A boost that had not started yet drew its disc in white/20
+// on the dark card, i.e. grey. Now it is always a brand gradient with a glow, live or coming up, and while it is live a
+// light sweeps across it. The window is said in days ("Videos posted on Thursday") instead of "Thu 00:01 to Fri 00:01".
+export function BoostDisc({ multiplier, live, className }) {
+  return (
+    <span className={cx('boost-disc relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#ffb36b] via-brand-light to-brand font-black tabular-nums text-white shadow-[0_0_0_3px_rgba(245,133,63,0.35),0_6px_18px_-4px_rgba(217,68,7,0.9)]', className)}>
+      <span className="relative z-10 drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]">{boostMult(multiplier)}</span>
+      {live && <span aria-hidden className="boost-disc-sweep absolute inset-0" />}
+    </span>
+  )
+}
+
 export default function BoostCallout({ boost }) {
   const tr = useT()
-  const when = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+  const days = windowPhrase(boost.starts_at, boost.ends_at, tr)
   return (
     <div
       role="status"
       className={cx('board-status relative min-w-0 overflow-hidden text-left text-white shadow-card', 'bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]', SLOT)}
     >
       {boost.live && <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />}
-      <span className={cx('relative text-[15px] font-extrabold tabular-nums', SLOT_ICON, boost.live ? 'bg-brand' : 'bg-white/20')}>
-        {boostMult(boost.multiplier)}
-        {boost.live && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/40 [animation-duration:2.4s]" />}
+      <span className="relative">
+        <BoostDisc multiplier={boost.multiplier} live={boost.live} className="h-10 w-10 text-[15px]" />
+        {boost.live && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/50 [animation-duration:2.4s]" />}
       </span>
       <span className="relative min-w-0 flex-1">
         <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">
@@ -59,8 +73,8 @@ export default function BoostCallout({ boost }) {
         </span>
         <span className="block truncate text-[13px] font-semibold">
           {boost.live
-            ? tr('Every video you post counts {n}. {t} left.', { n: boostMult(boost.multiplier), t: fmtLeft(boost.left) })
-            : tr('Videos posted {a} to {z} count {n}.', { a: when(boost.starts_at), z: when(boost.ends_at), n: boostMult(boost.multiplier) })}
+            ? tr('Videos posted {d} count {n}. {t} left.', { d: days, n: boostMult(boost.multiplier), t: fmtLeft(boost.left) })
+            : tr('Videos posted {d} count {n}.', { d: days, n: boostMult(boost.multiplier) })}
         </span>
       </span>
       <Icon name="fire" className="relative h-5 w-5 shrink-0 text-brand-light" />

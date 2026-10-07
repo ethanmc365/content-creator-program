@@ -3370,3 +3370,82 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 
 /* A leaderboard card that is sliding to its new place rides above the cards it passes (CountryBoard's FLIP). */
 [data-moving] { position: relative; z-index: 2; }
+
+/* THE BOOST DISC (7 Oct 2026): a light sweeping across the x2 while a boost is on, every few seconds. */
+@keyframes boost-disc-sweep {
+  0%, 55% { transform: translateX(-120%) skewX(-20deg); }
+  85%, 100% { transform: translateX(120%) skewX(-20deg); }
+}
+.boost-disc-sweep {
+  background: linear-gradient(90deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
+  animation: boost-disc-sweep 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boost-disc-sweep { animation: none; display: none; }
+}
+
+/* The daily "x2 points are live" card (components/BoostPrompt). */
+@keyframes boost-prompt-pop {
+  0% { transform: scale(0.4) rotate(-14deg); opacity: 0; }
+  60% { transform: scale(1.12) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+.boost-prompt-pop { display: inline-flex; animation: boost-prompt-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both; }
+@keyframes boost-prompt-glow { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.15); } }
+.boost-prompt-glow { animation: boost-prompt-glow 4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .boost-prompt-pop, .boost-prompt-glow { animation: none; } }
+
+/* An image inside the rich editor (FAQ answers): a picture block, not text you can type into. */
+.rt-editor figure { margin: 0.75rem 0; border-radius: 1rem; overflow: hidden; border: 1px solid #f0f0f0; background: #f7f7f8; user-select: none; }
+.rt-editor figure img { display: block; width: 100%; height: auto; }
+
+/* VIDEO IDEAS (components/VideoIdeas): the dark hero's two drifting orange orbs, and cards rising in one after another. */
+.ideas-hero { background-image: radial-gradient(120% 140% at 100% 0%, #3a1a08 0%, #111 55%); }
+.ideas-orb { position: absolute; border-radius: 9999px; filter: blur(48px); pointer-events: none; }
+.ideas-orb-a { width: 18rem; height: 18rem; right: -5rem; top: -6rem; background: rgba(217, 68, 7, 0.55); animation: ideas-drift 9s ease-in-out infinite; }
+.ideas-orb-b { width: 12rem; height: 12rem; right: 30%; bottom: -7rem; background: rgba(245, 133, 63, 0.35); animation: ideas-drift 11s ease-in-out -4s infinite reverse; }
+@keyframes ideas-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-2.5rem, 1.5rem) scale(1.12); } }
+.idea-card { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .ideas-orb-a, .ideas-orb-b, .idea-card { animation: none; } }
+
+/* THE LOCKED VIP PAGE (components/vip/VipLocked): a dark hero, and a lock whose shackle lifts and settles while a
+   light sweeps the body and small stars drift round it. */
+.vip-locked-hero { background-color: #111; background-image: radial-gradient(110% 130% at 50% 0%, #4a1f07 0%, #141414 60%); }
+.vip-lock-halo { background: radial-gradient(circle, rgba(245, 133, 63, 0.45) 0%, rgba(245, 133, 63, 0) 68%); animation: vip-lock-halo 3.6s ease-in-out infinite; }
+@keyframes vip-lock-halo { 0%, 100% { transform: scale(0.92); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
+.vip-lock-shackle { transform-origin: 60px 54px; animation: vip-lock-shackle 4.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite; }
+@keyframes vip-lock-shackle { 0%, 62%, 100% { transform: translateY(0); } 70% { transform: translateY(-7px); } 80% { transform: translateY(1.5px); } 86% { transform: translateY(0); } }
+.vip-lock-sweep { animation: vip-lock-sweep 4.2s ease-in-out infinite; }
+@keyframes vip-lock-sweep { 0%, 30% { transform: skewX(-18deg) translateX(0); } 60%, 100% { transform: skewX(-18deg) translateX(150px); } }
+.vip-lock-star { position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: #ffd2a8; box-shadow: 0 0 10px 2px rgba(255, 179, 107, 0.8); opacity: 0; animation: vip-lock-star 3.8s ease-in-out infinite; }
+.vip-lock-star-0 { left: 6%; top: 30%; animation-delay: 0s; }
+.vip-lock-star-1 { right: 4%; top: 18%; animation-delay: 0.7s; }
+.vip-lock-star-2 { right: 10%; bottom: 14%; animation-delay: 1.5s; width: 4px; height: 4px; }
+.vip-lock-star-3 { left: 14%; bottom: 8%; animation-delay: 2.2s; width: 4px; height: 4px; }
+.vip-lock-star-4 { left: 46%; top: -2%; animation-delay: 2.9s; }
+@keyframes vip-lock-star { 0%, 100% { opacity: 0; transform: scale(0.4) translateY(4px); } 40% { opacity: 1; transform: scale(1) translateY(-4px); } 70% { opacity: 0; transform: scale(0.6) translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { .vip-lock-halo, .vip-lock-shackle, .vip-lock-sweep, .vip-lock-star { animation: none; } .vip-lock-star { opacity: 0.8; } }
+
+/* QUESTIONS AND ANSWERS (pages/Faq): brand gradient with big drifting question marks. */
+.faq-hero { background: linear-gradient(135deg, #d94407 0%, #f5853f 100%); }
+.faq-bubble { position: absolute; pointer-events: none; font-weight: 900; line-height: 1; color: rgba(255, 255, 255, 0.14); animation: faq-float 7s ease-in-out infinite; }
+.faq-bubble-a { right: 6%; top: -0.5rem; font-size: 7rem; }
+.faq-bubble-b { right: 24%; bottom: -1.75rem; font-size: 4.5rem; animation-delay: -2.5s; }
+.faq-bubble-c { right: 2%; bottom: 0.5rem; font-size: 3rem; animation-delay: -4.5s; }
+@keyframes faq-float { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-10px) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .faq-bubble { animation: none; } }
+
+/* THE AGREEMENT SHEET (components/agreements): rises from the bottom on a phone, and its "what is inside" chips arrive one by one. */
+.agreement-sheet { animation: agreement-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes agreement-rise { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.agreement-chip { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .agreement-sheet, .agreement-chip { animation: none; } }
+
+/* Printing an agreement prints the agreement, not the app around it. */
+@media print {
+  body:has(#agreement-print) * { visibility: hidden !important; }
+  #agreement-print, #agreement-print * { visibility: visible !important; }
+  #agreement-print { position: absolute; inset: 0 auto auto 0; width: 100%; padding: 24px; }
+}
+.ideas-fade { background: linear-gradient(to left, #fff, rgba(255, 255, 255, 0)); }
+html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, var(--d-bg), transparent); }

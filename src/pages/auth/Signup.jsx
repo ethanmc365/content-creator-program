@@ -63,7 +63,11 @@ export default function Signup() {
       if (!alive) return
       setVipInvite(row?.valid ? row : { valid: false })
       if (row?.valid) {
-        try { localStorage.setItem('tryp_vip_invite', vipToken) } catch { /* private mode */ }
+        // ONLY FOR SOMEBODY SIGNING UP (7 Oct 2026). Kept for a signed-in visitor too, the token waited on the device and
+        // the next visit to /onboarding spent it on whoever was signed in: Ethan opened a VIP link, then the team link,
+        // and became a VIP Worldwide creator. A signed-in visitor joins only by pressing "Join with this account".
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) { try { localStorage.setItem('tryp_vip_invite', vipToken) } catch { /* private mode */ } }
         let chosen = false
         try { chosen = !!localStorage.getItem('tryp-locale') } catch { /* private mode */ }
         if (!chosen && row.language && LOCALES.some((l) => l.code === row.language)) {

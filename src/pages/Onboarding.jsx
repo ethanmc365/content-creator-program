@@ -479,15 +479,17 @@ export default function Onboarding() {
   })
   useEffect(() => { if (auth.profile?.is_vip) setVipApplication(true) }, [auth.profile?.is_vip])
   useEffect(() => {
-    if (!user?.id || demo) return
+    if (!user?.id || demo || !auth.profile) return
     let token = null
     try { token = localStorage.getItem('tryp_vip_invite') } catch { /* private mode */ }
     if (!token) return
+    // An account that finished its profile long ago is not signing up: a token left on the device is not theirs to spend.
+    if (auth.profile.onboarded) { try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ } return }
     supabase.rpc('claim_vip_invite', { p_token: token }).then(({ data }) => {
       if (data === true) { setVipApplication(true); clearVipCache(); refreshProfile?.() }
       try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
     })
-  }, [user?.id, refreshProfile, demo])
+  }, [user?.id, refreshProfile, demo, auth.profile])
 
   // THE VIP MARKET, NOT THE COMMUNITY ONE (1 Oct 2026). Ethan signed up on the VIP link, picked his country and was
   // told "your market is UK & Ireland". A VIP's market is the VIP programme that covers their country (or the default

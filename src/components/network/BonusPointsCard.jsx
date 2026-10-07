@@ -8,6 +8,8 @@ import { cx, dateTag } from '../../lib/utils'
 import { ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
 import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
+import { BoostDisc, boostMult } from '../challenge/BoostBanner'
+import { windowPhrase } from '../../lib/boostWindow'
 
 // THE EXTRA POINTS, IN THEIR OWN CARD, IN THE RAIL (24 Sep 2026).
 //
@@ -73,7 +75,7 @@ function howToEarn(r, tr) {
   return tr('Given by the team')
 }
 
-export default function BonusPointsCard({ rules, now = 0, className }) {
+export default function BonusPointsCard({ rules, now = 0, className, boost = null }) {
   const tr = useT()
   // Before the early return: a hook cannot be called conditionally, and this
   // component returns nothing at all when a challenge has no bonuses.
@@ -83,7 +85,7 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
   // translated, with ONE Translated | Original switch for the whole card (30 Sep 2026).
   const tx = useContentTranslations(bonuses.flatMap((r) => [r.label?.trim(), r.prompt?.trim()]))
   const stateOf = (r) => ruleWindowState(r, now || undefined)
-  if (bonuses.length === 0) return null
+  if (bonuses.length === 0 && !boost) return null
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
   const ended = bonuses.filter((r) => stateOf(r) === 'ended')
 
@@ -99,6 +101,23 @@ export default function BonusPointsCard({ rules, now = 0, className }) {
         </div>
         <TranslateSwitch t={tx} className="shrink-0" />
       </div>
+      {/* A POINT BOOST IS AN OFFER TOO (7 Oct 2026). Ethan: the double points window "should show up on the bonus points
+          card that the creator sees too". It leads the list while it is on or coming up. */}
+      {boost && (
+        <div className="mx-3 mb-1.5 flex items-center gap-3 rounded-xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] px-3 py-3 shadow-sm">
+          <BoostDisc multiplier={boost.multiplier} live={boost.live} className="h-10 w-10 text-sm" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold leading-snug text-white">{boost.label}</span>
+            <span className="mt-0.5 block text-[11.5px] leading-snug text-white/75">
+              {tr('Videos posted {d} count {n}.', { d: windowPhrase(boost.starts_at, boost.ends_at, tr), n: boostMult(boost.multiplier) })}
+              {boost.max_extra_points ? ` ${tr('Up to {p} extra points each.', { p: boost.max_extra_points })}` : ''}
+            </span>
+          </span>
+          <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', boost.live ? 'bg-brand text-white' : 'bg-white/15 text-white')}>
+            {boost.live ? tr('On now') : tr('Coming up')}
+          </span>
+        </div>
+      )}
       <ul className="space-y-1.5 px-3 pb-3">
         {[...current, ...ended].map((r) => {
           const state = stateOf(r)

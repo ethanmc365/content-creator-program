@@ -1,4 +1,29 @@
+import { useEffect, useState } from 'react'
 import LegalShell, { H2 } from './LegalShell'
+import { supabase } from '../../lib/supabase'
+import { renderNote } from '../../lib/noteMarkdown'
+
+// ONE SET OF TERMS (7 Oct 2026). Once the team publishes the Community Terms on Admin > Agreements, this public page
+// shows exactly that text - the same words a creator accepts in the app - and the hand-written page below is only the
+// fallback for before then (or if the read fails).
+export default function Terms() {
+  const [doc, setDoc] = useState(undefined)
+  useEffect(() => {
+    let alive = true
+    supabase.from('agreements').select('title, body, published_at, version').eq('audience', 'creator').not('published_at', 'is', null)
+      .order('version', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (alive) setDoc(data || null) }, () => { if (alive) setDoc(null) })
+    return () => { alive = false }
+  }, [])
+  if (doc === undefined) return <LegalShell title="Terms of Service" updated=""><p className="text-smoke">Loading...</p></LegalShell>
+  if (!doc) return <LegacyTerms />
+  const updated = new Date(doc.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  return (
+    <LegalShell title={doc.title} updated={`${updated} (version ${doc.version})`}>
+      {renderNote(doc.body.replace(/^#\s+.*\n+/, ''))}
+    </LegalShell>
+  )
+}
 
 // TERMS OF SERVICE, REWRITTEN 4 SEP 2026.
 //
@@ -36,7 +61,7 @@ import LegalShell, { H2 } from './LegalShell'
 //
 // THIS IS A CAREFUL TEMPLATE, NOT LEGAL ADVICE. Have a lawyer read it before
 // relying on it.
-export default function Terms() {
+function LegacyTerms() {
   return (
     <LegalShell title="Terms of Service" updated="4 September 2026">
       <p>

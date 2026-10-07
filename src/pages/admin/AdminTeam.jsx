@@ -32,7 +32,7 @@ const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', g
 // this page, the API or a stray script. What the lead CAN do is hand the role
 // on, which is an action on the row of whoever would receive it.
 
-function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, busy, vip, onVip }) {
+function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, busy, vip, onVip, allVip = 0 }) {
   const lead = person.platform_role === 'owner'
   return (
     <div className={cx(
@@ -47,7 +47,7 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
           </Link>
           {isMe && <span className="text-xs text-smoke">(you)</span>}
           {lead && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-brand">{LEAD_TITLE_SHORT}</span>}
-          <VipChip lead={lead} vip={vip} />
+          <VipChip lead={lead} vip={vip} all={allVip} />
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
           <span className="font-medium text-ink">{person.role_title || permissionLabel(person.platform_role)}</span>
@@ -117,11 +117,12 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
 // can also see the VIP community, this should be doable on the Tryp.com team page." Being an admin does not open the VIP
 // community (migration 296: it is the owner's to give, market by market). The owner's rows here show who has it and a
 // "VIP access" button that switches it on or off per VIP market. Same write as the old Access tab (vip_add_manager).
-function VipChip({ lead, vip }) {
-  if (lead) return <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white"><Icon name="star" className="h-3 w-3" />VIP, every market</span>
+function VipChip({ lead, vip, all = 0 }) {
+  const chip = 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white'
+  if (lead || (all > 1 && vip?.length >= all)) return <span className={chip}><Icon name="star" className="h-3 w-3" />VIP, every market</span>
   if (!vip?.length) return null
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white animate-pop-in" title={vip.map((v) => v.programme).join(', ')}>
+    <span className={cx(chip, 'animate-pop-in')} title={vip.map((v) => v.programme).join(', ')}>
       <Icon name="star" className="h-3 w-3" />VIP{vip.length > 1 ? ` · ${vip.length} markets` : ` · ${vip[0].programme.replace(/^VIP /, '')}`}
     </span>
   )
@@ -453,7 +454,7 @@ export default function AdminTeam() {
               {admins.map((p) => (
                 <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
                   viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy}
-                  vip={vipOf(p.id)} onVip={vipProgrammes.length ? setVipFor : null} />
+                  vip={vipOf(p.id)} allVip={vipProgrammes.length} onVip={vipProgrammes.length ? setVipFor : null} />
               ))}
             </div>
           </section>
@@ -507,7 +508,8 @@ export default function AdminTeam() {
                               <Link to={`/profile/${p.id}`} className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
                                 <span className="truncate">{p.name}</span>
                               </Link>
-                              <p className="flex items-center gap-2 truncate text-xs text-smoke">{p.role_title || `${m.name} manager`}<VipChip lead={p.platform_role === 'owner'} vip={vipOf(p.id)} /></p>
+                              {/* The chip wraps under the title instead of running off the card's right edge (7 Oct 2026). */}
+                              <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-smoke"><span className="min-w-0 truncate">{p.role_title || `${m.name} manager`}</span><VipChip lead={p.platform_role === 'owner'} vip={vipOf(p.id)} all={vipProgrammes.length} /></p>
                             </div>
                             {viewerIsLead && p.platform_role !== 'owner' && vipProgrammes.length > 0 && (
                               <button

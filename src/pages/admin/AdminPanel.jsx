@@ -124,6 +124,10 @@ const TOOLS = [
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
   // Surveys the team puts in front of creators (30 Sep 2026, migration 291).
   { id: 'surveys', to: '/admin/surveys', icon: 'chartPie', title: 'Surveys' },
+  // The terms creators accept and the agreement VIPs sign, with who has signed (7 Oct 2026, migration 351).
+  { id: 'agreements', to: '/admin/agreements', icon: 'key', title: 'Agreements', globalOnly: true },
+  // Questions creators ask on the Q&A page, answered here (7 Oct 2026).
+  { id: 'faq', to: '/help/faq?tab=questions', icon: 'lifebuoy', title: 'Questions' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },

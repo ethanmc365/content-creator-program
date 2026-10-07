@@ -510,12 +510,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // place; losing the entry would not be. The points follow from the claim
     // through `recalc_challenge_points_internal`, so nothing here awards
     // anything directly.
+    // SAID OUT LOUD WHEN IT FAILS (7 Oct 2026). From 6 to 7 Oct every claim failed in the database (migration 347) and
+    // this one failed silently: the entry went in, the ticked bonus did not, and nobody was told. Now the creator is,
+    // and told the fix - the entry card can claim it again.
+    let claimFailed = false
     if (entry && claiming.length > 0) {
-      await supabase.from('submission_bonus_claims').insert(
+      const { error: claimErr } = await supabase.from('submission_bonus_claims').insert(
         claiming.map((rule_id) => ({
           submission_id: entry.id, rule_id, creator_id: user.id, challenge_id: id,
         })),
       )
+      claimFailed = !!claimErr
     }
     setSubmitting(false)
     // The same Instagram post entered by both creators: the database linked this entry to the first and both earn the collab points.
@@ -531,6 +536,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     const mine = submissions.filter((s) => s.creator_id === user.id).length
     setSuccess({ count: mine + 1, platform })
     load()
+    if (claimFailed) notice(tr('Your entry is in, but the bonus could not be claimed. Tick it again on your entry card.'))
   }
 
   function submitAnother() {
@@ -550,7 +556,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     })
     if (error) {
       setBonusClaims((cur) => cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id)))
-      await notice('Could not claim that bonus. Please try again.')
+      await notice(tr('Could not claim that bonus. Please try again.'))
     }
   }
 
@@ -1419,7 +1425,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // below the brief section and above the points section but have that
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
-        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} />
+        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} />
         // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
         const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
         const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} meId={user.id} /> : null

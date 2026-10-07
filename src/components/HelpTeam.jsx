@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Avatar, CopyButton, Skeleton } from './ui'
 import Icon from './Icon'
+import FaqLeadCard from './FaqLeadCard'
 import { useAuth } from '../context/AuthContext'
 import { SUPPORT_EMAIL, TEAM_LEAD, useTeam } from '../lib/team'
 import { useT } from '../lib/i18n'
@@ -56,6 +57,8 @@ export default function HelpTeam() {
 
   return (
     <div className="space-y-5">
+      {/* THE ANSWERS FIRST (7 Oct 2026): most questions are already answered, and that is quicker than waiting for a DM. */}
+      <FaqLeadCard />
       {/* ---- The lead ---- */}
       <div className="animate-fade-up card overflow-hidden !p-0">
         {/* A SOLID BRAND HEADER, because this is the one card on the page that

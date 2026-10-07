@@ -57,6 +57,10 @@ function inlineToHtml(text, { mentionNames } = {}) {
 }
 
 // ---------------------------------------------------------------- block md->html
+// `![alt](https://...)` on a line of its own.
+export const IMG_LINE = /^\s*!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)\s*$/
+const escAttr = (s = '') => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
 // Turn stored markdown into an HTML string ready to drop into a contentEditable.
 // `inlineOnly` (chat) skips block structure and just returns formatted lines.
 export function mdToHtml(md = '', opts = {}) {
@@ -79,6 +83,9 @@ export function mdToHtml(md = '', opts = {}) {
 
   lines.forEach((line) => {
     if (/^\s*---\s*$/.test(line)) { flush(); out.push('<hr>'); return }
+    // AN IMAGE IS ITS OWN BLOCK (7 Oct 2026, the FAQ): a picture the editor cannot type into, kept as markdown.
+    const img = line.match(IMG_LINE)
+    if (img) { flush(); out.push(`<figure contenteditable="false" data-img="${escAttr(img[2])}" data-alt="${escAttr(img[1])}"><img src="${escAttr(img[2])}" alt="${escAttr(img[1])}"></figure>`); return }
     const h = line.match(/^(#{1,3})\s+(.*)$/)
     if (h) { flush(); out.push(`<h${h[1].length}>${inlineToHtml(h[2], opts)}</h${h[1].length}>`); return }
     const q = line.match(/^>\s?(.*)$/)
@@ -110,7 +117,7 @@ export function mdToHtml(md = '', opts = {}) {
 }
 
 // ---------------------------------------------------------------- html->md
-const BLOCK = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'li'])
+const BLOCK = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'li', 'figure', 'img'])
 // nbsp -> space, and drop the zero-width caret anchors the editor uses when
 // toggling bold/italic off (they must never reach the stored markdown).
 const clean = (s = '') => s.replace(/\u00A0/g, ' ').replace(/[\u200B\u200C\uFEFF]/g, '')
@@ -206,6 +213,11 @@ function blocksOf(container) {
     if (!BLOCK.has(tag)) { pending += inlineNode(n); return }
     flushPending()
     if (tag === 'hr') { blocks.push({ type: 'hr' }); return }
+    if (tag === 'figure' || tag === 'img') {
+      const src = n.dataset?.img || n.getAttribute?.('src') || n.querySelector?.('img')?.getAttribute('src')
+      if (src && /^https:\/\//.test(src)) blocks.push({ type: 'img', url: src, alt: n.dataset?.alt || n.getAttribute?.('alt') || n.querySelector?.('img')?.getAttribute('alt') || '' })
+      return
+    }
     if (/^h[1-6]$/.test(tag)) { blocks.push({ type: 'h', level: Math.min(3, +tag[1]), text: oneLine(n) }); return }
     if (tag === 'blockquote') { blocks.push({ type: 'quote', text: oneLine(n) }); return }
     if (tag === 'ul') {
@@ -234,6 +246,7 @@ function blocksOf(container) {
 function blockToMd(b) {
   switch (b.type) {
     case 'hr': return '---'
+    case 'img': return `![${(b.alt || '').replace(/[[\]]/g, '')}](${b.url})`
     case 'h': return '#'.repeat(b.level) + ' ' + b.text
     case 'quote': return b.text.split('\n').map((l) => '> ' + l).join('\n')
     case 'ul': return b.items.map((i) => '- ' + (i.checked === null ? '' : i.checked ? '[x] ' : '[ ] ') + i.text).join('\n')

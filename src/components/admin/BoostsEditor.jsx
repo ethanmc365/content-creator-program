@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
+import { windowPhrase, wholeDays } from '../../lib/boostWindow'
 
 // POINT BOOSTS (4 Oct 2026, migration 334).
 //
@@ -23,12 +24,12 @@ const MULTS = [2, 3, 4, 5]
 const pad = (n) => String(n).padStart(2, '0')
 const toLocalInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 const mult = (n) => `x${String(Number(n)).replace(/\.0+$/, '')}`
-const when = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export default function BoostsEditor({ challengeId }) {
   const { profile } = useAuth()
   const [rows, setRows] = useState(undefined)
-  const [open, setOpen] = useState(false)
+  // `true` for a new boost, a row to edit one (7 Oct 2026: Ethan could only delete a boost and make it again).
+  const [open, setOpen] = useState(null)
   const load = useCallback(async () => {
     const { data } = await supabase.from('challenge_boosts').select('*').eq('challenge_id', challengeId).order('starts_at', { ascending: false })
     setRows(data || [])
@@ -50,7 +51,7 @@ export default function BoostsEditor({ challengeId }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon name="fire" className="h-4 w-4 text-brand" />Point boosts</p>
-          <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-smoke">Double (or more) points for videos posted inside a time window, to get people posting. Everything a video earns is multiplied, and you can cap how many extra points one creator can gain.</p>
+          <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-smoke">Double (or more) points for videos posted inside a window, to get people posting. Everything a video earns is multiplied. A cap stops the multiplying once a creator has gained that many extra points; their points keep counting as normal.</p>
         </div>
         <button type="button" onClick={() => setOpen(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />Add a boost</button>
       </div>
@@ -67,46 +68,67 @@ export default function BoostsEditor({ challengeId }) {
                   <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">{b.label}
                     <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', st === 'live' ? 'bg-brand-tint text-brand' : st === 'upcoming' ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{st === 'live' ? 'On now' : st === 'upcoming' ? 'Coming up' : 'Ended'}</span>
                   </span>
-                  <span className="block text-xs text-smoke">{when(b.starts_at)} to {when(b.ends_at)}{b.max_extra_points ? ` · up to ${b.max_extra_points} extra points each` : ' · no cap'}</span>
+                  <span className="block text-xs text-smoke">Videos posted {windowPhrase(b.starts_at, b.ends_at)}{b.max_extra_points ? ` · stops multiplying after ${b.max_extra_points} extra points each` : ' · no cap'}</span>
                 </span>
+                <button type="button" onClick={() => setOpen(b)} aria-label="Edit boost" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-brand-tint hoverable:hover:text-brand"><Icon name="pencil" className="h-4 w-4" /></button>
                 <button type="button" onClick={() => remove(b)} aria-label="Remove boost" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-red-50 hoverable:hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
               </li>
             )
           })}
         </ul>
       )}
-      {open && <BoostModal challengeId={challengeId} userId={profile?.id} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load() }} />}
+      {open && <BoostModal challengeId={challengeId} userId={profile?.id} boost={open === true ? null : open} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); load() }} />}
     </div>
   )
 }
 
-function BoostModal({ challengeId, userId, onClose, onSaved }) {
-  const [label, setLabel] = useState('Double points')
-  const [m, setM] = useState(2)
-  const [custom, setCustom] = useState('')
-  const [start, setStart] = useState(() => { const d = new Date(); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0); return toLocalInput(d) })
-  const [hours, setHours] = useState(3)
-  const [cap, setCap] = useState('')
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
+  const editing = !!boost
+  const initialDays = boost ? wholeDays(boost.starts_at, boost.ends_at) : null
+  const [label, setLabel] = useState(boost?.label || 'Double points')
+  const known = boost ? MULTS.includes(Number(boost.multiplier)) : true
+  const [m, setM] = useState(boost && known ? Number(boost.multiplier) : 2)
+  const [custom, setCustom] = useState(boost && !known ? String(Number(boost.multiplier)) : '')
+  // WHOLE DAYS OR HOURS (7 Oct 2026). Most boosts are "Thursday" or "Thursday and Friday", so days come first.
+  const [byDays, setByDays] = useState(boost ? !!initialDays : true)
+  const today = new Date()
+  const [fromDay, setFromDay] = useState(initialDays ? ymd(initialDays[0]) : ymd(today))
+  const [toDay, setToDay] = useState(initialDays ? ymd(initialDays[initialDays.length - 1]) : ymd(today))
+  const [start, setStart] = useState(() => {
+    if (boost) return toLocalInput(new Date(boost.starts_at))
+    const d = new Date(); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0); return toLocalInput(d)
+  })
+  const boostHours = boost ? Math.round((Date.parse(boost.ends_at) - Date.parse(boost.starts_at)) / 3600000) : 3
+  const [hours, setHours] = useState(boostHours)
+  const [cap, setCap] = useState(boost?.max_extra_points ? String(boost.max_extra_points) : '')
   const [busy, setBusy] = useState(false)
   const mult_ = custom ? Number(custom) : m
-  const startMs = Date.parse(start)
-  const endMs = startMs + hours * 3600000
-  const bad = !label.trim() || !(mult_ > 1 && mult_ <= 10) || !Number.isFinite(startMs)
+  const startMs = byDays ? Date.parse(`${fromDay}T00:00:00`) : Date.parse(start)
+  const endMs = byDays ? (() => { const d = new Date(`${toDay}T00:00:00`); d.setDate(d.getDate() + 1); return d.getTime() - 60000 })() : startMs + hours * 3600000
+  const bad = !label.trim() || !(mult_ > 1 && mult_ <= 10) || !Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs
+  const durations = DURATIONS.some(([h]) => h === hours) ? DURATIONS : [...DURATIONS, [hours, `${hours} hours`]]
 
   async function save() {
     setBusy(true)
-    const { error } = await supabase.from('challenge_boosts').insert({
-      challenge_id: challengeId, label: label.trim(), multiplier: mult_, starts_at: new Date(startMs).toISOString(), ends_at: new Date(endMs).toISOString(),
-      max_extra_points: Number(cap) > 0 ? Math.floor(Number(cap)) : null, created_by: userId,
-    })
+    const row = {
+      label: label.trim(), multiplier: mult_, starts_at: new Date(startMs).toISOString(), ends_at: new Date(endMs).toISOString(),
+      max_extra_points: Number(cap) > 0 ? Math.floor(Number(cap)) : null,
+    }
+    const { error } = editing
+      ? await supabase.from('challenge_boosts').update(row).eq('id', boost.id)
+      : await supabase.from('challenge_boosts').insert({ ...row, challenge_id: challengeId, created_by: userId })
     setBusy(false)
     if (error) { notice(error.message); return }
-    toastSuccess('Boost saved. The challenge has been rescored.')
+    toastSuccess(editing ? 'Boost updated. The challenge has been rescored.' : 'Boost saved. The challenge has been rescored.')
     onSaved()
   }
 
+  const chip = (on) => cx('rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink hoverable:hover:border-brand')
+
   return (
-    <Modal open onClose={onClose} title="Add a boost">
+    <Modal open onClose={onClose} title={editing ? 'Edit the boost' : 'Add a boost'}>
       <div className="space-y-5">
         <label className="block"><span className="label">Name (creators see it)</span><input className="input" maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} /></label>
         <div>
@@ -119,24 +141,41 @@ function BoostModal({ challengeId, userId, onClose, onSaved }) {
             <input className="input !w-24 !py-2 text-center text-sm" inputMode="decimal" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ''))} placeholder="Other" aria-label="Another multiplier" />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">Starts</span><input type="datetime-local" className="input" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-          <div>
-            <p className="label">Runs for</p>
-            <div className="flex flex-wrap gap-1.5">
-              {DURATIONS.map(([h, l]) => (
-                <button key={h} type="button" aria-pressed={hours === h} onClick={() => setHours(h)}
-                  className={cx('rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200', hours === h ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink hoverable:hover:border-brand')}>{l}</button>
-              ))}
-            </div>
+        <div>
+          <p className="label">When it runs</p>
+          <div className="mb-3 flex gap-1.5">
+            <button type="button" aria-pressed={byDays} onClick={() => setByDays(true)} className={chip(byDays)}>Whole days</button>
+            <button type="button" aria-pressed={!byDays} onClick={() => setByDays(false)} className={chip(!byDays)}>Set hours</button>
           </div>
+          {byDays ? (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">From</span><input type="date" className="input" value={fromDay} onChange={(e) => { setFromDay(e.target.value); if (e.target.value > toDay) setToDay(e.target.value) }} /></label>
+              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Until the end of</span><input type="date" className="input" value={toDay} min={fromDay} onChange={(e) => setToDay(e.target.value)} /></label>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Starts</span><input type="datetime-local" className="input" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+              <div>
+                <p className="mb-1 text-[11px] font-semibold text-smoke">Runs for</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {durations.map(([h, l]) => (
+                    <button key={h} type="button" aria-pressed={hours === h} onClick={() => setHours(h)} className={chip(hours === h)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <label className="block"><span className="label">Most extra points one creator can gain (optional)</span>
-          <input className="input" inputMode="numeric" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} placeholder="No limit" />
-          <span className="mt-1 block text-[11px] text-smoke">A ceiling in case somebody posts a flood of videos to exploit it.</span>
+        <label className="block"><span className="label">Stop multiplying after this many extra points (optional)</span>
+          <input className="input" inputMode="numeric" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} placeholder="No cap" />
+          <span className="mt-1 block text-[11px] leading-relaxed text-smoke">
+            {Number(cap) > 0
+              ? `Once a creator has gained ${cap} extra points from this boost, their videos stop being multiplied. They keep earning their normal points; only the extra stops.`
+              : 'A ceiling on the EXTRA points, in case somebody posts a flood of videos. Normal points are never capped by a boost.'}
+          </span>
         </label>
-        {Number.isFinite(startMs) && <p className="rounded-xl bg-cloud px-3.5 py-2.5 text-xs text-smoke">Videos entered from <strong className="text-ink">{when(new Date(startMs))}</strong> until <strong className="text-ink">{when(new Date(endMs))}</strong> earn {mult_ > 1 ? `x${mult_}` : '...'} their points.</p>}
-        <button type="button" onClick={save} disabled={bad || busy} className="btn-primary w-full justify-center disabled:opacity-50">{busy ? <Spinner className="h-4 w-4" /> : 'Save the boost'}</button>
+        {!bad && <p className="rounded-xl bg-cloud px-3.5 py-2.5 text-xs text-smoke">Creators will see: <strong className="text-ink">Videos posted {windowPhrase(new Date(startMs).toISOString(), new Date(endMs).toISOString())} count {mult(mult_)}.</strong></p>}
+        <button type="button" onClick={save} disabled={bad || busy} className="btn-primary w-full justify-center disabled:opacity-50">{busy ? <Spinner className="h-4 w-4" /> : editing ? 'Save changes' : 'Save the boost'}</button>
       </div>
     </Modal>
   )

@@ -195,6 +195,7 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     if (reduced) { shownRef.current = target; setShown(target); return undefined }
     const from = shownRef.current
     if (from === target) return undefined
+    const step = Number.isInteger(target) && Number.isInteger(from) ? 1 : 0.01
     const node = ref.current
     let raf = 0
     let begin = 0
@@ -220,6 +221,7 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     let start = null
     const finish = () => {
       done = true
+      paint(target)
       setShown(target)
       clearTimeout(net)
       clearInterval(heartbeat)
@@ -252,7 +254,10 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     const paintAt = (now) => {
       if (start === null) start = now
       const t = Math.min(1, (now - start) / ms)
-      paint(Math.round(from + (target - from) * countEase(t)))
+      // IN CENTS WHEN THE NUMBER HAS CENTS (7 Oct 2026). Every frame was rounded to a whole number, so a VIP balance of
+      // EUR 0.83 counted 0.00 -> 1.00 and then dropped back to 0.83 on the last frame (Ethan: "it immediately went to
+      // EUR 1 then went back down"). The step is now the target's own precision, and the last frame is the target.
+      paint(t >= 1 ? target : Math.round((from + (target - from) * countEase(t)) / step) * step)
       return t
     }
     const tick = (now) => {

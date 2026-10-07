@@ -104,6 +104,10 @@ const AdminEvents = lazyRoute(chunk.AdminEvents)
 const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
 const Updates = lazyRoute(chunk.Updates)
+const VideoIdeas = lazyRoute(chunk.VideoIdeas)
+const Faq = lazyRoute(chunk.Faq)
+const Agreements = lazyRoute(chunk.Agreements)
+const AdminAgreements = lazyRoute(chunk.AdminAgreements)
 const Portfolio = lazyRoute(chunk.Portfolio)
 const PublicPortfolio = lazyRoute(chunk.PublicPortfolio)
 const VerifyCertificate = lazyRoute(chunk.VerifyCertificate)
@@ -337,6 +341,9 @@ export default function App() {
           <Route path="/calendar" element={<Navigate to="/events" replace />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/updates" element={<Updates />} />
+          <Route path="/ideas" element={<VideoIdeas />} />
+          <Route path="/help/faq" element={<Faq />} />
+          <Route path="/agreements" element={<Agreements />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* ---------- Global network (behind the preview flag) ---------- */}
@@ -404,6 +411,7 @@ export default function App() {
             <Route path="/admin/analytics/:id" element={<AdminChallengeAnalytics />} />
             <Route path="/admin/videos" element={<AdminVideoTracker />} />
             <Route path="/admin/kpis" element={<AdminKpis />} />
+            <Route path="/admin/agreements" element={<AdminAgreements />} />
             <Route path="/admin/hooks" element={<AdminHooks />} />
             {/* Community network folded into Analytics as its Connections tab.
                 It was a second door onto "how is the community doing". */}

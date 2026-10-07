@@ -11,6 +11,7 @@ import { METRICS, criterionFraction, criterionLabel, humanDays, routeState } fro
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useAuth } from '../context/AuthContext'
 import { useT } from '../lib/i18n'
+import { VipTeaserCard } from '../components/vip/VipLocked'
 
 // Where a creator has got to, and what is next.
 //
@@ -256,6 +257,8 @@ export default function Milestones() {
         )}
         </div>
 
+        {/* Below the route: the next thing past it (7 Oct 2026). Not for VIPs, who are already there. */}
+        {!profile?.is_vip && <VipTeaserCard className="mt-8" />}
       </motion.div>
     </div>
   )

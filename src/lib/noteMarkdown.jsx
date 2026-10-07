@@ -38,6 +38,8 @@ export function renderNote(md = '') {
 
   lines.forEach((line, i) => {
     if (/^\s*---\s*$/.test(line)) { flush(); blocks.push({ type: 'hr', key: i }); return }
+    const img = line.match(/^\s*!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)\s*$/)
+    if (img) { flush(); blocks.push({ type: 'img', alt: img[1], url: img[2], key: i }); return }
     const h = line.match(/^(#{1,3})\s+(.*)$/)
     if (h) { flush(); blocks.push({ type: 'h', level: h[1].length, text: h[2], key: i }); return }
     const q = line.match(/^>\s?(.*)$/)
@@ -64,6 +66,11 @@ export function renderNote(md = '') {
 
   return blocks.map((b) => {
     if (b.type === 'hr') return <hr key={b.key} className="my-5 border-gray-200" />
+    if (b.type === 'img') return (
+      <a key={b.key} href={b.url} target="_blank" rel="noopener noreferrer" className="my-3 block overflow-hidden rounded-2xl border border-gray-100 bg-cloud shadow-sm">
+        <img src={b.url} alt={b.alt || ''} loading="lazy" className="block h-auto w-full" />
+      </a>
+    )
     if (b.type === 'h') {
       if (b.level === 1) return <h2 key={b.key} className="mb-2 mt-5 text-2xl font-bold text-ink first:mt-0">{inline(b.text, `h${b.key}`)}</h2>
       if (b.level === 2) return <h3 key={b.key} className="mb-2 mt-4 text-xl font-bold text-ink first:mt-0">{inline(b.text, `h${b.key}`)}</h3>
@@ -92,6 +99,7 @@ export function renderNote(md = '') {
 export function noteExcerpt(md = '', max = 150) {
   const plain = md
     .replace(/^\s*-{3,}\s*$/gm, '')
+    .replace(/^\s*!\[[^\]]*\]\([^)]+\)\s*$/gm, '')
     .replace(/^#{1,3}\s+/gm, '')
     .replace(/^\s*[-*]\s+\[[ xX]\]\s+/gm, '')
     .replace(/^\s*[-*]\s+/gm, '')

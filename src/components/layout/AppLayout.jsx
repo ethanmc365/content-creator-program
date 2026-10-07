@@ -20,6 +20,8 @@ import BankDetailsPrompt from '../BankDetailsPrompt'
 import AddToHomePrompt from '../AddToHomePrompt'
 import SurveyHost from '../SurveyHost'
 import GlobalChallengePrompt from '../GlobalChallengePrompt'
+import BoostPrompt from '../BoostPrompt'
+import AgreementGate from '../agreements/AgreementGate'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { startHeartbeat } from '../../lib/presence'
@@ -582,6 +584,8 @@ export default function AppLayout() {
       <AddToHomePrompt />
       <BankDetailsPrompt />
       {/* The live worldwide challenge, for a creator who has not entered it (4 Oct 2026). */}
+      <AgreementGate />
+      <BoostPrompt />
       <GlobalChallengePrompt />
       {/* Surveys from the team (migration 291), last in the same queue. */}
       <SurveyHost />
@@ -804,6 +808,15 @@ export default function AppLayout() {
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
                   {!isVip && <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Milestones")}</Link>}
+                  {/* THE VIP COMMUNITY, FOR EVERYONE TO SEE (7 Oct 2026). Ethan wanted the general community to know it
+                      exists. A creator who is not a VIP gets the locked page with how places are earned; the team gets
+                      the VIP page itself. */}
+                  {!isVip && (
+                    <Link to="/vip" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                      {tr("VIP community")}
+                      {!vipAccess && <Icon name="lock" className="h-3.5 w-3.5 shrink-0 text-brand" />}
+                    </Link>
+                  )}
                   {isVip && <Link to="/vip?tab=payouts" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("VIP payouts")}</Link>}
 
                   {/* EVERYWHERE ELSE, ON A PHONE.
@@ -870,6 +883,7 @@ export default function AppLayout() {
                     {newUpdates && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />}
                   </Link>
                   <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Get help")}</Link>
+                  <Link to="/help/faq" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Questions and answers")}</Link>
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}

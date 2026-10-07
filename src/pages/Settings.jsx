@@ -863,6 +863,15 @@ export default function Settings() {
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>
         ))}
+        {/* THE TERMS YOU AGREED TO (7 Oct 2026): every version you accepted or signed, to read again whenever you like. */}
+        <Link to="/agreements" className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0">
+          <span className="flex w-11 shrink-0 items-center justify-center text-brand"><Icon name="shield" className="h-6 w-6" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{tr('Agreements')}</span>
+            <span className="block text-xs text-smoke">{tr('The terms you accepted, and your signed agreements')}</span>
+          </span>
+          <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+        </Link>
         {isAdmin && (
           <button
             onClick={() => setSection('admin')}

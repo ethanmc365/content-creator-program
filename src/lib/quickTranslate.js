@@ -194,6 +194,16 @@ export async function translateNow(text, target = getLocale()) {
   try { r = await viaBrowser(text, target) } catch {
     try { r = await viaServer(text, target) } catch { return { value: text, src: null, failed: true } }
   }
+  // THE ENGINE SAID "IT IS ALREADY ENGLISH" ABOUT SOMETHING THAT IS NOT (7 Oct 2026). Ethan could not translate
+  // Maxime's Romanian tips in Content tips. A message that mixes a few English words into another language can come back
+  // unchanged, which reads as the button doing nothing. When the answer is the question and the text does not look like
+  // the reader's language, ask the second engine before giving up.
+  if (r && r.value.trim() === String(text).trim() && target === DEFAULT_LOCALE && looksNonEnglish(text)) {
+    try {
+      const s2 = await viaServer(text, target)
+      if (s2?.value && s2.value.trim() !== String(text).trim()) r = s2
+    } catch { /* keep what we have */ }
+  }
   memo.set(k, r)
   saveStore()
   return r
@@ -266,7 +276,10 @@ export function useMessageTranslations() {
     available,
     // Whether to offer the button on this message: always for a reader on another language, and for a reader
     // on English only where the message does not look English.
-    canFor: (m) => !!m?.body && (locale !== DEFAULT_LOCALE || looksNonEnglish(m.body)),
+    // EVERY MESSAGE WITH WORDS IN IT (7 Oct 2026). The English-reader guess (`looksNonEnglish`) hid the button on
+    // mixed-language messages, and a missing button is indistinguishable from a broken one. Only a message that is
+    // nothing but links, numbers or emoji goes without.
+    canFor: (m) => !!m?.body && /\p{L}{2,}/u.test(String(m.body).replace(/https?:\/\/\S+/g, '')),
     isFailed: (m) => !!state.get(m.id)?.failed,
     isOn: (m) => !!state.get(m.id)?.on && state.get(m.id)?.body === m.body,
     isBusy: (m) => !!state.get(m.id)?.busy,

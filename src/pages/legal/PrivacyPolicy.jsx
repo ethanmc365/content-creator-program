@@ -28,7 +28,7 @@ import LegalShell, { H2 } from './LegalShell'
 // it before it is relied on, and keep the "last updated" date honest.
 export default function PrivacyPolicy() {
   return (
-    <LegalShell title="Privacy Policy" updated="4 September 2026">
+    <LegalShell title="Privacy Policy" updated="7 October 2026">
       <p>
         This policy explains how the Tryp.com Content Creator Community ("the Programme", "we", "us")
         collects and uses your personal data, and the rights you have under the EU General Data
@@ -53,12 +53,16 @@ export default function PrivacyPolicy() {
         <li><strong>Travel data you choose to add:</strong> flights you log, trips you post to the collaboration board, calendar entries and event RSVPs.</li>
         <li><strong>Activity in the Programme:</strong> challenge results and points, prizes and vouchers awarded, milestones reached, game scores and streaks, connections with other creators, and when you were last active.</li>
         <li><strong>Performance data about your entries:</strong> the public view count of each video you submit, read automatically from the link you gave us (see section 5).</li>
+        <li><strong>Agreements you accept or sign:</strong> which version of the Community Terms or the VIP Creator Agreement you accepted, when, a fingerprint of its exact text, how you accepted it (a tick, a typed name or a drawn signature, and that signature itself), the email on your account, and the IP address and browser you used at that moment.</li>
+        <li><strong>Questions you ask</strong> on the Questions and answers page, and the team's replies. A question is only shown to other creators if the team chooses to publish it with its answer, without your name.</li>
+        <li><strong>VIP programme:</strong> if you are a VIP creator, the videos you add, their view readings over time, your monthly statements, balance and payouts.</li>
         <li><strong>Technical:</strong> IP address and rate-limiting records kept briefly for security, your browser's timezone, device push-notification tokens if you turn notifications on, and essential storage in your browser to keep you signed in.</li>
       </ul>
 
       <H2>3. Why we use it, and our legal basis</H2>
       <ul className="list-disc space-y-1 pl-5">
         <li><strong>To run the Programme</strong> - your account, profile, the community features, challenges and leaderboards - <em>performance of a contract</em>.</li>
+        <li><strong>To keep a record of the terms you agreed to</strong> - so that both you and we can show what was agreed, when - <em>performance of a contract</em> and <em>legitimate interests</em>.</li>
         <li><strong>To pay you</strong> - prizes, vouchers, invoices and the records we must keep of them - <em>performance of a contract</em> and <em>legal obligation</em> (accounting and tax law).</li>
         <li><strong>To review applications, moderate content and keep the community safe</strong> - <em>legitimate interests</em> in running a community that is safe to be in. You can object; see section 8.</li>
         <li><strong>Email and push notifications</strong> - <em>consent</em>, withdrawable at any time in Settings without affecting anything you have already received.</li>
@@ -117,6 +121,7 @@ export default function PrivacyPolicy() {
         <li><strong>If you delete your account:</strong> it is scheduled for permanent deletion after a 30-day grace period, during which you can restore it yourself. After that it is gone.</li>
         <li><strong>Messages in shared rooms:</strong> a conversation belongs to everyone in it, so messages you have posted may remain in the thread after you leave, shown without your profile.</li>
         <li><strong>Invoices and payment records:</strong> kept for as long as accounting and tax law requires, which in Portugal is ten years. This applies even after you close your account, and it is a legal obligation rather than a choice.</li>
+        <li><strong>Records of agreements you accepted or signed:</strong> for as long as your account is open. Payouts made under the VIP Creator Agreement stay in the invoice records above.</li>
         <li><strong>Security records</strong> such as rate-limiting logs: days, not months.</li>
       </ul>
 

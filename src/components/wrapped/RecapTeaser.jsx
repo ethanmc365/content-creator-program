@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { lazyRoute } from '../../lib/lazyRoute'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import Icon from '../Icon'
@@ -33,7 +34,7 @@ export function recapTeaserWindow(now = new Date()) {
   return 'on'
 }
 
-const Locked = lazy(() => import('./YearInReview').then((m) => ({ default: m.YearInReviewLocked })))
+const Locked = lazyRoute(() => import('./YearInReview').then((m) => (m ? { default: m.YearInReviewLocked } : m)))
 
 export default function RecapTeaser({ name, isMe, preview = false }) {
   const tr = useT()

@@ -1,8 +1,9 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { lazyRoute } from '../lib/lazyRoute'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
@@ -15,9 +16,11 @@ import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMy
 import { VipWallet, StayInCard } from '../components/vip/wallet'
 import { HowPaidCard, LatestVideos, TargetCard } from '../components/vip/month'
 import { TeamPulse } from '../components/vip/teamTools'
+import { VipLockedPage } from '../components/vip/VipLocked'
 import { VipRecapPanel } from './VipRecap'
 // The team's tools are only ever drawn for the team, so creators never download them.
-const VipTools = lazy(() => import('../components/vip/VipTools'))
+const VipTools = lazyRoute(() => import('../components/vip/VipTools'))
+const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
 import { VipPreviewContext, daysLeft, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
 import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
@@ -71,7 +74,7 @@ export default function VipHub() {
   const { user, profile } = useAuth()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const { overview: own, error, reload: reloadOwn } = useVipOverview()
+  const { overview: own, reload: reloadOwn } = useVipOverview()
   const access = useVipAccess(profile?.id, false)
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
   const [staffOv, setStaffOv] = useState(undefined)
@@ -134,7 +137,7 @@ export default function VipHub() {
   const previewWho = previewing ? who : null
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : null
-  const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
+  const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
   const tab = allowed.includes(asked) ? asked : 'month'
   const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const [board, setBoard] = useState(null)
@@ -192,18 +195,8 @@ export default function VipHub() {
       </div>
     )
   }
-  if (overview === null) {
-    return (
-      <div className="page max-w-3xl">
-        <PageHeader title={tr('VIP')} />
-        <EmptyState
-          icon={<Icon name="star" className="h-7 w-7" />}
-          title={tr('This page is for VIP creators')}
-          hint={error || tr('VIP creators are paid by the views they bring. If you think you should be one, ask your market lead.')}
-        />
-      </div>
-    )
-  }
+  // NOT A VIP AND NOT THE TEAM: the locked VIP community page (7 Oct 2026), not a dead end.
+  if (overview === null) return <VipLockedPage />
 
   const { programme, member, month, stats } = overview
   const cur = programme.currency
@@ -379,6 +372,7 @@ export default function VipHub() {
           </div>
         )}
 
+        {tab === 'ideas' && <Suspense fallback={<Skeleton className="h-96 w-full" />}><VideoIdeasBoard compact /></Suspense>}
         {tab === 'library' && <VipLibrary programmeId={programme.id} />}
         {tab === 'map' && <VipMap />}
         {tab === 'recap' && <VipRecapPanel m={params.get('m')} onPick={(k) => setParams({ tab: 'recap', m: k }, { replace: true })} />}
