@@ -678,7 +678,6 @@ export function VipMembersTab({ programme }) {
   const isTeam = (m) => !!reviews[m.profile_id]?.is_team
   const teamCount = everyone.filter(isTeam).length
   const members = everyone.filter((m) => (show === 'all' || m.status === show) && (who === 'all' || (who === 'team') === isTeam(m)) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
-  const waiting = data?.waiting || []
   return (
     <div className="space-y-8">
       {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST (4 Oct 2026). Ethan: "the VIP sign-up link, when I click on Members, should
@@ -755,25 +754,6 @@ export function VipMembersTab({ programme }) {
           </div>
         )}
       </section>
-
-      {/* SIGNED UP BUT NOT FINISHED (9 Oct 2026). A VIP link puts somebody in the programme the moment they sign up, before
-          their profile is finished. They are not a VIP creator yet (no lists, no counts, no activity), but the team can see
-          who is stuck and chase them. */}
-      {waiting.length > 0 && (
-        <section>
-          <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Signed up, not in yet ({n})', { n: waiting.length })}</h2>
-          <p className="mb-3 text-xs text-smoke">{tr('They join the VIP list on their own once their profile is finished and approved.')}</p>
-          <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-dashed border-gray-200 bg-white">
-            {waiting.map((w) => (
-              <li key={w.profile_id} className="flex items-center gap-3 px-4 py-3">
-                <Avatar src={w.photo} name={w.name} size="sm" />
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{w.name}</span><span className="block text-xs text-smoke">{tr('Joined {d}', { d: formatDate(w.joined_on) })}</span></span>
-                <button type="button" onClick={() => copyEmails([w], w.name)} className="btn-secondary !py-1.5 text-xs"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy email')}</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* THE TEAM WITH ACCESS: who runs this VIP community. Added and removed on Setup > Access (owner). */}
       <section>

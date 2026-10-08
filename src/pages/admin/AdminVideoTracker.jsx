@@ -612,8 +612,11 @@ function VideoCard({ v, onOpen, eager = false }) {
             a hook that stops mid-word teaches nothing, and three lines is the
             longest one anybody has actually written. */}
         <p className="text-[15px] font-semibold leading-snug text-ink line-clamp-3">
-          {v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
+          {/* THE WORDS ON THE VIDEO WIN (9 Oct 2026): the text the creator typed onto it (read from TikTok with the view count)
+              is the real hook; the caption's first line is the fallback. */}
+          {v.screen_text || v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
+        {v.screen_text && v.hook && v.screen_text !== v.hook && <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-brand">{tr('Text on the video')}</p>}
 
         {/* AND THE REST OF THE CAPTION IS GONE ENTIRELY (10 Sep 2026). Ethan:
             "condense the bottom a bit - you don't need to show the second
