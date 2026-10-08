@@ -57,6 +57,8 @@ export async function geocodeCity(city, country) {
         return null
       }
       const val = { lat: data.lat, lng: data.lng }
+      // A typo the geocoder corrected ("Melbournr" -> Melbourne). See suggestCity below.
+      if (data.suggestion?.city) val.suggestion = { city: data.suggestion.city, country: data.suggestion.country || '' }
       try {
         localStorage.setItem(CACHE_PREFIX + k, JSON.stringify(val))
       } catch {
@@ -70,4 +72,19 @@ export async function geocodeCity(city, country) {
 
   mem.set(k, promise)
   return promise
+}
+
+const fold = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+// "DID YOU MEAN MELBOURNE?" (8 Oct 2026). Ethan: "when you notice there's something wrong, suggest it. They
+// could always change it again later". Returns { city, country } when the geocoder only found the town by
+// correcting its spelling, and null when what was typed is already right (or could not be placed at all).
+export async function suggestCity(city, country) {
+  if (!city?.trim()) return null
+  const hit = await geocodeCity(city, country)
+  const s = hit?.suggestion
+  if (!s?.city) return null
+  const typed = fold(city.split(/[/,(]/)[0])
+  if (fold(s.city) === typed) return null
+  return { city: s.city, country: country?.trim() ? country.trim() : s.country }
 }

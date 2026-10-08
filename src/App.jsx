@@ -31,6 +31,7 @@ import ResetPassword from './pages/auth/ResetPassword'
 import AuthCallback from './pages/auth/AuthCallback'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import Terms from './pages/legal/Terms'
+import GuardianConsent from './pages/legal/GuardianConsent'
 
 // Creator pages
 import Profile from './pages/Profile'
@@ -281,6 +282,7 @@ export default function App() {
       <Route path="/verify/:serial" element={<VerifyCertificate />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/guardian/:token" element={<GuardianConsent />} />
 
       {/* ---------- Signed in ---------- */}
       <Route element={<ProtectedRoute />}>
@@ -342,6 +344,7 @@ export default function App() {
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/ideas" element={<VideoIdeas />} />
+          <Route path="/help" element={<Faq />} />
           <Route path="/help/faq" element={<Faq />} />
           <Route path="/agreements" element={<Agreements />} />
           <Route path="/dashboard" element={<Dashboard />} />

@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
+import { IdeasTeaser } from '../components/VideoIdeas'
 import VipHomeCard, { VipRailCard } from '../components/vip/VipHomeCard'
 import { useVipOverview } from '../lib/vip'
 import MarketsRailCard from '../components/network/MarketsRailCard'
@@ -227,7 +228,7 @@ export default function GlobalHome() {
       const today = new Date().toISOString().slice(0, 10)
       const [
         { data: mems }, { count: creators }, { data: challenges },
-        { data: ann }, { data: trips }, { data: fresh }, { data: visited },
+        { data: ann }, { data: trips }, { data: fresh },
         { count: connCount }, { data: latestRes },
         { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
@@ -272,7 +273,6 @@ export default function GlobalHome() {
         supabase.from('profiles').select('id, name, photo_url, bio, country_code')
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
-        supabase.from('profiles').select('countries_visited'),
         // Badge counts for the rail. They were in the avatar menu; the menu no
         // longer holds these links, so the signal has to move with them or a
         // pending connection request becomes invisible.
@@ -331,7 +331,9 @@ export default function GlobalHome() {
       const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({
         counts: tally, creators, live, anns: recentAnnouncements(ann, { now: Date.now(), limit: ANNOUNCEMENT_LIMIT }), trips: trips || [], fresh: fresh || [],
-        visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
+        // From the map's own roster (8 Oct 2026): a second whole-table read of profiles for one column was
+        // the same people, plus pending and deleted ones who should not shade a country anyway.
+        visited: [...new Set((mapPeople || []).flatMap((p) => p.countries_visited || []))],
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
         mapPeople: mapPeople || [],
@@ -551,6 +553,9 @@ export default function GlobalHome() {
         )}
       </RailCard>
       )}
+
+      {/* ---------- Video Ideas (8 Oct 2026: "slot it ... in the right column on the worldwide page") ---------- */}
+      <IdeasTeaser className="hidden lg:block" />
 
       {/* ---------- Your markets (shared with every market page) ---------- */}
       <MarketsRailCard current="worldwide" live={d?.live} />

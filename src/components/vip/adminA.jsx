@@ -37,15 +37,17 @@ export function VipOverviewTab({ programme }) {
   const [dq, setDq] = useState(null) // the video being taken out of the count, while its reason is typed
   const [reason, setReason] = useState('')
   const [pickProfile, setPickProfile] = useState(null) // a suggested creator being moved to VIP
+  const [teamIds, setTeamIds] = useState(() => new Set()) // migration 365: Tryp.com team creators, counted apart
   const cur = programme.currency
 
   const load = useCallback(async () => {
     try {
-      const [o, v] = await Promise.all([
+      const [o, v, t] = await Promise.all([
         vipRpc('vip_admin_overview', { p_programme: programme.id }),
         vipRpc('vip_admin_videos', { p_programme: programme.id, p_limit: 60 }),
+        supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true),
       ])
-      setData(o); setVideos(v); setErr('')
+      setData(o); setVideos(v); setTeamIds(new Set((t.data || []).map((x) => x.profile_id))); setErr('')
     } catch (e) { setErr(e.message) }
   }, [programme.id])
   useEffect(() => { setData(null); load(); const id = setInterval(load, 60000); return () => clearInterval(id) }, [load])
@@ -109,57 +111,64 @@ export function VipOverviewTab({ programme }) {
         <SuggestionsCard programme={programme} onPick={setPickProfile} />
       </div>
 
-      {/* THE BOARD, LIVE, AS A BOARD (1 Oct 2026). Ethan: "with the board live, I want you to improve the UI of that."
-          It was a seven-column table. Now each VIP is a row with their place, their views as a bar against the
-          leader's, what they have earned and are on pace for, their target, and a plain "no videos yet" when that is
-          the story - so the people who need a nudge read as such at a glance. */}
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>{tr('The board, live')}</h2>
-          <span className="text-xs text-smoke">{tr('{n} VIPs', { n: members.length })}</span>
-        </div>
-        {members.length === 0 ? (
-          <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody is a VIP in this programme yet. Add one from Members, or send a sign-up link.')}</p>
-        ) : (
-          <ol className="space-y-2.5">
-            {members.map((m, i) => {
-              const top = Math.max(1, Number(members[0]?.views) || 0)
-              const pct = Math.round((Number(m.views) / top) * 100)
-              return (
-                <li key={m.profile_id} className={cx('rounded-card border bg-white p-3.5 shadow-card animate-rise sm:p-4', i === 0 && Number(m.views) > 0 ? 'border-brand/30' : 'border-gray-100', m.status !== 'active' && 'opacity-60')} style={{ animationDelay: `${Math.min(i, 10) * 45}ms` }}>
-                  <div className="flex items-center gap-3">
-                    <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && Number(m.views) > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
-                    <Link to={`/profile/${m.profile_id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:text-brand">
-                      <Avatar src={m.photo} name={m.name} size="sm" />
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1.5 truncate text-sm font-bold">{m.name}
-                          {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
-                          {!m.payment_ready && <span title={tr('No payment details yet')} className="text-amber-600"><Icon name="wallet" className="h-3.5 w-3.5" /></span>}
+      {/* TWO BOARDS WHEN THERE ARE TEAM CREATORS (8 Oct 2026, migration 365): "see the creators and the VIP or team,
+          like the Tryp.com team, separated". Team creators are ranked and counted on their own board. */}
+      {[
+        { team: false, title: tr('The board, live'), list: members.filter((m) => !teamIds.has(m.profile_id)) },
+        { team: true, title: tr('Tryp.com team creators'), list: members.filter((m) => teamIds.has(m.profile_id)) },
+      ].filter((g) => !g.team || g.list.length).map(({ team, title, list }) => (
+        // THE BOARD, LIVE, AS A BOARD (1 Oct 2026). Ethan: "with the board live, I want you to improve the UI of that."
+        // It was a seven-column table. Now each VIP is a row with their place, their views as a bar against the
+        // leader's, what they have earned and are on pace for, their target, and a plain "no videos yet" when that is
+        // the story - so the people who need a nudge read as such at a glance.
+        <section key={team ? 'team' : 'vip'}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>{title}</h2>
+            <span className="text-xs text-smoke">{team ? tr('{n} team creators · {v} views', { n: list.length, v: formatViews(list.reduce((x, m) => x + (Number(m.views) || 0), 0)) }) : tr('{n} VIPs', { n: list.length })}</span>
+          </div>
+          {list.length === 0 ? (
+            <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody is a VIP in this programme yet. Add one from Members, or send a sign-up link.')}</p>
+          ) : (
+            <ol className="space-y-2.5">
+              {list.map((m, i) => {
+                const top = Math.max(1, Number(list[0]?.views) || 0)
+                const pct = Math.round((Number(m.views) / top) * 100)
+                return (
+                  <li key={m.profile_id} className={cx('rounded-card border bg-white p-3.5 shadow-card animate-rise sm:p-4', i === 0 && Number(m.views) > 0 ? 'border-brand/30' : 'border-gray-100', m.status !== 'active' && 'opacity-60')} style={{ animationDelay: `${Math.min(i, 10) * 45}ms` }}>
+                    <div className="flex items-center gap-3">
+                      <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && Number(m.views) > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                      <Link to={`/profile/${m.profile_id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:text-brand">
+                        <Avatar src={m.photo} name={m.name} size="sm" />
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1.5 truncate text-sm font-bold">{m.name}
+                            {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                            {!m.payment_ready && <span title={tr('No payment details yet')} className="text-amber-600"><Icon name="wallet" className="h-3.5 w-3.5" /></span>}
+                          </span>
+                          <span className="block text-[11px] text-smoke">{m.videos > 0 ? (m.videos === 1 ? tr('1 video') : tr('{n} videos', { n: m.videos })) : tr('No videos yet this month')}</span>
                         </span>
-                        <span className="block text-[11px] text-smoke">{m.videos > 0 ? (m.videos === 1 ? tr('1 video') : tr('{n} videos', { n: m.videos })) : tr('No videos yet this month')}</span>
-                      </span>
-                    </Link>
-                    <div className="hidden shrink-0 grid-cols-3 gap-5 text-right sm:grid">
-                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Views')}</p><p className="text-sm font-bold tabular-nums text-ink">{formatViews(m.views)}</p></div>
-                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Earned')}</p><p className="text-sm font-bold tabular-nums text-ink">{money(m.base, cur, { cents: false })}</p></div>
-                      <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('On pace')}</p><p className="text-sm font-semibold tabular-nums text-smoke">{m.projected_base != null ? money(m.projected_base, cur, { cents: false }) : '-'}</p></div>
+                      </Link>
+                      <div className="hidden shrink-0 grid-cols-3 gap-5 text-right sm:grid">
+                        <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Views')}</p><p className="text-sm font-bold tabular-nums text-ink">{formatViews(m.views)}</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('Earned')}</p><p className="text-sm font-bold tabular-nums text-ink">{money(m.base, cur, { cents: false })}</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{tr('On pace')}</p><p className="text-sm font-semibold tabular-nums text-smoke">{m.projected_base != null ? money(m.projected_base, cur, { cents: false }) : '-'}</p></div>
+                      </div>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink sm:hidden">{formatViews(m.views)}</p>
                     </div>
-                    <p className="shrink-0 text-sm font-bold tabular-nums text-ink sm:hidden">{formatViews(m.views)}</p>
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className="h-full origin-left rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out" style={{ width: `${Number(m.views) > 0 ? Math.max(3, pct) : 0}%` }} /></div>
-                    {(m.target_videos || m.target_views) ? (
-                      <span className="shrink-0 rounded-full bg-cloud px-2.5 py-1 text-[10.5px] font-semibold tabular-nums text-smoke">
-                        {m.target_videos ? `${m.videos}/${m.target_videos} ${tr('videos')}` : ''}{m.target_videos && m.target_views ? ' · ' : ''}{m.target_views ? `${formatViews(m.views)}/${formatViews(m.target_views)}` : ''}
-                      </span>
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-        )}
-      </section>
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className="h-full origin-left rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out" style={{ width: `${Number(m.views) > 0 ? Math.max(3, pct) : 0}%` }} /></div>
+                      {(m.target_videos || m.target_views) ? (
+                        <span className="shrink-0 rounded-full bg-cloud px-2.5 py-1 text-[10.5px] font-semibold tabular-nums text-smoke">
+                          {m.target_videos ? `${m.videos}/${m.target_videos} ${tr('videos')}` : ''}{m.target_videos && m.target_views ? ' · ' : ''}{m.target_views ? `${formatViews(m.views)}/${formatViews(m.target_views)}` : ''}
+                        </span>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </section>
+      ))}
 
       <section>
         <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Videos')}</h2>
@@ -564,14 +573,31 @@ export function VipMembersTab({ programme }) {
   const cur = programme.currency
 
   const [reviews, setReviews] = useState({}) // profile id -> the date their own rate is to be looked at again
+  const [staff, setStaff] = useState(null)
+  const [teamBusy, setTeamBusy] = useState(null)
+  async function toggleTeam(m) {
+    const next = !reviews[m.profile_id]?.is_team
+    setTeamBusy(m.profile_id)
+    const { error } = await supabase.rpc('vip_set_team', { p_profile: m.profile_id, p_programme: programme.id, p_team: next })
+    setTeamBusy(null)
+    if (error) { notice(error.message); return }
+    setReviews((r) => ({ ...r, [m.profile_id]: { ...(r[m.profile_id] || {}), is_team: next } }))
+    toastSuccess(next ? tr('{n} is now a Tryp.com team creator.', { n: m.name }) : tr('{n} is back with the VIP creators.', { n: m.name }))
+  }
   const load = useCallback(async () => {
     const [o, r] = await Promise.all([
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
       // Everything the settings sheet edits that the overview does not carry (migration 311 columns included).
-      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes').eq('programme_id', programme.id),
+      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes, is_team').eq('programme_id', programme.id),
     ])
     setData(o)
     setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x])))
+    // THE PEOPLE WHO RUN IT (8 Oct 2026, migration 365): "it's not showing correctly who's in the team ... I don't
+    // even see Marta". vip_managers is owner-only to read; vip_team_people names them to anybody with VIP access.
+    const { data: tp } = await supabase.rpc('vip_team_people')
+    const ids = [...new Set((tp || []).filter((x) => x.kind === 'staff' && x.programme_id === programme.id).map((x) => x.profile_id))]
+    const { data: pf } = ids.length ? await supabase.from('profiles').select('id, name, photo_url, role_title').in('id', ids) : { data: [] }
+    setStaff((pf || []).sort((x, y) => (x.name || '').localeCompare(y.name || '')))
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
 
@@ -589,7 +615,7 @@ export function VipMembersTab({ programme }) {
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP creators ({n})', { n: everyone.length })}</h2>
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Members ({n})', { n: everyone.length })}</h2>
           <button type="button" onClick={() => setAdding(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a VIP')}</button>
         </div>
         {everyone.length > 4 && (
@@ -605,33 +631,78 @@ export function VipMembersTab({ programme }) {
         {data === null ? <Skeleton className="h-40 w-full rounded-card" /> : members.length === 0 ? (
           <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{everyone.length ? tr('Nobody matches.') : tr('No VIPs yet. Add a creator who is already in the community, or send a sign-up link to somebody new.')}</p>
         ) : (
-          <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-            {members.map((m, i) => (
-              <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-                <div className="flex items-center gap-3.5">
-                  <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
-                      {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
-                    </p>
-                    <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
-                  </div>
-                  <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
+          <div className="space-y-7">
+            {[
+              { key: 'vip', title: tr('VIP creators'), list: members.filter((m) => !reviews[m.profile_id]?.is_team) },
+              { key: 'team', title: tr('Tryp.com team creators'), hint: tr('Official Tryp.com creators. Their views are counted here, not with the VIP creators. No admin access.'), list: members.filter((m) => reviews[m.profile_id]?.is_team) },
+            ].filter((g) => g.key === 'vip' || g.list.length).map(({ key, title, hint, list }) => (
+              <div key={key}>
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 px-1">
+                  <h3 className="text-[13px] font-bold text-ink">{title} <span className="font-semibold text-smoke">({list.length})</span></h3>
+                  <span className="text-xs font-semibold tabular-nums text-smoke">{tr('{v} views in all', { v: nf(list.reduce((n, m) => n + (Number(m.lifetime_views) || 0), 0)) })}</span>
+                  {hint && <p className="w-full text-xs text-smoke">{hint}</p>}
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                    <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
-                    {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
-                    {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
-                    {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
-                    {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
-                    {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
-                  </div>
-                </div>
+                {list.length === 0 ? (
+                  <p className="rounded-card border border-dashed border-gray-200 px-6 py-6 text-center text-sm text-smoke">{tr('Nobody here right now.')}</p>
+                ) : (
+                  <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+                    {list.map((m, i) => (
+                      <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                        <div className="flex items-center gap-3.5">
+                          <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
+                              {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                            </p>
+                            <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
+                          </div>
+                          <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                            <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
+                            {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
+                            {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
+                            {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
+                            {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
+                            {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id} aria-pressed={!!reviews[m.profile_id]?.is_team}
+                              title={reviews[m.profile_id]?.is_team ? tr('Move back to the VIP creators') : tr('An official Tryp.com creator. No admin access.')}
+                              className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hoverable:hover:-translate-y-px disabled:opacity-50', reviews[m.profile_id]?.is_team ? 'bg-ink text-white' : 'border border-gray-200 text-smoke hoverable:hover:text-ink')}>
+                              <Icon name={reviews[m.profile_id]?.is_team ? 'check' : 'users'} className="h-3.5 w-3.5" />{reviews[m.profile_id]?.is_team ? tr('Tryp.com team') : tr('Mark as Tryp.com team')}
+                            </button>
+                            <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* THE TEAM WITH ACCESS: who runs this VIP community. Added and removed on Setup > Access (owner). */}
+      <section>
+        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Tryp.com team with access ({n})', { n: staff?.length ?? 0 })}</h2>
+        {staff === null ? <Skeleton className="h-16 w-full rounded-card" /> : staff.length === 0 ? (
+          <p className="rounded-card border border-dashed border-gray-200 px-6 py-6 text-center text-sm text-smoke">{tr('Only the owner runs this VIP community for now.')}</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2.5">
+            {staff.map((p, i) => (
+              <li key={p.id} className="animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
+                <Link to={`/profile/${p.id}`} className="flex items-center gap-2.5 rounded-full border border-gray-100 bg-white py-1.5 pl-1.5 pr-4 shadow-card transition-all duration-200 hoverable:hover:scale-[1.03] hoverable:hover:shadow-lift">
+                  <Avatar src={p.photo_url} name={p.name} size="sm" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-bold text-ink">{p.name}</span>
+                    <span className="block truncate text-[11px] text-smoke">{p.role_title || tr('VIP team')}</span>
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

@@ -127,7 +127,7 @@ const TOOLS = [
   // The terms creators accept and the agreement VIPs sign, with who has signed (7 Oct 2026, migration 351).
   { id: 'agreements', to: '/admin/agreements', icon: 'key', title: 'Agreements', globalOnly: true },
   // Questions creators ask on the Q&A page, answered here (7 Oct 2026).
-  { id: 'faq', to: '/help/faq?tab=questions', icon: 'lifebuoy', title: 'Questions' },
+  { id: 'faq', to: '/help?tab=questions', icon: 'lifebuoy', title: 'Questions' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },
@@ -296,7 +296,7 @@ function GripDots() {
 // accent -> lighter gradient with white type reads as the thing to do first,
 // which is what this card is. Each item is a white row ON the gradient so it is
 // its own object to press, and the count is set big in brand inside it.
-function DeskRow({ to, icon, count, label }) {
+function DeskRow({ to, icon, count, label, warn }) {
   return (
     <Link
       to={to}
@@ -305,8 +305,9 @@ function DeskRow({ to, icon, count, label }) {
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand transition-transform duration-200 group-hover:scale-110 sm:h-10 sm:w-10">
         <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-snug sm:text-[15px]">
-        <span className="mr-1 text-lg font-bold tabular-nums text-brand">{count}</span>{label}
+      {/* A health warning has no count and is a whole sentence ("Supabase is getting overloaded: ..."), so it wraps. */}
+      <span className={cx('min-w-0 flex-1 text-[14px] font-medium leading-snug sm:text-[15px]', warn ? 'text-brand' : 'truncate')}>
+        {count != null && <span className="mr-1 text-lg font-bold tabular-nums text-brand">{count}</span>}{label}
       </span>
       <Icon
         name="chevronRight"
@@ -524,12 +525,17 @@ export default function AdminPanel() {
         // unresolved ones and the tick-off on the Error monitoring tab removes
         // the row from here. A crash a creator hit and a scheduled job that
         // failed both land in this table - see migrations 204 and 205.
-        supabase.from('client_errors').select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null),
+        supabase.from('client_errors').select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null).neq('source', 'ops'),
+        // THE EARLY WARNING (8 Oct 2026, the day after the outage). Ethan: "set up something that will tell me if
+        // anything's near breaking or overloading again". ops_health_check() runs every five minutes and opens one
+        // row per problem (database busy, connections, stuck queries, lock queues, realtime lag, memory, disk); each
+        // closes itself when the reading recovers. Each is its own desk row, in its own words, at the top.
+        supabase.from('client_errors').select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
       ])
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
         { count: newFeedback }, { count: newSuggestions }, { data: rewardRows },
-        { count: toSend }, { data: blockedRows }, { count: openErrors },
+        { count: toSend }, { data: blockedRows }, { count: openErrors }, { data: opsRows },
       ] = answers
       // A COUNT THAT FAILED IS NOT A ZERO. The desk is always drawn now, and an
       // empty desk says "all clear" - which a query that errored would say too
@@ -543,6 +549,7 @@ export default function AdminPanel() {
         unchecked,
         blocked,
         openErrors: openErrors ?? 0,
+        ops: opsRows ?? [],
         pendingApps: pendingApps ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
@@ -598,6 +605,7 @@ export default function AdminPanel() {
   }, [profile?.id, isGlobal])
 
   const desk = stats ? [
+    ...stats.ops.map((w) => ({ to: '/admin/analytics?tab=errors', icon: 'alert', label: w.message, warn: true })),
     stats.pendingApps > 0 && { to: '/admin/applications', icon: 'check', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve` },
     stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}` },

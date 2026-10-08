@@ -101,6 +101,12 @@ export function usePinnedToBottom(ref, slidAway = false) {
     const check = () => {
       const node = ref.current
       if (!node) return
+      // NOT WHILE THE KEYBOARD IS UP (8 Oct 2026). The bar is deliberately parked below the fold then, and on
+      // iOS innerHeight follows the keyboard while a fixed element stays on the layout viewport, so "expected"
+      // was a moving target: every caret move scrolled, every scroll re-pinned, every re-pin forced a reflow.
+      // Typing into Edit profile on a phone made the whole screen shake. The bar is checked again the moment
+      // the keyboard closes (slidAway changes, the effect re-runs, `soon()` fires).
+      if (slidAway) return
       // A bar that is not being drawn cannot be out of place, and measuring it
       // would report zeroes and "correct" them for ever.
       if (node.offsetParent === null && getComputedStyle(node).position !== 'fixed') return

@@ -14,6 +14,7 @@ import { confirm, notice } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import HelpTeam from '../components/HelpTeam'
 
 // QUESTIONS AND ANSWERS (7 Oct 2026).
 //
@@ -24,6 +25,13 @@ import { useT } from '../lib/i18n'
 //
 // Its own page rather than a section of Get help, because it has its own job (find the answer yourself, in seconds)
 // and its own admin life (edit, reorder, answer). Get help leads with a card into it, and the avatar menu links it.
+//
+// ONE PAGE, "GET HELP" (8 Oct 2026). Ethan: "combine the questions and answers page into the Get Help page, so the
+// questions and answers should be at the top. If you scroll down, there should be the Get Help below it ... Ask a
+// Question should also be below those things, and obviously they can be hidden or like toggles." And: "remove at the
+// top ... Getting Started, Challenges, and Points. Those buttons aren't necessary." So the answers lead (search, then
+// every topic as a heading), and the two ways to reach a person sit underneath as sections that open on a tap. The
+// page lives at /help; /help/faq and Settings > Get help both arrive here.
 //
 // Three tabs: the answers everybody sees (searchable, by topic, with the answered community questions under them);
 // "My questions", where a creator sees what they asked and can reword or withdraw one until it is answered; and, for
@@ -131,9 +139,9 @@ function FaqHero({ isAdmin, editing, onEdit }) {
       <span aria-hidden className="faq-bubble faq-bubble-c">!</span>
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-xl">
-          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="lifebuoy" className="h-4 w-4" />{tr('Help')}</p>
-          <h1 className="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px]">{tr('Questions and answers')}</h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask it below and the team will reply.')}</p>
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="lifebuoy" className="h-4 w-4" />{tr('Questions and Answers')}</p>
+          <h1 className="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px]">{tr('Get Help')}</h1>
+          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Message the team or ask it below.')}</p>
         </div>
         {isAdmin && (
           <button type="button" onClick={onEdit} aria-pressed={editing}
@@ -150,15 +158,13 @@ function FaqHero({ isAdmin, editing, onEdit }) {
 function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked }) {
   const tr = useT()
   const [q, setQ] = useState('')
-  const [cat, setCat] = useState('all')
   const [open, setOpen] = useState(null)
   const cats = useMemo(() => [...new Set((faqs || []).filter((f) => editing || f.published).map((f) => f.category))], [faqs, editing])
   const needle = q.trim().toLowerCase()
   const shown = (faqs || [])
     .filter((f) => editing || f.published)
-    .filter((f) => cat === 'all' || f.category === cat)
     .filter((f) => !needle || `${f.question} ${f.answer}`.toLowerCase().includes(needle))
-  const groups = cats.filter((c) => cat === 'all' || c === cat).map((c) => ({ c, rows: shown.filter((f) => f.category === c) })).filter((g) => g.rows.length)
+  const groups = cats.map((c) => ({ c, rows: shown.filter((f) => f.category === c) })).filter((g) => g.rows.length)
   const comm = community.filter((c) => !needle || `${c.question} ${c.answer}`.toLowerCase().includes(needle))
 
   async function move(f, dir) {
@@ -186,17 +192,6 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked })
         <Icon name="magnifier" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search the answers')} className="input no-ios-zoom !rounded-full !py-3.5 !pl-12 shadow-card" aria-label={tr('Search the answers')} />
       </div>
-      {cats.length > 1 && (
-        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-          {['all', ...cats].map((c) => (
-            <button key={c} type="button" onClick={() => setCat(c)} aria-pressed={cat === c}
-              className={cx('shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all duration-200', cat === c ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-0.5')}>
-              {c === 'all' ? tr('Everything') : tr(c)}
-            </button>
-          ))}
-        </div>
-      )}
-
       {faqs === undefined ? (
         <div className="space-y-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>
       ) : groups.length === 0 && comm.length === 0 ? (
@@ -238,8 +233,38 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked })
         </section>
       )}
 
-      <AskCard onAsked={onAsked} />
+      <div className="space-y-3 pt-2">
+        <Fold icon="chat" title={tr('Message the team')} hint={tr('Rather ask in private? DM one of us or email the lead.')}>
+          <HelpTeam />
+        </Fold>
+        <Fold icon="handRaised" title={tr('Ask a question')} hint={tr('The team replies here and you get a notification.')}>
+          <AskCard bare onAsked={onAsked} />
+        </Fold>
+      </div>
     </div>
+  )
+}
+
+// A section that opens on a tap: the same grid-rows animation as an answer, so the page moves one way everywhere.
+function Fold({ icon, title, hint, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={cx('animate-rise overflow-hidden rounded-[22px] border bg-white shadow-card transition-all duration-300', open ? 'border-brand/30 shadow-lift' : 'border-gray-100')}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="group flex w-full items-center gap-3.5 px-5 py-4 text-left sm:px-6 sm:py-5">
+        <Icon name={icon} className="h-6 w-6 shrink-0 text-brand transition-transform duration-300 group-hover:scale-110" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-bold leading-snug text-ink">{title}</span>
+          <span className="block text-[13px] leading-snug text-smoke">{hint}</span>
+        </span>
+        <Icon name="chevronDown" className={cx('h-5 w-5 shrink-0 text-gray-400 transition-transform duration-300', open && 'rotate-180 text-brand')} />
+      </button>
+      <div className={cx('grid transition-[grid-template-rows] duration-300 ease-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-gray-100 px-4 pb-5 pt-4 sm:px-6">{children}</div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -281,7 +306,7 @@ function IconBtn({ icon, label, onClick, danger }) {
 }
 
 // ---------------------------------------------------------------------- ask --
-function AskCard({ onAsked, compact = false }) {
+function AskCard({ onAsked, compact = false, bare = false }) {
   const tr = useT()
   const { user } = useAuth()
   const [question, setQuestion] = useState('')
@@ -300,11 +325,11 @@ function AskCard({ onAsked, compact = false }) {
     setTimeout(() => setSent(false), 4000)
   }
   return (
-    <section className={cx('relative overflow-hidden rounded-[24px] border border-brand/15 bg-white shadow-card', compact ? 'p-5' : 'p-6 sm:p-7')}>
-      <span aria-hidden className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />
-      <h2 className="relative flex items-center gap-2 text-lg font-bold text-ink"><Icon name="handRaised" className="h-5 w-5 text-brand" />{tr('Ask a question')}</h2>
-      <p className="relative mt-0.5 text-sm text-smoke">{tr('The team replies here, and you get a notification. Good questions are added to the answers above.')}</p>
-      <div className="relative mt-4 space-y-3">
+    <section className={cx('relative overflow-hidden', !bare && 'rounded-[24px] border border-brand/15 bg-white shadow-card', !bare && (compact ? 'p-5' : 'p-6 sm:p-7'))}>
+      {!bare && <span aria-hidden className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />}
+      {!bare && <h2 className="relative flex items-center gap-2 text-lg font-bold text-ink"><Icon name="handRaised" className="h-5 w-5 text-brand" />{tr('Ask a question')}</h2>}
+      {!bare && <p className="relative mt-0.5 text-sm text-smoke">{tr('The team replies here, and you get a notification. Good questions are added to the answers above.')}</p>}
+      <div className={cx('relative space-y-3', !bare && 'mt-4')}>
         <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={600} placeholder={tr('What would you like to know?')} className="input no-ios-zoom" aria-label={tr('Your question')} />
         <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3} maxLength={2000} placeholder={tr('Anything that helps us answer (optional)')} className="input no-ios-zoom resize-none" aria-label={tr('Details')} />
         <div className="flex items-center justify-between gap-3">

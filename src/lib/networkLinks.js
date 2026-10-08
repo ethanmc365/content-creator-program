@@ -27,7 +27,7 @@ export const NETWORK_LINKS = [
   { to: '/flights', icon: 'plane', label: 'Flight log', short: 'Flights', hint: 'Every flight, and what it adds up to' },
   { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },
   { to: '/game', icon: 'joystick', label: 'Travel games', short: 'Games', hint: 'Puzzles, quizzes and streaks' },
-  { to: '/ideas', icon: 'bulb', label: 'Video Ideas', short: 'Ideas', hint: 'Hooks from 50k+ videos' },
+  { to: '/ideas', icon: 'bulb', label: 'Video Ideas', short: 'Ideas', hint: 'The community\'s 50k+ videos' },
   { to: '/resources', icon: 'book', label: 'Resource library', short: 'Library', hint: 'Guides and templates', badge: 'resources' },
   { to: '/jobs', icon: 'briefcase', label: 'Roles', short: 'Roles', hint: 'Paid work with Tryp.com' },
   { to: '/refer', icon: 'share', label: 'Refer a creator', short: 'Refer', hint: 'Bring someone in' },

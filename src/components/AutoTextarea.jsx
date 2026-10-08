@@ -22,19 +22,54 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 // box measured in the fallback face is measured at the wrong line height; the
 // difference is a couple of pixels per line, which on a long paragraph is a
 // visible jump or a clipped last line.
+//
+// IT MEASURES A TWIN, NEVER ITSELF (8 Oct 2026). Ethan: "in the About You section, I click in, type, and then the
+// entire mobile screen starts glitching absolutely crazy". Resetting the LIVE box to `height: auto` on every
+// keystroke shrank the page for an instant; iOS Safari answers a shrinking document under a focused caret by
+// re-scrolling to keep the caret in view, and the box grew back in the same frame - once per letter. An
+// off-screen copy with the same width and type takes the collapse instead, and the visible box only ever has its
+// height written when the number actually changed.
+const COPIED = ['boxSizing', 'width', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight',
+  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
+  'borderLeftWidth', 'borderStyle', 'textTransform', 'textIndent', 'whiteSpace', 'wordBreak', 'overflowWrap', 'hyphens', 'tabSize']
+let twin = null
+
+function measure(el, rows) {
+  if (!twin) {
+    twin = document.createElement('textarea')
+    twin.setAttribute('aria-hidden', 'true')
+    twin.tabIndex = -1
+    Object.assign(twin.style, {
+      position: 'absolute', top: '0', left: '-9999px', visibility: 'hidden', pointerEvents: 'none',
+      overflow: 'hidden', height: 'auto', minHeight: '0', maxHeight: 'none', zIndex: '-1',
+    })
+  }
+  if (!twin.isConnected) document.body.appendChild(twin)
+  const cs = getComputedStyle(el)
+  for (const k of COPIED) twin.style[k] = cs[k]
+  twin.style.width = `${el.getBoundingClientRect().width}px`
+  twin.rows = rows
+  twin.value = el.value
+  const borders = cs.boxSizing === 'border-box'
+    ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0)
+    : 0
+  return twin.scrollHeight + borders
+}
+
 export default function AutoTextarea({ value, minRows = 3, maxHeight, className, ...rest }) {
   const ref = useRef(null)
 
   const fit = useCallback(() => {
     const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    const next = maxHeight ? Math.min(el.scrollHeight, maxHeight) : el.scrollHeight
-    el.style.height = `${next}px`
+    if (!el || !el.isConnected) return
+    const full = measure(el, minRows)
+    const next = maxHeight ? Math.min(full, maxHeight) : full
+    if (el.style.height !== `${next}px`) el.style.height = `${next}px`
     // Only show a scrollbar once the cap is actually reached, so an uncapped
     // box never paints one at all.
-    el.style.overflowY = maxHeight && el.scrollHeight > maxHeight ? 'auto' : 'hidden'
-  }, [maxHeight])
+    const overflow = maxHeight && full > maxHeight ? 'auto' : 'hidden'
+    if (el.style.overflowY !== overflow) el.style.overflowY = overflow
+  }, [maxHeight, minRows])
 
   useLayoutEffect(() => { fit() }, [value, fit])
 

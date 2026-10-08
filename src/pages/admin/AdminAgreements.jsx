@@ -27,7 +27,7 @@ const AUD = { creator: 'Community Terms', vip: 'VIP Creator Agreement' }
 // sign, so one shared VIP agreement can say EUR 0.20 to Spain and EUR 0.40 to Romania.
 export const PLACEHOLDERS = [
   ['{{creator_name}}', 'The creator\'s name', 'all'],
-  ['{{creator_market}}', 'Their community market, for example Spain', 'all'],
+  ['{{creator_market}}', 'Their community market, for example Spain. "Worldwide" if they are in no country market yet; "Portugal and Spain" if in two', 'all'],
   ['{{creator_country}}', 'The country on their profile', 'all'],
   ['{{market}}', 'Their VIP market, for example VIP Spain', 'vip'],
   ['{{rate}}', 'Their rate per 1,000 views', 'vip'],
@@ -324,9 +324,14 @@ function Register({ doc }) {
   const [rows, setRows] = useState(undefined)
   const [filter, setFilter] = useState('all')
   const [q, setQ] = useState('')
+  const [guardians, setGuardians] = useState({})
   useEffect(() => {
     let alive = true
     supabase.rpc('agreement_register', { p_agreement: doc.id }).then(({ data }) => { if (alive) setRows(data || []) })
+    // Under-18s: has their parent or guardian confirmed on the link yet (migration 367)?
+    supabase.from('guardian_consents').select('confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id)')
+      .eq('agreement_acceptances.agreement_id', doc.id)
+      .then(({ data }) => { if (alive) setGuardians(Object.fromEntries((data || []).map((g) => [g.agreement_acceptances.profile_id, g]))) })
     return () => { alive = false }
   }, [doc.id])
   const done = (rows || []).filter((r) => r.accepted_at)
@@ -335,8 +340,8 @@ function Register({ doc }) {
     .filter((r) => !q.trim() || (r.name || '').toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q])
 
   function csv() {
-    const head = ['name', 'status', 'accepted_at', 'method', 'signed_name', 'email', 'guardian_name', 'guardian_email', 'ip', 'user_agent', 'text_sha256']
-    const lines = (rows || []).map((r) => [r.name, r.status, r.accepted_at || '', r.method || '', r.signed_name || '', r.account_email || '', r.guardian_name || '', r.guardian_email || '', r.ip || '', r.user_agent || '', r.body_sha256 || '']
+    const head = ['name', 'status', 'accepted_at', 'method', 'signed_name', 'email', 'guardian_name', 'guardian_email', 'guardian_confirmed_at', 'guardian_confirmed_name', 'ip', 'user_agent', 'text_sha256']
+    const lines = (rows || []).map((r) => [r.name, r.status, r.accepted_at || '', r.method || '', r.signed_name || '', r.account_email || '', r.guardian_name || '', r.guardian_email || '', guardians[r.profile_id]?.confirmed_at || '', guardians[r.profile_id]?.confirmed_name || '', r.ip || '', r.user_agent || '', r.body_sha256 || '']
       .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -370,7 +375,14 @@ function Register({ doc }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                 <span className="block truncate text-[11px] text-smoke">{r.accepted_at ? `${when(r.accepted_at)} · ${r.method === 'click' ? 'ticked' : r.method === 'typed' ? 'typed signature' : 'drawn signature'}${r.ip ? ` · ${r.ip}` : ''}` : 'Not yet'}</span>
-                {r.guardian_name && <span className="block truncate text-[11px] font-semibold text-ink/80">Parent or guardian: {r.guardian_name} · {r.guardian_email}</span>}
+                {r.guardian_name && (
+                  <span className="block truncate text-[11px] font-semibold text-ink/80">
+                    Parent or guardian: {r.guardian_name} · {r.guardian_email} ·{' '}
+                    {guardians[r.profile_id]?.confirmed_at
+                      ? <span className="text-brand">confirmed by {guardians[r.profile_id].confirmed_name} {dateTag(guardians[r.profile_id].confirmed_at)}</span>
+                      : <span className="text-amber-700">not confirmed yet</span>}
+                  </span>
+                )}
               </span>
               {r.method && r.method !== 'click' && <SignatureImage svg={r.signature_svg} method={r.method} name={r.signed_name} className="max-h-9 max-w-[140px]" textClass="text-[20px]" />}
               {!r.accepted_at && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">Waiting</span>}

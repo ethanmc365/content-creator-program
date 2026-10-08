@@ -188,6 +188,30 @@ function cleanCity(city: string): string {
   return city.split(/[/,(]/)[0].trim()
 }
 
+// Photon only answers with populated places (city, town, village...), never a street that happens to match.
+async function photonPlace(q: string): Promise<{ lat: number; lng: number; city: string; country: string; label: string } | null> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 6000)
+    const url = 'https://photon.komoot.io/api/?limit=1&lang=en&osm_tag=place:city&osm_tag=place:town&osm_tag=place:village&q=' +
+      encodeURIComponent(q)
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'TrypCreatorProgram/1.0 (https://trypcreators.vercel.app; info@tryp.com)', Accept: 'application/json' },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    const f = (await res.json())?.features?.[0]
+    const [lng, lat] = f?.geometry?.coordinates ?? []
+    const name = f?.properties?.name
+    if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    const country = f.properties.country || ''
+    return { lat, lng, city: name, country, label: [name, country].filter(Boolean).join(', ') }
+  } catch {
+    return null
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors(req) })
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
@@ -232,7 +256,15 @@ Deno.serve(async (req) => {
     if (!res.ok) return json(req, { error: 'geocoder unavailable', found: false }, 200)
     const arr = await res.json()
     const hit = Array.isArray(arr) && arr[0]
-    if (!hit) return json(req, { found: false }, 200)
+    if (!hit) {
+      // A TYPO IS NOT A MISS (8 Oct 2026). Nominatim matches words exactly, so "Melbournr" and "Canguu" came
+      // back empty and those creators were missing from the map. Photon (komoot, the same OpenStreetMap data)
+      // tolerates spelling mistakes; its answer is returned as a SUGGESTION, which the profile form offers as
+      // "Did you mean Melbourne, Australia?" rather than silently rewriting what the creator typed.
+      const s = await photonPlace(q)
+      if (s) return json(req, { found: true, lat: s.lat, lng: s.lng, display_name: s.label, suggestion: { city: s.city, country: s.country } })
+      return json(req, { found: false }, 200)
+    }
     const lat = parseFloat(hit.lat)
     const lng = parseFloat(hit.lon)
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return json(req, { found: false }, 200)

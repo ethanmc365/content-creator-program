@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { Panel, PageHeader, Toggle, Spinner, Select, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
-import HelpTeam from '../components/HelpTeam'
 import { PICK_BASE, PICKED, UNPICKED } from '../lib/pick'
 import { cx } from '../lib/utils'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
@@ -752,7 +751,6 @@ export default function Settings() {
 
   const BODIES = {
     display: DisplaySection,
-    help: <HelpTeam />,
     appicon: AppIconSection,
     sound: SoundSection,
     notifications: NotificationsSection,
@@ -780,6 +778,10 @@ export default function Settings() {
   // It also deletes the second implementation, which is the real prize: every
   // setting added from here on is added once.
   const open = section ? (SECTIONS.find((s) => s.key === section) || { key: 'admin', label: 'Admin settings' }) : null
+
+  // GET HELP IS ONE PAGE NOW (8 Oct 2026): the answers, the team and "ask a question" together at /help. The
+  // menu row stays where people know it is and simply goes there.
+  if (section === 'help') return <Navigate to="/help" replace />
 
   if (open) {
     return (

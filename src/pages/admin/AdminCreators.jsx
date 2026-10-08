@@ -81,7 +81,15 @@ export default function AdminCreators() {
   // WHO, AS WELL AS WHERE (7 Oct 2026). Ethan: "Everyone and VIPs should be separated ... The VIP should actually look
   // the same as the current worldwide, Spain, UK and Ireland toggle." The VIPs used to be a second tab with its own
   // card UI; now they are a filter on the same roster, in the same pill row as the markets: Total, Community, VIPs.
-  const [group, setGroup] = useState('all')
+  const [group, setGroupRaw] = useState('all')
+  // THE VIP SIDE (8 Oct 2026). Ethan: "under Members ... it's not showing correctly who's in the team ... I don't even
+  // see Marta here" and "whenever I click on VIPs, rather than showing up as Worldwide Spain, it should show only the
+  // communities we have". So: which VIP community each person is in (members AND the staff who run one), who is on
+  // the Tryp.com team there (team creators, migration 365, and staff), and the pills under VIPs are VIP communities.
+  const [vipOf, setVipOf] = useState({}) // profile id -> ['VIP Spain', ...]
+  const [teamOf, setTeamOf] = useState({}) // profile id -> 'staff' | 'creator'
+  const setGroup = (g) => { setGroupRaw(g); setMarketFilter('') }
+  const inVip = (c) => !!c.is_vip || !!teamOf[c.id]
   // Turnstile gate for sending a password reset (Auth rejects token-less calls).
   const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
   const [pwToken, setPwToken] = useState('')
@@ -105,6 +113,20 @@ export default function AdminCreators() {
       ;(byCreator[m.profile_id] ??= []).push(m.communities.name)
     }
     setMarketOf(byCreator)
+    // Readable only to people with VIP access; for anybody else both come back empty and VIPs is `is_vip` alone.
+    const [{ data: vm }, { data: tp }] = await Promise.all([
+      supabase.from('vip_members').select('profile_id, status, vip_programmes(name)').neq('status', 'left'),
+      supabase.rpc('vip_team_people'),
+    ])
+    const vips = {}
+    const team = {}
+    for (const r of vm ?? []) if (r.vip_programmes?.name) (vips[r.profile_id] ??= new Set()).add(r.vip_programmes.name)
+    for (const r of tp ?? []) {
+      ;(vips[r.profile_id] ??= new Set()).add(r.programme)
+      if (team[r.profile_id] !== 'staff') team[r.profile_id] = r.kind
+    }
+    setVipOf(Object.fromEntries(Object.entries(vips).map(([k, v]) => [k, [...v].sort()])))
+    setTeamOf(team)
     // THE ROSTER IS THE COMMUNITY, NOT THE QUEUE (4 Sep 2026).
     //
     // Ethan: "if you go to the creators in the admin panel it shows the
@@ -415,12 +437,15 @@ export default function AdminCreators() {
   // it - so picking "Spain" up top scopes the segment counts to Spain too,
   // not just the table rows underneath them.
   const inMarket = (c) => {
-    if (group === 'vip' && !c.is_vip) return false
+    if (group === 'vip' && !inVip(c)) return false
     if (group === 'community' && c.is_vip) return false
-    if (marketFilter === '__none') return !(marketOf[c.id] ?? []).length
-    if (marketFilter) return (marketOf[c.id] ?? []).includes(marketFilter)
+    const where = group === 'vip' ? (vipOf[c.id] ?? []) : (marketOf[c.id] ?? [])
+    if (marketFilter === '__none') return !where.length
+    if (marketFilter) return where.includes(marketFilter)
     return true
   }
+  // On the VIP side "Team" is the Tryp.com team there (team creators and the staff who run it), not every admin.
+  const isTeam = (c) => (group === 'vip' ? !!teamOf[c.id] : c.is_admin)
 
   const segments = useMemo(() => {
     const week = weekAgo
@@ -430,18 +455,23 @@ export default function AdminCreators() {
       { key: 'online', label: 'Online now', count: scoped.filter((c) => isOnline(c)).length, tone: 'green' },
       { key: 'week', label: 'Here this week', count: scoped.filter((c) => activeMs(c) > week).length },
       { key: 'quiet', label: 'Gone quiet', count: scoped.filter((c) => isInactive(c)).length, tone: 'amber' },
-      { key: 'admin', label: 'Team', count: scoped.filter((c) => c.is_admin).length },
+      { key: 'admin', label: 'Team', count: scoped.filter(isTeam).length },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group])
+  }, [creators, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group, vipOf, teamOf])
 
   // Every market that has somebody in it, with its count, newest question first:
   // "how many of mine are there".
   const markets = useMemo(() => {
     const tally = {}
-    for (const c of creators) for (const m of marketOf[c.id] ?? []) tally[m] = (tally[m] ?? 0) + 1
+    const of = group === 'vip' ? vipOf : marketOf
+    for (const c of creators) {
+      if (group === 'vip' && !inVip(c)) continue
+      for (const m of of[c.id] ?? []) tally[m] = (tally[m] ?? 0) + 1
+    }
     return Object.entries(tally).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [creators, marketOf])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creators, marketOf, vipOf, teamOf, group])
 
   const filtered = useMemo(() => {
     const week = weekAgo
@@ -450,7 +480,7 @@ export default function AdminCreators() {
         case 'online': return isOnline(c)
         case 'week': return activeMs(c) > week
         case 'quiet': return isInactive(c)
-        case 'admin': return c.is_admin
+        case 'admin': return isTeam(c)
         case 'muted': case 'suspended': case 'active': return c.status === statusFilter
         default: return true
       }
@@ -476,7 +506,7 @@ export default function AdminCreators() {
       })
       .sort(sorters[sort] || sorters.active)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group])
+  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf, group, vipOf, teamOf])
 
   return (
     <div className="page">
@@ -496,7 +526,7 @@ export default function AdminCreators() {
         {[
           { key: 'all', label: 'Total', n: creators.length },
           { key: 'community', label: 'Community', n: creators.filter((c) => !c.is_vip).length },
-          { key: 'vip', label: 'VIPs', n: creators.filter((c) => c.is_vip).length },
+          { key: 'vip', label: 'VIPs', n: creators.filter(inVip).length },
         ].map((g) => (
           <button key={g.key} type="button" onClick={() => setGroup(g.key)} aria-pressed={group === g.key}
             className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', group === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
@@ -535,16 +565,17 @@ export default function AdminCreators() {
           the control whose numbers are worth reading - a zero there means there
           is nothing to do in that column - and two rows of counts is one row of
           counts too many. */}
-      {markets.length > 1 && (
+      {(markets.length > 1 || group === 'vip') && markets.length > 0 && (
         <MarketScope
           markets={[
             ...markets.map(([m]) => ({ id: m, name: m })),
-            ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
+            ...(group !== 'vip' && creators.some((c) => !(marketOf[c.id] ?? []).length)
               ? [{ id: '__none', name: 'No market' }]
               : []),
           ]}
           value={marketFilter}
           onChange={setMarketFilter}
+          allLabel={group === 'vip' ? 'All VIP communities' : 'Worldwide'}
         />
       )}
 
@@ -647,7 +678,9 @@ export default function AdminCreators() {
                     <p className="flex min-w-0 max-w-full items-center gap-2 text-left text-sm font-semibold">
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
-                      {c.is_vip && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
+                      {c.is_vip && !teamOf[c.id] && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
+                      {teamOf[c.id] === 'creator' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />Tryp.com team creator</span>}
+                      {teamOf[c.id] === 'staff' && group === 'vip' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand px-2 py-0.5 text-[10px] font-semibold text-brand">VIP team</span>}
                     </p>
                     {/* Copy-email icon sits directly to the right of the email, not
                         pushed out to the far edge of the row. */}

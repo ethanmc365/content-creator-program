@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { IdeasTeaser } from '../components/VideoIdeas'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards } from '../components/ui'
 import Icon from '../components/Icon'
 import { renderNote } from '../lib/noteMarkdown'
@@ -101,6 +102,9 @@ export default function Resources() {
           and the ones you kept.
 
           The search sits BELOW the two, because you narrow before you hunt. */}
+      {/* VIDEO IDEAS SITS IN THE LIBRARY (8 Oct 2026): the community's 50k+ videos are a resource like any guide. */}
+      <IdeasTeaser className="mb-8 max-w-md animate-rise" />
+
       <div className="mb-10 space-y-4">
         <div className="flex flex-wrap gap-2">
           <button

@@ -10,6 +10,7 @@ import { cx } from '../lib/utils'
 import PhotoBoard from '../components/PhotoBoard'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
 import AutoTextarea from '../components/AutoTextarea'
+import CitySuggestion from '../components/CitySuggestion'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
@@ -298,6 +299,7 @@ export default function EditProfile() {
               <div>
                 <label htmlFor="city" className="label">{tr("City")}</label>
                 <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder={tr("e.g. London")} />
+                <CitySuggestion city={form.city} country={form.country} onUse={(s) => set({ city: s.city, country: form.country || s.country })} />
               </div>
               <div>
                 <label htmlFor="country" className="label">{tr("Country")}</label>

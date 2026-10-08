@@ -26,7 +26,7 @@ import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { startHeartbeat } from '../../lib/presence'
 import { cx } from '../../lib/utils'
-import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
+import { useKeyboardOpen, useIsPhone } from '../../lib/useKeyboardInset'
 import { installKeyboardFollow } from '../../lib/keyboardFollow'
 import { lockedScrollY, onScrollLockChange, repairScrollLock } from '../../lib/scrollLock'
 import { resetPageSettled } from '../../lib/pageSettled'
@@ -358,7 +358,7 @@ export default function AppLayout() {
   // bar slides away so the composer can sit right above the keyboard. Uses the
   // focus-driven signal so it collapses instantly (iOS often doesn't fire the
   // viewport resize until a scroll).
-  const keyboardOpen = useVisualViewport().keyboardOpen
+  const keyboardOpen = useKeyboardOpen()
 
   // THE BAR IS MEASURED AGAINST THE BOTTOM OF THE SCREEN AND PUT BACK IF IT HAS
   // LEFT IT. Third report, and the first fix that does not depend on having
@@ -882,8 +882,7 @@ export default function AppLayout() {
                     {tr("What's new")}
                     {newUpdates && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />}
                   </Link>
-                  <Link to="/settings?section=help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Get help")}</Link>
-                  <Link to="/help/faq" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Questions and answers")}</Link>
+                  <Link to="/help" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Get help")}</Link>
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}

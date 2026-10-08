@@ -7,8 +7,8 @@ import VideoEmbedModal from './VideoEmbedModal'
 import SocialMark from './SocialMark'
 import { Avatar, Skeleton } from './ui'
 import { CountUp } from './network/Motion'
-import { copyToClipboard } from '../lib/clipboard'
-import { toastSuccess } from '../lib/toast'
+import HookButton from './HookButton'
+import DealFinder from './DealFinder'
 import { formatViews, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -21,8 +21,16 @@ import { useT } from '../lib/i18n'
 //
 // The rows come from the tracker the team already curates (`video_ideas`, migration 351: tracked videos with 50,000
 // views or more). Each row scrolls sideways with snap points; a card is the cover, the views, the hook in big type and
-// who made it. Pressing it plays the video here; the hook copies with one press, because copying the hook is the
-// whole point of the page.
+// who made it. Pressing it plays the video here.
+//
+// NO CAPTION "HOOKS" (8 Oct 2026). Ethan: "The Hooks That Work is showing up at the bottom, but these are not really
+// hooks. These are just the descriptions they put in ... The actual hook is the text on the video." The tracker only
+// ever sees the caption (in whatever language the creator wrote it); the words burned into the first second of the
+// video are pixels, and reading them would mean downloading and OCR-ing every video, which the scrapers cannot do.
+// So the cards are the videos and their numbers, and the page leads with the two buttons that DO give a real hook
+// ("Hook me up", from the curated English bank) and a deal to film, side by side as on the VIP guides page.
+// The header is a white card like every other page header (the black one with an orange glow was "not the normal
+// style"), and a card magnifies under the pointer instead of drawing a play button over the cover.
 export const IDEAS_MIN_VIEWS = 50000
 
 export function useVideoIdeas() {
@@ -44,7 +52,7 @@ const DAY = 86400000
 export function shelvesFor(rows, tr = (s) => s) {
   if (!rows?.length) return []
   const byViews = [...rows].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
-  const shelves = [{ key: 'top', title: tr('The biggest hits'), hint: tr('The most viewed videos the community has made'), rows: byViews.slice(0, 15) }]
+  const shelves = [{ key: 'top', title: tr('The biggest hits of all time'), hint: tr('The most viewed videos the community has made'), rows: byViews.slice(0, 15) }]
   const recent = rows.filter((r) => r.posted_at && Date.now() - Date.parse(r.posted_at) < 45 * DAY)
     .sort((a, b) => Date.parse(b.posted_at) - Date.parse(a.posted_at))
   if (recent.length >= 2) shelves.push({ key: 'new', title: tr('Working right now'), hint: tr('Posted in the last six weeks'), rows: recent.slice(0, 15) })
@@ -62,11 +70,14 @@ export default function VideoIdeasBoard({ compact = false }) {
   const [playing, setPlaying] = useState(null)
   const shelves = useMemo(() => shelvesFor(rows, tr), [rows, tr])
   const total = (rows || []).reduce((n, r) => n + (Number(r.views) || 0), 0)
-  const hooks = useMemo(() => (rows || []).filter((r) => r.hook).sort((a, b) => b.views - a.views).slice(0, 12), [rows])
 
   return (
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
+      <section className="grid gap-3 sm:grid-cols-2">
+        <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
+        <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
+      </section>
       {rows === undefined ? (
         <div className="flex gap-4 overflow-hidden">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[380px] w-[220px] shrink-0 rounded-3xl" />)}</div>
       ) : rows.length === 0 ? (
@@ -78,10 +89,9 @@ export default function VideoIdeasBoard({ compact = false }) {
       ) : (
         <>
           {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} />)}
-          {hooks.length > 0 && <HookWall hooks={hooks} />}
         </>
       )}
-      {playing && <VideoEmbedModal url={playing.video_url} platform={playing.platform} title={playing.hook || playing.creator_name} onClose={() => setPlaying(null)} />}
+      {playing && <VideoEmbedModal url={playing.video_url} platform={playing.platform} title={playing.creator_name || playing.platform} onClose={() => setPlaying(null)} />}
     </div>
   )
 }
@@ -89,23 +99,22 @@ export default function VideoIdeasBoard({ compact = false }) {
 function IdeasHero({ count, total, compact }) {
   const tr = useT()
   return (
-    <section className={cx('ideas-hero relative overflow-hidden rounded-[28px] bg-ink text-white shadow-lift', compact ? 'px-5 py-6' : 'px-6 py-8 sm:px-10 sm:py-10')}>
-      <span aria-hidden className="ideas-orb ideas-orb-a" />
-      <span aria-hidden className="ideas-orb ideas-orb-b" />
+    <section className={cx('animate-rise relative overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-card', compact ? 'px-5 py-6' : 'px-6 py-8 sm:px-10 sm:py-9')}>
+      <Icon name="bulb" className="ideas-bulb pointer-events-none absolute -right-3 -top-3 h-28 w-28 text-brand/10 sm:right-6 sm:top-1/2 sm:h-36 sm:w-36 sm:-translate-y-1/2" />
       <div className="relative max-w-2xl">
-        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-light"><Icon name="bulb" className="h-4 w-4" />{tr('Video Ideas')}</p>
-        <h1 className={cx('mt-2 font-extrabold leading-[1.05] tracking-tight', compact ? 'text-2xl' : 'text-3xl sm:text-[40px]')}>
-          {tr('Steal the hooks that got 50k views')}
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-brand"><Icon name="bulb" className="h-4 w-4" />{tr('Video Ideas')}</p>
+        <h1 className={cx('mt-2 font-extrabold leading-[1.05] tracking-tight text-ink', compact ? 'text-2xl' : 'text-3xl sm:text-[40px]')}>
+          {tr('Videos that passed 50k views')}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-white/75 sm:text-[15px]">
-          {tr('Every video here passed 50,000 views. Watch how they open, copy the hook, and make it yours.')}
+        <p className="mt-3 text-sm leading-relaxed text-smoke sm:text-[15px]">
+          {tr('Watch how the community\'s biggest videos open, then grab a hook and a deal and make your own.')}
         </p>
         {count > 0 && (
           <div className="mt-5 flex flex-wrap gap-2.5">
-            <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-bold tabular-nums ring-1 ring-white/15">
+            <span className="animate-pop-in rounded-full bg-cloud px-3.5 py-1.5 text-xs font-bold tabular-nums text-ink [animation-delay:200ms]">
               <CountUp value={count} /> {tr('videos')}
             </span>
-            <span className="rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold tabular-nums shadow-card">
+            <span className="animate-pop-in rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold tabular-nums text-white shadow-card [animation-delay:280ms]">
               <CountUp value={total} format={formatViews} /> {tr('views between them')}
             </span>
           </div>
@@ -146,7 +155,7 @@ function Shelf({ shelf, index, onPlay }) {
         <div ref={ref} onScroll={measure} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
           {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} />)}
         </div>
-        {!edge.end && <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-12 ideas-fade sm:-right-6" />}
+        {!edge.end && <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />}
       </div>
     </section>
   )
@@ -154,32 +163,20 @@ function Shelf({ shelf, index, onPlay }) {
 
 function IdeaCard({ v, rank, delay, onPlay }) {
   const tr = useT()
-  const copy = async (e) => {
-    e.stopPropagation()
-    if (await copyToClipboard(v.hook)) toastSuccess(tr('Hook copied'))
-  }
   return (
     <article
-      className="idea-card group relative w-[210px] shrink-0 snap-start overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-black/5 transition-all duration-300 hoverable:hover:-translate-y-1.5 hoverable:hover:shadow-lift sm:w-[232px]"
+      className="idea-card group relative w-[210px] shrink-0 snap-start overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-black/5 transition-all duration-300 hoverable:hover:scale-[1.035] hoverable:hover:shadow-lift sm:w-[232px]"
       style={{ animationDelay: `${Math.min(delay, 8) * 55}ms` }}
     >
-      <button type="button" onClick={onPlay} className="block w-full text-left" aria-label={tr('Play {who}', { who: v.hook || v.creator_name || '' })}>
+      <button type="button" onClick={onPlay} className="block w-full text-left" aria-label={tr('Play {who}', { who: v.creator_name || v.platform || '' })}>
         <div className="relative">
-          <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} className="!aspect-[9/14] transition-transform duration-500 group-hover:scale-[1.04]" mark={false} />
-          <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/10" />
+          <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} className="!aspect-[9/14]" mark={false} />
+          <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-transparent" />
           <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-bold tabular-nums text-white backdrop-blur-md">
             <Icon name="eye" className="h-3.5 w-3.5" />{formatViews(v.views)}
           </span>
           {rank && rank <= 3 && (
             <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-light to-brand text-xs font-black text-white shadow-card">{rank}</span>
-          )}
-          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-brand shadow-lift backdrop-blur"><svg viewBox="0 0 24 24" className="ml-0.5 h-6 w-6" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z" /></svg></span>
-          </span>
-          {v.hook && (
-            <p className="absolute inset-x-3 bottom-3 line-clamp-4 text-[15px] font-extrabold leading-snug text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
-              &ldquo;{v.hook}&rdquo;
-            </p>
           )}
         </div>
       </button>
@@ -195,11 +192,6 @@ function IdeaCard({ v, rank, delay, onPlay }) {
         ) : (
           <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink">{v.creator_name || v.platform}</span>
         )}
-        {v.hook && (
-          <button type="button" onClick={copy} aria-label={tr('Copy the hook')} title={tr('Copy the hook')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand transition-all duration-200 hoverable:hover:scale-110 hoverable:hover:bg-brand-tint">
-            <Icon name="copy" className="h-4 w-4" />
-          </button>
-        )}
         <a href={v.video_url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the original post')} title={tr('Open the original post')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-all duration-200 hoverable:hover:scale-110 hoverable:hover:bg-cloud hoverable:hover:text-ink">
           <Icon name="link" className="h-4 w-4" />
         </a>
@@ -208,30 +200,35 @@ function IdeaCard({ v, rank, delay, onPlay }) {
   )
 }
 
-function HookWall({ hooks }) {
+/**
+ * The door into /ideas from other pages (8 Oct 2026): the Worldwide rail and the Resource library. Three covers of the
+ * biggest videos, the count, and the whole card is the link; it magnifies under the pointer like the cards inside.
+ */
+export function IdeasTeaser({ className }) {
   const tr = useT()
-  const [copied, setCopied] = useState(null)
+  const rows = useVideoIdeas()
+  const top = useMemo(() => [...(rows || [])].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0)).slice(0, 3), [rows])
+  if (rows && rows.length === 0) return null
   return (
-    <section className="animate-rise rounded-[28px] bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-7">
-      <h2 className="flex items-center gap-2 text-lg font-bold"><Icon name="quote" className="h-5 w-5" />{tr('Hooks that worked')}</h2>
-      <p className="mt-0.5 text-sm text-white/80">{tr('Tap one to copy it.')}</p>
-      <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
-        {hooks.map((h) => (
-          <li key={h.id}>
-            <button
-              type="button"
-              onClick={async () => { if (await copyToClipboard(h.hook)) { setCopied(h.id); toastSuccess(tr('Hook copied')); setTimeout(() => setCopied((c) => (c === h.id ? null : c)), 1600) } }}
-              className="group flex w-full items-start gap-3 rounded-2xl bg-white px-4 py-3 text-left text-ink shadow-sm transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card"
-            >
-              <span className="min-w-0 flex-1 text-[14px] font-semibold leading-snug [overflow-wrap:anywhere]">&ldquo;{h.hook}&rdquo;</span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10.5px] font-bold tabular-nums text-brand">{formatViews(h.views)}</span>
-                <Icon name={copied === h.id ? 'check' : 'copy'} className={cx('h-4 w-4 transition-colors', copied === h.id ? 'text-brand' : 'text-gray-300 group-hover:text-brand')} />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Link to="/ideas" className={cx('group block rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:scale-[1.02] hoverable:hover:shadow-lift', className)}>
+      <div className="flex items-center gap-2">
+        <Icon name="bulb" className="h-5 w-5 shrink-0 text-brand transition-transform duration-300 group-hover:rotate-12" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-bold leading-snug text-ink">{tr('Video Ideas')}</span>
+          <span className="block text-xs text-smoke">{rows ? tr('{n} videos with 50k+ views', { n: rows.length }) : tr('The community\'s biggest videos')}</span>
+        </span>
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {rows === undefined
+          ? [0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/14] w-full rounded-xl" />)
+          : top.map((v, i) => (
+            <div key={v.id} className="relative overflow-hidden rounded-xl animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+              <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} className="!aspect-[9/14]" mark={false} />
+              <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white backdrop-blur">{formatViews(v.views)}</span>
+            </div>
+          ))}
+      </div>
+    </Link>
   )
 }

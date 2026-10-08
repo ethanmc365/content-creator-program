@@ -58,7 +58,7 @@ export function useScopedMarkets() {
  * @param {Function} props.onChange
  * @param {string}   [props.note]   a short line about what is in scope
  */
-export default function MarketScope({ markets = [], value = '', onChange, note }) {
+export default function MarketScope({ markets = [], value = '', onChange, note, allLabel = 'Worldwide' }) {
   if (!markets.length) return null
   return (
     <div className="mb-6 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
@@ -71,7 +71,7 @@ export default function MarketScope({ markets = [], value = '', onChange, note }
           !value ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
         )}
       >
-        Worldwide
+        {allLabel}
       </button>
       {markets.map((m) => (
         <button

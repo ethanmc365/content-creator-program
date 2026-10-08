@@ -24,6 +24,7 @@ import { usePlaceNames } from '../lib/placeNames'
 import { clearVipCache } from '../lib/vip'
 import LanguagePicker from '../components/LanguagePicker'
 import ReaderText from '../components/ReaderText'
+import CitySuggestion from '../components/CitySuggestion'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -918,6 +919,7 @@ export default function Onboarding() {
                     onChange={(e) => set({ city: e.target.value })}
                     placeholder={townHint || tr('Your town or city')}
                   />
+                  <CitySuggestion city={draft.city} country={draft.country} onUse={(s) => set({ city: s.city })} />
                   <p className="mt-1 text-xs text-smoke">
                     {tr("Puts you on the creator map and gives other creators your real local time.")}
                   </p>

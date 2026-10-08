@@ -67,10 +67,28 @@ function readViewport(focused) {
 
 // Full visual-viewport state, incl. keyboardOpen which is true as soon as an
 // editable field is focused (instant chrome collapse) OR a keyboard is measured.
-export function useVisualViewport() {
-  const [vp, setVp] = useState(() => readViewport(false))
+// RE-RENDER ONLY ON A REAL CHANGE (8 Oct 2026). iOS fires visualViewport `scroll` on every frame while the
+// keyboard is up and the caret moves, and this used to hand React a new object each time - so AppLayout, which
+// only needs to know WHETHER a keyboard is open, re-rendered the whole shell sixty times a second under somebody
+// typing their About You. `project` picks what the caller needs; an equal answer keeps the old state.
+function sameShape(a, b) {
+  if (a === b) return true
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
+}
+
+const asIs = (v) => v
+
+// `project` must be a module-level function (stable identity): it is an effect dependency.
+export function useVisualViewport(project = asIs) {
+  const [vp, setVpRaw] = useState(() => project(readViewport(false)))
 
   useEffect(() => {
+    const setVp = (next) => {
+      const v = project(next)
+      setVpRaw((prev) => (sameShape(prev, v) ? prev : v))
+    }
     const vv = window.visualViewport
     let raf = 0
     let timers = []
@@ -128,14 +146,23 @@ export function useVisualViewport() {
         vv.removeEventListener('scroll', apply)
       }
     }
-  }, [])
+  }, [project])
 
-  return { ...vp, keyboardOpen: vp.focused || vp.keyboard > 0 }
+  return project === asIs ? { ...vp, keyboardOpen: vp.focused || vp.keyboard > 0 } : vp
+}
+
+const keyboardOpenOf = (v) => v.focused || v.keyboard > 0
+
+// Just the boolean, for the app shell: changes twice per keyboard, not once per frame.
+export function useKeyboardOpen() {
+  return useVisualViewport(keyboardOpenOf)
 }
 
 // Backwards-compatible helper: just the keyboard height in CSS px, 0 when closed.
+const keyboardOf = (v) => v.keyboard
+
 export function useKeyboardInset() {
-  return useVisualViewport().keyboard
+  return useVisualViewport(keyboardOf)
 }
 
 // One media query, kept in sync on resize/orientation change. The two hooks

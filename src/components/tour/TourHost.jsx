@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '../Icon'
 import { Spinner } from '../ui'
 import { cx } from '../../lib/utils'
-import { useIsPhone, useVisualViewport } from '../../lib/useKeyboardInset'
+import { useIsPhone, useKeyboardOpen } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
 import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor } from '../../lib/tour'
 import { setTourRunning } from '../../lib/appNag'
@@ -87,7 +87,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // IS SOMEBODY TYPING. Only the payment step cares (see `keepClear` in
   // lib/tour), and it cares a lot: on a phone the sheet sits exactly where the
   // form is, and there is no sideways to move it in.
-  const typing = useVisualViewport().keyboardOpen
+  const typing = useKeyboardOpen()
   const navigate = useNavigate()
   const location = useLocation()
   const { user, profile, isAdmin } = useAuth()
