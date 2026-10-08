@@ -11,7 +11,7 @@ import { useT } from '../lib/i18n'
 // (Reels / TikTok) get a portrait frame; regular YouTube gets 16:9. Shortened
 // TikTok links are resolved to their player via oEmbed; anything we still can't
 // embed shows a clean "Open on <platform>" fallback.
-export default function VideoEmbedModal({ url, platform, title, onClose }) {
+export default function VideoEmbedModal({ url, platform, title, onClose, footer = null }) {
   const tr = useT()
   // Try a synchronous embed first (YouTube/Instagram/full TikTok); fall back to
   // an async resolve (shortened TikTok links) with a brief loading state.
@@ -44,7 +44,7 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
   return createPortal((
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || 'Video'}>
       <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 flex w-full max-w-md flex-col">
+      <div className="scrollbar-none relative z-10 flex max-h-full w-full max-w-md flex-col overflow-y-auto">
         <div className="mb-3 flex items-center justify-between gap-3 text-white">
           <span className="min-w-0 truncate text-sm font-medium">{title}</span>
           <button onClick={onClose} aria-label={tr("Close")} className="shrink-0 rounded-full bg-white/15 p-2 text-white transition-colors hover:bg-white/25">
@@ -77,11 +77,13 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
           </div>
         )}
 
+        {footer}
+
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mx-auto mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-white/25"
+          className="mx-auto mb-1 mt-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-white/25"
         >
           Open on {label}
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7M7 7h10v10" /></svg>

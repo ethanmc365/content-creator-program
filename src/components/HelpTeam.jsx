@@ -28,7 +28,7 @@ export default function HelpTeam() {
   return (
     <div className="space-y-4">
       {/* ---- The lead ---- */}
-      <div className="help-lead overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-card">
+      <div className="help-lead overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
         <div className="flex items-center gap-3.5 bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white">
           {leadId ? (
             <Link to={`/profile/${leadId}`} aria-label={`${TEAM_LEAD.name} - open profile`} className="shrink-0 rounded-full ring-2 ring-white/60 transition-transform duration-200 hoverable:hover:scale-105">
@@ -61,7 +61,7 @@ export default function HelpTeam() {
       </div>
 
       {/* ---- Everybody else ---- */}
-      <div className="rounded-[22px] border border-gray-100 bg-white p-4 shadow-card">
+      <div className="rounded-[22px] border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:shadow-lift">
         <p className="text-sm font-bold text-ink">{tr('The Tryp.com team')}</p>
         <p className="mt-0.5 text-xs text-smoke">{tr('We are all in the community. Press a name to open a private chat.')}</p>
         <div className="mt-3 divide-y divide-gray-50">
@@ -75,7 +75,7 @@ export default function HelpTeam() {
             <p className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-smoke">{tr('Use the email above and it will reach us.')}</p>
           )}
           {!loading && team.map((p, i) => (
-            <div key={p.id} className="animate-fade-up group/row flex items-center gap-3 py-2.5" style={{ animationDelay: `${0.05 + i * 0.04}s` }}>
+            <div key={p.id} className="animate-fade-up group/row -mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors duration-200 hoverable:hover:bg-cloud/70" style={{ animationDelay: `${0.05 + i * 0.04}s` }}>
               <Link to={`/profile/${p.id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105"><Avatar src={p.photo_url} name={p.name} size="sm" /></Link>
               <div className="min-w-0 flex-1">
                 <Link to={`/profile/${p.id}`} className="block truncate text-[13.5px] font-semibold text-ink hover:text-brand">{p.name}</Link>

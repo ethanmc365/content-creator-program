@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { mdToHtml, htmlToMd } from './richEditor'
 import { renderNote, noteExcerpt } from './noteMarkdown'
 import { headingsOf } from '../components/agreements/AgreementSheet'
@@ -44,5 +46,27 @@ describe('video ideas shelves', () => {
     expect(s[0].rows.map((r) => r.id)).toEqual(['b', 'c', 'a'])
     expect(s.map((x) => x.key)).toContain('TikTok')
     expect(s.map((x) => x.key)).not.toContain('Instagram')
+  })
+})
+
+describe('quick links in answers (Get Help, 9 Oct 2026)', () => {
+  it('a /path link opens inside the app as a button, an https link still opens a new tab', () => {
+    const { container } = render(<MemoryRouter>{renderNote('Go to [Payment details](/settings?section=payment) or [the site](https://tryp.com).')}</MemoryRouter>)
+    const inApp = container.querySelector('a.quick-link')
+    expect(inApp.getAttribute('href')).toBe('/settings?section=payment')
+    expect(inApp.getAttribute('target')).toBeNull()
+    const out = [...container.querySelectorAll('a')].find((a) => a.textContent === 'the site')
+    expect(out.getAttribute('target')).toBe('_blank')
+  })
+  it('a protocol-relative //host link is not treated as in-app', () => {
+    const { container } = render(<MemoryRouter>{renderNote('[x](//evil.example/a)')}</MemoryRouter>)
+    expect(container.querySelector('a')).toBeNull()
+  })
+  it('survives the editor round trip', () => {
+    const md = 'Open [Notifications](/settings?section=notifications) now.'
+    const root = document.createElement('div')
+    root.innerHTML = mdToHtml(md)
+    expect(root.querySelector('a').getAttribute('href')).toBe('/settings?section=notifications')
+    expect(htmlToMd(root)).toBe(md)
   })
 })

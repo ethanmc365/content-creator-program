@@ -38,6 +38,9 @@ import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
 // the team, "Inbox", where questions are answered, made public, or turned into a proper FAQ entry. Answers are
 // markdown, written in the same rich editor as What's new, with images that can be marked up before they go in.
 
+// A glyph for each topic the starter answers use; any topic an admin adds gets the lifebuoy.
+const TOPIC_ICON = { 'Getting started': 'sparkles', 'Challenges and points': 'trophy', 'Payments and rewards': 'wallet', 'VIP programme': 'star', 'Account and app': 'users' }
+
 const TOOLBAR = ['h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol', 'quote', 'divider']
 
 export default function Faq() {
@@ -218,7 +221,7 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
       ) : (
         groups.map((g, gi) => (
           <section key={g.c} className="animate-rise" style={{ animationDelay: `${gi * 60}ms` }}>
-            <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">{tr(g.c)}</h2>
+            <h2 className="mb-2.5 flex items-center gap-2 px-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-ink"><Icon name={TOPIC_ICON[g.c] || 'lifebuoy'} className="h-4 w-4 text-brand" />{tr(g.c)}</h2>
             <ul className="space-y-2">
               {g.rows.map((f, i) => (
                 <FaqItem
@@ -243,7 +246,7 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
 
       {comm.length > 0 && (
         <section>
-          <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">{tr('Asked by the community')}</h2>
+          <h2 className="mb-2.5 flex items-center gap-2 px-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-ink"><Icon name="chat" className="h-4 w-4 text-brand" />{tr('Asked by the community')}</h2>
           <ul className="space-y-2">
             {comm.map((c) => (
               <FaqItem key={c.id} question={c.question} answer={c.answer || ''} open={open === c.id || !!needle} onToggle={() => setOpen((o) => (o === c.id ? null : c.id))} />
@@ -259,7 +262,7 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
 function FaqItem({ question, answer, open, onToggle, hidden, admin }) {
   const tr = useT()
   return (
-    <li className={cx('overflow-hidden rounded-2xl border bg-white shadow-card transition-all duration-300', open ? 'border-brand/30 shadow-lift' : 'border-gray-100', hidden && 'opacity-60')}>
+    <li className={cx('overflow-hidden rounded-2xl border bg-white transition-all duration-300', open ? 'border-brand/40 shadow-lift' : 'border-gray-100 shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift', hidden && 'opacity-60')}>
       <div className="flex items-center">
         <button type="button" onClick={onToggle} aria-expanded={open} className="group flex min-w-0 flex-1 items-center gap-3 px-4 py-4 text-left sm:px-5">
           <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all duration-300', open ? 'rotate-0 bg-brand text-white' : 'bg-transparent text-brand')}>?</span>
@@ -313,16 +316,16 @@ function AskCard({ onAsked, compact = false, bare = false }) {
     setTimeout(() => setSent(false), 4000)
   }
   return (
-    <section className={cx('relative overflow-hidden', !bare && 'rounded-[24px] border border-brand/15 bg-white shadow-card', !bare && (compact ? 'p-5' : 'p-6 sm:p-7'))}>
-      {!bare && <span aria-hidden className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />}
-      {!bare && <h2 className="relative flex items-center gap-2 text-lg font-bold text-ink"><Icon name="handRaised" className="h-5 w-5 text-brand" />{tr('Ask a question')}</h2>}
-      {!bare && <p className="relative mt-0.5 text-sm text-smoke">{tr('The team replies here, and you get a notification. Good questions are added to the answers above.')}</p>}
+    <section className={cx('relative overflow-hidden', !bare && 'ask-card rounded-[24px] text-white shadow-card', !bare && (compact ? 'p-5' : 'p-6 sm:p-7'))}>
+      {!bare && <h2 className="relative flex items-center gap-2 text-lg font-bold"><Icon name="handRaised" className="ask-icon h-5 w-5" />{tr('Ask a question')}</h2>}
+      {!bare && <p className="relative mt-0.5 text-sm text-white/90">{tr('The team replies here, and you get a notification. Good questions are added to the answers.')}</p>}
       <div className={cx('relative space-y-3', !bare && 'mt-4')}>
         <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={600} placeholder={tr('What would you like to know?')} className="input no-ios-zoom" aria-label={tr('Your question')} />
         <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3} maxLength={2000} placeholder={tr('Anything that helps us answer (optional)')} className="input no-ios-zoom resize-none" aria-label={tr('Details')} />
         <div className="flex items-center justify-between gap-3">
-          <span className={cx('flex items-center gap-1.5 text-sm font-semibold text-brand transition-opacity duration-300', sent ? 'opacity-100' : 'opacity-0')}><Icon name="check" className="h-4 w-4" />{tr('Sent')}</span>
-          <button type="button" onClick={send} disabled={busy || question.trim().length < 5} className="btn-primary disabled:opacity-50">
+          <span className={cx('flex items-center gap-1.5 text-sm font-bold transition-opacity duration-300', bare ? 'text-brand' : 'text-white', sent ? 'opacity-100' : 'opacity-0')}><Icon name="check" className="h-4 w-4" />{tr('Sent')}</span>
+          <button type="button" onClick={send} disabled={busy || question.trim().length < 5}
+            className={cx('inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold shadow-card transition-all duration-200 disabled:opacity-60 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift', bare ? 'bg-brand text-white' : 'ask-send')}>
             {busy ? <Spinner className="h-4 w-4" /> : <Icon name="chevronRight" className="h-4 w-4" />}{tr('Send question')}
           </button>
         </div>

@@ -40,6 +40,7 @@ function inlineToHtml(text, { mentionNames } = {}) {
   let html = escapeHtml(text)
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+  html = html.replace(/\[([^\]]+)\]\((\/(?!\/)[^\s)]*)\)/g, '<a href="$2">$1</a>')
   html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
   html = html.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?])/g, '$1<em>$2</em>')

@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { Link } from 'react-router-dom'
 
 // A tiny Notion-lite markdown renderer for admin notes. Block level:
 //   # / ## / ###   headings
@@ -7,10 +8,12 @@ import { Fragment } from 'react'
 //   - [ ] / - [x]  checklist
 //   >              quote
 //   ---            divider
-// Inline: **bold**  *italic*  `code`  [text](url)
+// Inline: **bold**  *italic*  `code`  [text](url)  [text](/in-app/path)
+// A link that starts with a single / is a QUICK LINK: it opens inside the app, drawn as a small button (Get Help uses them to
+// point at the exact Settings section an answer is about).
 // Deliberately small and dependency-free; not a full CommonMark parser.
 
-const INLINE_RE = /(\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/
+const INLINE_RE = /(\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?!\/)[^\s)]*)\))/
 
 function inline(text, keyBase) {
   const out = []
@@ -23,6 +26,7 @@ function inline(text, keyBase) {
     if (m[2]) out.push(<strong key={`${keyBase}-${k++}`}>{m[2]}</strong>)
     else if (m[3]) out.push(<em key={`${keyBase}-${k++}`}>{m[3]}</em>)
     else if (m[4]) out.push(<code key={`${keyBase}-${k++}`} className="rounded bg-cloud px-1.5 py-0.5 text-[0.85em] text-brand">{m[4]}</code>)
+    else if (m[5] && m[6].startsWith('/')) out.push(<Link key={`${keyBase}-${k++}`} to={m[6]} className="quick-link">{m[5]}<svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 5l7 7-7 7" /></svg></Link>)
     else if (m[5]) out.push(<a key={`${keyBase}-${k++}`} href={m[6]} target="_blank" rel="noopener noreferrer" className="text-brand underline">{m[5]}</a>)
     rest = rest.slice(m.index + m[0].length)
   }

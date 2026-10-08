@@ -3491,3 +3491,37 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
    the shelf reads as "more this way" rather than cut off. */
 .ideas-fade { background: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)); }
 html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color-mix(in srgb, var(--d-bg) 70%, transparent), transparent); }
+
+/* QUICK LINKS in Get Help answers: [Payment details](/settings?section=payment) draws a small button that opens that screen in
+   the app. A bare brand glyph and brand text, filling solid on hover like every other control (no tinted square). */
+.quick-link {
+  display: inline-flex; align-items: center; gap: 0.25rem; margin: 0.125rem 0.125rem 0.125rem 0;
+  padding: 0.3rem 0.75rem; border-radius: 9999px; border: 1px solid rgb(217 68 7 / 0.35);
+  background: #fff; color: #d94407; font-weight: 700; font-size: 0.8125rem; line-height: 1.2; text-decoration: none;
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+@media (hover: hover) {
+  .quick-link:hover { background: #d94407; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px -6px rgb(217 68 7 / 0.55); }
+  .quick-link:hover svg { transform: translateX(2px); }
+}
+.quick-link svg { transition: transform 0.2s ease; }
+
+/* GET HELP "Ask a question" card (9 Oct 2026): Trip.com orange, the same gradient as the hero, so the one place you ACT on this
+   page is the one orange thing in the right column. The glow drifts on hover; nothing moves otherwise. */
+.ask-card { background: linear-gradient(145deg, #d94407 0%, #f5853f 100%); isolation: isolate; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.ask-card::before, .ask-card::after { content: ''; position: absolute; border-radius: 9999px; background: rgb(255 255 255 / 0.14); z-index: -1; transition: transform 0.6s ease; }
+.ask-card::before { width: 11rem; height: 11rem; right: -3.5rem; top: -4rem; }
+.ask-card::after { width: 7rem; height: 7rem; left: -2.5rem; bottom: -3rem; background: rgb(255 255 255 / 0.1); }
+@media (hover: hover) {
+  .ask-card:hover { transform: translateY(-3px); box-shadow: 0 22px 40px -18px rgb(217 68 7 / 0.65); }
+  .ask-card:hover::before { transform: translate(-0.75rem, 0.75rem) scale(1.08); }
+  .ask-card:hover::after { transform: translate(0.75rem, -0.5rem) scale(1.1); }
+  .ask-card:hover .ask-icon { transform: rotate(-12deg) scale(1.12); }
+}
+.ask-icon { transition: transform 0.3s ease; }
+.ask-card .input { background: #fff !important; border-color: transparent !important; color: #1a1a1a !important; }
+.ask-card .input::placeholder { color: #8a8a8a !important; }
+.ask-card .input:focus { box-shadow: 0 0 0 3px rgb(255 255 255 / 0.45); }
+
+/* The send button is white on the orange card in BOTH themes (the dark theme remaps bg-white to a dark surface). */
+.ask-send { background: #fff !important; color: #d94407 !important; }

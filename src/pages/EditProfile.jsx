@@ -15,6 +15,7 @@ import { flagForCountry } from '../lib/flags'
 import { geocodeCity, tidyCountry, tidyPlace } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 import { useT } from '../lib/i18n'
+import { useTyping } from '../lib/useTyping'
 
 // Edit every part of your own profile on one calm page.
 //
@@ -34,6 +35,7 @@ const TAB_KEYS = new Set(TABS.map((t) => t.key))
 
 export default function EditProfile() {
   const tr = useT()
+  const { typing, bind: typingBind } = useTyping()
   // WHICH PANEL YOU LAND ON IS IN THE URL.
   //
   // "Manage photos" on the profile used to link at /profile/edit, which opens
@@ -245,7 +247,7 @@ export default function EditProfile() {
           panel closed. Hiding costs nothing and removes a whole class of bug.
           THE RAIL IS A ROW ON A PHONE. Four labels fit across 375px; a vertical
           list of four would be the scrolling this is meant to remove. */}
-      <form onSubmit={save} className="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
+      <form onSubmit={save} {...typingBind} className="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
         <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" aria-label={tr("Profile sections")}>
           {TABS.map((t) => {
             const on = tab === t.key
@@ -516,7 +518,8 @@ export default function EditProfile() {
               there it shoved the two buttons sideways, which is the one thing a
               fixed control must never do. The button says what happened
               instead, in the place you were already looking. */}
-          <div className="sticky bottom-20 z-20 mt-6 flex flex-wrap items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white px-3 py-2.5 shadow-lift sm:bottom-4">
+          {/* While a keyboard is up the bar is NOT sticky: see lib/useTyping. */}
+          <div className={cx('z-20 mt-6 flex flex-wrap items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white px-3 py-2.5 shadow-lift', typing ? 'relative' : 'sticky bottom-20 sm:bottom-4')}>
             {saveError && (
               <p className="mr-auto min-w-0 flex-1 text-xs text-red-600">{saveError}</p>
             )}

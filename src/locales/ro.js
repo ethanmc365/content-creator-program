@@ -4592,4 +4592,8 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Mărește',
   'Zoom out': 'Micșorează',
+  'The hook to use': 'Hook-ul de folosit',
+  'Copy hook': 'Copiază hook-ul',
+  'The words the creator typed onto the video.': 'Cuvintele pe care creatorul le-a scris pe videoclip.',
+  'The team replies here, and you get a notification. Good questions are added to the answers.': 'Echipa răspunde aici, iar tu primești o notificare. Întrebările bune sunt adăugate la răspunsuri.',
 }

@@ -4599,4 +4599,8 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Hineinzoomen',
   'Zoom out': 'Herauszoomen',
+  'The hook to use': 'Der Hook zum Nutzen',
+  'Copy hook': 'Hook kopieren',
+  'The words the creator typed onto the video.': 'Die Wörter, die der Creator ins Video geschrieben hat.',
+  'The team replies here, and you get a notification. Good questions are added to the answers.': 'Das Team antwortet hier und du bekommst eine Benachrichtigung. Gute Fragen werden zu den Antworten hinzugefügt.',
 }

@@ -70,6 +70,7 @@ export function useHookTexts(rows) {
   }, [key, locale])
   const differs = (t) => { const r = map[t]; return !!r && !r.same && !!r.value && r.value !== t }
   return {
+    differs,
     pick: (t) => (!showOriginal && differs(t) ? map[t].value : t),
     translated: texts.some(differs),
     showOriginal,
@@ -133,7 +134,12 @@ export default function VideoIdeasBoard({ compact = false }) {
           {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} />)}
         </>
       )}
-      {playing && <VideoEmbedModal url={playing.video_url} platform={playing.platform} title={playing.creator_name || playing.platform} onClose={() => setPlaying(null)} />}
+      {playing && (
+        <VideoEmbedModal
+          url={playing.video_url} platform={playing.platform} title={playing.creator_name || playing.platform} onClose={() => setPlaying(null)}
+          footer={playing.screen_text ? <HookPanel text={playing.screen_text} hooks={hooks} /> : null}
+        />
+      )}
     </div>
   )
 }
@@ -216,7 +222,14 @@ function IdeaCard({ v, rank, delay, onPlay, hook }) {
       </button>
       {/* THE HOOK: the words on the video, in the reader's language. Cards with none (Instagram, YouTube, a video with no
           text on it) simply have no line, rather than a caption pretending to be one. */}
-      {hook && <p className="line-clamp-3 px-3 pt-2.5 text-[13px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{hook}</p>}
+      {/* NAMED AND NEVER CUT OFF (9 Oct 2026). Ethan: "improve the UI and identify that it is the hook ... some of the longer ones are
+          cut off." It is a labelled block now, shown in full, and pressing it plays the video with the hook under it. */}
+      {hook && (
+        <button type="button" onClick={onPlay} className="mx-3 mt-2.5 block w-[calc(100%-1.5rem)] rounded-2xl bg-brand/[0.07] px-3 py-2 text-left transition-colors hoverable:hover:bg-brand/10">
+          <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand"><Icon name="bulb" className="h-3 w-3" />{tr('The hook')}</span>
+          <span className="mt-1 block whitespace-pre-line text-[13px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{hook}</span>
+        </button>
+      )}
       <div className="flex items-center gap-2 px-3 py-2.5">
         {v.creator_id ? (
           <Link to={`/profile/${v.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2">
@@ -234,6 +247,36 @@ function IdeaCard({ v, rank, delay, onPlay, hook }) {
         </a>
       </div>
     </article>
+  )
+}
+
+/**
+ * The hook under a playing video: what is written on the screen, in the reader's language, with the original one press away.
+ * "Whenever you click on them ... this is the hook to use, with the translate button as well for the other languages."
+ */
+export function HookPanel({ text, hooks }) {
+  const tr = useT()
+  const [copied, setCopied] = useState(false)
+  const shown = hooks.pick(text)
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(shown); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch { /* no clipboard: the text is on screen to read */ }
+  }
+  return (
+    <div className="mt-4 w-full rounded-2xl bg-white p-4 text-left shadow-lift animate-fade-up">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand"><Icon name="bulb" className="h-4 w-4" />{tr('The hook to use')}</span>
+        {hooks.differs(text) && (
+          <button type="button" onClick={hooks.toggle} className="flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-ink transition-all hoverable:hover:scale-105 hoverable:hover:border-brand hoverable:hover:text-brand">
+            <Icon name="globe" className="h-3.5 w-3.5 text-brand" />{hooks.showOriginal ? tr('Translate') : tr('Show original')}
+          </button>
+        )}
+      </div>
+      <p className="mt-2 whitespace-pre-line text-[15px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{shown}</p>
+      <p className="mt-1 text-[11px] text-smoke">{tr('The words the creator typed onto the video.')}</p>
+      <button type="button" onClick={copy} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold text-white transition-transform hoverable:hover:scale-105">
+        <Icon name={copied ? 'check' : 'copy'} className="h-3.5 w-3.5" />{copied ? tr('Copied') : tr('Copy hook')}
+      </button>
+    </div>
   )
 }
 
