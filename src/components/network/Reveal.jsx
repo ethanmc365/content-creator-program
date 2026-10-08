@@ -460,24 +460,40 @@ export default function Reveal({
     // tall mode would be the one that turns a missing animation into missing
     // content. Anything already at or above the fold and still hidden wins;
     // anything below it is correctly still waiting.
+    // THE NET RE-RENDERED THE PAGE ON EVERY SCROLL EVENT (9 Oct 2026). It ended in `setShownItems(new Set([...prev, ...arrived]))`
+    // whether or not anything was new, and a new Set is a new state: so on every tall section (most of the long pages) each
+    // scroll tick was a React render of that section plus a getBoundingClientRect per card. That is a large part of "the
+    // platform feels laggy when I scroll, especially on a long page". Now it remembers what it has already shown, does
+    // nothing at all unless a card is genuinely new, looks once per frame, and takes its listener off when every card is in.
+    const known = new Set()
+    let queued = 0
     const net = () => {
       const vh = window.innerHeight || 0
       if (!vh) { setShownItems(new Set(els.map((_, i) => i))); return }
-      const arrived = els
-        // THE SAME LEAD THE OBSERVER GETS. See the note on the container's
-        // net below: a net that only catches what is already on screen is a
-        // net that reveals things late, which reads as no animation at all.
-        .map((el, i) => (el.getBoundingClientRect().top < vh * (1 + early / 100) ? i : null))
-        .filter((i) => i !== null)
-      if (arrived.length) setShownItems((prev) => new Set([...prev, ...arrived]))
+      const fresh = []
+      for (let i = 0; i < els.length; i += 1) {
+        // THE SAME LEAD THE OBSERVER GETS. See the note on the container's net below: a net that only catches what is
+        // already on screen is a net that reveals things late, which reads as no animation at all.
+        if (!known.has(i) && els[i].getBoundingClientRect().top < vh * (1 + early / 100)) { known.add(i); fresh.push(i) }
+      }
+      if (fresh.length) setShownItems((prev) => new Set([...prev, ...fresh]))
+      if (known.size >= els.length) {
+        window.removeEventListener('scroll', onScroll)
+        window.removeEventListener('resize', net)
+      }
+    }
+    const onScroll = () => {
+      if (queued) return
+      queued = requestAnimationFrame(() => { queued = 0; net() })
     }
     const t = setTimeout(net, 1200)
-    window.addEventListener('scroll', net, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', net)
     return () => {
       io.disconnect()
       clearTimeout(t)
-      window.removeEventListener('scroll', net)
+      cancelAnimationFrame(queued)
+      window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', net)
     }
   }, [perItem, node, children, early, held, hasBody, settled])

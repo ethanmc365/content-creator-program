@@ -218,11 +218,12 @@ function PublishedView({ doc, onPreview }) {
 }
 
 /** "See it as a creator", and for the community terms the under-18 version too. */
-function PreviewButtons({ doc, onPreview, label = 'See it as a creator' }) {
+function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
   return (
     <div className="flex flex-wrap gap-2">
       <button type="button" onClick={() => onPreview(false)} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{label}</button>
-      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="How it looks for a creator aged 16 or 17, who adds a parent or guardian">Under 18</button>}
+      {/* 9 Oct 2026: "it should say Preview Under 18 as well". The parent step itself is switched off for real creators (lib/guardianConsent). */}
+      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="How it would look for a creator aged 16 or 17, who adds a parent or guardian (switched off for real creators for now)"><Icon name="eye" className="h-4 w-4" />Preview Under 18</button>}
     </div>
   )
 }
@@ -270,6 +271,8 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   const [note, setNote] = useState(doc.change_note || '')
   const [sig, setSig] = useState(doc.requires_signature)
   const [busy, setBusy] = useState(false)
+  // TEXT SIZE FOR THE PERSON EDITING (9 Oct 2026): a view setting, never saved into the agreement.
+  const [size, setSize] = useState('md')
   const dirty = title !== doc.title || summary !== doc.summary || body !== doc.body || note !== (doc.change_note || '') || sig !== doc.requires_signature
 
   async function save(quiet) {
@@ -299,7 +302,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Draft · v{doc.version}</p>
         <div className="flex gap-2">
-          <PreviewButtons doc={doc} label="Preview" onPreview={(minor) => onPreview({ ...doc, title, summary, body, change_note: note, requires_signature: sig, id: doc.id }, minor)} />
+          <PreviewButtons doc={doc} label="Preview as a creator" onPreview={(minor) => onPreview({ ...doc, title, summary, body, change_note: note, requires_signature: sig, id: doc.id }, minor)} />
           <button type="button" onClick={discard} className="btn-secondary !py-2 text-sm text-red-600">Delete draft</button>
         </div>
       </div>
@@ -307,9 +310,18 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
       <label className="block"><span className="label">Summary (shown at the top, two lines)</span><textarea className="input resize-none" rows={2} value={summary} onChange={(e) => setSummary(e.target.value)} /></label>
       {hasLive && <label className="block"><span className="label">What changed (shown to people re-accepting, and in the notification)</span><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: we added the Video Ideas page and how videos appear on it." /></label>}
       <div>
-        <p className="label">The text</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="label !mb-0">The text</p>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-smoke" role="group" aria-label="Text size">
+            <span className="mr-1">Text size · Poppins</span>
+            {[['sm', 'A-'], ['md', 'A'], ['lg', 'A+']].map(([k, t]) => (
+              <button key={k} type="button" onClick={() => setSize(k)} aria-pressed={size === k} className={cx('h-7 min-w-[2rem] rounded-lg px-2 font-bold transition-colors', size === k ? 'bg-brand text-white' : 'bg-cloud text-ink hover:bg-gray-200')}>{t}</button>
+            ))}
+          </span>
+        </div>
         <RichToolbar editorRef={editor} sticky only={['h1', 'h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol', 'quote', 'divider']} />
-        <RichEditable ref={editor} docId={doc.id} initialMd={doc.body} onChangeMd={setBody} className="agreement-text min-h-[24rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[14.5px] leading-relaxed focus:border-brand/40" />
+        {/* changeDelay: the whole text is turned back into markdown after a pause in typing, not on every key. */}
+        <RichEditable ref={editor} docId={doc.id} initialMd={doc.body} onChangeMd={setBody} changeDelay={300} className={cx('agreement-text min-h-[24rem] rounded-card border border-gray-200 bg-white px-5 py-4 leading-relaxed focus:border-brand/40', size === 'sm' ? 'text-[13px]' : size === 'lg' ? 'text-[17px]' : 'text-[14.5px]')} />
       </div>
       <label className="flex items-center gap-2.5 text-sm font-semibold text-ink"><Toggle on={sig} onChange={setSig} label="Ask for a signature" />Ask for a signature (typed or drawn) instead of a tick</label>
       <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">

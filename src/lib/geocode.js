@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { COUNTRIES, countryMatches } from './countries'
 
 // Client helper for the `geocode` edge function. Turns a creator's free-text
 // town into { lat, lng } so we can pin them on the creator map. Results are
@@ -90,4 +91,36 @@ export async function suggestCity(city, country) {
   const typed = fold(city.split(/[/,(]/)[0])
   if (fold(s.city) === typed) return null
   return { city: s.city, country: country?.trim() ? country.trim() : s.country }
+}
+
+// TIDYING WHAT PEOPLE TYPE (9 Oct 2026). Ethan: "fix all those typos so they properly show on the map ... Uk / UK / Uk with a
+// space ... lower-case towns". Nothing is guessed: a town only gets its capitals, a country only becomes the platform's own
+// spelling when the typed name matches one of the known countries or its aliases (uk, usa, holland ...), and anything else is
+// left exactly as typed.
+const SMALL = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'da', 'do', 'dos', 'das', 'di', 'of', 'the', 'am', 'im', 'an', 'en', 'sur', 'sous', 'le', 'les', 'y', 'e', 'van', 'von', 'upon'])
+export function tidyPlace(text) {
+  const raw = (text || '').replace(/\s+/g, ' ').trim()
+  if (!raw) return ''
+  // Mixed case ("McDonald", "São Paulo") was typed on purpose; only an all-lower or all-upper entry is re-cased.
+  if (raw !== raw.toLowerCase() && raw !== raw.toUpperCase()) return raw
+  return raw.toLowerCase().split(' ').map((w, i) => (i > 0 && SMALL.has(w) ? w : w.replace(/(^|[-/(])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase()))).join(' ')
+}
+
+const COUNTRY_EXTRA = { us: 'United States', usa: 'United States', 'united states of america': 'United States', america: 'United States', england: 'United Kingdom', scotland: 'United Kingdom', wales: 'United Kingdom', 'northern ireland': 'United Kingdom', 'u k': 'United Kingdom', 'u s': 'United States' }
+export function tidyCountry(text) {
+  const raw = (text || '').replace(/\s+/g, ' ').trim()
+  if (!raw) return ''
+  const key = raw.toLowerCase().replace(/[.]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (COUNTRY_EXTRA[key]) return COUNTRY_EXTRA[key]
+  const hit = COUNTRIES.find((c) => countryMatches(c, raw))
+  return hit ? hit.name : tidyPlace(raw)
+}
+
+/**
+ * Is this worth asking a geocoder about? A dash, a postcode or two letters is not a town, and asking for it on every map view
+ * in every browser was the "constantly trying to place them" Ethan saw (the answer is a miss every time).
+ */
+export function plausibleCity(city) {
+  const c = (city || '').trim()
+  return c.length >= 3 && /[A-Za-zÀ-ÿĀ-žȘșȚț]{3}/.test(c)
 }

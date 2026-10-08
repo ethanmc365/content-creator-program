@@ -1,3 +1,4 @@
+import { gentleScrollToSelector } from '../lib/gentleScroll'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { lazyRoute } from '../lib/lazyRoute'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -121,7 +122,7 @@ export default function VipHub() {
   useEffect(() => { if (previewing && staffOv) loadPreview() }, [previewing, staffOv, loadPreview])
   const pickView = (m) => {
     setParams(m === 'page' ? {} : { mode: m }, { replace: true })
-    if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (window.scrollY > 320) gentleScrollToSelector('[data-vip-anchor]')
   }
   // The name for the banner. From the market's list when it has them, or straight from their profile - a VIP opened
   // from the Creators page may be in another market than the one this page last showed.
@@ -145,7 +146,7 @@ export default function VipHub() {
   const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : null
   const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
   const tab = allowed.includes(asked) ? asked : 'month'
-  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) gentleScrollToSelector('[data-vip-anchor]') }
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
 

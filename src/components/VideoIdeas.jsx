@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
@@ -10,7 +10,8 @@ import { CountUp } from './network/Motion'
 import HookButton from './HookButton'
 import DealFinder from './DealFinder'
 import { formatViews, cx } from '../lib/utils'
-import { useT } from '../lib/i18n'
+import { translateTexts } from '../lib/contentTranslate'
+import { getLocale, useLocale, useT } from '../lib/i18n'
 
 // VIDEO IDEAS (7 Oct 2026).
 //
@@ -31,7 +32,13 @@ import { useT } from '../lib/i18n'
 // ("Hook me up", from the curated English bank) and a deal to film, side by side as on the VIP guides page.
 // The header is a white card like every other page header (the black one with an orange glow was "not the normal
 // style"), and a card magnifies under the pointer instead of drawing a play button over the cover.
-export const IDEAS_MIN_VIEWS = 50000
+//
+// 100,000 AND THE WORDS ON THE VIDEO (9 Oct 2026). Ethan: "record videos over 100k here, because currently it's just over 50k",
+// and "you have pulled the hooks from all these videos because they're visibly on the screen, but they're in a different
+// language ... translate it to any language". The hook is the text the creator typed onto the video (TikTok keeps it as a
+// text sticker, read by view-sync with the view count at no extra cost); it is shown in the READER'S language, from the
+// shared translation cache, with the original one press away. Spanish stays Spanish for a Spanish reader.
+export const IDEAS_MIN_VIEWS = 100000
 
 export function useVideoIdeas() {
   const [rows, setRows] = useState(undefined)
@@ -45,6 +52,31 @@ export function useVideoIdeas() {
   return rows
 }
 
+/**
+ * The words on each video, in the reader's language. One cache lookup for the whole page (translateTexts merges them), and a
+ * switch for the original. A translator that is down shows the original, never a blank.
+ */
+export function useHookTexts(rows) {
+  const locale = useLocale()
+  const [map, setMap] = useState({})
+  const [showOriginal, setShowOriginal] = useState(false)
+  const texts = useMemo(() => [...new Set((rows || []).map((r) => r.screen_text).filter(Boolean))], [rows])
+  const key = texts.join('\u0001')
+  useEffect(() => {
+    let alive = true
+    if (!key) { setMap({}); return undefined }
+    translateTexts(key.split('\u0001'), getLocale()).then((res) => { if (alive) setMap(res || {}) })
+    return () => { alive = false }
+  }, [key, locale])
+  const differs = (t) => { const r = map[t]; return !!r && !r.same && !!r.value && r.value !== t }
+  return {
+    pick: (t) => (!showOriginal && differs(t) ? map[t].value : t),
+    translated: texts.some(differs),
+    showOriginal,
+    toggle: () => setShowOriginal((v) => !v),
+  }
+}
+
 const PLATFORM_ORDER = ['TikTok', 'Instagram', 'YouTube', 'Facebook']
 const DAY = 86400000
 
@@ -52,10 +84,12 @@ const DAY = 86400000
 export function shelvesFor(rows, tr = (s) => s) {
   if (!rows?.length) return []
   const byViews = [...rows].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
-  const shelves = [{ key: 'top', title: tr('The biggest hits of all time'), hint: tr('The most viewed videos the community has made'), rows: byViews.slice(0, 15) }]
+  const shelves = []
+  // WORKING RIGHT NOW LEADS (9 Oct 2026: "move the biggest hits below Working Right Now, so Working Right Now is at the top").
   const recent = rows.filter((r) => r.posted_at && Date.now() - Date.parse(r.posted_at) < 45 * DAY)
     .sort((a, b) => Date.parse(b.posted_at) - Date.parse(a.posted_at))
   if (recent.length >= 2) shelves.push({ key: 'new', title: tr('Working right now'), hint: tr('Posted in the last six weeks'), rows: recent.slice(0, 15) })
+  shelves.push({ key: 'top', title: tr('The biggest hits of all time'), hint: tr('The most viewed videos the community has made'), rows: byViews.slice(0, 15) })
   for (const p of PLATFORM_ORDER) {
     const list = byViews.filter((r) => r.platform === p)
     // A platform shelf that holds every video would only repeat the first shelf.
@@ -70,6 +104,7 @@ export default function VideoIdeasBoard({ compact = false }) {
   const [playing, setPlaying] = useState(null)
   const shelves = useMemo(() => shelvesFor(rows, tr), [rows, tr])
   const total = (rows || []).reduce((n, r) => n + (Number(r.views) || 0), 0)
+  const hooks = useHookTexts(rows)
 
   return (
     <div className="space-y-8">
@@ -83,12 +118,19 @@ export default function VideoIdeasBoard({ compact = false }) {
       ) : rows.length === 0 ? (
         <div className="rounded-card border border-dashed border-gray-200 bg-white px-6 py-14 text-center">
           <Icon name="bulb" className="mx-auto h-8 w-8 text-brand" />
-          <p className="mt-3 font-semibold text-ink">{tr('No 50k videos yet')}</p>
-          <p className="mt-1 text-sm text-smoke">{tr('The first video to pass 50,000 views lands here.')}</p>
+          <p className="mt-3 font-semibold text-ink">{tr('No 100k videos yet')}</p>
+          <p className="mt-1 text-sm text-smoke">{tr('The first video to pass 100,000 views lands here.')}</p>
         </div>
       ) : (
         <>
-          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} />)}
+          {hooks.translated && (
+            <div className="-mb-3 flex items-center justify-end gap-2 text-xs text-smoke animate-fade-up">
+              <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
+              <span>{hooks.showOriginal ? tr('Hooks as written') : tr('Hooks in your language')}</span>
+              <button type="button" onClick={hooks.toggle} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand">{hooks.showOriginal ? tr('Translate') : tr('Show original')}</button>
+            </div>
+          )}
+          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} />)}
         </>
       )}
       {playing && <VideoEmbedModal url={playing.video_url} platform={playing.platform} title={playing.creator_name || playing.platform} onClose={() => setPlaying(null)} />}
@@ -99,22 +141,29 @@ export default function VideoIdeasBoard({ compact = false }) {
 function IdeasHero({ count, total, compact }) {
   const tr = useT()
   return (
-    <section className={cx('animate-rise relative overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-card', compact ? 'px-5 py-6' : 'px-6 py-8 sm:px-10 sm:py-9')}>
-      <Icon name="bulb" className="ideas-bulb pointer-events-none absolute -right-3 -top-3 h-28 w-28 text-brand/10 sm:right-6 sm:top-1/2 sm:h-36 sm:w-36 sm:-translate-y-1/2" />
+    <section className={cx('ideas-hero animate-rise relative overflow-hidden rounded-[28px] text-white shadow-card', compact ? 'px-5 py-6' : 'px-6 py-8 sm:px-10 sm:py-10')}>
+      {/* A CONSTELLATION OF BULBS (9 Oct 2026). Ethan: "more vibrant, kind of like the get help icon, and have multiple of them
+          there, animating a bulb." One faint bulb became five of different sizes, each bobbing on its own beat with a glow
+          that breathes, on the same orange as Get Help. */}
+      <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-a pointer-events-none absolute" />
+      <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-b pointer-events-none absolute" />
+      <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-c pointer-events-none absolute" />
+      <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-d pointer-events-none absolute" />
+      <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-e pointer-events-none absolute" />
       <div className="relative max-w-2xl">
-        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-brand"><Icon name="bulb" className="h-4 w-4" />{tr('Video Ideas')}</p>
-        <h1 className={cx('mt-2 font-extrabold leading-[1.05] tracking-tight text-ink', compact ? 'text-2xl' : 'text-3xl sm:text-[40px]')}>
-          {tr('Videos that passed 50k views')}
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="bulb" className="h-4 w-4" />{tr('Video Ideas')}</p>
+        <h1 className={cx('mt-2 font-extrabold leading-[1.05] tracking-tight', compact ? 'text-2xl' : 'text-3xl sm:text-[40px]')}>
+          {tr('Videos that passed 100k views')}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-smoke sm:text-[15px]">
+        <p className="mt-3 text-sm leading-relaxed text-white/90 sm:text-[15px]">
           {tr('Watch how the community\'s biggest videos open, then grab a hook and a deal and make your own.')}
         </p>
         {count > 0 && (
           <div className="mt-5 flex flex-wrap gap-2.5">
-            <span className="animate-pop-in rounded-full bg-cloud px-3.5 py-1.5 text-xs font-bold tabular-nums text-ink [animation-delay:200ms]">
+            <span className="animate-pop-in rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-bold tabular-nums text-white backdrop-blur [animation-delay:200ms]">
               <CountUp value={count} /> {tr('videos')}
             </span>
-            <span className="animate-pop-in rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold tabular-nums text-white shadow-card [animation-delay:280ms]">
+            <span className="animate-pop-in rounded-full bg-white px-3.5 py-1.5 text-xs font-bold tabular-nums text-brand shadow-card [animation-delay:280ms]">
               <CountUp value={total} format={formatViews} /> {tr('views between them')}
             </span>
           </div>
@@ -124,44 +173,29 @@ function IdeasHero({ count, total, compact }) {
   )
 }
 
-function Shelf({ shelf, index, onPlay }) {
-  const tr = useT()
-  const ref = useRef(null)
-  const [edge, setEdge] = useState({ start: true, end: false })
-  const measure = () => {
-    const el = ref.current
-    if (!el) return
-    setEdge({ start: el.scrollLeft < 8, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 8 })
-  }
-  useEffect(() => { measure() }, [shelf.rows.length])
-  const nudge = (dir) => ref.current?.scrollBy({ left: dir * Math.max(240, ref.current.clientWidth * 0.8), behavior: 'smooth' })
-
+function Shelf({ shelf, index, onPlay, hooks }) {
+  // NO ARROWS (9 Oct 2026): "we can just scroll on mobile with our finger or on desktop with the trackpad." The row scrolls
+  // sideways with snap points and a soft fade on the right edge says there is more.
   return (
     <section className="animate-rise" style={{ animationDelay: `${Math.min(index, 5) * 70}ms` }}>
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
-            {shelf.platform ? <SocialMark brand={shelf.platform.toLowerCase()} className="h-5 w-5" colored /> : <Icon name={shelf.key === 'new' ? 'fire' : 'trophy'} className="h-5 w-5 text-brand" />}
-            {shelf.title}
-          </h2>
-          {shelf.hint && <p className="text-xs text-smoke">{shelf.hint}</p>}
-        </div>
-        <div className="hidden shrink-0 gap-1.5 sm:flex">
-          <button type="button" onClick={() => nudge(-1)} disabled={edge.start} aria-label={tr('Scroll back')} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-ink shadow-sm transition-all duration-200 disabled:opacity-30 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card"><Icon name="chevronLeft" className="h-4 w-4" /></button>
-          <button type="button" onClick={() => nudge(1)} disabled={edge.end} aria-label={tr('Scroll on')} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-ink shadow-sm transition-all duration-200 disabled:opacity-30 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card"><Icon name="chevronRight" className="h-4 w-4" /></button>
-        </div>
+      <div className="mb-3 min-w-0">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+          {shelf.platform ? <SocialMark brand={shelf.platform.toLowerCase()} className="h-5 w-5" colored /> : <Icon name={shelf.key === 'new' ? 'fire' : 'trophy'} className="h-5 w-5 text-brand" />}
+          {shelf.title}
+        </h2>
+        {shelf.hint && <p className="text-xs text-smoke">{shelf.hint}</p>}
       </div>
       <div className="relative">
-        <div ref={ref} onScroll={measure} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
-          {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} />)}
+        <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
+          {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} hook={v.screen_text ? hooks.pick(v.screen_text) : null} />)}
         </div>
-        {!edge.end && <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />}
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />
       </div>
     </section>
   )
 }
 
-function IdeaCard({ v, rank, delay, onPlay }) {
+function IdeaCard({ v, rank, delay, onPlay, hook }) {
   const tr = useT()
   return (
     <article
@@ -180,6 +214,9 @@ function IdeaCard({ v, rank, delay, onPlay }) {
           )}
         </div>
       </button>
+      {/* THE HOOK: the words on the video, in the reader's language. Cards with none (Instagram, YouTube, a video with no
+          text on it) simply have no line, rather than a caption pretending to be one. */}
+      {hook && <p className="line-clamp-3 px-3 pt-2.5 text-[13px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{hook}</p>}
       <div className="flex items-center gap-2 px-3 py-2.5">
         {v.creator_id ? (
           <Link to={`/profile/${v.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2">
@@ -201,30 +238,38 @@ function IdeaCard({ v, rank, delay, onPlay }) {
 }
 
 /**
- * The door into /ideas from other pages (8 Oct 2026): the Worldwide rail and the Resource library. Three covers of the
- * biggest videos, the count, and the whole card is the link; it magnifies under the pointer like the cards inside.
+ * The door into /ideas from other pages: the Worldwide rail (below Your markets), the main column on a phone (below the latest
+ * announcements) and the Resource library.
+ *
+ * 9 Oct 2026. Ethan: "I would like 10 videos here so it is scrollable to the right, and clicking on that will open up the
+ * actual ideas page." So it is a strip of up to ten covers that scrolls sideways under a finger or a trackpad (no arrows),
+ * each with its views and, where the video has one, its hook in the reader's language; the whole card is the link. Nothing
+ * on it moves when the pointer is over it except the card's own lift, like every other card in the rail.
  */
 export function IdeasTeaser({ className }) {
   const tr = useT()
   const rows = useVideoIdeas()
-  const top = useMemo(() => [...(rows || [])].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0)).slice(0, 3), [rows])
+  const top = useMemo(() => [...(rows || [])].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0)).slice(0, 10), [rows])
+  const hooks = useHookTexts(top)
   if (rows && rows.length === 0) return null
   return (
-    <Link to="/ideas" className={cx('group block rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:scale-[1.02] hoverable:hover:shadow-lift', className)}>
+    <Link to="/ideas" className={cx('group block min-w-0 overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift', className)}>
       <div className="flex items-center gap-2">
-        <Icon name="bulb" className="h-5 w-5 shrink-0 text-brand transition-transform duration-300 group-hover:rotate-12" />
+        <Icon name="bulb" className="h-5 w-5 shrink-0 text-brand" />
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-bold leading-snug text-ink">{tr('Video Ideas')}</span>
-          <span className="block text-xs text-smoke">{rows ? tr('{n} videos with 50k+ views', { n: rows.length }) : tr('The community\'s biggest videos')}</span>
+          <span className="block text-xs text-smoke">{rows ? tr('{n} videos with 100k+ views', { n: rows.length }) : tr('The community\'s biggest videos')}</span>
         </span>
-        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="scrollbar-none -mx-4 mt-3 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1">
         {rows === undefined
-          ? [0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/14] w-full rounded-xl" />)
+          ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[9/14] w-[108px] shrink-0 rounded-xl" />)
           : top.map((v, i) => (
-            <div key={v.id} className="relative overflow-hidden rounded-xl animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+            <div key={v.id} className="relative w-[108px] shrink-0 snap-start overflow-hidden rounded-xl bg-ink animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
               <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} className="!aspect-[9/14]" mark={false} />
+              {v.screen_text && <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent" />}
+              {v.screen_text && <span className="pointer-events-none absolute inset-x-1.5 bottom-6 line-clamp-3 text-[10px] font-bold leading-tight text-white [overflow-wrap:anywhere]">{hooks.pick(v.screen_text)}</span>}
               <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white backdrop-blur">{formatViews(v.views)}</span>
             </div>
           ))}

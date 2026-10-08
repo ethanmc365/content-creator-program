@@ -148,7 +148,14 @@ export function usePinnedToBottom(ref, slidAway = false) {
 
     const onVisible = () => { if (document.visibilityState === 'visible') onReturn() }
 
-    window.addEventListener('scroll', soon, { passive: true })
+    // WHILE A FINGER IS SCROLLING, DO NOTHING; LOOK ONCE IT HAS SETTLED (9 Oct 2026). This used to measure the bar on every
+    // frame of a scroll - a getBoundingClientRect (a forced layout) per frame - and, on iOS where innerHeight moves as the
+    // toolbars collapse, re-pinned it (display:none + a forced reflow) in the middle of the gesture. On a long page that is
+    // the "whole screen lags and glitches as I scroll" Ethan reported on Edit profile. A bar that has come loose is still
+    // found, one quiet 140ms after the scrolling stops, which is when a person could see it anyway.
+    let settle = 0
+    const afterScroll = () => { clearTimeout(settle); settle = setTimeout(soon, 140) }
+    window.addEventListener('scroll', afterScroll, { passive: true })
     window.addEventListener('resize', soon)
     window.addEventListener('orientationchange', onReturn)
     // `pageshow` with `persisted` is a bfcache restore, which is the other way
@@ -160,7 +167,7 @@ export function usePinnedToBottom(ref, slidAway = false) {
     const vv = window.visualViewport
     if (vv) {
       vv.addEventListener('resize', soon)
-      vv.addEventListener('scroll', soon)
+      vv.addEventListener('scroll', afterScroll)
     }
 
     soon()
@@ -168,7 +175,8 @@ export function usePinnedToBottom(ref, slidAway = false) {
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(timer)
-      window.removeEventListener('scroll', soon)
+      clearTimeout(settle)
+      window.removeEventListener('scroll', afterScroll)
       window.removeEventListener('resize', soon)
       window.removeEventListener('orientationchange', onReturn)
       window.removeEventListener('pageshow', onReturn)
@@ -176,7 +184,7 @@ export function usePinnedToBottom(ref, slidAway = false) {
       document.removeEventListener('visibilitychange', onVisible)
       if (vv) {
         vv.removeEventListener('resize', soon)
-        vv.removeEventListener('scroll', soon)
+        vv.removeEventListener('scroll', afterScroll)
       }
     }
   }, [ref, slidAway])

@@ -42,7 +42,7 @@ function keepCaretVisible(el) {
 }
 
 const RichEditable = forwardRef(function RichEditable(
-  { docId, initialMd = '', mentionNames, inlineOnly = false, placeholder = '', className, onChangeMd, onKeyDown, onInput, ...rest },
+  { docId, initialMd = '', mentionNames, inlineOnly = false, placeholder = '', className, onChangeMd, onKeyDown, onInput, changeDelay = 0, onBlur, ...rest },
   ref
 ) {
   const elRef = useRef(null)
@@ -71,6 +71,19 @@ const RichEditable = forwardRef(function RichEditable(
   }, [onChangeMd, syncEmpty, inlineOnly])
 
   useEffect(() => { syncEmpty(initialMd) }, [seed, initialMd, syncEmpty])
+
+  // A LONG DOCUMENT IS NOT RE-READ ON EVERY KEYSTROKE (9 Oct 2026). `fireChange` turns the WHOLE page back into markdown and
+  // hands it to the parent, which re-renders; on the agreement texts (many pages) that is the lag Ethan felt while typing.
+  // With `changeDelay` the work waits for a pause in typing, and is flushed at once when the editor loses focus (so pressing
+  // Save never reads a stale copy) and when it goes away. Callers that pass nothing behave exactly as before.
+  const pending = useRef(0)
+  const flush = useCallback(() => {
+    if (!pending.current) return
+    clearTimeout(pending.current)
+    pending.current = 0
+    fireChange()
+  }, [fireChange])
+  useEffect(() => () => { if (pending.current) { clearTimeout(pending.current); pending.current = 0 } }, [])
 
   // The top-level block (direct child of the root) that a node sits in.
   const blockAncestor = (node) => {
@@ -382,6 +395,7 @@ const RichEditable = forwardRef(function RichEditable(
     el: () => elRef.current,
     focus: () => elRef.current?.focus(),
     getMd: () => (elRef.current ? htmlToMd(elRef.current, { inlineOnly }) : ''),
+    flush,
     exec: (cmd, value = null) => {
       // Only take focus if the caret is not already in here. Re-focusing an
       // element the selection is already inside is a no-op in a browser but a
@@ -500,7 +514,15 @@ const RichEditable = forwardRef(function RichEditable(
       spellCheck
       data-placeholder={placeholder}
       dangerouslySetInnerHTML={seed}
-      onInput={(e) => { fireChange(); keepCaretVisible(elRef.current); onInput?.(e) }}
+      onInput={(e) => {
+        if (changeDelay > 0) {
+          if (pending.current) clearTimeout(pending.current)
+          pending.current = setTimeout(() => { pending.current = 0; fireChange() }, changeDelay)
+        } else fireChange()
+        keepCaretVisible(elRef.current)
+        onInput?.(e)
+      }}
+      onBlur={(e) => { flush(); onBlur?.(e) }}
       onPaste={onPaste}
       onMouseDown={onMouseDown}
       onKeyDown={onKeyDownInternal}

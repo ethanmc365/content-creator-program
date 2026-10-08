@@ -12,7 +12,7 @@ import SocialMark, { brandForUrl } from '../components/SocialMark'
 import AutoTextarea from '../components/AutoTextarea'
 import CitySuggestion from '../components/CitySuggestion'
 import { flagForCountry } from '../lib/flags'
-import { geocodeCity } from '../lib/geocode'
+import { geocodeCity, tidyCountry, tidyPlace } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 import { useT } from '../lib/i18n'
 
@@ -298,12 +298,12 @@ export default function EditProfile() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="city" className="label">{tr("City")}</label>
-                <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder={tr("e.g. London")} />
+                <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} onBlur={() => form.city !== tidyPlace(form.city) && set({ city: tidyPlace(form.city) })} placeholder={tr("e.g. London")} />
                 <CitySuggestion city={form.city} country={form.country} onUse={(s) => set({ city: s.city, country: form.country || s.country })} />
               </div>
               <div>
                 <label htmlFor="country" className="label">{tr("Country")}</label>
-                <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder={tr("e.g. United Kingdom")} />
+                <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} onBlur={() => form.country !== tidyCountry(form.country) && set({ country: tidyCountry(form.country) })} placeholder={tr("e.g. United Kingdom")} />
               </div>
             </div>
             <div>
@@ -321,7 +321,10 @@ export default function EditProfile() {
             <PhoneInput value={contact} onChange={setContact} />
           </section>
           </div>
-          <div className={tab === 'links' ? 'space-y-6' : 'hidden'}>
+          {/* ONLY THE OPEN PANEL IS DRAWN (9 Oct 2026). All four were mounted and merely hidden, so every key typed into "About you"
+              re-rendered the world map (a path per country), the photo board and the language list as well - the "laggy for text"
+              on this page. The form lives in this component, not in the panels, so nothing is lost when a panel closes. */}
+          {tab === 'links' && (<div className="space-y-6">
           <section className="card space-y-6">
             <h2 className="text-lg font-semibold">{tr("Social links")}</h2>
             <SocialInputs values={form} onChange={(v) => set(v)} />
@@ -365,8 +368,8 @@ export default function EditProfile() {
               </button>
             </div>
           </section>
-          </div>
-          <div className={tab === 'travel' ? 'space-y-6' : 'hidden'}>
+          </div>)}
+          {tab === 'travel' && (<div className="space-y-6">
           <section className="card space-y-5">
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-semibold">{tr("Where I'm headed next")}</h2>
@@ -471,7 +474,7 @@ export default function EditProfile() {
           </section>
 
           {/* Travel photos last, matching the public profile's section order. */}
-          </div>
+          </div>)}
           {/* ---------- Photos ----------
               ONE SURFACE (1 Sep 2026).
 
@@ -489,7 +492,7 @@ export default function EditProfile() {
               board owns all of it, and it is the SAME component the profile
               renders, so what you arrange here is not a preview of the profile,
               it is the profile's own board. */}
-          <div className={tab === 'photos' ? 'space-y-6' : 'hidden'}>
+          {tab === 'photos' && (<div className="space-y-6">
           <section className="card space-y-4">
             <div>
               <h2 className="text-lg font-semibold">{tr("Travel photos")}</h2>
@@ -499,7 +502,7 @@ export default function EditProfile() {
             </div>
             <PhotoBoard creatorId={user.id} editable alwaysArranging />
           </section>
-          </div>
+          </div>)}
 
           {/* THE SAVE BAR STICKS TO THE BOTTOM OF THE VIEWPORT.
               The old one sat after every section, so on the Travel panel it was
@@ -513,7 +516,7 @@ export default function EditProfile() {
               there it shoved the two buttons sideways, which is the one thing a
               fixed control must never do. The button says what happened
               instead, in the place you were already looking. */}
-          <div className="sticky bottom-20 z-20 mt-6 flex flex-wrap items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-lift backdrop-blur sm:bottom-4">
+          <div className="sticky bottom-20 z-20 mt-6 flex flex-wrap items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white px-3 py-2.5 shadow-lift sm:bottom-4">
             {saveError && (
               <p className="mr-auto min-w-0 flex-1 text-xs text-red-600">{saveError}</p>
             )}

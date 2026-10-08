@@ -3401,15 +3401,26 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 
 /* Drifting orange orbs (VipLocked, agreements), and the Video Ideas cards rising in one after another. The Ideas
    header itself is a white card now (8 Oct 2026); its big faint bulb bobs instead. */
-.ideas-bulb { animation: ideas-bob 6s ease-in-out infinite; }
-@keyframes ideas-bob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
-@media (min-width: 640px) { @keyframes ideas-bob { 0%, 100% { transform: translateY(-50%) rotate(-6deg); } 50% { transform: translateY(calc(-50% - 8px)) rotate(4deg); } } }
+/* THE IDEAS HEADER (9 Oct 2026): the Get Help orange, with a constellation of bulbs that bob on their own beats and a glow
+   that breathes behind them. They sit at the right and the corners, under the text layer, never behind a line of it. */
+.ideas-hero { background: linear-gradient(135deg, #d94407 0%, #f5853f 100%); isolation: isolate; }
+.ideas-hero::before { content: ''; position: absolute; right: -4rem; top: -5rem; width: 22rem; height: 22rem; border-radius: 9999px; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.55) 0%, rgba(255, 236, 170, 0) 65%); animation: ideas-glow 4.5s ease-in-out infinite; }
+.ideas-bulb { z-index: -1; color: rgba(255, 255, 255, 0.22); filter: drop-shadow(0 0 14px rgba(255, 240, 180, 0.55)); animation: ideas-bob 6s ease-in-out infinite; }
+.ideas-bulb-a { right: 6%; top: 50%; margin-top: -4.5rem; width: 9rem; height: 9rem; color: rgba(255, 255, 255, 0.34); }
+.ideas-bulb-b { right: 27%; top: -1.25rem; width: 4.5rem; height: 4.5rem; animation-delay: -1.8s; animation-duration: 5.2s; }
+.ideas-bulb-c { right: 1.5%; bottom: -1rem; width: 5rem; height: 5rem; animation-delay: -3.2s; animation-duration: 7s; color: rgba(255, 255, 255, 0.3); }
+.ideas-bulb-d { right: 21%; bottom: -1.5rem; width: 3.25rem; height: 3.25rem; animation-delay: -4.4s; animation-duration: 5.6s; }
+.ideas-bulb-e { right: 40%; top: 55%; width: 2.5rem; height: 2.5rem; animation-delay: -2.4s; animation-duration: 6.4s; color: rgba(255, 255, 255, 0.16); }
+@keyframes ideas-bob { 0%, 100% { transform: translateY(0) rotate(-7deg) scale(1); } 50% { transform: translateY(-10px) rotate(6deg) scale(1.06); } }
+@keyframes ideas-glow { 0%, 100% { opacity: 0.55; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.1); } }
+@media (max-width: 639px) { .ideas-bulb-a { right: -1.5rem; width: 7rem; height: 7rem; margin-top: -3.5rem; } .ideas-bulb-b, .ideas-bulb-e { display: none; } }
 .ideas-orb { position: absolute; border-radius: 9999px; filter: blur(48px); pointer-events: none; }
 .ideas-orb-a { width: 18rem; height: 18rem; right: -5rem; top: -6rem; background: rgba(217, 68, 7, 0.55); animation: ideas-drift 9s ease-in-out infinite; }
 .ideas-orb-b { width: 12rem; height: 12rem; right: 30%; bottom: -7rem; background: rgba(245, 133, 63, 0.35); animation: ideas-drift 11s ease-in-out -4s infinite reverse; }
 @keyframes ideas-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-2.5rem, 1.5rem) scale(1.12); } }
 .idea-card { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
-@media (prefers-reduced-motion: reduce) { .ideas-orb-a, .ideas-orb-b, .idea-card, .ideas-bulb { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ideas-orb-a, .ideas-orb-b, .idea-card, .ideas-bulb, .ideas-hero::before { animation: none; } }
 
 /* THE LOCKED VIP PAGE (components/vip/VipLocked): a dark hero, and a lock whose shackle lifts and settles while a
    light sweeps the body and small stars drift round it. */

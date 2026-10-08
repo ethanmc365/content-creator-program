@@ -172,6 +172,10 @@ export function revealFocusedField() {
   const top = vv ? vv.offsetTop : 0
   const bottom = visibleBottom()
   const rect = revealTarget(el, bottom - top).getBoundingClientRect()
+  // A FIELD TALLER THAN WHAT IS LEFT OF THE SCREEN IS NOT MOVED (9 Oct 2026). "About you" grows with what is typed, so on a
+  // phone it is soon taller than the strip above the keyboard; "its bottom is under the keys" is then ALWAYS true, and every
+  // scroll the reader made was undone by a jump back down to the bottom of it. The browser already keeps the caret in view.
+  if (rect.height > bottom - top - MARGIN * 2) return
 
   // How far it has to move. Positive means it is under the keyboard; negative
   // means the keyboard pushed the page far enough that the field went off the
@@ -235,23 +239,33 @@ function applyScrollRoom() {
 export function installKeyboardFollow() {
   if (typeof window === 'undefined') return () => {}
   let timers = []
+  // The moment the keyboard last arrived. A viewport SCROLL is only the keyboard settling for a second or so after this;
+  // later than that it is the reader scrolling, and chasing it fights their thumb (9 Oct 2026, see below).
+  let settledAt = 0
 
   const clear = () => { timers.forEach(clearTimeout); timers = [] }
   const tick = () => { applyScrollRoom(); revealFocusedField() }
-  const check = () => { clear(); timers = RECHECKS.map((t) => setTimeout(tick, t)) }
+  const check = () => { settledAt = Date.now(); clear(); timers = RECHECKS.map((t) => setTimeout(tick, t)) }
 
   const onFocusIn = (e) => { if (isField(e.target)) check() }
   const onFocusOut = () => { clear(); timers = [setTimeout(applyScrollRoom, 250)] }
   document.addEventListener('focusin', onFocusIn)
   document.addEventListener('focusout', onFocusOut)
 
+  // ONLY WHILE THE KEYBOARD IS ARRIVING. This was `revealFocusedField` on EVERY visual-viewport scroll, so with a field
+  // focused, anything the reader scrolled was answered by a scroll back to the field: the page fought the thumb, and that
+  // is what "if I scroll a bit the whole screen starts lagging and glitching" on Edit profile was.
+  const onViewportScroll = () => { if (Date.now() - settledAt < 1500) revealFocusedField() }
+
+  const onVvResize = () => { settledAt = Date.now(); tick() }
+
   const vv = window.visualViewport
   // The keyboard arriving IS a viewport resize, and on the browsers that do
   // report it this is the accurate signal - the timers above are the fallback
   // for the ones that do not.
   if (vv) {
-    vv.addEventListener('resize', tick)
-    vv.addEventListener('scroll', revealFocusedField)
+    vv.addEventListener('resize', onVvResize)
+    vv.addEventListener('scroll', onViewportScroll)
   }
 
   return () => {
@@ -260,8 +274,8 @@ export function installKeyboardFollow() {
     document.removeEventListener('focusin', onFocusIn)
     document.removeEventListener('focusout', onFocusOut)
     if (vv) {
-      vv.removeEventListener('resize', tick)
-      vv.removeEventListener('scroll', revealFocusedField)
+      vv.removeEventListener('resize', onVvResize)
+      vv.removeEventListener('scroll', onViewportScroll)
     }
   }
 }

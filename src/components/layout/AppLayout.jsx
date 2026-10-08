@@ -651,7 +651,10 @@ export default function AppLayout() {
         ref={headerRef}
         data-ptr-handle
         className={cx(
-          'sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur',
+          // NO BLUR ON THE STICKY HEADER (9 Oct 2026). A backdrop blur on an element that stays put while the page scrolls under it is
+          // re-computed on every frame of every scroll, on every page, on a phone's GPU - a large part of "the whole platform is a
+          // bit laggy". At 95% white the blur was invisible anyway.
+          'sticky top-0 z-40 border-b border-gray-100 bg-white/95',
           // SAME DURATION AND SAME CURVE AS THE CHAT OVERLAY'S TOP EDGE.
           // They are one movement - the header goes up and the conversation
           // grows into the space it leaves - so a different easing on each half

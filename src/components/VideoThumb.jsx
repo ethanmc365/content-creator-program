@@ -178,7 +178,7 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
               onError={onError}
               referrerPolicy="no-referrer"
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
+              className="absolute -inset-px block h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover transition-transform duration-500 group-hover/thumb:scale-105"
             />
             {/* THE PLATFORM IS ITS OWN MARK, NOT ITS OWN NAME (10 Sep 2026).
                 Ethan: "where it says Instagram in the top right corner, or

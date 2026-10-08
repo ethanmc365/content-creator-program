@@ -554,11 +554,11 @@ export default function GlobalHome() {
       </RailCard>
       )}
 
-      {/* ---------- Video Ideas (8 Oct 2026: "slot it ... in the right column on the worldwide page") ---------- */}
-      <IdeasTeaser className="hidden lg:block" />
-
       {/* ---------- Your markets (shared with every market page) ---------- */}
       <MarketsRailCard current="worldwide" live={d?.live} />
+
+      {/* ---------- Video Ideas, BELOW Your markets (9 Oct 2026: "moved below the Your Map section") ---------- */}
+      <IdeasTeaser className="hidden lg:block" />
 
 
       {/* ---------- The people layer, in your order ---------- */}
@@ -1146,6 +1146,12 @@ export default function GlobalHome() {
               </section>
             </Reveal>
           )}
+
+          {/* ---------- Video Ideas on a phone, just below the latest announcements (9 Oct 2026). On a laptop it lives in the
+              rail under Your markets; here the rail is at the bottom of a very long page, so it gets a small card of its own. */}
+          <Reveal from="down" delay={stepDelay()} className="lg:hidden">
+            <IdeasTeaser />
+          </Reveal>
 
           {/* ---------- Daily puzzles ----------
               Between the announcement and the map, exactly where Ethan asked

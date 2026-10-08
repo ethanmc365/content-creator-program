@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
+import Segmented from '../network/Segmented'
 import VideoThumb from '../VideoThumb'
 import FlagStack from '../network/FlagStack'
 import Icon from '../Icon'
-import { notice } from '../../lib/confirm'
+import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, formatViews } from '../../lib/utils'
+import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { curSym, money, monthLabel, nf, perK, rate, vipRpc } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './adminC'
@@ -27,6 +29,30 @@ export function Stat({ label, value, hint, tone }) {
   )
 }
 
+/** What an unreadable video means, in words the team can act on. */
+export function readErrorText(code, tr) {
+  switch (code) {
+    case 'blocked': return tr('The platform would not show our reader this video. It is tried again on every read. A Facebook video posted from a personal profile never states its views publicly, so type them if you need them counted.')
+    case 'removed': return tr('The platform says this video was deleted or made private.')
+    case 'not_a_video': return tr('That link is not a video (a photo or text post has no views).')
+    case 'no_video_id': return tr('That link does not lead to a video.')
+    case 'no_count_in_page': return tr('The post is there but states no view count.')
+    default: return tr('Could not be read: {e}', { e: code })
+  }
+}
+
+/** VIP creators / the Tryp.com team / everyone: the one switch the board and the members list share (9 Oct 2026). */
+export function WhoSwitch({ value, onChange, counts }) {
+  const tr = useT()
+  return (
+    <Segmented size="sm" value={value} onChange={onChange} label={tr('Who')} options={[
+      { value: 'vip', label: `${tr('VIP creators')} ${counts.vip}` },
+      { value: 'team', label: `${tr('Tryp.com team')} ${counts.team}` },
+      { value: 'all', label: `${tr('Everyone')} ${counts.all}` },
+    ]} />
+  )
+}
+
 /** The whole month at a glance: who is ahead, what it is costing, and whether that fits the budget. */
 export function VipOverviewTab({ programme }) {
   const tr = useT()
@@ -38,6 +64,7 @@ export function VipOverviewTab({ programme }) {
   const [reason, setReason] = useState('')
   const [pickProfile, setPickProfile] = useState(null) // a suggested creator being moved to VIP
   const [teamIds, setTeamIds] = useState(() => new Set()) // migration 365: Tryp.com team creators, counted apart
+  const [who, setWho] = useState('vip') // 9 Oct 2026: one board, a switch for VIP creators / the Tryp.com team / everyone
   const cur = programme.currency
 
   const load = useCallback(async () => {
@@ -59,6 +86,16 @@ export function VipOverviewTab({ programme }) {
       toastSuccess(r?.fired ? tr('Reading every VIP video now. Numbers update in a minute or two.') : tr('Every video is up to date.'))
       setTimeout(load, 15000)
     } catch (e) { notice(e.message) } finally { setSyncing(false) }
+  }
+
+  // A video the platform will not state a count for (a Facebook post from a personal profile is the usual one) can be
+  // typed by the team. A later automatic reading that succeeds still wins; a failure leaves the typed number alone.
+  async function typeViews(v) {
+    const raw = await promptText(tr('How many views does it have right now? Look at the video on {p}.', { p: v.platform || '' }), { title: tr('Type the views'), placeholder: '12000', confirmLabel: tr('Save') })
+    if (raw === null) return
+    const n = Number(String(raw).replace(/[\s.,]/g, ''))
+    if (!Number.isFinite(n) || n < 0) { notice(tr('That is not a number.')); return }
+    try { await vipRpc('vip_set_video_views', { p_video: v.id, p_views: n }); toastSuccess(tr('Views saved.')); load() } catch (e) { notice(e.message) }
   }
 
   async function setStatus(v, status, why = null) {
@@ -111,20 +148,25 @@ export function VipOverviewTab({ programme }) {
         <SuggestionsCard programme={programme} onPick={setPickProfile} />
       </div>
 
-      {/* TWO BOARDS WHEN THERE ARE TEAM CREATORS (8 Oct 2026, migration 365): "see the creators and the VIP or team,
-          like the Tryp.com team, separated". Team creators are ranked and counted on their own board. */}
-      {[
-        { team: false, title: tr('The board, live'), list: members.filter((m) => !teamIds.has(m.profile_id)) },
-        { team: true, title: tr('Tryp.com team creators'), list: members.filter((m) => teamIds.has(m.profile_id)) },
-      ].filter((g) => !g.team || g.list.length).map(({ team, title, list }) => (
+      {/* ONE BOARD, A SWITCH (9 Oct 2026). Ethan: "I don't want it stacked ... a toggle for team, just general VIP creators,
+          or everyone combined." It was two boards stacked (8 Oct, migration 365). Now it is one board and the switch picks
+          who is on it; the people are ranked on the view they have chosen, and the numbers above stay the whole programme. */}
+      {(() => {
+        const vipList = members.filter((m) => !teamIds.has(m.profile_id))
+        const teamList = members.filter((m) => teamIds.has(m.profile_id))
+        const list = who === 'team' ? teamList : who === 'vip' ? vipList : members
+        const title = who === 'team' ? tr('Tryp.com team creators') : who === 'all' ? tr('Everyone, live') : tr('The board, live')
+        return (
         // THE BOARD, LIVE, AS A BOARD (1 Oct 2026). Ethan: "with the board live, I want you to improve the UI of that."
-        // It was a seven-column table. Now each VIP is a row with their place, their views as a bar against the
-        // leader's, what they have earned and are on pace for, their target, and a plain "no videos yet" when that is
-        // the story - so the people who need a nudge read as such at a glance.
-        <section key={team ? 'team' : 'vip'}>
-          <div className="mb-3 flex items-center justify-between gap-3">
+        // Each VIP is a row with their place, their views as a bar against the leader's, what they have earned and are on
+        // pace for, their target, and a plain "no videos yet" when that is the story.
+        <section>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>{title}</h2>
-            <span className="text-xs text-smoke">{team ? tr('{n} team creators · {v} views', { n: list.length, v: formatViews(list.reduce((x, m) => x + (Number(m.views) || 0), 0)) }) : tr('{n} VIPs', { n: list.length })}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              {teamList.length > 0 && <WhoSwitch value={who} onChange={setWho} counts={{ vip: vipList.length, team: teamList.length, all: members.length }} />}
+              <span className="text-xs text-smoke">{who === 'vip' ? tr('{n} VIPs', { n: list.length }) : tr('{n} creators · {v} views', { n: list.length, v: formatViews(list.reduce((x, m) => x + (Number(m.views) || 0), 0)) })}</span>
+            </div>
           </div>
           {list.length === 0 ? (
             <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody is a VIP in this programme yet. Add one from Members, or send a sign-up link.')}</p>
@@ -141,6 +183,7 @@ export function VipOverviewTab({ programme }) {
                         <Avatar src={m.photo} name={m.name} size="sm" />
                         <span className="min-w-0">
                           <span className="flex items-center gap-1.5 truncate text-sm font-bold">{m.name}
+                            {teamIds.has(m.profile_id) && who === 'all' && <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Team')}</span>}
                             {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
                             {!m.payment_ready && <span title={tr('No payment details yet')} className="text-amber-600"><Icon name="wallet" className="h-3.5 w-3.5" /></span>}
                           </span>
@@ -168,7 +211,8 @@ export function VipOverviewTab({ programme }) {
             </ol>
           )}
         </section>
-      ))}
+        )
+      })()}
 
       <section>
         <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Videos')}</h2>
@@ -190,7 +234,12 @@ export function VipOverviewTab({ programme }) {
                   <p className="truncate text-sm font-bold text-ink">{v.name}</p>
                   <p className="text-[11px] text-smoke">{v.platform} · {formatViews(v.views_total)} {tr('in all')}{v.posted_at ? ` · ${formatDate(v.posted_at)}` : ''}</p>
                   {v.status === 'disqualified' && v.reason && <p className="text-[11px] text-red-600">{v.reason}</p>}
-                  {v.error && v.status === 'tracking' && <p className="text-[11px] text-amber-700">{tr('Could not be read: {e}', { e: v.error })}</p>}
+                  {v.error && v.status === 'tracking' && (
+                    <div className="rounded-lg bg-amber-50 px-2.5 py-2">
+                      <p className="text-[11px] leading-snug text-amber-800">{readErrorText(v.error, tr)}</p>
+                      <button type="button" onClick={() => typeViews(v)} className="mt-1 text-[11px] font-bold text-brand hover:underline">{tr('Type the views myself')}</button>
+                    </div>
+                  )}
                   <button type="button" onClick={() => (v.status === 'tracking' ? (setReason(''), setDq(v)) : setStatus(v, 'tracking'))} className="mt-auto self-start rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
                     {v.status === 'tracking' ? tr('Stop counting') : tr('Count it again')}
                   </button>
@@ -570,11 +619,31 @@ export function VipMembersTab({ programme }) {
   const [editing, setEditing] = useState(null)
   const [query, setQuery] = useState('')
   const [show, setShow] = useState('active')
+  const [who, setWho] = useState('all') // 9 Oct 2026: VIP creators / the Tryp.com team / everyone, the same switch the board has
   const cur = programme.currency
 
   const [reviews, setReviews] = useState({}) // profile id -> the date their own rate is to be looked at again
   const [staff, setStaff] = useState(null)
   const [teamBusy, setTeamBusy] = useState(null)
+  // EMAILS, ON DEMAND (9 Oct 2026). Ethan: "all the functions that we now need for the VIPs, like under email, to easily
+  // copy all the emails." Read only when somebody presses a copy button, so opening this tab costs nothing extra.
+  const emailsRef = useRef(null)
+  async function addressesFor(list) {
+    if (!emailsRef.current) {
+      const { data, error } = await supabase.rpc('admin_list_emails')
+      if (error) { notice(error.message); return null }
+      emailsRef.current = Object.fromEntries((data || []).map((r) => [r.id, r.email]))
+    }
+    return list.map((m) => emailsRef.current[m.profile_id]).filter(Boolean)
+  }
+  async function copyEmails(list, oneName) {
+    const a = await addressesFor(list)
+    if (!a) return
+    if (!a.length) { notice(tr('No email addresses found.')); return }
+    const ok = await copyToClipboard(emailList(a))
+    if (ok) toastSuccess(oneName ? tr('Copied {n}\'s email.', { n: oneName }) : tr('Copied {n} email addresses.', { n: a.length }))
+    else notice(tr('Could not copy. Try again.'))
+  }
   async function toggleTeam(m) {
     const next = !reviews[m.profile_id]?.is_team
     setTeamBusy(m.profile_id)
@@ -606,7 +675,10 @@ export function VipMembersTab({ programme }) {
 
   const everyone = data?.members || []
   const counts = { active: everyone.filter((m) => m.status === 'active').length, paused: everyone.filter((m) => m.status === 'paused').length, left: everyone.filter((m) => m.status === 'left').length }
-  const members = everyone.filter((m) => (show === 'all' || m.status === show) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
+  const isTeam = (m) => !!reviews[m.profile_id]?.is_team
+  const teamCount = everyone.filter(isTeam).length
+  const members = everyone.filter((m) => (show === 'all' || m.status === show) && (who === 'all' || (who === 'team') === isTeam(m)) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
+  const waiting = data?.waiting || []
   return (
     <div className="space-y-8">
       {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST (4 Oct 2026). Ethan: "the VIP sign-up link, when I click on Members, should
@@ -616,11 +688,15 @@ export function VipMembersTab({ programme }) {
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Members ({n})', { n: everyone.length })}</h2>
-          <button type="button" onClick={() => setAdding(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a VIP')}</button>
+          <div className="flex items-center gap-2">
+            {members.length > 0 && <button type="button" onClick={() => copyEmails(members)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy emails ({n})', { n: members.length })}</button>}
+            <button type="button" onClick={() => setAdding(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a VIP')}</button>
+          </div>
         </div>
-        {everyone.length > 4 && (
+        {(everyone.length > 4 || teamCount > 0) && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <input className="input !w-56 !py-2 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr('Search VIPs')} aria-label={tr('Search VIPs')} />
+            {teamCount > 0 && <WhoSwitch value={who} onChange={setWho} counts={{ vip: everyone.length - teamCount, team: teamCount, all: everyone.length }} />}
             <div className="inline-flex gap-1 rounded-xl bg-cloud p-1 text-xs font-semibold" role="tablist" aria-label={tr('Show')}>
               {[['active', tr('Active')], ['paused', tr('Paused')], ['left', tr('Left')], ['all', tr('All')]].map(([k, label]) => (
                 <button key={k} type="button" role="tab" aria-selected={show === k} onClick={() => setShow(k)} className={cx('rounded-lg px-3 py-1.5 transition-all duration-200', show === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label}{k !== 'all' ? ` ${counts[k]}` : ''}</button>
@@ -631,61 +707,73 @@ export function VipMembersTab({ programme }) {
         {data === null ? <Skeleton className="h-40 w-full rounded-card" /> : members.length === 0 ? (
           <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{everyone.length ? tr('Nobody matches.') : tr('No VIPs yet. Add a creator who is already in the community, or send a sign-up link to somebody new.')}</p>
         ) : (
-          <div className="space-y-7">
-            {[
-              { key: 'vip', title: tr('VIP creators'), list: members.filter((m) => !reviews[m.profile_id]?.is_team) },
-              { key: 'team', title: tr('Tryp.com team creators'), hint: tr('Official Tryp.com creators. Their views are counted here, not with the VIP creators. No admin access.'), list: members.filter((m) => reviews[m.profile_id]?.is_team) },
-            ].filter((g) => g.key === 'vip' || g.list.length).map(({ key, title, hint, list }) => (
-              <div key={key}>
-                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 px-1">
-                  <h3 className="text-[13px] font-bold text-ink">{title} <span className="font-semibold text-smoke">({list.length})</span></h3>
-                  <span className="text-xs font-semibold tabular-nums text-smoke">{tr('{v} views in all', { v: nf(list.reduce((n, m) => n + (Number(m.lifetime_views) || 0), 0)) })}</span>
-                  {hint && <p className="w-full text-xs text-smoke">{hint}</p>}
-                </div>
-                {list.length === 0 ? (
-                  <p className="rounded-card border border-dashed border-gray-200 px-6 py-6 text-center text-sm text-smoke">{tr('Nobody here right now.')}</p>
-                ) : (
-                  <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-                    {list.map((m, i) => (
-                      <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-                        <div className="flex items-center gap-3.5">
-                          <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
-                          <div className="min-w-0 flex-1">
-                            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                              <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
-                              {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
-                            </p>
-                            <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
-                          </div>
-                          <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                            <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
-                            {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
-                            {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
-                            {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
-                            {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
-                            {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id} aria-pressed={!!reviews[m.profile_id]?.is_team}
-                              title={reviews[m.profile_id]?.is_team ? tr('Move back to the VIP creators') : tr('An official Tryp.com creator. No admin access.')}
-                              className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hoverable:hover:-translate-y-px disabled:opacity-50', reviews[m.profile_id]?.is_team ? 'bg-ink text-white' : 'border border-gray-200 text-smoke hoverable:hover:text-ink')}>
-                              <Icon name={reviews[m.profile_id]?.is_team ? 'check' : 'users'} className="h-3.5 w-3.5" />{reviews[m.profile_id]?.is_team ? tr('Tryp.com team') : tr('Mark as Tryp.com team')}
-                            </button>
-                            <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
+          <div>
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 px-1">
+              <h3 className="text-[13px] font-bold text-ink">{who === 'team' ? tr('Tryp.com team creators') : who === 'vip' ? tr('VIP creators') : tr('Everyone')} <span className="font-semibold text-smoke">({members.length})</span></h3>
+              <span className="text-xs font-semibold tabular-nums text-smoke">{tr('{v} views in all', { v: nf(members.reduce((n, m) => n + (Number(m.lifetime_views) || 0), 0)) })}</span>
+              {who === 'team' && <p className="w-full text-xs text-smoke">{tr('Official Tryp.com creators. Their views are counted here, not with the VIP creators. No admin access.')}</p>}
+            </div>
+              <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+                {members.map((m, i) => (
+                  <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                    <div className="flex items-center gap-3.5">
+                      <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
+                          {isTeam(m) && <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Tryp.com team')}</span>}
+                          {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                        </p>
+                        <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
+                      </div>
+                      <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                        <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
+                        {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
+                        {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
+                        {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
+                        {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
+                        {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button type="button" onClick={() => copyEmails([m], m.name)} title={tr('Copy their email')} aria-label={tr('Copy their email')} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="envelope" className="h-3.5 w-3.5" /></button>
+                        <Link to={`/profile/${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="user" className="h-3.5 w-3.5" />{tr('Profile')}</Link>
+                        <Link to={`/vip?mode=as&who=${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="star" className="h-3.5 w-3.5" />{tr('VIP page')}</Link>
+                        <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id} aria-pressed={!!reviews[m.profile_id]?.is_team}
+                          title={reviews[m.profile_id]?.is_team ? tr('Move back to the VIP creators') : tr('An official Tryp.com creator. No admin access.')}
+                          className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hoverable:hover:-translate-y-px disabled:opacity-50', reviews[m.profile_id]?.is_team ? 'bg-ink text-white' : 'border border-gray-200 text-smoke hoverable:hover:text-ink')}>
+                          <Icon name={reviews[m.profile_id]?.is_team ? 'check' : 'users'} className="h-3.5 w-3.5" />{reviews[m.profile_id]?.is_team ? tr('Tryp.com team') : tr('Mark as Tryp.com team')}
+                        </button>
+                        <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
           </div>
         )}
       </section>
+
+      {/* SIGNED UP BUT NOT FINISHED (9 Oct 2026). A VIP link puts somebody in the programme the moment they sign up, before
+          their profile is finished. They are not a VIP creator yet (no lists, no counts, no activity), but the team can see
+          who is stuck and chase them. */}
+      {waiting.length > 0 && (
+        <section>
+          <h2 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Signed up, not in yet ({n})', { n: waiting.length })}</h2>
+          <p className="mb-3 text-xs text-smoke">{tr('They join the VIP list on their own once their profile is finished and approved.')}</p>
+          <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-dashed border-gray-200 bg-white">
+            {waiting.map((w) => (
+              <li key={w.profile_id} className="flex items-center gap-3 px-4 py-3">
+                <Avatar src={w.photo} name={w.name} size="sm" />
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{w.name}</span><span className="block text-xs text-smoke">{tr('Joined {d}', { d: formatDate(w.joined_on) })}</span></span>
+                <button type="button" onClick={() => copyEmails([w], w.name)} className="btn-secondary !py-1.5 text-xs"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy email')}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* THE TEAM WITH ACCESS: who runs this VIP community. Added and removed on Setup > Access (owner). */}
       <section>

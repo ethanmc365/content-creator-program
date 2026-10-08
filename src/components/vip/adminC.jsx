@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { lazyRoute } from '../../lib/lazyRoute'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal, Skeleton } from '../ui'
@@ -80,22 +80,54 @@ export function SuggestionsCard({ programme, onPick }) {
 /** What has happened: moves, rate changes, targets. One creator, or the whole programme. */
 export function ActivityFeed({ programme, profileId = null, limit = 12, title, bare = false }) {
   const tr = useT()
-  const { data, missing } = useOptionalRpc('vip_timeline', { p_programme: programme.id, p_profile: profileId, p_limit: limit }, `${programme.id}:${profileId}:${limit}`)
+  // SHOW MORE, A PAGE AT A TIME (9 Oct 2026). Ethan: "for the recent activity at the bottom of VIP tools, try to improve it." It was
+  // the last dozen entries and no way to see anything older, one flat list with a dot each. Now it is grouped by day, shows who it
+  // was about, and a button asks for older ones (each ask is one more small read, only when somebody presses it).
+  const [more, setMore] = useState(0)
+  const n = limit + more * 20
+  const { data, missing } = useOptionalRpc('vip_timeline', { p_programme: programme.id, p_profile: profileId, p_limit: n }, `${programme.id}:${profileId}:${n}`)
   if (missing) return null
+  const days = []
+  for (const e of data || []) {
+    const d = new Date(e.at)
+    const key = Number.isNaN(d.getTime()) ? String(e.at).slice(0, 10) : d.toDateString()
+    const last = days[days.length - 1]
+    if (last && last.key === key) last.rows.push(e); else days.push({ key, at: e.at, rows: [e] })
+  }
+  const dayLabel = (at) => {
+    const d = new Date(at)
+    const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000)
+    return diff === 0 ? tr('Today') : diff === 1 ? tr('Yesterday') : formatDate(at)
+  }
   const body = data === undefined ? <Skeleton className="h-24 w-full rounded-xl" /> : data.length === 0
     ? <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-smoke">{tr('Nothing has happened yet.')}</p>
     : (
-      <ol className="relative space-y-3 border-l border-gray-100 pl-5">
-        {data.map((e, i) => (
-          <li key={e.id} className="relative animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
-            <span className="absolute -left-[1.72rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-tint text-brand ring-4 ring-white"><Icon name={EVENT_ICON[e.kind] || 'clock'} className="h-3 w-3" /></span>
-            <p className="text-sm text-ink">
-              {!profileId && e.name && <span className="font-semibold">{e.name} · </span>}{describeEvent(e, tr, programme.currency)}
-            </p>
-            <p className="text-xs text-smoke">{formatDate(e.at)}{e.actor ? ` · ${tr('by {n}', { n: e.actor })}` : ''}</p>
-          </li>
+      <div className="space-y-4">
+        {days.map((g, gi) => (
+          <div key={g.key}>
+            <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">{dayLabel(g.at)}</p>
+            <ol className="relative space-y-3 border-l border-gray-100 pl-5">
+              {g.rows.map((e, i) => (
+                <li key={e.id} className="relative animate-rise" style={{ animationDelay: `${Math.min(gi * 3 + i, 10) * 35}ms` }}>
+                  <span className="absolute -left-[1.72rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-tint text-brand ring-4 ring-white"><Icon name={EVENT_ICON[e.kind] || 'clock'} className="h-3 w-3" /></span>
+                  <div className="flex items-start gap-2.5">
+                    {!profileId && e.name && (e.profile_id
+                      ? <Link to={`/profile/${e.profile_id}`} className="shrink-0"><Avatar src={e.photo} name={e.name} size="xs" /></Link>
+                      : <Avatar src={e.photo} name={e.name} size="xs" />)}
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink">{!profileId && e.name && <span className="font-semibold">{e.name} · </span>}{describeEvent(e, tr, programme.currency)}</p>
+                      <p className="text-xs text-smoke">{new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{e.actor ? ` · ${tr('by {n}', { n: e.actor })}` : ''}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         ))}
-      </ol>
+        {data.length >= n && (
+          <button type="button" onClick={() => setMore((m) => m + 1)} className="btn-secondary w-full justify-center !py-2 text-xs"><Icon name="clock" className="h-3.5 w-3.5" />{tr('Show older')}</button>
+        )}
+      </div>
     )
   if (bare) return body
   return (

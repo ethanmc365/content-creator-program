@@ -14,7 +14,7 @@ import { confirm, notice } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
-import HelpTeam from '../components/HelpTeam'
+import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
 
 // QUESTIONS AND ANSWERS (7 Oct 2026).
 //
@@ -80,7 +80,7 @@ export default function Faq() {
   const openCount = (inbox || []).filter((q) => q.status === 'open').length
 
   return (
-    <div className="page max-w-4xl">
+    <div className="page max-w-6xl">
       <FaqHero
         isAdmin={isAdmin}
         editing={editing}
@@ -99,18 +99,37 @@ export default function Faq() {
         />
       </div>
 
-      {tab === 'faq' && (
-        <AnswersTab
-          faqs={faqs}
-          community={community}
-          editing={editing}
-          onEditRow={setEditRow}
-          onChanged={loadFaqs}
-          onAsked={() => { loadMine(); loadInbox() }}
-        />
-      )}
-      {tab === 'mine' && <MineTab rows={mine} onChanged={loadMine} onAsked={() => { loadMine(); loadInbox() }} />}
-      {tab === 'questions' && isAdmin && <InboxTab rows={inbox} faqs={faqs || []} onChanged={() => { loadInbox(); loadFaqs() }} />}
+      {/* TWO COLUMNS (9 Oct 2026). Ethan: "the small right column and the bigger left column. Move all those frequently asked
+          questions to the big left column, and then in the right column ... Ask a question at the very top right, and the
+          team things below it ... Ask the community and Help us improve as buttons." On a phone the column drops under the
+          answers, with a one-tap jump to it so asking is never a long scroll away. */}
+      <div className={cx('grid items-start gap-6', tab !== 'questions' && 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
+        <div className="min-w-0">
+          {tab !== 'questions' && (
+            <a href="#help-side" className="mb-4 flex items-center justify-center gap-2 rounded-full border border-brand/25 bg-brand-tint px-4 py-2.5 text-sm font-bold text-brand transition-colors lg:hidden">
+              <Icon name="handRaised" className="h-4 w-4" />{tr('Ask a question or message the team')}
+            </a>
+          )}
+          {tab === 'faq' && (
+            <AnswersTab
+              faqs={faqs}
+              community={community}
+              editing={editing}
+              onEditRow={setEditRow}
+              onChanged={loadFaqs}
+            />
+          )}
+          {tab === 'mine' && <MineTab rows={mine} onChanged={loadMine} />}
+          {tab === 'questions' && isAdmin && <InboxTab rows={inbox} faqs={faqs || []} onChanged={() => { loadInbox(); loadFaqs() }} />}
+        </div>
+        {tab !== 'questions' && (
+          <aside id="help-side" className="min-w-0 scroll-mt-24 space-y-4">
+            <AskCard compact onAsked={() => { loadMine(); loadInbox() }} />
+            <HelpTeam />
+            <HelpOpenDoors />
+          </aside>
+        )}
+      </div>
 
       {editRow && (
         <FaqEditor
@@ -141,7 +160,7 @@ function FaqHero({ isAdmin, editing, onEdit }) {
         <div className="max-w-xl">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="lifebuoy" className="h-4 w-4" />{tr('Questions and Answers')}</p>
           <h1 className="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px]">{tr('Get Help')}</h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Message the team or ask it below.')}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask a question or message the team on the right.')}</p>
         </div>
         {isAdmin && (
           <button type="button" onClick={onEdit} aria-pressed={editing}
@@ -155,7 +174,7 @@ function FaqHero({ isAdmin, editing, onEdit }) {
 }
 
 // ------------------------------------------------------------------ answers --
-function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked }) {
+function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
   const tr = useT()
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
@@ -195,7 +214,7 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked })
       {faqs === undefined ? (
         <div className="space-y-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>
       ) : groups.length === 0 && comm.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">{needle ? tr('Nothing matches that. Ask it below.') : tr('No questions yet.')}</p>
+        <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">{needle ? tr('Nothing matches that. Ask it on the right.') : tr('No questions yet.')}</p>
       ) : (
         groups.map((g, gi) => (
           <section key={g.c} className="animate-rise" style={{ animationDelay: `${gi * 60}ms` }}>
@@ -233,38 +252,7 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged, onAsked })
         </section>
       )}
 
-      <div className="space-y-3 pt-2">
-        <Fold icon="chat" title={tr('Message the team')} hint={tr('Rather ask in private? DM one of us or email the lead.')}>
-          <HelpTeam />
-        </Fold>
-        <Fold icon="handRaised" title={tr('Ask a question')} hint={tr('The team replies here and you get a notification.')}>
-          <AskCard bare onAsked={onAsked} />
-        </Fold>
-      </div>
     </div>
-  )
-}
-
-// A section that opens on a tap: the same grid-rows animation as an answer, so the page moves one way everywhere.
-function Fold({ icon, title, hint, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <section className={cx('animate-rise overflow-hidden rounded-[22px] border bg-white shadow-card transition-all duration-300', open ? 'border-brand/30 shadow-lift' : 'border-gray-100')}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        className="group flex w-full items-center gap-3.5 px-5 py-4 text-left sm:px-6 sm:py-5">
-        <Icon name={icon} className="h-6 w-6 shrink-0 text-brand transition-transform duration-300 group-hover:scale-110" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[16px] font-bold leading-snug text-ink">{title}</span>
-          <span className="block text-[13px] leading-snug text-smoke">{hint}</span>
-        </span>
-        <Icon name="chevronDown" className={cx('h-5 w-5 shrink-0 text-gray-400 transition-transform duration-300', open && 'rotate-180 text-brand')} />
-      </button>
-      <div className={cx('grid transition-[grid-template-rows] duration-300 ease-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-gray-100 px-4 pb-5 pt-4 sm:px-6">{children}</div>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -344,7 +332,7 @@ function AskCard({ onAsked, compact = false, bare = false }) {
 }
 
 // --------------------------------------------------------------------- mine --
-function MineTab({ rows, onChanged, onAsked }) {
+function MineTab({ rows, onChanged }) {
   const tr = useT()
   const [editId, setEditId] = useState(null)
   const [text, setText] = useState('')
@@ -398,7 +386,6 @@ function MineTab({ rows, onChanged, onAsked }) {
           ))}
         </ul>
       )}
-      <AskCard compact onAsked={onAsked} />
     </div>
   )
 }

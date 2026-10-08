@@ -3,6 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDate } from '../../lib/utils'
+import { copyToClipboard, emailList } from '../../lib/clipboard'
+import { toastSuccess } from '../../lib/toast'
+import { notice } from '../../lib/confirm'
 import { nf } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
@@ -27,14 +30,27 @@ export default function VipCreatorsView({ creators, onOpen }) {
 
   const byId = useMemo(() => new Map((creators || []).map((c) => [c.id, c])), [creators])
   const groups = useMemo(() => (programmes || []).map((p) => {
-    const mine = (rows || []).filter((r) => r.programme_id === p.id)
+    // ONLY PEOPLE THE ROSTER KNOWS (9 Oct 2026): the test VIP account and anybody who has not finished their profile are
+    // not on the roster, so they are not in the counts either (the list hid them but the numbers still included them).
+    const mine = (rows || []).filter((r) => r.programme_id === p.id && byId.has(r.profile_id))
     return {
       ...p,
       active: mine.filter((r) => r.status === 'active'),
       paused: mine.filter((r) => r.status === 'paused').length,
       left: mine.filter((r) => r.status === 'left').length,
     }
-  }), [programmes, rows])
+  }), [programmes, rows, byId])
+
+  // EMAILS ON DEMAND (9 Oct 2026): "easily copy all the emails of the VIPs". One read when a button is pressed, never on load.
+  async function copyEmails(ids) {
+    const { data, error } = await supabase.rpc('admin_list_emails')
+    if (error) { notice(error.message); return }
+    const byUser = Object.fromEntries((data || []).map((r) => [r.id, r.email]))
+    const list = ids.map((id) => byUser[id]).filter(Boolean)
+    if (!list.length) { notice(tr('No email addresses found.')); return }
+    if (await copyToClipboard(emailList(list))) toastSuccess(tr('Copied {n} email addresses.', { n: new Set(list).size }))
+    else notice(tr('Could not copy. Try again.'))
+  }
 
   if (rows === null) return <div className="space-y-3"><Skeleton className="h-28 w-full rounded-card" /><Skeleton className="h-52 w-full rounded-card" /></div>
   const total = groups.reduce((n, g) => n + g.active.length, 0)
@@ -47,6 +63,7 @@ export default function VipCreatorsView({ creators, onOpen }) {
         <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('VIP creators in total')}</p>
         <p className="relative text-5xl font-bold tabular-nums leading-tight">{nf(total)}</p>
         <p className="relative text-sm text-white/90">{tr('across {n} markets', { n: groups.length })}</p>
+        <button type="button" onClick={() => copyEmails(groups.flatMap((g) => g.active.map((r) => r.profile_id)))} className="relative mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur transition-colors hoverable:hover:bg-white/30"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy emails ({n})', { n: total })}</button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -54,7 +71,10 @@ export default function VipCreatorsView({ creators, onOpen }) {
           <section key={g.id} className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-brand-tint to-white px-4 py-3">
               <p className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="star" className="h-4 w-4 text-brand" />{g.name}</p>
-              <p className="text-2xl font-bold tabular-nums text-brand">{nf(g.active.length)}</p>
+              <div className="flex items-center gap-2">
+                {g.active.length > 0 && <button type="button" onClick={() => copyEmails(g.active.map((r) => r.profile_id))} aria-label={tr('Copy emails ({n})', { n: g.active.length })} title={tr('Copy emails ({n})', { n: g.active.length })} className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-smoke shadow-sm transition-colors hoverable:hover:text-brand"><Icon name="envelope" className="h-4 w-4" /></button>}
+                <p className="text-2xl font-bold tabular-nums text-brand">{nf(g.active.length)}</p>
+              </div>
             </div>
             <p className="px-4 pt-2.5 text-[11px] text-smoke">{[g.paused ? tr('{n} paused', { n: g.paused }) : null, g.left ? tr('{n} moved back', { n: g.left }) : null].filter(Boolean).join(' · ') || tr('Everybody is active')}</p>
             <ul className="divide-y divide-gray-50 px-2 py-2">

@@ -27,7 +27,7 @@ export const VIP_SECTIONS = [
   { key: 'board', icon: 'trophy', label: 'Leaderboard', hint: 'This month' },
   { key: 'perks', icon: 'plane', label: 'Perks and trips', hint: 'Unlock as you grow' },
   { key: 'earn', icon: 'trendUp', label: 'Earn more', hint: 'Bonuses running now' },
-  { key: 'ideas', icon: 'bulb', label: 'Video ideas', hint: 'Hooks from 50k+ videos' },
+  { key: 'ideas', icon: 'bulb', label: 'Video ideas', hint: 'Hooks from 100k+ videos' },
   { key: 'library', icon: 'book', label: 'Library', hint: 'Hooks and guides' },
   { key: 'map', icon: 'globe', label: 'Map', hint: 'Every VIP creator' },
   { key: 'recap', icon: 'sparkles', label: 'My recap', hint: 'Your month as a story' },
@@ -37,7 +37,7 @@ export const VIP_SECTIONS = [
 export function VipSideNav({ value, onChange, hidden, links }) {
   const tr = useT()
   return (
-    <nav aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
+    <nav data-vip-anchor aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
       <ul className="space-y-0.5">
         {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
           const on = s.key === value
@@ -91,7 +91,7 @@ export function VipSideNav({ value, onChange, hidden, links }) {
 export function VipChipNav({ value, onChange, hidden, links }) {
   const tr = useT()
   return (
-    <nav aria-label={tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
+    <nav data-vip-anchor aria-label={tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
       {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
         const on = s.key === value
         return (

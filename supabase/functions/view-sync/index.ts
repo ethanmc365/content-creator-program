@@ -175,6 +175,11 @@ async function getText(url: string, headers: Record<string, string> = {}, redire
 
 type Resolved = {
   platform: Platform | null
+  // THE WORDS ON THE VIDEO (9 Oct 2026). Ethan: "you have pulled the hooks from these videos because they're visibly on
+  // the screen, but they're in a different language - you could actually pull the text from it." TikTok keeps every text
+  // sticker a creator typed in its editor as `stickerText`, in the same embed page that carries the play count, so the
+  // hook is free on TikTok and needs no OCR. Other platforms burn the text into pixels and give nothing.
+  screenText?: string | null
   videoId: string | null
   canonicalUrl: string | null
   views: number | null
@@ -295,6 +300,22 @@ export function tiktokMeta(html: string): Partial<Resolved> {
   }
 }
 
+/** The text stickers a creator put on a TikTok, in order, one per line. Null when there are none. */
+export function tiktokScreenText(html: string): string | null {
+  const out: string[] = []
+  const re = /"stickerText":\[((?:"(?:[^"\\]|\\.)*"\s*,?\s*)+)\]/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html))) {
+    try {
+      for (const t of JSON.parse(`[${m[1]}]`) as string[]) {
+        const clean = String(t).replace(/\s+/g, ' ').trim()
+        if (clean && !out.includes(clean)) out.push(clean)
+      }
+    } catch { /* a malformed blob is no text, never a failed read */ }
+  }
+  return out.length ? out.join('\n').slice(0, 600) : null
+}
+
 async function tiktokViews(url: string, knownId: string | null, meta = false): Promise<Resolved> {
   const base = { platform: 'TikTok' as const, approx: false }
   let canonical: string | null = url
@@ -340,7 +361,7 @@ async function tiktokViews(url: string, knownId: string | null, meta = false): P
         // runs it hundreds of times an hour for a result nothing reads. The
         // rule is the same one the other two platforms follow: the sweep does
         // exactly the work a view count needs and not one pass more.
-        return { ...base, videoId: id, canonicalUrl: canonical, views, error: null, ...(meta ? tiktokMeta(html) : {}) }
+        return { ...base, videoId: id, canonicalUrl: canonical, views, error: null, screenText: tiktokScreenText(html), ...(meta ? tiktokMeta(html) : {}) }
       }
       // A REAL CHECK PAGE IS SMALL. Every full TikTok page mentions
       // "captcha" in its script bundle names, so the word alone proves nothing.
@@ -1023,6 +1044,9 @@ type Row = {
   posted_at?: string | null
   // A VIP video (table vip_videos), not a challenge entry. Everything else about reading it is the same.
   vip?: boolean
+  // 'manual' = the team typed the number because the platform will not state one (9 Oct 2026).
+  views_source?: string | null
+  screen_text?: string | null
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -1089,8 +1113,10 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
 
     const table = row.vip ? 'vip_videos' : 'submissions'
     if (r.views == null) {
+      // A number the team typed by hand stands when the platform still will not answer: no error flag to chase.
+      const typed = row.vip && row.views_source === 'manual'
       await supabase.from(table).update({
-        views_sync_error: r.error,
+        views_sync_error: typed ? null : r.error,
         views_synced_at: now,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
       }).eq('id', row.id)
@@ -1115,6 +1141,8 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
         views_sync_error: null,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
         ...(wantDate && r.postedAt ? { posted_at: r.postedAt } : {}),
+        // Read once: the words on a video do not change, and a second write would only be more work for the same row.
+        ...(!row.screen_text && r.screenText ? { screen_text: r.screenText } : {}),
       }
       // A WRITE THAT FAILS IS RETRIED, NOT REPORTED AS AN UNREADABLE VIDEO.
       // The view WAS read; what failed was saving it, and on a points challenge
@@ -1185,7 +1213,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text'
 
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first
@@ -1246,7 +1274,7 @@ async function countStale(challengeId: string | undefined, intervalHours: number
 // on the same machinery but live in `vip_videos` (see migration 294) with every reading kept in
 // `vip_view_readings`. A request with `vip_only` reads only those, on its own interval, and never
 // touches a challenge entry.
-const VIP_COLS = 'id, video_url, platform, logged_views, platform_video_id, profile_id, posted_at'
+const VIP_COLS = 'id, video_url, platform, logged_views, platform_video_id, profile_id, posted_at, views_source, screen_text'
 
 async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?: string): Promise<Row[]> {
   let q = supabase.from('vip_videos').select(VIP_COLS).eq('status', 'tracking')

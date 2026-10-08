@@ -4,6 +4,7 @@ import { PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import AgreementSheet from '../components/agreements/AgreementSheet'
 import GuardianShare, { useGuardianLinks } from '../components/agreements/GuardianShare'
+import { GUARDIAN_CONSENT_ON } from '../lib/guardianConsent'
 import { SignatureImage } from '../components/agreements/SignaturePad'
 import { dateTag, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -49,7 +50,7 @@ export default function Agreements() {
     <div className="page max-w-3xl">
       <PageHeader back={{ to: '/settings', label: tr('Settings') }} title={tr('Agreements')} subtitle={tr('The terms you accepted and the agreements you signed.')} />
       {/* Under 18: the link for a parent or guardian who has not confirmed yet, and a quiet tick once they have. */}
-      {(guardianLinks || []).length > 0 && (
+      {GUARDIAN_CONSENT_ON && (guardianLinks || []).length > 0 && (
         <div className="mb-6 space-y-3">{guardianLinks.map((g) => <GuardianShare key={g.acceptance_id} row={g} />)}</div>
       )}
 

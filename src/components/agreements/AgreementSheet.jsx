@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import GuardianShare from './GuardianShare'
+import { GUARDIAN_CONSENT_ON } from '../../lib/guardianConsent'
 import Icon from '../Icon'
 import { Spinner } from '../ui'
 import SignaturePad, { SignatureImage } from './SignaturePad'
@@ -68,7 +69,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
   }, [preview, previewMinor, readOnly])
 
   const vip = doc?.audience === 'vip'
-  const needsGuardian = !!ctx?.minor && !vip
+  const needsGuardian = (GUARDIAN_CONSENT_ON || preview) && !!ctx?.minor && !vip
   const guardianOk = !needsGuardian || (guardian.name.trim().length >= 3 && EMAIL_RE.test(guardian.email.trim()))
   const ready = ticked && (!doc?.requires_signature || !!sig) && guardianOk
   const firstName = (ctx?.name || profile?.name || '').trim().split(/\s+/)[0]
@@ -131,6 +132,9 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
             <div className="min-h-0 overflow-hidden">
               {firstName && !preview && !readOnly && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold"><Icon name="user" className="h-3.5 w-3.5" />{tr('Prepared for {n}', { n: ctx?.name || profile?.name })}</p>
+              )}
+              {preview && previewMinor && !GUARDIAN_CONSENT_ON && (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold"><Icon name="eye" className="h-3.5 w-3.5" />{tr('Preview only: the parent step is switched off for real creators for now')}</p>
               )}
               <p className="mt-2 text-sm leading-relaxed text-white/90">{updated && doc.change_note ? doc.change_note : doc.summary}</p>
             </div>

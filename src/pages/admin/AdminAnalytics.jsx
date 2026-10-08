@@ -29,6 +29,7 @@ import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
 import VipAnalytics from './analytics/VipAnalytics'
+import ViewsReport from './analytics/ViewsReport'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
 import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, periodHeadline, periodRange } from '../../lib/analyticsPeriod'
@@ -54,6 +55,8 @@ import { FILL } from '../../components/charts/chartTheme'
 // label, and the longer name was the widest thing on the strip.
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT (9 Oct 2026). See analytics/ViewsReport.
+  { key: 'views', label: 'Weekly views' },
   { key: 'programme', label: 'Challenges' },
   // MARKET AGAINST MARKET, THIRD. It reads the same datasets the Challenges tab
   // does and answers the question straight after it - "and how does that split
@@ -846,6 +849,7 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'views') return shell(<ViewsReport />, { filters: false })
   if (tab === 'vip') return shell(<VipAnalytics />, { filters: false })
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)

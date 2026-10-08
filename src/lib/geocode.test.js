@@ -31,3 +31,25 @@ describe('suggestCity (8 Oct 2026: "Melbournr" and "Canguu" were missing from th
     expect(await suggestCity('Canguu', '')).toEqual({ city: 'Canggu', country: 'Indonesia' })
   })
 })
+
+import { tidyCountry, tidyPlace, plausibleCity } from './geocode'
+describe('tidying what people type (9 Oct 2026)', () => {
+  it('re-cases an all-lower town and leaves a deliberate mixed case alone', () => {
+    expect(tidyPlace('palma de mallorca')).toBe('Palma de Mallorca')
+    expect(tidyPlace('farmington, minnesota')).toBe('Farmington, Minnesota')
+    expect(tidyPlace('  alicante ')).toBe('Alicante')
+    expect(tidyPlace('São Paulo')).toBe('São Paulo')
+    expect(tidyPlace('')).toBe('')
+  })
+  it('turns every spelling of a country into the platform one', () => {
+    for (const t of ['Uk', 'UK', 'uk ', 'Scotland', 'england', 'United Kingdom']) expect(tidyCountry(t)).toBe('United Kingdom')
+    for (const t of ['US', 'usa', 'U.S.', 'United States ']) expect(tidyCountry(t)).toBe('United States')
+    expect(tidyCountry('Ireland ')).toBe('Ireland')
+    expect(tidyCountry('narnia')).toBe('Narnia')
+  })
+  it('does not ask a geocoder about a dash, a postcode or two letters', () => {
+    for (const t of ['-', '28821', 'ab', '', null]) expect(plausibleCity(t)).toBe(false)
+    expect(plausibleCity('Cluj-Napoca')).toBe(true)
+    expect(plausibleCity('Șoldanu')).toBe(true)
+  })
+})

@@ -5,7 +5,7 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 're
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { useSearchParams } from 'react-router-dom'
 import { loadMapFeatures, loadMapCentroids } from '../lib/mapCountries'
-import { geocodeCity } from '../lib/geocode'
+import { geocodeCity, plausibleCity } from '../lib/geocode'
 import { cx, formatDate } from '../lib/utils'
 import { thumbUrl } from '../lib/avatarUrl'
 import { useIsDark } from '../lib/theme'
@@ -1096,7 +1096,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     // A miss is remembered as `null` (checked with `in`) so a town nothing can
     // resolve is asked once, not again every time another town resolves.
     const missing = creators.filter(
-      (c) => c.city_lat == null && !(c.id in extraCoords) && (c.city || c.country)
+      (c) => c.city_lat == null && !(c.id in extraCoords) && (plausibleCity(c.city) || (!c.city?.trim() && c.country))
     )
     if (missing.length === 0) return
     // ONE WRITE PER BEAT, NOT ONE PER LOOKUP (28 Sep 2026). Each answer used to

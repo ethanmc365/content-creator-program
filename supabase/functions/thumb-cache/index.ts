@@ -523,13 +523,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
-  const [{ data: sub }, { data: tracked }] = await Promise.all([
+  // VIP videos too (9 Oct 2026): a VIP's video on the Video Ideas page had no cover because this allow-list stopped at
+  // `submissions` and `tracked_videos`, so the card fell back to the brand face.
+  const [{ data: sub }, { data: tracked }, { data: vip }] = await Promise.all([
     admin.from('submissions').select('id, thumbnail_url').eq('video_url', videoUrl).limit(1).maybeSingle(),
     admin.from('tracked_videos').select('id, thumbnail_url').eq('video_url', videoUrl).limit(1).maybeSingle(),
+    admin.from('vip_videos').select('id, thumbnail_url').eq('video_url', videoUrl).limit(1).maybeSingle(),
   ])
-  if (!sub && !tracked) return json(req, { error: 'unknown video' }, 404)
+  if (!sub && !tracked && !vip) return json(req, { error: 'unknown video' }, 404)
 
-  const stored = [sub?.thumbnail_url, tracked?.thumbnail_url]
+  const stored = [sub?.thumbnail_url, tracked?.thumbnail_url, vip?.thumbnail_url]
     .find((u) => typeof u === 'string' && u.startsWith(`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/`))
   if (stored && body.force !== true) {
     await writeBack(admin, videoUrl, stored)
@@ -590,5 +593,6 @@ async function writeBack(admin: any, videoUrl: string, url: string) {
   await Promise.all([
     admin.from('submissions').update({ thumbnail_url: url }).eq('video_url', videoUrl),
     admin.from('tracked_videos').update({ thumbnail_url: url }).eq('video_url', videoUrl),
+    admin.from('vip_videos').update({ thumbnail_url: url }).eq('video_url', videoUrl),
   ])
 }

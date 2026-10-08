@@ -14,7 +14,7 @@ import AutoTextarea from '../components/AutoTextarea'
 import SubmittedCard from '../components/SubmittedCard'
 import TrypPlane from '../components/network/TrypPlane'
 import SocialMark, { brandForUrl, BRAND_COLOR } from '../components/SocialMark'
-import { geocodeCity } from '../lib/geocode'
+import { geocodeCity, tidyPlace } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob, MIN_AGE } from '../lib/utils'
 import { notice } from '../lib/confirm'
@@ -917,6 +917,7 @@ export default function Onboarding() {
                   <input
                     id="city" type="text" className="input" value={draft.city}
                     onChange={(e) => set({ city: e.target.value })}
+                    onBlur={() => draft.city !== tidyPlace(draft.city) && set({ city: tidyPlace(draft.city) })}
                     placeholder={townHint || tr('Your town or city')}
                   />
                   <CitySuggestion city={draft.city} country={draft.country} onUse={(s) => set({ city: s.city })} />

@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { WhoSwitch } from './adminA'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Skeleton, Spinner } from '../ui'
@@ -27,6 +30,14 @@ export function VipPreviewTab({ programme }) {
   const [people, setPeople] = useState(undefined)
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
+  const [who, setWho] = useState('all') // 9 Oct 2026: VIP creators / the Tryp.com team / everyone, the same switch as the board
+  const [teamIds, setTeamIds] = useState(() => new Set())
+  useEffect(() => {
+    let alive = true
+    supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true)
+      .then(({ data }) => { if (alive) setTeamIds(new Set((data || []).map((x) => x.profile_id))) })
+    return () => { alive = false }
+  }, [programme.id])
 
   useEffect(() => {
     let alive = true
@@ -49,7 +60,7 @@ export function VipPreviewTab({ programme }) {
   // FIND THE RIGHT CREATOR (3 Oct 2026). Ethan: "for that open one VIP page, we can easily like search through and find
   // the right creator." A search over the names, test accounts last.
   const term = q.trim().toLowerCase()
-  const real = (people || []).filter((p) => !term || String(p.name || '').toLowerCase().includes(term))
+  const real = (people || []).filter((p) => (who === 'all' || (who === 'team') === teamIds.has(p.id)) && (!term || String(p.name || '').toLowerCase().includes(term)))
     .sort((a, b) => Number(!!a.test) - Number(!!b.test) || String(a.name).localeCompare(String(b.name)))
   return (
     <div className="space-y-5">
@@ -73,6 +84,7 @@ export function VipPreviewTab({ programme }) {
             <h2 className="text-[15px] font-bold text-ink">{tr('Open one VIP\'s page')}</h2>
             <p className="mt-0.5 text-sm text-smoke">{tr('Their VIP page in {m}, read only, with their own numbers, videos and payouts.', { m: programme.name })}</p>
           </div>
+          {teamIds.size > 0 && <WhoSwitch value={who} onChange={setWho} counts={{ vip: (people || []).filter((p) => !teamIds.has(p.id)).length, team: (people || []).filter((p) => teamIds.has(p.id)).length, all: (people || []).length }} />}
           {(people || []).length > 0 && (
             <label className="relative block w-full sm:w-64">
               <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -83,8 +95,8 @@ export function VipPreviewTab({ programme }) {
         {people === undefined ? <Skeleton className="h-24 w-full rounded-xl" /> : (
           <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {real.map((p, i) => (
-              <li key={p.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 9) * 35}ms` }}>
-                <button type="button" onClick={() => open(p.id)} className="group flex w-full items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-card">
+              <li key={p.id} className="relative animate-rise" style={{ animationDelay: `${Math.min(i, 9) * 35}ms` }}>
+                <button type="button" onClick={() => open(p.id)} className="group flex w-full items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 pr-11 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-card">
                   <Avatar src={p.photo} name={p.name} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-ink"><span className="truncate">{p.name}</span>{p.test && <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-px text-[9.5px] font-bold uppercase text-smoke">{tr('Test')}</span>}</span>
@@ -92,6 +104,8 @@ export function VipPreviewTab({ programme }) {
                   </span>
                   <Icon name="chevronRight" className="h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                 </button>
+                {/* THEIR PROFILE TOO (9 Oct 2026): "we just have the function to view their VIP page ... it can also bring you to their profile." */}
+                <Link to={`/profile/${p.id}`} aria-label={tr('Open {n}\'s profile', { n: p.name })} title={tr('Their profile')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-cloud text-smoke transition-colors hoverable:hover:bg-brand hoverable:hover:text-white"><Icon name="user" className="h-3.5 w-3.5" /></Link>
               </li>
             ))}
             {term && real.length === 0 && <li className="px-1 py-3 text-sm text-smoke sm:col-span-2 lg:col-span-3">{tr('Nobody matches.')}</li>}

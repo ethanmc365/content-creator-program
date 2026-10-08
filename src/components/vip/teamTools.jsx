@@ -237,7 +237,10 @@ function PersonMoney({ r, data, programme, onClose, onAdjust }) {
           )}
         </section>
         <div className="flex flex-wrap justify-between gap-2">
-          <Link to={`/vip?mode=as&who=${r.profile_id}`} className="btn-secondary !py-2 text-sm" onClick={onClose}><Icon name="eye" className="h-4 w-4" />{tr('Their VIP page')}</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/vip?mode=as&who=${r.profile_id}`} className="btn-secondary !py-2 text-sm" onClick={onClose}><Icon name="eye" className="h-4 w-4" />{tr('Their VIP page')}</Link>
+            <Link to={`/profile/${r.profile_id}`} className="btn-secondary !py-2 text-sm" onClick={onClose}><Icon name="user" className="h-4 w-4" />{tr('Their profile')}</Link>
+          </div>
           {programme.can_manage && <button type="button" onClick={onAdjust} className="btn-primary !py-2 text-sm"><Icon name="pencil" className="h-4 w-4" />{tr('Correct the balance')}</button>}
         </div>
       </div>
