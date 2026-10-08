@@ -405,21 +405,25 @@ export default function EditProfile() {
               <p className="mt-1 text-sm text-smoke">{tr("Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.")}</p>
             </div>
             {form.bucket_list.map((b, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
-                <input
-                  type="text" placeholder={tr("Country (e.g. Japan)")} className="input flex-1"
-                  value={b.country || ''}
-                  onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
-                  aria-label={`Bucket-list country ${i + 1}`}
-                />
-                <input
-                  type="text" placeholder={tr("Town (optional)")} className="input flex-1"
-                  value={b.city || ''}
-                  onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
-                  aria-label={`Bucket-list town ${i + 1}`}
-                />
-                <button type="button" aria-label={tr("Remove destination")} className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
+              <div key={i} className="flex items-start gap-2">
+                <span className="mt-2 w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
+                {/* STACKED ON A PHONE (9 Oct 2026): two flex-1 inputs, a flag and a button in 343px left each field about 110px, and a
+                    flex child with no min-width will not shrink below its content - so the row pushed past the card. */}
+                <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                  <input
+                    type="text" placeholder={tr("Country (e.g. Japan)")} className="input min-w-0"
+                    value={b.country || ''}
+                    onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
+                    aria-label={`Bucket-list country ${i + 1}`}
+                  />
+                  <input
+                    type="text" placeholder={tr("Town")} className="input min-w-0"
+                    value={b.city || ''}
+                    onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
+                    aria-label={`Bucket-list town ${i + 1}`}
+                  />
+                </div>
+                <button type="button" aria-label={tr("Remove destination")} className="btn-ghost shrink-0 !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
               </div>
             ))}
             <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ bucket_list: [...form.bucket_list, { country: '', city: '' }] })}>

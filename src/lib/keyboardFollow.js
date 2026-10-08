@@ -163,8 +163,17 @@ function revealTarget(el, visibleHeight) {
  * Safe to call at any time; does nothing when nothing is covered, and nothing
  * at all when there is no software keyboard on the screen.
  */
+// A FINGER ON THE PAGE WINS (9 Oct 2026). Ethan: "the favourite quote section still has that issue where scrolling just causes a lot of
+// lag." The About box is exempt from the correction below because it is taller than the strip above the keyboard; the quote, the
+// town, the country and every other small field are NOT, and iOS fires visual-viewport resizes all through a scroll as its toolbars
+// collapse. Each one re-ran this and pulled the page back to the field under the reader's thumb. Nothing here may move the page
+// while a finger has been dragging it in the last moment.
+let lastTouchAt = 0
+const TOUCH_QUIET = 700
+
 export function revealFocusedField() {
   if (!keyboardUp()) return
+  if (Date.now() - lastTouchAt < TOUCH_QUIET) return
   const el = document.activeElement
   if (!isField(el)) return
 
@@ -232,7 +241,10 @@ export function revealFocusedField() {
 function applyScrollRoom() {
   const px = keyboardInset()
   const root = document.documentElement
-  if (px > 0) root.style.setProperty('--kb-room', `${px}px`)
+  // Only write when it changed: a style write that changes nothing is still a style recalculation for the whole body.
+  const next = px > 0 ? `${px}px` : ''
+  if (root.style.getPropertyValue('--kb-room') === next) return
+  if (next) root.style.setProperty('--kb-room', next)
   else root.style.removeProperty('--kb-room')
 }
 
@@ -257,7 +269,17 @@ export function installKeyboardFollow() {
   // is what "if I scroll a bit the whole screen starts lagging and glitching" on Edit profile was.
   const onViewportScroll = () => { if (Date.now() - settledAt < 1500) revealFocusedField() }
 
-  const onVvResize = () => { settledAt = Date.now(); tick() }
+  // A RESIZE IS "THE KEYBOARD ARRIVED" ONLY IF THE KEYBOARD'S SIZE CHANGED. Toolbar collapse resizes the visual viewport by a few dozen
+  // pixels all through a scroll, and treating each as an arrival kept the settle window open for ever.
+  let lastInset = 0
+  const onVvResize = () => {
+    const now = keyboardInset()
+    if (Math.abs(now - lastInset) > 60) { settledAt = Date.now(); lastInset = now; tick() }
+    else if (Date.now() - lastTouchAt >= TOUCH_QUIET) applyScrollRoom()
+  }
+  const onTouch = () => { lastTouchAt = Date.now() }
+  document.addEventListener('touchstart', onTouch, { passive: true })
+  document.addEventListener('touchmove', onTouch, { passive: true })
 
   const vv = window.visualViewport
   // The keyboard arriving IS a viewport resize, and on the browsers that do
@@ -273,6 +295,8 @@ export function installKeyboardFollow() {
     document.documentElement.style.removeProperty('--kb-room')
     document.removeEventListener('focusin', onFocusIn)
     document.removeEventListener('focusout', onFocusOut)
+    document.removeEventListener('touchstart', onTouch)
+    document.removeEventListener('touchmove', onTouch)
     if (vv) {
       vv.removeEventListener('resize', onVvResize)
       vv.removeEventListener('scroll', onViewportScroll)

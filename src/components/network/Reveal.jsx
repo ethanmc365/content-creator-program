@@ -118,6 +118,10 @@ export default function Reveal({
   // stretch`. A caller laying its children out in a row says so, and gets
   // equal-height cards.
   row = false,
+  // THE CONTAINER IS THE UNIT, HOWEVER TALL (9 Oct 2026). The right-hand rail is one column of cards that must arrive together, staggered,
+  // on the same frame as the article. A rail taller than 1.25 screens used to fall into per-item mode, which waits for the page to stop
+  // growing (about two seconds on the hub) and drops the stagger.
+  whole = false,
   // THE CONTAINER'S DOM NODE, FOR A CALLER THAT NEEDS TO DRIVE IT.
   //
   // `Reveal` already owns `ref` on the element it renders (`setNode` below,
@@ -385,7 +389,7 @@ export default function Reveal({
       // The mode is a decision about WHICH OBSERVER decides the moment, and
       // once the moment has passed there is nothing left to decide.
       if (shownRef.current) return
-      setPerItem(node.offsetHeight > vh * 1.25)
+      setPerItem(!whole && node.offsetHeight > vh * 1.25)
     }
     measure()
     // AND ON A FEW TIMERS, BECAUSE `hasBody` NOW GATES THE REVEAL.
@@ -417,15 +421,24 @@ export default function Reveal({
       window.removeEventListener('resize', measure)
       window.removeEventListener('orientationchange', measure)
     }
-  }, [node])
+  }, [node, whole])
 
   // The per-item observer. Only armed in the tall mode, and it disconnects
   // itself the moment every child has arrived - this is a one-way reveal, so
   // there is nothing left to watch.
   useEffect(() => {
-    if (!perItem || !node || held || !hasBody || !settled) return undefined
+    if (!perItem || !node || held || !hasBody) return undefined
     const els = itemNodes.current.filter(Boolean)
     if (!els.length) return undefined
+    // THE FIRST SCREEN DOES NOT WAIT FOR THE PAGE TO SETTLE, in this mode either (9 Oct 2026; the container path has had this rule
+    // since 22 Sep). Cards already on screen start now; the rest are judged once the layout has stopped moving.
+    if (!settled) {
+      const vh = window.innerHeight || 0
+      const now = []
+      els.forEach((el, i) => { const r = el.getBoundingClientRect(); if (vh && r.bottom > 0 && r.top < vh * 0.92) now.push(i) })
+      if (now.length) setShownItems((prev) => (now.every((i) => prev.has(i)) ? prev : new Set([...prev, ...now])))
+      return undefined
+    }
     // NO OBSERVER MUST NEVER MEAN NO CONTENT. Same rule as the container path:
     // an in-app webview that stubs IntersectionObserver without delivering
     // entries would otherwise leave every card at opacity 0 for ever, and this

@@ -754,6 +754,27 @@ export function Floating({ anchor, open, align = 'left', offset = 6, innerRef, c
 // `field` is a form input: full width, square-ish, and matched to `.input` so a
 // row of fields lines up. Getting this wrong is what made the currency picker
 // on the challenge form look pasted in from another page.
+/**
+ * A searchable list on a PHONE: the menu is pinned to the top of the VISIBLE screen and is only as tall as what the keyboard leaves.
+ *
+ * Ethan: "even selecting the phone number sometimes has weird UI." The dial-code list was a floating menu placed under its button
+ * and re-measured on every scroll; opening it focuses the search box, the keyboard arrives, iOS scrolls the page under the fixed
+ * menu, and the list ended up half behind the keys or detached from its button. A sheet has no button to stay attached to: it sits
+ * at the top of the visual viewport, its height follows the keyboard, and the page behind it is held still.
+ */
+function SelectSheet({ children, onClose }) {
+  const vp = useVisualViewport()
+  useEffect(() => lockScroll(), [])
+  return (
+    <div className="fixed inset-0 z-[1000]">
+      <button type="button" tabIndex={-1} aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
+      <div className="absolute inset-x-2 flex flex-col" style={{ top: vp.offsetTop + 8, maxHeight: Math.max(200, vp.height - 16) }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function Select({
   value, onChange, options, className = '', ariaLabel,
   variant = 'pill', placeholder = 'Choose', disabled = false, id,
@@ -798,6 +819,8 @@ export function Select({
   const [rect, setRect] = useState(null)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
+  // A SEARCHABLE LIST ON A PHONE IS A SHEET (9 Oct 2026). See SelectSheet.
+  const [sheet, setSheet] = useState(false)
   const [query, setQuery] = useState('')
   const wrapRef = useRef(null)
   const btnRef = useRef(null)
@@ -828,21 +851,21 @@ export function Select({
   }, [open])
   // A menu wider than its button (it is `min-w-max`) near the right edge would run off the screen: nudge it back in.
   useLayoutEffect(() => {
-    if (!open || !portal) { setShiftX(0); return }
+    if (!open || !portal || sheet) { setShiftX(0); return }
     const el = menuRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
     const over = r.right - (window.innerWidth - 8)
     if (over > 0) setShiftX((x) => Math.max(-(r.left + x - 8), x - over))
-  }, [open, portal, rect])
+  }, [open, portal, rect, sheet])
   useEffect(() => {
-    if (!open || !portal) return undefined
+    if (!open || !portal || sheet) return undefined
     const measure = () => { const b = btnRef.current?.getBoundingClientRect(); if (b) setRect({ top: b.top, bottom: b.bottom, left: b.left, width: b.width }) }
     measure()
     window.addEventListener('scroll', measure, true)
     window.addEventListener('resize', measure)
     return () => { window.removeEventListener('scroll', measure, true); window.removeEventListener('resize', measure) }
-  }, [open, portal])
+  }, [open, portal, sheet])
 
   function openMenu() {
     const box = btnRef.current?.getBoundingClientRect()
@@ -853,6 +876,7 @@ export function Select({
     setUp(!inFlow && !!box && box.bottom + needed > window.innerHeight && box.top > needed)
     if (box) setRect({ top: box.top, bottom: box.bottom, left: box.left, width: box.width })
     setQuery('')
+    setSheet(searchable && window.innerWidth < 640)
     setActive(options.findIndex((o) => o.value === value))
     setOpen(true)
     if (searchable) requestAnimationFrame(() => searchRef.current?.focus())
@@ -897,13 +921,13 @@ export function Select({
         // It is better ARIA too - a listbox should not contain a textbox.
         <div
           ref={menuRef}
-          style={portal && rect ? {
+          style={!sheet && portal && rect ? {
             position: 'fixed', left: rect.left + shiftX, minWidth: rect.width, maxWidth: 'calc(100vw - 16px)', zIndex: 1000,
             ...(up ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
           } : undefined}
           className={cx(
             'z-40 flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white',
-            portal ? 'w-max shadow-lift animate-pop-in' : inFlow
+            sheet ? 'max-h-full min-h-0 w-full shadow-lift animate-pop-in' : portal ? 'w-max shadow-lift animate-pop-in' : inFlow
               // In the flow: no shadow and no `min-w-max`. It is a panel that
               // belongs to the field above it rather than a thing hovering
               // over the page, and a menu wider than its own column is exactly
@@ -947,7 +971,7 @@ export function Select({
           <ul
             role="listbox"
             aria-label={ariaLabel}
-            className="max-h-[280px] overflow-auto p-1.5"
+            className={sheet ? 'min-h-0 flex-1 overflow-auto overscroll-contain p-1.5' : 'max-h-[280px] overflow-auto p-1.5'}
           >
           {shown.length === 0 && (
             <li className="px-3.5 py-3 text-sm text-smoke">Nothing matches “{query}”.</li>
@@ -1045,7 +1069,7 @@ export function Select({
         />
       </button>
 
-      {open && (portal ? createPortal(menuEl, document.body) : menuEl)}
+      {open && (sheet ? createPortal(<SelectSheet onClose={() => setOpen(false)}>{menuEl}</SelectSheet>, document.body) : portal ? createPortal(menuEl, document.body) : menuEl)}
     </div>
   )
 }

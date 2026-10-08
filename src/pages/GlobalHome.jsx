@@ -1149,9 +1149,11 @@ export default function GlobalHome() {
 
           {/* ---------- Video Ideas on a phone, just below the latest announcements (9 Oct 2026). On a laptop it lives in the
               rail under Your markets; here the rail is at the bottom of a very long page, so it gets a small card of its own. */}
-          <Reveal from="down" delay={stepDelay()} className="lg:hidden">
-            <IdeasTeaser />
-          </Reveal>
+          {isMobile && (
+            <Reveal from="down" delay={stepDelay()}>
+              <IdeasTeaser />
+            </Reveal>
+          )}
 
           {/* ---------- Daily puzzles ----------
               Between the announcement and the map, exactly where Ethan asked

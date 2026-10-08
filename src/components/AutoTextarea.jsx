@@ -59,9 +59,16 @@ function measure(el, rows) {
 export default function AutoTextarea({ value, minRows = 3, maxHeight, className, ...rest }) {
   const ref = useRef(null)
 
+  // WHAT WAS LAST MEASURED. `fit` ran twice per keystroke (the input event and the value effect) and on EVERY window resize, which on
+  // a phone fires through a whole scroll as the toolbars collapse - each time copying two dozen styles onto the twin and forcing a
+  // layout. It now measures only when the text or the width is different from last time.
+  const last = useRef({ value: null, width: -1 })
   const fit = useCallback(() => {
     const el = ref.current
     if (!el || !el.isConnected) return
+    const width = el.offsetWidth
+    if (last.current.value === el.value && last.current.width === width && el.style.height) return
+    last.current = { value: el.value, width }
     const full = measure(el, minRows)
     const next = maxHeight ? Math.min(full, maxHeight) : full
     if (el.style.height !== `${next}px`) el.style.height = `${next}px`
@@ -78,10 +85,13 @@ export default function AutoTextarea({ value, minRows = 3, maxHeight, className,
     if (document.fonts?.ready) document.fonts.ready.then(() => { if (alive) fit() })
     // A window resize changes where the text wraps, so a paragraph that was
     // four lines on a wide column becomes six on a narrow one.
-    window.addEventListener('resize', fit)
+    let queued = 0
+    const onResize = () => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; fit() }) }
+    window.addEventListener('resize', onResize)
     return () => {
       alive = false
-      window.removeEventListener('resize', fit)
+      cancelAnimationFrame(queued)
+      window.removeEventListener('resize', onResize)
     }
   }, [fit])
 

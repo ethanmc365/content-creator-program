@@ -1653,7 +1653,7 @@ function BucketList({ rows = [], onChange }) {
               />
               <input
                 className="no-ios-zoom w-full border-0 bg-transparent p-0 text-sm text-smoke outline-none placeholder:text-gray-300"
-                placeholder={tr("City (optional)")}
+                placeholder={tr("City")}
                 value={b.city || ''}
                 aria-label={`Destination ${i + 1} city`}
                 onChange={(e) => set(i, { city: e.target.value })}

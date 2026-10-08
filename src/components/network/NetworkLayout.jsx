@@ -93,7 +93,7 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
                 of both columns arrives on the same frame, and only the sections
                 BELOW the fold ladder down. */}
             {ready ? (
-              <Reveal className="space-y-4" from="right" stagger={0.06}>{rail}</Reveal>
+              <Reveal className="space-y-4" from="right" stagger={0.06} whole>{rail}</Reveal>
             ) : (
               // Three cards' worth of height, so the column does not resize when
               // the real rail replaces it. `aria-hidden` because a skeleton is
