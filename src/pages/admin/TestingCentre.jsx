@@ -37,6 +37,7 @@ const ViewsLab = lazyRoute(() => import('./testing/ViewsLab'))
 const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
 const RecapLab = lazyRoute(() => import('./testing/RecapLab'))
 const WalkthroughLab = lazyRoute(() => import('./testing/WalkthroughLab'))
+const VipLockedLab = lazyRoute(() => import('./testing/VipLockedLab'))
 
 export const LABS = [
   {
@@ -58,6 +59,12 @@ export const LABS = [
     blurb: 'The first-open guided tour in both versions, community and VIP. One press runs it over the app from the start.',
     tags: ['2 walks', 'Live'],
     element: <WalkthroughLab />,
+  },
+  {
+    key: 'vip-locked', title: 'VIP community, locked', icon: 'lock', group: 'Joining the programme',
+    blurb: 'What every creator who is not a VIP sees today: the locked VIP page and the teaser card that points to it.',
+    tags: ['2 screens', 'Live components'],
+    element: <VipLockedLab />,
   },
   {
     key: 'invoice', title: 'Automatic invoicing', icon: 'money', group: 'Money',

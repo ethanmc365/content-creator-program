@@ -73,7 +73,7 @@ function sampleOverview(s) {
 
 export default function VipHub() {
   const tr = useT()
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const { overview: own, reload: reloadOwn } = useVipOverview()
@@ -193,6 +193,9 @@ export default function VipHub() {
     return () => { clearInterval(id); clearTimeout(stop) }
   }, [watching, waiting, reload])
 
+  // ADMIN PREVIEW OF THE LOCKED PAGE (9 Oct 2026): `?locked=1` shows what a creator who is not a VIP sees, for the Testing Centre.
+  // Admin only, so the address does nothing for anybody else.
+  if (isAdmin && params.get('locked') === '1') return <VipLockedPage />
   if (overview === undefined) {
     return (
       <div className="page max-w-5xl">

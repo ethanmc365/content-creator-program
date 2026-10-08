@@ -966,6 +966,18 @@ export function Select({
                    caret appears to be. */
                 className="no-ios-zoom w-full border-0 bg-transparent p-0 placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
               />
+              {/* THE SHEET NEEDS A WAY OUT (9 Oct 2026). Ethan: "they take up the full screen and you can't get out of it."
+                  The sheet is as tall as the visible screen, so there is no backdrop left to tap. An X in the header closes it. */}
+              {sheet && (
+                <button
+                  type="button"
+                  aria-label={tr("Close")}
+                  onClick={() => { setOpen(false); setQuery(''); btnRef.current?.focus({ preventScroll: true }) }}
+                  className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 active:bg-gray-100"
+                >
+                  <Icon name="close" className="h-5 w-5" />
+                </button>
+              )}
             </div>
           )}
           <ul
