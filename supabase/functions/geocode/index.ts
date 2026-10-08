@@ -253,8 +253,11 @@ Deno.serve(async (req) => {
       },
     })
     clearTimeout(timer)
-    if (!res.ok) return json(req, { error: 'geocoder unavailable', found: false }, 200)
-    const arr = await res.json()
+    // NOMINATIM REFUSES US OUTRIGHT SOMETIMES (8 Oct 2026): every lookup from the edge came back non-OK - London
+    // included - while the same request from a laptop got a 200. Their policy blocks busy shared hosting addresses,
+    // and Supabase's edge is one. So a refusal falls through to Photon exactly like a miss does; no new town had
+    // been getting a map pin while this was failing.
+    const arr = res.ok ? await res.json() : []
     const hit = Array.isArray(arr) && arr[0]
     if (!hit) {
       // A TYPO IS NOT A MISS (8 Oct 2026). Nominatim matches words exactly, so "Melbournr" and "Canguu" came

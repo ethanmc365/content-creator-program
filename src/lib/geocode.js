@@ -12,6 +12,9 @@ import { supabase } from './supabase'
 
 const CACHE_PREFIX = 'tryp_geocode_'
 const MISS_TTL_MS = 7 * 24 * 3600 * 1000
+// Misses remembered before the 8 Oct 2026 fix are not trusted: Nominatim was refusing every request from the edge,
+// so "not found" then meant "never asked".
+const MISS_TRUSTED_AFTER = Date.UTC(2026, 9, 8, 11, 0)
 const mem = new Map() // in-session cache + in-flight de-dupe
 
 function key(city, country) {
@@ -33,7 +36,7 @@ export async function geocodeCity(city, country) {
     const cached = localStorage.getItem(CACHE_PREFIX + k)
     if (cached) {
       const parsed = JSON.parse(cached)
-      const missFresh = parsed && parsed.miss && Date.now() - parsed.miss < MISS_TTL_MS
+      const missFresh = parsed && parsed.miss > MISS_TRUSTED_AFTER && Date.now() - parsed.miss < MISS_TTL_MS
       if (missFresh || (parsed && Number.isFinite(parsed.lat))) {
         const val = missFresh ? null : parsed
         mem.set(k, Promise.resolve(val))
