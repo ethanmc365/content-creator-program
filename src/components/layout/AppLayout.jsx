@@ -32,6 +32,7 @@ import { lockedScrollY, onScrollLockChange, repairScrollLock } from '../../lib/s
 import { resetPageSettled } from '../../lib/pageSettled'
 import { usePinnedToBottom } from '../../lib/pinnedBar'
 import { useT } from '../../lib/i18n'
+import { JoinMarketHost, openJoinMarket } from '../network/JoinMarket'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
@@ -261,7 +262,9 @@ export default function AppLayout() {
   const vipAccess = useVipAccess(profile?.id, false)
   // The Challenges and DM tabs' first query, run ahead of the tap once the app is idle (lib/warmPages).
   useEffect(() => { warmPagesWhenIdle(profile?.id, { challenges: !isVip }) }, [profile?.id, isVip])
-  const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? { to: '/vip', label: 'VIP', icon: 'star' } : t)) : TABS
+  // An official Tryp.com creator's tab is the same page under their own name (migration 376).
+  const isOfficialCreator = isVip && profile?.vip_kind === 'official'
+  const tabs = isVip ? TABS.map((t) => (t.to === '/challenges' ? (isOfficialCreator ? { to: '/vip', label: 'Official', icon: 'badge' } : { to: '/vip', label: 'VIP', icon: 'star' }) : t)) : TABS
   const navigate = useNavigate()
 
   // NOTHING YOU ARE TYPING IN SITS UNDER THE KEYBOARD. Installed once, here,
@@ -586,6 +589,7 @@ export default function AppLayout() {
       {/* The live worldwide challenge, for a creator who has not entered it (4 Oct 2026). */}
       <AgreementGate />
       <BoostPrompt />
+      <JoinMarketHost />
       <GlobalChallengePrompt />
       {/* Surveys from the team (migration 291), last in the same queue. */}
       <SurveyHost />
@@ -820,7 +824,15 @@ export default function AppLayout() {
                       {!vipAccess && <Icon name="lock" className="h-3.5 w-3.5 shrink-0 text-brand" />}
                     </Link>
                   )}
-                  {isVip && <Link to="/vip?tab=payouts" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("VIP payouts")}</Link>}
+                  {isVip && <Link to="/vip?tab=payouts" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{isOfficialCreator ? tr('Payouts') : tr("VIP payouts")}</Link>}
+                  {/* CREATING FOR ANOTHER MARKET (10 Oct 2026). Ethan: the request to join another market was "quite hidden". It is one
+                      press here now, for every approved creator who is not on a paid programme (their market is set by the team). */}
+                  {!isVip && !isAdmin && ['active', 'muted'].includes(profile?.status) && (
+                    <button type="button" onClick={() => { setMenuOpen(false); openJoinMarket() }} className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-cloud">
+                      {tr('Join another market')}
+                      <Icon name="globe" className="h-3.5 w-3.5 shrink-0 text-brand" />
+                    </button>
+                  )}
 
                   {/* EVERYWHERE ELSE, ON A PHONE.
                       These ten used to be a grid near the top of the Worldwide

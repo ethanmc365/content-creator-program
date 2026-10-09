@@ -14,7 +14,7 @@ const MARGIN = 52
 // metrics for the € glyph, so adjacent digits overlapped ("€ inside the
 // number"); a real TTF carries correct widths for every glyph.
 let fontBytesPromise
-function fontBytes() {
+export function fontBytes() {
   if (!fontBytesPromise) {
     fontBytesPromise = Promise.all([
       fetch('/fonts/Poppins-Regular.ttf').then((r) => (r.ok ? r.arrayBuffer() : null)),
@@ -28,7 +28,7 @@ function fontBytes() {
 // and round the corners on a canvas so the invoice gets a compact logo chip.
 // Cached module-level (the PDF is always built in the browser).
 let logoPngPromise
-function logoPng() {
+export function logoPng() {
   if (!logoPngPromise) {
     logoPngPromise = (async () => {
       const img = new Image()

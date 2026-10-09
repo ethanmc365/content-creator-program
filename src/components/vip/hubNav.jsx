@@ -34,10 +34,10 @@ export const VIP_SECTIONS = [
 ]
 
 /** The column on the right, desktop only. */
-export function VipSideNav({ value, onChange, hidden, links }) {
+export function VipSideNav({ value, onChange, hidden, links, official = false }) {
   const tr = useT()
   return (
-    <nav data-vip-anchor aria-label={tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
+    <nav data-vip-anchor aria-label={official ? tr('Sections') : tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
       <ul className="space-y-0.5">
         {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
           const on = s.key === value
@@ -59,7 +59,7 @@ export function VipSideNav({ value, onChange, hidden, links }) {
                 </span>
                 <span className="relative min-w-0 flex-1">
                   <span className={cx('block truncate text-[13.5px] leading-tight', on ? 'font-bold text-ink' : 'font-semibold text-ink/85')}>{tr(s.label)}</span>
-                  <span className="mt-0.5 block truncate text-[11px] text-smoke">{tr(s.hint)}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-smoke">{official && s.key === 'map' ? tr('Every official creator') : tr(s.hint)}</span>
                 </span>
                 <Icon name="chevronRight" className={cx('relative h-4 w-4 shrink-0 transition-all duration-200', on ? 'text-brand' : 'text-gray-300 opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100')} />
               </button>
@@ -88,10 +88,10 @@ export function VipSideNav({ value, onChange, hidden, links }) {
 }
 
 /** The same sections as a strip of chips, phones and tablets. */
-export function VipChipNav({ value, onChange, hidden, links }) {
+export function VipChipNav({ value, onChange, hidden, links, official = false }) {
   const tr = useT()
   return (
-    <nav data-vip-anchor aria-label={tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
+    <nav data-vip-anchor aria-label={official ? tr('Sections') : tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
       {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
         const on = s.key === value
         return (
@@ -181,13 +181,59 @@ export function ProgrammeSwitch({ programmes, value, onChange }) {
   )
 }
 
-/** The programme pill at the top right: the market's flag and name, white, never orange. */
-export function ProgrammePill({ name, codes }) {
+/** The programme pill at the top right: the market's flag and name, white, never orange. An official programme
+ *  carries the official seal beside the flag. */
+export function ProgrammePill({ name, codes, official = false }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-ink shadow-card">
+      {official && <Icon name="badge" className="h-4 w-4 text-brand" strokeWidth={2} />}
       {/* null = not loaded yet: hold the space, draw nothing, so the globe never flashes before the real flag. */}
       {codes === null ? <span className="inline-block h-[15px] w-[19px] shrink-0" aria-hidden /> : <FlagStack codes={codes} className="text-[15px]" />}
       {name}
     </span>
+  )
+}
+
+/**
+ * VIP COMMUNITY OR OFFICIAL CREATORS (10 Oct 2026, migration 376). Ethan: the official Tryp.com creators get "a separate
+ * podium, leaderboard etc ... Marta and any admins with access should be able to see both". The team picks the space
+ * first, then (if the space has more than one market) the market inside it. Two wide tabs with a sliding gradient and how
+ * many people are in each, so the split reads at a glance; a creator never sees this - they only have their own.
+ */
+export function SpaceSwitch({ programmes, value, onChange }) {
+  const tr = useT()
+  const spaces = [
+    { key: 'vip', icon: 'star', label: tr('VIP community'), short: tr('VIP'), hint: tr('Paid by views') },
+    { key: 'official', icon: 'badge', label: tr('Official creators'), short: tr('Official'), hint: tr('Tryp.com content team') },
+  ].map((s) => {
+    const list = programmes.filter((p) => (p.kind || 'vip') === s.key)
+    return { ...s, list, members: list.reduce((a, p) => a + (Number(p.members) || 0), 0) }
+  }).filter((s) => s.list.length > 0)
+  if (spaces.length < 2) return null
+  return (
+    <div role="tablist" aria-label={tr('Which community')} className="mb-4 grid grid-cols-2 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise">
+      {spaces.map((s) => {
+        const on = s.key === value
+        return (
+          <button
+            key={s.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => !on && onChange(s.key, s.list[0].id)}
+            className={cx('relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 sm:px-4', on ? 'text-white' : 'text-ink hoverable:hover:bg-cloud')}
+          >
+            {on && <motion.span layoutId="vip-space-switch" transition={SPRING} className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand to-brand-light shadow-card" />}
+            <Icon name={s.icon} className={cx('relative h-5 w-5 shrink-0 transition-transform duration-300', on ? 'scale-110 text-white' : 'text-brand')} strokeWidth={on ? 2.1 : 1.8} />
+            <span className="relative min-w-0 flex-1">
+              {/* A phone gets the one word; the full name and its line come back from sm up. */}
+              <span className="block truncate text-sm font-bold"><span className="sm:hidden">{s.short}</span><span className="hidden sm:inline">{s.label}</span></span>
+              <span className={cx('hidden truncate text-[11px] sm:block', on ? 'text-white/85' : 'text-smoke')}>{s.hint}</span>
+            </span>
+            <span className={cx('relative shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', on ? 'bg-white/20 text-white' : 'bg-cloud text-smoke')}>{s.members}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { PageHeader, Skeleton } from '../components/ui'
+import { PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import AgreementSheet from '../components/agreements/AgreementSheet'
 import GuardianShare, { useGuardianLinks } from '../components/agreements/GuardianShare'
@@ -8,6 +8,8 @@ import { GUARDIAN_CONSENT_ON } from '../lib/guardianConsent'
 import { SignatureImage } from '../components/agreements/SignaturePad'
 import { dateTag, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { useAuth } from '../context/AuthContext'
+import { notice } from '../lib/confirm'
 
 // SETTINGS > AGREEMENTS (7 Oct 2026). Ethan: "Maybe there's a place in settings or somewhere where the creators can
 // actually go back in and review these if they want to." Every document that applies to you, whether you have accepted
@@ -15,9 +17,29 @@ import { useT } from '../lib/i18n'
 // you can print or save as a PDF from the browser.
 const when = (iso) => new Date(iso).toLocaleString(dateTag(), { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+// YOUR SIGNED COPY, AS A PDF (10 Oct 2026). Ethan: "a copy for us and a copy for them in settings etc that they can download".
+// The exact text signed, the signature and the record of signing - the same file the team downloads from the register.
+function useSignedPdf() {
+  const { user } = useAuth()
+  const [busy, setBusy] = useState(null)
+  const download = useCallback(async (agreementId) => {
+    setBusy(agreementId)
+    try {
+      const { data, error } = await supabase.rpc('agreement_signed_copy', { p_agreement: agreementId, p_profile: user.id })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) throw new Error('No signed copy found.')
+      const { downloadAgreementPdf } = await import('../lib/agreementPdf')
+      await downloadAgreementPdf(row)
+    } catch (e) { notice(e.message || String(e)) } finally { setBusy(null) }
+  }, [user?.id])
+  return [busy, download]
+}
+
 export default function Agreements() {
   const guardianLinks = useGuardianLinks()
   const tr = useT()
+  const [pdfBusy, downloadPdf] = useSignedPdf()
   const [current, setCurrent] = useState(undefined)
   const [pending, setPending] = useState([])
   const [mine, setMine] = useState([])
@@ -48,7 +70,7 @@ export default function Agreements() {
   const accepted = (current || []).filter((d) => acceptanceOf(d)).length
   return (
     <div className="page max-w-3xl">
-      <PageHeader back={{ to: '/settings', label: tr('Settings') }} title={tr('Agreements')} subtitle={tr('The terms you accepted and the agreements you signed.')} />
+      <PageHeader back={{ to: '/settings', label: tr('Settings') }} title={tr('Agreements')} subtitle={tr('The terms you accepted and the agreements you signed. Download a signed copy any time.')} />
       {/* Under 18: the link for a parent or guardian who has not confirmed yet, and a quiet tick once they have. */}
       {GUARDIAN_CONSENT_ON && (guardianLinks || []).length > 0 && (
         <div className="mb-6 space-y-3">{guardianLinks.map((g) => <GuardianShare key={g.acceptance_id} row={g} />)}</div>
@@ -85,13 +107,14 @@ export default function Agreements() {
               const acc = acceptanceOf(doc)
               const isPending = pending.some((p) => p.id === doc.id)
               const vip = doc.audience === 'vip'
+              const official = vip && /official/i.test(doc.title || '')
               return (
                 <section key={doc.id} className="group overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${80 + i * 80}ms` }}>
                   <div className={cx('relative overflow-hidden px-6 py-5 text-white', vip ? 'vip-locked-hero' : 'faq-hero')}>
                     <span aria-hidden className="ideas-orb ideas-orb-a !h-40 !w-40 opacity-50" />
                     <div className="relative flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">{vip ? tr('VIP agreement') : tr('Community terms')} · v{doc.version}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">{official ? tr('Official creator agreement') : vip ? tr('VIP agreement') : tr('Community terms')} · v{doc.version}</p>
                         <h2 className="mt-1 text-xl font-extrabold">{doc.title}</h2>
                       </div>
                       <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold', acc ? 'bg-white text-brand' : 'bg-white/20 text-white')}>
@@ -111,8 +134,13 @@ export default function Agreements() {
                         <p className="flex items-center gap-1.5 text-sm font-bold text-brand"><Icon name="alert" className="h-4 w-4" />{isPending ? tr('Waiting for you') : tr('Not accepted yet')}</p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => setReading({ doc, acc })} className="btn-secondary !py-2 text-sm"><Icon name="book" className="h-4 w-4" />{tr('Read')}</button>
+                      {acc && (
+                        <button type="button" onClick={() => downloadPdf(doc.id)} disabled={pdfBusy === doc.id} className="btn-secondary !py-2 text-sm disabled:opacity-60" title={tr('Your signed copy, as a PDF')}>
+                          {pdfBusy === doc.id ? <Spinner className="h-4 w-4" /> : <Icon name="download" className="h-4 w-4" />}{tr('PDF')}
+                        </button>
+                      )}
                       {!acc && <button type="button" onClick={() => setSigning(doc)} className="btn-primary !py-2 text-sm"><Icon name={doc.requires_signature ? 'pencil' : 'check'} className="h-4 w-4" />{doc.requires_signature ? tr('Sign') : tr('Accept')}</button>}
                     </div>
                   </div>
@@ -134,6 +162,7 @@ export default function Agreements() {
                   <span className="block text-sm font-semibold text-ink">{m.title} · v{m.version}</span>
                   <span className="block text-xs text-smoke">{when(m.accepted_at)}</span>
                 </span>
+                <button type="button" onClick={() => downloadPdf(m.agreement_id)} disabled={pdfBusy === m.agreement_id} aria-label={tr('Download PDF')} className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-brand disabled:opacity-50">{pdfBusy === m.agreement_id ? <Spinner className="h-4 w-4" /> : <Icon name="download" className="h-4 w-4" />}</button>
                 <button type="button" onClick={() => setReading({ doc: { id: m.agreement_id, title: m.title, version: m.version, audience: m.audience, summary: '', body: m.rendered_body || '' }, acc: m })} className="text-sm font-bold text-brand">{tr('Read')}</button>
               </li>
             ))}

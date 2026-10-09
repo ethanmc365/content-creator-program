@@ -109,6 +109,9 @@ export default function VipTools({ programmeId }) {
     return <EmptyState icon={<Icon name="star" className="h-7 w-7" />} title={tr('Nothing to manage here')} hint={tr('The VIP tools are for the owner and the managers they have added to a VIP programme.')} />
   }
   const programme = programmes.find((p) => p.id === programmeId) || programmes[0]
+  // THE OTHER MARKETS OF THE SAME KIND (10 Oct 2026, migration 376): analytics, KPIs and "post to every market" compare VIP
+  // markets with VIP markets and official programmes with official programmes, never the two together.
+  const sameKind = (p) => programmes.filter((x) => (x.kind || 'vip') === (p.kind || 'vip'))
   const seenKey = `${programme.id}:${tab}`
   if (!seen.has(seenKey)) setSeen((s) => new Set(s).add(seenKey))
 
@@ -121,11 +124,11 @@ export default function VipTools({ programmeId }) {
     close: (p) => <VipCloseTab programme={p} />,
     sheet: (p) => <VipSheetTab programme={p} />,
     bonuses: (p) => <VipBonusesTab programme={p} isOwner={isOwner} initialPart={bonusPart} />,
-    announcements: (p) => <AnnouncementsTab programme={p} programmes={programmes} isOwner={isOwner} />,
+    announcements: (p) => <AnnouncementsTab programme={p} programmes={sameKind(p)} isOwner={isOwner} />,
     challenges: (p) => <VipContentTab programme={p} isOwner={isOwner} part="briefs" />,
     guides: (p) => <VipContentTab programme={p} isOwner={isOwner} part="guides" />,
-    kpis: (p) => <VipKpiTab programme={p} programmes={programmes} isAdmin={isAdmin} />,
-    analytics: (p) => <VipAnalyticsTab programme={p} programmes={programmes} isAdmin={isAdmin} />,
+    kpis: (p) => <VipKpiTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
+    analytics: (p) => <VipAnalyticsTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
     settings: (p) => (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
         <VipSettingsTab programme={p} onSaved={load} />

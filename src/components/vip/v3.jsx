@@ -33,12 +33,18 @@ export function VipChallengeCard({ overview }) {
   const tr = useT()
   const { year, month } = overview.month
   const [rows, setRows] = useState(null)
+  const pid = overview.programme?.id
+  const official = overview.programme?.kind === 'official'
   useEffect(() => {
     let alive = true
-    supabase.from('vip_briefs').select('*').eq('year', year).eq('month', month).order('programme_id', { ascending: true, nullsFirst: true })
+    // This programme's challenges, plus (for a VIP market) the ones set for every VIP market. The team can read every
+    // programme's briefs, so the page asks for its own rather than trusting what comes back (migration 376).
+    let q = supabase.from('vip_briefs').select('*').eq('year', year).eq('month', month)
+    q = official ? q.eq('programme_id', pid) : q.or(`programme_id.is.null,programme_id.eq.${pid}`)
+    q.order('programme_id', { ascending: true, nullsFirst: true })
       .then(({ data, error }) => { if (alive) setRows(error ? [] : data || []) })
     return () => { alive = false }
-  }, [year, month])
+  }, [year, month, pid, official])
   if (!rows || rows.length === 0) return null
   return (
     <section className="space-y-4" aria-label={tr('This month\'s challenge')}>
@@ -62,14 +68,15 @@ function BriefCard({ brief, overview }) {
   useEffect(() => {
     if (!pid) return undefined
     let alive = true
-    supabase.from('vip_bonus_rules').select('*').or(`programme_id.eq.${pid},audience.eq.all`).eq('active', true).then(({ data }) => { if (alive) setRules(data || []) })
+    const q = supabase.from('vip_bonus_rules').select('*').eq('active', true)
+    ;(overview.programme?.kind === 'official' ? q.eq('programme_id', pid) : q.or(`programme_id.eq.${pid},audience.eq.all`)).then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
-  }, [pid])
+  }, [pid, overview.programme?.kind])
   const places = prizesByPlace(rules, tr, overview.programme?.currency, overview.month)
   return (
     <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-rise sm:p-6">
       <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
-        <Icon name="flag" className="h-3.5 w-3.5" />{tr('VIP challenge')} · {monthLabel(brief.year, brief.month)}
+        <Icon name="flag" className="h-3.5 w-3.5" />{overview.programme?.kind === 'official' ? tr('Challenge') : tr('VIP challenge')} · {monthLabel(brief.year, brief.month)}
         {brief.theme && <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] tracking-wide text-brand shadow-sm"><TLine text={brief.theme} /></span>}
       </p>
       <h3 className="mt-2 text-xl font-bold leading-tight text-ink"><TLine text={brief.title} /></h3>
@@ -122,10 +129,11 @@ function BriefCard({ brief, overview }) {
 
 // ------------------------------------------------------------------------------ market standings
 /** Every market side by side. A VIP sees totals only; the team also sees the spend. */
-export function MarketStandings() {
+export function MarketStandings({ kind = 'vip' }) {
   const tr = useT()
   const { data, missing } = useOptionalRpc('vip_market_standings', {}, 'standings')
-  const rows = useMemo(() => [...(data || [])].sort((a, b) => Number(b.views) - Number(a.views)), [data])
+  // VIP markets and official programmes are compared among themselves, never against each other (migration 376).
+  const rows = useMemo(() => [...(data || [])].filter((r) => (r.kind || 'vip') === kind).sort((a, b) => Number(b.views) - Number(a.views)), [data, kind])
   if (missing) return null
   if (data === undefined) return <Skeleton className="h-40 w-full rounded-card" />
   if (rows.length === 0) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No markets to compare yet.')}</p>
@@ -155,7 +163,7 @@ export function MarketStandings() {
             </div>
             <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full transition-[width] duration-1000 ease-out" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 65%, white))` }} /></div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-              <Fact label={tr('VIP creators')} value={nf(r.members)} />
+              <Fact label={kind === 'official' ? tr('Official creators') : tr('VIP creators')} value={nf(r.members)} />
               <Fact label={tr('Videos')} value={nf(r.videos)} />
               <Fact label={tr('Average per creator')} value={nf(r.avg_views)} />
               <Fact label={tr('Last month')} value={nf(r.prev_views)} hint={delta != null ? `${delta > 0 ? '+' : ''}${delta}%` : null} />

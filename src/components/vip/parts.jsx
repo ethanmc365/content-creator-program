@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Spinner } from '../ui'
@@ -8,11 +8,12 @@ import SocialMark from '../SocialMark'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { platformOf } from '../../lib/videoLinks'
+import { copyToClipboard } from '../../lib/clipboard'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import {
-  BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useVipPreview, vipRpc,
+  BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc,
 } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 import { CountUp } from '../network/Motion'
@@ -20,6 +21,31 @@ import { CountUp } from '../network/Motion'
 // THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
 // this month, what they are worth, what the statement says - and a screen reads best when every piece uses
 // the same words for the same number.
+
+/** COPY A VIDEO'S LINK IN ONE PRESS (10 Oct 2026). Ethan, on "the videos that gained the most": "I want a quick link icon to
+ *  copy". A round frosted button that sits on the thumbnail, outside the link it copies (a button inside an <a> is not
+ *  allowed), turns into a tick for a moment and says so. `tone="light"` is the white version for a white card. */
+export function CopyLinkChip({ url, className, tone = 'glass' }) {
+  const tr = useT()
+  const [done, setDone] = useState(false)
+  const timer = useRef(0)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  if (!url) return null
+  async function copy(e) {
+    e.preventDefault(); e.stopPropagation()
+    if (!await copyToClipboard(url)) { notice(tr('Could not copy. Long-press the video to copy its link.')); return }
+    setDone(true); toastSuccess(tr('Link copied'))
+    clearTimeout(timer.current); timer.current = setTimeout(() => setDone(false), 1600)
+  }
+  return (
+    <button type="button" onClick={copy} aria-label={done ? tr('Copied') : tr('Copy the link')} title={done ? tr('Copied') : tr('Copy the link')}
+      className={cx('flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 hoverable:hover:scale-110 active:scale-95',
+        tone === 'glass' ? 'bg-white/90 text-ink shadow-card backdrop-blur-sm' : 'border border-gray-200 bg-white text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand',
+        done && '!text-brand', className)}>
+      <Icon name={done ? 'check' : 'link'} className={cx('h-4 w-4', done && 'animate-pop-in')} strokeWidth={2.2} />
+    </button>
+  )
+}
 
 // The database writes its refusals as plain sentences. Known ones are put into the reader's language;
 // anything else is shown as it came rather than hidden.
@@ -59,6 +85,33 @@ export function TargetBar({ label, value, target, format = nf, done }) {
   )
 }
 
+/** The bonuses that ask a question about each video this month (migration 377). */
+export function askingRules(rules, month) {
+  return (rules || []).filter((r) => r.active !== false && r.prompt && ruleRunsIn(r, month))
+}
+
+/** ONE QUESTION, YES OR NO (10 Oct 2026). Ethan: VIP challenges should "ask the creator if this video is about X topic",
+ *  like the community challenges' bonus questions. Two pills, the picked one solid brand; the bonus it is for underneath. */
+function QuestionRow({ rule, value, onChange, disabled }) {
+  const tr = useT()
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/15 bg-brand-tint/40 px-3.5 py-3 animate-rise sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] font-semibold leading-snug text-ink"><Icon name="flag" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />{rule.prompt}</p>
+        <p className="mt-0.5 text-[11px] text-smoke">{tr('For: {b}', { b: rule.label })}</p>
+      </div>
+      <div role="radiogroup" aria-label={rule.prompt} className="flex shrink-0 gap-1.5">
+        {[[true, tr('Yes')], [false, tr('No')]].map(([v, label]) => (
+          <button key={String(v)} type="button" role="radio" aria-checked={value === v} disabled={disabled} onClick={() => onChange(v)}
+            className={cx('min-w-[3.5rem] rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-200 disabled:opacity-50', value === v ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke ring-1 ring-gray-200 hoverable:hover:text-ink')}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Add a video: paste a link, the platform is read from it, and a refusal is said in words.
  *
  * REDONE (1 Oct 2026). Ethan: the browser's own "Please enter a URL" bubble appeared over the form (it was an
@@ -66,9 +119,12 @@ export function TargetBar({ label, value, target, format = nf, done }) {
  * says what is wrong in the same red line every other refusal uses. Only videos posted in THIS month are taken, and
  * once one is added its views are read straight away (migration 307 asks for a reading on insert); the page asks
  * again every few seconds until the first reading lands, so the number appears without a refresh. */
-export function VipSubmit({ disabled, onAdded, month }) {
+export function VipSubmit({ disabled, onAdded, month, rules = null }) {
   const tr = useT()
   const [url, setUrl] = useState('')
+  // The answers to this month's bonus questions, rule id -> true. Nothing is assumed: an unanswered question is a no.
+  const asking = askingRules(rules, month)
+  const [answers, setAnswers] = useState({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [focus, setFocus] = useState(false)
@@ -85,8 +141,10 @@ export function VipSubmit({ disabled, onAdded, month }) {
     if (!platform) { setErr(tr('Only TikTok, Instagram, YouTube and Facebook links carry a view count we can read.')); return }
     setBusy(true)
     try {
-      await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null })
+      const claims = asking.filter((r) => answers[r.id]).map((r) => r.id)
+      await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null, ...(claims.length ? { p_claims: claims } : {}) })
       setUrl('')
+      setAnswers({})
       toastSuccess(tr('Added. Reading its views now.'))
       onAdded?.({ watch: true })
     } catch (e2) { setErr(vipError(e2.message, tr)) } finally { setBusy(false) }
@@ -137,6 +195,11 @@ export function VipSubmit({ disabled, onAdded, month }) {
           {tr('Add video')}
         </button>
       </div>
+      {asking.length > 0 && (
+        <div className="relative mt-3 space-y-2">
+          {asking.map((r) => <QuestionRow key={r.id} rule={r} value={!!answers[r.id]} disabled={disabled || busy} onChange={(v) => setAnswers((a) => ({ ...a, [r.id]: v }))} />)}
+        </div>
+      )}
       {err && <p role="alert" className="relative mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-600 animate-rise"><Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />{err}</p>}
     </form>
   )
@@ -193,10 +256,23 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
  * videos fit per line ... hovering over the videos shouldn't show a play button, just magnify slightly and be clickable." The cover leads,
  * the numbers sit under it, and the whole card opens the video.
  */
-export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0 }) {
+export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules = null, month = null }) {
   const tr = useT()
   const [busy, setBusy] = useState(false)
   const preview = !!useVipPreview()
+  // THIS MONTH'S QUESTIONS, ANSWERED ON THE CARD (migration 377): a video added before a question existed can still say yes.
+  const thisMonth = month && new Date(video.posted_at || video.submitted_at) >= new Date(month.starts_at)
+  const asking = thisMonth && video.status !== 'disqualified' ? askingRules(rules, month) : []
+  const [claims, setClaims] = useState(() => Object.fromEntries((video.claims || []).map((c) => [c.rule, c.status])))
+  const [claimBusy, setClaimBusy] = useState(null)
+  async function answer(rule, on) {
+    setClaimBusy(rule.id)
+    const before = claims[rule.id]
+    setClaims((c) => ({ ...c, [rule.id]: on ? (before || 'claimed') : undefined }))
+    try { await vipRpc('vip_set_claim', { p_video: video.id, p_rule: rule.id, p_on: on }); toastSuccess(on ? tr('Counted for {b}', { b: rule.label }) : tr('Taken out of {b}', { b: rule.label })) }
+    catch (e) { setClaims((c) => ({ ...c, [rule.id]: before })); notice(vipError(e.message, tr)) }
+    finally { setClaimBusy(null) }
+  }
   const out = video.status === 'disqualified'
   const reading = !video.synced_at && !video.error && !out
   const earned = (Number(video.views_counted) / 1000) * Number(cpm || 0)
@@ -229,6 +305,22 @@ export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0 }) {
           <span className="shrink-0 text-[10.5px] text-smoke">{formatDate(video.posted_at || video.submitted_at)}</span>
         </div>
         {out && video.reason && <p className="text-[11px] leading-snug text-red-600">{video.reason}</p>}
+        {asking.map((r) => {
+          const st = claims[r.id]
+          const locked = preview || st === 'confirmed' || st === 'rejected'
+          return (
+            <button key={r.id} type="button" disabled={locked || claimBusy === r.id} onClick={() => answer(r, !st)} title={r.prompt}
+              aria-pressed={!!st && st !== 'rejected'}
+              className={cx('flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition-all duration-200',
+                st === 'rejected' ? 'bg-red-50 text-red-600' : st ? 'bg-brand text-white shadow-sm' : 'bg-cloud text-smoke hoverable:hover:text-ink',
+                !locked && 'hoverable:hover:-translate-y-px')}>
+              {claimBusy === r.id ? <Spinner className="h-3 w-3" /> : <Icon name={st === 'rejected' ? 'close' : st ? 'check' : 'plus'} className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} />}
+              <span className="min-w-0 flex-1 truncate">{r.label}</span>
+              {st === 'confirmed' && <span className="shrink-0 text-[9.5px] font-bold uppercase opacity-90">{tr('Checked')}</span>}
+              {st === 'rejected' && <span className="shrink-0 text-[9.5px] font-bold uppercase">{tr('Not this one')}</span>}
+            </button>
+          )
+        })}
         <dl className="mt-auto grid grid-cols-2 gap-2">
           <div><dt className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400">{tr('This month')}</dt><dd className="text-[13.5px] font-bold tabular-nums text-brand">{formatViews(video.views_counted)}</dd></div>
           <div><dt className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400">{tr('Earns')}</dt><dd className="text-[13.5px] font-bold tabular-nums text-ink">{money(earned, currency)}</dd></div>
@@ -401,8 +493,9 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
 }
 
 /** What there is to earn, in words, with how far along this creator is on the targets and milestones. */
-export function VipEarn({ rules, overview, currency }) {
+export function VipEarn({ rules, overview, currency, onAnswer }) {
   const tr = useT()
+  const official = overview.programme?.kind === 'official'
   const life = overview.lifetime || {}
   const stats = overview.stats || {}
   const progressFor = (r) => {
@@ -458,9 +551,10 @@ export function VipEarn({ rules, overview, currency }) {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card"><Icon name={kind?.icon || 'trophy'} className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-bold text-ink">{r.label}</p>
-                <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(r, tr, currency)}</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(r, tr, currency, { official })}</p>
               </div>
             </div>
+            {r.prompt && <RuleQuestionStandings rule={r} overview={overview} onAnswer={onAnswer} />}
             {prog && prog.need > 0 && !overview.staff && <div className="mt-3"><TargetBar label={tr('Your progress')} value={prog.have} target={prog.need} format={prog.format} done={tr('Reached')} /></div>}
             {r.kind === 'target' && stats && (overview.member?.target_videos || overview.member?.target_views) ? (
               <div className="mt-3 space-y-3">
@@ -472,6 +566,40 @@ export function VipEarn({ rules, overview, currency }) {
         )
       })}
     </ul>
+  )
+}
+
+/** A BONUS WITH A QUESTION, LIVE (10 Oct 2026, migration 377): the question, how many of their own videos said yes, and who is
+ *  ahead on the videos that count - the same board the close pays from. */
+function RuleQuestionStandings({ rule, overview, onAnswer }) {
+  const tr = useT()
+  const { data } = useOptionalRpc('vip_rule_standings', { p_rule: rule.id }, `rule-${rule.id}`)
+  const mineYes = (overview.videos || []).filter((v) => (v.claims || []).some((c) => c.rule === rule.id && c.status !== 'rejected')).length
+  const rows = (data?.rows || []).slice(0, 5)
+  return (
+    <div className="mt-3 space-y-2.5">
+      <p className="flex items-start gap-2 rounded-xl bg-brand-tint/50 px-3 py-2 text-[12.5px] font-semibold text-ink"><Icon name="flag" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />{rule.prompt}</p>
+      {!overview.staff && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-smoke">{mineYes === 1 ? tr('1 of your videos counts for this.') : tr('{n} of your videos count for this.', { n: mineYes })}</span>
+          {onAnswer && <button type="button" onClick={onAnswer} className="font-bold text-brand hover:underline">{tr('Answer for your videos')}</button>}
+        </div>
+      )}
+      {data === undefined ? <span className="block h-16 animate-pulse rounded-xl bg-cloud" /> : rows.length === 0 ? (
+        <p className="rounded-xl bg-cloud/60 px-3 py-2.5 text-center text-xs text-smoke">{tr('No videos count for this yet. Be the first.')}</p>
+      ) : (
+        <ol className="overflow-hidden rounded-xl border border-gray-100">
+          {rows.map((r, i) => (
+            <li key={r.video_id || `${r.rank}-${r.name}`} className={cx('flex items-center gap-2.5 px-3 py-1.5 text-[13px] animate-rise', i > 0 && 'border-t border-gray-50', r.me && 'bg-brand-tint/60')} style={{ animationDelay: `${i * 40}ms` }}>
+              <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{r.rank}</span>
+              <Avatar src={r.photo} name={r.name} size="xs" />
+              <span className="min-w-0 flex-1 truncate font-semibold text-ink">{r.name}{r.me && <span className="ml-1 text-[11px] font-bold text-brand">{tr('You')}</span>}</span>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-ink">{formatViews(r.views)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }
 

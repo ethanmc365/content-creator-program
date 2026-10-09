@@ -9,6 +9,7 @@ import VideoThumb from '../VideoThumb'
 import Icon from '../Icon'
 import { MarketStandings } from './v3'
 import VipScopeSwitch from './scope'
+import { CopyLinkChip } from './parts'
 import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
@@ -51,7 +52,7 @@ function fold(daily, mode) {
 export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
   const tr = useT()
   const mine = programmes.length ? programmes : [programme]
-  const canAll = !!isAdmin && mine.length > 1
+  const canAll = !!isAdmin && mine.length > 1 && programme.kind !== 'official'
   const [scope, setScope] = useState(canAll ? 'all' : programme.id)
   const all = canAll && scope === 'all'
   const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
@@ -120,7 +121,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
 
       {err && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
-      {view === 'markets' ? <MarketStandings /> : whole ? <MonthViews view={view} scope={all ? null : shown.id} cur={cur} /> : !data ? (
+      {view === 'markets' ? <MarketStandings kind={programme.kind || 'vip'} /> : whole ? <MonthViews view={view} scope={all ? null : shown.id} cur={cur} /> : !data ? (
         <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
       ) : (
         <div key={view} className={cx('transition-opacity duration-200 animate-tab-in', stale && 'opacity-60')}>
@@ -243,13 +244,15 @@ function Overview({ data, cur, range }) {
           <h3 className="mb-3 text-[13.5px] font-bold text-ink">{tr('The videos that gained the most')}</h3>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {data.top_videos.map((v, i) => (
-              <li key={v.id} className="animate-rise" style={{ animationDelay: `${i * 45}ms` }}>
-                <a href={v.url} target="_blank" rel="noopener noreferrer" className="group block overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift" aria-label={tr('Open on the platform')}>
+              <li key={v.id} className="group relative animate-rise transition-transform duration-300 hoverable:hover:-translate-y-1" style={{ animationDelay: `${i * 45}ms` }}>
+                <a href={v.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow duration-300 hoverable:group-hover:shadow-lift" aria-label={tr('Open on the platform')}>
                   <div className="relative"><VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
                     <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-2.5 pb-2 pt-7 text-white"><span className="block text-lg font-bold tabular-nums leading-none">{formatViews(v.views)}</span><span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">{tr('gained')}</span></span>
                   </div>
                   <p className="truncate px-2.5 py-2 text-xs font-semibold text-ink">{v.name}</p>
                 </a>
+                {/* The quick copy sits over the corner of the cover, outside the link, so pressing it never opens the video. */}
+                <CopyLinkChip url={v.url} className="absolute right-2 top-2" />
               </li>
             ))}
           </ul>

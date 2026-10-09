@@ -6,6 +6,7 @@ import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } f
 import { formatDateTimeTz, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { VipMoveBlock } from '../vip/adminA'
+import { CreatorMarketsBlock } from './CreatorMarkets'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -169,6 +170,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
             components/ViewingAs. It is inert for anybody who is not an admin,
             and it grants nothing: it chooses which id the page filters on, and
             row-level security decides what comes back. */}
+        <CreatorMarketsBlock creator={creator} />
         <VipMoveBlock creator={creator} />
 
         <div className="border-t border-gray-100 pt-4">

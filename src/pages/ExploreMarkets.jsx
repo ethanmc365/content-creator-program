@@ -15,6 +15,7 @@ import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import ReaderText from '../components/ReaderText'
+import { openJoinMarket } from '../components/network/JoinMarket'
 
 // Every market, and whether it is yours.
 //
@@ -209,19 +210,12 @@ export default function ExploreMarkets() {
     return () => { alive = false }
   }, [user])
 
-  async function requestJoin(market) {
+  // ASKING GOES THROUGH THE ONE SHEET (10 Oct 2026): pick the market, say why in a line, send - the same sheet the avatar
+  // menu and the Worldwide column open, so a request always carries its reason and lands highlighted in Applications.
+  function requestJoin(market) {
     if (!user?.id) return
-    // Optimistic: the button has to stop offering immediately or it reads as
-    // having done nothing and gets pressed again.
-    setRequests((r) => ({ ...r, [market.id]: 'pending' }))
-    const { error } = await supabase.from('market_join_requests')
-      .insert({ community_id: market.id, profile_id: user.id })
-    if (error) {
-      setRequests((r) => { const next = { ...r }; delete next[market.id]; return next })
-      notice(`Could not send that request: ${error.message}`)
-      return
-    }
-    notice(`Asked to join ${market.name}. The team there will let you know.`)
+    if (profile?.is_vip) { notice(tr('Your market is set by the team. Message them if you want to change it.')); return }
+    openJoinMarket(market.id)
   }
 
   const mineIds = new Set(myChapters.map((c) => c.id))

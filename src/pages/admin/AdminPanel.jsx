@@ -531,11 +531,13 @@ export default function AdminPanel() {
         // row per problem (database busy, connections, stuck queries, lock queues, realtime lag, memory, disk); each
         // closes itself when the reading recovers. Each is its own desk row, in its own words, at the top.
         supabase.from('client_errors').select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
+        // A member asking to join another market as well (migration 378), answered on Applications > Market requests.
+        supabase.from('market_join_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ])
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
         { count: newFeedback }, { count: newSuggestions }, { data: rewardRows },
-        { count: toSend }, { data: blockedRows }, { count: openErrors }, { data: opsRows },
+        { count: toSend }, { data: blockedRows }, { count: openErrors }, { data: opsRows }, { count: marketAsks },
       ] = answers
       // A COUNT THAT FAILED IS NOT A ZERO. The desk is always drawn now, and an
       // empty desk says "all clear" - which a query that errored would say too
@@ -551,6 +553,7 @@ export default function AdminPanel() {
         openErrors: openErrors ?? 0,
         ops: opsRows ?? [],
         pendingApps: pendingApps ?? 0,
+        marketAsks: marketAsks ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
         newFeedback: newFeedback ?? 0,
@@ -607,6 +610,7 @@ export default function AdminPanel() {
   const desk = stats ? [
     ...stats.ops.map((w) => ({ to: '/admin/analytics?tab=errors', icon: 'alert', label: w.message, warn: true })),
     stats.pendingApps > 0 && { to: '/admin/applications', icon: 'check', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
+    stats.marketAsks > 0 && { to: '/admin/applications?tab=markets', icon: 'globe', count: stats.marketAsks, label: `creator${stats.marketAsks === 1 ? '' : 's'} asking to join another market` },
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve` },
     stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}` },
     stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'bug', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },

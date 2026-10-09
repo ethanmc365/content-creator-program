@@ -10,6 +10,7 @@ import { IdeasTeaser } from '../components/VideoIdeas'
 import VipHomeCard, { VipRailCard } from '../components/vip/VipHomeCard'
 import { useVipOverview } from '../lib/vip'
 import MarketsRailCard from '../components/network/MarketsRailCard'
+import { JoinMarketCard } from '../components/network/JoinMarket'
 import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
@@ -556,6 +557,8 @@ export default function GlobalHome() {
 
       {/* ---------- Your markets (shared with every market page) ---------- */}
       <MarketsRailCard current="worldwide" live={d?.live} />
+      {/* ---------- Creating for another market (10 Oct 2026): straight under the markets you are in ---------- */}
+      <JoinMarketCard />
 
       {/* ---------- Video Ideas, BELOW Your markets (9 Oct 2026: "moved below the Your Map section") ---------- */}
       <IdeasTeaser className="hidden lg:block" />

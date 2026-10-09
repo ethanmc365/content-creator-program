@@ -13,6 +13,7 @@ import { formatDate, timeAgo, formatViews, downloadCsv, cx, ageFromDob } from '.
 import { isOnlineAt } from '../../lib/presence'
 import { isHiddenTestRow } from '../../lib/testData'
 import { VipMoveBlock } from '../../components/vip/adminA'
+import { CreatorMarketsBlock } from '../../components/admin/CreatorMarkets'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -777,6 +778,7 @@ export default function AdminCreators() {
                 are a fixed four-column grid, which cannot wrap into an orphan
                 at any width. Same tiles as the profile popup; see
                 components/admin/creatorSheet. */}
+            <CreatorMarketsBlock creator={selected} onChanged={load} />
             <VipMoveBlock creator={selected} />
 
             <div>

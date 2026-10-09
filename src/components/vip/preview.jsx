@@ -35,9 +35,9 @@ export function VipPreviewTab({ programme }) {
   useEffect(() => {
     let alive = true
     supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true)
-      .then(({ data }) => { if (alive) setTeamIds(new Set((data || []).map((x) => x.profile_id))) })
+      .then(({ data }) => { if (alive) setTeamIds(programme.kind === 'official' ? new Set() : new Set((data || []).map((x) => x.profile_id))) })
     return () => { alive = false }
-  }, [programme.id])
+  }, [programme.id, programme.kind])
 
   useEffect(() => {
     let alive = true

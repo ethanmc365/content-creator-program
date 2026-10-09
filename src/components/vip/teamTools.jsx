@@ -657,6 +657,7 @@ export function VipRulesCard({ programme, onSaved }) {
 // the tool that deals with it.
 export function TeamPulse({ programme, onTool }) {
   const tr = useT()
+  const official = programme.kind === 'official'
   const req = useRpc('vip_requirements', { p_programme: programme.id, p_month: null })
   const wal = useRpc('vip_wallets', { p_programme: programme.id })
   const rows = req.data?.rows || []
@@ -670,6 +671,7 @@ export function TeamPulse({ programme, onTool }) {
   const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
   return (
     <div className="grid gap-3 sm:grid-cols-3">
+      {official ? <OfficialFeesCard programme={programme} className={card} onOpen={() => onTool('members')} /> : (
       <button type="button" onClick={() => onTool('requirements')} className={card}>
         <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
           <span className="flex items-center gap-1.5"><Icon name="shield" className="h-3.5 w-3.5 text-brand" />{tr('Stay-in check')}</span>
@@ -689,6 +691,7 @@ export function TeamPulse({ programme, onTool }) {
           </>
         )}
       </button>
+      )}
       <button type="button" onClick={() => onTool('wallets')} className={cx(card, '[animation-delay:60ms]')}>
         <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
           <span className="flex items-center gap-1.5"><Icon name="wallet" className="h-3.5 w-3.5 text-brand" />{tr('Balances')}</span>
@@ -697,7 +700,7 @@ export function TeamPulse({ programme, onTool }) {
         {wal.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
           <>
             <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp value={owed} format={(n) => money(n, cur, { cents: false })} /></span>
-            <span className="text-xs text-smoke">{tr('held for VIPs, {n} over the cash threshold', { n: ready })}</span>
+            <span className="text-xs text-smoke">{official ? tr('held for the creators, {n} over the cash threshold', { n: ready }) : tr('held for VIPs, {n} over the cash threshold', { n: ready })}</span>
           </>
         )}
       </button>
@@ -709,10 +712,45 @@ export function TeamPulse({ programme, onTool }) {
         {wal.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
           <>
             <span className={cx('mt-1.5 text-2xl font-bold tabular-nums', codes ? 'text-amber-600' : 'text-emerald-600')}>{codes ? nf(codes) : <Icon name="check" className="h-7 w-7" strokeWidth={2.4} />}</span>
-            <span className="text-xs text-smoke">{codes ? tr('voucher codes to send') : tr('Nothing waiting. Month end is in VIP tools.')}</span>
+            <span className="text-xs text-smoke">{codes ? tr('voucher codes to send') : official ? tr('Nothing waiting. Month end is in Tools.') : tr('Nothing waiting. Month end is in VIP tools.')}</span>
           </>
         )}
       </button>
     </div>
+  )
+}
+
+// THE OFFICIAL CREATORS' FEES, AT A GLANCE (10 Oct 2026, migration 376). Their contract is a monthly fee plus views pay, and
+// there is no stay-in rule, so the first card is the fees: what this month's fees add up to, and who has posted enough to
+// earn theirs. Paula and Julia (their own invoice) are counted apart, because nothing is drafted for them here.
+function OfficialFeesCard({ programme, className, onOpen }) {
+  const tr = useT()
+  const ov = useRpc('vip_admin_overview', { p_programme: programme.id })
+  const [deals, setDeals] = useState(null)
+  useEffect(() => {
+    let alive = true
+    supabase.from('vip_members').select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
+      .then(({ data }) => { if (alive) setDeals(data || []) })
+    return () => { alive = false }
+  }, [programme.id])
+  const videosOf = Object.fromEntries((ov.data?.members || []).map((m) => [m.profile_id, Number(m.videos) || 0]))
+  const paid = (deals || []).filter((d) => d.status === 'active' && !d.invoice_outside && Number(d.monthly_fee) > 0)
+  const earned = paid.filter((d) => (videosOf[d.profile_id] || 0) >= (Number(d.fee_min_videos) || 0))
+  const total = paid.reduce((a, d) => a + Number(d.monthly_fee), 0)
+  const outside = (deals || []).filter((d) => d.status === 'active' && d.invoice_outside).length
+  return (
+    <button type="button" onClick={onOpen} className={className}>
+      <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
+        <span className="flex items-center gap-1.5"><Icon name="badge" className="h-3.5 w-3.5 text-brand" />{tr('Monthly fees')}</span>
+        <Icon name="chevronRight" className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+      </span>
+      {deals === null || ov.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
+        <>
+          <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp value={total} format={(n) => money(n, programme.currency, { cents: false })} /></span>
+          <span className="text-xs text-smoke">{tr('{a} of {b} have posted enough to earn theirs', { a: earned.length, b: paid.length })}{outside ? ` · ${tr('{n} send their own invoice', { n: outside })}` : ''}</span>
+          <span className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-1000" style={{ width: `${paid.length ? Math.round((earned.length / paid.length) * 100) : 0}%` }} /></span>
+        </>
+      )}
+    </button>
   )
 }

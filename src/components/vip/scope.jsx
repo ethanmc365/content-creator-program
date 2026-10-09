@@ -11,11 +11,12 @@ import { useT } from '../../lib/i18n'
 // list is a row of chips - a star for every market together, a globe for the Worldwide VIP market, a flag for a country's - the same
 // three symbols the announcement and content dropdowns use, so a symbol always means the same thing.
 export const programmeIcon = (p) => (p?.community?.country_codes?.length ? p.community.country_codes.slice(0, 2).map(flagFromIso).join('') : '🌍')
+const isOfficialList = (list) => list.length > 0 && list.every((p) => p.kind === 'official')
 
 export default function VipScopeSwitch({ programmes, value, onChange, allowAll = true, className }) {
   const tr = useT()
   const options = [
-    ...(allowAll && programmes.length > 1 ? [{ value: 'all', icon: '⭐', label: tr('All VIP markets') }] : []),
+    ...(allowAll && programmes.length > 1 ? [{ value: 'all', icon: '⭐', label: isOfficialList(programmes) ? tr('Every official programme') : tr('All VIP markets') }] : []),
     ...programmes.map((p) => ({ value: p.id, icon: programmeIcon(p), label: p.name })),
   ]
   if (options.length < 2) return null

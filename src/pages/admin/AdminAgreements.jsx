@@ -21,7 +21,7 @@ import { cx, dateTag } from '../../lib/utils'
 // they open the app, and told in a notification. The register shows who has accepted the current version, how (tick,
 // typed or drawn signature), when, and from where; it downloads as a CSV for the records.
 const when = (iso) => (iso ? new Date(iso).toLocaleString(dateTag(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
-const AUD = { creator: 'Community Terms', vip: 'VIP Creator Agreement' }
+const AUD = { creator: 'Community Terms', vip: 'VIP Creator Agreement', official: 'Official Content Creator Agreement' }
 
 // THE PLACEHOLDERS A TEMPLATE CAN USE (migration 357). Filled in from each reader's own VIP market when they read or
 // sign, so one shared VIP agreement can say EUR 0.20 to Spain and EUR 0.40 to Romania.
@@ -36,6 +36,12 @@ export const PLACEHOLDERS = [
   ['{{window_days}}', 'How many days a video keeps counting', 'vip'],
   ['{{payment_cap}}', 'A sentence about the monthly cap (or that there is none)', 'vip'],
   ['{{stay_in}}', 'A sentence about the stay-in requirement (or that there is none)', 'vip'],
+  // The official creator agreement (migration 379), filled in from each creator's own deal on Members > Edit.
+  ['{{territory}}', 'The market they create for, for example Spain', 'official'],
+  ['{{start_date}}', 'The date they sign', 'official'],
+  ['{{monthly_fee_clause}}', 'Their monthly fee and what earns it (for example 30 videos), or that there is none', 'official'],
+  ['{{views_cap}}', 'Their views pay cap and the most a month can pay, or that there is no cap', 'official'],
+  ['{{invoicing}}', 'Who writes the monthly invoice: Tryp.com (self-billing), or the creator when they send their own', 'official'],
   ['{{today}}', 'The date they accept or sign', 'all'],
 ]
 
@@ -48,7 +54,10 @@ const sampleFill = (t = '') => String(t || '')
 
 export default function AdminAgreements() {
   const { profile } = useAuth()
-  const [audience, setAudience] = useState('creator')
+  // THREE DOCUMENTS (10 Oct 2026): the official creators sign their own agreement, stored as a 'vip' agreement tied to their
+  // official programme (migration 379), so the gate, the register and Settings > Agreements all work unchanged.
+  const [tab, setTab] = useState('creator')
+  const audience = tab === 'creator' ? 'creator' : 'vip'
   const [market, setMarket] = useState('') // '' = every VIP market (the shared version), else a programme id
   const [programmes, setProgrammes] = useState([])
   const [docs, setDocs] = useState(undefined)
@@ -61,8 +70,15 @@ export default function AdminAgreements() {
   }, [])
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    supabase.from('vip_programmes').select('id, name, active').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
+    supabase.from('vip_programmes').select('id, name, active, kind').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
   }, [])
+  const officials = programmes.filter((p) => p.kind === 'official')
+  const vipProgrammes = programmes.filter((p) => p.kind !== 'official')
+  // The official tab always has one programme picked (there is no shared official version).
+  useEffect(() => {
+    if (tab === 'official' && officials.length && !officials.some((p) => p.id === market)) setMarket(officials[0].id)
+    if (tab === 'vip' && market && !vipProgrammes.some((p) => p.id === market)) setMarket('')
+  }, [tab, officials, vipProgrammes, market])
 
   const inScope = (d) => d.audience === audience && (audience !== 'vip' || (d.programme_id || '') === market)
   const list = (docs || []).filter(inScope)
@@ -75,11 +91,11 @@ export default function AdminAgreements() {
 
   async function newVersion() {
     // A market's first version starts as a copy of the shared one.
-    const base = live || list[0] || (audience === 'vip' && market ? (sharedLive || sharedLatest) : null)
+    const base = live || list[0] || (tab === 'vip' && market ? (sharedLive || sharedLatest) : null)
     const { data, error } = await supabase.from('agreements').insert({
       audience, programme_id: audience === 'vip' && market ? market : null,
-      version: (list[0]?.version || 0) + 1, title: base?.title || AUD[audience], summary: base?.summary || '',
-      body: base?.body || `# ${AUD[audience]}\n\n`, requires_signature: base ? base.requires_signature : audience === 'vip', created_by: profile.id,
+      version: (list[0]?.version || 0) + 1, title: base?.title || AUD[tab], summary: base?.summary || '',
+      body: base?.body || `# ${AUD[tab]}\n\n`, requires_signature: base ? base.requires_signature : audience === 'vip', created_by: profile.id,
     }).select('id').single()
     if (error) { notice(error.message); return }
     await load(); setOpenId(data.id)
@@ -96,7 +112,7 @@ export default function AdminAgreements() {
   }
 
   async function publishDoc(d) {
-    const who = d.audience === 'vip' ? 'every active VIP' : 'every creator'
+    const who = tab === 'official' ? `every official creator in ${marketName?.replace(/^Tryp\.com Official /, '') || 'that market'}` : d.audience === 'vip' ? 'every active VIP' : 'every creator'
     if (!await confirm(`Switch on v${d.version}? ${who[0].toUpperCase()}${who.slice(1)} will have to ${d.requires_signature ? 'sign' : 'accept'} it before they can use the app, the next time they open it${live ? ', and will be told in a notification' : ''}. A published version cannot be edited.`, { confirmLabel: 'Publish' })) return false
     const { error } = await supabase.rpc('publish_agreement', { p_agreement: d.id, p_notify: true })
     if (error) { notice(error.message); return false }
@@ -109,12 +125,18 @@ export default function AdminAgreements() {
     <div className="page max-w-5xl">
       <PageHeader back="/admin" title="Agreements" subtitle="The terms creators accept and the agreement VIPs sign. Publish a version and everyone it applies to is asked to accept it." />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <Segmented value={audience} onChange={(v) => { setAudience(v); setOpenId(null) }} options={[{ value: 'creator', label: 'Community Terms' }, { value: 'vip', label: 'VIP agreement' }]} />
+        <Segmented value={tab} onChange={(v) => { setTab(v); setOpenId(null) }} options={[{ value: 'creator', label: 'Community Terms' }, { value: 'vip', label: 'VIP agreement' }, ...(officials.length ? [{ value: 'official', label: 'Official creators' }] : [])]} />
         {!draft && <button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />{audience === 'vip' && market && !list.length ? `Make one for ${marketName}` : 'New version'}</button>}
       </div>
-      {audience === 'vip' && (
+      {tab === 'official' && (
+        <p className="mb-5 flex items-start gap-2 rounded-card border border-brand/20 bg-brand-tint/40 px-5 py-4 text-sm text-ink">
+          <Icon name="badge" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+          <span>The agreement the official Tryp.com content creators sign: monthly fee, rate per 1,000 views, cap and invoicing filled in from each person's own deal (VIP tools &gt; Members &gt; Edit). Written from the signed Content Creator Agreement (ES) of 25 March 2026.</span>
+        </p>
+      )}
+      {(tab === 'vip' || (tab === 'official' && officials.length > 1)) && (
         <div className="mb-5 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-          {[{ id: '', name: 'Every VIP market' }, ...programmes].map((p) => (
+          {(tab === 'official' ? officials : [{ id: '', name: 'Every VIP market' }, ...vipProgrammes]).map((p) => (
             <button key={p.id || 'all'} type="button" onClick={() => { setMarket(p.id); setOpenId(null) }} aria-pressed={market === p.id}
               className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', market === p.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
               {p.name}
@@ -122,14 +144,14 @@ export default function AdminAgreements() {
           ))}
         </div>
       )}
-      {audience === 'vip' && market && !list.length && (
+      {tab === 'vip' && market && !list.length && (
         <p className="mb-5 rounded-card border border-brand/20 bg-white px-5 py-4 text-sm text-ink shadow-card">
           <strong>{marketName}</strong> uses the shared VIP agreement, with {marketName}'s own numbers filled in. Make a version just for {marketName} only if its wording has to differ.
         </p>
       )}
 
       {docs !== undefined && (list.length > 0 || audience === 'creator' || !market) && (
-        <StatusBanner audience={audience} live={live} draft={draft} market={marketName} sharedLive={audience === 'vip' && market ? sharedLive : null}
+        <StatusBanner audience={audience} official={tab === 'official'} live={live} draft={draft} market={marketName} sharedLive={tab === 'vip' && market ? sharedLive : null}
           onPublish={() => draft && publishDoc(draft)} onPreview={(d, minor) => openPreview(d, minor)} onOpen={(d) => setOpenId(d.id)} />
       )}
 
@@ -155,7 +177,7 @@ export default function AdminAgreements() {
                 </span>
               </button>
             ))}
-            <PlaceholderGuide programme={market || null} audience={audience} />
+            <PlaceholderGuide programme={market || null} audience={audience} official={tab === 'official'} />
           </aside>
         </div>
       )}
@@ -165,8 +187,8 @@ export default function AdminAgreements() {
 }
 
 /** What each placeholder turns into for the chosen market, so the team can write the template with the answers in front of them. */
-function PlaceholderGuide({ programme, audience }) {
-  const shown = PLACEHOLDERS.filter(([, , who]) => who === 'all' || audience === 'vip')
+function PlaceholderGuide({ programme, audience, official = false }) {
+  const shown = PLACEHOLDERS.filter(([, , who]) => who === 'all' || (who === 'vip' && audience === 'vip') || (who === 'official' && official))
   const [values, setValues] = useState(null)
   useEffect(() => {
     let alive = true
@@ -233,8 +255,8 @@ function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
  * 'Draft', but at the bottom it says 'Publish V1'." The answer to "are creators being asked?" is now the first thing
  * on the page, with the button that changes it beside it.
  */
-function StatusBanner({ audience, live, draft, market, sharedLive, onPublish, onPreview, onOpen }) {
-  const who = audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
+function StatusBanner({ audience, official = false, live, draft, market, sharedLive, onPublish, onPreview, onOpen }) {
+  const who = official ? `every official creator in ${String(market || '').replace(/^Tryp\.com Official /, '') || 'this market'}` : audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
   if (!live && !draft && sharedLive) return null
   const on = !!live
   return (
@@ -334,6 +356,19 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
 
 function Register({ doc }) {
   const [rows, setRows] = useState(undefined)
+  // OUR COPY OF A SIGNED AGREEMENT (10 Oct 2026): the same PDF the creator downloads, from the frozen signed text.
+  const [pdfBusy, setPdfBusy] = useState(null)
+  async function pdf(r) {
+    setPdfBusy(r.profile_id)
+    try {
+      const { data, error } = await supabase.rpc('agreement_signed_copy', { p_agreement: doc.id, p_profile: r.profile_id })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) throw new Error('No signed copy found.')
+      const { downloadAgreementPdf } = await import('../../lib/agreementPdf')
+      await downloadAgreementPdf(row)
+    } catch (e) { notice(e.message || String(e)) } finally { setPdfBusy(null) }
+  }
   const [filter, setFilter] = useState('all')
   const [q, setQ] = useState('')
   const [guardians, setGuardians] = useState({})
@@ -397,6 +432,12 @@ function Register({ doc }) {
                 )}
               </span>
               {r.method && r.method !== 'click' && <SignatureImage svg={r.signature_svg} method={r.method} name={r.signed_name} className="max-h-9 max-w-[140px]" textClass="text-[20px]" />}
+              {r.accepted_at && (
+                <button type="button" onClick={() => pdf(r)} disabled={pdfBusy === r.profile_id} title="Download the signed copy (PDF)" aria-label={`Download ${r.name}'s signed copy`}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:-translate-y-px hover:bg-brand-tint hover:text-brand disabled:opacity-50">
+                  {pdfBusy === r.profile_id ? <Spinner className="h-4 w-4" /> : <Icon name="download" className="h-4 w-4" />}
+                </button>
+              )}
               {!r.accepted_at && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase text-brand">Waiting</span>}
             </li>
           ))}

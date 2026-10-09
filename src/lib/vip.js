@@ -141,7 +141,19 @@ export const FLAGS = {
 }
 
 /** The bonus rule in one sentence a creator can read. */
-export function describeRule(rule, tr, currency = 'EUR') {
+// OFFICIAL TRYP.COM CREATORS (10 Oct 2026, migration 376). A programme has a kind: 'vip' (a market's VIP community) or
+// 'official' (the official Tryp.com content creators of a market, on their own contract). Same machinery, own board,
+// own bonuses, own room - so the screens only need to know which words to use.
+export const isOfficial = (p) => p?.kind === 'official'
+/** The words a page uses for a programme's people: "VIP" / "official creator". */
+export function kindWords(kind, tr) {
+  return kind === 'official'
+    ? { title: tr('Official'), people: tr('official creators'), one: tr('official creator'), Room: tr('Official creators') }
+    : { title: tr('VIP'), people: tr('VIPs'), one: tr('VIP'), Room: tr('VIP room') }
+}
+
+export function describeRule(rule, tr, currency = 'EUR', { official = false } = {}) {
+  const among = official ? tr('among the official creators') : null
   const pay = (amt, reward) => (reward === 'voucher'
     ? tr('a {a} voucher', { a: money(amt, currency, { cents: false }) })
     : money(amt, currency, { cents: false }))
@@ -152,10 +164,10 @@ export function describeRule(rule, tr, currency = 'EUR') {
   }
   if (rule.kind === 'top_n') {
     const places = (rule.places || []).map((p) => `#${p.place}: ${pay(p.amount, p.reward || rule.reward)}`).join(' · ')
-    return tr('Most views {scope}. {places}', { scope: rule.scope === 'global' ? tr('across every VIP') : tr('in your market'), places })
+    return tr('Most views {scope}. {places}', { scope: among || (rule.scope === 'global' ? tr('across every VIP') : tr('in your market')), places })
   }
   if (rule.kind === 'best_video') {
-    return tr('The most-viewed video {scope} earns {p}', { scope: rule.scope === 'global' ? tr('across every VIP') : tr('in your market'), p: pay(rule.amount, rule.reward) })
+    return tr('The most-viewed video {scope} earns {p}', { scope: among || (rule.scope === 'global' ? tr('across every VIP') : tr('in your market')), p: pay(rule.amount, rule.reward) })
   }
   if (rule.kind === 'streak') {
     return tr('Post at least {n} videos in each of {m} months in a row: {p}', {

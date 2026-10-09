@@ -6,7 +6,7 @@ import Segmented from '../network/Segmented'
 import VideoThumb from '../VideoThumb'
 import FlagStack from '../network/FlagStack'
 import Icon from '../Icon'
-import { notice, promptText } from '../../lib/confirm'
+import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
@@ -74,9 +74,10 @@ export function VipOverviewTab({ programme }) {
         vipRpc('vip_admin_videos', { p_programme: programme.id, p_limit: 60 }),
         supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true),
       ])
-      setData(o); setVideos(v); setTeamIds(new Set((t.data || []).map((x) => x.profile_id))); setErr('')
+      // An official programme is all official creators; the "team" split only ever meant something inside a VIP one.
+      setData(o); setVideos(v); setTeamIds(programme.kind === 'official' ? new Set() : new Set((t.data || []).map((x) => x.profile_id))); setErr('')
     } catch (e) { setErr(e.message) }
-  }, [programme.id])
+  }, [programme.id, programme.kind])
   useEffect(() => { setData(null); load(); const id = setInterval(load, 60000); return () => clearInterval(id) }, [load])
 
   async function readNow() {
@@ -384,6 +385,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
     feeMin: m.fee_min_videos ?? '',
     cap: m.cap ?? '',
     bonuses: m.bonuses_on !== false,
+    outside: !!m.invoice_outside,
     tv: m.target_videos ?? '',
     tw: m.target_views ?? '',
     headline: m.headline || '',
@@ -418,6 +420,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
           fee_min_videos: num(f.feeMin),
           monthly_cap: num(f.cap),
           bonuses_on: f.bonuses,
+          invoice_outside: f.outside,
           target_videos: num(f.tv),
           target_views: num(f.tw),
           headline: f.headline,
@@ -509,6 +512,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
                 )}
             </div>
             {switchRow(f.bonuses, (v) => set({ bonuses: v }), tr('Market bonuses apply to them'), tr('Off for a deal that is views pay (and their monthly bonus) only.'))}
+            {switchRow(f.outside, (v) => set({ outside: v }), tr('They send their own invoice'), tr('Views are tracked and shown here, but no monthly statement or invoice is made for them on the platform.'))}
             <div className="rounded-xl bg-gradient-to-br from-brand-tint/70 to-white px-3.5 py-3 ring-1 ring-brand/10">
               <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-brand">{tr('What this deal pays in a month')}</p>
               <div className="grid grid-cols-3 gap-2">
@@ -644,20 +648,28 @@ export function VipMembersTab({ programme }) {
     if (ok) toastSuccess(oneName ? tr('Copied {n}\'s email.', { n: oneName }) : tr('Copied {n} email addresses.', { n: a.length }))
     else notice(tr('Could not copy. Try again.'))
   }
+  // OFFICIAL CREATOR OR VIP (10 Oct 2026, migration 376). This used to set a label; it now MOVES the person, with this
+  // month's videos, into the official programme of the same market (or back), so they leave this list.
+  const officialHere = programme.kind === 'official'
   async function toggleTeam(m) {
-    const next = !reviews[m.profile_id]?.is_team
+    const next = !officialHere
+    const ok = await confirm(next
+      ? tr('Make {n} an official Tryp.com creator? They move to the official creators of this market with this month\'s videos: their own board, bonuses, room and agreement. They will not see the VIP boards any more. No admin access.', { n: m.name })
+      : tr('Move {n} back to the VIP creators? This month\'s videos go with them, and they will see the VIP board, bonuses and room again.', { n: m.name }),
+    { confirmLabel: next ? tr('Make official') : tr('Move to VIP') })
+    if (!ok) return
     setTeamBusy(m.profile_id)
     const { error } = await supabase.rpc('vip_set_team', { p_profile: m.profile_id, p_programme: programme.id, p_team: next })
     setTeamBusy(null)
     if (error) { notice(error.message); return }
-    setReviews((r) => ({ ...r, [m.profile_id]: { ...(r[m.profile_id] || {}), is_team: next } }))
-    toastSuccess(next ? tr('{n} is now a Tryp.com team creator.', { n: m.name }) : tr('{n} is back with the VIP creators.', { n: m.name }))
+    toastSuccess(next ? tr('{n} is now an official Tryp.com creator.', { n: m.name }) : tr('{n} is back with the VIP creators.', { n: m.name }))
+    load()
   }
   const load = useCallback(async () => {
     const [o, r] = await Promise.all([
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
       // Everything the settings sheet edits that the overview does not carry (migration 311 columns included).
-      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes, is_team').eq('programme_id', programme.id),
+      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes, is_team, invoice_outside').eq('programme_id', programme.id),
     ])
     setData(o)
     setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x])))
@@ -675,21 +687,22 @@ export function VipMembersTab({ programme }) {
 
   const everyone = data?.members || []
   const counts = { active: everyone.filter((m) => m.status === 'active').length, paused: everyone.filter((m) => m.status === 'paused').length, left: everyone.filter((m) => m.status === 'left').length }
-  const isTeam = (m) => !!reviews[m.profile_id]?.is_team
+  const isTeam = (m) => !officialHere && !!reviews[m.profile_id]?.is_team
   const teamCount = everyone.filter(isTeam).length
   const members = everyone.filter((m) => (show === 'all' || m.status === show) && (who === 'all' || (who === 'team') === isTeam(m)) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
   return (
     <div className="space-y-8">
       {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST (4 Oct 2026). Ethan: "the VIP sign-up link, when I click on Members, should
           always be at the top rather than at the bottom ... the metrics showing 0 signed up ... should also be at the top." */}
-      <VipLinkCard />
+      {/* The VIP sign-up link is for VIPs; official creators are placed by the team, never by a link. */}
+      {!officialHere && <VipLinkCard />}
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Members ({n})', { n: everyone.length })}</h2>
           <div className="flex items-center gap-2">
             {members.length > 0 && <button type="button" onClick={() => copyEmails(members)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy emails ({n})', { n: members.length })}</button>}
-            <button type="button" onClick={() => setAdding(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a VIP')}</button>
+            <button type="button" onClick={() => setAdding(true)} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{officialHere ? tr('Add a creator') : tr('Add a VIP')}</button>
           </div>
         </div>
         {(everyone.length > 4 || teamCount > 0) && (
@@ -730,6 +743,8 @@ export function VipMembersTab({ programme }) {
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                       <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
                         <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
+                        {Number(reviews[m.profile_id]?.monthly_fee) > 0 && <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('{a} a month', { a: money(reviews[m.profile_id].monthly_fee, programme.currency, { cents: false }) })}</span>}
+                        {reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('own invoice')}</span>}
                         {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
                         {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
                         {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
@@ -739,11 +754,11 @@ export function VipMembersTab({ programme }) {
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button type="button" onClick={() => copyEmails([m], m.name)} title={tr('Copy their email')} aria-label={tr('Copy their email')} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="envelope" className="h-3.5 w-3.5" /></button>
                         <Link to={`/profile/${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="user" className="h-3.5 w-3.5" />{tr('Profile')}</Link>
-                        <Link to={`/vip?mode=as&who=${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="star" className="h-3.5 w-3.5" />{tr('VIP page')}</Link>
-                        <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id} aria-pressed={!!reviews[m.profile_id]?.is_team}
-                          title={reviews[m.profile_id]?.is_team ? tr('Move back to the VIP creators') : tr('An official Tryp.com creator. No admin access.')}
-                          className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hoverable:hover:-translate-y-px disabled:opacity-50', reviews[m.profile_id]?.is_team ? 'bg-ink text-white' : 'border border-gray-200 text-smoke hoverable:hover:text-ink')}>
-                          <Icon name={reviews[m.profile_id]?.is_team ? 'check' : 'users'} className="h-3.5 w-3.5" />{reviews[m.profile_id]?.is_team ? tr('Tryp.com team') : tr('Mark as Tryp.com team')}
+                        <Link to={`/vip?mode=as&who=${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name={officialHere ? 'badge' : 'star'} className="h-3.5 w-3.5" />{officialHere ? tr('Their page') : tr('VIP page')}</Link>
+                        <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id}
+                          title={officialHere ? tr('Move back to the VIP creators') : tr('An official Tryp.com content creator: own contract, board and bonuses. No admin access.')}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-50">
+                          {teamBusy === m.profile_id ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={officialHere ? 'star' : 'badge'} className="h-3.5 w-3.5" />}{officialHere ? tr('Move to VIP') : tr('Make official creator')}
                         </button>
                         <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
                       </div>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { confirm, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import MarketRequests, { usePendingMarketRequests } from '../../components/admin/MarketRequests'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import PhotoLightbox from '../../components/PhotoLightbox'
@@ -174,7 +175,10 @@ export default function AdminApplications() {
   // 'applied' - finished the form, waiting on a decision.
   // 'incomplete' - signed up and never finished. Nobody has anything to review
   //   here, so it is a separate list rather than a filter on the same one.
-  const [bucket, setBucket] = useState('applied')
+  // ?tab=markets is where a market request's notification lands (migration 378).
+  const [params] = useSearchParams()
+  const [bucket, setBucket] = useState(() => (params.get('tab') === 'markets' ? 'markets' : 'applied'))
+  const [marketAsks, reloadMarketAsks] = usePendingMarketRequests()
   const [zoom, setZoom] = useState(null)
   // The thumbnail that was pressed, so the photo grows out of it (PhotoLightbox).
   const zoomFrom = useRef(null)
@@ -595,6 +599,45 @@ export default function AdminApplications() {
     ...(Array.isArray(a.other_links) ? a.other_links.map((l) => ({ ...l, url: linkHref(l?.url) })) : []),
   ].filter((s) => s.url)
 
+  // THREE LISTS (10 Oct 2026): a market request is a member asking for another market, not an application - its own tab,
+  // with a live count in brand orange so it is never missed.
+  const bucketSwitch = (apps !== null || marketAsks) ? (
+    <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-full bg-cloud p-1 scrollbar-none">
+      {[
+        ['applied', 'Waiting on you', counts.applied],
+        ['incomplete', 'Never finished', counts.incomplete],
+        ['markets', 'Market requests', marketAsks ?? 0],
+      ].map(([key, label, n]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => { setBucket(key); setMarket(''); setOpenId(null); setPicked(new Set()) }}
+          aria-pressed={bucket === key}
+          className={cx(
+            'relative flex-1 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-colors duration-200 sm:px-4 sm:text-sm',
+            bucket === key ? 'bg-white text-ink shadow-card' : 'text-smoke hover:text-ink',
+          )}
+        >
+          {key === 'markets' && <Icon name="globe" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
+          {label}
+          {key === 'markets' && n > 0
+            ? <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold tabular-nums text-white animate-pop-in">{n}</span>
+            : <span className={cx('ml-1.5 tabular-nums', bucket === key ? 'text-brand' : 'text-gray-400')}>{n}</span>}
+        </button>
+      ))}
+    </div>
+  ) : null
+
+  if (bucket === 'markets') {
+    return (
+      <div className="page max-w-4xl">
+        <PageHeader back="/admin" title="Applications" subtitle="Creators asking to join another market as well." />
+        {bucketSwitch}
+        <div key="markets" className="animate-tab-in"><MarketRequests onChanged={reloadMarketAsks} /></div>
+      </div>
+    )
+  }
+
   return (
     <div className="page max-w-4xl">
       <PageHeader
@@ -616,28 +659,7 @@ export default function AdminApplications() {
           admin can do is reach them. Approving or declining an unfinished
           application is not a thing that means anything, so those buttons are
           not on those cards. */}
-      {apps !== null && (counts.applied > 0 || counts.incomplete > 0) && (
-        <div className="mb-6 flex gap-2 rounded-full bg-cloud p-1">
-          {[
-            ['applied', 'Waiting on you', counts.applied],
-            ['incomplete', 'Never finished', counts.incomplete],
-          ].map(([key, label, n]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => { setBucket(key); setMarket(''); setOpenId(null); setPicked(new Set()) }}
-              aria-pressed={bucket === key}
-              className={cx(
-                'flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200',
-                bucket === key ? 'bg-white text-ink shadow-card' : 'text-smoke hover:text-ink',
-              )}
-            >
-              {label}
-              <span className={cx('ml-1.5 tabular-nums', bucket === key ? 'text-brand' : 'text-gray-400')}>{n}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {bucketSwitch}
 
       {apps !== null && (shown.length > 0 || search || onlyUnfollowed) && (
         <div className="mb-6 space-y-3">

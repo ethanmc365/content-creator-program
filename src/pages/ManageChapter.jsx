@@ -15,13 +15,14 @@ import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Sk
 import { toast } from '../lib/toast'
 import Icon from '../components/Icon'
 import BackLink from '../components/BackLink'
-import { Avatar, Badge, EmptyState, Modal, PageHeader, Select } from '../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Select } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { COUNTRIES } from '../lib/countries'
 import { clearScopeCache } from '../lib/scope'
 import { cx } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
+import { CreatorMarketsModal } from '../components/admin/CreatorMarkets'
 import { useT } from '../lib/i18n'
 
 // The country manager's desk: everything one market owns, and nothing that
@@ -98,7 +99,7 @@ export default function ManageChapter() {
   const tr = useT()
   const { slug } = useParams()
   const { profile } = useAuth()
-  const { bySlug, manages, isGlobalAdmin, chapters, reload, loading: ctxLoading } = useCommunity()
+  const { bySlug, manages, isGlobalAdmin, reload, loading: ctxLoading } = useCommunity()
   const chapter = bySlug(slug)
   const canManage = chapter ? manages(chapter.id) : false
 
@@ -106,8 +107,8 @@ export default function ManageChapter() {
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState('')
-  // { member, to, options } while the move-market dialog is open.
-  const [moving, setMoving] = useState(null)
+  // The member whose markets are being changed (add to more, or move), while that dialog is open.
+  const [placing, setPlacing] = useState(null)
   const [countryQuery, setCountryQuery] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -209,27 +210,6 @@ export default function ManageChapter() {
   // page that MOVES A PERSON BETWEEN COMMUNITIES is not the place for a
   // free-text field. The list is short, known and already loaded, so the only
   // honest control is a list of it.
-  function moveCreator(m) {
-    const others = (chapters || []).filter((c) => c.id !== chapter.id && !c.retired_at)
-    if (!others.length) { notice('There is nowhere else to move them to yet.'); return }
-    setMoving({ member: m, to: others[0].id, options: others })
-  }
-
-  async function confirmMove() {
-    if (!moving) return
-    const target = moving.options.find((c) => c.id === moving.to)
-    if (!target) return
-    setSaving('move')
-    const { error } = await supabase.rpc('move_creator_market', {
-      p_profile: moving.member.profile_id, p_from: chapter.id, p_to: target.id,
-    })
-    setSaving('')
-    if (error) { notice(error.message); return }
-    setMoving(null)
-    await load()
-    toast(`${moving.member.profiles.name} is now in ${target.name}.`)
-  }
-
   // Retiring keeps everything. `is_active = false` already hides a market from
   // creators but hides it from the team too, so the only way to make a failed
   // market stop cluttering Explore used to be deleting it - and that takes its
@@ -792,13 +772,13 @@ export default function ManageChapter() {
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
                         {m.role === 'manager' ? 'Demote' : 'Make manager'}
                       </button>
-                      {/* Moving, not removing-and-re-adding. The day the Nordics
-                          splits into four countries somebody has to move forty
-                          people, and doing it as two separate actions leaves a
-                          window where they are in no market at all. */}
-                      <button onClick={() => moveCreator(m)}
+                      {/* One call for a move, never remove-then-add: two separate actions leave a window where they are
+                          in no market at all (admin_set_creator_markets). */}
+                      {/* ADD TO MORE MARKETS, OR MOVE (10 Oct 2026). Ethan: moving "seems to remove them from the community
+                          they were in, we would need this function too but also the function to add them to multiple." */}
+                      <button onClick={() => setPlacing(m)}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                        {tr("Move")}
+                        {tr("Markets")}
                       </button>
                       <button onClick={() => removeMember(m)} aria-label={`Remove ${m.profiles.name}`}
                         className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
@@ -863,44 +843,14 @@ export default function ManageChapter() {
         confirmLabel={tr("Add")}
       />
 
-      {/* MOVING SOMEBODY BETWEEN MARKETS. A list, not a text box - see the note
-          on `moveCreator`. */}
-      <Modal open={!!moving} onClose={() => setMoving(null)} title={tr("Move creator")}>
-        {moving && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-cloud/40 p-3">
-              <Avatar src={moving.member.profiles.photo_url} name={moving.member.profiles.name} size="sm" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{moving.member.profiles.name}</p>
-                <p className="text-xs text-smoke">Currently in {chapter.name}</p>
-              </div>
-            </div>
+      {placing && (
+        <CreatorMarketsModal
+          person={{ id: placing.profile_id, name: placing.profiles?.name, photo_url: placing.profiles?.photo_url }}
+          onClose={() => setPlacing(null)}
+          onDone={() => load()}
+        />
+      )}
 
-            <label className="block">
-              <span className="label">{tr("Move them to")}</span>
-              <Select
-                value={moving.to}
-                onChange={(v) => setMoving((cur) => ({ ...cur, to: v }))}
-                ariaLabel="Market to move them to"
-                options={moving.options.map((c) => ({ value: c.id, label: c.name }))}
-              />
-            </label>
-
-            <p className="text-xs leading-relaxed text-smoke">
-              They keep every video, reward and connection. Points earned in {chapter.name} stay there —
-              they were awarded under this market's rules, and moving them would rewrite a leaderboard
-              other people are on.
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={confirmMove} disabled={saving === 'move'} className="btn-primary">
-                {saving === 'move' ? 'Moving…' : 'Move creator'}
-              </button>
-              <button type="button" onClick={() => setMoving(null)} className="btn-ghost">{tr("Cancel")}</button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       </NetworkLayout>
     </NetworkMotion>

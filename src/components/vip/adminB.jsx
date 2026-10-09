@@ -12,6 +12,8 @@ import {
   BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
 } from '../../lib/vip'
 import { Stat, useMonths } from './adminA'
+import { CopyLinkChip } from './parts'
+import VideoThumb from '../VideoThumb'
 import { HowItWorks, VipContentTab } from './adminD'
 import { useT } from '../../lib/i18n'
 
@@ -47,6 +49,10 @@ function whenOf(rule, month) {
   return 'every'
 }
 
+const scopeLabel = (sc, programme, tr) => (programme.kind === 'official'
+  ? (sc.key === 'global' ? tr('Every official programme') : tr('These official creators'))
+  : tr(sc.label))
+
 function Choice({ on, onClick, children, className }) {
   return <button type="button" onClick={onClick} aria-pressed={on} className={cx('rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hoverable:hover:text-ink', className)}>{children}</button>
 }
@@ -81,6 +87,8 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
         : r.kind === 'milestone' ? { metric: r.conditions.metric, threshold: Number(r.conditions.threshold) || 0 }
           : r.kind === 'target' ? { own: r.conditions.own !== false, videos: r.conditions.videos ? Number(r.conditions.videos) : undefined, views: r.conditions.views ? Number(r.conditions.views) : undefined } : {},
       active: r.active,
+      // A yes/no question asked when a video is added; the bonus then only counts the videos that said yes (migration 377).
+      prompt: ASKS.has(r.kind) && r.prompt?.trim() ? r.prompt.trim().slice(0, 200) : null,
     }
     if (r.kind === 'top_n' && row.places.length === 0) { notice(tr('Add at least one place with an amount.')); return }
     if (r.kind !== 'top_n' && !(row.amount > 0)) { notice(tr('Say how much it pays.')); return }
@@ -167,14 +175,14 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
               {r.places.length < 10 && <button type="button" onClick={() => set({ places: [...r.places, { place: r.places.length + 1, amount: '', reward: r.reward }] })} className="mt-2 text-xs font-semibold text-brand hover:underline">+ {tr('Add a place')}</button>}
               <div className="mt-4">
                 <p className="label">{tr('Ranked against')}</p>
-                <div className="grid grid-cols-2 gap-2">{SCOPES.map((sc) => <Choice key={sc.key} on={r.scope === sc.key} onClick={() => set({ scope: sc.key })}>{tr(sc.label)}</Choice>)}</div>
+                <div className="grid grid-cols-2 gap-2">{SCOPES.map((sc) => <Choice key={sc.key} on={r.scope === sc.key} onClick={() => set({ scope: sc.key })}>{scopeLabel(sc, programme, tr)}</Choice>)}</div>
               </div>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block"><span className="label">{r.reward === 'voucher' ? tr('Voucher worth') : tr('Amount')}</span>{amountBox(r.amount, (v) => set({ amount: v }), tr('Amount'))}</label>
               {r.kind === 'best_video' && (
-                <div><p className="label">{tr('Ranked against')}</p><div className="grid grid-cols-2 gap-2">{SCOPES.map((sc) => <Choice key={sc.key} on={r.scope === sc.key} onClick={() => set({ scope: sc.key })}>{tr(sc.label)}</Choice>)}</div></div>
+                <div><p className="label">{tr('Ranked against')}</p><div className="grid grid-cols-2 gap-2">{SCOPES.map((sc) => <Choice key={sc.key} on={r.scope === sc.key} onClick={() => set({ scope: sc.key })}>{scopeLabel(sc, programme, tr)}</Choice>)}</div></div>
               )}
               {r.kind === 'streak' && (
                 <div className="grid grid-cols-2 gap-3">
@@ -208,6 +216,19 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
             </div>
           )}
 
+          {ASKS.has(r.kind) && (
+            <div className="rounded-xl border border-gray-100 bg-cloud/40 p-3.5">
+              <label className="block">
+                <span className="label flex items-center gap-1.5"><Icon name="flag" className="h-3.5 w-3.5 text-brand" />{tr('Ask about each video (optional)')}</span>
+                <input className="input" value={r.prompt || ''} onChange={(e) => set({ prompt: e.target.value })} maxLength={200}
+                  placeholder={tr('For example: Is this video about a hotel and a flight?')} />
+              </label>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">{r.prompt?.trim()
+                ? tr('Creators answer yes or no when they add a video, and can answer for videos already added this month. Only the yes videos count for this bonus. You can confirm or reject each answer in the review list.')
+                : tr('Leave empty and every video counts. Add a question to run it on a theme, like the community challenges do.')}</p>
+            </div>
+          )}
+
           <div>
             <p className="label">{tr('When it runs')}</p>
             <div className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -225,11 +246,17 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
   )
 }
 
+// The kinds a question makes sense on: who has the most views, the best video, a target - all on the videos that said yes.
+const ASKS = new Set(['top_n', 'best_video', 'target'])
+
 // What a rule would cost if the month ended now, from the live numbers. Only the kinds that can be
 // answered from them; a streak or a milestone depends on history and says so.
-function costNow(rule, members) {
+function costNow(rule, members, claims = []) {
   const live = members.filter((m) => m.status === 'active')
-  const withViews = live.filter((m) => m.views > 0)
+  // A bonus with a question only counts the creators with a yes video (migration 377).
+  const yes = rule.prompt ? new Set(claims.filter((c) => c.rule_id === rule.id && c.status !== 'rejected').map((c) => c.profile_id)) : null
+  const withViews = live.filter((m) => m.views > 0 && (!yes || yes.has(m.profile_id)))
+  if (yes && rule.kind === 'target') return null
   if (rule.kind === 'target') {
     const c = rule.conditions || {}
     const hit = live.filter((m) => {
@@ -353,14 +380,16 @@ function MonthlyBonuses({ programme }) {
   const [month, setMonth] = useState(null)
   const [edit, setEdit] = useState(null)
   const [ladder, setLadder] = useState(false)
+  const [claims, setClaims] = useState([])
   const cur = programme.currency
 
   const load = useCallback(async () => {
-    const [r, o] = await Promise.all([
+    const [r, o, c] = await Promise.all([
       supabase.from('vip_bonus_rules').select('*').eq('programme_id', programme.id).order('created_at'),
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
+      vipRpc('vip_claims_review', { p_programme: programme.id }).catch(() => []),
     ])
-    setRules(r.data || []); setMembers(o?.members || []); setMonth(o?.month || null)
+    setRules(r.data || []); setMembers(o?.members || []); setMonth(o?.month || null); setClaims(c || [])
   }, [programme.id])
   useEffect(() => { setRules(null); load() }, [load])
 
@@ -383,20 +412,26 @@ function MonthlyBonuses({ programme }) {
         <p className="max-w-2xl text-sm text-smoke">{tr('Set a bonus once and it is worked out for every VIP when the month closes, then added to their balance.')}</p>
         <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add a bonus')}</button>
       </div>
+      {claims.length > 0 && <ClaimsReview claims={claims} />}
       {rules === null ? <Skeleton className="h-40 w-full rounded-card" /> : rules.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No bonuses yet. Start with a monthly podium, or a bonus for hitting the monthly target.')}</p>
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
           {rules.map((rule, i) => {
             const k = BONUS_KINDS.find((x) => x.key === rule.kind)
-            const cost = rule.active ? costNow(rule, members) : null
+            const cost = rule.active ? costNow(rule, members, claims) : null
             return (
               <li key={rule.id} className={cx('flex flex-col rounded-card border bg-white p-4 shadow-card transition-opacity duration-300 animate-rise', rule.active ? 'border-gray-100' : 'border-dashed border-gray-200 opacity-60')} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
                 <div className="flex items-start gap-3">
                   <Icon name={k?.icon || 'trophy'} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                   <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-bold text-ink">{rule.label}</p>
-                    <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(rule, tr, cur)}</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-smoke">{describeRule(rule, tr, cur, { official: programme.kind === 'official' })}</p>
+                    {rule.prompt && (
+                      <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-brand-tint/50 px-2.5 py-1.5 text-[12px] font-semibold text-ink"><Icon name="flag" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />{rule.prompt}
+                        <span className="ml-auto shrink-0 pl-2 text-[11px] font-bold text-brand">{tr('{n} yes', { n: claims.filter((c) => c.rule_id === rule.id && c.status !== 'rejected').length })}</span>
+                      </p>
+                    )}
                   </div>
                   <Toggle on={!!rule.active} onChange={() => toggle(rule)} label={tr('Running')} />
                 </div>
@@ -422,6 +457,73 @@ function MonthlyBonuses({ programme }) {
       {edit && <RuleModal rule={edit.id ? edit : null} programme={programme} month={month} onClose={() => setEdit(null)} onSaved={load} onLadder={() => { setEdit(null); setLadder(true) }} />}
       {ladder && <MilestoneLadder programme={programme} onClose={() => setLadder(false)} onSaved={load} />}
     </div>
+  )
+}
+
+// THE ANSWERS TO CHECK (10 Oct 2026, migration 377). Ethan: creators mark a video as fitting the challenge "and Marta will have the
+// ability to decide this". Every yes this month, the unchecked ones first, each with the video to open or copy and three answers:
+// confirm (it fits), reject (it does not; the creator is told, their views pay is not touched) or undo. A yes counts until rejected,
+// so the board is live from the first video.
+function ClaimsReview({ claims }) {
+  const tr = useT()
+  const [show, setShow] = useState('open')
+  const [busy, setBusy] = useState(null)
+  const [local, setLocal] = useState({})
+  const statusOf = (c) => local[`${c.video_id}:${c.rule_id}`] ?? c.status
+  const open = claims.filter((c) => statusOf(c) === 'claimed')
+  const list = show === 'open' ? open : claims
+  async function decide(c, status) {
+    const k = `${c.video_id}:${c.rule_id}`
+    setBusy(k); setLocal((l) => ({ ...l, [k]: status }))
+    try { await vipRpc('vip_review_claim', { p_video: c.video_id, p_rule: c.rule_id, p_status: status }); toastSuccess(status === 'rejected' ? tr('Taken out. They have been told.') : tr('Confirmed')) }
+    catch (e) { setLocal((l) => ({ ...l, [k]: c.status })); notice(e.message) }
+    finally { setBusy(null) }
+  }
+  return (
+    <section className="overflow-hidden rounded-card border border-brand/20 bg-white shadow-card animate-rise">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-50 bg-gradient-to-r from-brand-tint/70 to-white px-4 py-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-4 w-4 text-brand" />{tr('Answers to check')}
+            {open.length > 0 && <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{open.length}</span>}</h3>
+          <p className="text-xs text-smoke">{tr('Creators said these videos fit a bonus question. A yes counts until you reject it.')}</p>
+        </div>
+        <Segmented size="sm" value={show} onChange={setShow} label={tr('Which answers')} options={[{ value: 'open', label: tr('To check') }, { value: 'all', label: tr('All this month') }]} />
+      </div>
+      {list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-smoke">{tr('All checked. Nice.')}</p> : (
+        <ul className="max-h-[32rem] divide-y divide-gray-50 overflow-y-auto">
+          {list.map((c, i) => {
+            const k = `${c.video_id}:${c.rule_id}`
+            const st = statusOf(c)
+            return (
+              <li key={k} className="flex items-center gap-3 px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+                <div className="relative w-12 shrink-0 overflow-hidden rounded-lg">
+                  <a href={c.url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} className="aspect-[9/16] w-full rounded-none" /></a>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Avatar src={c.photo} name={c.name} size="xs" /><span className="truncate">{c.name}</span></p>
+                  <p className="mt-0.5 truncate text-xs text-smoke">{c.rule} · {tr('{n} views this month', { n: nf(c.views) })}</p>
+                  {c.caption && <p className="truncate text-[11px] text-gray-400">{c.caption}</p>}
+                </div>
+                <CopyLinkChip url={c.url} tone="light" />
+                <div className="flex shrink-0 items-center gap-1">
+                  {st === 'claimed' ? (
+                    <>
+                      <button type="button" disabled={busy === k} onClick={() => decide(c, 'confirmed')} className="inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-px disabled:opacity-50"><Icon name="check" className="h-3.5 w-3.5" />{tr('Fits')}</button>
+                      <button type="button" disabled={busy === k} onClick={() => decide(c, 'rejected')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-bold text-smoke transition-all duration-200 hoverable:hover:border-red-200 hoverable:hover:text-red-500 disabled:opacity-50"><Icon name="close" className="h-3.5 w-3.5" />{tr('Does not')}</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className={cx('rounded-full px-2.5 py-1 text-[11px] font-bold', st === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-brand-tint text-brand')}>{st === 'rejected' ? tr('Rejected') : tr('Confirmed')}</span>
+                      <button type="button" disabled={busy === k} onClick={() => decide(c, 'claimed')} className="text-[11px] font-semibold text-smoke hover:text-ink">{tr('Undo')}</button>
+                    </>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 
