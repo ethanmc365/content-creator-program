@@ -48,10 +48,10 @@ export default function CreatorPeek({ creator, open, onClose }) {
     if (!open || !id) { setData(null); setNote(''); setNoteMeta(null); setSaved(false); return undefined }
     let alive = true
     async function load() {
-      const [{ data: subs }, { data: rewards }, { data: n }, { data: priv }, { data: emails }, { data: members }] =
+      const [{ data: subs }, { data: rewards }, { data: n }, { data: priv }, { data: emails }, { data: members }, { data: tracked }] =
         await Promise.all([
           supabase.from('submissions').select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
-            .eq('creator_id', id).order('submitted_at', { ascending: false }).limit(5),
+            .eq('creator_id', id).order('submitted_at', { ascending: false }),
           supabase.from('rewards').select('amount, currency, status').eq('creator_id', id),
           supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', id).maybeSingle(),
           supabase.from('creator_private').select('phone, phone_country').eq('id', id).maybeSingle(),
@@ -59,10 +59,14 @@ export default function CreatorPeek({ creator, open, onClose }) {
           // the definer RPC the roster uses, asked for one row.
           supabase.rpc('admin_list_emails'),
           supabase.from('community_members').select('communities(name)').eq('profile_id', id),
+          // Videos the team added in the video tracker for this person with no entry form behind them.
+          supabase.from('tracked_videos').select('views').eq('creator_id', id).is('submission_id', null),
         ])
       if (!alive) return
       setData({
         subs: subs ?? [],
+        latest: (subs ?? []).slice(0, 5),
+        trackedOnly: tracked ?? [],
         rewards: rewards ?? [],
         priv: priv ?? {},
         email: (emails ?? []).find((r) => r.id === id)?.email || null,
@@ -89,13 +93,16 @@ export default function CreatorPeek({ creator, open, onClose }) {
   }
 
   if (!creator) return null
+  // One calm entrance: each block rises 12px and fades, 60ms after the one above, so the sheet assembles top to bottom
+  // instead of arriving as a slab and then popping its numbers in.
+  const rise = (i) => ({ className: 'animate-fade-up', style: { animationDelay: `${i * 60}ms`, animationFillMode: 'both' } })
   const phone = data?.priv?.phone ? `${data.priv.phone_country || ''} ${data.priv.phone}`.trim() : null
   const paid = (data?.rewards ?? []).filter((r) => r.status === 'paid')
 
   return (
     <Modal open={open} onClose={onClose} title={tr('Creator record')} sheet={false}>
       <div className="space-y-5">
-        <div className="flex items-center gap-3.5">
+        <div {...rise(0)} className="flex animate-fade-up items-center gap-3.5">
           <Avatar src={creator.photo_url} name={creator.name} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-lg font-bold">{creator.name}</p>
@@ -106,40 +113,42 @@ export default function CreatorPeek({ creator, open, onClose }) {
         </div>
 
         {/* ---- Have they taken part in the live challenges of their markets ---- */}
-        {!creator.is_admin && <ChallengeParticipation profileId={creator.id} isVip={!!creator.is_vip} />}
+        {!creator.is_admin && <div {...rise(1)}><ChallengeParticipation profileId={creator.id} isVip={!!creator.is_vip} /></div>}
 
         {/* ---- Contact, which is the commonest reason for opening this ----
             ONE ROW PER DETAIL, AND NO CARD ROUND THEM. See
             components/admin/creatorSheet for both, and why. */}
+        <div {...rise(2)}>
         <ContactBlock>
           <ContactRow icon="envelope" label={tr('Email')} value={data?.email} empty={tr('No email on file')} loading={!data} />
           <ContactRow icon="device" label={tr('Phone')} value={phone} empty={tr('No phone number given')} loading={!data} />
         </ContactBlock>
+        </div>
 
         {/* ---- What they have achieved ---- */}
-        <div>
+        <div {...rise(3)}>
           <SheetLabel>{tr('What they have achieved')}</SheetLabel>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatTile
               label={tr('Views')}
               accent
-              value={data ? formatViews(data.subs.reduce((n, s) => n + (Number(s.logged_views) || 0), 0)) : null}
+              value={data ? formatViews(data.subs.reduce((n, s) => n + (Number(s.logged_views) || 0), 0) + data.trackedOnly.reduce((n, t) => n + (Number(t.views) || 0), 0)) : null}
             />
-            <StatTile label={tr('Entries')} value={data ? data.subs.length : null} />
+            <StatTile label={tr('Entries')} value={data ? data.subs.length + data.trackedOnly.length : null} />
             <StatTile label={tr('Paid')} value={data ? paid.length : null} />
             <StatTile label={tr('Joined')} value={creator.created_at ? new Date(creator.created_at).getFullYear() : '—'} />
           </div>
         </div>
 
         {data?.subs.length > 0 && (
-          <div>
+          <div {...rise(4)}>
             <SheetLabel>{tr('Latest entries')}</SheetLabel>
-            <EntryList entries={data.subs} />
+            <EntryList entries={data.latest} />
           </div>
         )}
 
         {/* ---- The shared team note ---- */}
-        <div>
+        <div {...rise(5)}>
           <SheetLabel meta={noteMeta ? formatDateTimeTz(noteMeta.at) : null}>{tr('Team note')}</SheetLabel>
           <textarea
             value={note}
@@ -177,7 +186,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
         <CreatorMarketsBlock creator={creator} />
         <VipMoveBlock creator={creator} />
 
-        <div className="border-t border-gray-100 pt-4">
+        <div {...rise(6)} className="animate-fade-up border-t border-gray-100 pt-4">
           <SheetLabel>{tr('Their pages')}</SheetLabel>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <PageTile to={`/dashboard?as=${creator.id}`} onClose={onClose} icon="chart" label={tr('Dashboard')} />
