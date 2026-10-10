@@ -631,7 +631,7 @@ export default function AdminApplications() {
   if (bucket === 'markets') {
     return (
       <div className="page max-w-4xl">
-        <PageHeader back="/admin" title="Applications" subtitle="Creators asking to join another market as well." />
+        <PageHeader back="/admin" title="Applications" />
         {bucketSwitch}
         <div key="markets" className="animate-tab-in"><MarketRequests onChanged={reloadMarketAsks} /></div>
       </div>

@@ -7,6 +7,7 @@ import { formatDateTimeTz, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { VipMoveBlock } from '../vip/adminA'
 import { CreatorMarketsBlock } from './CreatorMarkets'
+import ChallengeParticipation from './ChallengeParticipation'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -103,6 +104,9 @@ export default function CreatorPeek({ creator, open, onClose }) {
             </p>
           </div>
         </div>
+
+        {/* ---- Have they taken part in the live challenges of their markets ---- */}
+        {!creator.is_admin && <ChallengeParticipation profileId={creator.id} isVip={!!creator.is_vip} />}
 
         {/* ---- Contact, which is the commonest reason for opening this ----
             ONE ROW PER DETAIL, AND NO CARD ROUND THEM. See

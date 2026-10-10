@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
+import ChallengeParticipation from '../../components/admin/ChallengeParticipation'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from '../../components/admin/creatorSheet'
 import Icon from '../../components/Icon'
@@ -785,6 +786,8 @@ export default function AdminCreators() {
                 are a fixed four-column grid, which cannot wrap into an orphan
                 at any width. Same tiles as the profile popup; see
                 components/admin/creatorSheet. */}
+            {!selected.is_admin && <ChallengeParticipation profileId={selected.id} isVip={!!selected.is_vip} />}
+
             <CreatorMarketsBlock creator={selected} onChanged={load} />
             <VipMoveBlock creator={selected} />
 

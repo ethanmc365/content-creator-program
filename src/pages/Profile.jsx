@@ -24,6 +24,7 @@ import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorPeek from '../components/admin/CreatorPeek'
+import { OnlineDot, LastOnline } from '../components/PresenceBadge'
 import RecapTeaser, { recapTeaserWindow } from '../components/wrapped/RecapTeaser'
 import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
@@ -812,7 +813,8 @@ export default function Profile() {
             hiding, which is usually a stranger's ceiling.
             Only when there IS a photograph: enlarging a set of initials is a
             control that does nothing. */}
-        <div className="shrink-0">
+        <div className="relative shrink-0">
+          {isAdmin && !isMe && <OnlineDot lastSeenAt={creator.last_seen_at} />}
           {creator.photo_url ? (
             <button
               ref={avatarRef}
@@ -909,6 +911,9 @@ export default function Profile() {
               Keeping either here as well would be the same sentence twice on
               one screen, which is exactly why the clock was taken OUT of this
               header when the rail card was built. */}
+          {isAdmin && !isMe && (
+            <p className="mt-1.5 flex justify-center sm:justify-start"><LastOnline lastSeenAt={creator.last_seen_at} /></p>
+          )}
           {creator.bio && <TranslateText text={creator.bio} align={isMobile ? 'center' : 'start'} render={(shown) => <p className="mt-2 text-lg text-smoke">{shown}</p>} />}
           {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP.
               On a phone the header is already the avatar, the name, the role,

@@ -52,14 +52,18 @@ export default function AdminEmail() {
   const { markets, memberRows } = useScopedMarkets()
   const [market, setMarket] = useState('')
   const [group, setGroup] = useState('all')   // all | community | vip | official
+  const [programme, setProgramme] = useState('') // VIP / official: which market's programme ('' = all of them)
+  const [progOf, setProgOf] = useState(new Map()) // profile id -> { id, name }
 
   const load = useCallback(async () => {
-    const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }] = await Promise.all([
+    const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }, { data: vipRows }] = await Promise.all([
       supabase.from('profiles').select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title, is_vip, vip_kind'),
       supabase.rpc('admin_list_emails'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
       supabase.rpc('email_log', { p_limit: 100 }),
+      supabase.from('vip_members').select('profile_id, programme_id, vip_programmes(id, name)').neq('status', 'left'),
     ])
+    setProgOf(new Map((vipRows ?? []).filter((r) => r.vip_programmes).map((r) => [r.profile_id, r.vip_programmes])))
     const emailOf = new Map((emailRows ?? []).map((r) => [r.id, r.email]))
     const live = (profiles ?? []).filter(
       (p) => p.status === 'active' && !p.is_test && !p.deletion_requested_at && emailOf.get(p.id))
@@ -94,11 +98,26 @@ export default function AdminEmail() {
     return c
   }, [people])
 
+  // VIP and official creators are split by their programme (VIP Spain, Official Spain), not by the community markets, so
+  // the market row belongs to Everyone and Community only.
+  const paid = group === 'vip' || group === 'official'
+  const programmes = useMemo(() => {
+    if (!paid) return []
+    const seen = new Map()
+    for (const p of people) {
+      if (groupOf(p) !== group) continue
+      const pr = progOf.get(p.id)
+      if (pr) seen.set(pr.id, { ...pr, n: (seen.get(pr.id)?.n || 0) + 1 })
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [people, progOf, group, paid])
+
   const creators = useMemo(
     () => people
-      .filter((p) => (inMarket ? inMarket.has(p.id) : true))
-      .filter((p) => group === 'all' || groupOf(p) === group),
-    [people, inMarket, group],
+      .filter((p) => (paid ? true : inMarket ? inMarket.has(p.id) : true))
+      .filter((p) => group === 'all' || groupOf(p) === group)
+      .filter((p) => !paid || !programme || progOf.get(p.id)?.id === programme),
+    [people, inMarket, group, paid, programme, progOf],
   )
 
   return (
@@ -109,14 +128,20 @@ export default function AdminEmail() {
         <Skeleton className="h-96 w-full" />
       ) : (
         <div className="space-y-10">
-          <MarketScope
-            markets={markets}
-            value={market}
-            onChange={setMarket}
-            note={market || group !== 'all' ? `${creators.length} of ${people.length} creators` : null}
-          />
-          <GroupScope value={group} onChange={setGroup} counts={counts} />
-          <AddressBook creators={creators} team={team} scoped={!!market} group={group} />
+          <div className="space-y-3 [&>*]:!mb-0">
+          <GroupScope value={group} onChange={(g) => { setGroup(g); setProgramme('') }} counts={counts} />
+          {paid ? (
+            <ProgrammeScope programmes={programmes} value={programme} onChange={setProgramme} total={counts[group]} />
+          ) : (
+            <MarketScope
+              markets={markets}
+              value={market}
+              onChange={setMarket}
+              note={market ? `${creators.length} of ${people.length} creators` : null}
+            />
+          )}
+          </div>
+          <AddressBook creators={creators} team={team} scoped={paid ? !!programme : !!market} group={group} />
           {/* THE WELCOME QUEUE IS HIDDEN, NOT DELETED (4 Sep 2026).
               Ethan: "remove the welcome emails thing from the email admin tool -
               there are no more automatic emails for now, so hide it for now,
@@ -250,10 +275,10 @@ function AddressList({ title, people, empty, subtitleOf }) {
           {title} <span className="ml-1 font-normal tabular-nums text-smoke">{people.length}</span>
         </h3>
         {people.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
             {people.length > 8 && (
               <input
-                type="search" className="input !w-44 !py-1.5 !no-ios-zoom sm:text-xs" placeholder="Search…"
+                type="search" className="input min-w-0 flex-1 !py-1.5 !no-ios-zoom sm:!w-44 sm:flex-none sm:text-xs" placeholder="Search…"
                 value={search} onChange={(e) => setSearch(e.target.value)}
                 aria-label={`Search ${title.toLowerCase()}`}
               />
@@ -294,13 +319,13 @@ const GROUPS = [
   { key: 'all', label: 'Everyone', noun: 'Creators' },
   { key: 'community', label: 'Community', noun: 'Community creators' },
   { key: 'vip', label: 'VIP', noun: 'VIP creators' },
-  { key: 'official', label: 'Official team', noun: 'Official creators' },
+  { key: 'official', label: 'Official', noun: 'Official creators' },
 ]
 
 // Split by programme, the same cut Admin Creators makes. Combines with the market control above it.
 function GroupScope({ value, onChange, counts }) {
   return (
-    <div className="-mt-4 mb-6 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+    <div className="mb-4 flex w-full items-center gap-1 overflow-x-auto sm:w-fit sm:gap-1.5 rounded-card scrollbar-none border border-gray-100 bg-white p-1.5 shadow-card">
       {GROUPS.filter((g) => g.key === 'all' || g.key === 'community' || counts[g.key] > 0).map((g) => (
         <button
           key={g.key}
@@ -308,11 +333,32 @@ function GroupScope({ value, onChange, counts }) {
           onClick={() => onChange(g.key)}
           aria-pressed={value === g.key}
           className={cx(
-            'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+            'shrink-0 flex-1 whitespace-nowrap rounded-lg px-1.5 py-1.5 sm:flex-none sm:px-3 text-xs font-semibold transition-colors',
             value === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
           )}
         >
-          {g.label} <span className="tabular-nums opacity-70">{counts[g.key]}</span>
+          {g.label} <span className="text-[10px] tabular-nums opacity-70 sm:text-xs">{counts[g.key]}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// The VIP / official equivalent of the market row: one chip per programme (each is a market's own).
+function ProgrammeScope({ programmes, value, onChange, total }) {
+  if (programmes.length < 2) return null
+  const chip = (active) => cx(
+    'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+    active ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+  )
+  return (
+    <div className="mb-6 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      <button type="button" onClick={() => onChange('')} aria-pressed={!value} className={chip(!value)}>
+        All markets <span className="tabular-nums opacity-70">{total}</span>
+      </button>
+      {programmes.map((pr) => (
+        <button key={pr.id} type="button" onClick={() => onChange(pr.id)} aria-pressed={value === pr.id} className={chip(value === pr.id)}>
+          {pr.name} <span className="tabular-nums opacity-70">{pr.n}</span>
         </button>
       ))}
     </div>
@@ -324,7 +370,7 @@ function AddressBook({ creators, team, scoped, group }) {
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <AddressList
-        title={scoped ? `${noun} in this market` : noun}
+        title={scoped ? (group === 'vip' || group === 'official' ? `${noun} in this programme` : `${noun} in this market`) : noun}
         people={creators}
         empty={scoped || group !== 'all' ? 'Nobody here yet.' : 'No creators yet.'}
       />
