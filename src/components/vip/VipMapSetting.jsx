@@ -5,13 +5,12 @@ import { Toggle } from '../ui'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { notice } from '../../lib/confirm'
-import { vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { vipRpc, useKindT } from '../../lib/vip'
 
 // Its own file so Settings does not load the VIP page (and its map) to draw one switch.
 /** Settings > Account, for a VIP: whether other VIPs see them on the VIP map. Draws nothing for anybody else. */
 export default function VipMapSetting({ publicOn = true }) {
-  const tr = useT()
+  const tr = useKindT()
   const { user, profile } = useAuth()
   const [me, setMe] = useState(undefined)
   const [busy, setBusy] = useState(false)

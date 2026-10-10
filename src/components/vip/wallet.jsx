@@ -6,8 +6,7 @@ import { CountUp } from '../network/Motion'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { money, monthLabel, nf, rate, useOptionalRpc, useVipPreview, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, monthLabel, nf, rate, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 
 // THE VIP BALANCE (2 Oct 2026, migration 312).
 //
@@ -39,7 +38,7 @@ function entryState(e, tr) {
 }
 
 export function VipWallet({ onChanged }) {
-  const tr = useT()
+  const tr = useKindT()
   const preview = useVipPreview()
   const { data: w, missing, reload } = useOptionalRpc('vip_my_wallet')
   const [busy, setBusy] = useState('')
@@ -246,7 +245,7 @@ function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
 // STAYING IN (2 Oct 2026; AND on 4 Oct; back to OR on 6 Oct). Ethan: keeping a VIP place is "5 videos or 1 video with 20k+ views" -
 // two roads, either is enough, drawn as two bars with "or" between them. `views` is the best single video's.
 export function StayInCard({ compact = false }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data: w } = useOptionalRpc('vip_my_wallet')
   const r = w?.requirement
   if (!r || r.on === false) return null

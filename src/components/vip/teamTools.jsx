@@ -8,8 +8,7 @@ import { CountUp } from '../network/Motion'
 import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
-import { curSym, money, monthLabel, nf, perK, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { curSym, money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 
 // THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (2 Oct 2026, migration 312).
 //
@@ -51,7 +50,7 @@ function Empty({ icon, title, hint }) {
 
 // ======================================================================== balances
 export function VipWalletsTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data, error, reload } = useRpc('vip_wallets', { p_programme: programme.id })
   const [filter, setFilter] = useState('all')
   const [person, setPerson] = useState(null)
@@ -169,7 +168,7 @@ export function VipWalletsTab({ programme }) {
 // earnings, their monthly earnings, what they currently have, and what they can withdraw." The four figures, then the
 // months, then every movement of the balance.
 function PersonMoney({ r, data, programme, onClose, onAdjust }) {
-  const tr = useT()
+  const tr = useKindT()
   const cur = data.currency
   const [months, setMonths] = useState(null)
   const [moves, setMoves] = useState(null)
@@ -249,7 +248,7 @@ function PersonMoney({ r, data, programme, onClose, onAdjust }) {
 }
 
 function RequestState({ q }) {
-  const tr = useT()
+  const tr = useKindT()
   const s = q.kind === 'voucher'
     ? (q.voucher_code ? [tr('Code sent'), 'bg-emerald-50 text-emerald-700'] : [tr('Send the code'), 'bg-amber-50 text-amber-700'])
     : q.invoice_stage === 'paid' ? [tr('Paid'), 'bg-emerald-50 text-emerald-700']
@@ -267,7 +266,7 @@ const DECISIONS = [
 ]
 
 export function VipRequirementsTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const [month, setMonth] = useState(null)
   const { data, error, reload } = useRpc('vip_requirements', { p_programme: programme.id, p_month: month })
   const [show, setShow] = useState('missed')
@@ -376,7 +375,7 @@ export function VipRequirementsTab({ programme }) {
 
 // ======================================================================== CPM sheet
 export function VipSheetTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const [months, setMonths] = useState(12)
   const { data, error, reload } = useRpc('vip_cpm_sheet', { p_programme: programme.id, p_months: months })
   const [show, setShow] = useState('both')
@@ -553,7 +552,7 @@ export function parseHistory(text) {
 }
 
 function ImportHistory({ open, onClose, programme, onDone }) {
-  const tr = useT()
+  const tr = useKindT()
   const [text, setText] = useState('')
   const [fill, setFill] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -590,7 +589,7 @@ function ImportHistory({ open, onClose, programme, onDone }) {
 
 // ======================================================================== rules (on the Settings tab)
 export function VipRulesCard({ programme, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const sym = curSym(programme.currency)
   const [f, setF] = useState({
     threshold: String(programme.min_payout ?? 100), voucher: String(programme.voucher_min ?? 10),
@@ -656,7 +655,7 @@ export function VipRulesCard({ programme, onSaved }) {
 // who is falling behind the stay-in rule, what is sitting in balances and what is waiting on the team. Each card opens
 // the tool that deals with it.
 export function TeamPulse({ programme, onTool }) {
-  const tr = useT()
+  const tr = useKindT()
   const official = programme.kind === 'official'
   const req = useRpc('vip_requirements', { p_programme: programme.id, p_month: null })
   const wal = useRpc('vip_wallets', { p_programme: programme.id })
@@ -724,7 +723,7 @@ export function TeamPulse({ programme, onTool }) {
 // there is no stay-in rule, so the first card is the fees: what this month's fees add up to, and who has posted enough to
 // earn theirs. Paula and Julia (their own invoice) are counted apart, because nothing is drafted for them here.
 function OfficialFeesCard({ programme, className, onOpen }) {
-  const tr = useT()
+  const tr = useKindT()
   const ov = useRpc('vip_admin_overview', { p_programme: programme.id })
   const [deals, setDeals] = useState(null)
   useEffect(() => {

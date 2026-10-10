@@ -90,7 +90,12 @@ export default function AdminCreators() {
   const [vipOf, setVipOf] = useState({}) // profile id -> ['VIP Spain', ...]
   const [teamOf, setTeamOf] = useState({}) // profile id -> 'staff' | 'creator'
   const setGroup = (g) => { setGroupRaw(g); setMarketFilter('') }
-  const inVip = (c) => !!c.is_vip || !!teamOf[c.id]
+  // OFFICIAL CREATORS ARE THEIR OWN GROUP (11 Oct 2026): `profiles.vip_kind` says which paid programme somebody is in, so
+  // the VIPs pill is the VIP community (and the staff who run it) and the official Tryp.com creators sit apart.
+  const isOfficialCreator = (c) => c.vip_kind === 'official'
+  const inVip = (c) => (!!c.is_vip && !isOfficialCreator(c)) || teamOf[c.id] === 'staff'
+  const paidGroup = (g) => g === 'vip' || g === 'official'
+  const inPaid = (c, g) => (g === 'official' ? isOfficialCreator(c) : inVip(c))
   // Turnstile gate for sending a password reset (Auth rejects token-less calls).
   const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
   const [pwToken, setPwToken] = useState('')
@@ -438,9 +443,9 @@ export default function AdminCreators() {
   // it - so picking "Spain" up top scopes the segment counts to Spain too,
   // not just the table rows underneath them.
   const inMarket = (c) => {
-    if (group === 'vip' && !inVip(c)) return false
+    if (paidGroup(group) && !inPaid(c, group)) return false
     if (group === 'community' && c.is_vip) return false
-    const where = group === 'vip' ? (vipOf[c.id] ?? []) : (marketOf[c.id] ?? [])
+    const where = paidGroup(group) ? (vipOf[c.id] ?? []) : (marketOf[c.id] ?? [])
     if (marketFilter === '__none') return !where.length
     if (marketFilter) return where.includes(marketFilter)
     return true
@@ -465,9 +470,9 @@ export default function AdminCreators() {
   // "how many of mine are there".
   const markets = useMemo(() => {
     const tally = {}
-    const of = group === 'vip' ? vipOf : marketOf
+    const of = paidGroup(group) ? vipOf : marketOf
     for (const c of creators) {
-      if (group === 'vip' && !inVip(c)) continue
+      if (paidGroup(group) && !inPaid(c, group)) continue
       for (const m of of[c.id] ?? []) tally[m] = (tally[m] ?? 0) + 1
     }
     return Object.entries(tally).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -528,10 +533,11 @@ export default function AdminCreators() {
           { key: 'all', label: 'Total', n: creators.length },
           { key: 'community', label: 'Community', n: creators.filter((c) => !c.is_vip).length },
           { key: 'vip', label: 'VIPs', n: creators.filter(inVip).length },
+          ...(creators.some(isOfficialCreator) ? [{ key: 'official', label: 'Official', n: creators.filter(isOfficialCreator).length }] : []),
         ].map((g) => (
           <button key={g.key} type="button" onClick={() => setGroup(g.key)} aria-pressed={group === g.key}
             className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', group === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
-            {g.key === 'vip' && <Icon name="star" className="h-3 w-3" />}{g.label}
+            {g.key === 'vip' && <Icon name="star" className="h-3 w-3" />}{g.key === 'official' && <Icon name="badge" className="h-3 w-3" />}{g.label}
             <span className={cx('tabular-nums', group === g.key ? 'text-white/80' : 'text-gray-400')}>{g.n}</span>
           </button>
         ))}
@@ -566,7 +572,7 @@ export default function AdminCreators() {
           the control whose numbers are worth reading - a zero there means there
           is nothing to do in that column - and two rows of counts is one row of
           counts too many. */}
-      {(markets.length > 1 || group === 'vip') && markets.length > 0 && (
+      {(markets.length > 1 || paidGroup(group)) && markets.length > 0 && (
         <MarketScope
           markets={[
             ...markets.map(([m]) => ({ id: m, name: m })),
@@ -576,7 +582,7 @@ export default function AdminCreators() {
           ]}
           value={marketFilter}
           onChange={setMarketFilter}
-          allLabel={group === 'vip' ? 'All VIP communities' : 'Worldwide'}
+          allLabel={group === 'vip' ? 'All VIP communities' : group === 'official' ? 'All official programmes' : 'Worldwide'}
         />
       )}
 
@@ -680,6 +686,7 @@ export default function AdminCreators() {
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
                       {c.is_vip && !teamOf[c.id] && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
+                      {isOfficialCreator(c) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="badge" className="h-2.5 w-2.5" />Official</span>}
                       {teamOf[c.id] === 'creator' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />Tryp.com team creator</span>}
                       {teamOf[c.id] === 'staff' && group === 'vip' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand px-2 py-0.5 text-[10px] font-semibold text-brand">VIP team</span>}
                     </p>
@@ -789,7 +796,7 @@ export default function AdminCreators() {
                 <PageTile to={`/rewards?as=${selected.id}`} onClose={() => setSelected(null)} icon="money" label="Rewards" />
                 <PageTile to={`/milestones?as=${selected.id}`} onClose={() => setSelected(null)} icon="trophy" label="Milestones" />
                 <PageTile to={`/portfolio?as=${selected.id}`} onClose={() => setSelected(null)} icon="book" label="Portfolio" />
-                {selected.is_vip && <PageTile to={`/vip?mode=as&who=${selected.id}&from=creators`} onClose={() => setSelected(null)} icon="star" label="VIP page" />}
+                {selected.is_vip && <PageTile to={`/vip?mode=as&who=${selected.id}&from=creators`} onClose={() => setSelected(null)} icon={selected.vip_kind === 'official' ? 'badge' : 'star'} label={selected.vip_kind === 'official' ? 'Their page' : 'VIP page'} />}
               </div>
             </div>
 

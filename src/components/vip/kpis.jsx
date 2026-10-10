@@ -8,8 +8,7 @@ import { notice } from '../../lib/confirm'
 import { cx, formatViews } from '../../lib/utils'
 import { kpiStatus } from '../../lib/kpiTracker'
 import { STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
-import { money, monthLabel, nf, perK, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 import VipScopeSwitch from './scope'
 
 // THE VIP KPIs, BUILT LIKE THE KPI PAGE (3 Oct 2026).
@@ -80,7 +79,7 @@ function thisMonth() {
 }
 
 export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
-  const tr = useT()
+  const tr = useKindT()
   const { profile } = useAuth()
   const today = thisMonth()
   // OVERALL FIRST, THEN ONE MARKET AT A TIME (4 Oct 2026): the combined numbers are the first page, and the chips move to a single market.

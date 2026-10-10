@@ -10,8 +10,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc, useKindT } from '../../lib/vip'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
 // sign-up link and what happens to the people who use it, monthly challenges, perks and trips, and the guides.
@@ -25,7 +24,7 @@ const empty = (text) => <p className="rounded-card border border-dashed border-g
 // ------------------------------------------------------------------------------------ the one link
 /** The single sign-up link for every VIP, how many have used it, and where the people who did are in the process. */
 export function VipLinkCard() {
-  const tr = useT()
+  const tr = useKindT()
   const [link, setLink] = useState(undefined)
   const { data: funnel } = useOptionalRpc('vip_funnel', {}, 'funnel')
   const load = useCallback(async () => { try { setLink(await vipRpc('vip_global_link')) } catch { setLink(null) } }, [])
@@ -82,7 +81,7 @@ export function VipLinkCard() {
 // ------------------------------------------------------------------------------------ markets
 /** How every market is doing, for everybody with access, and every VIP on one map. */
 export function VipMarketsTab({ programme, isOwner, onChanged }) {
-  const tr = useT()
+  const tr = useKindT()
   const [programmes, setProgrammes] = useState([])
   useEffect(() => {
     supabase.from('vip_programmes').select('id, name, is_default, active').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
@@ -118,7 +117,7 @@ const PARTS = ['briefs', 'perks', 'guides']
 export function VipContentTab({ programme, isOwner, part }) {
   const p = PARTS.includes(part) ? part : 'briefs'
   const canManage = !!programme.can_manage
-  const tr = useT()
+  const tr = useKindT()
   return (
     <div className="space-y-5">
       {!canManage && <p className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{tr('You can see this market\'s content. Only its own lead, or the owner, can change it.')}</p>}
@@ -133,7 +132,7 @@ export function VipContentTab({ programme, isOwner, part }) {
 
 /** A short "how this works" strip: icon and sentence, no numbers or circles that look like buttons. Open until dismissed. */
 export function HowItWorks({ id, title, lines, openByDefault = false }) {
-  const tr = useT()
+  const tr = useKindT()
   const key = `tryp_vip_how_${id}`
   const [open, setOpen] = useState(() => { try { const v = localStorage.getItem(key); return v == null ? openByDefault : v === '1' } catch { return openByDefault } })
   const toggle = () => { setOpen((o) => { const n = !o; try { localStorage.setItem(key, n ? '1' : '0') } catch { /* private mode */ } return n }) }
@@ -171,7 +170,7 @@ function useScoped(table, programme, order) {
 // can now pick any VIP market, or every market, when making content AND when editing it later (the content is moved by
 // `vip_move_content`, migration 323); a market lead sees their own market.
 function ScopeField({ value, onChange, programme, isOwner, disabled }) {
-  const tr = useT()
+  const tr = useKindT()
   const [all, setAll] = useState([])
   // WHO LEADS VIP WORLDWIDE MAY ALSO POST TO EVERY VIP CREATOR (6 Oct 2026, migration 341). Ethan: "when setting rewards, prizes and
   // challenges for the VIP Worldwide there should always be the option on everything to decide if this is for every VIP creator or only
@@ -206,13 +205,13 @@ const scopeId = (v) => (v === '' ? null : v)
 const ownerLocked = (row, isOwner, canManage) => (row.programme_id == null ? !isOwner : !canManage)
 
 function ScopeTag({ row }) {
-  const tr = useT()
+  const tr = useKindT()
   return <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', row.programme_id == null ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>{row.programme_id == null ? tr('Every VIP creator') : tr('This VIP market')}</span>
 }
 
 // ---- monthly challenges
 function BriefsEditor({ programme, isOwner, canManage }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, load] = useScoped('vip_briefs', programme, [['year', false], ['month', false]])
   const [edit, setEdit] = useState(null)
   async function remove(b) {
@@ -257,7 +256,7 @@ function BriefsEditor({ programme, isOwner, canManage }) {
 }
 
 function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const now = new Date()
   const [scope, setScope] = useState(brief.id ? (brief.programme_id || '') : programme.id)
   const [ym, setYm] = useState(brief.id ? `${brief.year}-${String(brief.month).padStart(2, '0')}` : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
@@ -374,7 +373,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
 
 // ---- perks and trips
 function PerksEditor({ programme, isOwner, canManage }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, load] = useScoped('vip_perks', programme, [['sort', true], ['threshold', true]])
   const [edit, setEdit] = useState(null)
   const { data: board, reload: reloadBoard } = useOptionalRpc('vip_perk_board', { p_programme: programme.id }, programme.id)
@@ -452,7 +451,7 @@ function PerksEditor({ programme, isOwner, canManage }) {
 }
 
 function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const sym = curSym(programme.currency)
   const [scope, setScope] = useState(perk.id ? (perk.programme_id || '') : programme.id)
   const [kind, setKind] = useState(perk.kind || 'milestone')
@@ -529,7 +528,7 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
 // gone; what he wants is one switch beside Edit to turn a guide off and on. And "Order: lowest first" was a number to type; the guides are
 // now dragged into the order he wants by the grip, saved as he lets go.
 function GuidesEditor({ programme, isOwner, canManage }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, load] = useScoped('vip_guides', programme, [['sort', true], ['category', true]])
   const [edit, setEdit] = useState(null)
   const [order, setOrder] = useState(null) // the list as dragged, until the server agrees
@@ -598,7 +597,7 @@ function GuidesEditor({ programme, isOwner, canManage }) {
 }
 
 function GuideForm({ programme, isOwner, guide, cats, nextSort = 10, onClose, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const [scope, setScope] = useState(guide.id ? (guide.programme_id || '') : programme.id)
   const [category, setCategory] = useState(guide.category || 'Filming')
   const [title, setTitle] = useState(guide.title || '')

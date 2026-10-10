@@ -6,8 +6,7 @@ import { cx, formatDate } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { notice } from '../../lib/confirm'
-import { nf } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { nf, useKindT } from '../../lib/vip'
 
 // THE VIPS, AS A TAB OF THE CREATORS PAGE (1 Oct 2026). Ethan: "under creators there should also be a separate tab
 // at the top in the same style showing VIP total and then VIP by market."
@@ -16,7 +15,7 @@ import { useT } from '../../lib/i18n'
 // back (vip_members is fenced by vip_can_see), so a market lead who is not on the VIP access list gets an empty tab
 // rather than a leak. A name opens the same admin popup as everywhere else, which is where the move back lives.
 export default function VipCreatorsView({ creators, onOpen }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, setRows] = useState(null)
   const [programmes, setProgrammes] = useState(null)
   useEffect(() => {

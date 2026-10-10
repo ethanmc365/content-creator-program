@@ -564,7 +564,7 @@ function VideoCard({ v, onOpen, eager = false }) {
             referrerPolicy="no-referrer"
             decoding="async"
             loading={eager ? 'eager' : 'lazy'}
-            fetchPriority={eager ? 'high' : 'auto'}
+            fetchpriority={eager ? 'high' : 'auto'}
             className={cx(
               'relative h-full w-full object-cover transition-[opacity,transform] duration-500 ease-out group-hover:scale-105',
               loaded ? 'opacity-100' : 'opacity-0',

@@ -1,8 +1,7 @@
 import Icon from '../Icon'
 import { Skeleton } from '../ui'
 import { TargetBar, VipVideoRow } from './parts'
-import { perK } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, perK, useKindT } from '../../lib/vip'
 
 // THE THREE CARDS UNDER "THIS MONTH" (4 Oct 2026).
 //
@@ -13,7 +12,7 @@ import { useT } from '../../lib/i18n'
 
 /** The team's target and the creator's own goal, side by side as bars. Says so, once, when there is neither. */
 export function TargetCard({ member, stats, onSetGoal }) {
-  const tr = useT()
+  const tr = useKindT()
   const teamVideos = Number(member.target_videos) || 0
   const teamViews = Number(member.target_views) || 0
   const own = Number(member.own_goal_views) || 0
@@ -44,10 +43,15 @@ export function TargetCard({ member, stats, onSetGoal }) {
 }
 
 /** How a VIP is paid: the rate per 1,000 views, and that it is monthly. */
-export function HowPaidCard({ stats, cur }) {
-  const tr = useT()
+export function HowPaidCard({ stats, cur, member = null }) {
+  const tr = useKindT()
+  // A personal deal shows all of itself: the monthly fee and the cap sit beside the rate (11 Oct 2026).
+  const fee = Number(member?.monthly_fee) || 0
+  const cap = Number(member?.monthly_cap) || 0
   const tiles = [
     { icon: 'money', label: tr('Your rate'), value: perK(stats.effective_cpm, cur), hint: tr('per 1,000 views') },
+    ...(fee ? [{ icon: 'badge', label: tr('Monthly fee'), value: money(fee, cur, { cents: false }), hint: member.fee_min_videos ? tr('with {n}+ videos', { n: member.fee_min_videos }) : tr('every month') }] : []),
+    ...(cap ? [{ icon: 'shield', label: tr('Monthly cap'), value: money(cap, cur, { cents: false }), hint: tr('on views pay') }] : []),
     { icon: 'calendar', label: tr('Paid'), value: tr('Monthly'), hint: tr('after the month closes') },
   ]
   return (
@@ -68,7 +72,7 @@ export function HowPaidCard({ stats, cur }) {
 
 /** The three newest videos, as the same cards as My videos. */
 export function LatestVideos({ videos, cpm, currency, onSeeAll, onChanged }) {
-  const tr = useT()
+  const tr = useKindT()
   const latest = (videos || []).filter((v) => v.status !== 'removed').slice(0, 3)
   return (
     <section>

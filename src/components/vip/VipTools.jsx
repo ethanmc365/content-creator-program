@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ProgrammeKindContext, useKindT } from '../../lib/vip'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -16,7 +17,6 @@ import { VipAnalyticsTab } from './analytics'
 import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
-import { useT } from '../../lib/i18n'
 
 // THE VIP TOOLS, INSIDE THE VIP PAGE (2 Oct 2026).
 //
@@ -37,6 +37,10 @@ const GROUPS = [
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
 const ALL = GROUPS.flatMap((g) => g.tabs.map(([k]) => k))
+// WHAT AN OFFICIAL PROGRAMME DOES NOT HAVE (11 Oct 2026): no stay-in rule (their contract sets what they post) and no VIP
+// markets to open, so those two tools are not offered there at all rather than shown switched off.
+const NOT_FOR_OFFICIAL = new Set(['requirements', 'markets'])
+const offered = (k, p, isOwner) => (k !== 'access' || isOwner) && !(p?.kind === 'official' && NOT_FOR_OFFICIAL.has(k))
 
 // THE MARKETS ARE ASKED FOR ONCE A SESSION (7 Oct 2026). Ethan: going from the VIP page to VIP tools "the screen just
 // appears, and it's really flashy. Everything loads in." The list of markets (and which ones you can manage) is one
@@ -71,11 +75,12 @@ export function VipToolsSkeleton() {
 }
 
 export default function VipTools({ programmeId }) {
-  const tr = useT()
   const { isAdmin, profile } = useAuth()
   const isOwner = profile?.platform_role === 'owner'
   const [params, setParams] = useSearchParams()
   const [programmes, setProgrammes] = useState(() => (programmesCache && programmesCache.isOwner === isOwner ? programmesCache.list : null))
+  // The tool names follow the programme on screen: "See as a VIP" reads "See as an official creator" there.
+  const tr = useKindT((programmes || []).find((p) => p.id === programmeId)?.kind || programmes?.[0]?.kind)
   const [seen, setSeen] = useState(() => new Set())
   // THE TAB IS LOCAL STATE FIRST, THE URL SECOND (3 Oct 2026). Ethan: "a bit of delay and lag when clicking between
   // members, overview, etc." The press used to wait for a router update (inside a transition, which React is free to
@@ -89,8 +94,6 @@ export default function VipTools({ programmeId }) {
   // Milestones, perks and trips moved into Bonuses (4 Oct 2026); an old link to them lands there, on the perks side.
   const asked = asked0 === 'perks' ? 'bonuses' : asked0
   const bonusPart = asked0 === 'perks' || params.get('part') === 'perks' ? 'perks' : 'monthly'
-  const tab = ALL.includes(asked) && (asked !== 'access' || isOwner) ? asked : 'overview'
-  const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
 
   const load = useCallback(async () => {
     const list = await fetchProgrammes(isOwner)
@@ -109,6 +112,8 @@ export default function VipTools({ programmeId }) {
     return <EmptyState icon={<Icon name="star" className="h-7 w-7" />} title={tr('Nothing to manage here')} hint={tr('The VIP tools are for the owner and the managers they have added to a VIP programme.')} />
   }
   const programme = programmes.find((p) => p.id === programmeId) || programmes[0]
+  const tab = ALL.includes(asked) && offered(asked, programme, isOwner) ? asked : 'overview'
+  const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
   // THE OTHER MARKETS OF THE SAME KIND (10 Oct 2026, migration 376): analytics, KPIs and "post to every market" compare VIP
   // markets with VIP markets and official programmes with official programmes, never the two together.
   const sameKind = (p) => programmes.filter((x) => (x.kind || 'vip') === (p.kind || 'vip'))
@@ -148,7 +153,7 @@ export default function VipTools({ programmeId }) {
       <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
         {GROUPS.map((g) => {
           const on = g.key === group.key
-          const first = g.tabs.find(([k]) => k !== 'access' || isOwner)?.[0]
+          const first = g.tabs.find(([k]) => offered(k, programme, isOwner))?.[0]
           return (
             <button
               key={g.key}
@@ -167,7 +172,7 @@ export default function VipTools({ programmeId }) {
       {/* The pills lift 1px on hover, and a row that scrolls sideways clips whatever pokes out of it - so the top of "Members"
           was cut off on hover. The padding above the pills is the room the lift needs. */}
       <div key={group.key} className="scrollbar-none -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1.5 pt-1.5 animate-tab-in sm:mx-0 sm:px-0">
-        {group.tabs.filter(([k]) => k !== 'access' || isOwner).map(([k, label]) => {
+        {group.tabs.filter(([k]) => offered(k, programme, isOwner)).map(([k, label]) => {
           const on = k === tab
           return (
             <button
@@ -189,11 +194,13 @@ export default function VipTools({ programmeId }) {
       {programmes.filter((p) => p.id === programme.id || [...seen].some((k) => k.startsWith(`${p.id}:`))).map((p) => {
         const here = p.id === programme.id
         return (
-          <div key={p.id} hidden={!here}>
+          <ProgrammeKindContext.Provider key={p.id} value={p.kind || 'vip'}>
+          <div hidden={!here}>
             {ALL.filter((t) => (here && t === tab) || seen.has(`${p.id}:${t}`)).map((t) => (
               <div key={t} hidden={!here || t !== tab} className="vip-panel">{render[t](p)}</div>
             ))}
           </div>
+          </ProgrammeKindContext.Provider>
         )
       })}
     </div>

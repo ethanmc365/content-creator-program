@@ -4,17 +4,17 @@ import { supabase } from '../../lib/supabase'
 import Reveal from '../network/Reveal'
 import Icon from '../Icon'
 import { CountUp } from '../network/Motion'
-import { daysLeft, money, monthLabel, nf, useVipOverview } from '../../lib/vip'
+import { daysLeft, money, monthLabel, nf, useVipOverview, useKindT } from '../../lib/vip'
 import { useAuth } from '../../context/AuthContext'
-import { useT } from '../../lib/i18n'
 import { cx, formatViews } from '../../lib/utils'
 
 // A VIP's own month on their Worldwide page (2 Oct 2026): what it has earned so far and a way in, under the
 // community card.
 // Nothing is drawn for anybody who is not a VIP, and nothing is fetched either.
 export default function VipHomeCard({ delay = 0, inCard = false, className = '' }) {
-  const tr = useT()
   const { profile, isAdmin } = useAuth()
+  // Outside the VIP page, so the kind comes from the creator's own profile (official creators read their own words).
+  const tr = useKindT(profile?.vip_kind)
   const on = !!profile?.is_vip && !isAdmin
   const { overview } = useVipOverview({ enabled: on })
   if (!on || !overview) return null
@@ -81,7 +81,7 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
 
 /** The VIP's month in the Worldwide page's right rail, where everybody else sees the live challenge. */
 export function VipRailCard({ overview }) {
-  const tr = useT()
+  const tr = useKindT(overview?.programme?.kind)
   const [brief, setBrief] = useState(undefined)
   const y = overview?.month?.year
   const m = overview?.month?.month

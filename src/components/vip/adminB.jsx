@@ -8,14 +8,11 @@ import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
-import {
-  BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc,
-} from '../../lib/vip'
+import { BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 import { Stat, useMonths } from './adminA'
 import { CopyLinkChip } from './parts'
 import VideoThumb from '../VideoThumb'
 import { HowItWorks, VipContentTab } from './adminD'
-import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
 
@@ -58,7 +55,7 @@ function Choice({ on, onClick, children, className }) {
 }
 
 function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
-  const tr = useT()
+  const tr = useKindT()
   const { profile } = useAuth()
   const sym = curSym(programme.currency)
   const [r, setR] = useState(() => ({ ...blankRule(rule?.kind), ...rule, amount: rule?.amount ?? '', places: rule?.places?.length ? rule.places : blankRule().places, when: rule?.id ? whenOf(rule, month) : (rule?.when || 'every') }))
@@ -279,7 +276,7 @@ function costNow(rule, members, claims = []) {
 // A SET OF PERSONAL MILESTONES IN ONE GO (1 Oct 2026). One row per milestone (what total, what it pays), saved as one
 // rule each; the close works each out once per creator.
 function MilestoneLadder({ programme, onClose, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const { profile } = useAuth()
   const sym = curSym(programme.currency)
   const [metric, setMetric] = useState('lifetime_views')
@@ -355,7 +352,7 @@ const TEMPLATES = [
 // perks and trips, into the bonuses section under money, and remove it from content." Both are rewards a VIP earns, and both pay by
 // themselves, so there is one place for them: a switch at the top of Bonuses between the monthly bonuses and the goals VIPs unlock.
 export function VipBonusesTab({ programme, isOwner = false, initialPart = 'monthly' }) {
-  const tr = useT()
+  const tr = useKindT()
   const [part, setPart] = useState(initialPart === 'perks' ? 'perks' : 'monthly')
   return (
     <div className="space-y-5">
@@ -374,7 +371,7 @@ export function VipBonusesTab({ programme, isOwner = false, initialPart = 'month
 }
 
 function MonthlyBonuses({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rules, setRules] = useState(null)
   const [members, setMembers] = useState([])
   const [month, setMonth] = useState(null)
@@ -465,7 +462,7 @@ function MonthlyBonuses({ programme }) {
 // confirm (it fits), reject (it does not; the creator is told, their views pay is not touched) or undo. A yes counts until rejected,
 // so the board is live from the first video.
 function ClaimsReview({ claims }) {
-  const tr = useT()
+  const tr = useKindT()
   const [show, setShow] = useState('open')
   const [busy, setBusy] = useState(null)
   const [local, setLocal] = useState({})
@@ -529,7 +526,7 @@ function ClaimsReview({ claims }) {
 
 // ---------------------------------------------------------------------------------------- close
 function StatementRow({ s, cur, editable, onChanged }) {
-  const tr = useT()
+  const tr = useKindT()
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('')
   const [amount, setAmount] = useState('')
@@ -611,7 +608,7 @@ function LedgerLine({ label, value, good }) {
 }
 
 export function VipCloseTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const months = useMonths(programme.id)
   const [monthId, setMonthId] = useState(null)
   const [review, setReview] = useState(null)
@@ -772,7 +769,7 @@ export function VipCloseTab({ programme }) {
  *  A card of its own in the right column of Setup (3 Oct 2026): "the reviews you can put to the right for the space and
  *  that should obviously be every six hours for now." */
 export function SyncEvery() {
-  const tr = useT()
+  const tr = useKindT()
   const [hours, setHours] = useState('')
   const [saved, setSaved] = useState('')
   useEffect(() => {
@@ -808,7 +805,7 @@ export function SyncEvery() {
 // read. The monthly budget is gone ("unnecessary because obviously it's just depending on the view rate"), and so is
 // closing a programme ("we don't want that function"). Every number is typed; no spinner arrows.
 export function VipSettingsTab({ programme, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const sym = curSym(programme.currency)
   const [f, setF] = useState(() => ({
     cpm: programme.cpm, monthly_cap: programme.monthly_cap ?? '',

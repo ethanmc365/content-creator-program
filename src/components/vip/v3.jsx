@@ -19,9 +19,8 @@ import { noteExcerpt, renderNote } from '../../lib/noteMarkdown'
 import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, useVipPreview, vipRpc } from '../../lib/vip'
+import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { ordinalFor } from '../../lib/podiumTiers'
-import { useT } from '../../lib/i18n'
 
 // THE VIP'S SIDE, THIRD PASS (30 Sep 2026, migration 299): this month's challenge, how the markets compare, perks and
 // trips to unlock, the content library, the VIP map and the creator's own settings. Every block asks politely
@@ -30,7 +29,7 @@ import { useT } from '../../lib/i18n'
 // ------------------------------------------------------------------------------ this month's challenge
 /** The month's challenge(s): a theme, a brief, hook ideas, a goal and live standings. */
 export function VipChallengeCard({ overview }) {
-  const tr = useT()
+  const tr = useKindT()
   const { year, month } = overview.month
   const [rows, setRows] = useState(null)
   const pid = overview.programme?.id
@@ -54,7 +53,7 @@ export function VipChallengeCard({ overview }) {
 }
 
 function BriefCard({ brief, overview }) {
-  const tr = useT()
+  const tr = useKindT()
   const [open, setOpen] = useState(false)
   const { data: standings } = useOptionalRpc('vip_brief_standings', { p_brief: brief.id }, brief.id)
   const s = overview.stats
@@ -130,7 +129,7 @@ function BriefCard({ brief, overview }) {
 // ------------------------------------------------------------------------------ market standings
 /** Every market side by side. A VIP sees totals only; the team also sees the spend. */
 export function MarketStandings({ kind = 'vip' }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data, missing } = useOptionalRpc('vip_market_standings', {}, 'standings')
   // VIP markets and official programmes are compared among themselves, never against each other (migration 376).
   const rows = useMemo(() => [...(data || [])].filter((r) => (r.kind || 'vip') === kind).sort((a, b) => Number(b.views) - Number(a.views)), [data, kind])
@@ -189,7 +188,7 @@ function Fact({ label, value, hint }) {
 // ------------------------------------------------------------------------------ perks and trips
 /** What there is to unlock, how far along the creator is, and a claim button. */
 export function PerksPath() {
-  const tr = useT()
+  const tr = useKindT()
   const { data, missing, reload } = useOptionalRpc('vip_my_perks', {}, 'perks')
   const [busy, setBusy] = useState(null)
   const preview = !!useVipPreview()
@@ -261,7 +260,7 @@ export function PerksPath() {
 // ------------------------------------------------------------------------------ the content library
 /** Hooks, and the guides: how to film a trip, what makes a hook, how to plan a month. */
 export function VipLibrary({ programmeId }) {
-  const tr = useT()
+  const tr = useKindT()
   const [guides, setGuides] = useState(null)
   const [cat, setCat] = useState('all')
   const [openId, setOpenId] = useState(null)
@@ -338,7 +337,7 @@ export function VipLibrary({ programmeId }) {
 // show here and instead should show under actual platform settings." The switch lives in Settings > Account
 // (`VipMapSetting` below), beside the profile's own map privacy, which is where a person looks for it.
 export function VipMap() {
-  const tr = useT()
+  const tr = useKindT()
   const { data, missing } = useOptionalRpc('vip_map', {}, 'map')
   const { user, isAdmin } = useAuth()
   // ONE ARRIVAL, NOT THREE (3 Oct 2026). Ethan: "the main map when it loads in is a bit laggy: it shows a blank map and
@@ -384,7 +383,7 @@ export function VipMap() {
 // ------------------------------------------------------------------------------ make it yours
 /** A VIP's own headline, colour, personal goal and whether they are on the VIP map. */
 export function VipMySettings({ overview, onSaved }) {
-  const tr = useT()
+  const tr = useKindT()
   const { user } = useAuth()
   const who = useVipPreview()
   const [row, setRow] = useState(undefined)

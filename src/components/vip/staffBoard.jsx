@@ -8,8 +8,7 @@ import { CountUp } from '../network/Motion'
 import { VipBoardList } from './parts'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { cx, formatDate, formatViews } from '../../lib/utils'
-import { money, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, vipRpc, useKindT } from '../../lib/vip'
 
 // THE TEAM'S BOARD, OVER ANY DAYS (10 Oct 2026).
 //
@@ -24,7 +23,7 @@ const PICKER = BOARD_PERIODS.map((k) => PERIODS.find((p) => p.key === k)).filter
 const ymd = (d) => format(d, 'yyyy-MM-dd')
 
 export default function StaffBoard({ programme, monthRows, rules, month, limit = null, onFull }) {
-  const tr = useT()
+  const tr = useKindT()
   const [periodKey, setPeriodKey] = useState('this_month')
   const [custom, setCustom] = useState({ from: '', to: '' })
   const range = useMemo(() => periodRange(periodKey, new Date(), custom), [periodKey, custom])
@@ -119,7 +118,7 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
 }
 
 function Delta({ now, before, vs, small = false }) {
-  const tr = useT()
+  const tr = useKindT()
   if (!(Number(before) > 0)) return small ? <span className="block text-[10.5px] text-gray-400">{Number(now) > 0 ? tr('new') : ''}</span> : null
   const pct = Math.round(((Number(now) - Number(before)) / Number(before)) * 100)
   const up = pct >= 0

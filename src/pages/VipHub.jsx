@@ -11,7 +11,7 @@ import { ProgrammePill, ProgrammeSwitch, SpaceSwitch, VIP_LINKS, VipBalanceMini,
 import StaffBoard from '../components/vip/staffBoard'
 import { CountUp } from '../components/network/Motion'
 import {
-  PaymentBanner, VipBoardList, VipEarn, VipSubmit, VipVideoCard,
+  PaymentBanner, TargetBar, VipBoardList, VipEarn, VipSubmit, VipVideoCard,
 } from '../components/vip/parts'
 import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
@@ -24,8 +24,7 @@ import { VipRecapPanel } from './VipRecap'
 const loadVipTools = () => import('../components/vip/VipTools')
 const VipTools = lazyRoute(loadVipTools)
 const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
-import { VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs } from '../lib/vip'
-import { useT } from '../lib/i18n'
+import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs, useKindT } from '../lib/vip'
 import { cx } from '../lib/utils'
 import ReaderText from '../components/ReaderText'
 
@@ -73,7 +72,7 @@ function sampleOverview(s) {
 }
 
 export default function VipHub() {
-  const tr = useT()
+  const tr = useKindT()
   const { user, profile, isAdmin } = useAuth()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
@@ -235,6 +234,7 @@ export default function VipHub() {
   const spaceProgrammes = programmes.filter((p) => (p.kind || 'vip') === space)
   return (
     <VipPreviewContext.Provider value={previewWho}>
+    <ProgrammeKindContext.Provider value={programme.kind || 'vip'}>
     <div className="page max-w-5xl">
       <PageHeader
         title={official ? tr('Official creators') : tr('VIP')}
@@ -246,11 +246,16 @@ export default function VipHub() {
           : <ProgrammePill name={programme.name} codes={codes} official={official} />}
       />
 
-      {staffMode && mode !== 'as' && <SpaceSwitch programmes={programmes} value={space} onChange={pickSpace} />}
-
+      {/* ONE CONTROL CARD FOR THE TEAM (11 Oct 2026): which community, then page or tools - side by side on a desktop,
+          stacked on a phone. It was two cards and a sentence, four rows of navigation before anything to read. */}
       {staffMode && (mode === 'as'
         ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
-        : <StaffBar mode={mode} onMode={pickView} market={programme.name} official={official} />)}
+        : (
+          <div className="relative z-20 mb-4 flex flex-col gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise lg:flex-row lg:items-center">
+            <SpaceSwitch bare programmes={programmes} value={space} onChange={pickSpace} />
+            <StaffBar mode={mode} onMode={pickView} official={official} />
+          </div>
+        ))}
 
       {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT (7 Oct 2026). Ethan: "whenever I click from the VIP page to VIP
           tools, the screen just appears, and it's really flashy." Each view arrives in its own keyed wrapper with a
@@ -333,10 +338,10 @@ export default function VipHub() {
             ) : (
               <>
                 {/* SMALL, THEN THE TARGET, THEN THE PAY (3 Oct 2026): the stay-in rule is a one-row card now. */}
-                <StayInCard compact />
+                {official ? <FeeProgressCard member={member} stats={stats} cur={cur} /> : <StayInCard compact />}
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <TargetCard member={member} stats={stats} onSetGoal={previewing ? null : () => go('stats')} />
-                  <HowPaidCard stats={stats} cur={cur} />
+                  <HowPaidCard stats={stats} cur={cur} member={member} />
                 </div>
                 <LatestVideos videos={overview.videos} cpm={stats.effective_cpm} currency={cur} onSeeAll={() => go('videos')} onChanged={refresh} />
               </>
@@ -436,6 +441,7 @@ export default function VipHub() {
           the other one" - the signed VIP agreement, asked for by AgreementGate once it is published on Admin >
           Agreements. `terms_ok` now means "signed the published VIP agreement" (vip_terms_ok, migration 360). */}
     </div>
+    </ProgrammeKindContext.Provider>
     </VipPreviewContext.Provider>
   )
 }
@@ -451,11 +457,11 @@ function VipToolsFallback() {
   )
 }
 
-// THE TEAM'S BAR: the market's VIP page, or the VIP tools. One sliding gradient, nothing else to choose.
-function StaffBar({ mode, onMode, market, official = false }) {
-  const tr = useT()
+// PAGE OR TOOLS: one sliding gradient, nothing else to choose. Sits inside the team's control card.
+function StaffBar({ mode, onMode, official = false }) {
+  const tr = useKindT()
   return (
-    <div className="relative z-20 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise sm:pl-2">
+    <div className="flex shrink-0 justify-center px-1 pb-1 lg:px-1.5 lg:pb-0">
       <Segmented
         size="sm"
         id="vip-staff-mode"
@@ -467,16 +473,13 @@ function StaffBar({ mode, onMode, market, official = false }) {
           { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" />{official ? tr('Tools') : tr('VIP tools')}</> },
         ]}
       />
-      <span key={mode} className="hidden min-w-0 flex-1 text-xs text-smoke animate-tab-in sm:block">
-        {mode === 'tools' ? tr('Members, money, content and settings for {m}.', { m: market }) : official ? tr('Every official creator in {m} together, this month.', { m: market }) : tr('Every VIP in {m} together, this month.', { m: market })}
-      </span>
     </div>
   )
 }
 
 // LOOKING AT ONE VIP'S PAGE: says whose, says it is read only, and leads back to where it was opened.
 function PreviewBanner({ name, market, onBack, fromCreators = false }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <div className="relative z-20 mb-4 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-card animate-rise">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15"><Icon name="eye" className="h-4 w-4" /></span>
@@ -509,7 +512,7 @@ function ProgrammeFlags({ codes }) {
 // team it is one strip of tiles across the page instead of a tall card beside the leaderboard; for a VIP it is the same
 // tiles in a card beside their target. Every rate shows its cents: €0.30, never €0.3.
 function PayStrip({ member, programme, stats, month, cur, staff = false }) {
-  const tr = useT()
+  const tr = useKindT()
   const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
   const cap = member.monthly_cap || programme.monthly_cap
   const facts = [
@@ -532,6 +535,27 @@ function PayStrip({ member, programme, stats, month, cur, staff = false }) {
           </div>
         ))}
       </dl>
+    </section>
+  )
+}
+
+// THE MONTHLY FEE, AS A GOAL (11 Oct 2026). An official creator's contract pays a fixed fee for a month with enough videos
+// (Ariakna: EUR 100 for 30). That is what they are working towards, so it takes the place the VIP stay-in card has.
+function FeeProgressCard({ member, stats, cur }) {
+  const tr = useKindT()
+  const fee = Number(member.monthly_fee) || 0
+  if (!fee) return null
+  const need = Number(member.fee_min_videos) || 0
+  const done = !need || stats.videos >= need
+  return (
+    <section className={cx('rounded-card border bg-white px-4 py-3.5 shadow-card animate-rise', done ? 'border-brand/25' : 'border-gray-100')}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[13.5px] font-bold text-ink"><Icon name="badge" className="h-4 w-4 text-brand" />{tr('Your {a} monthly fee', { a: money(fee, cur, { cents: false }) })}</h2>
+        <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors duration-500', done ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{done ? tr('Earned this month') : tr('Not yet')}</span>
+      </div>
+      {need > 0
+        ? <div className="mt-3"><TargetBar label={tr('Videos this month')} value={stats.videos} target={need} done={tr('Reached')} /></div>
+        : <p className="mt-1.5 text-xs text-smoke">{tr('Paid with your views pay at the end of every month.')}</p>}
     </section>
   )
 }

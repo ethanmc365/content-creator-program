@@ -5,14 +5,13 @@ import { CountUp } from '../network/Motion'
 import { TargetBar } from './parts'
 import { TrendCard } from './adminC'
 import { cx, formatDate } from '../../lib/utils'
-import { metricAmount, money, nf, useOptionalRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { metricAmount, money, nf, useOptionalRpc, useKindT } from '../../lib/vip'
 
 // THE VIP'S OWN SIDE, ADDED IN THE SECOND PASS (30 Sep 2026, migration 298): what the team has said, and how they are doing.
 
 /** What the team has told the VIPs. Pinned first, three at most; draws nothing when there is nothing (or no table yet). */
 export function VipAnnouncements({ programmeId }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, setRows] = useState([])
   useEffect(() => {
     let alive = true
@@ -32,7 +31,7 @@ export function VipAnnouncements({ programmeId }) {
 
 /** One announcement as a VIP sees it. The team's composer draws the same card as its live preview. */
 export function AnnouncementCard({ a, delay = 0, preview = false }) {
-  const tr = useT()
+  const tr = useKindT()
   // A PINNED NOTE GLOWS (3 Oct 2026). Ethan, on the preview: "don't like the colour ... maybe have a nice gradient or
   // something, still make it stand out, maybe it can glow." Pinned is the brand gradient with a soft orange halo and one
   // pass of light; an unpinned note is a plain white card.
@@ -76,7 +75,7 @@ function milestoneValue(metric, { life, stats, videos, mine, joined, earnedTotal
 
 /** Lifetime numbers, the next milestone the team has set, this month against the best one, and the last weeks as a chart. */
 export function VipStats({ overview, rules, programmeId }) {
-  const tr = useT()
+  const tr = useKindT()
   const cur = overview.programme.currency
   const life = overview.lifetime || { views: 0, videos: 0, best_month: 0 }
   const { data: mine } = useOptionalRpc('vip_my_trends', { p_days: 30 }, programmeId)

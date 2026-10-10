@@ -1,8 +1,8 @@
 import { motion } from 'motion/react'
+import { useKindT } from '../../lib/vip'
 import { SPRING } from '../../lib/motion'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
 
 // WHICH VIP MARKET THE NUMBERS ARE FOR (4 Oct 2026).
 //
@@ -14,7 +14,7 @@ export const programmeIcon = (p) => (p?.community?.country_codes?.length ? p.com
 const isOfficialList = (list) => list.length > 0 && list.every((p) => p.kind === 'official')
 
 export default function VipScopeSwitch({ programmes, value, onChange, allowAll = true, className }) {
-  const tr = useT()
+  const tr = useKindT()
   const options = [
     ...(allowAll && programmes.length > 1 ? [{ value: 'all', icon: '⭐', label: isOfficialList(programmes) ? tr('Every official programme') : tr('All VIP markets') }] : []),
     ...programmes.map((p) => ({ value: p.id, icon: programmeIcon(p), label: p.name })),

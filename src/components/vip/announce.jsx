@@ -10,8 +10,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
 import { flagFromIso } from '../../lib/flags'
-import { monthLabel, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { monthLabel, vipRpc, useKindT } from '../../lib/vip'
 
 // WHAT THE TEAM SAYS TO ITS VIPS (rebuilt 4 Oct 2026).
 //
@@ -41,7 +40,7 @@ const DAYS = [
 ]
 
 export function AnnouncementsTab({ programme, programmes = [], isOwner = false }) {
-  const tr = useT()
+  const tr = useKindT()
   const [list, setList] = useState(null)
   const [missing, setMissing] = useState(false)
   const [title, setTitle] = useState('')
@@ -166,7 +165,7 @@ const isEnded = (a, now = new Date()) => !!a.expires_at && new Date(a.expires_at
 
 /** A VIP's This-month page on a real iPhone, with the note where it really sits: full width, first under the month card. */
 function PagePreview({ programme, everywhere, draft, existing }) {
-  const tr = useT()
+  const tr = useKindT()
   const now = new Date()
   const worldwide = isWorldwide(programme)
   const codes = programme.community?.country_codes
@@ -205,7 +204,7 @@ function PagePreview({ programme, everywhere, draft, existing }) {
 
 /** The notification as it lands on a locked iPhone: a plain white lock screen, the clock, and the banner iOS draws for it. */
 function PushPreview({ draft }) {
-  const tr = useT()
+  const tr = useKindT()
   const head = draft.title || tr('A note from the team')
   const text = draft.body || tr('Your message appears here.')
   const day = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })

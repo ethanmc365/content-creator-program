@@ -12,10 +12,7 @@ import { copyToClipboard } from '../../lib/clipboard'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
-import {
-  BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc,
-} from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { CountUp } from '../network/Motion'
 
 // THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
@@ -26,7 +23,7 @@ import { CountUp } from '../network/Motion'
  *  copy". A round frosted button that sits on the thumbnail, outside the link it copies (a button inside an <a> is not
  *  allowed), turns into a tick for a moment and says so. `tone="light"` is the white version for a white card. */
 export function CopyLinkChip({ url, className, tone = 'glass' }) {
-  const tr = useT()
+  const tr = useKindT()
   const [done, setDone] = useState(false)
   const timer = useRef(0)
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -63,7 +60,7 @@ export function vipError(message, tr) {
 
 /** A labelled bar that fills towards a target, brand coloured, with the numbers said aloud. */
 export function TargetBar({ label, value, target, format = nf, done }) {
-  const tr = useT()
+  const tr = useKindT()
   const pct = target > 0 ? Math.min(1, value / target) : 0
   const met = target > 0 && value >= target
   return (
@@ -93,7 +90,7 @@ export function askingRules(rules, month) {
 /** ONE QUESTION, YES OR NO (10 Oct 2026). Ethan: VIP challenges should "ask the creator if this video is about X topic",
  *  like the community challenges' bonus questions. Two pills, the picked one solid brand; the bonus it is for underneath. */
 function QuestionRow({ rule, value, onChange, disabled }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-brand/15 bg-brand-tint/40 px-3.5 py-3 animate-rise sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
@@ -120,7 +117,7 @@ function QuestionRow({ rule, value, onChange, disabled }) {
  * once one is added its views are read straight away (migration 307 asks for a reading on insert); the page asks
  * again every few seconds until the first reading lands, so the number appears without a refresh. */
 export function VipSubmit({ disabled, onAdded, month, rules = null }) {
-  const tr = useT()
+  const tr = useKindT()
   const [url, setUrl] = useState('')
   // The answers to this month's bonus questions, rule id -> true. Nothing is assumed: an unanswered question is a no.
   const asking = askingRules(rules, month)
@@ -207,7 +204,7 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
 
 /** One of their videos, with the three numbers that matter: all views, views counted this month, what that earns. */
 export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
-  const tr = useT()
+  const tr = useKindT()
   const [busy, setBusy] = useState(false)
   const preview = !!useVipPreview()
   const out = video.status === 'disqualified'
@@ -257,7 +254,7 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
  * the numbers sit under it, and the whole card opens the video.
  */
 export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules = null, month = null }) {
-  const tr = useT()
+  const tr = useKindT()
   const [busy, setBusy] = useState(false)
   const preview = !!useVipPreview()
   // THIS MONTH'S QUESTIONS, ANSWERED ON THE CARD (migration 377): a video added before a question existed can still say yes.
@@ -344,7 +341,7 @@ const INVOICE_STEP = {
 
 /** A month's statement, folded: the total on top, the working underneath, the invoice at the end. */
 export function VipStatementCard({ s, programmeCpm }) {
-  const tr = useT()
+  const tr = useKindT()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const cash = (s.bonuses || []).filter((b) => (b.reward || 'cash') === 'cash')
@@ -419,7 +416,7 @@ function Line({ label, value, good }) {
  * counting up and the prize as a chip under the name. The rest of the board is a list with each row's share of the
  * leader's views drawn as a thin bar. */
 export function VipBoardList({ rows, rules, currency, month = null }) {
-  const tr = useT()
+  const tr = useKindT()
   const prizes = useMemo(() => {
     const out = {}
     for (const { place, parts } of prizesByPlace(rules, tr, currency, month)) out[place] = parts
@@ -494,7 +491,7 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
 
 /** What there is to earn, in words, with how far along this creator is on the targets and milestones. */
 export function VipEarn({ rules, overview, currency, onAnswer }) {
-  const tr = useT()
+  const tr = useKindT()
   const official = overview.programme?.kind === 'official'
   const life = overview.lifetime || {}
   const stats = overview.stats || {}
@@ -572,7 +569,7 @@ export function VipEarn({ rules, overview, currency, onAnswer }) {
 /** A BONUS WITH A QUESTION, LIVE (10 Oct 2026, migration 377): the question, how many of their own videos said yes, and who is
  *  ahead on the videos that count - the same board the close pays from. */
 function RuleQuestionStandings({ rule, overview, onAnswer }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data } = useOptionalRpc('vip_rule_standings', { p_rule: rule.id }, `rule-${rule.id}`)
   const mineYes = (overview.videos || []).filter((v) => (v.claims || []).some((c) => c.rule === rule.id && c.status !== 'rejected')).length
   const rows = (data?.rows || []).slice(0, 5)
@@ -608,7 +605,7 @@ function RuleQuestionStandings({ rule, overview, onAnswer }) {
  * IN THE PAGE'S OWN COLOURS (1 Oct 2026). Ethan asked for its colour to change: it was the amber of a warning, the
  * only amber card on a page of white and orange. It is a white card with the brand's tile, like every other card. */
 export function PaymentBanner() {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <Link to="/settings?section=payment" className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-brand/20 bg-white px-4 py-3.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />

@@ -13,8 +13,7 @@ import { CopyLinkChip } from './parts'
 import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
-import { money, monthLabel, nf, perK, shortDay, vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, monthLabel, nf, perK, shortDay, vipRpc, useKindT } from '../../lib/vip'
 
 // VIP ANALYTICS, OVER ANY DATES (6 Oct 2026).
 //
@@ -50,7 +49,7 @@ function fold(daily, mode) {
 }
 
 export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
-  const tr = useT()
+  const tr = useKindT()
   const mine = programmes.length ? programmes : [programme]
   const canAll = !!isAdmin && mine.length > 1 && programme.kind !== 'official'
   const [scope, setScope] = useState(canAll ? 'all' : programme.id)
@@ -161,7 +160,7 @@ function PersonLink({ id, name, photo, size = 'sm', sub }) {
 
 // ----------------------------------------------------------------------------------------------------------------- overview
 function Overview({ data, cur, range }) {
-  const tr = useT()
+  const tr = useKindT()
   const t = data.totals
   const p = data.prev
   const vs = range.short
@@ -265,7 +264,7 @@ function Overview({ data, cur, range }) {
 
 // ----------------------------------------------------------------------------------------------------------------- growth
 function Growth({ data, range, all }) {
-  const tr = useT()
+  const tr = useKindT()
   const t = data.totals
   const p = data.prev
   const mode = bucketMode(data.days)
@@ -352,7 +351,7 @@ function Growth({ data, range, all }) {
 
 // ----------------------------------------------------------------------------------------------------------------- creators
 function CreatorsTable({ data, cur, all }) {
-  const tr = useT()
+  const tr = useKindT()
   const [sort, setSort] = useState('views')
   const rows = useMemo(() => {
     const list = data.creators.map((c) => ({ ...c, change: pctMove(c.views, c.prev_views) }))
@@ -423,7 +422,7 @@ function Chip({ ok, children, warn }) {
 }
 
 function Health({ data }) {
-  const tr = useT()
+  const tr = useKindT()
   const list = data.creators
   const n = list.length
   const [filter, setFilter] = useState('all')
@@ -503,7 +502,7 @@ function Health({ data }) {
 
 // ----------------------------------------------------------------------------------------------------------------- months
 function MonthViews({ view, scope, cur }) {
-  const tr = useT()
+  const tr = useKindT()
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   useEffect(() => {
@@ -527,7 +526,7 @@ function MonthViews({ view, scope, cur }) {
 }
 
 function MonthCharts({ series, data, cur }) {
-  const tr = useT()
+  const tr = useKindT()
   const last = series[series.length - 1]
   const prev = series[series.length - 2]
   const prevLabel = prev ? monthLabel(prev.year, prev.month) : null
@@ -580,7 +579,7 @@ function MonthCharts({ series, data, cur }) {
 }
 
 function TopPaid({ rows, cur }) {
-  const tr = useT()
+  const tr = useKindT()
   if (!rows.length) return null
   return (
     <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
@@ -604,7 +603,7 @@ function TopPaid({ rows, cur }) {
 // ANY TWO MONTHS, SIDE BY SIDE (redrawn 4 Oct 2026). Two month cards on top (what each cost and brought in, and who led), then every
 // figure as a pair of bars you can compare by eye, with how it moved.
 function MonthCompare({ series, cur }) {
-  const tr = useT()
+  const tr = useKindT()
   const opts = series.map((m) => ({ value: m.key, label: monthLabel(m.year, m.month) })).reverse()
   const [a, setA] = useState(series[series.length - 1]?.key)
   const [b, setB] = useState(series[series.length - 2]?.key || series[series.length - 1]?.key)

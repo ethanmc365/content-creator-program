@@ -3,8 +3,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { Skeleton } from '../ui'
 import { CHART, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { cx, formatViews } from '../../lib/utils'
-import { nf, shortDay, useOptionalRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { nf, shortDay, useOptionalRpc, useKindT } from '../../lib/vip'
 
 // THE VIP TREND CHART, IN A FILE OF ITS OWN (30 Sep 2026). It is the only part of the VIP screens that needs the
 // charting library, and it is used by BOTH the creator's page and the team's. A module shared by two lazy routes is
@@ -15,7 +14,7 @@ const RANGES = [[3, '3 days'], [7, '7 days'], [30, '30 days'], [90, '90 days'], 
 
 /** Views gained per day, a platform split and the best videos. `mine` swaps the team's numbers for the creator's own. */
 export default function TrendCard({ programmeId, mine = false, title, since = null, refreshKey = null }) {
-  const tr = useT()
+  const tr = useKindT()
   const [range, setRange] = useState(30)
   // "All time" is every day since the creator joined (or the programme's first year for the team), never a fixed number.
   const [now] = useState(() => Date.now())

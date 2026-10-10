@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { formatDate, formatViews } from '../../lib/utils'
-import { ATTENTION, EVENT_ICON, describeEvent, perK, useOptionalRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { ATTENTION, EVENT_ICON, describeEvent, perK, useOptionalRpc, useKindT } from '../../lib/vip'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART THREE (30 Sep 2026, migration 298): the things that turn the tools from
 // a set of tables into something you can read at a glance - a trend, who needs a nudge, who looks ready to be a VIP,
@@ -20,7 +19,7 @@ export function TrendCard(props) {
 
 /** Who needs a nudge, and why. Draws nothing when everybody is fine. */
 export function AttentionCard({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data, missing } = useOptionalRpc('vip_attention', { p_programme: programme.id }, programme.id)
   const r = perK(programme.cpm, programme.currency || 'EUR')
   if (missing || !data || data.length === 0) return null
@@ -51,7 +50,7 @@ export function AttentionCard({ programme }) {
 
 /** Community creators whose entries have earned the most views and who are not VIPs yet: one press to move them. */
 export function SuggestionsCard({ programme, onPick }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data, missing } = useOptionalRpc('vip_suggestions', { p_programme: programme.id }, programme.id)
   if (missing || !data || data.length === 0) return null
   return (
@@ -79,7 +78,7 @@ export function SuggestionsCard({ programme, onPick }) {
 
 /** What has happened: moves, rate changes, targets. One creator, or the whole programme. */
 export function ActivityFeed({ programme, profileId = null, limit = 12, title, bare = false }) {
-  const tr = useT()
+  const tr = useKindT()
   // SHOW MORE, A PAGE AT A TIME (9 Oct 2026). Ethan: "for the recent activity at the bottom of VIP tools, try to improve it." It was
   // the last dozen entries and no way to see anything older, one flat list with a dot each. Now it is grouped by day, shows who it
   // was about, and a button asks for older ones (each ask is one more small read, only when somebody presses it).
@@ -140,7 +139,7 @@ export function ActivityFeed({ programme, profileId = null, limit = 12, title, b
 
 /** One creator's story: their timeline, and the door to move them. */
 export function MemberStoryModal({ m, programme, onClose, onEdit, onMoveBack }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <Modal open onClose={onClose} title={m.name}>
       <div className="space-y-5">

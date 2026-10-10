@@ -7,8 +7,7 @@ import { buildVipCards, VipShareCard } from '../components/wrapped/vipStory'
 import { Card, Eyebrow, Line } from '../components/wrapped/cards'
 import Icon from '../components/Icon'
 import { Spinner } from '../components/ui'
-import { monthLabel, vipRpc } from '../lib/vip'
-import { useT } from '../lib/i18n'
+import { monthLabel, vipRpc, useKindT } from '../lib/vip'
 
 // THE VIP MONTH RECAP PAGE (30 Sep 2026, migration 299 `vip_my_recap`). The same story runner as the Year in Review
 // and the challenge recap, told about a month of views. `?m=2026-08` picks a month; with none, the latest closed
@@ -23,7 +22,7 @@ export default function VipRecap() {
 }
 
 export function VipRecapPanel({ m, onPick }) {
-  const tr = useT()
+  const tr = useKindT()
   const { profile } = useAuth()
   const [state, setState] = useState({ status: 'loading' })
   const [months, setMonths] = useState([])

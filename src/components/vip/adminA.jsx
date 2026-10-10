@@ -10,11 +10,10 @@ import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
-import { curSym, money, monthLabel, nf, perK, rate, vipRpc } from '../../lib/vip'
+import { curSym, money, monthLabel, nf, perK, rate, vipRpc, useKindT } from '../../lib/vip'
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './adminC'
 import { VipLinkCard } from './adminD'
-import { useT } from '../../lib/i18n'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -43,7 +42,7 @@ export function readErrorText(code, tr) {
 
 /** VIP creators / the Tryp.com team / everyone: the one switch the board and the members list share (9 Oct 2026). */
 export function WhoSwitch({ value, onChange, counts }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <Segmented size="sm" value={value} onChange={onChange} label={tr('Who')} options={[
       { value: 'vip', label: `${tr('VIP creators')} ${counts.vip}` },
@@ -55,7 +54,7 @@ export function WhoSwitch({ value, onChange, counts }) {
 
 /** The whole month at a glance: who is ahead, what it is costing, and whether that fits the budget. */
 export function VipOverviewTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const [data, setData] = useState(null)
   const [videos, setVideos] = useState(null)
   const [err, setErr] = useState('')
@@ -66,6 +65,15 @@ export function VipOverviewTab({ programme }) {
   const [teamIds, setTeamIds] = useState(() => new Set()) // migration 365: Tryp.com team creators, counted apart
   const [who, setWho] = useState('vip') // 9 Oct 2026: one board, a switch for VIP creators / the Tryp.com team / everyone
   const cur = programme.currency
+  // AN OFFICIAL PROGRAMME COSTS ITS FEES TOO (11 Oct 2026): views pay alone was about a third of what the month costs.
+  const [deals, setDeals] = useState(null)
+  useEffect(() => {
+    if (programme.kind !== 'official') return undefined
+    let alive = true
+    supabase.from('vip_members').select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
+      .then(({ data: d }) => { if (alive) setDeals(d || []) })
+    return () => { alive = false }
+  }, [programme.id, programme.kind])
 
   const load = useCallback(async () => {
     try {
@@ -111,11 +119,17 @@ export function VipOverviewTab({ programme }) {
   const budget = totals.budget
   const ratio = budget && projected != null ? projected / budget : budget ? totals.spend_so_far / budget : null
   const active = members.filter((m) => m.status === 'active')
+  const videosOf = Object.fromEntries(members.map((m) => [m.profile_id, Number(m.videos) || 0]))
+  const feeRows = (deals || []).filter((d) => d.status === 'active' && !d.invoice_outside && Number(d.monthly_fee) > 0)
+  const fees = programme.kind === 'official' && feeRows.length ? {
+    all: feeRows.reduce((a, d) => a + Number(d.monthly_fee), 0),
+    earned: feeRows.filter((d) => (videosOf[d.profile_id] || 0) >= (Number(d.fee_min_videos) || 0)).reduce((a, d) => a + Number(d.monthly_fee), 0),
+  } : null
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-smoke">{tr('{m}, live. The month closes itself at midnight in {c} time.', { m: monthLabel(month.year, month.month), c: programme.name.replace(/^VIP /, '') })}</p>
+        <p className="text-sm text-smoke">{tr('{m}, live. The month closes itself at midnight in {c} time.', { m: monthLabel(month.year, month.month), c: programme.community?.name || programme.name.replace(/^VIP /, '') })}</p>
         <button type="button" onClick={readNow} disabled={syncing} className="btn-secondary !py-2 text-xs">
           {syncing ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="refresh" className="h-3.5 w-3.5" />}
           {tr('Read every video now')}
@@ -124,7 +138,7 @@ export function VipOverviewTab({ programme }) {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label={tr('Views counted')} value={formatViews(totals.views)} hint={tr('this month')} />
-        <Stat label={tr('Views pay so far')} value={money(totals.spend_so_far, cur, { cents: false })} />
+        <Stat label={tr('Views pay so far')} value={money(totals.spend_so_far, cur, { cents: false })} hint={fees ? tr('+ {a} in monthly fees earned ({b} possible)', { a: money(fees.earned, cur, { cents: false }), b: money(fees.all, cur, { cents: false }) }) : undefined} />
         <Stat label={tr('On pace for')} value={projected != null ? money(projected, cur, { cents: false }) : '-'} hint={budget ? tr('budget {a}', { a: money(budget, cur, { cents: false }) }) : tr('no budget set')} tone={ratio != null && ratio >= 0.8 ? 'warn' : undefined} />
         <Stat label={tr('Active VIPs')} value={String(active.length)} hint={tr('{n} videos posted', { n: members.reduce((a, m) => a + (m.videos || 0), 0) })} />
       </div>
@@ -266,7 +280,7 @@ export function VipOverviewTab({ programme }) {
 
 /** Choose a creator and make them a VIP (from Members, or from their own page). */
 export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
-  const tr = useT()
+  const tr = useKindT()
   const [q, setQ] = useState('')
   const [found, setFound] = useState([])
   const [pick, setPick] = useState(profile || null)
@@ -375,7 +389,7 @@ export function payFor(views, baseCpm, tiers, flat) {
 // bonuses apply), what they are aiming at, how they appear, and the team's own notes. A live line shows what the
 // deal pays at three view counts, so a change is checked before it is saved. One call writes the lot.
 function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
-  const tr = useT()
+  const tr = useKindT()
   const cur = programme.currency
   const [f, setF] = useState(() => ({
     status: m.status,
@@ -556,7 +570,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
 // otherwise the market this VIP programme belongs to. Worldwide means no market of its own: they keep the ones they
 // were already in.
 export function MoveBackModal({ person, programme, onClose, onDone }) {
-  const tr = useT()
+  const tr = useKindT()
   const [markets, setMarkets] = useState(null)
   const [suggested, setSuggested] = useState(null)
   const [pick, setPick] = useState(undefined)
@@ -617,7 +631,7 @@ export function MoveBackModal({ person, programme, onClose, onDone }) {
 
 /** Who is in, the sign-up links, and the one-press transfer from the community. */
 export function VipMembersTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const [data, setData] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -749,7 +763,7 @@ export function VipMembersTab({ programme }) {
                         {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
                         {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
                         {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
-                        {!m.payment_ready && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
+                        {!m.payment_ready && !reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button type="button" onClick={() => copyEmails([m], m.name)} title={tr('Copy their email')} aria-label={tr('Copy their email')} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="envelope" className="h-3.5 w-3.5" /></button>
@@ -813,7 +827,7 @@ export function useMonths(programmeId) {
 
 /** In the admin popup (a creator's name, or the Creators list): which VIP community they are in, and the move to or from it. */
 export function VipMoveBlock({ creator, onChanged }) {
-  const tr = useT()
+  const tr = useKindT()
   const [programmes, setProgrammes] = useState(null)
   const [member, setMember] = useState(null)
   const [pick, setPick] = useState(null)
@@ -877,7 +891,7 @@ export function VipMoveBlock({ creator, onChanged }) {
 // The team-member version of the block: which VIP markets this admin can see and run, and (for the owner, who alone
 // decides it) a switch per market. The same write as the Tryp.com team page's "VIP access".
 function VipTeamAccess({ person, owner }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, setRows] = useState(null)
   const [grants, setGrants] = useState([])
   const [canEdit, setCanEdit] = useState(false)

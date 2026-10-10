@@ -896,7 +896,7 @@ export default function Profile() {
               {roleBadgeTitle(creator) || tr('Creator')}
             </span>
             {isApplication && <Badge tone="amber">{tr("Pending review")}</Badge>}
-            {creator.is_vip && <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-card"><Icon name="star" className="h-3 w-3" />VIP</span>}
+            {creator.is_vip && <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-card"><Icon name={creator.vip_kind === 'official' ? 'badge' : 'star'} className="h-3 w-3" />{creator.vip_kind === 'official' ? tr('Official creator') : 'VIP'}</span>}
           </p>
 
           {/* THE AGE AND THE HOME TOWN ARE NOT HERE ANY MORE. Both moved

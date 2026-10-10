@@ -8,8 +8,7 @@ import { Avatar, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
-import { vipRpc } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { vipRpc, useKindT } from '../../lib/vip'
 
 // SEE IT AS A VIP (3 Oct 2026).
 //
@@ -23,7 +22,7 @@ import { useT } from '../../lib/i18n'
 //     run as them, read only). A market with nobody in it yet offers a new VIP's first day instead - as a card, never as
 //     a dropdown with one choice in it.
 export function VipPreviewTab({ programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const navigate = useNavigate()
   const [, setParams] = useSearchParams()
   const { enterCreatorPreview } = useAuth()
@@ -64,6 +63,8 @@ export function VipPreviewTab({ programme }) {
     .sort((a, b) => Number(!!a.test) - Number(!!b.test) || String(a.name).localeCompare(String(b.name)))
   return (
     <div className="space-y-5">
+      {/* The sandbox walk signs into the test VIP account, so it is a VIP's platform; an official programme skips it. */}
+      {programme.kind !== 'official' && (
       <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card animate-rise sm:p-6">
         <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-52 w-52 rounded-full bg-white/15 blur-2xl" />
         <div className="relative flex flex-wrap items-center gap-5">
@@ -77,6 +78,7 @@ export function VipPreviewTab({ programme }) {
           </button>
         </div>
       </section>
+      )}
 
       <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise [animation-delay:70ms] sm:p-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

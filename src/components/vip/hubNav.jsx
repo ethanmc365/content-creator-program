@@ -5,9 +5,9 @@ import Icon from '../Icon'
 import FlagStack from '../network/FlagStack'
 import { SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
 import { CountUp } from '../network/Motion'
-import { money, useOptionalRpc } from '../../lib/vip'
+import { money, useOptionalRpc, useKindT } from '../../lib/vip'
+import { useT } from '../../lib/i18n'
 
 // THE VIP PAGE'S OWN NAVIGATION (1 Oct 2026).
 //
@@ -35,7 +35,7 @@ export const VIP_SECTIONS = [
 
 /** The column on the right, desktop only. */
 export function VipSideNav({ value, onChange, hidden, links, official = false }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <nav data-vip-anchor aria-label={official ? tr('Sections') : tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
       <ul className="space-y-0.5">
@@ -89,7 +89,7 @@ export function VipSideNav({ value, onChange, hidden, links, official = false })
 
 /** The same sections as a strip of chips, phones and tablets. */
 export function VipChipNav({ value, onChange, hidden, links, official = false }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <nav data-vip-anchor aria-label={official ? tr('Sections') : tr('VIP sections')} className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
       {VIP_SECTIONS.filter((s) => !hidden?.has(s.key)).map((s) => {
@@ -131,7 +131,7 @@ export const VIP_LINKS = [
 /** The VIP's balance, small, under the sections: just the number, kept up to date by itself (4 Oct 2026). Ethan: "don't say
  *  ... EUR 10 to a feature or +EUR 100 this month so far. Just have Your Balance and actually show the current balance." */
 export function VipBalanceMini({ onOpen }) {
-  const tr = useT()
+  const tr = useKindT()
   const { data: w, reload } = useOptionalRpc('vip_my_wallet')
   useEffect(() => {
     const id = setInterval(reload, 60000)
@@ -157,7 +157,7 @@ export function VipBalanceMini({ onOpen }) {
  * white on it (the house rule for a picked option), sliding between them.
  */
 export function ProgrammeSwitch({ programmes, value, onChange }) {
-  const tr = useT()
+  const tr = useKindT()
   return (
     <div role="tablist" aria-label={tr('VIP market')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-card">
       {programmes.map((p) => {
@@ -200,7 +200,8 @@ export function ProgrammePill({ name, codes, official = false }) {
  * first, then (if the space has more than one market) the market inside it. Two wide tabs with a sliding gradient and how
  * many people are in each, so the split reads at a glance; a creator never sees this - they only have their own.
  */
-export function SpaceSwitch({ programmes, value, onChange }) {
+export function SpaceSwitch({ programmes, value, onChange, bare = false }) {
+  // Plain words on purpose: this switch names BOTH spaces, so it must not take the official page's wording.
   const tr = useT()
   const spaces = [
     { key: 'vip', icon: 'star', label: tr('VIP community'), short: tr('VIP'), hint: tr('Paid by views') },
@@ -211,7 +212,7 @@ export function SpaceSwitch({ programmes, value, onChange }) {
   }).filter((s) => s.list.length > 0)
   if (spaces.length < 2) return null
   return (
-    <div role="tablist" aria-label={tr('Which community')} className="mb-4 grid grid-cols-2 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise">
+    <div role="tablist" aria-label={tr('Which community')} className={cx('grid grid-cols-2 gap-1.5', bare ? 'min-w-0 flex-1' : 'mb-4 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise')}>
       {spaces.map((s) => {
         const on = s.key === value
         return (

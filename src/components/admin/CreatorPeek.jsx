@@ -180,7 +180,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
             <PageTile to={`/rewards?as=${creator.id}`} onClose={onClose} icon="money" label={tr('Rewards')} />
             <PageTile to={`/milestones?as=${creator.id}`} onClose={onClose} icon="trophy" label={tr('Milestones')} />
             <PageTile to={`/portfolio?as=${creator.id}`} onClose={onClose} icon="book" label={tr('Portfolio')} />
-            {creator.is_vip && <PageTile to={`/vip?mode=as&who=${creator.id}&from=creators`} onClose={onClose} icon="star" label={tr('VIP page')} />}
+            {creator.is_vip && <PageTile to={`/vip?mode=as&who=${creator.id}&from=creators`} onClose={onClose} icon={creator.vip_kind === 'official' ? 'badge' : 'star'} label={creator.vip_kind === 'official' ? tr('Their page') : tr('VIP page')} />}
             <PageTile to={`/admin/creators?open=${creator.id}`} onClose={onClose} icon="shield" label={tr('Admin record')} />
           </div>
         </div>

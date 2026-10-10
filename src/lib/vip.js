@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
-import { getLocale } from './i18n'
+import { getLocale, t as translate, useLocale } from './i18n'
 
 // THE VIP PROGRAMME, AWAY FROM THE SCREENS (2 Oct 2026, migration 294).
 //
@@ -150,6 +150,67 @@ export function kindWords(kind, tr) {
   return kind === 'official'
     ? { title: tr('Official'), people: tr('official creators'), one: tr('official creator'), Room: tr('Official creators') }
     : { title: tr('VIP'), people: tr('VIPs'), one: tr('VIP'), Room: tr('VIP room') }
+}
+
+// THE OFFICIAL CREATORS' WORDS, EVERYWHERE A VIP SCREEN IS REUSED (11 Oct 2026). The official programme runs on the VIP
+// machinery, so its screens are the VIP screens - and they said "VIP" a hundred times ("Active VIPs", "Tell your VIPs
+// something"). Rather than a second copy of every sentence, a page or a tools panel says which kind it shows with
+// <ProgrammeKindContext value="official">, and `useKindT()` translates as usual and then swaps the word in the TEMPLATE,
+// before the names are filled in - so "VIP Spain" in a programme's name is never touched. One table per language, most
+// specific phrase first.
+export const ProgrammeKindContext = createContext('vip')
+const KIND_SWAPS = {
+  en: [
+    [/^VIP page$/, 'Your page'], [/\bVIP tools\b/gi, 'tools'], [/\bVIP page\b/gi, 'page'], [/\bthe VIP community\b/gi, 'the official creators'],
+    [/\bVIP community\b/gi, 'official creators'], [/\bevery VIP market\b/gi, 'every official programme'],
+    [/\bVIP markets\b/gi, 'official programmes'], [/\bVIP market\b/gi, 'official programme'],
+    [/\bVIP creators\b/gi, 'official creators'], [/\bVIP creator\b/gi, 'official creator'],
+    [/\bVIPs\b/g, 'official creators'], [/\ba VIP\b/gi, 'an official creator'], [/\bVIP\b/g, 'official creator'],
+  ],
+  es: [
+    [/^Página VIP$/, 'Tu página'], [/\bherramientas VIP\b/gi, 'herramientas'], [/\bpágina VIP\b/gi, 'página'], [/\bcomunidad VIP\b/gi, 'creadores oficiales'],
+    [/\bmercados VIP\b/gi, 'programas oficiales'], [/\bmercado VIP\b/gi, 'programa oficial'],
+    [/\bcreadores VIP\b/gi, 'creadores oficiales'], [/\bcreador VIP\b/gi, 'creador oficial'],
+    [/\b(un|el|al|del|cada|otro) VIP\b/gi, '$1 creador oficial'], [/\bVIP\b/g, 'creadores oficiales'],
+  ],
+  pt: [
+    [/^Página VIP$/, 'A tua página'], [/\bferramentas VIP\b/gi, 'ferramentas'], [/\bpágina VIP\b/gi, 'página'], [/\bcomunidade VIP\b/gi, 'criadores oficiais'],
+    [/\bmercados VIP\b/gi, 'programas oficiais'], [/\bmercado VIP\b/gi, 'programa oficial'],
+    [/\bcriadores VIP\b/gi, 'criadores oficiais'], [/\bcriador VIP\b/gi, 'criador oficial'],
+    [/\b(um|o|ao|do|cada|outro) VIP\b/gi, '$1 criador oficial'], [/\bVIP\b/g, 'criadores oficiais'],
+  ],
+  de: [[/\bVIP-Tools\b/gi, 'Tools'], [/\bVIP-Märkte\b/gi, 'offiziellen Programme'], [/\bVIP-Markt\b/gi, 'offizielle Programm'], [/\bVIPs?\b/g, 'offizielle Creator']],
+  ro: [[/\bpiețele VIP\b/gi, 'programele oficiale'], [/\bpiața VIP\b/gi, 'programul oficial'], [/\bVIP-urilor\b/g, 'creatorilor oficiali'], [/\bVIP-uri\b/g, 'creatori oficiali'], [/\bVIP\b/g, 'creatori oficiali']],
+}
+/** Keep the case of a match's first letter: "VIP market" -> "Official programme" at the start of a sentence. */
+const keepCase = (to) => (match, ...rest) => {
+  const offset = rest[rest.length - 2]
+  const groups = rest.slice(0, -2)
+  const text = to.replace(/\$(\d)/g, (_, i) => groups[Number(i) - 1] ?? '')
+  // Capital when the sentence starts here, or when the matched word was a capitalised word ("Every", "Página") rather
+  // than the acronym itself ("VIP" is always capitals, which says nothing about the sentence).
+  const capital = offset === 0 || (match[0] !== match[0].toLowerCase() && match[1] === match[1]?.toLowerCase())
+  return capital ? text.charAt(0).toUpperCase() + text.slice(1) : text
+}
+/** A translated template in the official creators' words (before {placeholders} are filled). */
+export function officialWords(template, locale = getLocale()) {
+  let out = template
+  for (const [re, to] of KIND_SWAPS[locale] || KIND_SWAPS.en) out = out.replace(re, keepCase(to))
+  return out
+}
+/** `useT()`, in the words of the programme kind the surrounding page or panel shows. */
+export function useKindT(kindOverride) {
+  const locale = useLocale()
+  const fromPage = useContext(ProgrammeKindContext)
+  const kind = kindOverride || fromPage
+  return useMemo(() => {
+    if (kind !== 'official') return (en, vars) => translate(en, vars)
+    return (en, vars) => {
+      let out = officialWords(translate(en), locale)
+      if (vars) for (const k of Object.keys(vars)) out = out.split(`{${k}}`).join(String(vars[k] ?? ''))
+      return out
+    }
+  }, [kind, locale])
 }
 
 export function describeRule(rule, tr, currency = 'EUR', { official = false } = {}) {

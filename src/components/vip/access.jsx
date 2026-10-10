@@ -4,9 +4,8 @@ import { Avatar, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { clearVipAccess, vipRpc } from '../../lib/vip'
+import { clearVipAccess, vipRpc, useKindT } from '../../lib/vip'
 import { formatDate } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
 
 // WHO CAN OPEN THE VIP TOOLS (30 Sep 2026, migration 296).
 //
@@ -17,7 +16,7 @@ import { useT } from '../../lib/i18n'
 // nothing of Romania. Only the owner sees this tab and only the owner can write the list (the functions refuse
 // anyone else; this page is a courtesy, not the lock).
 export function VipAccessTab({ programmes }) {
-  const tr = useT()
+  const tr = useKindT()
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
   const [found, setFound] = useState([])

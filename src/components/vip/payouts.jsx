@@ -8,8 +8,7 @@ import { CountUp } from '../network/Motion'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { cx } from '../../lib/utils'
-import { money, monthLabel, nf, rate } from '../../lib/vip'
-import { useT } from '../../lib/i18n'
+import { money, monthLabel, nf, rate, useKindT } from '../../lib/vip'
 
 // PAYOUTS (1 Oct 2026). Ethan: "they can view their invoices and perhaps download them as well once they're sent.
 // Obviously, I'll be the one sending them. Just improve that."
@@ -33,7 +32,7 @@ function stageOf(s) {
 }
 
 export function PayoutSummary({ overview, statements, programme }) {
-  const tr = useT()
+  const tr = useKindT()
   const cur = programme.currency
   const list = statements || []
   const paid = list.filter((s) => stageOf(s) === 3).reduce((a, s) => a + Number(s.total || 0), 0)
@@ -82,7 +81,7 @@ export function PayoutSummary({ overview, statements, programme }) {
 }
 
 function Statement({ s, programmeCpm, delay }) {
-  const tr = useT()
+  const tr = useKindT()
   const [open, setOpen] = useState(false)
   const [invoice, setInvoice] = useState(null)
   const [busy, setBusy] = useState('')
