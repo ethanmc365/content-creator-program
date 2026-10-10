@@ -48,7 +48,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
     if (!open || !id) { setData(null); setNote(''); setNoteMeta(null); setSaved(false); return undefined }
     let alive = true
     async function load() {
-      const [{ data: subs }, { data: rewards }, { data: n }, { data: priv }, { data: emails }, { data: members }, { data: tracked }] =
+      const [{ data: subs }, { data: rewards }, { data: n }, { data: priv }, { data: emails }, { data: members }] =
         await Promise.all([
           supabase.from('submissions').select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
             .eq('creator_id', id).order('submitted_at', { ascending: false }),
@@ -59,14 +59,11 @@ export default function CreatorPeek({ creator, open, onClose }) {
           // the definer RPC the roster uses, asked for one row.
           supabase.rpc('admin_list_emails'),
           supabase.from('community_members').select('communities(name)').eq('profile_id', id),
-          // Videos the team added in the video tracker for this person with no entry form behind them.
-          supabase.from('tracked_videos').select('views').eq('creator_id', id).is('submission_id', null),
         ])
       if (!alive) return
       setData({
         subs: subs ?? [],
         latest: (subs ?? []).slice(0, 5),
-        trackedOnly: tracked ?? [],
         rewards: rewards ?? [],
         priv: priv ?? {},
         email: (emails ?? []).find((r) => r.id === id)?.email || null,
@@ -132,9 +129,9 @@ export default function CreatorPeek({ creator, open, onClose }) {
             <StatTile
               label={tr('Views')}
               accent
-              value={data ? formatViews(data.subs.reduce((n, s) => n + (Number(s.logged_views) || 0), 0) + data.trackedOnly.reduce((n, t) => n + (Number(t.views) || 0), 0)) : null}
+              value={data ? formatViews(data.subs.reduce((n, s) => n + (Number(s.logged_views) || 0), 0)) : null}
             />
-            <StatTile label={tr('Entries')} value={data ? data.subs.length + data.trackedOnly.length : null} />
+            <StatTile label={tr('Entries')} value={data ? data.subs.length : null} />
             <StatTile label={tr('Paid')} value={data ? paid.length : null} />
             <StatTile label={tr('Joined')} value={creator.created_at ? new Date(creator.created_at).getFullYear() : '—'} />
           </div>

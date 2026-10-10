@@ -16,11 +16,13 @@ import { SheetLabel } from './creatorSheet'
 // bury the one that is open now. VIP and official creators are fenced out of community challenges by design, so they get
 // one sentence saying so instead of a row of "not participated" that could never become true.
 //
-// "PARTICIPATED" = at least one entry on that challenge, whatever its state; the entry count rides along. TWO PLACES COUNT
-// (11 Oct 2026, Xenia): a creator's entry form writes `submissions`, but the team also adds a creator's video straight
-// into the video tracker (`tracked_videos`, linked to their account and a challenge, with no submission behind it). Xenia
-// had one of those on the Global Challenge and no submission, so a block that read only `submissions` called her absent.
-// A tracked video that came FROM a submission carries `submission_id` and is not counted twice.
+// "PARTICIPATED" = at least one entry that still exists on that challenge; the count rides along.
+//
+// A REMOVED ENTRY IS NOT PARTICIPATION (11 Oct 2026, Xenia). The video tracker keeps a row for a video even after its entry
+// is deleted (`tracked_videos.submission_id` goes NULL), so Xenia's TikTok still sits in the tracker with 143k views while
+// she has no entry and no score. Counting that as taking part was wrong; instead, when there is no entry, the row says WHY:
+// "Disqualified" (a record in submission_disqualifications) or "Entry removed" (the tracker remembers a video that no longer
+// has an entry: she took it out herself, or the team did).
 export default function ChallengeParticipation({ profileId, isVip = false }) {
   const [rows, setRows] = useState(null)
 
@@ -34,20 +36,24 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
       ])
       const ids = [...new Set([...(mem ?? []), ...(net ?? [])].map((r) => r.community_id ?? r.id))]
       if (!ids.length) { if (alive) setRows([]); return }
-      const [{ data: chs }, { data: subs }, { data: tracked }] = await Promise.all([
+      const [{ data: chs }, { data: subs }, { data: tracked }, { data: dqs }] = await Promise.all([
         supabase.from('challenges').select('id, title, community_id, end_date, communities(name, kind)')
           .eq('status', 'active').in('community_id', ids).order('end_date', { ascending: true }),
         supabase.from('submissions').select('challenge_id').eq('creator_id', profileId),
         supabase.from('tracked_videos').select('challenge_id').eq('creator_id', profileId).is('submission_id', null),
+        supabase.from('submission_disqualifications').select('challenge_id').eq('creator_id', profileId),
       ])
       if (!alive) return
       const entries = {}
-      for (const s of [...(subs ?? []), ...(tracked ?? [])]) entries[s.challenge_id] = (entries[s.challenge_id] || 0) + 1
+      for (const s of subs ?? []) entries[s.challenge_id] = (entries[s.challenge_id] || 0) + 1
+      const dq = new Set((dqs ?? []).map((d) => d.challenge_id))
+      const gone = new Set((tracked ?? []).map((t) => t.challenge_id))
       setRows((chs ?? []).map((c) => ({
         id: c.id,
         title: c.title,
         market: c.communities?.kind === 'network' ? 'Worldwide' : c.communities?.name,
         entries: entries[c.id] || 0,
+        why: entries[c.id] ? null : dq.has(c.id) ? 'dq' : gone.has(c.id) ? 'removed' : null,
       })))
     })()
     return () => { alive = false }
@@ -83,11 +89,13 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
                   'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold',
                   r.entries > 0
                     ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
-                    : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-500/30',
+                    : r.why === 'dq'
+                      ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-500/30'
+                      : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-500/30',
                 )}
               >
                 <Icon name={r.entries > 0 ? 'check' : 'clock'} className="h-3 w-3 animate-pop-in" />
-                {r.entries > 0 ? `Participated${r.entries > 1 ? ` · ${r.entries} entries` : ''}` : 'Not participated'}
+                {r.entries > 0 ? `Participated${r.entries > 1 ? ` · ${r.entries} entries` : ''}` : r.why === 'dq' ? 'Disqualified' : r.why === 'removed' ? 'Entry removed' : 'Not participated'}
               </span>
             </li>
           ))}

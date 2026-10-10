@@ -55,7 +55,6 @@ export default function Profile() {
   // False until the entries have actually been read, so a profile that painted early does not claim "hasn't submitted yet" about somebody who has.
   const [subsReady, setSubsReady] = useState(!!seed?.ready)
   const [challengeCount, setChallengeCount] = useState(seed?.challengeCount ?? 0)
-  const [extraEntries, setExtraEntries] = useState(0) // admin view only: tracker videos with no entry form
   const [relation, setRelation] = useState(seed?.relation ?? null)
   const [trips, setTrips] = useState(seed?.trips ?? [])
   const [upcoming, setUpcoming] = useState(seed?.upcoming ?? [])
@@ -143,18 +142,9 @@ export default function Profile() {
       setLoading(false)
       const [{ data: subs }, { data: tripsData }, { data: flightsData }] = await Promise.all([subsQ, tripsQ, upcomingFlights])
       if (cancelled) return
-      // The team can add a creator's video straight into the video tracker with no entry form behind it; only admins can read
-      // those, so only an admin's totals include them (the creator-facing sheet agrees: see ChallengeParticipation).
-      let extra = []
-      if (viewerIsAdmin && !isMe) {
-        const { data: tv } = await supabase.from('tracked_videos').select('challenge_id').eq('creator_id', id).is('submission_id', null)
-        if (cancelled) return
-        extra = tv ?? []
-      }
       setSubmissions(subs ?? [])
       setSubsReady(true)
-      setExtraEntries(extra.length)
-      setChallengeCount(new Set([...(subs ?? []), ...extra].map((s) => s.challenge_id)).size)
+      setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setTrips(tripsData ?? [])
       setUpcoming(flightsData ?? [])
       writePageCache(cacheKey, {
@@ -165,7 +155,7 @@ export default function Profile() {
     let cancelled = false
     load()
     return () => { cancelled = true }
-  }, [id, user.id, isMe, cacheKey, viewerIsAdmin])
+  }, [id, user.id, isMe, cacheKey])
 
   // Mutual connections (people you both know), shown on other people's profiles.
   useEffect(() => {
@@ -612,7 +602,7 @@ export default function Profile() {
               ['Member since', formatDate(creator.accepted_at || creator.created_at)],
               ['Countries visited', creator.countries_visited?.length || 0],
               ['Challenges entered', challengeCount],
-              ['Videos submitted', subsReady ? submissions.length + extraEntries : '-'],
+              ['Videos submitted', subsReady ? submissions.length : '-'],
             ].map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-3">
                 <dt className="text-xs text-smoke">{k}</dt>
