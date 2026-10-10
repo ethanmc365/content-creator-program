@@ -238,7 +238,7 @@ export default function CertificateStudio() {
           hint="Press New certificate to start from a ready-made design or a blank one."
         />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {rows.map((row) => (
             <DesignRow
               key={row.id}
@@ -370,7 +370,7 @@ function StarterGallery({ existingNames, onPick, onClose }) {
         <button type="button" onClick={onClose} className="btn-ghost !py-1.5 text-xs">Cancel</button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <BlankTile onPick={onPick} />
         {STARTERS.map((starter) => (
           <StarterTile
@@ -715,7 +715,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               <input value={design.footnote || ''} onChange={(e) => set({ footnote: e.target.value })}
                 placeholder="Optional line under the text. The verify address prints by itself." className="input" />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Signed by (optional)">
                 <input value={design.signature || ''} onChange={(e) => set({ signature: e.target.value })}
                   placeholder="e.g. Ethan Mc Candless" className="input" />

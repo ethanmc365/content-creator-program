@@ -385,7 +385,7 @@ export default function GlobalSettings() {
 
     // 1 Locale
     <div key="locale" className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={tr("Currency")}>
           <Select variant="field" ariaLabel="Currency" value={form.currency} onChange={(v) => set({ currency: v })}
             options={CURRENCIES} />
@@ -448,7 +448,7 @@ export default function GlobalSettings() {
     <div key="access" className="space-y-5">
       <div>
         <p className="mb-1.5 text-sm font-medium">{tr("Who can join")}</p>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {JOIN_POLICIES.map((p) => (
             <button key={p.value} type="button" onClick={() => set({ joinPolicy: p.value })}
               aria-pressed={form.joinPolicy === p.value}

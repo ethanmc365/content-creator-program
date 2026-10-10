@@ -147,7 +147,7 @@ export default function WhoToMeet({ className }) {
           So: a card with a STRETCHED link underneath the content (the whole
           card still opens the profile from any dead space) and two real
           controls on top of it. Same pattern the past-challenge cards use. */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {picks.map(({ creator, reason }, i) => (
           <div
             key={creator.id}

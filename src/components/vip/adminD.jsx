@@ -330,7 +330,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   return (
     <Modal open onClose={onClose} title={brief.id ? tr('Edit challenge') : tr('New monthly challenge')} wide>
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
           <label className="block"><span className="label">{tr('Month')}</span><input type="month" className="input" value={ym} onChange={(e) => setYm(e.target.value)} /></label>
         </div>
@@ -338,7 +338,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
         <label className="block"><span className="label">{tr('Theme (a short tag)')}</span><input className="input" maxLength={60} value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={tr('For example: Autumn')} /></label>
         <label className="block"><span className="label">{tr('The brief')}</span><textarea className="input min-h-[8rem] resize-y" maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('What to film, what to show, what to avoid. You can use - for lists and **bold**.')} /></label>
         <label className="block"><span className="label">{tr('Hook ideas (one per line)')}</span><textarea className="input min-h-[6rem] resize-y" value={hooks} onChange={(e) => setHooks(e.target.value)} /></label>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block"><span className="label">{tr('What decides the standings')}</span><Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('What decides the standings')} options={BRIEF_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} /></label>
           <label className="block"><span className="label">{tr('A goal everyone can aim for (optional)')}</span><input className="input" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100000" /></label>
         </div>
@@ -350,7 +350,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
             </div>
           </div>
           {prizeRule === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : (
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {places.map((a, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-white text-smoke')}>{i + 1}</span>
@@ -397,7 +397,7 @@ function PerksEditor({ programme, isOwner, canManage }) {
         {canManage && <button type="button" onClick={() => setEdit({})} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('New perk or trip')}</button>}
       </div>
       {rows === null ? <Skeleton className="h-32 w-full rounded-card" /> : rows.length === 0 ? empty(tr('Nothing here yet.')) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {rows.map((p, i) => {
             const kind = PERK_KINDS.find((k) => k.key === p.kind) || PERK_KINDS[0]
             const metric = PERK_METRICS.find((m) => m.key === p.metric)
@@ -482,12 +482,12 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
   return (
     <Modal open onClose={onClose} title={perk.id ? tr('Edit perk or trip') : tr('New perk or trip')} wide>
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
         </div>
         <div>
           <p className="label">{tr('What kind of reward is it?')}</p>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PERK_KINDS.map((k) => (
               <button key={k.key} type="button" aria-pressed={kind === k.key} onClick={() => setKind(k.key)}
                 className={cx('flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all duration-200', kind === k.key ? 'border-brand bg-brand-tint/50 shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30')}>
@@ -498,7 +498,7 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
           </div>
         </div>
         <label className="block"><span className="label">{tr('Name')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: 1 million views')} /></label>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block"><span className="label">{tr('Unlocked by')}</span><Select variant="field" portal value={metric} onChange={setMetric} ariaLabel={tr('Unlocked by')} options={PERK_METRICS.map((m) => ({ value: m.key, label: tr(m.label) }))} /></label>
           {metric !== 'manual' && <label className="block"><span className="label">{tr('Amount needed')}</span><input className="input" inputMode="numeric" value={threshold} onChange={(e) => setThreshold(e.target.value.replace(/[^\d]/g, ''))} placeholder="1000000" /></label>}
         </div>
@@ -618,7 +618,7 @@ function GuideForm({ programme, isOwner, guide, cats, nextSort = 10, onClose, on
   return (
     <Modal open onClose={onClose} title={guide.id ? tr('Edit guide') : tr('New guide')} wide>
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
           <label className="block"><span className="label">{tr('Topic')}</span><input className="input" list="vip-guide-cats" maxLength={40} value={category} onChange={(e) => setCategory(e.target.value)} /><datalist id="vip-guide-cats">{cats.map((c) => <option key={c} value={c} />)}</datalist></label>
         </div>

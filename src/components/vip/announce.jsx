@@ -94,13 +94,13 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
   const now = new Date()
   return (
     <div className="space-y-6">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
           <h2 className="text-[15px] font-bold text-ink">{tr('Tell your VIPs something')}</h2>
           <div className="mt-4 space-y-4">
             <label className="block"><span className="label">{tr('Title (optional)')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: New bonus for October')} /></label>
             <label className="block"><span className="label">{tr('Message')}</span><textarea className="input min-h-[7rem] resize-y" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={tr('Write what every VIP should know.')} /></label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block"><span className="label">{tr('Who gets it')}</span>
                 <Select variant="field" portal value={audience} onChange={setAudience} ariaLabel={tr('Who gets it')} options={choices} search={false} />
               </label>

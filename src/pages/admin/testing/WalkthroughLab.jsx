@@ -42,7 +42,7 @@ export default function WalkthroughLab() {
       sandbox={false}
       subtitle="The guided tour a creator gets on their first open, in its two versions. Press one to run it over the app now, from the first step."
     >
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {WALKS.map((w, i) => (
           <Panel key={w.key} i={i} title={w.title} hint={w.blurb}>
             <ol className="relative space-y-2.5 pl-1">

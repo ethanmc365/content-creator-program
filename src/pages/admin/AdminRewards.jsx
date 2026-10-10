@@ -385,7 +385,7 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
             <Icon name="check" className="h-4 w-4" /> Nothing to chase. Every prize is paid and every voucher handed over.
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {jobs.map((j) => (
               <button key={j.label} type="button" onClick={() => go(j.to)} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={j.icon} className="h-5 w-5" /></span>
@@ -397,7 +397,7 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PaidOut rewards={rewards} cashOut={cashOut} voucherOut={voucherOut} paid={paid} />
         <section className="card">
           <h2 className="mb-3 text-base font-semibold">Recently paid</h2>

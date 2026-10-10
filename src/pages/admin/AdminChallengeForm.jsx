@@ -960,7 +960,7 @@ export default function AdminChallengeForm() {
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Or one market</p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {chapterMarkets.map((m) => (
               <button
                 key={m.id} type="button"
@@ -1011,7 +1011,7 @@ export default function AdminChallengeForm() {
         <section className="card space-y-5 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
           <h2 className="text-lg font-semibold">How it is won</h2>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {SCORING_MODES.map((m) => (
               <button
                 key={m.value} type="button" onClick={() => {
@@ -1123,7 +1123,7 @@ export default function AdminChallengeForm() {
                 UI." It was four loose fields in a two-column grid, so a date sat under a time
                 that belonged to another date. Now "Starts" is one box with its date and its
                 time side by side, "Ends" is the next, and they stack on a phone. */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
                 { key: 'start', title: 'Starts', dateStr: form.startDateStr, timeStr: form.startTimeStr, dKey: 'startDateStr', tKey: 'startTimeStr' },
                 { key: 'end', title: 'Ends', dateStr: form.endDateStr, timeStr: form.endTimeStr, dKey: 'endDateStr', tKey: 'endTimeStr' },

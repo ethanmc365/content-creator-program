@@ -103,7 +103,7 @@ export default function SignupLab() {
         title="What guards the front door"
         hint="Four things, none of which are visible on the page itself."
       >
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <KeyVal
             rows={[
               ['Captcha', 'Cloudflare Turnstile on sign up, log in and reset'],

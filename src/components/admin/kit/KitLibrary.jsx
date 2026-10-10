@@ -160,7 +160,7 @@ export default function KitLibrary() {
           hint="Upload the 'I'm officially a Tryp.com Content Creator' graphics and they will appear on every creator's portfolio page, ready to save."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((row, i) => (
             <KitCard
               key={row.id}

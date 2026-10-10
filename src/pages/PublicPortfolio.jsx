@@ -112,7 +112,7 @@ export default function PublicPortfolio() {
         {videos?.length > 0 && (
           <section className="mt-8">
             <h2 className="mb-3 text-sm font-bold text-ink">Watch them</h2>
-            <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+            <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
               {videos.map((v) => (
                 <a
                   key={v.id}

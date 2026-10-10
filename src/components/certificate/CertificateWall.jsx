@@ -96,7 +96,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {rows.map((row) => (
           <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} />
         ))}
@@ -164,7 +164,7 @@ function AdminPreview({ designs, className }) {
           {tr('Only admins see this preview. Each one uses your name and a sample challenge; open one to check the certificate, the Instagram story and both downloads. Drafts are not given to anybody.')}
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {designs.map((d) => (
           <div key={d.id} className="relative">
             <CertificateRow row={rowFor(d)} lang="en" readOnly onOpen={() => setOpen(rowFor(d))} />

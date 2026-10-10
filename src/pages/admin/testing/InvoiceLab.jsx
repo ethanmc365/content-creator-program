@@ -229,7 +229,7 @@ export default function InvoiceLab() {
         i={0}
         title="Pick a scenario"
       >
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="space-y-5">
             <Field label="Who won">
               <div className="mt-1"><Choice options={SCENARIOS} value={scenarioKey} onChange={(v) => { setScenarioKey(v); setStep(0) }} /></div>

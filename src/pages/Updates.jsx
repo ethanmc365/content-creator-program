@@ -233,7 +233,7 @@ function UpdateEditor({ row, authorId, onClose, onSaved }) {
       <div className="space-y-4">
         <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={140} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: Translate what other creators write')} autoFocus /></label>
         <label className="block"><span className="label">{tr('One line under the title')}</span><input className="input" maxLength={280} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder={tr('What it is, in a sentence')} /></label>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <p className="label">{tr('Tag')}</p>
             <Segmented size="sm" value={kind} onChange={setKind} label={tr('Tag')} options={Object.entries(KINDS).map(([k, v]) => ({ value: k, label: tr(v.label) }))} />

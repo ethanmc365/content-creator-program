@@ -663,7 +663,7 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
             </p>
           </div>
           <p className="mb-6 text-xs text-smoke">Only challenges with a logged view count are averaged in.</p>
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {comparisons.map((c) => (
               <div key={c.key}>
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-smoke">{c.label}</p>
@@ -690,7 +690,7 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
       {(row.prize_type || row.notes) && (
         <section className="card">
           <h2 className="mb-4 font-semibold">How it was run</h2>
-          <dl className="grid gap-4 sm:grid-cols-3">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Detail label="Prize type" value={row.prize_type} />
             <Detail label="Winners" value={row.winners == null ? null : String(row.winners)} />
             <Detail label="Length" value={m.days ? `${m.days} days` : null} />

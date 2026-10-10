@@ -80,7 +80,7 @@ export default function OpenMarketDialog({ open, onClose }) {
   return (
     <Modal open={open} onClose={close} title={kind === 'vip' ? tr('Open a VIP market') : tr('Open another market')} wide={kind === 'vip'}>
       {kind !== 'vip' ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
             { key: 'market', icon: 'globe', title: tr('A community market'), body: tr('A new country or region with its own rooms, challenges, leads and members. Creators living there can join it.') },
             { key: 'vip', icon: 'star', title: tr('A VIP market'), body: tr('Creators paid by the views they bring, inside one of your markets, with their own rooms, payouts and month end.') },
@@ -122,7 +122,7 @@ export default function OpenMarketDialog({ open, onClose }) {
               />
             )}
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block"><span className="label">{tr('Name')}</span><input className="input" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={picked ? `VIP ${picked.name}` : 'VIP'} /></label>
             <label className="block"><span className="label">{tr('Rate per 1,000 views')} {picked ? `(${picked.currency || 'EUR'})` : ''}</span><input className="input" inputMode="decimal" value={f.cpm} onChange={(e) => set({ cpm: e.target.value })} /></label>
             <label className="block"><span className="label">{tr('Monthly cap per creator')}</span><input className="input" inputMode="decimal" value={f.cap} onChange={(e) => set({ cap: e.target.value })} placeholder={tr('None')} /></label>

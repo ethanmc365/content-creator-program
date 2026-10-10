@@ -135,7 +135,7 @@ export default function VipTools({ programmeId }) {
     kpis: (p) => <VipKpiTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
     analytics: (p) => <VipAnalyticsTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
     settings: (p) => (
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
         <VipSettingsTab programme={p} onSaved={load} />
         <aside className="space-y-5 lg:sticky lg:top-24">
           <VipRulesCard key={`${p.id}:${p.min_payout}:${p.voucher_min}:${p.req_videos}`} programme={p} onSaved={load} />

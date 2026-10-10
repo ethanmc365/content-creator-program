@@ -2082,7 +2082,7 @@ export default function Messages() {
                     because every sentence this pane can say is a claim about a
                     list nobody has read yet. */}
                 {discover.loading ? (
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+                  <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
                     {[0, 1, 2, 3, 4, 5].map((i) => (
                       <div key={i} className="flex flex-col items-center gap-2 rounded-card border border-gray-100 px-3 py-5">
                         <Skeleton className="h-14 w-14 rounded-full" />
@@ -2120,7 +2120,7 @@ export default function Messages() {
                         also what makes six of them read as six rather than as
                         "two creators", which is what a two-column grid of six
                         looks like at a glance. */}
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {discoverPeople.map((p, i) => {
                         const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
                         const where = [p.city, p.country].filter(Boolean).join(', ')

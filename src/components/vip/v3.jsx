@@ -88,7 +88,7 @@ function BriefCard({ brief, overview }) {
           </ul>
         </div>
       )}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {brief.target > 0 && !overview.staff && <TargetBar label={unitLabel(brief.metric, brief.target, tr, BRIEF_METRICS)} value={mine} target={Number(brief.target)} />}
         {(places.length > 0 || brief.prize) && (
           <div className="rounded-xl bg-white px-3.5 py-3 text-sm text-ink shadow-sm">
@@ -216,7 +216,7 @@ export function PerksPath() {
           <TargetBar label={unitLabel(next.metric, next.threshold, tr)} value={Number(next.value)} target={Number(next.threshold)} format={nf} />
         </section>
       )}
-      <Reveal className="grid gap-4 sm:grid-cols-2" stagger={0.06}>
+      <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.06}>
         {data.map((p) => {
           const kind = PERK_KINDS.find((k) => k.key === p.kind) || PERK_KINDS[0]
           const pct = p.metric === 'manual' ? 0 : Math.min(1, Number(p.value) / Math.max(1, Number(p.threshold)))
@@ -277,7 +277,7 @@ export function VipLibrary({ programmeId }) {
     <div className="space-y-6">
       {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE (1 Oct 2026). Ethan: "don't say 'Stuck on the first line.' I don't
           like that colour. Just have the 'Hook me up' and 'find a deal' button ... bigger ... side by side." */}
-      <section className="grid gap-3 sm:grid-cols-2">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="animate-rise"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:70ms]"><DealFinder variant="big" /></div>
       </section>

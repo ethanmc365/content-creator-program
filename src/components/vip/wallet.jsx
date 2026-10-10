@@ -127,7 +127,7 @@ export function VipWallet({ onChanged }) {
       </section>
 
       {/* ---------------- automatic payout + payment details ---------------- */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card animate-rise [animation-delay:60ms]">
           <Icon name="refresh" className="h-6 w-6 shrink-0 text-brand" strokeWidth={2} />
           <span className="min-w-0 flex-1">

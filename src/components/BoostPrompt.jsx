@@ -70,8 +70,9 @@ function BoostCard({ boost, name, onClose }) {
   const n = boostMult(boost.multiplier)
   const [now] = useState(() => Date.now())
   const left = Math.max(0, Date.parse(boost.ends_at) - now)
-  const hours = Math.floor(left / 3600000)
-  const mins = Math.max(1, Math.ceil((left % 3600000) / 60000))
+  const totalMins = Math.max(1, Math.ceil(left / 60000))
+  const hours = Math.floor(totalMins / 60)
+  const mins = totalMins % 60
   const leftText = hours >= 24 ? tr('{d}d {h}h left', { d: Math.floor(hours / 24), h: hours % 24 }) : hours > 0 ? tr('{h}h {m}m left', { h: hours, m: mins }) : tr('{m}m left', { m: mins })
 
   return createPortal(

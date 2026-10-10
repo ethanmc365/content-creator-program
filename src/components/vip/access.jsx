@@ -124,7 +124,7 @@ export function VipAccessTab({ programmes }) {
       <section>
         <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Add a manager')}</h2>
         <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-          <div className="grid gap-3 sm:grid-cols-[1fr_14rem_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_14rem_auto] sm:items-end">
             <div className="relative">
               <span className="label">{tr('Who?')}</span>
               {pick ? (

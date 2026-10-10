@@ -121,7 +121,7 @@ export default function Rewards() {
           <Reveal className="mb-10">
             <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-7">
               <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
-              <div className="relative grid gap-5 sm:grid-cols-2">
+              <div className="relative grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="money" className="h-4 w-4" />{tr('Total received')}</p>
                   <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">{showTotal(earned)}</p>

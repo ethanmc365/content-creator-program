@@ -130,7 +130,7 @@ export default function Dashboard() {
             action={<Link to="/challenges" className="btn-primary">{tr('Enter the live challenge')}</Link>}
           />
         ) : (
-          <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.06}>
+          <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.06}>
             {data.results.map((r) => (
               <Link key={r.id} to={`/challenges/${r.challenge_id}`} className="group flex items-center gap-4 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
                 <MiniPodium rank={r.rank} />

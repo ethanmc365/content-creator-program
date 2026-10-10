@@ -478,7 +478,7 @@ export default function ManageChapter() {
               />
               <div className="mt-4">
                 <p className="mb-2 text-sm font-medium">{tr("Who can join")}</p>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {JOIN_POLICIES.map((p) => (
                     <button key={p.value} type="button"
                       onClick={() => setSettings({ ...settings, join_policy: p.value })}
@@ -512,7 +512,7 @@ export default function ManageChapter() {
                   {saving === 'settings' ? 'Saving…' : 'Save'}
                 </button>
               }>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">{tr("Name")}</span>
                   <input className="input" value={settings.name}
@@ -573,7 +573,7 @@ export default function ManageChapter() {
                   {saving === 'settings' ? 'Saving…' : 'Save'}
                 </button>
               }>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">{tr("Currency")}</span>
                   <Select variant="field" ariaLabel="Currency" value={settings.currency}

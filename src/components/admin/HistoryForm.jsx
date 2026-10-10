@@ -142,7 +142,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
           </span>
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={tr('Market')}>
             <Select
               variant="field"
@@ -173,7 +173,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
             onChange={(e) => set({ title: e.target.value })} />
         </Field>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={tr('Started')}>
             <input type="date" className="input" value={f.starts_at} onChange={(e) => set({ starts_at: e.target.value })} />
           </Field>
@@ -191,7 +191,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
         {/* ---- The four numbers everything is computed from ---- */}
         <div className="rounded-card border border-brand/20 bg-brand-tint/25 p-4">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-brand">{tr('The results')}</p>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <Field label={tr('Prize (EUR)')}><Num value={f.prize_total} onChange={(v) => set({ prize_total: v })} /></Field>
             <Field label={tr('Total views')}><Num value={f.total_views} onChange={(v) => set({ total_views: v })} /></Field>
             <Field label={tr('Creators')}><Num value={f.creators} onChange={(v) => set({ creators: v })} /></Field>
@@ -212,7 +212,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={tr('Winners')}><Num value={f.winners} onChange={(v) => set({ winners: v })} /></Field>
           <Field label={tr('Prize type')} hint={tr('The Challenges tab breaks the spend down by this.')}>
             <Select

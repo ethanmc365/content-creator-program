@@ -211,7 +211,7 @@ export default function AdminSurveys() {
 
           <section className="animate-fade-up [animation-delay:80ms]">
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Start from a template')}</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {SURVEY_STARTERS.map((st, i) => (
                 <button
                   key={st.key}
@@ -382,7 +382,7 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
           </Step>
 
           <Step n={3} title={tr('Who sees it')}>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {AUDIENCES.map((a) => (
                 <OptionCard key={a.key} on={survey.audience === a.key} onClick={() => set({ audience: a.key })} icon={a.icon} label={tr(a.label)} hint={tr(a.hint)} />
               ))}
@@ -454,7 +454,7 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
               </div>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {TIMINGS.map((t) => (
                     <OptionCard key={t.key} on={(survey.timing || 'now') === t.key} onClick={() => set({ timing: t.key })} icon={t.icon} label={tr(t.label)} hint={tr(t.hint)} />
                   ))}
@@ -809,7 +809,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
       {!summary ? <Skeleton className="h-64 w-full rounded-card" /> : (
         <>
           {/* ---------- the headline ---------- */}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
             <div className="brand-drift relative overflow-hidden rounded-card p-5 text-white shadow-card animate-fade-up">
               <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
               <div className="relative flex items-center gap-5">
@@ -1036,7 +1036,7 @@ function TextResult({ q, who }) {
   const shown = all ? q.answers : q.answers.slice(0, 6)
   return (
     <div>
-      <ul className="grid gap-2 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {shown.map((a, k) => {
           const w = who(a)
           return (
@@ -1106,7 +1106,7 @@ function ResponsesList({ survey, responses, who, onDelete }) {
       {!cur ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Nobody here.')}</p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           {/* the people: a strip of faces on a phone, a list from a laptop up */}
           <div ref={listRef} className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
             {list.map((r, i) => {

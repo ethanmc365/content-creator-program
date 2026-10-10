@@ -568,7 +568,7 @@ export default function AdminEvents() {
               onChange={(v) => setForm({ ...form, community_ids: v })} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="ev-meet" className="label">Meeting link <span className="font-normal text-smoke">(optional)</span></label>
               <input id="ev-meet" type="url" className="input" value={form.meeting_url}

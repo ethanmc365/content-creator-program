@@ -1903,7 +1903,7 @@ export default function Flights() {
                   IT IS ASKED BEFORE THE DATES, because it is what makes the two
                   date labels below it mean anything. */}
               <span className="label">{tr("Which way did you fly first?")}</span>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[
                   { key: 'out', a: fromA, b: toA },
                   { key: 'back', a: toA, b: fromA },

@@ -70,7 +70,7 @@ export function VipLockedPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2">
+      <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PERKS.map((p, i) => (
           <div key={p.title} className="vip-perk relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise" style={{ animationDelay: `${120 + i * 80}ms` }}>
             <Icon name={p.icon} className="h-6 w-6 text-brand" />
@@ -84,7 +84,7 @@ export function VipLockedPage() {
       <section className="mt-6 rounded-[28px] bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-card animate-rise sm:p-8" style={{ animationDelay: '460ms' }}>
         <h2 className="text-xl font-extrabold">{tr('What the team looks for')}</h2>
         <p className="mt-1 max-w-xl text-sm text-white/85">{tr('There is no form and no fixed number. The team looks at the whole picture and invites creators who stand out.')}</p>
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {LOOK_FOR.map((l) => (
             <li key={l.title} className="flex items-start gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur-sm">
               <Icon name={l.icon} className="mt-0.5 h-5 w-5 shrink-0" />

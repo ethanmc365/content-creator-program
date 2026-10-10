@@ -1141,7 +1141,7 @@ export default function Profile() {
       <>
       {/* ACROSS BOTH COLUMNS, above About and the local time (Ethan, 1 Oct 2026). */}
       <div className="mb-8">{recap}</div>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* The two columns do not arrive the same way: the article rises and
             the rail slides in from the edge it lives against. Same pattern as
             the calendar and the hub. */}

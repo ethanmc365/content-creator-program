@@ -128,7 +128,7 @@ export default function MarketMembers() {
                   {creators.length} {creators.length === 1 ? 'creator' : 'creators'}
                 </h2>
                 <motion.div variants={listContainer} initial="hidden" animate="show"
-                  className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {ranked.map((m) => {
                     const pts = d.points.get(m.profile_id) || 0
                     return (

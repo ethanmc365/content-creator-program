@@ -158,7 +158,7 @@ export function VipOverviewTab({ programme }) {
 
       <TrendCard programmeId={programme.id} refreshKey={Number(totals.views) || 0} />
 
-      <div className="grid gap-5 lg:grid-cols-2 [&:empty]:hidden">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 [&:empty]:hidden">
         <AttentionCard programme={programme} />
         <SuggestionsCard programme={programme} onPick={setPickProfile} />
       </div>

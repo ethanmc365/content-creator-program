@@ -414,7 +414,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 to be the same length, currently read your brief is shorter." A
                 two-column grid gives both the width of the wider one, and the
                 entry count sits centred under the pair. */}
-            <div className={cx('grid gap-3 sm:grid-cols-2 lg:w-full', compact ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
+            <div className={cx('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-full', compact ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
               {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
                   border the solid one did not, so it stood 2px taller, and an
                   arrow its twin lacked. Both carry a 1px border now. */}

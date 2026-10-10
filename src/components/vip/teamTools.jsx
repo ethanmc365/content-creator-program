@@ -669,7 +669,7 @@ export function TeamPulse({ programme, onTool }) {
 
   const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {official ? <OfficialFeesCard programme={programme} className={card} onOpen={() => onTool('members')} /> : (
       <button type="button" onClick={() => onTool('requirements')} className={card}>
         <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-gray-400">

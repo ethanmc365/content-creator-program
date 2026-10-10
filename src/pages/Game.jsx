@@ -477,7 +477,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
         {/* THREE ACROSS ON A WIDE SCREEN, ONE ABOVE THE OTHER ON A PHONE. Two
             columns would leave the third puzzle alone on its own row looking
             like an afterthought, which is precisely what it is not. */}
-        <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
+        <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
           {DAILIES.map((d) => (
             <DailyCard key={d.key} daily={d} done={playedToday.has(d.key)}
               streak={dailyStreak(daysByPuzzle?.[d.key] || [])} onPlay={() => onDaily(d.key)} />
@@ -491,7 +491,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
         </div>
         {/* Four modes, so two rows of two on a phone and a clean row of four on
             a desktop. A three-column grid left one card orphaned. */}
-        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
+        <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
           {MODES.map((m) => {
             const on = mode === m.key
             return (

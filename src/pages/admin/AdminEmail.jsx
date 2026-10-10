@@ -51,10 +51,11 @@ export default function AdminEmail() {
   const [emailById, setEmailById] = useState(new Map())
   const { markets, memberRows } = useScopedMarkets()
   const [market, setMarket] = useState('')
+  const [group, setGroup] = useState('all')   // all | community | vip | official
 
   const load = useCallback(async () => {
     const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }] = await Promise.all([
-      supabase.from('profiles').select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title'),
+      supabase.from('profiles').select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title, is_vip, vip_kind'),
       supabase.rpc('admin_list_emails'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
       supabase.rpc('email_log', { p_limit: 100 }),
@@ -85,9 +86,19 @@ export default function AdminEmail() {
     return new Set(memberRows.filter((m) => m.community_id === market).map((m) => m.profile_id))
   }, [market, memberRows])
 
+  // Which paid programme somebody is in. Official creators keep is_vip, so check the kind first.
+  const groupOf = (p) => (p.vip_kind === 'official' ? 'official' : p.is_vip ? 'vip' : 'community')
+  const counts = useMemo(() => {
+    const c = { all: people.length, community: 0, vip: 0, official: 0 }
+    for (const p of people) c[groupOf(p)] += 1
+    return c
+  }, [people])
+
   const creators = useMemo(
-    () => (inMarket ? people.filter((p) => inMarket.has(p.id)) : people),
-    [people, inMarket],
+    () => people
+      .filter((p) => (inMarket ? inMarket.has(p.id) : true))
+      .filter((p) => group === 'all' || groupOf(p) === group),
+    [people, inMarket, group],
   )
 
   return (
@@ -102,9 +113,10 @@ export default function AdminEmail() {
             markets={markets}
             value={market}
             onChange={setMarket}
-            note={market ? `${creators.length} of ${people.length} creators` : null}
+            note={market || group !== 'all' ? `${creators.length} of ${people.length} creators` : null}
           />
-          <AddressBook creators={creators} team={team} scoped={!!market} />
+          <GroupScope value={group} onChange={setGroup} counts={counts} />
+          <AddressBook creators={creators} team={team} scoped={!!market} group={group} />
           {/* THE WELCOME QUEUE IS HIDDEN, NOT DELETED (4 Sep 2026).
               Ethan: "remove the welcome emails thing from the email admin tool -
               there are no more automatic emails for now, so hide it for now,
@@ -278,13 +290,43 @@ function AddressList({ title, people, empty, subtitleOf }) {
   )
 }
 
-function AddressBook({ creators, team, scoped }) {
+const GROUPS = [
+  { key: 'all', label: 'Everyone', noun: 'Creators' },
+  { key: 'community', label: 'Community', noun: 'Community creators' },
+  { key: 'vip', label: 'VIP', noun: 'VIP creators' },
+  { key: 'official', label: 'Official team', noun: 'Official creators' },
+]
+
+// Split by programme, the same cut Admin Creators makes. Combines with the market control above it.
+function GroupScope({ value, onChange, counts }) {
+  return (
+    <div className="-mt-4 mb-6 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      {GROUPS.filter((g) => g.key === 'all' || g.key === 'community' || counts[g.key] > 0).map((g) => (
+        <button
+          key={g.key}
+          type="button"
+          onClick={() => onChange(g.key)}
+          aria-pressed={value === g.key}
+          className={cx(
+            'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+            value === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+          )}
+        >
+          {g.label} <span className="tabular-nums opacity-70">{counts[g.key]}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function AddressBook({ creators, team, scoped, group }) {
+  const noun = GROUPS.find((g) => g.key === group)?.noun || 'Creators'
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <AddressList
-        title={scoped ? 'Creators in this market' : 'Creators'}
+        title={scoped ? `${noun} in this market` : noun}
         people={creators}
-        empty={scoped ? 'No creators in this market yet.' : 'No creators yet.'}
+        empty={scoped || group !== 'all' ? 'Nobody here yet.' : 'No creators yet.'}
       />
       <AddressList
         title="Tryp.com team"

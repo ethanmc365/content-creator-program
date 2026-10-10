@@ -135,7 +135,7 @@ export default function Milestones() {
                 A white panel inside a white page is a border drawn for its own
                 sake. The route sits on the page. The reading beside it keeps
                 its card, because that one IS a distinct object. */}
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
               <div className="px-1 py-2">
                 {/* NO "PREVIEW" MODE.
                     An admin used to see the whole route drawn as flown, so they

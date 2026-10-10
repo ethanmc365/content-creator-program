@@ -477,7 +477,7 @@ export default function FlightCommunity() {
               />
             </div>
             {!boards ? (
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-72" />)}
               </div>
             ) : boards.distance.length === 0 ? (
@@ -588,7 +588,7 @@ export default function FlightCommunity() {
                   "2 creators have flown it" is trivia where two faces are an
                   introduction - the same reason "others on your routes" names
                   people instead of counting them. */}
-              <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
+              <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
                 {(allFleet ? fleet : fleet.slice(0, 3)).map((a) => {
                   const type = aircraftTypeByName(a.aircraft)
                   const faces = Array.isArray(a.faces) ? a.faces : []

@@ -308,7 +308,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
           />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={tr('Creator')}>
             <input value={form.creator_name} onChange={(e) => set({ creator_name: e.target.value })}
               placeholder={tr('Their name')} className={inputCls} />
@@ -319,7 +319,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={tr('Views')} hint={form.views !== '' ? formatViews(Number(form.views) || 0) : tr('Leave empty if you do not know')}>
             <input
               value={form.views}

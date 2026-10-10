@@ -222,7 +222,7 @@ export default function OnboardingLab() {
         title="Which market would this creator land in?"
         hint="The question this lab exists for. Pick a country and this is the answer the flow gives, from the same resolveMarket function the flow itself calls. Nothing is guessed twice."
       >
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <label className="label" htmlFor="probe">A creator who lives in</label>
             <Select

@@ -108,7 +108,7 @@ function JoinMarketSheet({ initial, onClose }) {
           {open.length === 0 ? (
             <p className="rounded-card border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-smoke">{tr('You are already in every open market.')}</p>
           ) : (
-            <div role="radiogroup" aria-label={tr('Market')} className="grid gap-2 sm:grid-cols-2">
+            <div role="radiogroup" aria-label={tr('Market')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {open.map((c, i) => {
                 const pending = pendingFor(c.id)
                 const on = picked === c.id

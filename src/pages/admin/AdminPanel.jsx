@@ -300,7 +300,7 @@ function DeskRow({ to, icon, count, label, warn }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:px-3.5 sm:py-3"
+      className="group flex min-w-0 items-center gap-3 rounded-xl bg-white px-3 py-2.5 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:px-3.5 sm:py-3"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand transition-transform duration-200 group-hover:scale-110 sm:h-10 sm:w-10">
         <Icon name={icon} className="h-[18px] w-[18px]" />
@@ -684,7 +684,7 @@ export default function AdminPanel() {
                 </span>
               </div>
               {desk.length > 0 ? (
-                <div className="relative grid gap-2 sm:grid-cols-2">
+                <div className="relative grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {desk.map((r, i) => {
                     // An odd item out (most often the whole desk being just one
                     // thing) used to sit alone in the LEFT half of a two-column
@@ -694,7 +694,7 @@ export default function AdminPanel() {
                     return (
                       <div
                         key={r.to + r.label}
-                        className={cx('animate-fade-up', isLastOdd && 'sm:col-span-2')}
+                        className={cx('min-w-0 animate-fade-up', isLastOdd && 'sm:col-span-2')}
                         style={{ animationDelay: `${60 + i * 45}ms` }}
                       >
                         <DeskRow {...r} />
@@ -788,7 +788,7 @@ export default function AdminPanel() {
         {!ready ? (
           <div>
             <Skeleton className="mb-3 h-6 w-40" />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Skeleton className="h-[4.5rem]" /><Skeleton className="h-[4.5rem]" /><Skeleton className="h-[4.5rem]" />
             </div>
           </div>
@@ -805,7 +805,7 @@ export default function AdminPanel() {
                   </button>
                 )}
               </div>
-              <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
+              <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
                 {orderedMarkets.map((m) => {
                   const cardClass = cx(
                     'card group flex w-full items-center gap-3 !p-4 text-left transition-all duration-200',

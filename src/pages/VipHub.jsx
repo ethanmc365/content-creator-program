@@ -339,7 +339,7 @@ export default function VipHub() {
               <>
                 {/* SMALL, THEN THE TARGET, THEN THE PAY (3 Oct 2026): the stay-in rule is a one-row card now. */}
                 {official ? <FeeProgressCard member={member} stats={stats} cur={cur} /> : <StayInCard compact />}
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <TargetCard member={member} stats={stats} onSetGoal={previewing ? null : () => go('stats')} />
                   <HowPaidCard stats={stats} cur={cur} member={member} />
                 </div>

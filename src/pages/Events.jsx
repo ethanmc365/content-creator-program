@@ -1203,7 +1203,7 @@ function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onT
           </button>
         </div>
       </div>
-      <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" stagger={0.04}>
+      <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7" stagger={0.04}>
         {days.map((day) => {
           const list = eventsOn(day)
           const today = isToday(day)
@@ -1297,7 +1297,7 @@ function Agenda({ rows, cardProps, liveIds }) {
       {groups.map(([key, list], gi) => {
         const day = new Date(`${key}T12:00:00`)
         return (
-          <div key={key} className="grid gap-3 sm:grid-cols-[7rem_1fr] sm:gap-5">
+          <div key={key} className="grid grid-cols-1 gap-3 sm:grid-cols-[7rem_1fr] sm:gap-5">
             <div className="sm:sticky sm:top-24 sm:self-start">
               <p className={cx('text-xs font-bold uppercase tracking-widest', isToday(day) ? 'text-brand' : 'text-smoke')}>
                 {isToday(day) ? tr('Today') : format(day, 'EEE')}

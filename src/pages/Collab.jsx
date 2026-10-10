@@ -828,7 +828,7 @@ export default function Collab() {
           <p className="mb-4 mt-1 text-sm text-smoke">
             {tr("Interest you have sent and interest people have sent you. Only the two of you can see the note.")}
           </p>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {meetups.map(({ row, post, incoming, person }) => (
               <div
                 key={row.id}

@@ -181,7 +181,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             <p className="text-sm text-smoke">
               {tr("Point the camera at the barcode, or pick a photo. A screenshot of the pass in Apple Wallet works just as well as a paper one.")}
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button onClick={() => fileRef.current?.click()} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
                   <Icon name="image" className="h-5 w-5" />

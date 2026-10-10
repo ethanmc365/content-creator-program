@@ -110,7 +110,7 @@ export default function VideoIdeasBoard({ compact = false }) {
   return (
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
-      <section className="grid gap-3 sm:grid-cols-2">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
       </section>

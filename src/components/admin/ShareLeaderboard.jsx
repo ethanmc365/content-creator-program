@@ -278,7 +278,7 @@ export default function ShareLeaderboard({
 
           <div>
             <p className="label">What to share</p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {[
                 { key: 'live', title: 'Live board', hint: 'Updates in the chat with every sync.', icon: 'sparkles' },
                 { key: 'podium', title: 'Podium image', hint: 'A picture of the winners.', icon: 'trophy' },

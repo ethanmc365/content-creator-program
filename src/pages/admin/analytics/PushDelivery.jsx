@@ -108,7 +108,7 @@ export default function PushDelivery() {
         <Skeleton className="h-72 w-full" />
       ) : (
         <div className={cx('space-y-4 transition-opacity duration-200', fetching && 'opacity-60')}>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
               <div className="space-y-3.5">
                 {steps.map(([label, n, , hint], i) => (

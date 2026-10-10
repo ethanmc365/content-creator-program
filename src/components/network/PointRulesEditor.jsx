@@ -441,7 +441,7 @@ function BonusRow({ rule, onChange, onRemove, weeks, startOpen = false }) {
         <div className="animate-tab-in space-y-4 border-t border-gray-100 px-3 py-4 sm:px-4">
           {rule.kind === 'bonus' && <BonusSettings rule={rule} onChange={onChange} weeks={weeks} />}
           {(rule.kind === 'per_post' || rule.kind === 'platform_spread' || rule.kind === 'collab') && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-[11px] font-semibold text-smoke">{tr('Most points one creator can earn from this')}</span>
                 <span className="flex h-[38px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3">
@@ -729,7 +729,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
             <Row key={r.id ?? i} rule={r} onChange={(next) => update(i, next)} onRemove={() => remove(i)} />
           ))}
         </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {addButton('views_threshold', tr('Add a milestone on one video'))}
           {addButton('total_views_threshold', tr('Add a milestone on total views'))}
         </div>
@@ -745,7 +745,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
            the current answer actually costs in points. */
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="label">{tr("When a video passes several milestones")}</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {[
               { value: 'highest', label: 'Highest one only' },
               { value: 'cumulative', label: 'Every one it passed' },

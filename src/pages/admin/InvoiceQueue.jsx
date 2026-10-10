@@ -279,7 +279,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
           options={[{ value: '', label: 'Every challenge' }, ...challengeOptions]}
         />
       )}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Waiting for approval" value={groups.waiting.length} accent={groups.waiting.length > 0} />
         <StatCard label="Waiting on bank details" value={groups.blocked.length} />
         <StatCard

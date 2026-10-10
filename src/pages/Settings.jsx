@@ -713,7 +713,7 @@ export default function Settings() {
   // and never on anything a person wrote - it just does not need announcing.
   const LanguageSection = (
     <Panel>
-      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
         {LOCALES.map((l) => {
           const on = l.code === langCode
           return (

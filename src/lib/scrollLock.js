@@ -74,6 +74,28 @@ function dropHeaderPush() {
   })
 }
 
+/** STICKY RAILS STAY WHERE THEY WERE (11 Oct 2026). Ethan: pressing Connect on the Creator spotlight made the Worldwide
+ *  right-hand column disappear. Pinning the body turns the page scroll into 0, so a `position: sticky` rail falls back to its
+ *  natural place in the document, hundreds of pixels above the viewport, and is gone behind the dialog. Anything marked
+ *  `data-lock-keep` is measured before the freeze and shifted back to the same screen position after it. */
+function keepSticky(measured) {
+  measured.forEach(({ el, top }) => {
+    const now = el.getBoundingClientRect().top
+    const dy = Math.round(top - now)
+    if (!dy) return
+    el.style.transition = 'none'
+    el.style.transform = `translateY(${dy}px)`
+    el.setAttribute('data-lock-kept', '')
+  })
+}
+function dropSticky() {
+  document.querySelectorAll('[data-lock-kept]').forEach((el) => {
+    el.style.transition = 'none'
+    el.style.transform = ''
+    el.removeAttribute('data-lock-kept')
+  })
+}
+
 /** Is anything holding the page still right now? */
 export function isScrollLocked() { return depth > 0 }
 
@@ -90,6 +112,7 @@ export function lockScroll() {
 
   if (depth === 0) {
     const y = window.scrollY || window.pageYOffset || 0
+    const measured = [...document.querySelectorAll('[data-lock-keep]')].map((el) => ({ el, top: el.getBoundingClientRect().top }))
     saved = {
       y,
       overflow: body.style.overflow,
@@ -105,6 +128,7 @@ export function lockScroll() {
     body.style.left = '0'
     body.style.right = '0'
     body.style.width = '100%'
+    keepSticky(measured)
   }
   depth += 1
   if (depth === 1) announce()
@@ -125,6 +149,7 @@ export function lockScroll() {
     body.style.right = saved.right
     body.style.width = saved.width
     dropHeaderPush()
+    dropSticky()
     // Only AFTER the styles are back, or the browser has nowhere to scroll to.
     //
     // AND `behavior: 'instant'`, WHICH IS THE WHOLE FIX FOR A SECOND BUG.
@@ -198,6 +223,7 @@ export function repairScrollLock() {
   body.style.width = ''
   saved = null
   dropHeaderPush()
+  dropSticky()
   window.scrollTo({ top: y, left: 0, behavior: 'instant' })
   announce()
   return true

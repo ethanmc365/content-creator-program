@@ -133,7 +133,7 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
             the card." The body below keeps a minimum height, so switching kinds does not make the dialog jump. */}
         <div key={r.kind} className="min-h-[27rem] space-y-5 animate-tab-in">
           <p className="rounded-xl bg-cloud/60 px-3.5 py-2.5 text-[13px] text-smoke"><Icon name={kind.icon} className="mr-1.5 inline h-4 w-4 text-brand" />{tr(kind.hint)}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block"><span className="label">{tr('Name creators see')}</span><input className="input" value={r.label} onChange={(e) => set({ label: e.target.value })} placeholder={tr(kind.label)} maxLength={80} /></label>
             <div>
               <p className="label">{tr('Paid as')}</p>
@@ -160,7 +160,7 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
           {r.kind === 'top_n' ? (
             <div>
               <p className="label">{tr('Prizes by place')}</p>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {r.places.map((p, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
@@ -176,7 +176,7 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block"><span className="label">{r.reward === 'voucher' ? tr('Voucher worth') : tr('Amount')}</span>{amountBox(r.amount, (v) => set({ amount: v }), tr('Amount'))}</label>
               {r.kind === 'best_video' && (
                 <div><p className="label">{tr('Ranked against')}</p><div className="grid grid-cols-2 gap-2">{SCOPES.map((sc) => <Choice key={sc.key} on={r.scope === sc.key} onClick={() => set({ scope: sc.key })}>{scopeLabel(sc, programme, tr)}</Choice>)}</div></div>
@@ -413,7 +413,7 @@ function MonthlyBonuses({ programme }) {
       {rules === null ? <Skeleton className="h-40 w-full rounded-card" /> : rules.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No bonuses yet. Start with a monthly podium, or a bonus for hitting the monthly target.')}</p>
       ) : (
-        <ul className="grid gap-3 lg:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {rules.map((rule, i) => {
             const k = BONUS_KINDS.find((x) => x.key === rule.kind)
             const cost = rule.active ? costNow(rule, members, claims) : null
@@ -844,7 +844,7 @@ export function VipSettingsTab({ programme, onSaved }) {
       <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise">
         <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="money" className="h-5 w-5 text-brand" />{tr('What VIPs are paid')}</h3>
         <p className="mt-0.5 text-sm text-smoke">{tr('For every VIP in {p}. One VIP can have their own deal from Members.', { p: programme.name })}</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block"><span className="label">{tr('Rate per 1,000 views')}</span>{money$(f.cpm, (v) => set({ cpm: v }), '0.25')}</label>
           <label className="block"><span className="label">{tr('Monthly cap per VIP (optional)')}</span>{money$(f.monthly_cap, (v) => set({ monthly_cap: v }), tr('No cap'))}<span className="mt-1 block text-[11px] text-smoke">{tr('The most one VIP\'s views can earn in a month.')}</span></label>
         </div>

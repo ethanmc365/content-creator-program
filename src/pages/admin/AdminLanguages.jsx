@@ -392,7 +392,7 @@ export default function AdminLanguages() {
             )}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
             {/* THE SCREENS - a list from a laptop up, a picker on a phone. */}
             <div className="lg:hidden">
               <select

@@ -79,7 +79,7 @@ export default function RecapLab() {
       subtitle="The story a creator gets when a challenge closes: where they placed, their top videos and a card to share. Real data, read-only."
     >
       <Panel i={0} className="z-20" title="Whose recap" hint="Pick a challenge and anybody who entered it. Places are listed first.">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {challenges === null ? <Skeleton className="h-11 w-full rounded-xl" /> : (
             <Select
               variant="field"
@@ -110,7 +110,7 @@ export default function RecapLab() {
       </Panel>
 
       <Panel i={1} title="Where creators find it" hint="Two doors, both automatic. Nothing has to be sent by hand.">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-smoke">1 · The notification</p>
             <div className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-card">

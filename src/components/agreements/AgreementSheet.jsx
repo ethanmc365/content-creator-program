@@ -170,7 +170,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
             <div className="agreement-section mt-8 rounded-[22px] border border-brand/25 bg-white p-5">
               <p className="flex items-center gap-2 text-sm font-bold text-ink"><Icon name="users" className="h-4 w-4 text-brand" />{tr('Your parent or guardian')}</p>
               <p className="mt-1 text-[13px] leading-relaxed text-smoke">{tr('You are under 18, so a parent or guardian agrees to these terms with you. Add their details; after you accept you get a link to send them, and they confirm it themselves. We only use their details about your membership.')}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block"><span className="label">{tr('Their full name')}</span>
                   <input className="input no-ios-zoom" value={guardian.name} autoComplete="off" onChange={(e) => setGuardian((g) => ({ ...g, name: e.target.value }))} /></label>
                 <label className="block"><span className="label">{tr('Their email')}</span>

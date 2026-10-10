@@ -65,7 +65,7 @@ export default function VipCreatorsView({ creators, onOpen }) {
         <button type="button" onClick={() => copyEmails(groups.flatMap((g) => g.active.map((r) => r.profile_id)))} className="relative mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur transition-colors hoverable:hover:bg-white/30"><Icon name="envelope" className="h-3.5 w-3.5" />{tr('Copy emails ({n})', { n: total })}</button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {groups.map((g) => (
           <section key={g.id} className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-brand-tint to-white px-4 py-3">

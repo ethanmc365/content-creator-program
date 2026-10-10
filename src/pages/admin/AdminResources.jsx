@@ -171,7 +171,7 @@ export default function AdminResources() {
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing === 'new' ? 'New resource' : 'Edit resource'} wide>
         <form onSubmit={save} className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_200px]">
             <div>
               <label htmlFor="res-title" className="label">Title</label>
               <input id="res-title" type="text" required className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder='e.g. "10 video hooks that always work"' />

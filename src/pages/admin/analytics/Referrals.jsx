@@ -359,7 +359,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
         </ol>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* ---- Over time ---- */}
         <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up sm:p-6 lg:col-span-3" style={{ animationDelay: '180ms' }}>
           <div className="flex flex-wrap items-start justify-between gap-2">

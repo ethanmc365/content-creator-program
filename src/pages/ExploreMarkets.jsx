@@ -158,7 +158,7 @@ function Group({ title, hint, children }) {
         {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
       </div>
       <motion.div variants={listContainer} initial="hidden" animate="show"
-        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {children}
       </motion.div>
     </section>
@@ -261,7 +261,7 @@ export default function ExploreMarkets() {
           </section>
 
           {ctxLoading && !chapters.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <Skeleton className="h-44" /><Skeleton className="h-44" /><Skeleton className="h-44" />
             </div>
           ) : (

@@ -69,7 +69,7 @@ export default function BoardCard({ className }) {
     return (
       <section className={className}>
         <div className="mb-4 h-7 w-48"><Skeleton className="h-full w-full" /></div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[0, 1, 2].map((i) => <Skeleton key={i} className="h-32" />)}
         </div>
       </section>

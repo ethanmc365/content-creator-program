@@ -241,7 +241,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
         {tr("We filled in what your profile already says. Answer what you like, and your card builds itself as you go.")}
       </p>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-5">
           <Field label={tr("Where are you based?")}>
             <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.where}

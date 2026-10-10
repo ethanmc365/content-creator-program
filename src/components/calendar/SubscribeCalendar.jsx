@@ -125,7 +125,7 @@ export default function SubscribeCalendar({ open, onClose }) {
         </div>
       ) : (
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <a
               href={webcal}
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"

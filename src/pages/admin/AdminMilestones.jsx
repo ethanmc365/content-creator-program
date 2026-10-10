@@ -392,7 +392,7 @@ export default function AdminMilestones() {
         <form ref={formRef} onSubmit={save} className="card mb-8 !p-6 scroll-mt-24">
           <h2 className="mb-4 text-lg font-semibold">{editing.id ? 'Edit milestone' : 'New milestone'}</h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Title">
               <input className="input" value={editing.title} maxLength={60}
                 placeholder="Ten videos published"
@@ -447,7 +447,7 @@ export default function AdminMilestones() {
           </div>
 
           {/* ---------- what they get ---------- */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* WHAT THEY GET, AS SEVERAL THINGS (26 Sep 2026). Ethan: "give a
                 new title as a reward and also a watch as a reward ... Also,
                 add merch." Pick any mix; each one opens the field it needs. The
@@ -600,7 +600,7 @@ export default function AdminMilestones() {
         </form>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
         <section>
           <h2 className="mb-1 text-lg font-semibold">The ladder</h2>
           {rows.length === 0 ? (

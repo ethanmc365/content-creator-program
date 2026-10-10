@@ -79,8 +79,8 @@ export function CreatorMarketsModal({ person, onClose, onDone }) {
           </div>
         </div>
 
-        {current === null ? <div className="grid gap-2 sm:grid-cols-2">{[0, 1, 2, 3].map((i) => <span key={i} className="h-14 animate-pulse rounded-2xl bg-cloud" />)}</div> : (
-          <div role="group" aria-label="Markets" className="grid gap-2 sm:grid-cols-2">
+        {current === null ? <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{[0, 1, 2, 3].map((i) => <span key={i} className="h-14 animate-pulse rounded-2xl bg-cloud" />)}</div> : (
+          <div role="group" aria-label="Markets" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {open.map((c, i) => {
               const on = picked.has(c.id)
               const managed = current.managed.has(c.id)

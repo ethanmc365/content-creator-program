@@ -158,7 +158,7 @@ export default function AdminAgreements() {
       {docs === undefined ? <Skeleton className="h-64 w-full rounded-card" /> : !selected ? (
         !(audience === 'vip' && market) && <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0 space-y-5">
             {selected.published_at
               ? <PublishedView doc={selected} onPreview={(minor) => openPreview(selected, minor)} />

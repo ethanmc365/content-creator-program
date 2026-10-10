@@ -119,7 +119,7 @@ export default function ChallengeReach({ challenge }) {
       </div>
 
       {/* the funnel */}
-      <ol className="mt-6 grid gap-3 sm:grid-cols-3">
+      <ol className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {step.map((s, i) => (
           <li key={s.label} className="rounded-xl bg-cloud/60 px-4 py-3.5">
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
@@ -173,7 +173,7 @@ export default function ChallengeReach({ challenge }) {
                         )
                       })}
                     </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                       {STATE_ORDER.map((k) => {
                         const list = rows.filter((p) => p.state === k)
                         if (!list.length) return null
@@ -196,7 +196,7 @@ export default function ChallengeReach({ challenge }) {
       </div>
 
       {/* everyone who has not entered, across every market */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {Object.entries(SEGMENTS).map(([key, seg]) => {
           const n = d[key === 'seen' ? 'seen_not_posted' : key]
           return (

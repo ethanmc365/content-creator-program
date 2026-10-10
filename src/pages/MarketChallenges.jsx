@@ -179,7 +179,7 @@ export default function MarketChallenges() {
           {past.length > 0 && (
             <section>
               <h2 className="mb-5 text-lg font-semibold text-smoke">{tr("Past challenges")}</h2>
-              <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-5 sm:grid-cols-2">
+              <motion.div variants={listContainer} initial="hidden" animate="show" className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 {past.map((c) => {
                   const mode = scoringMode(c.scoring)
                   const podium = (d.winners[c.id] || []).slice(0, 3)

@@ -153,7 +153,7 @@ function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
               <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Until the end of</span><input type="date" className="input" value={toDay} min={fromDay} onChange={(e) => setToDay(e.target.value)} /></label>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Starts</span><input type="datetime-local" className="input" value={start} onChange={(e) => setStart(e.target.value)} /></label>
               <div>
                 <p className="mb-1 text-[11px] font-semibold text-smoke">Runs for</p>

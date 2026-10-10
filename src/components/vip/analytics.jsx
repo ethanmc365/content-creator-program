@@ -121,7 +121,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
       {err && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
       {view === 'markets' ? <MarketStandings kind={programme.kind || 'vip'} /> : whole ? <MonthViews view={view} scope={all ? null : shown.id} cur={cur} /> : !data ? (
-        <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
+        <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
       ) : (
         <div key={view} className={cx('transition-opacity duration-200 animate-tab-in', stale && 'opacity-60')}>
           {view === 'overview' && <Overview data={data} cur={cur} range={range} />}
@@ -182,7 +182,7 @@ function Overview({ data, cur, range }) {
         <StatCard label={tr('Average rate')} value={rate != null ? perK(rate, cur) : '-'} delta={rate != null && prate != null ? d(rate, prate, true) : null} hint={tr('per 1,000 views')} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title={tr('Views gained each day')} total={tr('{n} in all', { n: formatViews(t.views) })}>
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
             <defs><linearGradient id="vipRangeViews" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.brand} stopOpacity={0.35} /><stop offset="100%" stopColor={CHART.brand} stopOpacity={0.02} /></linearGradient></defs>
@@ -205,7 +205,7 @@ function Overview({ data, cur, range }) {
         </ChartCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
           <h3 className="mb-3 text-[13.5px] font-bold text-ink">{tr('By platform')}</h3>
           {data.platforms.length === 0 ? <p className="py-6 text-center text-sm text-smoke">{tr('No views gained in these days.')}</p> : (
@@ -299,7 +299,7 @@ function Growth({ data, range, all }) {
         <StatCard label={tr('Posting')} value={creators.length ? `${Math.round((posted / creators.length) * 100)}%` : '-'} hint={tr('{a} of {b} VIPs posted', { a: posted, b: creators.length })} />
         <StatCard label={tr('Videos each')} value={posted ? (t.videos / posted).toFixed(1) : '-'} hint={tr('per VIP who posted')} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title={tr('New VIPs, and how many there are')} total={tr('{n} joined', { n: nf(t.joined) })}>
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke={CHART.grid} />
@@ -453,7 +453,7 @@ function Health({ data }) {
     <div className="space-y-5">
       {n === 0 ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('No VIPs here yet.')}</p> : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Ring pct={pct('push')} label={tr('Notifications on')} hint={tr('{a} of {b} have push on a device', { a: count((s) => s.push), b: n })} />
             <Ring pct={pct('pay')} label={tr('Payment details')} hint={tr('{a} of {b} can be paid', { a: count((s) => s.pay), b: n })} />
             <Ring pct={pct('terms')} label={tr('Accepted the terms')} hint={tr('{a} of {b}', { a: count((s) => s.terms), b: n })} />
@@ -520,7 +520,7 @@ function MonthViews({ view, scope, cur }) {
     base: Number(m.base) || 0, bonus: Number(m.bonus) || 0, fresh: Number(m.new_members) || 0, top: m.top || null,
   })), [data])
   if (err) return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>
-  if (!data) return <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
+  if (!data) return <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
   if (series.length === 0) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('Nothing to chart yet. The first month appears once a VIP posts.')}</p>
   return <div key={view} className="animate-tab-in">{view === 'months' ? <MonthCharts series={series} data={data} cur={cur} /> : <MonthCompare series={series} cur={cur} />}</div>
 }
@@ -539,7 +539,7 @@ function MonthCharts({ series, data, cur }) {
         <StatCard label={tr('Views pay per 1,000')} value={last.rate != null ? perK(last.rate, cur) : '-'} delta={last.rate != null && prev?.rate ? d(last.rate, prev.rate, true) : null} hint={tr('the rate before bonuses')} />
         <StatCard label={tr('All-in per 1,000')} value={last.cpm != null ? perK(last.cpm, cur) : '-'} delta={last.cpm != null && prev?.cpm ? d(last.cpm, prev.cpm, true) : null} hint={tr('with bonuses and fees')} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title={tr('Views counted, month by month')} total={tr('{n} in all', { n: formatViews(series.reduce((a, m) => a + m.views, 0)) })}>
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -10, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke={CHART.grid} />
@@ -640,7 +640,7 @@ function MonthCompare({ series, cur }) {
         <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('against')}</span>
         <Select variant="chip" value={b} onChange={setB} options={opts} ariaLabel={tr('Month to compare with')} search={false} className="w-44" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">{head(A, true)}{head(B, false)}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{head(A, true)}{head(B, false)}</div>
       <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
         <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-cloud/60 px-4 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
           <span>{tr('Figure')}</span>

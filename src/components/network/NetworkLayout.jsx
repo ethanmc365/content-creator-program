@@ -67,6 +67,7 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">{children}</div>
           <aside
+            data-lock-keep
             className={cx(
               'mt-10 lg:mt-0',
               'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto overscroll-contain lg:overscroll-contain',
