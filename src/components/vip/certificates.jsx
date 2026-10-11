@@ -16,20 +16,21 @@ import { FitCard } from '../certificate/CertificateWall'
 // Ethan: "these certificates are just for the general community. We should maybe have the option to turn these on for
 // the VIP community as well, like certain certificates for them, which are going to reuse the designs. Add that to the
 // VIP tools somewhere." So this is the community's own designs, each with one switch: VIP and official creators get it
-// too. For them "first video" means their first VIP video; podium and milestone certificates never reach them (they do
-// not enter community challenges), so those are shown but cannot be switched on. The designs themselves are edited in
-// the certificate studio, once, for everybody.
+// too. For them "first video" means their first VIP video and a podium is a top place in a ranked monthly bonus
+// (migration 385); community milestones never reach them, so those are shown but cannot be switched on. The designs
+// themselves are edited in the certificate studio, once, for everybody.
 const WHEN = {
   challenge_entry: 'Their first video',
   creator_joined: 'When they join',
-  challenge_rank: 'Podium in a community challenge',
+  challenge_rank: 'Top three in a monthly VIP challenge',
   milestone: 'Reaching a community milestone',
   manual: 'Given by hand',
 }
-const FOR_VIP = new Set(['challenge_entry', 'creator_joined', 'manual'])
+// 385: a podium certificate reaches a VIP through a ranked monthly bonus (top_n), awarded when the month is approved.
+const FOR_VIP = new Set(['challenge_entry', 'creator_joined', 'manual', 'challenge_rank'])
 
 export function VipCertificatesTab() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(null)
   const load = useCallback(async () => {
@@ -72,7 +73,10 @@ export function VipCertificatesTab() {
           return (
             <article key={d.id} className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
               <div className={cx('p-3', !d.is_active && 'opacity-60')}>
-                <FitCard><CertificateCard design={d} facts={sampleFacts(d)} /></FitCard>
+                {/* EXACTLY THE COMMUNITY'S PREVIEW (13 Oct 2026). Ethan: "for the Podium Finish, you didn't copy it exactly".
+                    This drew the bare sample (no face, the sample's name and code) where the community preview on
+                    /rewards draws your own name and photo; both now use the same facts. */}
+                <FitCard><CertificateCard design={d} facts={{ ...sampleFacts(d), name: profile?.name || sampleFacts(d).name, photo: profile?.photo_url || '', serial: 'TRYP-PREVIEW' }} /></FitCard>
               </div>
               <div className="flex items-center gap-3 border-t border-gray-50 px-4 py-3">
                 <span className="min-w-0 flex-1">

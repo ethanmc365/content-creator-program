@@ -863,7 +863,8 @@ export default function AppLayout() {
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-cloud"
                         >
-                          <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke" />
+                          {/* Brand orange, not grey (13 Oct 2026): "those icons, which are really grey, might be better if they were just orange to make them stand out more." */}
+                          <Icon name={l.icon} className="h-4 w-4 shrink-0 text-brand" />
                           <span className="min-w-0 flex-1 truncate">{tr(l.label)}</span>
                           {l.badge === 'connections' && connReqs > 0 && (
                             <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
@@ -894,7 +895,12 @@ export default function AppLayout() {
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
                   {vipAccess && <Link to="/vip?mode=tools" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("VIP tools")}</Link>}
-                  <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">{tr("Log out")}</button>
+                  {/* ORANGE LIKE THE TWO ABOVE IT (13 Oct 2026). Ethan: a red Log out under two orange links "kind of flashes, and it
+                      looks really odd". It stands apart by its icon and its place at the foot, not by a second colour. */}
+                  <button onClick={handleSignOut} className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-brand hover:bg-cloud">
+                    {tr("Log out")}
+                    <Icon name="exit" className="h-4 w-4 shrink-0" />
+                  </button>
                 </div>
               )}
             </div>

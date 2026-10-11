@@ -131,6 +131,9 @@ function dmPreview(m) {
 // for the code and tests that have always imported it from this page.
 export { isListableConversation }
 
+/** Where an unsent message is kept: per conversation, or per person before the conversation exists. */
+const dmDraftKey = (cid, toId) => (cid ? 'dm-' + cid : toId ? 'dm-to-' + toId : '')
+
 export default function Messages() {
   const tr = useT()
   const { conversationId } = useParams()
@@ -204,7 +207,8 @@ export default function Messages() {
   // exactly what send/drafts/previews have always read.
   const onComposerChange = (md) => {
     setBody(md)
-    saveDraft('dm-' + conversationId, md)
+    const k = dmDraftKey(conversationId, draftTo?.id)
+    if (k) saveDraft(k, md)
     if (md.trim()) pingTyping()
   } // message id with emoji picker open
   // Searching THIS conversation. The inbox search above finds a person; this
@@ -715,9 +719,14 @@ export default function Messages() {
 
   // Restore any half-written draft when the open conversation changes, so a
   // message you started isn't lost when you flick away to check something.
+  // THE DRAFT IS KEPT PER PERSON, AND THE SEND BUTTON READS THE SAME ONE (13 Oct 2026). Ethan: "I started writing a chat to
+  // a creator and then left. I searched back for their name, went back to the chat, tried to finish writing it and press
+  // send, but the send button was greyed out." A first message (no conversation yet) was saved under 'dm-null' - one key
+  // shared by every unsent first message - and the composer showed it, but this effect restored '' for a thread with no
+  // id, so the text was on screen and `body` was empty. Both now use the same key, one per person.
   useEffect(() => {
-    setBody(loadDraft(conversationId ? 'dm-' + conversationId : ''))
-  }, [conversationId])
+    setBody(loadDraft(dmDraftKey(conversationId, draftTo?.id)))
+  }, [conversationId, draftTo?.id])
 
   // ---------- Active thread ----------
   useEffect(() => {
@@ -1447,10 +1456,11 @@ export default function Messages() {
     // THE CONVERSATION IS CREATED HERE, ON THE FIRST MESSAGE, AND NOWHERE ELSE.
     // For a thread that already exists this resolves on the next microtask and
     // costs nothing. See `ensureConversation`.
+    const sentTo = draftTo?.id
     const cid = await ensureConversation()
     if (!cid) { playSendFail(); return }
     queueDm({ body: text, ...(replyId ? { reply_to: replyId } : {}) }, cid)
-    setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + cid); setReplyTo(null); stopTyping()
+    setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + cid); if (sentTo) clearDraft(dmDraftKey(null, sentTo)); setReplyTo(null); stopTyping()
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -2663,8 +2673,8 @@ export default function Messages() {
                 )}
                 <ChatComposer
                   ref={dmComposerRef}
-                  docId={conversationId}
-                  initialMd={loadDraft('dm-' + conversationId)}
+                  docId={conversationId || (draftTo ? `to-${draftTo.id}` : '')}
+                  initialMd={loadDraft(dmDraftKey(conversationId, draftTo?.id))}
                   placeholder={isMobile
                     ? 'Message…'
                     : `Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}

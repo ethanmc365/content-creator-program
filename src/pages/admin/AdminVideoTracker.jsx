@@ -14,6 +14,9 @@ import {
 } from '../../lib/videoTracker'
 import { resolveThumbnail, forgetThumbnail } from '../../lib/videoThumbs'
 import { useT } from '../../lib/i18n'
+import { translateTexts } from '../../lib/contentTranslate'
+import { notice, promptText } from '../../lib/confirm'
+import { toastSuccess } from '../../lib/toast'
 
 // THE VIDEO TRACKER.
 //
@@ -78,8 +81,12 @@ export default function AdminVideoTracker() {
   // element. It stays in the shape so that `Clear` and `filtered` keep meaning
   // the same thing whichever of those two states the page is in.
   const [filter, setFilter] = useState({
-    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views',
+    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', source: '',
   })
+  // THE HOOKS IN ANOTHER LANGUAGE (13 Oct 2026). Ethan: "see the actual hooks that were on screen rather than just the
+  // captions ... also have a translate button so I can translate it to English or whatever language you want." '' is the
+  // words as written; a language code translates every hook on the page through the shared cache, original one press away.
+  const [hookLang, setHookLang] = useState('')
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
   const load = useCallback(async () => {
@@ -122,7 +129,24 @@ export default function AdminVideoTracker() {
   // THE MONTH COUNTS FOLLOW THE OTHER FILTERS (30 Sep 2026). They counted every row ever tracked,
   // retired ones included, so "September 21" sat under "All months 15" - two numbers for one list.
   const months = useMemo(() => monthsOf(visibleVideos(rows || [], { ...filter, month: '' })), [rows, filter])
-  const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month
+  const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month || filter.source
+  const hooks = useTranslatedHooks(shown, hookLang)
+  // One dropdown for "which videos": a whole group (community, VIP, official) or one challenge or programme.
+  const scopeValue = filter.source ? `src:${filter.source}` : filter.challenge
+  const setScope = (v) => (v.startsWith('src:') ? set({ source: v.slice(4), challenge: '' }) : set({ challenge: v, source: '' }))
+  const hasVip = (rows || []).some((r) => r.source === 'vip')
+  const hasOfficial = (rows || []).some((r) => r.source === 'official')
+
+  async function editVipHook(v) {
+    const next = await promptText('The words on this video, as they appear on screen.', {
+      title: v.screen_text ? 'Edit the hook' : 'Type the hook', defaultValue: v.screen_text || '', confirmLabel: 'Save',
+    })
+    if (next === null || next === undefined) return
+    const { error } = await supabase.rpc('set_video_hook', { p_video: v.id, p_is_vip: true, p_text: next })
+    if (error) { notice(error.message); return }
+    toastSuccess('Hook saved.')
+    setRows((rs) => rs.map((r) => (r.id === v.id ? { ...r, screen_text: next.trim() || null } : r)))
+  }
 
   return (
     <div className="page">
@@ -216,24 +240,27 @@ export default function AdminVideoTracker() {
           left edge. Below `lg` it wraps by itself, which is the right answer on
           a phone and needs no second rule to say so. */}
       <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2 shadow-card [animation-delay:80ms] sm:p-2.5">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
           {/* THE SEARCH BOX IS BACK (11 Oct 2026), now that the list is hundreds of videos. Ethan: "a search bar to
               search for a particular hook, video, or name". It matches the creator, their handle, the hook (typed or
               read off the video), the caption, the challenge, the market and the link, accents ignored. */}
-          <div className="relative w-full sm:w-[16rem] sm:shrink-0">
+          {/* ONE LINE ON A DESKTOP (13 Oct 2026). Ethan: the placeholder was cut off ("Search creator hook or the cap")
+              and the count, best and Export fell to a second line. The box says "Search", and every control is a little
+              narrower so the whole strip fits beside the month rail. */}
+          <div className="relative w-full sm:w-[10rem] sm:shrink-0">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input
               type="search"
               value={filter.q}
               onChange={(e) => set({ q: e.target.value })}
-              placeholder={tr('Search a creator, hook or caption')}
+              placeholder={tr('Search')}
               aria-label={tr('Search videos')}
               className="input !py-2.5 !pl-9 text-sm"
             />
           </div>
           <Select
-            value={filter.challenge}
-            onChange={(v) => set({ challenge: v })}
+            value={scopeValue}
+            onChange={setScope}
             // FIXED WIDTHS, NOT MINIMUMS. A `min-w` select grows to fit
             // whatever is chosen, so picking "Tryp.com Creative Challenge"
             // pushed the two selects to its right along by 55px - the same
@@ -242,9 +269,12 @@ export default function AdminVideoTracker() {
             // the full label is one click away and is also the heading above
             // the grid.
             variant="field"
-            className="w-[13rem] shrink-0"
+            className="w-[11.5rem] shrink-0"
             ariaLabel={tr('Challenge')}
-            options={[{ value: '', label: tr('Every challenge') },
+            options={[{ value: '', label: tr('Every video') },
+              ...((hasVip || hasOfficial) ? [{ value: 'src:community', label: tr('General community') }] : []),
+              ...(hasVip ? [{ value: 'src:vip', label: tr('VIP community') }] : []),
+              ...(hasOfficial ? [{ value: 'src:official', label: tr('Official creators') }] : []),
               ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
           />
           <Select
@@ -254,7 +284,7 @@ export default function AdminVideoTracker() {
             // Every platform filter only says 'plat fo'." The padding, the
             // chevron and its gap take 52px, so the label needs 112 of its own.
             variant="field"
-            className="w-[11rem] shrink-0"
+            className="w-[10.5rem] shrink-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
@@ -263,7 +293,7 @@ export default function AdminVideoTracker() {
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
             variant="field"
-            className="w-[10rem] shrink-0"
+            className="w-[9rem] shrink-0"
             ariaLabel={tr('Sort')}
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
@@ -283,18 +313,18 @@ export default function AdminVideoTracker() {
               order when it does nothing. */}
           <button
             type="button"
-            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort })}
+            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, source: '' })}
             aria-hidden={!filtered}
             tabIndex={filtered ? 0 : -1}
             className={cx(
-              'rounded-xl px-3 py-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink',
+              'rounded-xl px-2 py-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink',
               !filtered && 'invisible',
             )}
           >
             {tr('Clear')}
           </button>
 
-          <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <div className="ml-auto flex items-center gap-x-2 gap-y-1 whitespace-nowrap text-sm">
           <span className="font-semibold text-ink">
             {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
           </span>
@@ -381,6 +411,14 @@ export default function AdminVideoTracker() {
               this page is USED in - "show me the UK challenge" is the question
               somebody arrives with - so the answer deserves a heading rather
               than a filter chip. */}
+          {rows && shown.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+              <span className="text-sm text-smoke">
+                {filter.source === 'vip' ? tr('Every VIP community video over the line') : filter.source === 'official' ? tr('Every official creator video over the line') : filter.source === 'community' ? tr('General community videos') : ''}
+              </span>
+              <HookLanguage value={hookLang} onChange={setHookLang} />
+            </div>
+          )}
           {rows && shown.length > 0 && filter.challenge && chosenChallenge && (
             <div key={chosenChallenge.label} className="mb-4 flex animate-fade-up flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
               <h2 className="text-lg font-bold tracking-tight text-ink">{chosenChallenge.label}</h2>
@@ -412,7 +450,9 @@ export default function AdminVideoTracker() {
                   key={v.id}
                   v={v}
                   eager={i < 6}
-                  onOpen={() => setEditing(v)}
+                  hook={v.screen_text ? hooks.pick(v.screen_text) : null}
+                  translated={!!v.screen_text && hooks.differs(v.screen_text)}
+                  onOpen={() => (v.source && v.source !== 'community' ? editVipHook(v) : setEditing(v))}
                 />
               ))}
             </div>
@@ -470,7 +510,7 @@ export default function AdminVideoTracker() {
 // number beside it, and the caption is the small print. Every other card in
 // this product leads with a person or a title; this one leads with a sentence,
 // because the sentence is what somebody came here to steal.
-function VideoCard({ v, onOpen, eager = false }) {
+function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }) {
   const tr = useT()
   const handle = atHandle(v.creator_handle)
   const account = creatorLink(v)
@@ -628,9 +668,18 @@ function VideoCard({ v, onOpen, eager = false }) {
         <p className="text-[15px] font-semibold leading-snug text-ink line-clamp-3">
           {/* THE WORDS ON THE VIDEO WIN (9 Oct 2026): the text the creator typed onto it (read from TikTok with the view count)
               is the real hook; the caption's first line is the fallback. */}
-          {v.screen_text || v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
+          {hook || v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
-        {v.screen_text && v.hook && v.screen_text !== v.hook && <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-brand">{tr('Text on the video')}</p>}
+        {v.screen_text && (
+          <p className="mt-0.5 flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-brand">
+            {translated && <Icon name="globe" className="h-3 w-3" />}
+            {translated ? tr('Translated from the video') : tr('Text on the video')}
+          </p>
+        )}
+        {/* The caption under the on-screen hook, small, so both are there to compare. */}
+        {v.screen_text && v.caption && (
+          <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-smoke">{v.caption}</p>
+        )}
 
         {/* AND THE REST OF THE CAPTION IS GONE ENTIRELY (10 Sep 2026). Ethan:
             "condense the bottom a bit - you don't need to show the second
@@ -692,6 +741,15 @@ function VideoCard({ v, onOpen, eager = false }) {
         <div className="mt-auto flex items-center gap-2 border-t border-gray-100 pt-3">
           <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-gray-400">
             {v.posted_at && <span className="tabular-nums">{formatDate(v.posted_at)}</span>}
+            {v.source && v.source !== 'community' && (
+              <>
+                {v.posted_at && <span aria-hidden>·</span>}
+                <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-brand">
+                  <Icon name={v.source === 'official' ? 'badge' : 'star'} className="h-3 w-3" />
+                  {v.source === 'official' ? tr('Official') : tr('VIP')}
+                </span>
+              </>
+            )}
             {v.reason === 'manual' && (
               <>
                 {v.posted_at && <span aria-hidden>·</span>}
@@ -707,7 +765,7 @@ function VideoCard({ v, onOpen, eager = false }) {
             {/* ONLY EDIT (30 Sep 2026). Ethan: the card itself opens the video, "so you can remove the
                 link button", and the star "acts as a pin ... we don't need it because we have the pin
                 to top" inside the edit sheet. A pinned video keeps its orange border. */}
-            <IconButton label={tr('Edit')} onClick={onOpen} name="pencil" />
+            <IconButton label={v.source && v.source !== 'community' ? tr('Edit the hook') : tr('Edit')} onClick={onOpen} name="pencil" />
           </span>
         </div>
       </div>
@@ -751,5 +809,38 @@ function IconButton({ label, onClick, href, name, active = false }) {
     <button type="button" onClick={onClick} title={label} aria-label={label} className={cls}>
       <Icon name={name} className="h-4 w-4" />
     </button>
+  )
+}
+
+// THE HOOKS, IN THE LANGUAGE PICKED ABOVE THE GRID ('' = as written). One cache lookup for the whole page.
+const HOOK_LANGS = [
+  { value: '', label: 'As written' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'pt', label: 'Português' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'ro', label: 'Română' },
+]
+function useTranslatedHooks(rows, lang) {
+  const [map, setMap] = useState({})
+  const texts = useMemo(() => [...new Set((rows || []).map((r) => r.screen_text).filter(Boolean))], [rows])
+  const key = texts.join('\u0001')
+  useEffect(() => {
+    let alive = true
+    if (!lang || !key) { setMap({}); return undefined }
+    translateTexts(key.split('\u0001'), lang).then((res) => { if (alive) setMap(res || {}) })
+    return () => { alive = false }
+  }, [key, lang])
+  const differs = (t) => { const r = map[t]; return !!lang && !!r && !r.same && !!r.value && r.value !== t }
+  return { differs, pick: (t) => (differs(t) ? map[t].value : t) }
+}
+
+function HookLanguage({ value, onChange }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm text-smoke">
+      <Icon name="globe" className="h-4 w-4 text-brand" />
+      <span className="hidden sm:inline">Hooks</span>
+      <Select value={value} onChange={onChange} variant="field" className="w-[8.5rem]" ariaLabel="Translate the hooks" options={HOOK_LANGS} />
+    </span>
   )
 }

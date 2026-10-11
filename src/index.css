@@ -3580,9 +3580,37 @@ html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
 
 /* "Show me" on the leaderboard: the reader's row glows brand twice. Box-shadow
    only, so it never starts at opacity zero (see the hidden-pane rule). */
+/* ROUNDED AND GLOWING (13 Oct 2026). Ethan: "whenever it highlights, it highlights it as a square. I would have it with
+   rounded corners and more like a glowy effect with a nice animation." The row lifts a touch on rounded corners, a soft
+   brand halo breathes out twice and settles away. */
 @keyframes flash-me {
-  0%, 100% { box-shadow: inset 0 0 0 0 rgba(217, 68, 7, 0); }
-  25%, 75% { box-shadow: inset 0 0 0 2px rgba(217, 68, 7, 0.9); }
-  50% { box-shadow: inset 0 0 0 2px rgba(217, 68, 7, 0.25); }
+  0% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0), 0 0 0 0 rgba(245, 133, 63, 0); background-color: rgba(255, 244, 236, 0); transform: scale(1); }
+  20% { box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.85), 0 0 28px 6px rgba(245, 133, 63, 0.45); background-color: rgba(255, 244, 236, 1); transform: scale(1.015); }
+  45% { box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.5), 0 0 14px 2px rgba(245, 133, 63, 0.2); background-color: rgba(255, 244, 236, 0.7); transform: scale(1.008); }
+  70% { box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.85), 0 0 28px 6px rgba(245, 133, 63, 0.4); background-color: rgba(255, 244, 236, 1); transform: scale(1.015); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0), 0 0 0 0 rgba(245, 133, 63, 0); background-color: rgba(255, 244, 236, 0); transform: scale(1); }
 }
-.flash-me { animation: flash-me 1.4s ease-in-out 1; }
+.flash-me {
+  position: relative;
+  z-index: 2;
+  border-radius: 1rem;
+  animation: flash-me 2.4s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-me { animation: none; box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.6); }
+}
+
+/* A SHEET THAT ARRIVES IN ORDER (13 Oct 2026). Ethan, on the admin creator sheet: "Ensure everything appears with a nice
+   animation." Each direct child rises on the platform curve, 45ms after the one above it, so blocks that load late
+   (VIP, markets, challenges) slot into a sequence instead of popping in on their own. */
+.rise-stagger > * {
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.rise-stagger > *:nth-child(2) { animation-delay: 45ms; }
+.rise-stagger > *:nth-child(3) { animation-delay: 90ms; }
+.rise-stagger > *:nth-child(4) { animation-delay: 135ms; }
+.rise-stagger > *:nth-child(5) { animation-delay: 180ms; }
+.rise-stagger > *:nth-child(6) { animation-delay: 225ms; }
+.rise-stagger > *:nth-child(7) { animation-delay: 270ms; }
+.rise-stagger > *:nth-child(n+8) { animation-delay: 315ms; }
+@media (prefers-reduced-motion: reduce) { .rise-stagger > * { animation: none; } }

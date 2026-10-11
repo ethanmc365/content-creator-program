@@ -8,6 +8,7 @@ import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, timeAgo } from '../../lib/utils'
 import { marketLanguage } from '../network/JoinMarket'
+import { useContentTranslation } from '../../lib/contentTranslate'
 
 const LEVEL = { native: 'Native speaker', fluent: 'Fluent', some: 'Speaks a little', none: 'Does not speak it' }
 const TIE = { live: 'Lives there', part_time: 'Lives there part of the year', study: 'Studies there', work: 'Works there', family: 'Family there', audience: 'Audience there' }
@@ -81,17 +82,19 @@ export default function MarketRequests({ onChanged }) {
   async function decide(r, accept) {
     let reason = null
     if (!accept) {
-      reason = await promptText(`Tell ${r.profiles?.name || 'them'} why, in a sentence. They read exactly this.`, {
-        title: `Decline ${markets.byId?.[r.community_id]?.name || 'this market'}`, confirmLabel: 'Decline', placeholder: 'For example: Spain is full for this month; ask again in November.',
+      // A REASON IS OPTIONAL (13 Oct 2026, migration 387). Ethan: pressing Decline again "should automatically decline
+      // without me saying anything". Left empty, the creator gets a short standard line instead.
+      reason = await promptText(`Add a sentence for ${r.profiles?.name || 'them'} if you like. Leave it empty and they get a short, kind standard message.`, {
+        title: `Decline ${markets.byId?.[r.community_id]?.name || 'this market'}`, confirmLabel: 'Decline', placeholder: 'Optional. For example: Spain is full for this month; ask again in November.',
       })
       if (reason === null) return
-      if (!reason.trim()) { notice('Give a reason, so they know why.'); return }
+      reason = reason.trim() || null
     }
     setBusy(r.id)
     const { error } = await supabase.rpc('decide_join_request', { p_request: r.id, p_accept: accept, p_reason: reason })
     setBusy(null)
     if (error) { notice(error.message); return }
-    toastSuccess(accept ? `${r.profiles?.name || 'They'} can now use ${markets.byId?.[r.community_id]?.name || 'the market'} as well.` : 'Declined. They have been told why.')
+    toastSuccess(accept ? `${r.profiles?.name || 'They'} can now use ${markets.byId?.[r.community_id]?.name || 'the market'} as well.` : 'Declined. They have been told.')
     await load()
     onChanged?.()
   }
@@ -124,7 +127,6 @@ export default function MarketRequests({ onChanged }) {
             const have = markets.now?.[r.profile_id] || []
             return (
               <li key={r.id} className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-5" style={{ animationDelay: `${i * 60}ms` }}>
-                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
                 <div className="flex flex-wrap items-start gap-3">
                   <Link to={`/profile/${p.id}`} className="group flex min-w-0 flex-1 items-center gap-3">
                     <Avatar src={p.photo_url} name={p.name} size="md" className="transition-transform duration-200 group-hover:scale-105" />
@@ -166,7 +168,7 @@ export default function MarketRequests({ onChanged }) {
                         {(r.ties || []).map((t) => <span key={t} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink">{TIE[t] || t}</span>)}
                       </div>
                       {r.note
-                        ? <blockquote className="rounded-xl bg-cloud/60 px-3.5 py-2.5 text-sm italic leading-relaxed text-ink">"{r.note}"</blockquote>
+                        ? <RequestNote text={r.note} />
                         : <p className="rounded-xl border border-dashed border-gray-200 px-3.5 py-2.5 text-sm text-smoke">No reason given.</p>}
                       {f.weak && (
                         <p className={cx('flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold', f.weak === 'unanswered' ? 'bg-cloud text-ink' : 'bg-red-50 text-red-700')}>
@@ -218,6 +220,25 @@ export default function MarketRequests({ onChanged }) {
             </ul>
           )}
         </section>
+      )}
+    </div>
+  )
+}
+
+// THEIR REASON, WITH A TRANSLATE BUTTON (13 Oct 2026). Ethan: "see how she wrote it in Spanish? It should be a translate
+// button so I can easily translate it." Their own words open first; one press shows it in the reader's language.
+function RequestNote({ text }) {
+  const t = useContentTranslation(text, { originalFirst: true })
+  return (
+    <div className="rounded-xl bg-cloud/60 px-3.5 py-2.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Why they want to join</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink [overflow-wrap:anywhere]">{t.shown}</p>
+      {(t.translated || t.loading) && (
+        <button type="button" onClick={t.toggle} disabled={t.loading}
+          className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink transition-all duration-200 disabled:opacity-50 hoverable:hover:-translate-y-px hoverable:hover:border-brand/40">
+          <Icon name="language" className="h-3.5 w-3.5 text-brand" />
+          {t.loading ? 'Checking the language…' : t.showOriginal ? `Translate${t.srcLang ? ` from ${t.srcLang.toUpperCase()}` : ''}` : 'Show original'}
+        </button>
       )}
     </div>
   )

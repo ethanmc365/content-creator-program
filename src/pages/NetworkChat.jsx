@@ -233,7 +233,10 @@ function QuotedParent({ id, lookup, onDark = false }) {
 // already treats the card AS the message - so it breaks out and sits on the
 // thread's own ground at full width.
 /** A card with nothing else said: it stands on its own, with no bubble around it. */
-const cardOnly = (m) => !m.body?.trim() && !m.image_url && !m.video_url && !m.reply_to && CARD_KINDS.some((c) => m[c.idKey])
+const cardOnly = (m) => !m.body?.trim() && !m.image_url && !m.video_url && !m.reply_to && !m.leaderboard_challenge_id && CARD_KINDS.some((c) => m[c.idKey])
+
+/** A live leaderboard with words: one white bubble holding both (13 Oct 2026). */
+const boardBubble = (m) => !!m.leaderboard_challenge_id && !m.image_url && !m.video_url
 
 function AttachedCard({ message }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
@@ -1628,10 +1631,17 @@ export default function NetworkChat() {
                         // `w-fit`, so while the editor is inside it the width
                         // would otherwise be decided by the editor's own
                         // min-width - see components/MessageEditor.
-                        editingId === m.id ? 'w-full' : 'w-fit',
+                        editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[27rem]' : 'w-fit',
                         'max-w-full rounded-2xl text-sm leading-relaxed',
+                        // A SHARED LEADERBOARD IS A MESSAGE AGAIN (13 Oct 2026). Ethan: "I still prefer it when it was in an
+                        // actual text bubble because then people could react to it ... can't you reverse that, but just
+                        // improve it more?" The words and the live board share ONE bubble, so pressing anywhere on it opens
+                        // the reactions bar like any message - but a white one, never the orange that he did not want
+                        // round a leaderboard, sitting on the sender's side rather than across the middle of the room.
+                        boardBubble(m) && editingId !== m.id
+                          ? cx('border border-gray-100 bg-white p-2 text-ink shadow-card', mine ? 'ml-auto rounded-br-md' : 'rounded-bl-md')
                         // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE. Nor is a card posted with no words.
-                        (introOf(m) || cardOnly(m)) && editingId !== m.id
+                        : (introOf(m) || cardOnly(m)) && editingId !== m.id
                           ? cx('!bg-transparent !p-0 text-ink', mine && 'ml-auto')
                           : cx(
                             mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
@@ -1694,6 +1704,20 @@ export default function NetworkChat() {
                         />
                       ) : cardOnly(m) ? (
                         <AttachedCard message={m} />
+                      ) : boardBubble(m) ? (
+                        <>
+                          {m.body && (
+                            <div className="whitespace-pre-wrap break-words px-1.5 pb-1.5 pt-0.5">
+                              {search ? <Highlight text={m.body} term={search} /> : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: false })}
+                              {mt.isOn(m) && (
+                                <button type="button" onClick={() => mt.toggle(m)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand">
+                                  <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          <AttachedCard message={m} />
+                        </>
                       ) : (
                         m.body && (
                           <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>
@@ -1719,7 +1743,7 @@ export default function NetworkChat() {
                     {/* THE CARD SITS UNDER THE BUBBLE, NEVER IN IT (12 Oct 2026). Ethan: "I don't like that the leaderboard
                         appears on an orange card." A results share carries a sentence, so the board was drawn inside the
                         team's own orange bubble. Now the words are the bubble and the card is its own white thing below. */}
-                    {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && (
+                    {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && !boardBubble(m) && (
                       <div className={cx('mt-1.5 flex w-full', mine && 'justify-end')}>
                         <AttachedCard message={m} />
                       </div>

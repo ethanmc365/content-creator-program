@@ -38,6 +38,7 @@ const WrappedLab = lazyRoute(() => import('./testing/WrappedLab'))
 const RecapLab = lazyRoute(() => import('./testing/RecapLab'))
 const WalkthroughLab = lazyRoute(() => import('./testing/WalkthroughLab'))
 const VipLockedLab = lazyRoute(() => import('./testing/VipLockedLab'))
+const JoinMarketLab = lazyRoute(() => import('./testing/JoinMarketLab'))
 
 export const LABS = [
   {
@@ -65,6 +66,12 @@ export const LABS = [
     blurb: 'What every creator who is not a VIP sees today: the locked VIP page and the teaser card that points to it.',
     tags: ['2 screens', 'Live components'],
     element: <VipLockedLab />,
+  },
+  {
+    key: 'join-market', title: 'Joining another market', icon: 'globe', group: 'Joining the programme',
+    blurb: 'The ask-to-join sheet as a UK & Ireland creator sees it: first time, after asking (waiting, unfinished, declined) and finishing an old request.',
+    tags: ['3 states', 'Writes nothing'],
+    element: <JoinMarketLab />,
   },
   {
     key: 'invoice', title: 'Automatic invoicing', icon: 'money', group: 'Money',

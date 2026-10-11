@@ -742,7 +742,7 @@ export default function AdminCreators() {
       {/* ---------- Creator detail modal ---------- */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''} wide>
         {selected && (
-          <div className="space-y-7">
+          <div key={selected.id} className="rise-stagger space-y-7">
             {/* IDENTITY, then CONTACT, then everything else. The old header
                 ran the email, the join date, the age, the country count and the
                 presence chip together as four lines of small grey text, so the
@@ -767,6 +767,11 @@ export default function AdminCreators() {
                   </p>
                 )}
               </div>
+              {/* MESSAGE, TOP RIGHT ON A DESKTOP (13 Oct 2026). Ethan: "I want the message button up there ... rather than
+                  at the very bottom." On a phone it stays the full-width button above the account actions. */}
+              <button onClick={() => dmCreator(selected)} className="btn-primary hidden shrink-0 !py-2 text-xs sm:inline-flex">
+                <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
+              </button>
             </div>
 
             {/* ---- THEIR PAGES, AS THEY SEE THEM ----
@@ -921,7 +926,7 @@ export default function AdminCreators() {
                 What is left is ordered by consequence: the two reversible
                 account controls first, then the two that stop somebody using
                 the platform, then deletion in its own box. */}
-            <div className="border-t border-gray-100 pt-5">
+            <div className="border-t border-gray-100 pt-5 sm:hidden">
               <button onClick={() => dmCreator(selected)} className="btn-primary w-full justify-center !py-2.5 text-xs">
                 <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
               </button>

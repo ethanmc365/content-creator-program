@@ -98,6 +98,7 @@ const TripCard = memo(function TripCard({
   reserveNote = true, onEdit, onRemove, onToggleInterest, onMessage,
 }) {
   const tr = useT()
+  const [reading, setReading] = useState(false)
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
   // THE CREATOR ON THE MAP (12 Oct 2026). Ethan: "Show a profile picture on
@@ -117,7 +118,7 @@ const TripCard = memo(function TripCard({
     // height it needs (the board is a masonry, so nothing is padded to match a
     // neighbour) and the two actions are coloured, side by side.
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow hoverable:hover:shadow-lift">
+      <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow hoverable:hover:shadow-lift">
         <div className="flex items-center gap-3 px-4 pt-4">
           <Link to={`/profile/${person.id}`} className="group flex min-w-0 flex-1 items-center gap-2.5">
             <Avatar src={person.photo_url} name={person.name} size="sm" />
@@ -143,33 +144,61 @@ const TripCard = memo(function TripCard({
         </div>
 
         <div className="px-4 pt-3">
-          <h3 className="flex items-start gap-2 text-[19px] font-bold leading-tight tracking-[-0.01em] text-ink">
+          <h3 className="flex items-start gap-2 truncate text-[19px] font-bold leading-tight tracking-[-0.01em] text-ink">
             {flag && <span aria-hidden className="leading-[1.15]">{flag}</span>}
-            <span className="min-w-0 [overflow-wrap:anywhere]">{p.city}{p.country ? <span className="font-semibold text-smoke">, {p.country}</span> : null}</span>
+            <span className="min-w-0 truncate">{p.city}{p.country ? <span className="font-semibold text-smoke">, {p.country}</span> : null}</span>
           </h3>
           <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-[12px] font-bold text-white">
             <Icon name="calendar" className="h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}
           </p>
         </div>
 
-        {(mapCountry || here) && (
-          <div className="px-4 pt-3">
+        <div className="px-4 pt-3">
+          {(mapCountry || here) ? (
             <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-2xl bg-cloud/70" />}>
               <div className="overflow-hidden rounded-2xl border border-gray-100">
                 <WorldMap selected={selectedCountries} focusCountry={mapCountry} here={here} focusHere />
               </div>
             </WhenVisible>
-          </div>
-        )}
+          ) : (
+            <div className="flex aspect-[2/1] w-full items-center justify-center rounded-2xl bg-cloud/60">
+              <Icon name="globe" className="h-7 w-7 text-gray-300" />
+            </div>
+          )}
+        </div>
 
-        {(p.note || '').trim() && (
-          <p className="whitespace-pre-line break-words px-4 pt-3 text-sm leading-relaxed text-ink/90 [overflow-wrap:anywhere]">
-            {(p.note || '').trim()}
-          </p>
+        {/* THREE LINES, ALWAYS THE SAME HEIGHT; PRESS FOR THE WHOLE NOTE. */}
+        <button
+          type="button"
+          onClick={() => (p.note || '').trim() && setReading(true)}
+          className={cx('mx-4 mt-3 block h-[4.25rem] text-left', (p.note || '').trim() ? 'cursor-pointer' : 'cursor-default')}
+          aria-label={(p.note || '').trim() ? tr('Read the whole note') : undefined}
+          tabIndex={(p.note || '').trim() ? 0 : -1}
+        >
+          <span className="line-clamp-3 break-words text-sm leading-relaxed text-ink/90 [overflow-wrap:anywhere]">
+            {(p.note || '').replace(/\s+/g, ' ').trim() || <span className="text-gray-300">{tr('No note on this trip.')}</span>}
+          </span>
+        </button>
+        {reading && (
+          <Modal open onClose={() => setReading(false)} title={`${flag ? `${flag} ` : ''}${p.city}${p.country ? `, ${p.country}` : ''}`}>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <Avatar src={person.photo_url} name={person.name} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-ink">{person.name}</span>
+                  <span className="block text-xs text-smoke">{fmtRange(p.start_date, p.end_date)}</span>
+                </span>
+              </div>
+              <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-ink [overflow-wrap:anywhere]">{(p.note || '').trim()}</p>
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setReading(false)} className="btn-secondary !py-2 text-sm">{tr('Close')}</button>
+              </div>
+            </div>
+          </Modal>
         )}
 
         {!mine ? (
-          <div className="grid grid-cols-2 gap-2 p-4">
+          <div className="mt-auto grid grid-cols-2 gap-2 p-4">
             {/* THE ASK IS THE ORANGE BUTTON (12 Oct 2026). Ethan: "the I'm interested button ... should be Tryp orange,
                 because currently the way the button looks, it's like you've already pressed it." An orange outline read
                 as a picked option. Now: solid orange to ask; once pressed it settles to a quiet white with a tick. */}
@@ -194,7 +223,7 @@ const TripCard = memo(function TripCard({
             </button>
           </div>
         ) : (
-          <p className="flex items-center gap-1.5 p-4 text-[13px] text-smoke">
+          <p className="mt-auto flex items-center gap-1.5 p-4 text-[13px] text-smoke">
             <Icon name="eye" className="h-4 w-4 text-brand" />
             {tr('Visible to the community')}{interestCount > 0 ? ` · ${tr('{n} interested', { n: interestCount })}` : ''}
           </p>
@@ -1031,7 +1060,10 @@ export default function Collab() {
         <>
           {/* A MASONRY, NOT A GRID (12 Oct 2026): each card is as tall as its
               own note, so there is no blank space under a short one. */}
-          <Reveal className="columns-1 gap-5 sm:columns-2 lg:columns-3 [&>*]:mb-5 [&>*]:break-inside-avoid">
+          {/* ONE SIZE AGAIN (13 Oct 2026). Ethan: "some of the cards are different sizes, like Telias' one and Noemi's
+              one ... They should all be the same size ... whenever I click on the text, it should show the full card".
+              A grid of equal cards; a long note is three lines and opens in full when pressed. */}
+          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => (
               <TripCard key={p.id} {...cardProps(p)} />
             ))}

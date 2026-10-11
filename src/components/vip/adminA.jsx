@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
 import VideoThumb from '../VideoThumb'
 import FlagStack from '../network/FlagStack'
@@ -846,42 +846,79 @@ export function VipMoveBlock({ creator, onChanged }) {
         if (alive) setStaff(prof)
         return
       }
-      const { data } = await supabase.from('vip_programmes').select('*').eq('active', true).order('name')
-      const mine = []
-      for (const p of data || []) {
-        const { data: ok } = await supabase.rpc('vip_can_manage', { p_programme: p.id })
-        if (ok) mine.push(p)
-      }
-      const { data: row } = prof?.is_vip ? await supabase.from('vip_members').select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : { data: null }
+      // ALL AT ONCE (13 Oct 2026). Ethan: the VIP block "appears late". It asked vip_can_manage once per programme, one
+      // after another, so the block arrived a beat after everything else on the sheet; now every question goes together.
+      const [{ data }, { data: row }] = await Promise.all([
+        supabase.from('vip_programmes').select('*').eq('active', true).order('name'),
+        prof?.is_vip ? supabase.from('vip_members').select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : Promise.resolve({ data: null }),
+      ])
+      const oks = await Promise.all((data || []).map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
+      // VIP communities first, then the official programmes, each by name.
+      const mine = (data || []).filter((_, i) => oks[i]).sort((a, b) => (a.kind === 'official') - (b.kind === 'official') || a.name.localeCompare(b.name))
       if (alive) { setIsVip(!!prof?.is_vip); setProgrammes(mine); setMember(row || null) }
     })()
     return () => { alive = false }
   }, [creator.id])
 
   const [moving, setMoving] = useState(false)
+  const [choice, setChoice] = useState(null)
 
   if (staff) return <VipTeamAccess person={creator} owner={staff.platform_role === 'owner'} />
-  if (programmes === null || (!programmes.length && !isVip)) return null
+  // The block keeps its place while it loads, so nothing under it jumps when it arrives.
+  if (programmes === null) {
+    return (
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>
+        <div className="h-[58px] animate-pulse rounded-xl bg-cloud" />
+      </div>
+    )
+  }
+  if (!programmes.length && !isVip) return null
   const here = programmes.find((p) => p.id === member?.programme_id)
+  const short = (p) => p.name.replace(/^VIP /, '')
+  const target = programmes.find((p) => p.id === choice) || programmes[0]
+  // ONE ROW, ONE BUTTON (13 Oct 2026). Ethan: "tidy up how the VIP community section looks ... those different 'Move to'
+  // buttons". A wrap of "Move to VIP Spain / Move to VIP Romania / Move to Official ..." is now: where they are on the
+  // left, and on the right a picker of the communities you run plus a single Move button.
   return (
-    <div>
-      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>
-      {isVip && done !== 'back' ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
-          <p className="text-sm font-semibold text-ink"><Icon name="star" className="mr-1.5 inline h-4 w-4 text-brand" />{tr('A VIP')}{here ? ` · ${here.name.replace(/^VIP /, '')}` : ''}</p>
-          {member && <button type="button" onClick={() => setMoving(true)} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
-        </div>
-      ) : done === 'vip' ? (
-        <p className="rounded-xl bg-green-50 px-3.5 py-3 text-sm font-semibold text-green-700">{tr('Done. They are a VIP now.')}</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {programmes.map((p) => (
-            <button key={p.id} type="button" onClick={() => setPick(p)} className="btn-secondary !py-2 text-xs">
-              <Icon name="star" className="h-3.5 w-3.5" />{programmes.length > 1 ? tr('Move to VIP {p}', { p: p.name.replace(/^VIP /, '') }) : tr('Move to the VIP community')}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="animate-fade-up">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
+        {isVip && done !== 'back' ? (
+          <>
+            <Icon name="star" className="h-5 w-5 shrink-0 text-brand" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink">{tr('A VIP')}</span>
+              {here && <span className="block truncate text-xs text-smoke">{here.name}</span>}
+            </span>
+            {member && <button type="button" onClick={() => setMoving(true)} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
+          </>
+        ) : done === 'vip' ? (
+          <span className="flex items-center gap-2 text-sm font-semibold text-green-700"><Icon name="check" className="h-4 w-4" />{tr('Done. They are a VIP now.')}</span>
+        ) : (
+          <>
+            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink">{tr('In the general community')}</span>
+              <span className="block text-xs text-smoke">{tr('Not in a VIP community yet')}</span>
+            </span>
+            <span className="flex flex-wrap items-center gap-2">
+              {programmes.length > 1 && (
+                <Select
+                  value={target.id}
+                  onChange={setChoice}
+                  ariaLabel={tr('Which VIP community')}
+                  portal
+                  options={programmes.map((p) => ({ value: p.id, label: short(p) }))}
+                />
+              )}
+              <button type="button" onClick={() => setPick(target)} className="btn-primary !py-2 text-xs">
+                <Icon name="star" className="h-3.5 w-3.5" />{programmes.length > 1 ? tr('Move to VIP') : tr('Move to the VIP community')}
+              </button>
+            </span>
+          </>
+        )}
+      </div>
       {moving && <MoveBackModal person={{ id: creator.id, name: creator.name }} programme={here || programmes[0]} onClose={() => setMoving(false)} onDone={() => { setDone('back'); setIsVip(false); onChanged?.() }} />}
       {pick && <AddVipModal open onClose={() => setPick(null)} programme={pick} profile={{ id: creator.id, name: creator.name, photo_url: creator.photo_url }} onAdded={() => { setDone('vip'); setIsVip(true); onChanged?.() }} />}
     </div>

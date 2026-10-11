@@ -54,13 +54,15 @@ export function BoostDisc({ multiplier, live, className }) {
   )
 }
 
-export default function BoostCallout({ boost }) {
+export default function BoostCallout({ boost, onOpen }) {
   const tr = useT()
   const days = windowPhrase(boost.starts_at, boost.ends_at, tr)
+  // A BUTTON NOW (13 Oct 2026): pressing it opens the boost's own card (OfferDetail), like every other offer.
+  const Tag = onOpen ? 'button' : 'div'
   return (
-    <div
-      role="status"
-      className={cx('board-status relative min-w-0 overflow-hidden text-left text-white shadow-card', 'bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]', SLOT)}
+    <Tag
+      {...(onOpen ? { type: 'button', onClick: onOpen } : { role: 'status' })}
+      className={cx('board-status group relative min-w-0 overflow-hidden text-left text-white shadow-card', onOpen && 'transition-transform duration-200 hoverable:hover:-translate-y-0.5', 'bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]', SLOT)}
     >
       {boost.live && <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />}
       <span className="relative">
@@ -78,6 +80,6 @@ export default function BoostCallout({ boost }) {
         </span>
       </span>
       <Icon name="fire" className="relative h-5 w-5 shrink-0 text-brand-light" />
-    </div>
+    </Tag>
   )
 }

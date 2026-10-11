@@ -29,6 +29,8 @@ export const PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Facebook']
  * of forty is a different fact from third of four.
  */
 export function reasonLabel(v) {
+  if (v.source === 'official') return { label: 'Official creator', tone: 'brand' }
+  if (v.source === 'vip' || v.reason === 'vip') return { label: 'VIP community', tone: 'brand' }
   if (v.reason === 'manual') return { label: 'Added by hand', tone: 'grey' }
   if (v.reason === 'podium') {
     const place = v.rank === 1 ? '1st' : v.rank === 2 ? '2nd' : v.rank === 3 ? '3rd' : v.rank ? `${v.rank}th` : 'Top'
@@ -59,7 +61,8 @@ export function creatorLink(v) {
 }
 
 /** The challenge a row belongs to, live or logged, or null for a loose video. */
-export const challengeOf = (v) => v.challenge_title || v.history_title || null
+// A VIP or official creator's video belongs to its programme ("VIP Spain", "Tryp.com Official Spain"), migration 386.
+export const challengeOf = (v) => v.challenge_title || v.history_title || v.programme_name || null
 
 /**
  * WHAT A SEARCH ACTUALLY SEARCHES.
@@ -113,7 +116,7 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
 export function visibleVideos(rows, filter = {}) {
   const {
     market = '', challenge = '', platform = '', month = '',
-    q = '', sort = 'views',
+    q = '', sort = 'views', source = '',
   } = filter
   const needle = fold(q.trim())
 
@@ -121,6 +124,7 @@ export function visibleVideos(rows, filter = {}) {
     if (!v.qualifies && !v.pinned) return false
     if (market && v.community_id !== market) return false
     if (challenge && challengeKey(v) !== challenge) return false
+    if (source && (v.source || 'community') !== source) return false
     if (platform && v.platform !== platform) return false
     // (There is no `reason` clause. There was, and Ethan cut the control on
     // 9 Sep 2026 - "for the any reason, I would delete that filter, we don't
@@ -151,6 +155,7 @@ export function visibleVideos(rows, filter = {}) {
 export function challengeKey(v) {
   if (v.challenge_id) return `c:${v.challenge_id}`
   if (v.history_id) return `h:${v.history_id}`
+  if (v.programme_id) return `p:${v.programme_id}`
   return ''
 }
 
@@ -160,9 +165,11 @@ export function challengeOptions(rows) {
   for (const v of rows || []) {
     const key = challengeKey(v)
     if (!key || seen.has(key)) continue
-    seen.set(key, { key, label: challengeOf(v) || 'Untitled', market: v.market_name || '' })
+    seen.set(key, { key, label: challengeOf(v) || 'Untitled', market: v.market_name || '', source: v.source || 'community' })
   }
-  return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
+  // Community challenges first, then the VIP and official programmes, each alphabetical.
+  const order = { community: 0, vip: 1, official: 2 }
+  return [...seen.values()].sort((a, b) => (order[a.source] ?? 0) - (order[b.source] ?? 0) || a.label.localeCompare(b.label))
 }
 
 /**

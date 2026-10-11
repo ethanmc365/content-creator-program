@@ -67,11 +67,16 @@ export function JoinMarketHost() {
   return <JoinMarketSheet initial={pick} onClose={close} />
 }
 
-function JoinMarketSheet({ initial, onClose }) {
+// `demo` (13 Oct 2026, Testing Centre): { mine: [market ids], requests: [rows] } draws the sheet as that creator would see
+// it and writes nothing - sending shows the "Request sent" screen, withdrawing only removes the row on screen. `inline`
+// draws it in a card instead of a dialog, so the lab can show several states side by side.
+function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
   const tr = useT()
   const { user } = useAuth()
-  const { chapters, myChapters } = useCommunity()
-  const [requests, setRequests] = useState(null)
+  const community = useCommunity()
+  const chapters = community.chapters
+  const myChapters = demo ? (chapters || []).filter((c) => demo.mine.includes(c.id)) : community.myChapters
+  const [requests, setRequests] = useState(demo ? demo.requests : null)
   const [picked, setPicked] = useState(initial)
   const [note, setNote] = useState('')
   const [level, setLevel] = useState(null)
@@ -80,11 +85,11 @@ function JoinMarketSheet({ initial, onClose }) {
   const [sent, setSent] = useState(null)
 
   const load = useCallback(async () => {
-    if (!user?.id) return
+    if (demo || !user?.id) return
     const { data } = await supabase.from('market_join_requests').select('id, community_id, status, note, created_at, decision_note, language_level, ties')
       .eq('profile_id', user.id).order('created_at', { ascending: false }).limit(20)
     setRequests(data || [])
-  }, [user?.id])
+  }, [user?.id, demo])
   useEffect(() => { load() }, [load])
 
   const mine = new Set((myChapters || []).map((c) => c.id))
@@ -105,6 +110,7 @@ function JoinMarketSheet({ initial, onClose }) {
   const ready = !!target && !!level && why.length >= MIN_WHY
   async function send() {
     if (!ready) return
+    if (demo) { setSent(target); return }
     setBusy(true)
     const { error } = await supabase.rpc('request_join_market', { p_community: target.id, p_note: why, p_language: level, p_ties: ties })
     setBusy(false)
@@ -119,14 +125,15 @@ function JoinMarketSheet({ initial, onClose }) {
   async function withdraw(r) {
     const m = (chapters || []).find((c) => c.id === r.community_id)
     if (!await confirm(tr('Withdraw your request to join {m}?', { m: m?.name || tr('that market') }), { confirmLabel: tr('Withdraw') })) return
+    if (demo) { setRequests((cur) => cur.filter((x) => x.id !== r.id)); return }
     const { error } = await supabase.from('market_join_requests').delete().eq('id', r.id)
     if (error) { notice(error.message); return }
     toastSuccess(tr('Request withdrawn'))
     load()
   }
 
-  return (
-    <Modal open onClose={onClose} title={tr('Create for another market')}>
+  const body = (
+    <>
       {sent ? (
         <div className="py-6 text-center animate-rise">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-light text-white shadow-lift animate-pop-in">
@@ -134,7 +141,7 @@ function JoinMarketSheet({ initial, onClose }) {
           </span>
           <p className="mt-4 text-lg font-bold text-ink">{tr('Request sent')}</p>
           <p className="mx-auto mt-1 max-w-xs text-sm text-smoke">{tr('The {m} team has it now. You will get a notification when they answer, and you keep your other markets either way.', { m: sent.name })}</p>
-          <button type="button" onClick={onClose} className="btn-primary mx-auto mt-6 justify-center !px-8">{tr('Done')}</button>
+          <button type="button" onClick={demo ? () => setSent(null) : onClose} className="btn-primary mx-auto mt-6 justify-center !px-8">{tr('Done')}</button>
         </div>
       ) : (
         <div className="space-y-5">
@@ -253,8 +260,22 @@ function JoinMarketSheet({ initial, onClose }) {
           )}
         </div>
       )}
-    </Modal>
+    </>
   )
+  if (inline) {
+    return (
+      <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+        <h3 className="mb-4 text-lg font-bold text-ink">{tr('Create for another market')}</h3>
+        {body}
+      </div>
+    )
+  }
+  return <Modal open onClose={onClose} title={tr('Create for another market')}>{body}</Modal>
+}
+
+/** The sheet as a given creator would see it, drawn in place and writing nothing (Testing Centre). */
+export function JoinMarketPreview({ mine, requests = [], initial = null }) {
+  return <JoinMarketSheet inline demo={{ mine, requests }} initial={initial} onClose={() => {}} />
 }
 
 /** THE WORLDWIDE RIGHT COLUMN'S DOOR (10 Oct 2026): a small card that says the thing out loud. */

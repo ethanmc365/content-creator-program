@@ -76,11 +76,13 @@ function howToEarn(r, tr) {
   return tr('Given by the team')
 }
 
-export default function BonusPointsCard({ rules, now = 0, className, boost = null, joinPts = 0, voucherDays = [] }) {
+export default function BonusPointsCard({ rules, now = 0, className, boost = null, joinPts = 0, joinFrom = null, voucherDays = [] }) {
   const tr = useT()
   // Before the early return: a hook cannot be called conditionally, and this
   // component returns nothing at all when a challenge has no bonuses.
   const [open, setOpen] = useState(null)
+  // The joining bonus, the boost and the voucher days open the same card as a bonus rule (13 Oct 2026).
+  const [offer, setOffer] = useState(null)
   const bonuses = (rules || []).filter(isBonusKind)
   // The labels and questions are what an admin typed, so a reader in another language gets them
   // translated, with ONE Translated | Original switch for the whole card (30 Sep 2026).
@@ -108,7 +110,8 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
       {/* A POINT BOOST IS AN OFFER TOO (7 Oct 2026). Ethan: the double points window "should show up on the bonus points
           card that the creator sees too". It leads the list while it is on or coming up. */}
       {boost && (
-        <div className="mx-3 mb-1.5 flex items-center gap-3 rounded-xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] px-3 py-3 shadow-sm">
+        <button type="button" onClick={() => setOffer({ kind: 'boost', boost })} aria-label={tr('How {label} works', { label: boost.label })}
+          className="group mx-3 mb-1.5 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] px-3 py-3 text-left shadow-sm transition-transform duration-200 hoverable:hover:-translate-y-0.5">
           <BoostDisc multiplier={boost.multiplier} live={boost.live} className="h-10 w-10 text-sm" />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold leading-snug text-white">{boost.label}</span>
@@ -120,23 +123,29 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
           <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', boost.live ? 'bg-brand text-white' : 'bg-white/15 text-white')}>
             {boost.live ? tr('On now') : tr('Coming up')}
           </span>
-        </div>
+          <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-white/60 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </button>
       )}
       <ul className="space-y-1.5 px-3 pb-3">
         {joinPts > 0 && (
-          <li className="flex items-center gap-3 rounded-xl bg-white px-3 py-3 shadow-sm">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name="userPlus" className="h-4 w-4" /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold leading-snug text-ink">{tr('Joining bonus')}</span>
-              <span className="block text-[11.5px] leading-snug text-smoke">{tr('Your first video in this challenge earns it, straight onto the leaderboard.')}</span>
-            </span>
-            <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">+{joinPts}</span>
+          <li>
+            <button type="button" onClick={() => setOffer({ kind: 'join', points: joinPts, from: joinFrom })} aria-label={tr('How {label} works', { label: tr('New creator bonus') })}
+              className="group flex w-full items-center gap-3 rounded-xl bg-white px-3 py-3 text-left shadow-sm transition-transform duration-200 hoverable:hover:-translate-y-0.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name="userPlus" className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold leading-snug text-ink">{tr('New creator bonus')}</span>
+                <span className="block text-[11.5px] leading-snug text-smoke">{joinLine(joinFrom, tr)}</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">+{joinPts}</span>
+              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </button>
           </li>
         )}
         {vdays.map((d) => {
           const today = voucherDayState(d, now || 0) === 'today'
           return (
-            <li key={d.id} className="flex items-center gap-3 rounded-xl bg-white px-3 py-3 shadow-sm">
+            <li key={d.id}>
+              <button type="button" onClick={() => setOffer({ kind: 'vday', day: d })} className="group flex w-full items-center gap-3 rounded-xl bg-white px-3 py-3 text-left shadow-sm transition-transform duration-200 hoverable:hover:-translate-y-0.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name="ticket" className="h-4 w-4" /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold leading-snug text-ink">
@@ -148,6 +157,8 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
                 </span>
               </span>
               <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">{formatMoney(d.amount, d.currency)}</span>
+              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </button>
             </li>
           )
         })}
@@ -193,6 +204,7 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
         })}
       </ul>
       <BonusDetail rule={open} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} pick={tx.pick} />
+      <OfferDetail offer={offer} onClose={() => setOffer(null)} />
     </section>
   )
 }
@@ -234,28 +246,40 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   ].filter(Boolean)
 
   return (
+    <OfferShell onClose={onClose} icon={ICON[rule.kind] || 'star'} title={pick(rule.label.trim())} pays={`+${Number(rule.points)}`} facts={facts} />
+  )
+}
+
+// ONE CARD FOR EVERY OFFER (13 Oct 2026). Ethan: "the double points, when you click on it, should show a pop-up with more
+// info too, and it doesn't. I'm sure all of them will have a pop-up for anything related to the bonus points with the same
+// clean design." The bonus rule's card is the design; the joining bonus, a points boost and a voucher day fill it too.
+function OfferShell({ onClose, icon, title, sub, pays, facts, disc = null }) {
+  const tr = useT()
+  return (
     <Modal open onClose={onClose} title={tr('Bonus points')}>
       <div className="space-y-5">
-        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card">
+        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card animate-rise">
           <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
           <div className="relative flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
-              <Icon name={ICON[rule.kind] || 'star'} className="h-5 w-5" />
-            </span>
+            {disc || (
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <Icon name={icon} className="h-5 w-5" />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
-              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{pick(rule.label.trim())}</p>
-              <p className="mt-0.5 text-xs text-white/80">{tr('On top of your view points')}</p>
+              <p className="text-base font-bold leading-snug [overflow-wrap:anywhere]">{title}</p>
+              <p className="mt-0.5 text-xs text-white/80">{sub || tr('On top of your view points')}</p>
             </div>
-            <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold tabular-nums text-brand shadow-card">
-              +{Number(rule.points)}
-            </span>
+            {pays && (
+              <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold tabular-nums text-brand shadow-card">{pays}</span>
+            )}
           </div>
         </div>
 
-        <ul className="space-y-3">
+        <ul className="rise-stagger space-y-3">
           {facts.map((f) => (
             <li key={f.label} className="flex items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cloud text-smoke">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand">
                 <Icon name={f.icon} className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
@@ -268,6 +292,49 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
       </div>
     </Modal>
   )
+}
+
+/** The joining bonus in one line: who it is for and from when. */
+export function joinLine(from, tr) {
+  return from
+    ? tr('For new creators who enter this challenge from {d}. Straight onto the leaderboard.', { d: dm(from) })
+    : tr('For new creators: your first video in this challenge earns it, straight onto the leaderboard.')
+}
+
+/** The card for the joining bonus, a points boost or a voucher day. `offer` = { kind: 'join' | 'boost' | 'vday', ... }. */
+export function OfferDetail({ offer, onClose }) {
+  const tr = useT()
+  if (!offer) return null
+  if (offer.kind === 'join') {
+    const facts = [
+      { icon: 'userPlus', label: tr('Who it is for'), value: tr('New creators. It helps somebody who joins part way through get straight onto the leaderboard instead of starting at the bottom.') },
+      { icon: 'check', label: tr('How you earn it'), value: tr('Post your first video in this challenge. The points are added with that video, once.') },
+      offer.from
+        ? { icon: 'calendar', label: tr('Who gets it'), value: tr('Creators who enter this challenge for the first time on or after {d}. Anybody who entered before then already had the whole challenge to climb, so it is not added for them.', { d: dm(offer.from) }) }
+        : null,
+      { icon: 'clock', label: tr('When it runs'), value: tr('Until the challenge closes.') },
+    ].filter(Boolean)
+    return <OfferShell onClose={onClose} icon="userPlus" title={tr('New creator bonus')} sub={tr('Extra points for your first video')} pays={`+${offer.points}`} facts={facts} />
+  }
+  if (offer.kind === 'boost') {
+    const b = offer.boost
+    const facts = [
+      { icon: 'check', label: tr('How you earn it'), value: tr('Videos posted {d} count {n}: every point a video earns from its views is multiplied.', { d: windowPhrase(b.starts_at, b.ends_at, tr), n: boostMult(b.multiplier) }) },
+      b.max_extra_points ? { icon: 'ticket', label: tr('The most it adds'), value: tr('Up to {p} extra points for each video.', { p: b.max_extra_points }) } : null,
+      { icon: 'calendar', label: tr('When it runs'), value: b.live ? tr('On now, until {d}.', { d: dm(b.ends_at) }) : tr('Opens on {d}.', { d: dm(b.starts_at) }) },
+      { icon: 'eye', label: tr('What counts'), value: tr('When the video was posted on the platform, not when you added it here. Views it gets afterwards still count.') },
+    ].filter(Boolean)
+    return <OfferShell onClose={onClose} title={b.label || tr('{n} points', { n: boostMult(b.multiplier) })} sub={b.live ? tr('On now') : tr('Coming up')} disc={<BoostDisc multiplier={b.multiplier} live={b.live} className="h-11 w-11 text-[15px]" />} facts={facts} />
+  }
+  const d = offer.day
+  const prize = formatMoney(d.amount, d.currency)
+  const facts = [
+    { icon: 'check', label: tr('How you earn it'), value: tr('Post a video on {d} that reaches {v} views.', { d: dm(`${d.day}T12:00:00`), v: Number(d.min_views).toLocaleString() }) },
+    { icon: 'eye', label: tr('Before it counts'), value: tr('The views can come later: it is awarded as soon as the video passes {v}.', { v: Number(d.min_views).toLocaleString() }) },
+    d.max_winners ? { icon: 'users', label: tr('How many win'), value: tr('The first {n} creators to get there.', { n: d.max_winners }) } : null,
+    { icon: 'ticket', label: tr('What you get'), value: d.reward_type === 'cash' ? tr('{a} in cash, on top of any prize.', { a: prize }) : tr('A {a} Tryp.com voucher, on top of any prize.', { a: prize }) },
+  ].filter(Boolean)
+  return <OfferShell onClose={onClose} icon="ticket" title={d.reward_type === 'cash' ? tr('{a} cash day', { a: prize }) : tr('{a} voucher day', { a: prize })} sub={dm(`${d.day}T12:00:00`)} pays={prize} facts={facts} />
 }
 
 // THE BONUS RUNNING RIGHT NOW, BESIDE THE TABS. Only a bonus with DATES earns a

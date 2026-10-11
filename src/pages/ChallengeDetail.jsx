@@ -27,7 +27,7 @@ import CollapsibleRich from '../components/CollapsibleRich'
 import TranslatedText, { TLine } from '../components/TranslatedText'
 import { useMyScopes } from '../lib/scope'
 import ScoringPanel, { usePointRules } from '../components/network/ScoringPanel'
-import BonusPointsCard, { LiveBonusCallout } from '../components/network/BonusPointsCard'
+import BonusPointsCard, { LiveBonusCallout, OfferDetail } from '../components/network/BonusPointsCard'
 import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import CountryBoard from '../components/challenge/CountryBoard'
@@ -135,6 +135,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries | countries
+  // The offer whose card is open from the dark callout beside the tabs (joining bonus, boost, voucher day).
+  const [offerOpen, setOfferOpen] = useState(null)
   // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB (28 Sep 2026). Ethan:
   // "a button for the creators ... that says 'My Entries' so they can quickly
   // see all their entries."
@@ -1132,6 +1134,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </button>
         ))}
       </div>
+      <OfferDetail offer={offerOpen} onClose={() => setOfferOpen(null)} />
       <SwapIn swapKey={tab === 'leaderboard' || tab === 'countries' ? 'board' : 'bonus'}>
         {tab !== 'leaderboard' && tab !== 'countries' ? (() => {
           const toBonus = () => {
@@ -1141,10 +1144,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           // EVERY OFFER ON NOW TAKES A TURN IN THE DARK CARD (12 Oct 2026): a running boost, today's voucher day, the
           // joining bonus for somebody who has not entered. A boost that has not started yet comes after those.
           const offers = []
-          if (boost?.live) offers.push(<BoostCallout key="boost" boost={boost} />)
-          for (const d of vdayToday) offers.push(<VoucherDayCallout key={d.id} day={d} now={nowMs} onOpen={toBonus} />)
-          if (joinOffer) offers.push(<JoinBonusCallout key="join" points={joinOffer} onOpen={toBonus} />)
-          if (boost && !boost.live) offers.push(<BoostCallout key="boost-next" boost={boost} />)
+          // EACH ONE OPENS ITS OWN CARD (13 Oct 2026): "a pop-up should show more info on that ... the double points, when
+          // you click on it, should show a pop-up with more info too".
+          if (boost?.live) offers.push(<BoostCallout key="boost" boost={boost} onOpen={() => setOfferOpen({ kind: 'boost', boost })} />)
+          for (const d of vdayToday) offers.push(<VoucherDayCallout key={d.id} day={d} now={nowMs} onOpen={() => setOfferOpen({ kind: 'vday', day: d })} />)
+          if (joinOffer) offers.push(<JoinBonusCallout key="join" points={joinOffer} from={challenge.join_bonus_from} onOpen={() => setOfferOpen({ kind: 'join', points: joinOffer, from: challenge.join_bonus_from })} />)
+          if (boost && !boost.live) offers.push(<BoostCallout key="boost-next" boost={boost} onOpen={() => setOfferOpen({ kind: 'boost', boost })} />)
           return offers.length ? <OfferRotator items={offers} /> : <LiveBonusCallout rules={pointRules} now={nowMs} onOpen={toBonus} />
         })() : (
           <BoardStatus
@@ -1468,7 +1473,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // below the brief section and above the points section but have that
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
-        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} joinPts={joinOffer} voucherDays={voucherDays} />
+        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} joinPts={joinOffer} joinFrom={challenge.join_bonus_from} voucherDays={voucherDays} />
         // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
         const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
         const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} meId={user.id} /> : null

@@ -106,8 +106,9 @@ export default function Leaderboard() {
   // THE TEAM SEES IT TOO (12 Oct 2026). Ethan: "Maybe it's just not showing up for me because I'm not on it, but I want to
   // see how that shows up for the creator." An admin off the board gets the same card for a creator halfway down,
   // marked as what a creator sees, and Show me finds that creator's row.
-  const sampleIndex = ownIndex < 0 && isAdmin && posted.length ? Math.floor(posted.length / 2) : -1
-  const mine = ownIndex >= 0 ? ownIndex : sampleIndex
+  // AND NOW IT IS GONE AGAIN (13 Oct 2026). Ethan, having seen it: "remove that function for me because I don't want to
+  // see it anymore ... for all the admins." An admin who is not on the board sees no card; a creator sees their own.
+  const mine = ownIndex
   const focusId = mine >= 0 ? rows[mine].creator_id : null
   const focusPerson = mine >= 0 ? (ownIndex >= 0 ? profile : rows[mine]) : null
   // Opens the list if the reader is past the fold, then centres and flashes

@@ -182,8 +182,12 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   // including five that failed this time; the second counted this run. Both now
   // count entries that have a number and nothing wrong with them.
   const flagged = submissions.filter((s) => s.views_sync_error).length
-  const readFine = submissions.length - flagged
-  const typed = submissions.filter((s) => s.views_source === 'manual' && !s.views_sync_error).length
+  // NEW IS NOT TYPED (13 Oct 2026). Ethan: "it shows that 10 have been typed in by hand, which doesn't make sense."
+  // `views_source` starts as 'manual' on every entry, so ten entries posted after the last read - never read at all -
+  // were counted as typed. Typed means a number with nobody reading it; new means no number yet.
+  const unread = submissions.filter((s) => !s.views_synced_at && s.logged_views == null && !s.views_sync_error).length
+  const readFine = submissions.length - flagged - unread
+  const typed = submissions.filter((s) => s.views_source === 'manual' && s.logged_views != null && !s.views_sync_error).length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0
   const queued = backlog?.stale ?? 0
 
@@ -282,6 +286,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
         <Stat label="Next">{nextDue(lastRun?.at, settings.interval_hours ?? 24)}</Stat>
         <Stat label="This challenge">
           <span className="tabular-nums">{readFine} of {submissions.length}</span> read
+          {unread > 0 && <span className="block text-xs font-medium text-smoke">{unread} new, being read now</span>}
           {typed > 0 && <span className="block text-xs font-medium text-smoke">{typed} typed in by hand</span>}
         </Stat>
         <Stat label="Waiting to read">

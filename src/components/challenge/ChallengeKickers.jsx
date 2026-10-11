@@ -28,8 +28,12 @@ export default function ChallengeKickers({ challenge, myEntries = 0, meId, live 
         <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
           <Icon name="userPlus" className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold text-ink">{tr('Joining bonus: +{n} points', { n: joinPts })}</p>
-            <p className="mt-0.5 text-[13px] leading-snug text-smoke">{tr('Not entered yet? Your first video earns you {n} extra points, straight onto the leaderboard.', { n: joinPts })}</p>
+            <p className="text-[15px] font-bold text-ink">{tr('New creator bonus: +{n} points', { n: joinPts })}</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-smoke">
+              {challenge?.join_bonus_from
+                ? tr('For new creators, to get straight onto the leaderboard: enter this challenge from {d} and your first video earns {n} extra points.', { d: new Date(challenge.join_bonus_from).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }), n: joinPts })
+                : tr('For new creators, to get straight onto the leaderboard: your first video in this challenge earns {n} extra points.', { n: joinPts })}
+            </p>
           </div>
           <span className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-[12px] font-extrabold tabular-nums text-white">+{joinPts}</span>
         </div>
@@ -123,15 +127,19 @@ export function VoucherDayCallout({ day, now, onOpen }) {
   )
 }
 
-export function JoinBonusCallout({ points, onOpen }) {
+export function JoinBonusCallout({ points, from, onOpen }) {
   const tr = useT()
   return (
     <button type="button" onClick={onOpen} className={cx(DARK, SLOT)}>
       <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
       <span className={cx('relative bg-gradient-to-br from-[#ffb36b] via-brand-light to-brand text-[13px] font-black tabular-nums shadow-[0_0_0_3px_rgba(245,133,63,0.35)]', SLOT_ICON)}>+{points}</span>
       <span className="relative min-w-0 flex-1">
-        <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">{tr('Joining bonus')}</span>
-        <span className="block truncate text-[13px] font-semibold">{tr('Your first video earns {n} extra points.', { n: points })}</span>
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">{tr('New creator bonus')}</span>
+        <span className="block truncate text-[13px] font-semibold">
+          {from
+            ? tr('Enter from {d}: +{n} points, straight onto the leaderboard.', { d: new Date(from).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), n: points })
+            : tr('Your first video earns {n} extra points, straight onto the leaderboard.', { n: points })}
+        </span>
       </span>
       <Icon name="userPlus" className="relative h-5 w-5 shrink-0 text-brand-light" />
     </button>

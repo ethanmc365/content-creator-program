@@ -12,6 +12,9 @@ import { useT } from '../lib/i18n'
 import CertificateWall from '../components/certificate/CertificateWall'
 import VoucherTicket from '../components/VoucherTicket'
 import { notice } from '../lib/confirm'
+import { useAuth } from '../context/AuthContext'
+import { money, useOptionalRpc, useKindT } from '../lib/vip'
+import { CountUp, VIP_COUNT_MS } from '../components/network/Motion'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
@@ -108,6 +111,8 @@ export default function Rewards() {
       <PageHeader title={tr("Rewards")} subtitle={tr("Everything you've earned in the community, in cash and Tryp.com vouchers.")} />
 
       <ViewingAsBanner viewing={viewing} person={person} />
+
+      {!viewing && <VipEarningsCard />}
 
       {loading ? (
         <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
@@ -253,7 +258,7 @@ export default function Rewards() {
               a section of its own is a different thing. Draws nothing at all
               until somebody has one. */}
           {/* WIDER THAN THE LEDGER (12 Oct 2026): "You can make that page even wider, maybe for the certificate part". */}
-          <CertificateWall profileId={whose} className="mt-12 lg:-mx-16 xl:-mx-28" readOnly={viewing} />
+          <CertificateWall profileId={whose} className="mt-12" readOnly={viewing} />
         </>
       )}
 
@@ -265,4 +270,52 @@ export default function Rewards() {
 function sentInvoice(r) {
   const list = Array.isArray(r.invoices) ? r.invoices : r.invoices ? [r.invoices] : []
   return list.find((i) => i.stage === 'sent' && i.sent_at) || null
+}
+
+// A VIP'S MONEY IS NOT A COMMUNITY REWARD (13 Oct 2026). Ethan: "the VIP rewards page that they have: is it different? ...
+// ensure that it's different for VIPs and not the same as the general community." A VIP or official creator is paid by
+// views into a balance they withdraw from, so their Rewards page opens on that: the balance, what they have earned, what
+// has gone out, and the way to their payouts. Community vouchers and certificates follow underneath as before.
+function VipEarningsCard() {
+  const { profile } = useAuth()
+  if (!profile?.is_vip) return null
+  return <VipEarningsInner official={profile?.vip_kind === 'official'} />
+}
+
+function VipEarningsInner({ official }) {
+  const tr = useKindT(official ? 'official' : 'vip')
+  const { data: w } = useOptionalRpc('vip_my_wallet')
+  if (w === undefined) return <Skeleton className="mb-8 h-40 w-full rounded-card" />
+  if (!w) return null
+  const cur = w.currency
+  const bal = Number(w.balance) || 0
+  const earned = Number(w.lifetime_earned) || 0
+  const out = Math.max(0, earned - bal)
+  return (
+    <Reveal className="mb-8">
+      <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-7">
+        <span aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/10 blur-2xl" />
+        <p className="relative flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
+          <Icon name={official ? 'badge' : 'star'} className="h-4 w-4 text-brand" />{tr('Your VIP earnings')}
+        </p>
+        <div className="relative mt-3 grid grid-cols-3 gap-3">
+          {[
+            { k: 'bal', label: tr('Balance'), v: bal, big: true },
+            { k: 'earned', label: tr('Earned in total'), v: earned },
+            { k: 'out', label: tr('Paid out'), v: out },
+          ].map((x) => (
+            <div key={x.k} className="min-w-0">
+              <p className="text-xs text-smoke">{x.label}</p>
+              <p className={cx('mt-0.5 truncate font-bold tabular-nums', x.big ? 'text-2xl text-brand sm:text-3xl' : 'text-lg text-ink sm:text-xl')}>
+                <CountUp duration={VIP_COUNT_MS} value={x.v} format={(n) => money(n, cur)} />
+              </p>
+            </div>
+          ))}
+        </div>
+        <Link to="/vip?tab=payouts" className="btn-primary relative mt-5 inline-flex !py-2.5 text-sm">
+          <Icon name="wallet" className="h-4 w-4" />{tr('Balance and payouts')}
+        </Link>
+      </section>
+    </Reveal>
+  )
 }

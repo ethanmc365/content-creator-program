@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Children, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { certificateLocales, dateIn, prefetchCertificateDesign, useCertificateDesign } from '../../lib/certificateLang'
@@ -35,6 +35,14 @@ export default function CertificateWall({ profileId, className, readOnly = false
   const [rows, setRows] = useState(null)
   const [designs, setDesigns] = useState([])
   const [open, setOpen] = useState(null)
+  // Whose name goes on the locked tiles: the person whose wall this is (an admin viewing ?as= sees the creator's).
+  const [owner, setOwner] = useState(null)
+  useEffect(() => {
+    if (!profileId || profileId === profile?.id) { setOwner(null); return undefined }
+    let alive = true
+    supabase.from('profiles').select('name, photo_url').eq('id', profileId).maybeSingle().then(({ data }) => { if (alive) setOwner(data || null) })
+    return () => { alive = false }
+  }, [profileId, profile?.id])
   // AN ADMIN ON THEIR OWN REWARDS PAGE SEES EVERY DESIGN AS A CREATOR WOULD (30 Sep 2026). Ethan:
   // "Whenever I'm viewing the rewards page, I'll be able to see how the certificates look for the
   // creators too, to make sure it's right and ensure they're able to download it easily." Viewing a
@@ -96,7 +104,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
           {rows.length > 0 && <span className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">{rows.length}</span>}
         </h2>
         <p className="mt-1 text-sm text-smoke">
-          {tr('Yours to download and share on Instagram or LinkedIn. Each one has its own code anyone can check, and they also appear on your portfolio.')}
+          {tr('Yours to download and share on Instagram, TikTok or LinkedIn. Each one has its own code anyone can check, and they also appear on your portfolio.')}
         </p>
         {speaks.length > 0 && (
           <p className="mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs text-smoke">
@@ -112,15 +120,68 @@ export default function CertificateWall({ profileId, className, readOnly = false
       {/* BIG, TWO A ROW (12 Oct 2026). Ethan: "Currently, it's really tiny. It should be big, especially on desktop ...
           have two on each side and, on mobile, just one." Each tile is the certificate itself at the width of its column,
           the thing you are about to open, with Save and Share under it. */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+      {/* ONE A ROW, SIDEWAYS (13 Oct 2026). Ethan: "it starts off narrower and then gets wider just to the certificate
+          section, which doesn't make sense ... keep it all narrow and have one certificate in each row, and maybe have it
+          scrollable to the right." The page keeps one width; certificates sit in a swipeable rail, one at a time with
+          the next peeking in, arrows on a desktop. */}
+      <CertRail count={rows.length + toEarn.length}>
         {rows.map((row, i) => (
           <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} index={i} />
         ))}
-        {toEarn.map((d, i) => <LockedRow key={d.id} design={d} lang={listLang} index={rows.length + i} />)}
-      </div>
+        {toEarn.map((d, i) => <LockedRow key={d.id} design={d} lang={listLang} index={rows.length + i} who={owner || profile} />)}
+      </CertRail>
 
       <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
     </section>
+  )
+}
+
+// A horizontal, snapping rail: each child is one slide a little narrower than the rail, so the next one shows.
+function CertRail({ children, count }) {
+  const tr = useT()
+  const [el, setEl] = useState(null)
+  const [at, setAt] = useState(0)
+  useEffect(() => {
+    if (!el) return undefined
+    const onScroll = () => {
+      const first = el.firstElementChild
+      const step = first ? first.getBoundingClientRect().width + 16 : el.clientWidth
+      setAt(Math.round(el.scrollLeft / Math.max(step, 1)))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [el])
+  function go(i) {
+    if (!el) return
+    const kids = el.children
+    const n = Math.max(0, Math.min(kids.length - 1, i))
+    el.scrollTo({ left: kids[n].offsetLeft - el.firstElementChild.offsetLeft, behavior: 'smooth' })
+  }
+  const arrow = 'absolute top-[42%] z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-ink shadow-lift ring-1 ring-black/5 transition-all duration-200 hoverable:hover:scale-105 disabled:pointer-events-none disabled:opacity-0 md:flex'
+  return (
+    <div className="relative">
+      <div ref={setEl} className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 sm:mx-0 sm:scroll-px-0 sm:px-0">
+        {Children.map(children, (child) => child && (
+          <div className="w-[88%] shrink-0 snap-start sm:w-[82%]">{child}</div>
+        ))}
+      </div>
+      {count > 1 && (
+        <>
+          <button type="button" onClick={() => go(at - 1)} disabled={at <= 0} aria-label={tr('Previous')} className={cx(arrow, '-left-5')}>
+            <Icon name="chevronLeft" className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={() => go(at + 1)} disabled={at >= count - 1} aria-label={tr('Next')} className={cx(arrow, '-right-5')}>
+            <Icon name="chevronRight" className="h-5 w-5" />
+          </button>
+          <div className="mt-2 flex justify-center gap-1.5">
+            {Array.from({ length: count }, (_, i) => (
+              <button key={i} type="button" onClick={() => go(i)} aria-label={tr('Certificate {n}', { n: i + 1 })}
+                className={cx('h-1.5 rounded-full transition-all duration-300', i === at ? 'w-5 bg-brand' : 'w-1.5 bg-gray-200')} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -131,9 +192,9 @@ const HOW_TO_EARN = {
   milestone: 'Reach the milestone',
 }
 
-function LockedRow({ design: raw, lang, index = 0 }) {
+function LockedRow({ design: raw, lang, index = 0, who }) {
   const tr = useT()
-  const { profile } = useAuth()
+  const profile = who
   const { design } = useCertificateDesign(raw, lang)
   // THEIR NAME, NOT THE SAMPLE'S (13 Oct 2026). Ethan: "whenever it shows the Still to Earn certificate, it shows
   // Roxana Travels ... they should see their name there." The locked tile is the certificate they are working towards,
@@ -210,7 +271,7 @@ function AdminPreview({ designs, className }) {
           {tr('Only admins see this preview. Each one uses your name and a sample challenge; open one to check the certificate, the Instagram story and both downloads. Drafts are not given to anybody.')}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+      <CertRail count={designs.length}>
         {designs.map((d, i) => (
           <div key={d.id} className="relative">
             <CertificateRow row={rowFor(d)} lang="en" readOnly onOpen={() => setOpen(rowFor(d))} index={i} />
@@ -219,7 +280,7 @@ function AdminPreview({ designs, className }) {
             </span>
           </div>
         ))}
-      </div>
+      </CertRail>
       <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
     </section>
   )
@@ -396,7 +457,17 @@ function CertificateViewer({ row, onClose, tr }) {
           </button>
         </div>
 
-        <ShareRow row={row} design={design} tr={tr} onStory={() => { setView('story'); snap('story') }} busy={busy} />
+        <ShareRow
+          row={row} tr={tr} busy={busy}
+          onStory={() => { setView('story'); snap('story') }}
+          // TikTok takes the same upright picture as a photo post: the share sheet on a phone (pick TikTok), and on a
+          // computer the picture is saved and TikTok's upload page opens beside it.
+          onTikTok={() => {
+            const sheet = typeof navigator !== 'undefined' && !!navigator.canShare && /Android|iPhone|iPad/i.test(navigator.userAgent)
+            if (!sheet) window.open('https://www.tiktok.com/upload', '_blank', 'noopener')
+            setView('story'); snap('story')
+          }}
+        />
 
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-[11px] tracking-wider text-gray-400">{row.serial}</span>
@@ -425,16 +496,11 @@ function CertificateViewer({ row, onClose, tr }) {
 // etc." Instagram takes the story picture (the share sheet on a phone, a download elsewhere); LinkedIn gets the
 // certificate on the creator's profile under Licenses & certifications, with the check link as its credential URL, or a
 // post linking to the check page; and the check link itself can be copied anywhere.
-function ShareRow({ row, design, tr, onStory, busy }) {
+function ShareRow({ row, tr, onStory, onTikTok, busy }) {
   const [copied, setCopied] = useState(false)
   if (!row) return null
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://trypcreators.vercel.app'
   const verify = `${origin}/verify/${encodeURIComponent(row.serial)}`
-  const when = new Date(row.facts?.date || row.awarded_at || 0)
-  const addToProfile = `https://www.linkedin.com/profile/add?${new URLSearchParams({
-    startTask: 'CERTIFICATION_NAME', name: design?.title || 'Tryp.com certificate', organizationName: 'Tryp.com',
-    issueYear: String(when.getFullYear()), issueMonth: String(when.getMonth() + 1), certUrl: verify, certId: row.serial,
-  })}`
   const post = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(verify)}`
   async function copy() {
     try { await navigator.clipboard.writeText(verify); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { /* ignore */ }
@@ -448,10 +514,10 @@ function ShareRow({ row, design, tr, onStory, busy }) {
           <SocialMark brand="instagram" colored className="h-6 w-6 shrink-0" />
           <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Post it on your story')}</span><span className="block truncate text-[11px] text-smoke">{tr('Saves the story picture, ready to post')}</span></span>
         </button>
-        <a href={addToProfile} target="_blank" rel="noreferrer" className={tile}>
-          <SocialMark brand="linkedin" colored className="h-6 w-6 shrink-0" />
-          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Add it to LinkedIn')}</span><span className="block truncate text-[11px] text-smoke">{tr('Under Licenses and certifications')}</span></span>
-        </a>
+        <button type="button" onClick={onTikTok} disabled={!!busy} className={tile}>
+          <SocialMark brand="tiktok" colored className="h-6 w-6 shrink-0" />
+          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Share it on TikTok')}</span><span className="block truncate text-[11px] text-smoke">{tr('Saves the picture for a photo post')}</span></span>
+        </button>
         <a href={post} target="_blank" rel="noreferrer" className={tile}>
           <SocialMark brand="linkedin" colored className="h-6 w-6 shrink-0" />
           <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Post about it on LinkedIn')}</span><span className="block truncate text-[11px] text-smoke">{tr('Attach the saved picture to your post')}</span></span>

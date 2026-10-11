@@ -1066,7 +1066,7 @@ function ViewCountField({ submission: s, saving, onSave }) {
   const [justSaved, setJustSaved] = useState(false)
   const editing = draft !== null
   const shown = editing ? draft : (s.logged_views == null ? '' : Number(s.logged_views).toLocaleString('en-GB'))
-  const manual = s.views_source === 'manual'
+  const manual = s.views_source === 'manual' && s.logged_views != null
 
   async function commit() {
     if (draft === null) return
