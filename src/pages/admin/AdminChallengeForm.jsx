@@ -12,6 +12,7 @@ import SocialMark from '../../components/SocialMark'
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import BoostsEditor from '../../components/admin/BoostsEditor'
+import { JoinBonusEditor, VoucherDaysEditor } from '../../components/admin/ChallengeExtrasEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
 import PrizeBreakdownFields, { PrizeSummary, combineBudgets, prizeBudget, prizeKind, prizeTotals, cleanPrizes, participationExtras, cleanExtraAwards, rowType } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
@@ -1065,6 +1066,9 @@ export default function AdminChallengeForm() {
             </div>
           )}
           {form.scoring === 'points' && editing && <BoostsEditor challengeId={id} />}
+          {form.scoring === 'points' && editing && <JoinBonusEditor challengeId={id} />}
+          {editing && <VoucherDaysEditor challengeId={id} currency={form.prize_currency || 'EUR'} />}
+          {!editing && <p className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-smoke">A joining bonus and voucher days can be added once the challenge is saved.</p>}
           {form.scoring === 'points' && !editing && <p className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-smoke">Point boosts (double points for a few hours) can be added once the challenge is saved.</p>}
 
           {/* NOTHING HERE FOR THE VIEW-RANKED MODES.

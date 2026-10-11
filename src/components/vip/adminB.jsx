@@ -361,7 +361,9 @@ export function VipBonusesTab({ programme, isOwner = false, initialPart = 'month
         label={tr('Kind of reward')}
         value={part}
         onChange={setPart}
-        options={[{ value: 'monthly', label: tr('Monthly bonuses') }, { value: 'perks', label: tr('Milestones, perks and trips') }]}
+        // Two equal halves that fit a phone (12 Oct 2026): the long label ran off a 375px screen.
+        className="!grid w-full grid-cols-2 sm:!inline-flex sm:w-auto [&>button>span]:justify-center [&>button>span]:whitespace-normal [&>button>span]:text-center"
+        options={[{ value: 'monthly', label: tr('Monthly bonuses') }, { value: 'perks', label: tr('Perks and trips') }]}
       />
       {part === 'perks'
         ? <VipContentTab programme={programme} isOwner={isOwner} part="perks" />

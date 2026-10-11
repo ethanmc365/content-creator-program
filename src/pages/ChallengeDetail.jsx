@@ -12,6 +12,7 @@ import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
+import ChallengeKickers from '../components/challenge/ChallengeKickers'
 import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
 import { dailyStreaksByCreator } from '../lib/dailyStreak'
 import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
@@ -1465,9 +1466,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // way down at the bottom, whereas it should be at the top." Not on a
         // finished challenge.
         const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
+        // THE JOINING BONUS AND THE VOUCHER DAYS (12 Oct 2026, migration 383) lead the page: they exist to get somebody posting.
+        const kickersCard = <ChallengeKickers challenge={challenge} myEntries={myEntries.length} meId={user.id} live={isLive} />
         if (isMobile) {
           return (
             <div className="space-y-6">
+              {kickersCard}
               {hookCard}
               {prizesCard}
               {briefCard}
@@ -1487,6 +1491,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               {scoringCard}
             </div>
             <div className="space-y-6">
+              {kickersCard}
               {hookCard}
               {prizesCard}
               {bonusCard}

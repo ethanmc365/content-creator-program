@@ -28,7 +28,7 @@ export const SEEN_KEY = 'tryp_updates_seen_v1'
 const KINDS = {
   new: { label: 'New', cls: 'bg-brand text-white' },
   improved: { label: 'Improved', cls: 'bg-ink text-white' },
-  fixed: { label: 'Fixed', cls: 'bg-cloud text-ink' },
+  fixed: { label: 'Fixed', cls: 'border border-gray-200 text-ink' },
 }
 // A short list of glyphs the editor offers; every one exists in Icon.jsx.
 const ICONS = ['sparkles', 'star', 'trophy', 'globe', 'language', 'chat', 'bell', 'chart', 'plane', 'video', 'money', 'ticket', 'calendar', 'pin', 'bulb', 'shield', 'users', 'fire', 'image', 'briefcase']
@@ -49,6 +49,8 @@ export default function Updates() {
   const [error, setError] = useState('')
   const [edit, setEdit] = useState(null) // {} for a new one, a row to edit
   const [open, setOpen] = useState(() => new Set())
+  // WHICH KIND (12 Oct 2026): "make it even more easy to see and understand" - one row of chips narrows the timeline.
+  const [kindFilter, setKindFilter] = useState('all')
   const [seenThen] = useState(() => { try { return localStorage.getItem(SEEN_KEY) || '' } catch { return '' } })
 
   const load = useCallback(async () => {
@@ -71,12 +73,13 @@ export default function Updates() {
   const groups = useMemo(() => {
     const out = []
     for (const r of rows || []) {
+      if (kindFilter !== 'all' && (r.kind || 'new') !== kindFilter) continue
       const key = r.published_on.slice(0, 7)
       const last = out[out.length - 1]
       if (last?.key === key) last.items.push(r); else out.push({ key, label: monthLabel(r.published_on, locale), items: [r] })
     }
     return out
-  }, [rows, locale])
+  }, [rows, locale, kindFilter])
 
   const toggle = (id) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
@@ -109,12 +112,25 @@ export default function Updates() {
         <EmptyState icon={<Icon name="sparkles" className="h-7 w-7" />} title={error ? tr('Could not load the updates') : tr('Nothing here yet')} hint={error || tr('New features and improvements will be written up here.')} />
       ) : (
         <div className="space-y-9">
+          <div className="-mx-4 -mb-4 flex gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0" role="group" aria-label={tr('Show')}>
+            {[['all', tr('All')], ['new', tr('New')], ['improved', tr('Improved')], ['fixed', tr('Fixed')]].map(([k, label]) => {
+              const n = k === 'all' ? rows.filter((r) => isAdmin || r.published).length : rows.filter((r) => (r.kind || 'new') === k && (isAdmin || r.published)).length
+              if (k !== 'all' && n === 0) return null
+              return (
+                <button key={k} type="button" aria-pressed={kindFilter === k} onClick={() => setKindFilter(k)}
+                  className={cx('flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors',
+                    kindFilter === k ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-smoke hover:text-ink')}>
+                  {label}<span className={cx('tabular-nums', kindFilter === k ? 'text-white/80' : 'text-gray-400')}>{n}</span>
+                </button>
+              )
+            })}
+          </div>
           {groups.map((g, gi) => (
             <section key={g.key} aria-label={g.label}>
-              <h2 className="sticky top-14 z-10 -mx-1 mb-4 flex items-center gap-3 bg-white/90 px-1 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 backdrop-blur-sm sm:top-16">
+              <h2 className="sticky top-14 z-10 -mx-1 mb-4 flex items-center gap-3 bg-white/95 px-1 py-2 text-[13px] font-bold uppercase tracking-[0.12em] text-smoke sm:top-16">
                 <span>{g.label}</span>
                 <span aria-hidden className="h-px flex-1 bg-gray-100" />
-                <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] tracking-wide text-smoke">{tr('{n} updates', { n: g.items.length })}</span>
+                <span className="text-[12px] font-semibold normal-case tracking-normal text-gray-400">{tr('{n} updates', { n: g.items.length })}</span>
               </h2>
               <ol className="relative space-y-3.5 pl-7 sm:pl-9">
                 <span aria-hidden className="absolute bottom-3 left-[11px] top-3 w-px bg-gradient-to-b from-brand/50 via-gray-200 to-transparent sm:left-[15px]" />
@@ -125,6 +141,7 @@ export default function Updates() {
                     delay={Math.min(gi * 4 + i, 10) * 55}
                     open={open.has(r.id)}
                     fresh={r.published && `${r.published_on}|${r.id}` > seenThen && !!seenThen}
+                    latest={r.id === firstId}
                     onToggle={() => toggle(r.id)}
                     admin={isAdmin}
                     onEdit={() => setEdit(r)}
@@ -144,7 +161,7 @@ export default function Updates() {
   )
 }
 
-function UpdateCard({ r, open, onToggle, delay, fresh, admin, onEdit, onDelete, onPublish, locale }) {
+function UpdateCard({ r, open, onToggle, delay, fresh, latest = false, admin, onEdit, onDelete, onPublish, locale }) {
   const tr = useT()
   // Written in English; a reader on another language gets a Translate button inside the write-up.
   const tTitle = useTranslateOnDemand(r.title)
@@ -172,9 +189,10 @@ function UpdateCard({ r, open, onToggle, delay, fresh, admin, onEdit, onDelete, 
         <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={bodyId} className="flex w-full items-start gap-3 px-4 py-3.5 text-left sm:px-5 sm:py-4">
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', kind.cls)}>{tr(kind.label)}</span>
-              <time dateTime={r.published_on} className="text-[11px] font-semibold text-smoke">{dayLabel(r.published_on, locale)}</time>
-              {fresh && <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-brand"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" /></span>{tr('New for you')}</span>}
+              {latest && <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">{tr('Latest')}</span>}
+              <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide', kind.cls)}>{tr(kind.label)}</span>
+              <time dateTime={r.published_on} className="text-[12px] font-semibold text-smoke">{dayLabel(r.published_on, locale)}</time>
+              {fresh && <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-brand"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" /></span>{tr('New for you')}</span>}
               {!r.published && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('Hidden')}</span>}
             </span>
             <span className="mt-1.5 block text-[16px] font-bold leading-snug text-ink sm:text-[17px]">{tTitle.shown}</span>

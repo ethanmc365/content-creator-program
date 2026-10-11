@@ -503,7 +503,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   )
 
   return (
-    <div>
+    <div className={fill ? 'h-full' : undefined}>
       {/* ---- Type-to-add search (the reliable path on phones) ---- */}
       {selectable && (
         <div className="mb-3">

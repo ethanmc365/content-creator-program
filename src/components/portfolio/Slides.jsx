@@ -339,7 +339,7 @@ export function About({ creator, copy, videos, extraPlatforms, tools, n, total }
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                 {tools.map((tool) => (
                   <span key={tool} style={{
-                    borderRadius: 999, background: t.tint, padding: '7px 14px',
+                    borderRadius: 999, background: '#ffffff', border: `1px solid ${HAIR}`, padding: '6px 13px',
                     fontSize: 12.5, fontWeight: 600, color: INK,
                   }}>
                     {tool}
@@ -571,8 +571,8 @@ export function Awards({ creator, copy, certificates, n, total }) {
               boxShadow: '0 4px 14px rgba(26,26,26,0.04)',
             }}>
               <span style={{
-                flexShrink: 0, width: 48, height: 48, borderRadius: 14, color: '#ffffff',
-                background: `linear-gradient(135deg, ${accent} 0%, ${shift(accent, 0.3)} 100%)`,
+                flexShrink: 0, width: 32, height: 48, borderRadius: 14, color: accent,
+                background: 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <Icon name="trophy" className="h-6 w-6" />
@@ -687,7 +687,7 @@ function ContactCard({ row, t, wide = false }) {
     <>
       {row.brand === 'email' ? (
         <span style={{
-          flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: t.grad, color: '#ffffff',
+          flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: 'transparent', color: t.ink,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon name="envelope" className="h-5 w-5" />
@@ -705,7 +705,8 @@ function ContactCard({ row, t, wide = false }) {
         </span>
       </span>
       <span style={{
-        flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: t.tint, color: t.ink,
+        // BARE GLYPHS (12 Oct 2026): no tinted disc or orange tile behind an icon, the platform's icon rule.
+        flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: 'transparent', color: SMOKE,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Icon name={row.brand === 'email' ? 'envelope' : 'link'} className="h-3.5 w-3.5" />
