@@ -133,12 +133,17 @@ const HOW_TO_EARN = {
 
 function LockedRow({ design: raw, lang, index = 0 }) {
   const tr = useT()
+  const { profile } = useAuth()
   const { design } = useCertificateDesign(raw, lang)
+  // THEIR NAME, NOT THE SAMPLE'S (13 Oct 2026). Ethan: "whenever it shows the Still to Earn certificate, it shows
+  // Roxana Travels ... they should see their name there." The locked tile is the certificate they are working towards,
+  // so it wears their name and photo; only the challenge and date are examples.
+  const facts = { ...sampleFacts(design), serial: '', name: profile?.name || sampleFacts(design).name, photo: profile?.photo_url || '' }
   return (
     <div className="animate-rise overflow-hidden rounded-card border border-dashed border-gray-200 bg-white/70" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
       <div className="relative p-3 sm:p-4">
         <FitCard className="opacity-40 grayscale">
-          <CertificateCard design={design} lang={lang} facts={sampleFacts(design)} />
+          <CertificateCard design={design} lang={lang} facts={facts} />
         </FitCard>
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-brand shadow-lift"><Icon name="lock" className="h-6 w-6" /></span>
