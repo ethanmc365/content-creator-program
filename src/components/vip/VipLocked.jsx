@@ -13,8 +13,9 @@ import { cx } from '../../lib/utils'
 // So it never promises a threshold. It says what VIPs get, and what the team looks at when it invites somebody, and
 // points at the two things that move it: challenges and ideas. The lock is drawn, not an icon, and it opens the way a
 // real padlock does (Ethan, 11 Oct: the whole arc used to lift off, "this is not how it actually works"): the LONG leg
-// never leaves the body, the short leg springs out, the shackle turns a little on the long leg, then swings back and
-// clicks shut. A light sweeps the body and stars drift round it.
+// never leaves the body, the short leg springs out, it stays open for a few seconds, then drops back and clicks shut
+// (12 Oct 2026: no turn, and no grey socket where the short leg comes out - "that shouldn't be there on the actual
+// padlock"). A light sweeps the body and stars drift round it.
 
 export function AnimatedLock({ size = 120, className }) {
   return (
@@ -37,7 +38,6 @@ export function AnimatedLock({ size = 120, className }) {
         </g>
         <g className="vip-lock-body">
           <rect x="28" y="52" width="64" height="50" rx="14" fill="url(#vipLockBody)" />
-          <rect x="70" y="52" width="12" height="5" rx="2.5" fill="rgba(0,0,0,0.18)" />
         </g>
         <g clipPath="url(#vipLockClip)"><rect className="vip-lock-sweep" x="-40" y="40" width="26" height="80" fill="rgba(255,255,255,0.45)" transform="skewX(-18)" /></g>
         <path className="vip-lock-star-mark" d="M60 68 l3.1 6.3 6.9 1 -5 4.9 1.2 6.9 -6.2 -3.3 -6.2 3.3 1.2 -6.9 -5 -4.9 6.9 -1z" fill="#fff" />
