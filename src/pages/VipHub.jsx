@@ -26,6 +26,7 @@ const VipTools = lazyRoute(loadVipTools)
 const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
 import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs, useKindT } from '../lib/vip'
 import { cx } from '../lib/utils'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
@@ -76,6 +77,7 @@ export default function VipHub() {
   const { user, profile, isAdmin } = useAuth()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { overview: own, reload: reloadOwn } = useVipOverview()
   const access = useVipAccess(profile?.id, false)
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
@@ -241,8 +243,9 @@ export default function VipHub() {
         inlineAction
         // THE FLAG, IN WHITE (1 Oct 2026). Ethan: "Maybe show the flag instead in a different colour. Don't make that
         // orange colour."
+        // ON A PHONE THE MARKETS MOVE INTO THE CONTROL CARD (12 Oct 2026), as a row that scrolls - see below.
         action={staffMode && spaceProgrammes.length > 1
-          ? <ProgrammeSwitch programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />
+          ? (isMobile ? null : <ProgrammeSwitch programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />)
           : <ProgrammePill name={programme.name} codes={codes} official={official} />}
       />
 
@@ -251,10 +254,23 @@ export default function VipHub() {
       {staffMode && (mode === 'as'
         ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
         : (
+          // THE PHONE'S CONTROL CARD (12 Oct 2026). Ethan: "The VIP section on mobile needs a big revamp... a lot of these
+          // things are really cramped." Three plain rows, each the full width: which community, which market (a row
+          // that scrolls), then page or tools as two equal halves. The desktop keeps its one-line card.
+          isMobile ? (
+            <div className="relative z-20 mb-4 space-y-2 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
+              <SpaceSwitch bare programmes={programmes} value={space} onChange={pickSpace} />
+              {staffMode && spaceProgrammes.length > 1 && (
+                <ProgrammeSwitch row programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />
+              )}
+              <StaffBar mode={mode} onMode={pickView} official={official} full />
+            </div>
+          ) : (
           <div className="relative z-20 mb-4 flex flex-col gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise lg:flex-row lg:items-center">
             <SpaceSwitch bare programmes={programmes} value={space} onChange={pickSpace} />
             <StaffBar mode={mode} onMode={pickView} official={official} />
           </div>
+          )
         ))}
 
       {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT (7 Oct 2026). Ethan: "whenever I click from the VIP page to VIP
@@ -295,7 +311,7 @@ export default function VipHub() {
               <p className="mt-1 text-sm font-semibold text-white">{tr('On pace for about {a} by the end of the month.', { a: money(stats.projected_base, cur, { cents: false }) })}</p>
             )}
           </div>
-          <dl className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <dl className="grid w-full grid-cols-3 gap-2.5 sm:w-auto sm:gap-3">
             <HeroStat label={tr('Days left')} value={String(left)} />
             <HeroStat label={tr('Videos')} value={String(stats.videos)} />
             {isStaff
@@ -458,11 +474,12 @@ function VipToolsFallback() {
 }
 
 // PAGE OR TOOLS: one sliding gradient, nothing else to choose. Sits inside the team's control card.
-function StaffBar({ mode, onMode, official = false }) {
+function StaffBar({ mode, onMode, official = false, full = false }) {
   const tr = useKindT()
   return (
-    <div className="flex shrink-0 justify-center px-1 pb-1 lg:px-1.5 lg:pb-0">
+    <div className={cx('flex shrink-0 justify-center', full ? '' : 'px-1 pb-1 lg:px-1.5 lg:pb-0')}>
       <Segmented
+        className={full ? '!grid w-full grid-cols-2 [&>button>span]:justify-center [&>button]:!py-2 [&>button]:!text-[13px]' : undefined}
         size="sm"
         id="vip-staff-mode"
         label={tr('How to see this page')}

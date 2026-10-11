@@ -73,8 +73,11 @@ export default function FlagTile({
       className={cx(
         'inline-flex shrink-0 items-center justify-center gap-[3px] rounded-xl leading-none',
         size,
-        many && 'w-auto px-1.5',
-        kind === 'network' ? 'bg-brand-tint text-brand' : 'bg-cloud',
+        many && 'w-auto',
+        // NO BOX BEHIND A FLAG (12 Oct 2026). Ethan: "we have that weird
+        // orange background around the globe icon... around the flags, we
+        // seem to have a grey box which isn't necessary." The flag or the
+        // globe is the mark on its own, like every other icon (icon rule).
         className,
       )}
       title={title || list.join(', ')}
@@ -84,7 +87,7 @@ export default function FlagTile({
         ? <span className={glyphClass}>🌍</span>
         : shown.map((f, i) => <span key={`${f}-${i}`} className={glyphClass}>{f}</span>)}
       {rest > 0 && (
-        <span className="rounded-full bg-black/10 px-1 py-px text-[9px] font-bold leading-none text-smoke">
+        <span className="rounded-full border border-gray-200 bg-white px-1 py-px text-[10px] font-bold leading-none text-smoke">
           +{rest}
         </span>
       )}

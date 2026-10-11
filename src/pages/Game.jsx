@@ -408,12 +408,13 @@ function DailyCard({ daily, done, onPlay, streak }) {
       onClick={onPlay}
       className="group relative flex h-full flex-col overflow-hidden rounded-card border border-brand/25 bg-white p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/50 hover:shadow-lift"
     >
-      {/* A wash that leans in on hover. Colour is what stops these two reading
-          as the same white card as everything below them. */}
-      <span className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-brand-tint/70 blur-2xl transition-opacity duration-300 group-hover:opacity-80" />
+      {/* BARE GLYPH, NO WASH (12 Oct 2026). Ethan: "when you're not clicking
+          on it, it shows the weird orange background with the icon." The
+          solid orange tile and the orange blur behind it are gone; the icon
+          is a bare brand glyph like everywhere else (icon rule). */}
       <span className="relative flex flex-1 items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
-          <Icon name={daily.icon} className="h-6 w-6" />
+        <span className="flex h-12 w-8 shrink-0 items-start justify-center pt-0.5 text-brand transition-transform duration-200 group-hover:scale-110">
+          <Icon name={daily.icon} className="h-7 w-7" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="block font-semibold leading-snug">{tr(daily.title)}</span>
@@ -730,7 +731,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
                     answered && !isAnswer && !isPicked && 'border-gray-100 opacity-50'
                   )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-sm font-extrabold text-brand" aria-hidden>{c.symbol}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-extrabold text-brand" aria-hidden>{c.symbol}</span>
                   <span className="min-w-0 truncate">{c.currency}</span>
                 </button>
               )

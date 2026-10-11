@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { sendConnectionRequest } from '../lib/connections'
 import { Modal } from './ui'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import { confirm } from '../lib/confirm'
 import { useT } from '../lib/i18n'
 
@@ -20,6 +21,7 @@ export default function ConnectButton({
   targetName = '',
 }) {
   const tr = useT()
+  const isMobile = useIsMobile()
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [note, setNote] = useState('')
@@ -190,7 +192,13 @@ export default function ConnectButton({
                 ? `I loved your video from Lisbon, ${first}. I am heading there in March.`
                 : 'I loved your last video. I am heading there in March.'}
               className="input w-full resize-none"
-              autoFocus
+              // NOT ON A PHONE (12 Oct 2026). Ethan: "whenever you press
+              // Connect, temporarily everything moves down... and then it comes
+              // up above the keyboard." Focusing on open raised the keyboard
+              // mid-entrance, so the sheet slid up, dropped, then jumped above
+              // the keyboard. On a phone it now arrives and stays put; the
+              // keyboard comes when the note is tapped. A desktop still focuses.
+              autoFocus={!isMobile}
             />
             <p className="mt-1 text-right text-[11px] text-smoke tabular-nums">{note.length}/300</p>
           </div>

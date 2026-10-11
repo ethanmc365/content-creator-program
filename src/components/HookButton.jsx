@@ -141,11 +141,11 @@ export default function HookButton({ className, variant = 'card' }) {
       <button
         type="button"
         onClick={start}
-        className="hook-cta relative flex h-full min-h-[4.5rem] w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-brand to-brand-light px-6 py-5 text-base font-bold text-white shadow-card transition-transform duration-200 hoverable:hover:scale-[1.02] active:scale-[0.98]"
+        className="hook-cta relative flex h-full min-h-[4rem] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-brand to-brand-light px-3 py-4 text-[15px] font-bold sm:min-h-[4.5rem] sm:gap-2.5 sm:px-6 sm:py-5 sm:text-base text-white shadow-card transition-transform duration-200 hoverable:hover:scale-[1.02] active:scale-[0.98]"
       >
         <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
-        <span className="hook-sparkles relative h-6 w-6" aria-hidden><Icon name="sparkles" className="h-6 w-6" /></span>
-        {tr('Hook me up')}
+        <span className="hook-sparkles relative h-5 w-5 shrink-0 sm:h-6 sm:w-6" aria-hidden><Icon name="sparkles" className="h-5 w-5 sm:h-6 sm:w-6" /></span>
+        <span className="whitespace-nowrap">{tr('Hook me up')}</span>
       </button>
     </div>
   )

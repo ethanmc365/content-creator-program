@@ -240,7 +240,15 @@ function SurveysForYou() {
       supabase.from('surveys').select('*').eq('status', 'live'),
       supabase.from('survey_responses').select('survey_id').eq('profile_id', user.id),
     ])
-    setList(pendingSurveys(live, mine))
+    // ONLY THE ONES THAT ARE REALLY FOR YOU (12 Oct 2026). Ethan saw "The
+    // Global Challenge: how did it go?" a week before the challenge ended. A
+    // creator's read is already fenced by `survey_is_for` (RLS), but an
+    // admin's policy returns every live survey - so the same question is
+    // asked here, and a challenge survey waits for its challenge to end.
+    const pending = pendingSurveys(live, mine)
+    const ok = await Promise.all(pending.map((s) =>
+      supabase.rpc('survey_is_for', { p_survey: s.id, p_profile: user.id }).then(({ data }) => data === true)))
+    setList(pending.filter((_, i) => ok[i]))
   }
   useEffect(() => { if (user?.id) load() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!list.length) return null
@@ -249,8 +257,8 @@ function SurveysForYou() {
       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Surveys for you')}</h2>
       <div className="space-y-2.5">
         {list.map((s) => (
-          <button key={s.id} type="button" onClick={() => setOpen(s)} className="group flex w-full items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/30 p-4 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-card">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card"><Icon name="chartPie" className="h-5 w-5" /></span>
+          <button key={s.id} type="button" onClick={() => setOpen(s)} className="group flex w-full items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
+            <Icon name="chartPie" className="h-6 w-6 shrink-0 text-brand" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-ink"><TLine text={s.title} /></span>
               <span className="block text-xs text-smoke">{(s.questions || []).length} {(s.questions || []).length === 1 ? tr('question') : tr('questions')}</span>

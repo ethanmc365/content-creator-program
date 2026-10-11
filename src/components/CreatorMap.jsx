@@ -1981,7 +1981,35 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // phone the row sits under an already-tall map and pushes the rest of the hub
   // down, and the journeys view is a thing you go full screen to read anyway.
   // So the caller says which variant it wants rather than the button guessing.
-  const renderFilterButtons = ({ omitTravel = false } = {}) => !controls ? null : (
+  // `compact` (12 Oct 2026) is the phone row: Ethan, "this takes up a lot of
+  // space... put them all in one line... just say Connections, Near Me, and
+  // Travelled". Three equal cells, icon over a one-word label, no counts.
+  const cell = (on) => cx(
+    'flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[13px] font-semibold transition-transform active:scale-95 disabled:opacity-50',
+    on ? 'bg-brand text-white shadow-card' : 'bg-white text-ink ring-1 ring-gray-200',
+  )
+  const renderFilterButtons = ({ omitTravel = false, compact = false } = {}) => !controls ? null : compact ? (
+    <>
+      {onToggleConnections && (
+        <button type="button" onClick={onToggleConnections} aria-pressed={connectionsView} className={cell(connectionsView)}>
+          <Icon name="users" className="h-4 w-4 shrink-0" />
+          <span className="truncate">{tr('Connections')}</span>
+        </button>
+      )}
+      {onToggleExplored && (
+        <button type="button" onClick={onToggleExplored} aria-pressed={exploredView} className={cell(exploredView)}>
+          <Icon name="globe" className="h-4 w-4 shrink-0" />
+          <span className="truncate">{tr('Travelled')}</span>
+        </button>
+      )}
+      {onToggleNearMe && (
+        <button type="button" onClick={onToggleNearMe} disabled={nearMeDisabled} aria-pressed={nearMe} className={cell(nearMe)}>
+          <Icon name="pin" className="h-4 w-4 shrink-0" />
+          <span className="truncate">{tr('Near me')}</span>
+        </button>
+      )}
+    </>
+  ) : (
     <>
       {onToggleConnections && (
         <button
@@ -2275,7 +2303,12 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       //
       // Full screen keeps `none`: there the map IS the page, there is nothing
       // behind it to scroll, and one-finger panning is what you want.
-      style={{ touchAction: fullscreen ? 'none' : 'pan-y' }}
+      // ONE FINGER MOVES THE MAP, TWO ZOOM (12 Oct 2026). Ethan: "whenever I
+      // scroll with one finger on the map, it doesn't move at all. I have to
+      // use two... Two should always be for zooming in or out, and one should
+      // be for moving around." So the map owns every touch on a phone now; the
+      // page still scrolls from anywhere around it.
+      style={{ touchAction: 'none' }}
       className={cx(
         'relative w-full overflow-hidden',
         fullscreen && 'flex h-full flex-1 items-center justify-center',
@@ -2550,7 +2583,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           // it is where `userMoved` is set - see the fit effect.
           filterZoomEvent={(event) => {
             const allowed = fullscreen
-              || (event?.type === 'touchstart' && (event.touches?.length ?? 0) >= 2)
+              || event?.type === 'touchstart'
               || (navigable && (event?.type === 'mousedown' || event?.type === 'dblclick'))
               || (navigable && event?.type === 'wheel' && wheelIsOurs(event))
             if (allowed) userMoved.current = true
@@ -3000,8 +3033,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       {legendStrip}
       {/* Mobile: the same filters in a wrapping row below the map. */}
       {!travelOnlyView && (
-        <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
-          {renderFilterButtons({ omitTravel: true })}
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:hidden">
+          {renderFilterButtons({ omitTravel: true, compact: true })}
         </div>
       )}
     </div>
@@ -3011,6 +3044,26 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 const CreatorMapMemo = memo(CreatorMap)
 
 // Behind the slow-signal gate (components/SlowMapGate, 2 Oct 2026).
+// THE PIN PHOTOS START DOWNLOADING WITH THE LIST, NOT WITH THE PINS (12 Oct
+// 2026). Ethan: "whenever the map originally loads in, it loads in with no
+// profile pictures first." The pins wait for the atlas, and only then did their
+// <image> elements ask for the photos - so every pin showed initials for a
+// beat. Warming the same 64px thumbnails into the browser cache the moment the
+// creators arrive means most are already there when the pins draw.
+const warmed = new Set()
+function warmPinPhotos(list) {
+  if (typeof Image === 'undefined') return
+  for (const c of list || []) {
+    const url = c?.photo_url && thumbUrl(c.photo_url, 64)
+    if (!url || warmed.has(url)) continue
+    warmed.add(url)
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+  }
+}
+
 export default function CreatorMapGated(props) {
+  useEffect(() => { warmPinPhotos(props.creators) }, [props.creators])
   return <SlowMapGate className={props.slowGateClassName}><CreatorMapMemo {...props} /></SlowMapGate>
 }

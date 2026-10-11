@@ -156,8 +156,34 @@ export function VipBalanceMini({ onOpen }) {
  * look after, so the pill becomes a pair (or more): the flag beside each name, the picked one solid brand with
  * white on it (the house rule for a picked option), sliding between them.
  */
-export function ProgrammeSwitch({ programmes, value, onChange }) {
+// `row` (12 Oct 2026): the phone version, a full-width row of market chips that scrolls sideways inside the team's
+// control card. Ethan: "VIP Room and VIP SP... seems to be unscrollable on mobile" - the pill sat in the header's top
+// right and simply ran off the screen once there were more than two markets.
+export function ProgrammeSwitch({ programmes, value, onChange, row = false }) {
   const tr = useKindT()
+  if (row) {
+    return (
+      <div role="tablist" aria-label={tr('VIP market')} className="-mx-2 flex gap-1.5 overflow-x-auto scroll-px-2 px-2 pb-0.5">
+        {programmes.map((p) => {
+          const on = p.id === value
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => !on && onChange(p.id)}
+              className={cx('flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors duration-200',
+                on ? 'bg-ink text-white' : 'border border-gray-200 bg-white text-ink')}
+            >
+              <FlagStack codes={p.country_codes} className="text-[15px]" />
+              {p.name}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
   return (
     <div role="tablist" aria-label={tr('VIP market')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-card">
       {programmes.map((p) => {

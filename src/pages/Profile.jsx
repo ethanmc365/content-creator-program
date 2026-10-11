@@ -29,7 +29,7 @@ import RecapTeaser, { recapTeaserWindow } from '../components/wrapped/RecapTease
 import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
-import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
+import { formatDate, formatViews, postedOn, ageFromDob, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import TranslateText from '../components/TranslateText'
 import { readPageCache, writePageCache } from '../lib/pageCache'
@@ -452,7 +452,7 @@ export default function Profile() {
                lowest, want the best videos showing first." Ties fall back to
                newest, so a wall of un-synced zeroes still reads in a sane
                order. */
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
               {[...submissions]
                 .sort((a, b) => (Number(b.logged_views) || 0) - (Number(a.logged_views) || 0)
                   || new Date(b.submitted_at) - new Date(a.submitted_at))
@@ -885,13 +885,18 @@ export default function Profile() {
               type="button"
               onClick={() => setPeek(true)}
               title={tr('Open the admin record')}
-              className="group text-left text-3xl font-bold tracking-tight transition-colors duration-200 hoverable:hover:text-brand sm:text-[34px]"
+              className="group w-full text-center text-3xl font-bold tracking-tight [text-wrap:balance] transition-colors duration-200 hoverable:hover:text-brand sm:w-auto sm:text-left sm:text-[34px]"
             >
               {creator.name}
               <Icon name="shield" className="ml-2 inline-block h-4 w-4 align-middle text-gray-300 transition-colors duration-200 group-hover:text-brand" />
             </button>
           ) : (
-            <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+            // CENTRED ON A PHONE, WHATEVER THE LENGTH (12 Oct 2026). Ethan,
+            // of Florina's profile: "Her name is not centred." A short name
+            // happened to sit centred in a centred column; a long one wrapped
+            // and its lines ran from the left. The heading centres its own
+            // text below `sm` and balances the wrap.
+            <h1 className="text-center text-3xl font-bold tracking-tight [text-wrap:balance] sm:text-left sm:text-[34px]">{creator.name}</h1>
           )}
           <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
             <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
@@ -1215,14 +1220,13 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
   const views = Number(s.logged_views) || 0
   const hasCaption = !!s.caption?.trim()
 
+  // TWO A ROW, SHAPED LIKE AN ENTRY (12 Oct 2026). Ethan: "show two videos
+  // side by side in a nice UI similar to how the entries are, rather than
+  // having just one video on each thing." A portrait cover with the views on
+  // it, the challenge and date under it, and the caption clamped to two lines
+  // that opens in place. The cover is the link to the video.
   return (
-    <div className="card group flex flex-col overflow-hidden !p-0">
-      {/* The picture is the link to the video. THE PLATFORM BADGE THAT USED TO
-          FLOAT IN THE TOP-RIGHT IS GONE: VideoThumb already draws the platform
-          across the thumbnail, so the card said "Instagram" twice, once as a
-          word and once as a mark six millimetres away. Ethan: "on the actual
-          card it should already say Instagram, TikTok, Facebook etc, so you can
-          remove the additional icon." */}
+    <div className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <a
         href={s.video_url}
         target="_blank"
@@ -1230,74 +1234,39 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
         className="relative block"
         aria-label={`Watch this ${s.platform || ''} video`.trim()}
       >
-        <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} className="rounded-b-none" />
+        <VideoThumb url={s.video_url} platform={s.platform} thumbnailUrl={s.thumbnail_url} className="!aspect-[9/14] rounded-b-none" />
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+        <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-[12px] font-bold tabular-nums text-white backdrop-blur">
+          <Icon name="eye" className="h-3.5 w-3.5" />
+          {views > 0 ? `${s.views_approx ? '~' : ''}${formatViews(views)}` : tr('New')}
+        </span>
       </a>
 
-      <div className="flex min-w-0 flex-1 flex-col p-4">
-        {/* VIEWS LEAD THE CARD. They were a dark pill floating on the bottom
-            left of the thumbnail, sitting on whatever happened to be in the
-            picture there and competing with the platform name beside it. They
-            are the most interesting number on the card and the only one that
-            keeps updating by itself, so they get the first line, in brand
-            orange, with the challenge and the date as the quiet half.
-            `views_approx` is set when the platform only gives us a rounded
-            figure, and saying "1.2K" as though it were exact would be a small
-            lie repeated on every card. */}
-        <div className="flex items-baseline justify-between gap-3">
-          {views > 0 ? (
-            <span className="flex items-baseline gap-1.5 text-brand">
-              <span className="text-[17px] font-bold tabular-nums leading-none">
-                {s.views_approx ? '~' : ''}{views.toLocaleString('en-GB')}
-              </span>
-              <span className="text-[11px] font-semibold uppercase tracking-wide">views</span>
-            </span>
-          ) : (
-            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{tr("No views yet")}</span>
-          )}
-          <span className="shrink-0 text-[11px] text-smoke">{postedOn(s.submitted_at)}</span>
-        </div>
-
-        <p className="mt-1 truncate text-xs text-smoke">{s.challenges?.title}</p>
-
-        {hasCaption ? (
+      <div className="flex min-w-0 flex-1 flex-col p-3">
+        <p className="truncate text-[13px] font-semibold text-ink">{s.challenges?.title || tr('Challenge entry')}</p>
+        <p className="text-[12px] text-smoke">{postedOn(s.submitted_at)}</p>
+        {hasCaption && (
           <>
             <TranslateText
               text={s.caption}
               className="!mt-1"
               render={(shown) => (
-                <p className={cx('mt-2 whitespace-pre-line text-sm leading-5 text-ink', !expanded && 'line-clamp-2 h-10')}>
+                <p className={cx('mt-1.5 whitespace-pre-line text-[13px] leading-[18px] text-ink', !expanded && 'line-clamp-2')}>
                   {shown}
                 </p>
               )}
             />
-            {/* The control only appears when there is genuinely something
-                hidden. Measuring the text is the honest test, but a clamp of
-                two lines at this size is about 110 characters and measuring on
-                every render to save one button is not a trade worth making. */}
-            {(expanded || s.caption.trim().length > 90 || s.caption.includes('\n')) && (
+            {(expanded || s.caption.trim().length > 60 || s.caption.includes('\n')) && (
               <button
                 type="button"
                 onClick={onToggle}
-                className="mt-1.5 self-start text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
+                className="mt-1 self-start text-[12px] font-semibold text-brand"
               >
-                {expanded ? 'Show less' : 'Read more'}
+                {expanded ? tr('Show less') : tr('Read more')}
               </button>
             )}
           </>
-        ) : (
-          <p className="mt-2 h-10 text-sm leading-5 text-smoke">{tr("No caption")}</p>
         )}
-
-        {/* Pushed to the bottom so the row of cards lines up on this line
-            whatever the caption above it did. */}
-        <a
-          href={s.video_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-auto pt-3 text-sm font-semibold text-brand transition-transform duration-200 hover:scale-[1.02]"
-        >
-          {tr("Watch the video ↗")}
-        </a>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
 import { downloadBlob } from '../../lib/domSnapshot'
+import { kitThumbPath } from '../../lib/kitThumb'
 
 // THE GRAPHICS, WHERE THE CREATOR ALREADY IS.
 //
@@ -33,6 +34,37 @@ const KIND_LABEL = {
 function labelOf(row, tr) {
   const kinds = Array.isArray(row.kinds) && row.kinds.length ? row.kinds : [row.kind || 'other']
   return kinds.map((k) => tr(KIND_LABEL[k] || 'Graphic')).join(' · ')
+}
+
+// THE CARD DRAWS THE SMALL COPY (12 Oct 2026). Ethan: "whenever this page
+// first loads, those cards show blank and then they appear a few seconds
+// later." Each graphic is a 2.4MB PNG; eight of them on a phone is ~19MB before
+// the first one paints. The card now loads the 540px JPEG beside it
+// (`lib/kitThumb`, ~40KB), eagerly for the first three, and fades it in the
+// moment it decodes. No thumbnail yet (an upload from before this) falls back
+// to the original once. Save still hands over the full-size original.
+function KitThumb({ row, index }) {
+  const thumb = supabase.storage.from('creator-kit').getPublicUrl(kitThumbPath(row.path)).data.publicUrl
+  const full = supabase.storage.from('creator-kit').getPublicUrl(row.path).data.publicUrl
+  const [src, setSrc] = useState(thumb)
+  const [shown, setShown] = useState(false)
+  return (
+    <img
+      src={src}
+      alt={row.title}
+      loading={index < 3 ? 'eager' : 'lazy'}
+      fetchpriority={index < 3 ? 'high' : undefined}
+      decoding="async"
+      draggable={false}
+      onLoad={() => setShown(true)}
+      onError={() => { if (src !== full) setSrc(full) }}
+      ref={(el) => { if (el?.complete && el.naturalWidth && !shown) setShown(true) }}
+      className={cx(
+        'absolute inset-0 m-auto max-h-[88%] max-w-[86%] rounded-lg object-contain shadow-[0_6px_18px_rgba(59,28,7,0.16)] transition-[opacity,transform] duration-500 ease-out hoverable:group-hover:scale-[1.05]',
+        shown ? 'scale-100 opacity-100' : 'scale-[0.97] opacity-0',
+      )}
+    />
+  )
 }
 
 export default function KitStrip({ className }) {
@@ -132,10 +164,11 @@ export default function KitStrip({ className }) {
 
       <div className="mt-1">
         <div ref={railRef} className="pick-row -mx-4 flex min-w-0 snap-x snap-mandatory gap-3 scroll-px-4 px-4 !pb-3 sm:-mx-5 sm:scroll-px-5 sm:px-5 sm:!pb-9">
-          {rows.map((row) => (
+          {rows.map((row, i) => (
             <div
               key={row.id}
-              className="group flex w-[46%] shrink-0 snap-start flex-col rounded-2xl bg-white p-2 ring-1 ring-gray-100 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift hoverable:hover:ring-brand/25 sm:w-[calc((100%-1.5rem)/3)]"
+              style={{ animationDelay: `${i * 60}ms` }}
+              className="group flex w-[46%] shrink-0 animate-rise snap-start flex-col rounded-2xl bg-white p-2 ring-1 ring-gray-100 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift hoverable:hover:ring-brand/25 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <button
                 type="button"
@@ -144,13 +177,7 @@ export default function KitStrip({ className }) {
                 className="relative block aspect-[4/5] w-full overflow-hidden rounded-xl"
                 style={{ background: 'linear-gradient(160deg,#fff4ea 0%,#ffe6d2 100%)' }}
               >
-                <img
-                  src={supabase.storage.from('creator-kit').getPublicUrl(row.path).data.publicUrl}
-                  alt={row.title}
-                  loading="lazy"
-                  draggable={false}
-                  className="absolute inset-0 m-auto max-h-[88%] max-w-[86%] rounded-lg object-contain shadow-[0_6px_18px_rgba(59,28,7,0.16)] transition-transform duration-500 ease-out hoverable:group-hover:scale-[1.05]"
-                />
+                <KitThumb row={row} index={i} />
                 <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink opacity-0 shadow-sm transition-opacity duration-200 hoverable:group-hover:opacity-100">
                   <Icon name="expand" className="h-3.5 w-3.5" />
                 </span>

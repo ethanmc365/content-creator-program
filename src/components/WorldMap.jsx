@@ -47,7 +47,7 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // full-screen open, the + / - buttons - is looking at the same two numbers.
 const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
-function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false }) {
+function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false, fill = false }) {
   const tr = useT()
   const place = usePlaceNames()
   const dark = useIsDark()
@@ -244,7 +244,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     // zoom is switched off everywhere else. See lib/pinchGuard.
     <div
       data-zoomable
-      className={full
+      className={full || fill
         ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
         : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}
     >
@@ -322,14 +322,17 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           width={880}
           height={440}
           projectionConfig={{ scale: 160, center: [12, 8] }}
-          style={{ width: '100%', height: full ? '100%' : 'auto', display: 'block' }}
+          style={{ width: '100%', height: full || fill ? '100%' : 'auto', display: 'block' }}
           // FILL THE SCREEN, DO NOT LETTERBOX IT. The default `meet` fits the
           // whole 880x440 viewBox inside the box, so on a portrait phone full
           // screen drew the same 187px strip it drew in the card and only the
           // white around it changed. `slice` fills the box and crops the
           // overflow instead, which is what makes the map actually bigger - and
           // it is why the camera no longer has to be moved to fake it.
-          preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
+          // `fill` (12 Oct 2026): a map inside a card that is taller than 2:1 -
+          // the desktop spotlight - fills its box the same way rather than
+          // drawing a letterboxed strip with white above and below.
+          preserveAspectRatio={full || fill ? 'xMidYMid slice' : 'xMidYMid meet'}
           aria-label={tr("World map of countries visited")}
           // Pressing the sea closes a country's card. The only rect in this svg is ZoomableGroup's own drag surface
           // under the countries, so a click landing on a rect is a click on the water (a pan's closing click is

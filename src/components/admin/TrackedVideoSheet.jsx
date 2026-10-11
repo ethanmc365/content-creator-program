@@ -41,6 +41,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
   const [form, setForm] = useState(() => ({
     video_url: row?.video_url || '',
     hook: row?.hook || '',
+    screen_text: row?.screen_text || '',
     caption: row?.caption || '',
     creator_name: row?.creator_name || '',
     creator_handle: row?.creator_handle || '',
@@ -199,6 +200,12 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       // TYPING A HOOK CLAIMS IT. Anything else and the next sync would quietly
       // overwrite what somebody watched the video to work out.
       hook_source: form.hook.trim() && form.hook.trim() !== (row?.hook || '') ? 'manual' : (row?.hook_source || 'auto'),
+      // THE WORDS ON THE VIDEO (12 Oct 2026). What Video Ideas shows as the
+      // hook. The sync reads them from TikTok's text stickers, but a photo
+      // slideshow or a CapCut caption has its words burned into the picture,
+      // where nothing can read them - so they can be typed here. The sync only
+      // fills an empty one, so typed words stay.
+      screen_text: form.screen_text.trim() || null,
       caption: form.caption.trim() || null,
       creator_name: form.creator_name.trim() || null,
       creator_handle: form.creator_handle.trim().replace(/^@/, '') || null,
@@ -304,6 +311,19 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
             onChange={(e) => set({ hook: e.target.value })}
             rows={2}
             placeholder={tr('Your sign to book those £53 flights to Benidorm')}
+            className={inputCls}
+          />
+        </Field>
+
+        <Field
+          label={tr('Text on the video')}
+          hint={tr('What Video Ideas shows as the hook. Read from TikTok text stickers; type it when the words are part of the picture (photo posts, CapCut captions).')}
+        >
+          <AutoTextarea
+            value={form.screen_text}
+            onChange={(e) => set({ screen_text: e.target.value })}
+            rows={2}
+            placeholder={tr('Should we go to Germany for 4 days at Christmas for £35?')}
             className={inputCls}
           />
         </Field>

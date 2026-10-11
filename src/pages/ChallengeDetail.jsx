@@ -138,6 +138,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // see all their entries."
   const [entryScope, setEntryScope] = useState('all') // all | mine
   const [entryQuery, setEntryQuery] = useState('')
+  // How the entries are ordered and which platform (12 Oct 2026).
+  const [entrySort, setEntrySort] = useState('newest') // newest | views | points | oldest
+  const [entryPlatform, setEntryPlatform] = useState('')
   const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
@@ -609,9 +612,24 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const streaks = dailyStreaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
   const normName = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const entryQ = normName(entryQuery.trim())
-  const shownEntries = entryScope === 'mine'
-    ? myEntries
-    : entryQ ? submissions.filter((s) => normName(s.profiles?.name).includes(entryQ)) : submissions
+  // FILTERS FOR THE ENTRIES (12 Oct 2026). Ethan: "have a filter option for
+  // the entries... like highest views... more filters for the creators to
+  // actually explore." Sorting and a platform pick apply to whichever list is
+  // showing (everyone's or mine); the name search stays on everyone's.
+  const entryPlatforms = [...new Set(submissions.map((s) => s.platform).filter(Boolean))]
+  const shownEntries = (() => {
+    let list = entryScope === 'mine'
+      ? myEntries
+      : entryQ ? submissions.filter((s) => normName(s.profiles?.name).includes(entryQ)) : submissions
+    if (entryPlatform) list = list.filter((s) => s.platform === entryPlatform)
+    const views = (s) => Number(s.logged_views) || 0
+    const pts = (s) => entryPoints.get(s.id)?.total ?? 0
+    const when = (s) => Date.parse(s.submitted_at) || 0
+    if (entrySort === 'views') return [...list].sort((a, b) => views(b) - views(a) || when(b) - when(a))
+    if (entrySort === 'points') return [...list].sort((a, b) => pts(b) - pts(a) || views(b) - views(a))
+    if (entrySort === 'oldest') return [...list].sort((a, b) => when(a) - when(b))
+    return list
+  })()
 
   // Given, or worked out. `audience` is null until the count lands, which is
   // why this is not simply an `||` with a zero default: a bar that says
@@ -1519,6 +1537,45 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           )}
         </div>
       )}
+      {tab === 'entries' && submissions.length > 1 && (
+        <div className="-mx-4 -mt-2 mb-4 flex items-center gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0" role="group" aria-label={tr('Sort and filter entries')}>
+          <Icon name="sliders" className="mr-0.5 h-4 w-4 shrink-0 text-smoke" />
+          {[
+            { key: 'newest', label: tr('Newest'), icon: 'clock' },
+            { key: 'views', label: tr('Most views'), icon: 'eye' },
+            ...(challenge.scoring === 'points' ? [{ key: 'points', label: tr('Most points'), icon: 'trophy' }] : []),
+            { key: 'oldest', label: tr('First posted'), icon: 'flag' },
+          ].map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              aria-pressed={entrySort === o.key}
+              onClick={() => setEntrySort(o.key)}
+              className={cx(
+                'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                entrySort === o.key ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-smoke hover:text-ink',
+              )}
+            >
+              <Icon name={o.icon} className="h-3.5 w-3.5" />{o.label}
+            </button>
+          ))}
+          {entryPlatforms.length > 1 && <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-gray-200" />}
+          {entryPlatforms.length > 1 && entryPlatforms.map((p) => (
+            <button
+              key={p}
+              type="button"
+              aria-pressed={entryPlatform === p}
+              onClick={() => setEntryPlatform(entryPlatform === p ? '' : p)}
+              className={cx(
+                'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                entryPlatform === p ? 'bg-ink text-white' : 'border border-gray-200 bg-white text-smoke hover:text-ink',
+              )}
+            >
+              <SocialMark brand={SOCIAL_BRAND[p] || p.toLowerCase()} className="h-3.5 w-3.5" colored={entryPlatform !== p} />{p}
+            </button>
+          ))}
+        </div>
+      )}
       {tab === 'entries' && submissions.length > 0 && shownEntries.length === 0 && (
         entryScope === 'mine' ? (
           <EmptyState
@@ -1528,7 +1585,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr('Submit your video')}</button>}
           />
         ) : (
-          <p className="py-10 text-center text-sm text-smoke">{tr('No entries from anyone called "{q}".', { q: entryQuery.trim() })}</p>
+          <p className="py-10 text-center text-sm text-smoke">{entryQuery.trim() ? tr('No entries from anyone called "{q}".', { q: entryQuery.trim() }) : tr('No entries match these filters.')}</p>
         )
       )}
       {tab === 'entries' && (submissions.length === 0 || shownEntries.length > 0) && (
@@ -1543,7 +1600,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           // FOUR ACROSS ON A DESKTOP (28 Sep 2026). Ethan: "these cards on
           // desktop ... seem to be too big. Maybe you could have 4 on each
           // line rather than 3." Two on a phone, three on a tablet, four from lg.
-          <div key={`${entryScope}:${entryQuery}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div key={`${entryScope}:${entryQuery}:${entrySort}:${entryPlatform}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {shownEntries.map((s, i) => (
               <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
                 'animate-fade-up',

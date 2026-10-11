@@ -9,6 +9,7 @@ import Icon from './Icon'
 import { Avatar } from './ui'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { useIsMobile } from '../lib/useKeyboardInset'
 
 // Deterministic per-cycle shuffle so the spotlight rotates fairly: within each
 // full pass over the pool every creator is featured exactly once (no repeats
@@ -43,6 +44,7 @@ function pickForDay(list) {
 // under "Creators on the move".
 export default function CreatorSpotlight() {
   const tr = useT()
+  const isMobile = useIsMobile()
   const { user } = useAuth()
   const [creator, setCreator] = useState(null)
   const [photos, setPhotos] = useState([])
@@ -137,13 +139,19 @@ export default function CreatorSpotlight() {
           {/* Their travel map: zoomed to the countries they've actually
               visited (fitSelected) so it fills the panel instead of floating
               small in an empty world. Vertically centred against the card. */}
-          {creator.countries_visited?.length > 0 && (
-            <div className="shrink-0 self-center lg:w-[26rem]">
-              <div className="relative overflow-hidden rounded-card border border-gray-100">
-                <WorldMap selected={creator.countries_visited} fitSelected controlsBelowBadge />
+          {/* NOT ON A PHONE (12 Oct 2026). Ethan: "it's really small on mobile
+              and actually hard to navigate... Remove that map from mobile."
+              `useIsMobile` rather than `hidden sm:block`, so the map (and its
+              atlas fetch) never mounts there at all. On a desktop it now
+              STRETCHES to the card's height and fills it (`fill`) instead of
+              sitting as a 2:1 strip with white above and below. */}
+          {!isMobile && creator.countries_visited?.length > 0 && (
+            <div className="flex min-h-[18rem] shrink-0 self-stretch lg:w-[28rem]">
+              <div className="relative flex-1 overflow-hidden rounded-card border border-gray-100">
+                <WorldMap selected={creator.countries_visited} fitSelected controlsBelowBadge fill />
                 <div className="map-scrim-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 pb-6 pt-3">
                   <p className="text-xs font-semibold text-ink">{tr("{name}'s travel map", { name: firstName })}</p>
-                  <span className="rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-bold text-brand">
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[13px] font-bold text-brand shadow-card ring-1 ring-black/5">
                     {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
                   </span>
                 </div>

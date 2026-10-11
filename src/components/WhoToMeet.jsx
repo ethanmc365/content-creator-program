@@ -11,6 +11,7 @@ import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import SectionTitle from './network/SectionTitle'
 import { testFlags } from '../lib/testData'
+import { flagEmoji } from '../lib/countries'
 
 // WHO TO MEET THIS WEEK.
 //
@@ -45,6 +46,19 @@ const REASON_ICON = {
   countries: 'globe',
   platform: 'video',
   chance: 'sparkles',
+}
+
+// The short label above each reason: the kind of overlap in two words.
+const REASON_LABEL = {
+  trip: 'Same trip',
+  destination: 'Same destination',
+  been: 'Been there',
+  knows: 'Knows the place',
+  city: 'Same city',
+  language: 'Both speak',
+  countries: 'Shared places',
+  platform: 'Same platform',
+  chance: 'Worth a hello',
 }
 
 export default function WhoToMeet({ className }) {
@@ -137,101 +151,89 @@ export default function WhoToMeet({ className }) {
         <SectionTitle icon="users" to="/creators" label={tr('Everyone')}>{tr("Who to meet")}</SectionTitle>
       </div>
 
-      {/* THE CARD IS NO LONGER ONE BIG LINK.
-          It was a single <a> around everything, which is why there was nothing
-          to DO with a suggestion except look at it - anything you put inside a
-          link either becomes part of the link or breaks the HTML. Ethan: "design
-          them better and have an action button to message them or something."
-          He is right that it was the missing half: the reason text is written
-          to be an opening line, and there was no way to open with it.
-          So: a card with a STRETCHED link underneath the content (the whole
-          card still opens the profile from any dead space) and two real
-          controls on top of it. Same pattern the past-challenge cards use. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {picks.map(({ creator, reason }, i) => (
-          <div
-            key={creator.id}
-            style={{ animationDelay: `${i * 70}ms` }}
-            className="group relative flex animate-fade-up flex-col rounded-card border border-gray-100 bg-white p-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift"
-          >
-            <Link
-              to={`/profile/${creator.id}`}
-              className="absolute inset-0 z-0 rounded-card"
-              aria-label={`${creator.name}'s profile`}
-            />
+      {/* TO MEET, REDESIGNED (12 Oct 2026). Ethan: "I think you can design
+          them much, much better." The old card was a centred avatar, a name,
+          a boxed reason and two equal buttons - three stacked full-width
+          blocks on a phone, one screen of scrolling for three people.
 
-            {/* z-10 so the content sits above the stretched link; the buttons
-                inside it get their own pointer events back, everything else
-                stays click-through to the profile. */}
-            <div className="pointer-events-none relative z-10 flex flex-1 flex-col items-center">
-              <span className="transition-transform duration-200 group-hover:scale-105">
-                <Avatar src={creator.photo_url} name={creator.name} size="lg" />
-              </span>
-              <p className="mt-3 w-full truncate text-sm font-semibold transition-colors group-hover:text-brand">
-                {creator.name}
-              </p>
-              <p className="mt-0.5 flex w-full items-center justify-center gap-1.5 truncate text-xs text-smoke">
-                {(creator.city || creator.country) && (
-                  <span className="truncate">{[creator.city, creator.country].filter(Boolean).join(', ')}</span>
-                )}
-                {(creator.city || creator.country) && <span aria-hidden className="text-gray-300">&middot;</span>}
-                <LocalTime profile={creator} bare className="shrink-0 tabular-nums" />
-              </p>
-
-              {/* THE REASON. It is the reason this component exists, so it gets
-                  the emphasis: its own tinted panel rather than a grey caption
-                  under the name. `flex-1` pushes the buttons to the bottom, so
-                  three cards with reasons of different lengths still line their
-                  controls up. */}
-              {/* THE REASON IS A LINE WITH A GLYPH, NOT A TINTED PANEL
-                  (2 Sep 2026).
-
-                  Ethan: "I don't like the colour of the little card that shows
-                  the reason why you should connect, like you both speak Irish
-                  or you have both been to the United Kingdom, Spain and
-                  Portugal. You can improve the UI of this."
-
-                  It was a `bg-brand-tint` wash - a beige rectangle inside a
-                  white card inside a white page, which is the one colour move
-                  this platform's rules do not allow (white-dominant, orange as
-                  an ACCENT). And the wash was carrying no information: it was
-                  the same block whatever the reason was.
-                  So the panel goes white with the card's own hairline, and the
-                  orange moves to a glyph that says what KIND of overlap this is
-                  - a plane for a trip, a pin for a place, a globe for a country
-                  you have both been to. The colour is now an accent doing a
-                  job. */}
-              <p className={cx(
-                'mt-3 flex w-full flex-1 items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-xs leading-relaxed',
-                reason.kind === 'chance'
-                  ? 'border-gray-100 bg-cloud/40 text-smoke'
-                  : 'border-brand/15 bg-white text-ink',
-              )}>
-                <Icon
-                  name={REASON_ICON[reason.kind] || 'sparkles'}
-                  className={cx('mt-px h-3.5 w-3.5 shrink-0', reason.kind === 'chance' ? 'text-gray-400' : 'text-brand')}
-                />
-                <span className="min-w-0">{reason.text}</span>
-              </p>
-            </div>
-
-            <div className="relative z-10 mt-3 flex gap-2">
+          Now the reason LEADS: a small brand label naming the overlap ("Same
+          trip", "Both speak") above the sentence, because that is what makes
+          a stranger worth a message. The face sits beside it with the flag of
+          where they are and their local time. One primary action (Say hi) and
+          the profile as a quiet arrow. On a phone the three cards are a snap
+          row you swipe through, each a little narrower than the screen so the
+          next one peeks in; from `sm` they are a three-up grid. The whole card
+          still opens the profile from dead space (stretched link). */}
+      <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
+        {picks.map(({ creator, reason }, i) => {
+          const chance = reason.kind === 'chance'
+          const flag = creator.country_code ? flagEmoji(creator.country_code) : ''
+          return (
+            <div
+              key={creator.id}
+              style={{ animationDelay: `${i * 70}ms` }}
+              className="group relative flex w-[82%] shrink-0 snap-start animate-fade-up flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift sm:w-auto"
+            >
               <Link
                 to={`/profile/${creator.id}`}
-                className="btn-secondary flex-1 !py-2 text-xs"
-              >
-                {tr('Profile')}
-              </Link>
-              <button
-                type="button"
-                onClick={() => message(creator.id)}
-                className="btn-primary flex-1 !py-2 text-xs"
-              >
-                {tr('Message')}
-              </button>
+                className="absolute inset-0 z-0 rounded-card"
+                aria-label={`${creator.name}'s profile`}
+              />
+              {/* A thin brand rule along the top: the one splash of colour,
+                  and it fades for the "no particular reason" pick. */}
+              <span aria-hidden className={cx('h-1 w-full bg-gradient-to-r from-brand to-[#f5853f]', chance && 'opacity-30')} />
+
+              <div className="pointer-events-none relative z-10 flex flex-1 flex-col p-4">
+                <div className="flex items-center gap-3">
+                  <span className="relative shrink-0 transition-transform duration-200 group-hover:scale-105">
+                    <Avatar src={creator.photo_url} name={creator.name} size="lg" />
+                    {flag && (
+                      <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm leading-none shadow-card ring-2 ring-white">
+                        {flag}
+                      </span>
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold leading-tight transition-colors group-hover:text-brand">{creator.name}</p>
+                    {(creator.city || creator.country) && (
+                      <p className="mt-0.5 truncate text-[13px] text-smoke">{[creator.city, creator.country].filter(Boolean).join(', ')}</p>
+                    )}
+                    <p className="mt-0.5 flex items-center gap-1 text-[13px] text-smoke">
+                      <Icon name="clock" className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                      <LocalTime profile={creator} bare className="tabular-nums" />
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex-1 border-t border-gray-100 pt-3">
+                  <p className={cx('flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide', chance ? 'text-smoke' : 'text-brand')}>
+                    <Icon name={REASON_ICON[reason.kind] || 'sparkles'} className="h-4 w-4 shrink-0" />
+                    {tr(REASON_LABEL[reason.kind] || 'Worth a hello')}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-ink">{reason.text}</p>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex items-center gap-2 px-4 pb-4">
+                <button
+                  type="button"
+                  onClick={() => message(creator.id)}
+                  className="btn-primary flex flex-1 items-center justify-center gap-1.5 !py-2.5 text-sm"
+                >
+                  <Icon name="chat" className="h-4 w-4" />
+                  {tr('Say hi')}
+                </button>
+                <Link
+                  to={`/profile/${creator.id}`}
+                  aria-label={tr('Profile')}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-ink transition-transform hoverable:hover:scale-105"
+                >
+                  <Icon name="chevronRight" className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )

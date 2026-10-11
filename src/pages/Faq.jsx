@@ -15,6 +15,7 @@ import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
+import { useMediaQuery } from '../lib/useKeyboardInset'
 
 // QUESTIONS AND ANSWERS (7 Oct 2026).
 //
@@ -45,6 +46,7 @@ const TOOLBAR = ['h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol', 'qu
 
 export default function Faq() {
   const tr = useT()
+  const wide = useMediaQuery('(min-width: 1024px)')
   const { user, profile } = useAuth()
   const isAdmin = !!profile?.is_admin
   const [params, setParams] = useSearchParams()
@@ -85,6 +87,8 @@ export default function Faq() {
   return (
     <div className="page max-w-6xl">
       <FaqHero
+        onAsk={() => { setTab((t) => (t === 'questions' ? 'faq' : t)); jumpTo('help-ask', true) }}
+        onTeam={() => { setTab((t) => (t === 'questions' ? 'faq' : t)); jumpTo('help-team') }}
         isAdmin={isAdmin}
         editing={editing}
         onEdit={() => { setEditing((v) => !v); setTab('faq') }}
@@ -108,10 +112,14 @@ export default function Faq() {
           answers, with a one-tap jump to it so asking is never a long scroll away. */}
       <div className={cx('grid items-start gap-6', tab !== 'questions' && 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
         <div className="min-w-0">
-          {tab !== 'questions' && (
-            <a href="#help-side" className="mb-4 flex items-center justify-center gap-2 rounded-full border border-brand/25 bg-brand-tint px-4 py-2.5 text-sm font-bold text-brand transition-colors lg:hidden">
-              <Icon name="handRaised" className="h-4 w-4" />{tr('Ask a question or message the team')}
-            </a>
+          {/* ASKING COMES FIRST ON A PHONE (12 Oct 2026). Ethan: "you have to
+              scroll through everything to get to the ask a question... it
+              should be a quick thing at the top." The ask card sits above the
+              answers below `lg`; the side column keeps it on a desktop. */}
+          {tab !== 'questions' && !wide && (
+            <div id="help-ask" className="mb-5 scroll-mt-24">
+              <AskCard compact onAsked={() => { loadMine(); loadInbox() }} />
+            </div>
           )}
           {tab === 'faq' && (
             <AnswersTab
@@ -127,8 +135,8 @@ export default function Faq() {
         </div>
         {tab !== 'questions' && (
           <aside id="help-side" className="min-w-0 scroll-mt-24 space-y-4">
-            <AskCard compact onAsked={() => { loadMine(); loadInbox() }} />
-            <HelpTeam />
+            {wide && <div id="help-ask" className="scroll-mt-24"><AskCard compact onAsked={() => { loadMine(); loadInbox() }} /></div>}
+            <div id="help-team" className="scroll-mt-24"><HelpTeam /></div>
             <HelpOpenDoors />
           </aside>
         )}
@@ -152,7 +160,17 @@ export default function Faq() {
   )
 }
 
-function FaqHero({ isAdmin, editing, onEdit }) {
+// Scroll a help section into view; the ask card also takes focus.
+function jumpTo(id, focus = false) {
+  setTimeout(() => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (focus) setTimeout(() => el.querySelector('input')?.focus({ preventScroll: true }), 350)
+  }, 30)
+}
+
+function FaqHero({ isAdmin, editing, onEdit, onAsk, onTeam }) {
   const tr = useT()
   return (
     <section className="faq-hero relative overflow-hidden rounded-[28px] px-6 pb-8 pt-8 text-white shadow-card sm:px-10 sm:pt-10">
@@ -163,7 +181,19 @@ function FaqHero({ isAdmin, editing, onEdit }) {
         <div className="max-w-xl">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="lifebuoy" className="h-4 w-4" />{tr('Questions and Answers')}</p>
           <h1 className="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px]">{tr('Get Help')}</h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask a question or message the team on the right.')}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask the team.')}</p>
+          {/* TWO REAL BUTTONS (12 Oct 2026). Ethan: "I don't like the design of
+              that button... It doesn't even look like a button." */}
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <button type="button" onClick={onAsk}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-brand shadow-card transition-transform active:scale-95 hoverable:hover:-translate-y-0.5">
+              <Icon name="handRaised" className="h-4 w-4" />{tr('Ask a question')}
+            </button>
+            <button type="button" onClick={onTeam}
+              className="inline-flex items-center gap-2 rounded-full border border-white/60 px-5 py-3 text-sm font-bold text-white transition-transform active:scale-95 hoverable:hover:-translate-y-0.5">
+              <Icon name="chat" className="h-4 w-4" />{tr('Message the team')}
+            </button>
+          </div>
         </div>
         {isAdmin && (
           <button type="button" onClick={onEdit} aria-pressed={editing}

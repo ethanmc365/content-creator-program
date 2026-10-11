@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
@@ -110,7 +110,8 @@ export default function VideoIdeasBoard({ compact = false }) {
   return (
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* SIDE BY SIDE ON A PHONE TOO (12 Oct 2026, Ethan). */}
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
       </section>
@@ -124,14 +125,7 @@ export default function VideoIdeasBoard({ compact = false }) {
         </div>
       ) : (
         <>
-          {hooks.translated && (
-            <div className="-mb-3 flex items-center justify-end gap-2 text-xs text-smoke animate-fade-up">
-              <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
-              <span>{hooks.showOriginal ? tr('Hooks as written') : tr('Hooks in your language')}</span>
-              <button type="button" onClick={hooks.toggle} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand">{hooks.showOriginal ? tr('Translate') : tr('Show original')}</button>
-            </div>
-          )}
-          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} />)}
+          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} lead={i === 0} />)}
         </>
       )}
       {playing && (
@@ -179,17 +173,37 @@ function IdeasHero({ count, total, compact }) {
   )
 }
 
-function Shelf({ shelf, index, onPlay, hooks }) {
+function Shelf({ shelf, index, onPlay, hooks, lead = false }) {
+  const tr = useT()
   // NO ARROWS (9 Oct 2026): "we can just scroll on mobile with our finger or on desktop with the trackpad." The row scrolls
   // sideways with snap points and a soft fade on the right edge says there is more.
   return (
     <section className="animate-rise" style={{ animationDelay: `${Math.min(index, 5) * 70}ms` }}>
-      <div className="mb-3 min-w-0">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
-          {shelf.platform ? <SocialMark brand={shelf.platform.toLowerCase()} className="h-5 w-5" colored /> : <Icon name={shelf.key === 'new' ? 'fire' : 'trophy'} className="h-5 w-5 text-brand" />}
-          {shelf.title}
-        </h2>
-        {shelf.hint && <p className="text-xs text-smoke">{shelf.hint}</p>}
+      {/* THE TRANSLATE SWITCH SITS ON THE FIRST SHELF'S TITLE ROW (12 Oct 2026).
+          Ethan: "Hooks in your language... it's above, which doesn't really
+          make sense. I'll put it beside the Working Right Now title... maybe
+          just a quick translate button." Hooks still arrive translated; this
+          one pill swaps every card back to the words as written and again. */}
+      <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+            {shelf.platform ? <SocialMark brand={shelf.platform.toLowerCase()} className="h-5 w-5" colored /> : <Icon name={shelf.key === 'new' ? 'fire' : 'trophy'} className="h-5 w-5 text-brand" />}
+            {shelf.title}
+          </h2>
+          {shelf.hint && <p className="text-xs text-smoke">{shelf.hint}</p>}
+        </div>
+        {lead && hooks.translated && (
+          <button
+            type="button"
+            onClick={hooks.toggle}
+            aria-pressed={!hooks.showOriginal}
+            title={hooks.showOriginal ? tr('Hooks as written') : tr('Hooks in your language')}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-ink transition-transform active:scale-95"
+          >
+            <Icon name="language" className="h-4 w-4 text-brand" />
+            {hooks.showOriginal ? tr('Translate') : tr('Original')}
+          </button>
+        )}
       </div>
       <div className="relative">
         <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
@@ -198,6 +212,55 @@ function Shelf({ shelf, index, onPlay, hooks }) {
         <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />
       </div>
     </section>
+  )
+}
+
+function HookBlock({ hook, onPlay }) {
+  const tr = useT()
+  const [copied, setCopied] = useState(false)
+  const held = useRef(null)
+  const longPressed = useRef(false)
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(hook) } catch { /* nothing to do */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1600)
+  }
+  const down = () => {
+    longPressed.current = false
+    clearTimeout(held.current)
+    held.current = setTimeout(() => { longPressed.current = true; copy() }, 450)
+  }
+  const up = () => clearTimeout(held.current)
+  return (
+    <div className="relative mx-3 mt-2.5">
+      <button
+        type="button"
+        onClick={() => { if (!longPressed.current) onPlay() }}
+        onPointerDown={down}
+        onPointerUp={up}
+        onPointerLeave={up}
+        onPointerCancel={up}
+        onContextMenu={(e) => e.preventDefault()}
+        className="block w-full select-none rounded-2xl border border-gray-100 bg-white py-2 pl-3 pr-10 text-left [-webkit-touch-callout:none] transition-colors hoverable:hover:border-brand/30"
+      >
+        <span className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand"><Icon name="quote" className="h-3.5 w-3.5" />{tr('The hook')}</span>
+        <span className="mt-1 block border-l-2 border-brand pl-2 whitespace-pre-line text-[13px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{hook}</span>
+      </button>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={tr('Copy hook')}
+        className={cx('absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-90',
+          copied ? 'bg-brand text-white' : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink')}
+      >
+        <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
+      </button>
+      {copied && (
+        <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full animate-pop-in whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold text-white shadow-card">
+          {tr('Hook copied')}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -224,12 +287,12 @@ function IdeaCard({ v, rank, delay, onPlay, hook }) {
           text on it) simply have no line, rather than a caption pretending to be one. */}
       {/* NAMED AND NEVER CUT OFF (9 Oct 2026). Ethan: "improve the UI and identify that it is the hook ... some of the longer ones are
           cut off." It is a labelled block now, shown in full, and pressing it plays the video with the hook under it. */}
-      {hook && (
-        <button type="button" onClick={onPlay} className="mx-3 mt-2.5 block w-[calc(100%-1.5rem)] rounded-2xl bg-brand/[0.07] px-3 py-2 text-left transition-colors hoverable:hover:bg-brand/10">
-          <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand"><Icon name="bulb" className="h-3 w-3" />{tr('The hook')}</span>
-          <span className="mt-1 block whitespace-pre-line text-[13px] font-bold leading-snug text-ink [overflow-wrap:anywhere]">{hook}</span>
-        </button>
-      )}
+      {/* THE HOOK, AND ONE PRESS TO COPY IT (12 Oct 2026). Ethan: "I don't
+          really like the colours" of the orange wash, and "whenever you hold
+          down on the hook, there should be a quick button to copy the entire
+          hook." White block with a hairline and a brand quote rule; a copy
+          button that is always there, and holding the block copies too. */}
+      {hook && <HookBlock hook={hook} onPlay={onPlay} />}
       <div className="flex items-center gap-2 px-3 py-2.5">
         {v.creator_id ? (
           <Link to={`/profile/${v.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2">
@@ -309,18 +372,21 @@ export function IdeasTeaser({ className }) {
           scroll-padding says so, and the end padding of a flex scroller is dropped by Safari, so the first and last
           covers sat flush against the card's edge. `scroll-pl-4` keeps the start gap after a snap and the spacer at the
           end makes the trailing gap (2.5 gap + 1.5 spacer = the 4 on the left). */}
-      <div className="scrollbar-none -mx-4 mt-3 flex snap-x scroll-pl-4 gap-2.5 overflow-x-auto pb-1 pl-4">
+      {/* THREE FIT THE FIRST VIEW, WITH THE SAME GAP AT THE LEFT AS BETWEEN
+          THEM (12 Oct 2026, Ethan). The strip no longer bleeds to the card's
+          edge: it starts on the card's own padding line, each cover is a third
+          of it less the gaps, and the rest are a swipe away. */}
+      <div className="scrollbar-none mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1">
         {rows === undefined
-          ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[9/14] w-[108px] shrink-0 rounded-xl" />)
+          ? [0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/14] w-[calc((100%-1.25rem)/3)] shrink-0 rounded-xl" />)
           : top.map((v, i) => (
-            <div key={v.id} className="relative w-[108px] shrink-0 snap-start overflow-hidden rounded-xl bg-ink animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
+            <div key={v.id} className="relative w-[calc((100%-1.25rem)/3)] shrink-0 snap-start overflow-hidden rounded-xl bg-ink animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
               <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} className="!aspect-[9/14]" mark={false} />
               {v.screen_text && <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent" />}
               {v.screen_text && <span className="pointer-events-none absolute inset-x-1.5 bottom-6 line-clamp-3 text-[10px] font-bold leading-tight text-white [overflow-wrap:anywhere]">{hooks.pick(v.screen_text)}</span>}
               <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white backdrop-blur">{formatViews(v.views)}</span>
             </div>
           ))}
-        <span aria-hidden className="w-1.5 shrink-0" />
       </div>
     </Link>
   )

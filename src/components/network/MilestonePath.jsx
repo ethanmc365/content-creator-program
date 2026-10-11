@@ -460,6 +460,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   const H = nodeY(nodes.length - 1, L) + TOP
   const { d, segs, at } = buildRoute(nodes.length, L)
 
+  const lastOverhang = box && cardHs[nodes.length - 1]
+    ? Math.round(cardHs[nodes.length - 1] - (TOP + 20) * (box / L.W))
+    : 0
   const reached = milestones.filter((m) => m.reached).length
   const next = milestones[reached] || null
   // How far into the current leg. A stop can now ask for SEVERAL things at
@@ -593,7 +596,12 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // stop - so that is the one that survives, and it is now clickable.
 
   return (
-    <div ref={setBox0} className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}` }}>
+    // THE LAST CARD NO LONGER HANGS OUT OF THE DRAWING (12 Oct 2026). Ethan:
+    // "the Senior Creator card is inside the card that shows where you are."
+    // The drawing ends TOP units under the last dot, and the last card (top 20
+    // units above its dot) is often taller than that, so it spilled into the
+    // section below. The measured overhang becomes a bottom margin.
+    <div ref={setBox0} className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}`, marginBottom: lastOverhang > 0 ? lastOverhang + 16 : undefined }}>
       <svg viewBox={`0 0 ${L.W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
         <defs>
           <clipPath id="milestone-face" clipPathUnits="objectBoundingBox">
@@ -817,9 +825,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
               <button
                 type="button"
                 onClick={() => setOpen({ start: true, title: 'Just joined', criteria: [] })}
-                className="group block w-full rounded-2xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-card"
+                className="group block w-full rounded-2xl border border-gray-100 bg-white px-3 py-2.5 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift"
               >
-                <p className="text-sm font-bold text-brand">{tr("Just joined")}</p>
+                <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Icon name="check" className="h-4 w-4 text-brand" />{tr("Just joined")}</p>
                 <p className="text-xs text-smoke">{tr("Where every route starts.")}</p>
                 {atStop.length > 0 && (
                   <div className="mt-2 flex items-center -space-x-1.5">
@@ -846,10 +854,14 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                 className={cx(
                   'group block w-full rounded-2xl border px-3 py-2.5 text-left transition-all duration-200',
                   'hover:-translate-y-0.5 hover:shadow-card',
+                  // WHITE CARDS, THE ORANGE IS A LINE (12 Oct 2026). Ethan
+                  // did not like the orange wash on "Getting Started". The
+                  // next stop is a white card with a brand outline and a
+                  // brand bar down its left edge; reached ones are plain.
                   done
-                    ? 'border-brand/25 bg-white hover:border-brand'
+                    ? 'border-gray-100 bg-white shadow-card hover:border-brand/40'
                     : isNext
-                      ? 'border-brand/40 bg-brand-tint/25 hover:border-brand'
+                      ? 'border-brand bg-white shadow-card [box-shadow:inset_3px_0_0_#d94407,0_1px_3px_rgba(0,0,0,0.06)]'
                       : n.blocked
                         ? 'border-amber-200 bg-amber-50/60 hover:border-amber-400'
                         : 'border-gray-100 bg-white/80 hover:border-gray-300',
@@ -887,11 +899,11 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                     Unreached stays grey, because it has not happened yet. */}
                 {n.reward && (
                   <span className={cx(
-                    'mt-1.5 block rounded-lg px-2 py-1.5 text-[10px] font-semibold leading-snug',
-                    done ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
+                    'mt-1.5 block rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-snug',
+                    done || isNext ? 'border-brand/25 bg-white text-ink' : 'border-gray-100 bg-cloud/60 text-smoke',
                   )}>
                     {REWARD_NOUN[n.reward_kind] && (
-                      <span className={cx('mr-1 uppercase tracking-wide', done ? 'text-brand/60' : 'text-gray-400')}>
+                      <span className={cx('mr-1 uppercase tracking-wide', done || isNext ? 'text-brand' : 'text-gray-400')}>
                         {REWARD_NOUN[n.reward_kind]}
                       </span>
                     )}

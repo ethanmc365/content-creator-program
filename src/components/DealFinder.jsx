@@ -61,12 +61,12 @@ export default function DealFinder({ className, variant = 'button' }) {
           variant === 'button'
             ? 'relative flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand/20 bg-white px-5 py-2.5 text-sm font-bold text-brand transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 active:scale-[0.98]'
             : variant === 'big'
-              ? 'relative flex min-h-[4.5rem] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-brand/25 bg-white px-6 py-5 text-base font-bold text-brand shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/50 active:scale-[0.98]'
+              ? 'relative flex h-full min-h-[4rem] w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl border-2 border-brand/25 bg-white px-3 py-4 text-[15px] font-bold sm:min-h-[4.5rem] sm:gap-2.5 sm:px-6 sm:py-5 sm:text-base text-brand shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/50 active:scale-[0.98]'
               : '',
           className,
         )}
       >
-        <Icon name="ticket" className={variant === 'big' ? 'h-6 w-6' : 'h-4 w-4'} />
+        <Icon name="ticket" className={variant === 'big' ? 'h-5 w-5 shrink-0 sm:h-6 sm:w-6' : 'h-4 w-4'} />
         {tr('Find a deal')}
       </button>
 

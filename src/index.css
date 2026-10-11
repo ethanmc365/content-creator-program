@@ -3558,3 +3558,30 @@ html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color
 .push-banner-bell { transform-origin: 50% 10%; animation: push-bell 4s ease-in-out 0.8s infinite; }
 @keyframes push-bell { 0%, 84%, 100% { transform: rotate(0); } 87% { transform: rotate(14deg); } 90% { transform: rotate(-12deg); } 93% { transform: rotate(8deg); } 96% { transform: rotate(-4deg); } }
 @media (prefers-reduced-motion: reduce) { .push-banner, .push-banner-bell { animation: none; } }
+
+/* THE TOP BAR'S MATERIAL (12 Oct 2026) - see the header in AppLayout. A blur
+   with saturation over translucent white is what reads as iOS glass; without
+   backdrop-filter support it falls back to near-opaque white. */
+.glass-bar { background-color: rgba(255, 255, 255, 0.97); }
+html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass-bar {
+    background-color: rgba(255, 255, 255, 0.78);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+  html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.78); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-bar, html[data-theme='dark'] .glass-bar { background-color: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-theme='dark'] .glass-bar { background-color: var(--d-surface); }
+}
+
+/* "Show me" on the leaderboard: the reader's row glows brand twice. Box-shadow
+   only, so it never starts at opacity zero (see the hidden-pane rule). */
+@keyframes flash-me {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(217, 68, 7, 0); }
+  25%, 75% { box-shadow: inset 0 0 0 2px rgba(217, 68, 7, 0.9); }
+  50% { box-shadow: inset 0 0 0 2px rgba(217, 68, 7, 0.25); }
+}
+.flash-me { animation: flash-me 1.4s ease-in-out 1; }

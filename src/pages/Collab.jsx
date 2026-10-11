@@ -18,6 +18,7 @@ import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
 import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
 import { useT } from '../lib/i18n'
+import { flagForCountry, flagFromIso } from '../lib/flags'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -99,6 +100,104 @@ const TripCard = memo(function TripCard({
   const tr = useT()
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
+  // THE CREATOR ON THE MAP (12 Oct 2026). Ethan: "Show a profile picture on
+  // the map." Where the trip has a city position the creator's face is pinned
+  // there, pulsing, like a profile map shows somebody travelling.
+  const here = useMemo(() => (p.city_lat != null && p.city_lng != null && Number.isFinite(Number(p.city_lat)) && Number.isFinite(Number(p.city_lng))
+    ? { lat: Number(p.city_lat), lng: Number(p.city_lng), photo: person.photo_url, name: person.name, travelling: true }
+    : null), [p.city_lat, p.city_lng, person.photo_url, person.name])
+  const flag = flagForCountry(p.country) || flagForCountry(mapCountry)
+    || (/^[A-Za-z]{2}$/.test((p.country || '').trim()) ? flagFromIso(p.country.trim()) : '')
+  if (!past) {
+    // THE LIVE CARD, REDESIGNED (12 Oct 2026). Ethan: "for some of them, there
+    // are different links and descriptions, so there's a lot of white space
+    // under it... improve the whole design. Maybe colour some of the buttons."
+    // The destination is the headline (flag, city, country), the dates sit on
+    // it, the map is shorter with the creator's face on it, the note takes the
+    // height it needs (the board is a masonry, so nothing is padded to match a
+    // neighbour) and the two actions are coloured, side by side.
+    return (
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow hoverable:hover:shadow-lift">
+        <div className="flex items-center gap-3 px-4 pt-4">
+          <Link to={`/profile/${person.id}`} className="group flex min-w-0 flex-1 items-center gap-2.5">
+            <Avatar src={person.photo_url} name={person.name} size="sm" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand">{person.name}</span>
+              <span className="block text-[12px] text-smoke">{mine ? tr('Your trip') : tr('is heading to')}</span>
+            </span>
+          </Link>
+          {(canEdit || canDelete) && (
+            <div className="flex shrink-0 items-center">
+              {canEdit && (
+                <button onClick={() => onEdit(p)} aria-label={tr("Edit trip")} title={tr("Edit trip")} className="rounded-full p-2 text-smoke transition-colors hover:bg-cloud hover:text-ink">
+                  <Icon name="pencil" className="h-4 w-4" />
+                </button>
+              )}
+              {canDelete && (
+                <button onClick={() => onRemove(p)} aria-label={tr("Delete trip")} title={tr("Delete trip")} className="rounded-full p-2 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                  <Icon name="trash" className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 pt-3">
+          <h3 className="flex items-start gap-2 text-[19px] font-bold leading-tight tracking-[-0.01em] text-ink">
+            {flag && <span aria-hidden className="leading-[1.15]">{flag}</span>}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{p.city}{p.country ? <span className="font-semibold text-smoke">, {p.country}</span> : null}</span>
+          </h3>
+          <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-[12px] font-bold text-white">
+            <Icon name="calendar" className="h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}
+          </p>
+        </div>
+
+        {mapCountry && (
+          <div className="px-4 pt-3">
+            <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-2xl bg-cloud/70" />}>
+              <div className="overflow-hidden rounded-2xl border border-gray-100">
+                <WorldMap selected={selectedCountries} focusCountry={mapCountry} here={here} />
+              </div>
+            </WhenVisible>
+          </div>
+        )}
+
+        {(p.note || '').trim() && (
+          <p className="whitespace-pre-line break-words px-4 pt-3 text-sm leading-relaxed text-ink/90 [overflow-wrap:anywhere]">
+            {(p.note || '').trim()}
+          </p>
+        )}
+
+        {!mine ? (
+          <div className="grid grid-cols-2 gap-2 p-4">
+            <button
+              onClick={() => onToggleInterest(p.id)}
+              className={cx(
+                'flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold transition-transform active:scale-95',
+                iAmInterested ? 'bg-brand text-white' : 'border-2 border-brand text-brand',
+              )}
+            >
+              <Icon name={iAmInterested ? 'check' : 'handRaised'} className="h-4 w-4" />
+              {iAmInterested ? tr('Interested') : tr("I'm interested")}
+              {interestCount > 0 && <span className="tabular-nums opacity-80">· {interestCount}</span>}
+            </button>
+            <button
+              onClick={() => onMessage(p.creator_id)}
+              className="flex items-center justify-center gap-1.5 rounded-full bg-ink px-3 py-2.5 text-[13px] font-bold text-white transition-transform active:scale-95"
+            >
+              <Icon name="chat" className="h-4 w-4" />
+              {tr('Message')}
+            </button>
+          </div>
+        ) : (
+          <p className="flex items-center gap-1.5 p-4 text-[13px] text-smoke">
+            <Icon name="eye" className="h-4 w-4 text-brand" />
+            {tr('Visible to the community')}{interestCount > 0 ? ` · ${tr('{n} interested', { n: interestCount })}` : ''}
+          </p>
+        )}
+      </div>
+    )
+  }
   return (
     <div className={`card flex h-full min-w-0 flex-col overflow-hidden ${past ? 'gap-3 !p-5 opacity-80' : 'gap-4 !p-6'}`}>
       <div className="flex items-start justify-between gap-3">
@@ -926,7 +1025,9 @@ export default function Collab() {
         <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title={tr("No trips match those filters")} hint={tr("Try a different month or country.")} />
       ) : (
         <>
-          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {/* A MASONRY, NOT A GRID (12 Oct 2026): each card is as tall as its
+              own note, so there is no blank space under a short one. */}
+          <Reveal className="columns-1 gap-5 sm:columns-2 lg:columns-3 [&>*]:mb-5 [&>*]:break-inside-avoid">
             {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => (
               <TripCard key={p.id} {...cardProps(p)} />
             ))}

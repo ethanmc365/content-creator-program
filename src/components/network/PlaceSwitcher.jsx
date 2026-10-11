@@ -327,15 +327,22 @@ export default function PlaceSwitcher({ ready = true }) {
                 <Link
                   to="/global/markets"
                   onClick={() => setSheet(false)}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-brand-tint px-4 py-3 text-sm font-semibold text-brand transition-transform duration-200 active:scale-[0.98]"
+                  // A ROW, NOT AN ORANGE SLAB (12 Oct 2026). Ethan: "we have the
+                  // weird orange background... change the design of that All
+                  // Markets button." White, hairline, the globe as a bare brand
+                  // glyph, a subtitle saying what is behind it, a chevron.
+                  className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-transform duration-200 active:scale-[0.98]"
                 >
-                  <Icon name="globe" className="h-4 w-4 shrink-0" />
-                  All markets
-                  {joinable.length > 0 && (
-                    <span className="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      {joinable.length} to join
+                  <Icon name="globe" className="h-5 w-5 shrink-0 text-brand" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink">{tr('All markets')}</span>
+                    <span className="block truncate text-[13px] text-smoke">
+                      {joinable.length > 0
+                        ? tr('{n} more you can join', { n: joinable.length })
+                        : tr('See every market in the network')}
                     </span>
-                  )}
+                  </span>
+                  <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-400" />
                 </Link>
               </div>
             </motion.div>

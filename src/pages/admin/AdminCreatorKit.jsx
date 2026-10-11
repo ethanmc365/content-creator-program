@@ -6,6 +6,7 @@ import { lazyRoute } from '../../lib/lazyRoute'
 import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { pickClass } from '../../lib/pick'
+import { kitThumbPath } from '../../lib/kitThumb'
 
 const KitLibrary = lazyRoute(() => import('../../components/admin/kit/KitLibrary'))
 const CertificateStudio = lazyRoute(() => import('../../components/admin/kit/CertificateStudio'))
@@ -120,7 +121,40 @@ export async function uploadKitImage(file) {
   const { error } = await supabase.storage.from('creator-kit')
     .upload(path, file, { contentType: file.type || 'image/png', upsert: false })
   if (error) throw error
+  // THE CARD-SIZE COPY (12 Oct 2026). The portfolio drew these 2.4MB PNGs into
+  // 180px cards, so the strip sat blank for seconds on a phone. A 540px JPEG is
+  // written next to the original as `thumbs/<path>.jpg` (~40KB) and the cards
+  // draw that; Save still downloads the untouched original. A failed thumbnail
+  // is not a failed upload - the card falls back to the original.
+  try {
+    const thumb = await kitThumb(file)
+    if (thumb) {
+      await supabase.storage.from('creator-kit')
+        .upload(kitThumbPath(path), thumb, { contentType: 'image/jpeg', upsert: true })
+    }
+  } catch { /* the original still works */ }
   return { path, ...dims }
+}
+
+function kitThumb(file, width = 540) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, width / img.naturalWidth)
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.naturalWidth * scale)
+      c.height = Math.round(img.naturalHeight * scale)
+      const g = c.getContext('2d')
+      g.fillStyle = '#ffffff'
+      g.fillRect(0, 0, c.width, c.height)
+      g.drawImage(img, 0, 0, c.width, c.height)
+      URL.revokeObjectURL(url)
+      c.toBlob((b) => resolve(b), 'image/jpeg', 0.82)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+    img.src = url
+  })
 }
 
 function imageSize(file) {

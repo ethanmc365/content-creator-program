@@ -103,6 +103,20 @@ export default function Leaderboard() {
   // under the top ten reads as a wall of failure rather than as a standing.
   const yetToPost = (rows || []).length - posted.length
   const mine = (rows || []).findIndex((r) => r.creator_id === profile?.id)
+  // Opens the list if the reader is past the fold, then centres and flashes
+  // their row. The timer waits for the expanded rows to mount.
+  const showMe = () => {
+    const meIndex = everyone.findIndex((r) => r.creator_id === profile?.id)
+    if (meIndex >= COLLAPSED) setExpanded(true)
+    setTimeout(() => {
+      const el = document.querySelector('[data-me]')
+      if (!el) return
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      el.classList.remove('flash-me')
+      void el.offsetWidth
+      el.classList.add('flash-me')
+    }, meIndex >= COLLAPSED ? 420 : 30)
+  }
 
   return (
     <div className="page max-w-3xl">
@@ -113,32 +127,55 @@ export default function Leaderboard() {
           creator wanting to know where they stand among their own is asking a
           different, equally fair question. */}
       {markets.length > 1 && !lockedToOwn && (
-        <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-          <button
-            type="button"
-            onClick={() => setMarket('')}
-            aria-pressed={!market}
-            className={cx(
-              'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-              !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-            )}
-          >
-            {tr("Worldwide")}
-          </button>
-          {markets.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setMarket(m.id)}
-              aria-pressed={market === m.id}
-              className={cx(
-                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-                market === m.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-              )}
-            >
-              {m.name}
+        // ONE SCROLLING ROW (12 Oct 2026). Ethan: "I would rather have it
+        // scrollable to the right or the left rather than having everything
+        // below each other on different lines."
+        <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0">
+          {[{ id: '', name: tr('Worldwide') }, ...markets].map((m) => {
+            const on = (market || '') === m.id
+            return (
+              <button
+                key={m.id || 'all'}
+                type="button"
+                onClick={() => setMarket(m.id)}
+                aria-pressed={on}
+                className={cx(
+                  'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors',
+                  on ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-smoke hover:text-ink',
+                )}
+              >
+                {!m.id && <Icon name="globe" className="h-3.5 w-3.5" />}
+                {m.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* WHERE AM I (12 Oct 2026). Ethan: "there should be a quick button to
+          show where I am... rather than having to go through the 221 creators
+          to find it." One line with the reader's place and a Show me that opens
+          the list if needed, scrolls their row to the middle and flashes it. */}
+      {rows !== null && mine >= 0 && (
+        <div className="mb-5 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card">
+          <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-ink">
+              {rows[mine].views > 0
+                ? tr('You are #{n} of {total}', { n: mine + 1, total: rows.length })
+                : tr('You are not on the board yet')}
+            </p>
+            <p className="truncate text-[13px] text-smoke">
+              {rows[mine].views > 0
+                ? tr('{views} views', { views: formatViews(rows[mine].views) })
+                : tr('Post a video to a challenge to get on it.')}
+            </p>
+          </div>
+          {rows[mine].views > 0 && (
+            <button type="button" onClick={showMe} className="btn-primary shrink-0 !px-4 !py-2 text-[13px]">
+              <Icon name="pin" className="h-4 w-4" />{tr('Show me')}
             </button>
-          ))}
+          )}
         </div>
       )}
 
@@ -188,6 +225,7 @@ export default function Leaderboard() {
                      the siblings now, so the rule means what it says. */
                   <motion.div
                     key={c.creator_id}
+                    data-me={isMe ? '' : undefined}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.34 + Math.min(i, 8) * 0.045, duration: 0.32, ease: EASE }}

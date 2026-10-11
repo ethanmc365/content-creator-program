@@ -36,6 +36,7 @@ export default function Directory() {
   const [country, setCountry] = useState('')
   const [language, setLanguage] = useState('')
   const [platform, setPlatform] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [nearMe, setNearMe] = useState(false)
   // "Who's travelling" filter: when on, the grid shows only creators the map
   // marks as travelling. The map reports that exact set via onTravellersChange.
@@ -181,6 +182,7 @@ export default function Directory() {
   // the team into their own row - deliberately are not applied here: a map of
   // where everyone is with you missing from it is a map that is wrong.
   const fieldFilterOn = !!(search || country || language || platform)
+  const filterCount = [country, language, platform].filter(Boolean).length
   const matchesFields = (c) => {
     if (search && !c.name?.toLowerCase().includes(search.toLowerCase())) return false
     if (country && !(c.countries_visited || []).includes(country)) return false
@@ -330,42 +332,86 @@ export default function Directory() {
         )}
       </section>
 
-      {/* Search + filters */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <input
-          type="search" className="input" placeholder={tr("Search by name…")}
-          value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr("Search creators by name")}
-        />
-        <Combobox value={country} onChange={setCountry} options={allCountries} placeholder={tr("Any country visited")} ariaLabel="Filter by country visited" />
-        <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder={tr("Any language")} ariaLabel="Filter by language" />
-        <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder={tr("Any platform")} ariaLabel="Filter by platform" />
+      {/* SEARCH, AND THE FILTERS BEHIND ONE BUTTON (12 Oct 2026). Ethan: "just
+          have Search by Name on one, and then, to the very right of that... a
+          filter button. Clicking that will then show the filters." Four
+          stacked fields were a whole phone screen before the first creator.
+          The panel opens in place under the search (no sheet, so the field
+          dropdowns and the keyboard behave), and the button carries a count
+          of the filters that are on so a filtered list never looks broken. */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search" className="input !pl-10" placeholder={tr("Search by name…")}
+            value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr("Search creators by name")}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          aria-label={tr('Filters')}
+          className={cx(
+            'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-transform active:scale-95',
+            filtersOpen || filterCount ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink',
+          )}
+        >
+          <Icon name="sliders" className="h-5 w-5" />
+          {filterCount > 0 && !filtersOpen && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1 text-[11px] font-bold text-white ring-2 ring-white">{filterCount}</span>
+          )}
+        </button>
       </div>
+      {filtersOpen && (
+        <div className="mb-4 animate-pop-in rounded-card border border-gray-100 bg-white p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink">{tr('Filters')}</p>
+            {filterCount > 0 && (
+              <button type="button" onClick={() => { setCountry(''); setLanguage(''); setPlatform('') }} className="text-[13px] font-semibold text-brand">
+                {tr('Clear all')}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <span className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-smoke"><Icon name="globe" className="h-3.5 w-3.5 text-brand" />{tr('Country visited')}</span>
+              <Combobox value={country} onChange={setCountry} options={allCountries} placeholder={tr("Any country visited")} ariaLabel="Filter by country visited" />
+            </div>
+            <div>
+              <span className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-smoke"><Icon name="language" className="h-3.5 w-3.5 text-brand" />{tr('Language')}</span>
+              <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder={tr("Any language")} ariaLabel="Filter by language" />
+            </div>
+            <div>
+              <span className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-smoke"><Icon name="video" className="h-3.5 w-3.5 text-brand" />{tr('Platform')}</span>
+              <div className="flex gap-1.5">
+                {['Instagram', 'TikTok', 'YouTube'].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPlatform(platform === p ? '' : p)}
+                    aria-pressed={platform === p}
+                    className={cx('flex-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition-transform active:scale-95',
+                      platform === p ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-ink')}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button type="button" onClick={() => setFiltersOpen(false)} className="btn-primary mt-4 w-full justify-center sm:hidden">
+            {tr('Show {n} creators', { n: filtered.length })}
+          </button>
+        </div>
+      )}
 
-      {/* WHO YOU HAVE MET, UNDER THE FOUR FIELDS RATHER THAN INSIDE THEM.
-          Ethan asked for the option and asked for the four-card filter row not
-          to be altered, so it is its own strip: three states, one of them on,
-          in the same pill language the leaderboard's market chips and the
-          challenge board's group tabs already use. A dropdown would have been a
-          fifth cell in a grid built for four. */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-        {/* "CREATORS" AND "TRYP.COM TEAM" ARE TWO ANSWERS, NOT ONE LIST
-            (4 Sep 2026). Ethan: "'Everyone' should be renamed as Creators, and
-            then it should show only the creators. And on the right we should
-            have another one saying Tryp.com team, and that only shows the
-            Tryp.com team - because currently on Everyone they're mixed together
-            and it doesn't look great."
-
-            "Everyone" was never true anyway: the team was filtered OUT of the
-            grid and drawn in its own section underneath, so the tab labelled
-            Everyone showed everyone except five people. Naming the two groups
-            and letting you pick one is both more honest and what somebody
-            scanning for "who runs this" actually wants. */}
-        {/* AND "TRYP.COM TEAM" SITS NEXT TO "CREATORS" (7 Sep 2026). Ethan:
-            "move Tryp.com team to the right of Creators, and then to the right
-            of Tryp.com team it says My connections and then Not connected yet."
-            The two WHO tabs belong together and the two RELATIONSHIP tabs
-            belong together; the old order interleaved them, so the strip read
-            as four unrelated filters rather than as two pairs. */}
+      {/* WHO: ONE SCROLLING ROW (12 Oct 2026). Ethan: "Rather than putting
+          'Not connected yet' on a new line, it should just be scrollable to the
+          right." The order and meaning of the four are unchanged (see git
+          history for the reasons): Creators, Tryp.com team, My connections,
+          Not connected yet. */}
+      <div className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0">
         {[
           { key: '', label: tr('Creators') },
           { key: 'team', label: tr('Tryp.com team') },
@@ -378,8 +424,8 @@ export default function Directory() {
             onClick={() => setConnection(o.key)}
             aria-pressed={connection === o.key}
             className={cx(
-              'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-              connection === o.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+              'shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors',
+              connection === o.key ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-smoke hover:text-ink',
             )}
           >
             {o.label}

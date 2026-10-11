@@ -6,7 +6,7 @@ import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
-import { timeAgo } from '../lib/utils'
+import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 // How the applicant sees their application move through the admin's pipeline.
@@ -33,6 +33,7 @@ export default function Jobs() {
   const [pitch, setPitch] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [openId, setOpenId] = useState(null)
 
   async function load() {
     const [{ data: jobRows }, { data: apps }] = await Promise.all([
@@ -66,59 +67,149 @@ export default function Jobs() {
     await supabase.from('job_applications').delete().eq('job_id', job.id).eq('creator_id', user.id)
   }
 
+  // THE OFFICIAL PROGRAMME LEADS (12 Oct 2026). Ethan: "no one has actually
+  // applied... we can definitely improve the search roles thing and advertise
+  // other roles like official creators, etc. much better here." It is a jobs
+  // row like any other (so applications land in Admin > Jobs), drawn as the
+  // featured card above the list.
+  const featured = jobs.find((j) => /official/i.test(j.title))
+  const rest = jobs.filter((j) => j !== featured)
+  const actionFor = (j, big = false) => {
+    const app = applied.get(j.id)
+    const st = app ? APPLICANT_STATUS[app.status] || APPLICANT_STATUS.new : null
+    if (app) {
+      return (
+        <div className="flex items-center gap-2">
+          <Badge tone={st.tone}><Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{tr(st.label)}</Badge>
+          {(app.status === 'new' || app.status === 'reviewing') && (
+            <button onClick={() => withdraw(j)} className="btn-ghost !py-2 text-xs">{tr("Withdraw")}</button>
+          )}
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {j.apply_url && <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">{tr("Apply form ↗")}</a>}
+        <button onClick={() => openApply(j)} className={big ? 'btn-primary !px-6' : 'btn-primary'}>
+          {big ? tr("I'm interested") : tr("Apply")}
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="page">
+    <div className="page max-w-4xl">
       <PageHeader
-        title={tr("Search roles")}
-        subtitle="We hire from our own community first. Here are the roles we're currently looking to fill."
+        title={tr("Roles at Tryp.com")}
+        subtitle={tr("We hire from our own community first. Paid programmes and team roles, open to creators like you.")}
         action={isAdmin && <Link to="/admin/jobs" className="btn-primary">{tr("Manage jobs")}</Link>}
       />
 
       {loading ? (
         <SkeletonCards count={3} />
-      ) : jobs.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="briefcase" className="h-7 w-7" />}
-          title={tr("No open roles right now")}
-          hint={tr("We post new positions here first. Keep creating great content and you'll be top of mind.")}
-        />
       ) : (
-        /* One card per role, arriving in order. */
-        <Reveal className="space-y-6" stagger={0.06}>
-          {jobs.map((j) => {
-            const app = applied.get(j.id)
-            const st = app ? APPLICANT_STATUS[app.status] || APPLICANT_STATUS.new : null
-            return (
-              <article key={j.id} className="card">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-semibold">{j.title}</h2>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-smoke">
-                      <Badge tone="light">{j.job_type}</Badge>
-                      {j.location && <span className="flex items-center gap-1"><Icon name="pin" className="h-3.5 w-3.5" />{j.location}</span>}
-                      <span>Posted {timeAgo(j.created_at)}</span>
+        <Reveal className="space-y-8" stagger={0.06}>
+          {featured && (
+            <article className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+              <div className="relative overflow-hidden bg-gradient-to-br from-brand to-[#f5853f] px-5 py-6 text-white sm:px-8 sm:py-8">
+                <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+                <p className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.16em] text-white/90">
+                  <Icon name="badge" className="h-4 w-4" />{tr('Paid programme')}
+                </p>
+                <h2 className="mt-2 text-2xl font-extrabold leading-tight sm:text-3xl">{featured.title}</h2>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/90 sm:text-[15px]">
+                  {tr('Join the Tryp.com team as a creator: a monthly fee plus pay for the views your videos earn.')}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-3">
+                {[
+                  { icon: 'cash', title: tr('Paid every month'), text: tr('A monthly fee plus pay per view, agreed before you start.') },
+                  { icon: 'users', title: tr('Part of the team'), text: tr('Your own programme space, briefs, bonuses and team room.') },
+                  { icon: 'trophy', title: tr('Earned in challenges'), text: tr('Strong challenge entries are the best way to show us your work.') },
+                ].map((b) => (
+                  <div key={b.title} className="flex items-start gap-3 bg-white px-5 py-4">
+                    <Icon name={b.icon} className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">{b.title}</p>
+                      <p className="mt-0.5 text-[13px] leading-snug text-smoke">{b.text}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {j.apply_url && (
-                      <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">{tr("Apply form ↗")}</a>
-                    )}
-                    {app ? (
-                      <div className="flex items-center gap-2">
-                        <Badge tone={st.tone}><Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{st.label}</Badge>
-                        {(app.status === 'new' || app.status === 'reviewing') && (
-                          <button onClick={() => withdraw(j)} className="btn-ghost !py-2 text-xs">{tr("Withdraw")}</button>
-                        )}
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                <button type="button" onClick={() => setOpenId(openId === featured.id ? null : featured.id)} className="flex items-center gap-1 self-start text-sm font-semibold text-brand">
+                  {openId === featured.id ? tr('Hide details') : tr('Read the details')}
+                  <Icon name={openId === featured.id ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />
+                </button>
+                {actionFor(featured, true)}
+              </div>
+              {openId === featured.id && (
+                <p className="animate-fade-up whitespace-pre-line border-t border-gray-100 px-5 py-5 text-sm leading-relaxed text-smoke sm:px-8">{featured.description}</p>
+              )}
+            </article>
+          )}
+
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+              <Icon name="briefcase" className="h-5 w-5 text-brand" />{tr('Open roles')}
+              <span className="text-sm font-medium text-smoke">{rest.length}</span>
+            </h2>
+            {rest.length === 0 ? (
+              <EmptyState
+                icon={<Icon name="briefcase" className="h-7 w-7" />}
+                title={tr("No open roles right now")}
+                hint={tr("We post new positions here first. Keep creating great content and you'll be top of mind.")}
+              />
+            ) : (
+              <div className="space-y-3">
+                {rest.map((j) => {
+                  const open = openId === j.id
+                  return (
+                    <article key={j.id} className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-ink">{j.title}</h3>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-smoke">
+                            <span className="flex items-center gap-1"><Icon name="briefcase" className="h-3.5 w-3.5 text-brand" />{j.job_type}</span>
+                            {j.location && <span className="flex items-center gap-1"><Icon name="pin" className="h-3.5 w-3.5 text-brand" />{j.location}</span>}
+                            <span>{tr('Posted {when}', { when: timeAgo(j.created_at) })}</span>
+                          </div>
+                        </div>
+                        {actionFor(j)}
                       </div>
-                    ) : (
-                      <button onClick={() => openApply(j)} className="btn-primary">{tr("Apply")}</button>
-                    )}
-                  </div>
-                </div>
-                <p className="mt-5 whitespace-pre-line leading-relaxed text-smoke">{j.description}</p>
-              </article>
-            )
-          })}
+                      <p className={cx('mt-3 whitespace-pre-line text-sm leading-relaxed text-smoke', !open && 'line-clamp-3')}>{j.description}</p>
+                      {(j.description || '').length > 180 && (
+                        <button type="button" onClick={() => setOpenId(open ? null : j.id)} className="mt-1.5 text-[13px] font-semibold text-brand">
+                          {open ? tr('Show less') : tr('Read more')}
+                        </button>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* THE OTHER WAYS IN. Not jobs, but the same question: how do I do
+              more with Tryp.com. */}
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Link to="/challenges" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-transform hoverable:hover:-translate-y-0.5">
+              <Icon name="flag" className="h-6 w-6 shrink-0 text-brand" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">{tr('Get noticed in challenges')}</span>
+                <span className="block text-[13px] text-smoke">{tr('The team picks VIP and official creators from the best entries.')}</span>
+              </span>
+              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-400" />
+            </Link>
+            <Link to="/refer" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-transform hoverable:hover:-translate-y-0.5">
+              <Icon name="userPlus" className="h-6 w-6 shrink-0 text-brand" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">{tr('Know someone great?')}</span>
+                <span className="block text-[13px] text-smoke">{tr('Refer a creator to the community.')}</span>
+              </span>
+              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-400" />
+            </Link>
+          </section>
         </Reveal>
       )}
 

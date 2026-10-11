@@ -217,9 +217,15 @@ export default function Milestones() {
                       </ul>
 
                       {next.reward && (
-                        <div className="mt-4 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">{tr("Waiting for you")}</p>
-                          <p className="mt-0.5 text-xs font-semibold leading-snug text-brand">{next.reward}</p>
+                        // THE REWARD READS AS A PRIZE, NOT AS ORANGE TEXT (12 Oct
+                        // 2026, Ethan: "a bit weird with weird colours"). Ink text,
+                        // a grey label, one bare brand glyph.
+                        <div className="mt-4 flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
+                          <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-smoke">{tr("Waiting for you")}</p>
+                            <p className="mt-0.5 text-sm font-semibold leading-snug text-ink">{next.reward}</p>
+                          </div>
                         </div>
                       )}
                     </div>

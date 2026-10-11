@@ -1171,7 +1171,10 @@ export default function NetworkChat() {
       <div
         aria-hidden
         className="shrink-0 lg:hidden"
-        style={{ height: topGone ? 'max(env(safe-area-inset-top), 12px)' : 0 }}
+        // THE NOTCH AND NOTHING MORE (12 Oct 2026). It had a 12px floor, which
+        // on top of the header's own padding read as "extra white space above"
+        // General (Ethan). The inset alone clears the status bar.
+        style={{ height: topGone ? 'env(safe-area-inset-top)' : 0 }}
       />
 
       {/* SEARCH LIVES AT THE HEAD OF THE STRIP AND TAKES THE WHOLE STRIP OVER.
@@ -1193,7 +1196,7 @@ export default function NetworkChat() {
           back to your rooms, the room's name with where it is (tap it and every room you are in opens in a sheet,
           the ones with something new first), and search. Nothing here brings the app header back - that still only
           happens on the way out of the room (1 Sep 2026). */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-1.5 py-1.5 lg:hidden">
+      <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-1 py-1 lg:hidden">
         <Link
           to="/rooms"
           aria-label={tr('All rooms')}
@@ -1217,36 +1220,41 @@ export default function NetworkChat() {
             {search && <span className="shrink-0 text-[11px] tabular-nums text-smoke">{visible.length}/{messages.length}</span>}
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setSwitcher(true)}
-            aria-haspopup="dialog"
-            aria-expanded={switcher}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-1.5 py-1 text-left transition-colors active:bg-cloud"
-          >
-            <span className={cx(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-              'text-brand',
-            )}>
-              <Icon name={active?.icon || 'chat'} className="h-[18px] w-[18px]" />
-            </span>
-            <span key={`${community.id}-${active?.key}`} className="min-w-0 flex-1 animate-tab-in">
-              <span className="flex items-center gap-1.5">
-                <span className="truncate text-[15px] font-bold leading-tight text-ink">{active ? tr(active.label) : ' '}</span>
-                {active?.visibility === 'vip' && <VipChip />}
+          // ONE LINE: THE ROOM, THEN WHERE IT IS (12 Oct 2026). Ethan: "we don't
+          // need to show the icon there... it should show the worldwide option
+          // that's currently below general to the right of general, to swap to
+          // another one." The room's name leads; the place is a pill beside it
+          // that opens the switcher, with the unread count of the other rooms on
+          // it. The whole row still opens the switcher too.
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-0.5">
+            <button
+              type="button"
+              onClick={() => setSwitcher(true)}
+              className="flex min-w-0 shrink items-center gap-1.5 text-left"
+            >
+              <span key={`${community.id}-${active?.key}`} className="truncate text-[17px] font-bold leading-tight tracking-[-0.01em] text-ink animate-tab-in">
+                {active ? tr(active.label) : ' '}
               </span>
-              <span className="mt-0.5 flex items-center gap-1 text-[12px] leading-tight text-smoke">
-                <span aria-hidden>{community.kind === 'network' ? '🌍' : flags}</span>
-                <span className="truncate">{community.kind === 'network' ? tr('Worldwide') : community.name}</span>
-                <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0" />
-              </span>
-            </span>
-            {otherUnread > 0 && (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white shadow-card animate-pop-in" aria-label={tr('{n} rooms with new messages', { n: otherUnread })}>
-                {otherUnread}
-              </span>
-            )}
-          </button>
+              {active?.visibility === 'vip' && <VipChip />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSwitcher(true)}
+              aria-haspopup="dialog"
+              aria-expanded={switcher}
+              aria-label={tr('Switch room')}
+              className="relative flex min-w-0 shrink-0 items-center gap-1 rounded-full border border-gray-200 bg-white py-1 pl-2 pr-1.5 text-[13px] font-semibold text-ink transition-transform active:scale-95"
+            >
+              <span aria-hidden className="leading-none">{community.kind === 'network' ? '🌍' : flags}</span>
+              <span className="max-w-[7.5rem] truncate">{community.kind === 'network' ? tr('Worldwide') : community.name}</span>
+              <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0 text-smoke" />
+              {otherUnread > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-white ring-2 ring-white animate-pop-in" aria-label={tr('{n} rooms with new messages', { n: otherUnread })}>
+                  {otherUnread}
+                </span>
+              )}
+            </button>
+          </div>
         )}
         <button
           type="button"

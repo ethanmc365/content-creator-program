@@ -33,35 +33,30 @@ function Figure({ value, measure }) {
   return <span className="inline-block min-w-[4.5rem] text-right tabular-nums">{fmt(measure, value)}</span>
 }
 
-// REORDER BY SLIDING, WITHOUT A LAYOUT LIBRARY. When the measure changes the rows change order; each row remembers where it was, and after the
-// change plays one transform from the old place to the new (the "FLIP" technique). Only transforms animate, so nothing else is re-laid out.
-function useFlip(listRef, order) {
-  const tops = useRef(new Map())
+// A NEW ORDER SETTLES IN, IT DOES NOT SLIDE (12 Oct 2026). Ethan: "The
+// animation, the way it moves up and down, I don't really like." The rows used
+// to fly from their old places to their new ones for up to a second, crossing
+// over each other. Now, when the measure changes, the list is simply in its new
+// order and each row settles into place from a hair below, top to bottom, in a
+// quick stagger - the board reads as re-dealt rather than shuffled. It never
+// starts from invisible (a background tab would freeze it there), and the very
+// first draw is left to the page's own entrance.
+function useSettle(listRef, order) {
+  const first = useRef(true)
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) return
-    const next = new Map()
-    for (const el of list.children) next.set(el.dataset.key, el.getBoundingClientRect().top)
-    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      for (const el of list.children) {
-        const was = tops.current.get(el.dataset.key)
-        const dy = was == null ? 0 : was - next.get(el.dataset.key)
-        if (!dy) continue
-        // SLOWER, AND THE MOVING CARD IS ON TOP (5 Oct 2026). 320ms read as a jump; ~0.85s with a long, soft landing reads as cards finding
-        // their new places. A card climbing the board passes OVER the ones it overtakes instead of vanishing behind them, and the further a
-        // card travels the slightly longer it takes, so a big climb does not look rushed next to a one-place swap.
-        const travel = Math.min(1, Math.abs(dy) / 600)
-        el.setAttribute('data-moving', '') // lifted above its neighbours while it travels (index.css)
-        const anim = el.animate(
-          [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
-          { duration: 700 + Math.round(travel * 350), easing: 'cubic-bezier(0.33, 1, 0.68, 1)' },
-        )
-        const done = () => el.removeAttribute('data-moving')
-        anim.onfinish = done
-        anim.oncancel = done
-      }
+    if (first.current) { first.current = false; return }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let i = 0
+    for (const el of list.children) {
+      el.getAnimations?.().forEach((a) => a.cancel())
+      el.animate(
+        [{ opacity: 0.35, transform: 'translateY(8px) scale(0.985)' }, { opacity: 1, transform: 'none' }],
+        { duration: 380, delay: Math.min(i, 10) * 32, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
+      )
+      i += 1
     }
-    tops.current = next
   }, [listRef, order])
 }
 
@@ -69,7 +64,7 @@ const fmt = (measure, n) => (measure === 'views' ? formatViews(Math.round(Number
 
 /** The badge before a country's name: its flags, or a globe for the creators who have no home market. */
 function Badge({ market, size = 'h-9 w-9', glyph = 'text-xl' }) {
-  if (market.none) return <span title={market.name} className={cx('inline-flex shrink-0 items-center justify-center rounded-xl bg-cloud leading-none', size, glyph)} aria-hidden>🌍</span>
+  if (market.none) return <span title={market.name} className={cx('inline-flex shrink-0 items-center justify-center leading-none', size, glyph)} aria-hidden>🌍</span>
   return <FlagTile codes={market.codes} size={size} glyph={glyph} title={market.name} />
 }
 
@@ -98,7 +93,8 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
       .sort((a, b) => ((b[measure] || 0) - (a[measure] || 0)) || (b.creators - a.creators) || String(a.name).localeCompare(String(b.name)))
   }, [data, measure])
 
-  useFlip(listRef, rows.map((r) => r.id || 'none').join(','))
+  // Keyed on the measure as well, so switching tab always re-deals even when the order happens not to change.
+  useSettle(listRef, `${measure}:${rows.map((r) => r.id || 'none').join(',')}`)
   useEffect(() => {
     if (!data) return undefined
     const t = setTimeout(() => setGrown(true), 60)

@@ -99,7 +99,7 @@ const ChatComposer = forwardRef(function ChatComposer({
   return (
     <div
       className={cx(
-        'shrink-0 border-t border-gray-100 px-4 py-2.5 sm:px-5 sm:py-3',
+        'shrink-0 border-t border-gray-100 px-2.5 py-2 sm:px-5 sm:py-3',
         // SNUG TO THE KEYBOARD.
         //
         // The safe-area inset is the home indicator's strip at the bottom of the
@@ -206,7 +206,9 @@ const ChatComposer = forwardRef(function ChatComposer({
           // `rt-scroll` is what makes that scroll actually work on a phone -
           // see the note in index.css. Without it the drag chains out to the
           // locked document behind the overlay and takes the keyboard with it.
-          className="input rt-scroll max-h-40 min-h-[2.75rem] flex-1 self-stretch overflow-y-auto overscroll-contain py-2.5 text-base sm:text-sm"
+          // A ROUNDED PILL ON A SOFT GREY, LIKE EVERY MESSAGING APP (12 Oct 2026,
+          // "improve the overall style of the mobile chat").
+          className="input rt-scroll max-h-40 min-h-[2.75rem] flex-1 self-stretch overflow-y-auto overscroll-contain !rounded-[22px] !border-transparent !bg-cloud px-4 py-2.5 text-base focus:!bg-white focus:!border-gray-200 sm:text-sm"
         />
 
         <button
@@ -215,7 +217,7 @@ const ChatComposer = forwardRef(function ChatComposer({
           // collapsed the keyboard on send.
           onMouseDown={(e) => e.preventDefault()}
           disabled={!canSend || sending}
-          className="btn-primary shrink-0 !px-5"
+          className="btn-primary h-11 w-11 shrink-0 items-center justify-center !rounded-full !p-0 disabled:!bg-gray-200 disabled:!text-white"
           aria-label={tr("Send")}
         >
           {sending ? (
