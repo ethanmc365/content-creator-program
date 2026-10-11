@@ -306,7 +306,7 @@ export default function CountryPanel({
         )}
 
         {shownFact && (
-          <div className="mx-1.5 rounded-xl bg-brand-tint/40 px-3 py-2.5">
+          <div className="mx-1.5 rounded-xl bg-cloud/70 px-3 py-2.5">
             {/* The key is the fact, so React swaps the node and the fade
                 actually plays. Keyed on the index alone, the text would change
                 inside a node that never re-entered and nothing would animate. */}
@@ -387,7 +387,7 @@ export default function CountryPanel({
 
         {total === 0 && variant !== 'personal' && (
           <div className="px-1.5 py-4 text-center">
-            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl text-brand">
               <Icon name="pin" className="h-5 w-5" />
             </div>
             <p className="text-sm font-semibold text-ink">Nobody has been to {country} yet</p>

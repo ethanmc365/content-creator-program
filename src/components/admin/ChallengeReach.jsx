@@ -268,7 +268,7 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
     <Modal open onClose={onClose} title={`${seg.title}${market ? ` · ${market}` : ''}`} wide>
       <div className="space-y-5">
         {sent != null ? (
-          <p className="rounded-xl bg-brand-tint/50 px-4 py-6 text-center text-sm font-semibold text-ink">Sent to {sent} creators. It is in their notifications now, and a push went to anybody who has them on.</p>
+          <p className="rounded-xl bg-cloud/70 px-4 py-6 text-center text-sm font-semibold text-ink">Sent to {sent} creators. It is in their notifications now, and a push went to anybody who has them on.</p>
         ) : (
           <div className="space-y-3 rounded-card border border-gray-100 bg-cloud/50 p-4">
             <p className="text-sm font-semibold text-ink">Send these {people.length} creators a push</p>

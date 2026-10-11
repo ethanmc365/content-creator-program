@@ -29,7 +29,7 @@ import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   FB_CRAWLER_UAS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
-  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder,
+  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt,
 } from './facebook.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -499,8 +499,11 @@ type FbLocal = Resolved & { walled?: boolean; region?: string | null }
 
 // Every route that can turn a link into a video id, cheapest first. Returns as
 // soon as one names an id; `walled` says a login page got in the way.
-async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled: boolean }> {
+async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled: boolean; photo?: boolean }> {
   let walled = false
+  // A post whose attachments are all photos (11 Oct 2026: a /share/p/ link entered in Spain) has no view count to find,
+  // and used to end as "blocked" after every region was asked for a video that does not exist.
+  let photo = false
   const ids: string[] = []
   const add = (v: string | null | undefined) => { if (v && !ids.includes(v)) ids.push(v) }
 
@@ -515,6 +518,10 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
     const page = await fbFetch(url, ua)
     if (!page) continue
     if (isFacebookWall(page.url, page.html)) { walled = true; continue }
+    if (/"__typename":"Photo"/.test(page.html) && !/"__typename":"Video"/.test(page.html) && !facebookIdFrom(page.url)) {
+      photo = true
+      return { ids: [], walled: false, photo }
+    }
     add(facebookIdFrom(page.url))
     for (const c of facebookIdCandidates(page.html).slice(0, 2)) add(c)
     if (ids.length) return { ids, walled }
@@ -540,14 +547,16 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
 // PLAYER where the picture goes, which is where the circle play button Ethan
 // could not get rid of came from - and the answer was in this response all
 // along. See `facebookCoverFrom` for what is taken and why the host is checked.
-async function facebookReadId(id: string): Promise<{ views: number; approx: boolean; thumbnail: string | null } | { walled: boolean }> {
+async function facebookReadId(id: string): Promise<{ views: number; approx: boolean; thumbnail: string | null; postedAt?: string | null } | { walled: boolean }> {
   let walled = false
   for (const ua of FB_CRAWLER_UAS) {
     const page = await fbFetch(`https://www.facebook.com/reel/${id}/`, ua)
     if (!page) continue
     if (isFacebookWall(page.url, page.html)) { walled = true; continue }
     const n = facebookCountFor(page.html, id)
-    if (n != null) return { views: n, approx: false, thumbnail: facebookCoverFrom(page.html) }
+    // THE DATE IT WAS POSTED IS ON THE SAME PAGE (11 Oct 2026), and Facebook entries had none, so an old Facebook video
+    // could be entered and nobody would know. It is what lets migration 382 disqualify one posted before the start.
+    if (n != null) return { views: n, approx: false, thumbnail: facebookCoverFrom(page.html), postedAt: facebookPostedAt(page.html, id) }
   }
   // A classic video states its count in the watch page's title.
   const watch = await fbFetch(`https://www.facebook.com/watch/?v=${id}`, UA)
@@ -581,6 +590,7 @@ async function facebookReadHere(url: string, knownId: string | null): Promise<Fb
           views: r.views,
           approx: r.approx,
           thumbnail: r.thumbnail,
+          postedAt: r.postedAt ?? null,
           error: null,
         }
       }
@@ -596,6 +606,9 @@ async function facebookReadHere(url: string, knownId: string | null): Promise<Fb
   // A stored id can be wrong (an old resolver once kept a PAGE id), so an id
   // that reads nothing sends us back to the link.
   const resolved = await facebookResolveIds(url)
+  if (resolved.photo) {
+    return fail({ ...base, canonicalUrl: url }, 'not_a_video', 'That Facebook post is a photo, so it has no view count.')
+  }
   if (resolved.walled) walled = true
   const found = await attempt(resolved.ids)
   if (found) return found
@@ -616,7 +629,9 @@ async function facebookReadHere(url: string, knownId: string | null): Promise<Fb
 // Regions that answered recently, most recent first. Module scope, so it lasts
 // as long as the isolate - a sweep keeps using the region that is working.
 const fbGoodRegions: string[] = []
-const FB_MAX_HOPS = 6
+// Every region before giving up (11 Oct 2026): a walled region answers in about a second, and with six hops a reel
+// that read fine from Ethan's Mac was left "blocked" all day.
+const FB_MAX_HOPS = 16
 
 async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
   // No secret, no hop: read here and say what happened.
@@ -736,6 +751,9 @@ function igPlayCount(item: Record<string, unknown> | null | undefined): number |
 }
 
 class IgShellError extends Error {}
+// Instagram ANSWERED, and the answer was "no such profile" (gone, private, or a wrong handle). Not a refusal.
+class IgNoProfileError extends Error {}
+const IG_FAILED = Symbol('instagram refused')
 
 // One POST, browser-shaped. Returns parsed JSON, or throws IgShellError when
 // Instagram answered with the app shell (see the Sec-Fetch-Site note above).
@@ -788,7 +806,7 @@ async function igGraphql(
 // invocations and a cached page would serve yesterday's counts as today's.
 export type IgCache = {
   reels: Map<string, Promise<Map<string, number>>>
-  owners: Map<string, Promise<IgOwner | null>>
+  owners: Map<string, Promise<IgOwner | null | typeof IG_FAILED>>
 }
 export const newIgCache = (): IgCache => ({ reels: new Map(), owners: new Map() })
 
@@ -833,7 +851,7 @@ async function igFetchReels(username: string): Promise<Map<string, number>> {
       // Both look the same here, so try the next id before giving up.
     }
     if (!user) {
-      if (page === 0) throw new IgShellError('instagram returned no profile for that handle')
+      if (page === 0) throw new IgNoProfileError('instagram returned no profile for that handle')
       break
     }
     const conn = (user.polaris_clips_connection ?? {}) as Record<string, unknown>
@@ -900,20 +918,24 @@ async function igFetchOwner(shortcode: string): Promise<IgOwner | null> {
   return null
 }
 
-function igOwner(cache: IgCache, shortcode: string): Promise<IgOwner | null> {
+function igOwner(cache: IgCache, shortcode: string): Promise<IgOwner | null | typeof IG_FAILED> {
   const hit = cache.owners.get(shortcode)
   if (hit) return hit
-  const p = igFetchOwner(shortcode).catch(() => null)
+  // A refused request is IG_FAILED, not null: null means Instagram answered and has no such post, and treating a refusal
+  // as that is how one walled server IP turned fourteen live reels into "Instagram has no post with that code".
+  const p = igFetchOwner(shortcode).catch(() => IG_FAILED)
   cache.owners.set(shortcode, p)
   return p
 }
 
-async function instagramViews(
+type IgLocal = Resolved & { walled?: boolean }
+
+async function instagramReadHere(
   url: string,
   cache: IgCache,
   handleHint: string | null = null,
   meta = false,
-): Promise<Resolved> {
+): Promise<IgLocal> {
   const code = igShortcodeFrom(url)
   const canonicalUrl = code ? `https://www.instagram.com/reel/${code}/` : null
   const base = { platform: 'Instagram' as const, approx: false, videoId: code, canonicalUrl }
@@ -924,10 +946,12 @@ async function instagramViews(
   // code is not on that profile's tab we go and ask who really owns it.
   const guess = igHandleFrom(url) ?? igHandleFrom(handleHint)
 
+  let refused = false
   const lookIn = async (username: string): Promise<number | null> => {
     try {
       return (await igReels(cache, username)).get(code) ?? null
-    } catch {
+    } catch (e) {
+      if (!(e instanceof IgNoProfileError)) refused = true
       return null
     }
   }
@@ -954,7 +978,15 @@ async function instagramViews(
   }
 
   const owner = await igOwner(cache, code)
+  if (owner === IG_FAILED) {
+    return { ...fail(base, 'blocked',
+      'Instagram did not answer from this server. It will be asked again from another region, and on the next sync.'), walled: true }
+  }
   if (!owner) {
+    if (refused) {
+      return { ...fail(base, 'blocked',
+        'Instagram did not answer from this server. It will be asked again from another region, and on the next sync.'), walled: true }
+    }
     return fail(base, 'no_video_id',
       'Instagram has no post with that code. Usually deleted, or the account is private.')
   }
@@ -977,6 +1009,11 @@ async function instagramViews(
     const views = await lookIn(owner.username)
     if (views != null) return { ...base, views, error: null, ...extras }
   }
+  // The reels tab was refused rather than read, so "not on the tab" would be a guess.
+  if (refused) {
+    return { ...fail(base, 'blocked',
+      'Instagram did not answer from this server. It will be asked again from another region, and on the next sync.'), walled: true, ...extras }
+  }
 
   // We know who posted it and we read their tab. If it is not there, it is
   // either not a reel (a feed video does not appear on the reels tab) or the
@@ -989,6 +1026,57 @@ async function instagramViews(
     `That reel is not on @${owner.username}'s public reels tab. A private account, or a reel too far back to reach.`)
 }
 
+// INSTAGRAM FAILS OVER ACROSS REGIONS TOO (11 Oct 2026). On 11 Oct every Instagram read from the usual region failed for
+// six hours (78 alerts), while the same doc_ids answered from anywhere else: Instagram, like Facebook, refuses a server IP
+// for a while after a burst. So a refused read is handed to this function in another Supabase region, the same way
+// Facebook's are, and once this region has been refused the rest of the run goes straight to a region that answered
+// (each hop is one video, so the per-creator reels cache only helps while this region is answering).
+// Measured 11 Oct 2026 across all sixteen regions: three answered (eu-west-2, eu-west-3, eu-west-1), thirteen were
+// refused. Which ones changes, so they only lead the order; every region is tried before giving up, and a refused one
+// answers in about a second.
+const igGoodRegions: string[] = ['eu-west-2', 'eu-west-3', 'eu-west-1']
+const IG_MAX_HOPS = 16
+let igHereRefusedUntil = 0
+
+async function instagramViews(url: string, cache: IgCache, handleHint: string | null = null, meta = false): Promise<Resolved> {
+  let here: IgLocal | null = null
+  if (Date.now() >= igHereRefusedUntil) {
+    here = await instagramReadHere(url, cache, handleHint, meta)
+    if (!here.walled || !WEBHOOK_SECRET) return here
+    igHereRefusedUntil = Date.now() + 10 * 60_000
+  }
+  if (!WEBHOOK_SECRET) return here ?? instagramReadHere(url, cache, handleHint, meta)
+
+  let last: IgLocal | null = here
+  for (const region of regionOrder(igGoodRegions).slice(0, IG_MAX_HOPS)) {
+    let r: IgLocal | null = null
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 30_000)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET, 'x-region': region },
+        body: JSON.stringify({ instagram_read: { url, handle: handleHint, meta } }),
+        signal: ctrl.signal,
+      }).finally(() => clearTimeout(timer))
+      if (res.ok) r = (await res.json()) as IgLocal
+      else await res.body?.cancel()
+    } catch {
+      r = null
+    }
+    if (!r) continue
+    last = r
+    if (!r.walled) {
+      const at = igGoodRegions.indexOf(region)
+      if (at >= 0) igGoodRegions.splice(at, 1)
+      igGoodRegions.unshift(region)
+      return r
+    }
+    const bad = igGoodRegions.indexOf(region)
+    if (bad >= 0) igGoodRegions.splice(bad, 1)
+  }
+  return last ?? instagramReadHere(url, cache, handleHint, meta)
+}
 
 // --------------------------------------------------------------- dispatcher
 // Takes a HOSTNAME, anchored at both ends. A substring test would accept
@@ -1140,7 +1228,8 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
         views_synced_at: now,
         views_sync_error: null,
         ...(r.videoId ? { platform_video_id: r.videoId } : {}),
-        ...(wantDate && r.postedAt ? { posted_at: r.postedAt } : {}),
+        // Any platform that stated a date fills an empty one: YouTube (asked for above) and Facebook (free, 11 Oct 2026).
+        ...(!row.posted_at && r.postedAt ? { posted_at: r.postedAt } : {}),
         // Read once: the words on a video do not change, and a second write would only be more work for the same row.
         ...(!row.screen_text && r.screenText ? { screen_text: r.screenText } : {}),
       }
@@ -1342,6 +1431,7 @@ Deno.serve(async (req) => {
 
   const body = (await req.json().catch(() => ({}))) as {
     facebook_read?: { url: string; knownId: string | null }
+    instagram_read?: { url: string; handle: string | null; meta?: boolean }
     probe?: string
     challenge_id?: string
     submission_ids?: string[]
@@ -1360,6 +1450,13 @@ Deno.serve(async (req) => {
     if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
     const { url, knownId } = body.facebook_read
     return json(req, await facebookReadHere(String(url), knownId ? String(knownId) : null))
+  }
+
+  // ONE INSTAGRAM READ, in whatever region this invocation landed in (see instagramViews).
+  if (body.instagram_read) {
+    if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
+    const { url, handle, meta } = body.instagram_read
+    return json(req, await instagramReadHere(String(url), newIgCache(), handle ? String(handle) : null, !!meta))
   }
 
   if (!fromCron) {

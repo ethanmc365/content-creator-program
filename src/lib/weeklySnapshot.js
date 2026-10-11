@@ -75,7 +75,7 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
   const now = viewsFor(t, scope)
   const before = viewsFor(p, scope)
   const ch = pctChange(now, before)
-  const chText = ch == null ? 'no earlier week to compare' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% on the ${r.days} days before`
+  const chText = ch == null ? 'nothing earlier to compare' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% on the ${r.days} days before`
     const which = scope === 'community' ? 'Community' : scope === 'vip' ? 'VIP creators' : 'Community + VIP'
 
   const rows = (r?.markets || []).filter((m) => viewsFor(m, scope) > 0 || m.new_members > 0 || m.videos > 0).slice(0, 7)

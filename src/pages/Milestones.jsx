@@ -217,7 +217,7 @@ export default function Milestones() {
                       </ul>
 
                       {next.reward && (
-                        <div className="mt-4 rounded-xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
+                        <div className="mt-4 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">{tr("Waiting for you")}</p>
                           <p className="mt-0.5 text-xs font-semibold leading-snug text-brand">{next.reward}</p>
                         </div>

@@ -467,7 +467,7 @@ function ReviewQueue({ queue, setQueue, emailById }) {
       <section>
         <SectionHeading icon="envelope" title="Creators to welcome" />
         <div className="rounded-card border border-dashed border-gray-200 bg-white px-8 py-14 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl text-brand">
             <Icon name="check" className="h-7 w-7" />
           </div>
           <h3 className="text-lg font-semibold">Everybody has been written to</h3>

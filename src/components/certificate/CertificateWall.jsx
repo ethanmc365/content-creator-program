@@ -155,7 +155,7 @@ function AdminPreview({ designs, className }) {
   })
   return (
     <section className={className}>
-      <div className="mb-3 rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-3">
+      <div className="mb-3 rounded-card border border-gray-100 bg-white px-4 py-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
           <Icon name="eye" className="h-4 w-4 text-brand" />
           {tr('Certificates, as creators see them')}

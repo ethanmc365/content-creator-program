@@ -711,7 +711,7 @@ export default function Events() {
                   {selectedDay && (
                     <div className="space-y-4">
                       {travelDays.get(dayKey(selectedDay)) && (
-                        <p className="flex items-center gap-2 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs font-semibold text-brand">
+                        <p className="flex items-center gap-2 rounded-xl bg-cloud/70 px-3 py-2 text-xs font-semibold text-brand">
                           <Icon name="plane-tryp" className="h-3.5 w-3.5" />
                           You are in {travelDays.get(dayKey(selectedDay))}
                         </p>
@@ -1338,7 +1338,7 @@ function EmptyCalendar() {
   const tr = useT()
   return (
     <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
-      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-brand">
         <Icon name="calendar" className="h-6 w-6" />
       </span>
       <p className="text-sm font-semibold text-ink">{tr("Nothing coming up")}</p>

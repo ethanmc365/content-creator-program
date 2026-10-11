@@ -312,7 +312,7 @@ export default function NotificationBell() {
               </div>
             ) : rows.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl text-brand">
                   <Icon name="check" className="h-5 w-5" />
                 </span>
                 <p className="text-sm font-medium text-ink">

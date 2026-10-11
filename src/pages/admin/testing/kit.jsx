@@ -32,7 +32,7 @@ export function LabPage({ title, subtitle, icon = 'bulb', children, aside, sandb
       </Link>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
-          <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+          <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-brand">
             <Icon name={icon} className="h-5 w-5" />
           </span>
           <div>
@@ -53,7 +53,7 @@ export function LabPage({ title, subtitle, icon = 'bulb', children, aside, sandb
  *  nothing they press here can reach a real creator. */
 export function SandboxLine({ className = '' }) {
   return (
-    <div className={cx('flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/30 px-4 py-3', className)}>
+    <div className={cx('flex items-start gap-3 rounded-card border border-gray-100 bg-white px-4 py-3', className)}>
       <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
       <p className="text-xs leading-relaxed text-smoke">
         <span className="font-semibold text-ink">Sandbox.</span> Everyone on this page is invented and every

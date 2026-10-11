@@ -131,6 +131,9 @@ export default function AddToHomePrompt() {
       status: profile.status,
     })
     if (!next) return
+    // NOTIFICATIONS ARE A BANNER NOW, NOT THIS MODAL (11 Oct 2026, components/PushBanner). Ethan wanted the ask on every
+    // app open without a pop-up in the way, so this component only does the install wall.
+    if (next === 'push') return
 
     // THE INSTALL WALL COMES BEFORE THE WALKTHROUGH, AND THE WALKTHROUGH THEN
     // HAPPENS INSIDE THE APP. Ethan described the good path himself: "if the
@@ -202,7 +205,7 @@ export default function AddToHomePrompt() {
     return (
       <Modal open onClose={dismiss} title={tr('Turn notifications on')}>
         <div className="space-y-5">
-          <div className="flex items-start gap-3 rounded-card bg-brand-tint/50 px-4 py-3.5">
+          <div className="flex items-start gap-3 rounded-card bg-cloud/70 px-4 py-3.5">
             <Icon name="bell" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
             <p className="text-sm leading-relaxed text-ink">
               {tr('This is how you hear that a challenge went live, that results are in, or that you have been paid. Briefs run to a deadline, so without it you will miss them.')}

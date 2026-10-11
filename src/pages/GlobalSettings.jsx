@@ -510,7 +510,7 @@ export default function GlobalSettings() {
 
     // 4 Review
     <div key="review" className="space-y-4">
-      <div className="rounded-card border border-brand/25 bg-brand-tint/20 p-5">
+      <div className="rounded-card border border-gray-100 bg-white p-5">
         <p className="flex flex-wrap items-center gap-2 text-lg font-bold">
           <span aria-hidden>{form.codes.map(flagFromIso).join(' ') || '🌍'}</span>
           {form.name || 'Untitled market'}
@@ -634,7 +634,7 @@ export default function GlobalSettings() {
               </h2>
               <div className="space-y-2">
                 {joinRequests.map((r) => (
-                  <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/25 px-5 py-4">
+                  <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4">
                     <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{r.profiles?.name ?? 'A creator'}</span>

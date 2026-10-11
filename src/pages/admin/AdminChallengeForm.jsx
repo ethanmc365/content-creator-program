@@ -1000,7 +1000,7 @@ export default function AdminChallengeForm() {
           </div>
 
           {form.community_id === globalCommunity?.id && (
-            <p className="rounded-xl border border-brand/20 bg-brand-tint/30 px-4 py-3 text-sm">
+            <p className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm">
               Publishing this notifies <span className="font-semibold">every creator on the platform</span>,
               in every market. Write the brief in English.
             </p>

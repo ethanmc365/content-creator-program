@@ -100,6 +100,9 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
 // 1.6s: long enough that a count to six is unmistakably a count and not a
 // flicker, short enough that nobody is waiting on the card.
 export const COUNT_MS = 1600
+// THE VIP PAGES COUNT FASTER (11 Oct 2026). Ethan: "If I want to see quickly and it takes a while to come up to a big
+// number, it can be annoying." Money and views there are read, not admired, so they arrive in under a second.
+export const VIP_COUNT_MS = 650
 
 // How long after a card BEGINS to arrive its numbers start counting. The card
 // fades up over 720ms; a count that starts on the first frame of that spends

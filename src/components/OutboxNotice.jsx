@@ -68,7 +68,7 @@ export default function OutboxNotice({ scope }) {
   if (slow.length === 0) {
     if (!offline) return null
     return (
-      <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand/15 bg-brand-tint/60 px-3 py-2">
+      <div className="mb-2 flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2">
         <Icon name="clock" className="h-4 w-4 shrink-0 text-brand" />
         <p className="min-w-0 flex-1 text-xs text-ink">
           {tr("No connection.")} <span className="text-smoke">{tr("Write anyway. Anything you send waits here and goes out the moment you are back.")}</span>
@@ -83,7 +83,7 @@ export default function OutboxNotice({ scope }) {
   return (
     <div className="mb-2 space-y-1.5">
       {waiting > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-brand/15 bg-brand-tint/60 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2">
           <Icon name="clock" className="h-4 w-4 shrink-0 text-brand" />
           <p className="min-w-0 flex-1 text-xs text-ink">
             {waiting === 1 ? 'Waiting for signal.' : `${waiting} messages waiting for signal.`}{' '}

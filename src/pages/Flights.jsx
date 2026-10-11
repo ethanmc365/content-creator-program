@@ -2417,7 +2417,7 @@ export default function Flights() {
       <Modal open={!!offer} onClose={() => setOffer(null)} title={tr("Tell the community?")}>
         {offer && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-card border border-brand/25 bg-brand-tint/25 p-4">
+            <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4">
               <Icon name="pin" className="h-5 w-5 shrink-0 text-brand" />
               <p className="text-sm">
                 <span className="font-semibold">{offer.city}</span>

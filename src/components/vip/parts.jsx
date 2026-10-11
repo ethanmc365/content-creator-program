@@ -13,7 +13,7 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 
 // THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
 // this month, what they are worth, what the statement says - and a screen reads best when every piece uses
@@ -92,7 +92,7 @@ export function askingRules(rules, month) {
 function QuestionRow({ rule, value, onChange, disabled }) {
   const tr = useKindT()
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-brand/15 bg-brand-tint/40 px-3.5 py-3 animate-rise sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-3.5 py-3 animate-rise sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold leading-snug text-ink"><Icon name="flag" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />{rule.prompt}</p>
         <p className="mt-0.5 text-[11px] text-smoke">{tr('For: {b}', { b: rule.label })}</p>
@@ -360,7 +360,7 @@ export function VipStatementCard({ s, programmeCpm }) {
   return (
     <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hoverable:hover:bg-cloud/40">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-bold text-ink">{monthLabel(s.year, s.month)}</span>
           <span className="block text-xs text-smoke">{tr('{n} views', { n: nf(s.views) })}</span>
@@ -434,7 +434,11 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
   const rest = rows.slice(3)
   const lead = Math.max(1, Number(rows[0]?.views) || 0)
   // Second, first, third: the winner in the middle and tallest.
-  const order = [top[1], top[0], top[2]].filter(Boolean)
+  // AN EMPTY STEP IS SHOWN, NOT DROPPED (11 Oct 2026). With two creators counted the podium used to be two columns and
+  // looked broken (Ethan, of the official board). Now a free place is drawn as an open step, so it always reads as a
+  // podium, and the third person to post fills it.
+  const ghost = (rank) => ({ rank, ghost: true })
+  const order = [top[1] ?? ghost(2), top[0], top[2] ?? ghost(3)]
   const step = { 1: 'h-28 sm:h-32', 2: 'h-20 sm:h-24', 3: 'h-14 sm:h-16' }
   const face = {
     1: 'bg-gradient-to-b from-brand to-brand-light text-white shadow-lift',
@@ -449,7 +453,15 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
       <div className="relative bg-gradient-to-b from-brand-tint via-brand-tint/30 to-white px-3 pb-5 pt-7 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute left-1/2 top-2 h-40 w-40 -translate-x-1/2 rounded-full bg-brand/15 blur-3xl" />
         <div className="relative flex items-end justify-center gap-2.5 sm:gap-4">
-          {order.map((r, i) => (
+          {order.map((r, i) => r.ghost ? (
+            <div key={`open${r.rank}`} className="flex w-1/3 max-w-[10rem] flex-col items-center animate-rise" style={{ animationDelay: `${120 + i * 110}ms` }}>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-gray-200 bg-white text-gray-300"><Icon name="plus" className="h-5 w-5" /></span>
+              <p className="mt-3 text-[13px] font-bold text-gray-400 sm:text-sm">{tr('Open')}</p>
+              <p className="text-xs text-gray-400">{tr('Post to take it')}</p>
+              <span className="mt-1 h-[18px]" />
+              <div className={cx('mt-2.5 flex w-full items-start justify-center rounded-2xl border-2 border-dashed border-gray-200 pt-2 text-xl font-extrabold tabular-nums text-gray-300 origin-bottom animate-bar-rise', step[r.rank])} style={{ animationDelay: `${i * 110}ms` }}>{r.rank}</div>
+            </div>
+          ) : (
             <div key={r.rank} className="flex w-1/3 max-w-[10rem] flex-col items-center animate-rise" style={{ animationDelay: `${120 + i * 110}ms` }}>
               <div className="relative">
                 {r.rank === 1 && <span aria-hidden className="absolute -inset-2 rounded-full bg-gradient-to-br from-brand to-brand-light opacity-30 blur-md motion-safe:animate-pulse" />}
@@ -457,7 +469,7 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
                 <span className={cx('absolute -bottom-1.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold ring-2 ring-white', r.rank === 1 ? 'bg-ink text-white' : 'bg-white text-ink shadow')}>{r.rank}</span>
               </div>
               <p className="mt-3 max-w-full truncate text-[13px] font-bold text-ink sm:text-sm">{r.name}{r.me ? <span className="ml-1 text-brand">· {tr('You')}</span> : null}</p>
-              <p className="text-xs font-semibold tabular-nums text-smoke"><CountUp value={Number(r.views) || 0} format={formatViews} /> {tr('views')}</p>
+              <p className="text-xs font-semibold tabular-nums text-smoke"><CountUp duration={VIP_COUNT_MS} value={Number(r.views) || 0} format={formatViews} /> {tr('views')}</p>
               {prizes[r.rank] ? <p className="mt-1 max-w-full truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{prizes[r.rank].join(' + ')}</p> : <span className="mt-1 h-[18px]" />}
               <div className={cx('mt-2.5 flex w-full items-start justify-center rounded-2xl pt-2 text-xl font-extrabold tabular-nums origin-bottom animate-bar-rise', step[r.rank], face[r.rank])} style={{ animationDelay: `${i * 110}ms` }}>
                 {r.rank === 1 ? <Icon name="trophy" className="h-6 w-6" /> : r.rank}
@@ -575,7 +587,7 @@ function RuleQuestionStandings({ rule, overview, onAnswer }) {
   const rows = (data?.rows || []).slice(0, 5)
   return (
     <div className="mt-3 space-y-2.5">
-      <p className="flex items-start gap-2 rounded-xl bg-brand-tint/50 px-3 py-2 text-[12.5px] font-semibold text-ink"><Icon name="flag" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />{rule.prompt}</p>
+      <p className="flex items-start gap-2 rounded-xl bg-cloud/70 px-3 py-2 text-[12.5px] font-semibold text-ink"><Icon name="flag" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />{rule.prompt}</p>
       {!overview.staff && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <span className="text-smoke">{mineYes === 1 ? tr('1 of your videos counts for this.') : tr('{n} of your videos count for this.', { n: mineYes })}</span>
@@ -609,7 +621,7 @@ export function PaymentBanner() {
   return (
     <Link to="/settings?section=payment" className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-brand/20 bg-white px-4 py-3.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="wallet" className="h-5 w-5" /></span>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name="wallet" className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-ink">{tr('Add your payment details')}</span>
         <span className="block text-xs text-smoke">{tr('We cannot pay your monthly invoice until they are saved.')}</span>

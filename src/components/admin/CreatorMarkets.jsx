@@ -123,7 +123,7 @@ export function CreatorMarketsModal({ person, onClose, onDone }) {
 
         {/* WHAT WILL HAPPEN, IN WORDS, BEFORE IT DOES. */}
         {(adds.length > 0 || leaves.length > 0) && (
-          <div className="space-y-1.5 rounded-2xl bg-brand-tint/50 px-4 py-3 text-sm animate-rise">
+          <div className="space-y-1.5 rounded-2xl bg-cloud/70 px-4 py-3 text-sm animate-rise">
             {adds.length > 0 && <p className="flex items-start gap-2 text-ink"><Icon name="plus" className="mt-0.5 h-4 w-4 shrink-0 text-brand" strokeWidth={2.4} />Added to <strong>{adds.map(name).join(', ')}</strong>, and told so.</p>}
             {leaves.length > 0 && <p className="flex items-start gap-2 text-ink"><Icon name="close" className="mt-0.5 h-4 w-4 shrink-0 text-red-500" strokeWidth={2.4} />Leaves <strong>{leaves.map(name).join(', ')}</strong>. Their videos, points and connections there are kept.</p>}
           </div>

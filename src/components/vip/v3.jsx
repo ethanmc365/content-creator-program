@@ -13,7 +13,7 @@ import HookButton from '../HookButton'
 import Reveal from '../network/Reveal'
 import TranslatedText, { TLine } from '../TranslatedText'
 import ReaderText from '../ReaderText'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { TargetBar } from './parts'
 import { noteExcerpt, renderNote } from '../../lib/noteMarkdown'
 import { notice } from '../../lib/confirm'
@@ -73,7 +73,7 @@ function BriefCard({ brief, overview }) {
   }, [pid, overview.programme?.kind])
   const places = prizesByPlace(rules, tr, overview.programme?.currency, overview.month)
   return (
-    <article className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 p-5 shadow-card animate-rise sm:p-6">
+    <article className="overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise sm:p-6">
       <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
         <Icon name="flag" className="h-3.5 w-3.5" />{overview.programme?.kind === 'official' ? tr('Challenge') : tr('VIP challenge')} · {monthLabel(brief.year, brief.month)}
         {brief.theme && <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] tracking-wide text-brand shadow-sm"><TLine text={brief.theme} /></span>}
@@ -156,7 +156,7 @@ export function MarketStandings({ kind = 'vip' }) {
                 {r.tagline && <p className="text-xs text-smoke"><ReaderText text={r.tagline} /></p>}
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xl font-bold tabular-nums text-ink"><CountUp value={Number(r.views)} format={nf} /></p>
+                <p className="text-xl font-bold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={Number(r.views)} format={nf} /></p>
                 <p className="text-[11px] text-smoke">{tr('views this month')}</p>
               </div>
             </div>

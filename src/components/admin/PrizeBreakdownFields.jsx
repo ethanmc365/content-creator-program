@@ -806,7 +806,7 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
         <ul className="divide-y divide-gray-100 border-t border-gray-100">
           {lines.map((l) => (
             <li key={l.label} className="flex items-center gap-3 px-4 py-2.5 text-sm sm:px-5">
-              <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', l.highlight ? 'bg-brand text-white' : 'bg-brand/10 text-brand')}>
+              <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', 'text-brand')}>
                 <Icon name={l.icon} className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">

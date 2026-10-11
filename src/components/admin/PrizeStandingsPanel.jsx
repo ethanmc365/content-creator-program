@@ -97,7 +97,7 @@ function CompactStanding({ challenge, rows }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 text-left"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand">
           <Icon name="ticket" className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">

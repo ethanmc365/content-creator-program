@@ -119,7 +119,7 @@ export default function BankDetailsPrompt() {
   return (
     <Modal open onClose={dismiss} title={tr('Add your bank details')}>
       <div className="space-y-5">
-        <div className="flex items-start gap-3 rounded-card bg-brand-tint/50 px-4 py-3.5">
+        <div className="flex items-start gap-3 rounded-card bg-cloud/70 px-4 py-3.5">
           <Icon name="wallet" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
           <p className="text-sm leading-relaxed text-ink">
             {tr('Prizes are paid by bank transfer, and we can only raise an invoice once we know where to send it. It takes about a minute and you only do it once.')}

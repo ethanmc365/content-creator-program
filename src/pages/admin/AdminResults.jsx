@@ -919,7 +919,7 @@ export default function AdminResults() {
                 </div>
                 <div className="flex flex-col gap-2 sm:w-48 sm:shrink-0 sm:border-l sm:border-gray-100 sm:pl-4">
                   {pts != null && (
-                    <div className="rounded-xl bg-brand-tint/60 px-3 py-1.5">
+                    <div className="rounded-xl bg-cloud/70 px-3 py-1.5">
                       <div className="flex items-baseline justify-between">
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-brand/80">Points</span>
                         <span className="text-lg font-extrabold tabular-nums text-brand">{pts.total}</span>

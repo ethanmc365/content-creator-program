@@ -166,7 +166,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
           are reading but have not joined, so the offer arrives after you have
           had a look rather than before. */}
       {!isMember && market.is_active && (
-        <div className="mt-6 flex flex-col gap-3 rounded-card border border-brand/25 bg-brand-tint/25 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 flex flex-col gap-3 rounded-card border border-gray-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">You are looking around {market.name}</p>
             <p className="mt-0.5 text-sm text-smoke">

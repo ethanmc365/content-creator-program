@@ -73,7 +73,7 @@ function Board({ icon, title, rows, value, unit, myId, open, note }) {
   return (
     <div className="flex h-full flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card">
       <p className="mb-4 flex items-center gap-2 text-sm font-semibold">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand">
           <Icon name={icon} className="h-4 w-4" />
         </span>
         {title}

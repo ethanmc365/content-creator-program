@@ -997,7 +997,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
             {open.reward && (
               <div>
                 <p className="label">{tr("Reward")}</p>
-                <div className="rounded-xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
+                <div className="rounded-xl border border-gray-100 bg-white px-3 py-2.5">
                   {REWARD_NOUN[open.reward_kind] && (
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">
                       {REWARD_NOUN[open.reward_kind]}

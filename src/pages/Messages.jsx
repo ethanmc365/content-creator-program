@@ -1789,7 +1789,7 @@ export default function Messages() {
                 anyone yet gets creators who are active in the community. */}
             {!loadingList && conversations.length === 0 && !q && (
               <div className="p-5">
-                <div className="rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-4 text-center">
+                <div className="rounded-card border border-gray-100 bg-white px-4 py-4 text-center">
                   <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand" aria-hidden>
                     <Icon name="envelope" className="h-6 w-6" />
                   </span>
@@ -2238,7 +2238,7 @@ export default function Messages() {
 
               {/* Inline connection request: accept without leaving the thread. */}
               {activeRelation?.relation === 'pending_received' && (
-                <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/50 px-4 py-3">
+                <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
                   <Icon name="users" className="h-5 w-5 shrink-0 text-brand" />
                   <p className="min-w-0 flex-1 text-sm">
                     <span className="font-semibold">{active?.other?.name?.split(' ')[0]}</span> {tr("wants to connect with you.")}

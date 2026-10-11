@@ -18,6 +18,7 @@ import RouteSkeleton from '../RouteSkeleton'
 import PullToRefresh from '../PullToRefresh'
 import BankDetailsPrompt from '../BankDetailsPrompt'
 import AddToHomePrompt from '../AddToHomePrompt'
+import PushBanner from '../PushBanner'
 import SurveyHost from '../SurveyHost'
 import GlobalChallengePrompt from '../GlobalChallengePrompt'
 import BoostPrompt from '../BoostPrompt'
@@ -918,6 +919,7 @@ export default function AppLayout() {
           standing and swaps only the content for the shape of what is coming.
           See components/RouteSkeleton. */}
       <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
+        <PushBanner />
         <Suspense fallback={<RouteSkeleton />}>
           <Outlet />
         </Suspense>

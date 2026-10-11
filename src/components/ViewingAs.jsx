@@ -64,7 +64,7 @@ export function ViewingAsBanner({ viewing, person, backTo = '/admin/creators' })
   const tr = useT()
   if (!viewing) return null
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/50 px-4 py-3">
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
       <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
       {person && <Avatar src={person.photo_url} name={person.name} size="xs" />}
       <p className="min-w-0 flex-1 truncate text-sm font-semibold text-brand">

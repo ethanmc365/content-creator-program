@@ -11,8 +11,10 @@ import { cx } from '../../lib/utils'
 // in the challenges, participating, being engaged in the community."
 //
 // So it never promises a threshold. It says what VIPs get, and what the team looks at when it invites somebody, and
-// points at the two things that move it: challenges and ideas. The lock is drawn, not an icon: the shackle lifts a
-// little and settles, a light sweeps the body, and stars drift round it.
+// points at the two things that move it: challenges and ideas. The lock is drawn, not an icon, and it opens the way a
+// real padlock does (Ethan, 11 Oct: the whole arc used to lift off, "this is not how it actually works"): the LONG leg
+// never leaves the body, the short leg springs out, the shackle turns a little on the long leg, then swings back and
+// clicks shut. A light sweeps the body and stars drift round it.
 
 export function AnimatedLock({ size = 120, className }) {
   return (
@@ -28,12 +30,17 @@ export function AnimatedLock({ size = 120, className }) {
           </linearGradient>
           <clipPath id="vipLockClip"><rect x="28" y="52" width="64" height="50" rx="14" /></clipPath>
         </defs>
+        {/* The long leg runs deep into the body (hidden behind it), so when the shackle lifts it is still seated;
+            only the short right leg comes out. */}
         <g className="vip-lock-shackle">
-          <path d="M42 54 V40 a18 18 0 0 1 36 0 V54" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" opacity="0.95" />
+          <path d="M42 84 V40 a18 18 0 0 1 36 0 V57" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" opacity="0.95" />
         </g>
-        <rect x="28" y="52" width="64" height="50" rx="14" fill="url(#vipLockBody)" />
+        <g className="vip-lock-body">
+          <rect x="28" y="52" width="64" height="50" rx="14" fill="url(#vipLockBody)" />
+          <rect x="70" y="52" width="12" height="5" rx="2.5" fill="rgba(0,0,0,0.18)" />
+        </g>
         <g clipPath="url(#vipLockClip)"><rect className="vip-lock-sweep" x="-40" y="40" width="26" height="80" fill="rgba(255,255,255,0.45)" transform="skewX(-18)" /></g>
-        <path d="M60 68 l3.1 6.3 6.9 1 -5 4.9 1.2 6.9 -6.2 -3.3 -6.2 3.3 1.2 -6.9 -5 -4.9 6.9 -1z" fill="#fff" />
+        <path className="vip-lock-star-mark" d="M60 68 l3.1 6.3 6.9 1 -5 4.9 1.2 6.9 -6.2 -3.3 -6.2 3.3 1.2 -6.9 -5 -4.9 6.9 -1z" fill="#fff" />
       </svg>
     </span>
   )
@@ -42,7 +49,7 @@ export function AnimatedLock({ size = 120, className }) {
 const PERKS = [
   { icon: 'cash', title: 'Paid for every view', body: 'VIP creators earn for the views their Tryp.com videos bring, every month.' },
   { icon: 'wallet', title: 'Monthly payouts', body: 'A balance that builds up, paid as cash or a Tryp.com voucher.' },
-  { icon: 'star', title: 'A room with the team', body: 'Private VIP rooms, briefs before anyone else, and direct feedback.' },
+  { icon: 'star', title: 'A room with the team', body: 'Private VIP rooms, and constant, direct feedback from the team.' },
   { icon: 'plane', title: 'Perks as you grow', body: 'Rewards that unlock the further your videos travel.' },
 ]
 
@@ -57,14 +64,14 @@ export function VipLockedPage() {
   const tr = useT()
   return (
     <div className="page max-w-4xl">
-      <section className="vip-locked-hero relative overflow-hidden rounded-[32px] px-6 pb-10 pt-10 text-center text-white shadow-lift sm:px-12 sm:pt-14">
+      <section className="vip-locked-hero vip-in-hero relative overflow-hidden rounded-[32px] px-6 pb-10 pt-10 text-center text-white shadow-lift sm:px-12 sm:pt-14">
         <span aria-hidden className="ideas-orb ideas-orb-a" />
         <span aria-hidden className="ideas-orb ideas-orb-b" />
         <div className="relative flex flex-col items-center">
-          <AnimatedLock size={128} />
-          <p className="mt-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-brand-light"><Icon name="lock" className="h-3.5 w-3.5" />{tr('Invite only')}</p>
-          <h1 className="mt-2 max-w-xl text-[32px] font-extrabold leading-[1.05] tracking-tight sm:text-[44px]">{tr('The VIP community')}</h1>
-          <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-white/75">
+          <AnimatedLock size={128} className="vip-in-lock" />
+          <p className="vip-in-line mt-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-brand-light" style={{ animationDelay: '260ms' }}><Icon name="lock" className="h-3.5 w-3.5" />{tr('Invite only')}</p>
+          <h1 className="vip-in-line mt-2 max-w-xl text-[32px] font-extrabold leading-[1.05] tracking-tight sm:text-[44px]" style={{ animationDelay: '340ms' }}>{tr('The VIP community')}</h1>
+          <p className="vip-in-line mt-3 max-w-lg text-[15px] leading-relaxed text-white/75" style={{ animationDelay: '420ms' }}>
             {tr('A small group of creators who are paid by the views their Tryp.com videos bring. Places are by invitation from the team.')}
           </p>
         </div>
@@ -72,8 +79,8 @@ export function VipLockedPage() {
 
       <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PERKS.map((p, i) => (
-          <div key={p.title} className="vip-perk relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card animate-rise" style={{ animationDelay: `${120 + i * 80}ms` }}>
-            <Icon name={p.icon} className="h-6 w-6 text-brand" />
+          <div key={p.title} className="vip-perk vip-in-card group relative overflow-hidden rounded-card border border-gray-100 bg-white p-5 shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${480 + i * 70}ms` }}>
+            <Icon name={p.icon} className="vip-in-icon h-6 w-6 text-brand transition-transform duration-300 group-hover:scale-110" style={{ animationDelay: `${620 + i * 70}ms` }} />
             <p className="mt-3 font-bold text-ink">{tr(p.title)}</p>
             <p className="mt-1 text-sm leading-relaxed text-smoke">{tr(p.body)}</p>
             <span aria-hidden className="absolute right-4 top-4 text-gray-200"><Icon name="lock" className="h-4 w-4" /></span>
@@ -81,12 +88,12 @@ export function VipLockedPage() {
         ))}
       </section>
 
-      <section className="mt-6 rounded-[28px] bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-card animate-rise sm:p-8" style={{ animationDelay: '460ms' }}>
+      <section className="vip-in-card mt-6 rounded-[28px] bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-card sm:p-8" style={{ animationDelay: '760ms' }}>
         <h2 className="text-xl font-extrabold">{tr('What the team looks for')}</h2>
         <p className="mt-1 max-w-xl text-sm text-white/85">{tr('There is no form and no fixed number. The team looks at the whole picture and invites creators who stand out.')}</p>
         <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {LOOK_FOR.map((l) => (
-            <li key={l.title} className="flex items-start gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur-sm">
+          {LOOK_FOR.map((l, i) => (
+            <li key={l.title} className="vip-in-line flex items-start gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur-sm" style={{ animationDelay: `${880 + i * 70}ms` }}>
               <Icon name={l.icon} className="mt-0.5 h-5 w-5 shrink-0" />
               <span>
                 <span className="block text-sm font-bold">{tr(l.title)}</span>
@@ -112,9 +119,10 @@ export function VipLockedPage() {
 export function VipTeaserCard({ className }) {
   const tr = useT()
   return (
-    <Link to="/vip" className={cx('vip-locked-hero group relative flex items-center gap-4 overflow-hidden rounded-card p-5 text-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift', className)}>
+    <Link to="/vip" className={cx('vip-locked-hero vip-in-card group relative flex items-center gap-4 overflow-hidden rounded-card p-5 text-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift', className)}>
       <span aria-hidden className="ideas-orb ideas-orb-a !h-40 !w-40" />
-      <AnimatedLock size={64} className="shrink-0" />
+      <span aria-hidden className="vip-teaser-shine" />
+      <AnimatedLock size={64} className="vip-in-lock shrink-0" />
       <span className="relative min-w-0 flex-1">
         <span className="block text-[10.5px] font-bold uppercase tracking-[0.18em] text-brand-light">{tr('Invite only')}</span>
         <span className="mt-0.5 block text-lg font-extrabold leading-tight">{tr('The VIP community')}</span>

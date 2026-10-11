@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import PeriodPicker from '../PeriodPicker'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { VipBoardList } from './parts'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { cx, formatDate, formatViews } from '../../lib/utils'
@@ -80,7 +80,7 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
         <div key={key} className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-opacity duration-200 animate-tab-in', loading && 'opacity-60')}>
           {/* The stretch in one line: everybody's views together, against the stretch before. */}
           <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-b border-gray-50 bg-gradient-to-r from-brand-tint/60 to-white px-4 py-3">
-            <span className="text-2xl font-extrabold tabular-nums text-ink"><CountUp value={total} format={formatViews} /></span>
+            <span className="text-2xl font-extrabold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={total} format={formatViews} /></span>
             <span className="text-xs font-semibold text-smoke">{tr('views gained')}</span>
             {range.prev && prevTotal > 0 && <Delta now={total} before={prevTotal} vs={range.short} />}
           </div>

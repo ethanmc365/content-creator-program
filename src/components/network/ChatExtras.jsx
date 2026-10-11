@@ -291,7 +291,7 @@ export function MentionMenu({ query, members, onPick, onClose, isAdmin = false }
         >
           {m.broadcast ? (
             <>
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-brand">
                 <Icon name="megaphone" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0 flex-1">

@@ -67,7 +67,7 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
         >
           <span className={cx(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-            on ? 'bg-white/20 text-white' : vip ? 'bg-white/10 text-brand-light' : 'bg-brand-tint text-brand',
+            on ? 'text-white' : vip ? 'text-brand-light' : 'text-brand',
           )}>
             <Icon name={r.icon || 'chat'} className="h-[18px] w-[18px]" />
           </span>

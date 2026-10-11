@@ -228,7 +228,7 @@ function RewardGroupCard({ group, ...rowProps }) {
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-cloud/40 sm:px-5"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-brand">
           <Icon name={GROUP_ICON[group.kind] || 'wallet'} className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
@@ -254,7 +254,7 @@ function StillToPay({ title, hint, rows, loading, openInvoices = 0, ...rowProps 
     return (
       // Brand, not yellow (2 Oct 2026), and no "under Invoices below".
       <div className="mb-8 flex items-center gap-2.5 rounded-card border border-gray-100 bg-white px-5 py-3.5 text-sm font-medium text-ink shadow-card">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name="clock" className="h-4 w-4" /></span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-brand"><Icon name="clock" className="h-4 w-4" /></span>
         {openInvoices === 1 ? 'One invoice is sent and not marked paid yet.' : `${openInvoices} invoices are sent and not marked paid yet.`}
       </div>
     )
@@ -388,7 +388,7 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {jobs.map((j) => (
               <button key={j.label} type="button" onClick={() => go(j.to)} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={j.icon} className="h-5 w-5" /></span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name={j.icon} className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1"><span className="block text-xl font-bold tabular-nums leading-none">{j.n}</span><span className="mt-1 block truncate text-xs text-smoke">{j.label}</span></span>
                 <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5" />
               </button>

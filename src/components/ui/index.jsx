@@ -237,7 +237,7 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
         // A STRING IS AN ICON NAME. The creator kit passed `icon="image"` and
         // got the word "image" printed in an orange tile (Ethan: "weird image
         // text in an orange box").
-        ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+        ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-brand" aria-hidden>
             {typeof icon === 'string' ? <Icon name={icon} className="h-7 w-7" /> : icon}
           </div>
         : <div className="text-4xl" aria-hidden>{emoji}</div>}

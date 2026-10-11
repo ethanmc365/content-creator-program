@@ -305,7 +305,7 @@ export default function AdminEvents() {
 
       {/* What creators have asked for, before you decide what to make. */}
       {ideas.length > 0 && (
-        <div className="mb-8 rounded-card border border-brand/20 bg-brand-tint/30 p-4 sm:p-5">
+        <div className="mb-8 rounded-card border border-gray-100 bg-white p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold text-ink">
               <Icon name="pencil" className="h-4 w-4 text-brand" />
@@ -652,7 +652,7 @@ function EventRow({ ev, marketName, past = false, onEdit, onDelete }) {
       'hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift',
       past ? 'border-gray-100 opacity-70 hover:opacity-100' : 'border-gray-100 shadow-card',
     )}>
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-brand transition-transform duration-200 group-hover:scale-105">
         <Icon name={iconFor(ev.type)} className="h-5 w-5" />
       </span>
 

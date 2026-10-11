@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
@@ -87,7 +87,7 @@ export function VipWallet({ onChanged }) {
         <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400"><Icon name="wallet" className="h-4 w-4 text-brand" />{tr('Your balance')}</p>
-            <p className="mt-1.5 text-4xl font-bold tabular-nums tracking-tight text-ink sm:text-5xl"><CountUp value={bal} format={(n) => money(n, cur)} /></p>
+            <p className="mt-1.5 text-4xl font-bold tabular-nums tracking-tight text-ink sm:text-5xl"><CountUp duration={VIP_COUNT_MS} value={bal} format={(n) => money(n, cur)} /></p>
           </div>
           {(canCash || canVoucher) && (
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 animate-rise">
@@ -137,7 +137,7 @@ export function VipWallet({ onChanged }) {
           <Toggle on={!!w.auto_payout} onChange={setAuto} label={tr('Pay me automatically')} disabled={!!preview} />
         </div>
         <Link to="/settings?section=payment" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card transition-all duration-200 animate-rise [animation-delay:120ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
-          <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', w.payment_ready ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600')}>
+          <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', w.payment_ready ? 'text-emerald-600' : 'text-amber-600')}>
             <Icon name={w.payment_ready ? 'check' : 'alert'} className="h-5 w-5" strokeWidth={w.payment_ready ? 2.4 : 1.9} />
           </span>
           <span className="min-w-0 flex-1">
@@ -201,7 +201,7 @@ export function VipWallet({ onChanged }) {
               const st = entryState(e, tr)
               return (
                 <li key={e.id} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise" style={{ animationDelay: `${220 + i * 40}ms` }}>
-                  <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', Number(e.amount) > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-brand-tint text-brand')}><Icon name={k.icon} className="h-[18px] w-[18px]" /></span>
+                  <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', Number(e.amount) > 0 ? 'text-emerald-600' : 'text-brand')}><Icon name={k.icon} className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-ink">{e.year ? `${tr(k.label)}: ${monthLabel(e.year, e.month)}` : tr(k.label)}{e.auto ? ` · ${tr('automatic')}` : ''}</span>
                     <span className="block truncate text-xs text-smoke">{formatDate(e.at)}{e.kind === 'adjust' && e.note ? ` · ${e.note}` : ''}{e.voucher_code ? ` · ${tr('Code')}: ${e.voucher_code}` : ''}</span>
@@ -231,7 +231,7 @@ function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
             : 'border-gray-100 bg-cloud/60 text-gray-400',
       )}
     >
-      <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-enabled:group-hover:scale-105', primary && !disabled ? 'bg-white/20' : disabled ? 'bg-white' : 'bg-brand-tint text-brand')}>
+      <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-enabled:group-hover:scale-105', primary && !disabled ? 'bg-white/20' : disabled ? '' : 'text-brand')}>
         {busy ? <Spinner className="h-4 w-4" /> : <Icon name={icon} className="h-5 w-5" />}
       </span>
       <span className="min-w-0">

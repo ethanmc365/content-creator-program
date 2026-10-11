@@ -512,7 +512,7 @@ export function CreatorNotifications({ state }) {
           // real switch is. `hadPush` picks which two: a creator who had them
           // and lost them is being told something changed, and a creator who
           // never turned them on is being told how.
-          <div className="flex items-start gap-3 rounded-xl border border-brand/20 bg-brand-tint/30 px-4 py-3.5">
+          <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5">
             <Icon name="mute" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-brand">

@@ -615,7 +615,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 ]}
               />
               {offPlatform && (
-                <div className="mt-3 space-y-2 rounded-xl border border-brand/25 bg-brand-tint/40 px-4 py-3">
+                <div className="mt-3 space-y-2 rounded-xl border border-gray-100 bg-white px-4 py-3">
                   <label htmlFor="inv-offname" className="label !mb-1">Creator name</label>
                   <input
                     id="inv-offname" type="text" className="input" autoComplete="off"

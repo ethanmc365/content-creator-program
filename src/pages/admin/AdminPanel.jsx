@@ -126,8 +126,8 @@ const TOOLS = [
   { id: 'surveys', to: '/admin/surveys', icon: 'chartPie', title: 'Surveys' },
   // The terms creators accept and the agreement VIPs sign, with who has signed (7 Oct 2026, migration 351).
   { id: 'agreements', to: '/admin/agreements', icon: 'key', title: 'Agreements', globalOnly: true },
-  // Questions creators ask on the Q&A page, answered here (7 Oct 2026).
-  { id: 'faq', to: '/help?tab=questions', icon: 'lifebuoy', title: 'Questions' },
+  // (Questions used to have a tile here. 11 Oct 2026, Ethan: it belongs on the desk the moment somebody asks one, so it
+  // is a desk row now; the page itself is still reached from Get help in the profile menu.)
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },
@@ -302,7 +302,7 @@ function DeskRow({ to, icon, count, label, warn }) {
       to={to}
       className="group flex min-w-0 items-center gap-3 rounded-xl bg-white px-3 py-2.5 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:px-3.5 sm:py-3"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand transition-transform duration-200 group-hover:scale-110 sm:h-10 sm:w-10">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand transition-transform duration-200 group-hover:scale-110 sm:h-10 sm:w-10">
         <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
       {/* A health warning has no count and is a whole sentence ("Supabase is getting overloaded: ..."), so it wraps. */}
@@ -533,11 +533,15 @@ export default function AdminPanel() {
         supabase.from('client_errors').select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
         // A member asking to join another market as well (migration 378), answered on Applications > Market requests.
         supabase.from('market_join_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        // A QUESTION A CREATOR ASKED ON GET HELP (11 Oct 2026). One sat unanswered for two days because the only door to
+        // it was a tile nobody had a reason to open. Now it is on the desk the moment it is asked.
+        supabase.from('faq_questions').select('id', { count: 'exact', head: true }).eq('status', 'open'),
       ])
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
         { count: newFeedback }, { count: newSuggestions }, { data: rewardRows },
         { count: toSend }, { data: blockedRows }, { count: openErrors }, { data: opsRows }, { count: marketAsks },
+        { count: openQuestions },
       ] = answers
       // A COUNT THAT FAILED IS NOT A ZERO. The desk is always drawn now, and an
       // empty desk says "all clear" - which a query that errored would say too
@@ -554,6 +558,7 @@ export default function AdminPanel() {
         ops: opsRows ?? [],
         pendingApps: pendingApps ?? 0,
         marketAsks: marketAsks ?? 0,
+        openQuestions: openQuestions ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
         newFeedback: newFeedback ?? 0,
@@ -609,6 +614,7 @@ export default function AdminPanel() {
 
   const desk = stats ? [
     ...stats.ops.map((w) => ({ to: '/admin/analytics?tab=errors', icon: 'alert', label: w.message, warn: true })),
+    stats.openQuestions > 0 && { to: '/help?tab=questions', icon: 'lifebuoy', count: stats.openQuestions, label: `question${stats.openQuestions === 1 ? '' : 's'} from creators to answer` },
     stats.pendingApps > 0 && { to: '/admin/applications', icon: 'check', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
     stats.marketAsks > 0 && { to: '/admin/applications?tab=markets', icon: 'globe', count: stats.marketAsks, label: `creator${stats.marketAsks === 1 ? '' : 's'} asking to join another market` },
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve` },
@@ -707,7 +713,7 @@ export default function AdminPanel() {
                   className="relative flex animate-fade-up items-center gap-3 rounded-xl bg-white px-3 py-3 text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:px-3.5"
                   style={{ animationDelay: '60ms' }}
                 >
-                  <span className="flex h-9 w-9 shrink-0 animate-pop-in items-center justify-center rounded-xl bg-brand/10 text-brand sm:h-10 sm:w-10" style={{ animationDelay: '180ms' }}>
+                  <span className="flex h-9 w-9 shrink-0 animate-pop-in items-center justify-center rounded-xl text-brand sm:h-10 sm:w-10" style={{ animationDelay: '180ms' }}>
                     <Icon name="check" className="h-[18px] w-[18px]" />
                   </span>
                   <span className="min-w-0 flex-1">

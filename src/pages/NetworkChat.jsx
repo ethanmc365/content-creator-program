@@ -1226,7 +1226,7 @@ export default function NetworkChat() {
           >
             <span className={cx(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-              'bg-brand-tint text-brand',
+              'text-brand',
             )}>
               <Icon name={active?.icon || 'chat'} className="h-[18px] w-[18px]" />
             </span>

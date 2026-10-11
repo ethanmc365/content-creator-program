@@ -451,7 +451,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
   return (
     <div className="space-y-10">
       {eventTitle && (
-        <div className="rounded-card bg-brand-tint/60 px-5 py-4 text-sm font-medium text-brand">
+        <div className="rounded-card bg-cloud/70 px-5 py-4 text-sm font-medium text-brand">
           You are joining the &ldquo;{eventTitle}&rdquo; challenge. Beat the leaderboard.
         </div>
       )}
@@ -513,7 +513,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
               >
                 <span className={cx(
                   'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-110',
-                  on ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
+                  'text-brand',
                 )}>
                   <Icon name={m.icon} className="h-5 w-5" />
                 </span>

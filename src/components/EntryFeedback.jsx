@@ -35,7 +35,7 @@ export function EntryFeedbackNote({ feedback, className }) {
   const tr = useT()
   if (!feedback?.body) return null
   return (
-    <div className={cx('rounded-xl border border-brand/25 bg-brand-tint/30 p-3', className)}>
+    <div className={cx('rounded-xl border border-gray-100 bg-white p-3', className)}>
       <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-brand">
         <Icon name="sparkles" className="h-3 w-3" />
         {tr("Feedback from the team")}
@@ -97,7 +97,7 @@ export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSav
   }
 
   return (
-    <div className="rounded-xl border border-brand/30 bg-brand-tint/15 p-3">
+    <div className="rounded-xl border border-gray-100 bg-white p-3">
       <label htmlFor={`fb-${submissionId}`} className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-brand">
         {existing ? 'Edit the feedback' : 'Feedback for this entry'}
       </label>
@@ -154,7 +154,7 @@ export function EntryReferenceCard({ entry, onDark = false }) {
     >
       <span className={cx(
         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-        onDark ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand',
+        onDark ? 'text-white' : 'text-brand',
       )}>
         <Icon name="video" className="h-4 w-4" />
       </span>

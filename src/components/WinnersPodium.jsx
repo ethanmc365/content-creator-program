@@ -143,7 +143,7 @@ export default function WinnersPodium({
         const shown = voucherWinners.slice(0, SHOWN)
         const extra = voucherWinners.length - shown.length
         return (
-          <div className="mt-4 rounded-xl border border-brand/15 bg-brand-tint/40 px-3 py-2.5">
+          <div className="mt-4 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
             <p className="mb-2 text-balance text-center text-[10px] font-semibold uppercase tracking-widest text-brand">
               {voucherPrize ? `${voucherPrize} for everyone here` : 'Everyone here earned the participation prize'}
             </p>

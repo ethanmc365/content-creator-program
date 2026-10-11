@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { TargetBar } from './parts'
 import { TrendCard } from './adminC'
 import { cx, formatDate } from '../../lib/utils'
@@ -115,7 +115,7 @@ export function VipStats({ overview, rules, programmeId }) {
         {tiles.map((t) => (
           <div key={t.label} className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card">
             <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><Icon name={t.icon} className="h-3.5 w-3.5 text-brand" />{t.label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-brand"><CountUp value={t.value} format={t.format} /></p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-brand"><CountUp duration={VIP_COUNT_MS} value={t.value} format={t.format} /></p>
           </div>
         ))}
       </div>

@@ -486,6 +486,17 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         setDupInfo({ title: error.details || '', same: error.hint !== 'other' })
         return
       }
+      // POSTED BEFORE THE CHALLENGE STARTED (migration 382). The database refuses it and says when each happened; the
+      // creator gets a pop-up there and then, instead of an entry that is quietly removed a day later.
+      if (/POSTED_BEFORE_START/.test(error.message || '')) {
+        setSubmitError('')
+        setErrorField('url')
+        const day = (iso) => (iso ? formatDate(iso) : '')
+        notice(tr('This video was posted on {posted}, before the challenge started on {start}, so it cannot be entered. Post a new video and enter that one.', {
+          posted: day(error.details), start: day(error.hint),
+        }), { title: tr('This video is too old for this challenge') })
+        return
+      }
       return fail('', error.message)
     }
 
@@ -2119,7 +2130,7 @@ function BoardStatus({ status, points, updatedAt, empty, tr }) {
         live || final ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card' : 'border border-dashed border-brand/30 bg-white text-ink',
       )}
     >
-      <span className={cx(SLOT_ICON, live || final ? 'bg-white/20' : 'bg-brand-tint')}>
+      <span className={cx(SLOT_ICON, live || final ? 'text-white' : 'text-brand')}>
         {live
           // JUST THE DOT, NO RING (23 Sep 2026). Ethan, of this exact dot:
           // "I like how you have the pulsing thing, but I don't like the way

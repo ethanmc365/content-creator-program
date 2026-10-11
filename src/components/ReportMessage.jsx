@@ -124,7 +124,7 @@ export default function ReportMessage({
     <Modal open={open} onClose={onClose} title={sent ? 'Report sent' : 'Report this message'} sheet={false}>
       {sent ? (
         <div className="text-center">
-          <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700">
+          <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-green-700">
             <Icon name="check" className="h-6 w-6" />
           </span>
           <p className="text-base font-semibold">{tr("Thanks, that is with the team")}</p>

@@ -29,7 +29,7 @@ export default function TimezonePrompt({ open, device, previous, onChange, onKee
   return (
     <Modal open={open} onClose={onKeep} title={tr("Looks like you have moved")}>
       <div className="space-y-5">
-        <div className="flex items-center gap-4 rounded-card border border-brand/25 bg-brand-tint/40 p-4">
+        <div className="flex items-center gap-4 rounded-card border border-gray-100 bg-white p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
             <Icon name="globe" className="h-5 w-5" />
           </span>

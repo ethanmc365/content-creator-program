@@ -305,7 +305,11 @@ export function IdeasTeaser({ className }) {
         </span>
         <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
       </div>
-      <div className="scrollbar-none -mx-4 mt-3 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1">
+      {/* THE SAME GAP ON THE OUTSIDE AS BETWEEN THE VIDEOS (11 Oct 2026). A snap point ignores the strip's padding unless
+          scroll-padding says so, and the end padding of a flex scroller is dropped by Safari, so the first and last
+          covers sat flush against the card's edge. `scroll-pl-4` keeps the start gap after a snap and the spacer at the
+          end makes the trailing gap (2.5 gap + 1.5 spacer = the 4 on the left). */}
+      <div className="scrollbar-none -mx-4 mt-3 flex snap-x scroll-pl-4 gap-2.5 overflow-x-auto pb-1 pl-4">
         {rows === undefined
           ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[9/14] w-[108px] shrink-0 rounded-xl" />)
           : top.map((v, i) => (
@@ -316,6 +320,7 @@ export function IdeasTeaser({ className }) {
               <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white backdrop-blur">{formatViews(v.views)}</span>
             </div>
           ))}
+        <span aria-hidden className="w-1.5 shrink-0" />
       </div>
     </Link>
   )

@@ -534,7 +534,7 @@ export default function AdminCreators() {
           { key: 'all', label: 'Total', n: creators.length },
           { key: 'community', label: 'Community', n: creators.filter((c) => !c.is_vip).length },
           { key: 'vip', label: 'VIPs', n: creators.filter(inVip).length },
-          ...(creators.some(isOfficialCreator) ? [{ key: 'official', label: 'Official', n: creators.filter(isOfficialCreator).length }] : []),
+          ...(creators.some(isOfficialCreator) ? [{ key: 'official', label: 'Tryp.com Team', n: creators.filter(isOfficialCreator).length }] : []),
         ].map((g) => (
           <button key={g.key} type="button" onClick={() => setGroup(g.key)} aria-pressed={group === g.key}
             className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', group === g.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
@@ -687,8 +687,9 @@ export default function AdminCreators() {
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
                       {c.is_vip && !teamOf[c.id] && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
-                      {isOfficialCreator(c) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="badge" className="h-2.5 w-2.5" />Official</span>}
-                      {teamOf[c.id] === 'creator' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />Tryp.com team creator</span>}
+                      {/* ONE BADGE (11 Oct 2026). An official creator is also a team member of the official programme, so
+                          the row used to say "Official" AND "Tryp.com team creator". Ethan wants only the second, in his words. */}
+                      {(isOfficialCreator(c) || teamOf[c.id] === 'creator') && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="badge" className="h-2.5 w-2.5" />Tryp.com Team Creator</span>}
                       {teamOf[c.id] === 'staff' && group === 'vip' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand px-2 py-0.5 text-[10px] font-semibold text-brand">VIP team</span>}
                     </p>
                     {/* Copy-email icon sits directly to the right of the email, not

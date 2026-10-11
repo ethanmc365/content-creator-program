@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   FB_REGIONS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
-  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder,
+  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt,
 } from './facebook.ts'
 
 const ID = '1445672320874711'
@@ -113,5 +113,21 @@ describe('facebookCoverFrom', () => {
 
   it('says nothing when the page carries no picture', () => {
     expect(facebookCoverFrom('<html><title>Log in to Facebook</title></html>')).toBeNull()
+  })
+})
+
+describe('facebookPostedAt', () => {
+  const id = '2399382730868487'
+  it('reads publish_time next to our videoId, never another video\'s', () => {
+    const html = `"videoId":"111111111111","publish_time":1700000000,` +
+      `"videoId":"${id}","isPremiere":false,"liveViewerCount":0,"publish_time":1791644807,"x":1`
+    expect(facebookPostedAt(html, id)).toBe('2026-10-10T15:06:47.000Z')
+  })
+  it('falls back to the story creation_time that links to our video', () => {
+    const html = `"story":{"creation_time":1791644884,"unpublished_content_type":"PUBLISHED","url":"https:\\/\\/www.facebook.com\\/1\\/videos\\/${id}\\/"`
+    expect(facebookPostedAt(html, id)).toBe('2026-10-10T15:08:04.000Z')
+  })
+  it('says nothing rather than guessing', () => {
+    expect(facebookPostedAt('"videoId":"999","publish_time":1791644807', id)).toBeNull()
   })
 })

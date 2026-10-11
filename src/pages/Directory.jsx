@@ -275,7 +275,7 @@ export default function Directory() {
           <CreatorMap
             header={
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-brand">
                   <Icon name="users" className="h-4 w-4" />
                 </span>
                 {/* ONE SENTENCE, WITH THE NUMBER IN IT. It was a bold count

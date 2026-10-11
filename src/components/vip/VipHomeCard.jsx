@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Reveal from '../network/Reveal'
 import Icon from '../Icon'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { daysLeft, money, monthLabel, nf, useVipOverview, useKindT } from '../../lib/vip'
 import { useAuth } from '../../context/AuthContext'
 import { cx, formatViews } from '../../lib/utils'
@@ -41,7 +41,7 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
                 <Icon name="star" className="h-3.5 w-3.5" />{tr('VIP · {m}', { m: monthLabel(month.year, month.month) })}
               </span>
               <p className="mt-2.5 flex flex-wrap items-baseline gap-x-2.5">
-                <span className="text-3xl font-bold tabular-nums leading-tight"><CountUp value={stats.base} format={(n) => money(n, programme.currency)} /></span>
+                <span className="text-3xl font-bold tabular-nums leading-tight"><CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, programme.currency)} /></span>
                 <span className="text-sm text-white/85">{tr('earned so far')}</span>
               </p>
               {stats.projected_base != null && <p className="mt-0.5 text-sm text-white/85">{tr('On pace for about {a}', { a: money(stats.projected_base, programme.currency, { cents: false }) })}</p>}
@@ -70,7 +70,7 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
       <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20"><Icon name="star" className="h-6 w-6" /></span>
       <span className="relative min-w-0 flex-1">
         <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">{tr('{m} so far', { m: monthLabel(month.year, month.month) })}</span>
-        <span className="block text-3xl font-bold tabular-nums leading-tight"><CountUp value={stats.base} format={(n) => money(n, programme.currency)} /></span>
+        <span className="block text-3xl font-bold tabular-nums leading-tight"><CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, programme.currency)} /></span>
         <span className="block text-xs text-white/90">{tr('{d} days left. Open your VIP page.', { d: daysLeft(month.ends_at) })}</span>
       </span>
       <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 transition-transform group-hover:translate-x-0.5" />

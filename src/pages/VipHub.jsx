@@ -4,12 +4,12 @@ import { lazyRoute } from '../lib/lazyRoute'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { PageHeader, Skeleton } from '../components/ui'
+import { Avatar, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, SpaceSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
 import StaffBoard from '../components/vip/staffBoard'
-import { CountUp } from '../components/network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../components/network/Motion'
 import {
   PaymentBanner, TargetBar, VipBoardList, VipEarn, VipSubmit, VipVideoCard,
 } from '../components/vip/parts'
@@ -279,7 +279,7 @@ export default function VipHub() {
             </p>
             {!isStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-white/90"><ReaderText text={look.tagline} /></p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
-              <CountUp value={stats.base} format={(n) => money(n, cur)} />
+              <CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, cur)} />
             </p>
             <p className="mt-2 text-sm text-white/90">
               {isStaff
@@ -513,28 +513,70 @@ function ProgrammeFlags({ codes }) {
 // tiles in a card beside their target. Every rate shows its cents: €0.30, never €0.3.
 function PayStrip({ member, programme, stats, month, cur, staff = false }) {
   const tr = useKindT()
+  const official = programme.kind === 'official'
   const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
   const cap = member.monthly_cap || programme.monthly_cap
+  // AN OFFICIAL CREATOR'S DEAL IS THEIR OWN (11 Oct 2026). Ethan: "how the official creators are paid, just the rate in
+  // your videos monthly, but the UI is a bit weird there." For the team it said one programme rate, while every official
+  // creator is on their own rate and monthly fee (Marta 80 + 0.30, Ariakna 100 + 0.30 for 30 videos...). So the team sees
+  // the shared rules once and then each creator's deal, one row each.
+  const [deals, setDeals] = useState(null)
+  useEffect(() => {
+    if (!staff || !official) return undefined
+    let alive = true
+    supabase.from('vip_members').select('profile_id, cpm, monthly_fee, fee_min_videos, monthly_cap, invoice_outside, profiles:profile_id(name, photo_url)')
+      .eq('programme_id', programme.id).eq('status', 'active')
+      .then(({ data }) => { if (alive) setDeals((data || []).sort((a, b) => (Number(b.monthly_fee) || 0) - (Number(a.monthly_fee) || 0) || (a.profiles?.name || '').localeCompare(b.profiles?.name || ''))) })
+    return () => { alive = false }
+  }, [staff, official, programme.id])
   const facts = [
-    { icon: 'money', label: staff ? tr('Rate') : tr('Your rate'), value: perK(stats.effective_cpm, cur), hint: tr('per 1,000 views') },
-    ...(steps?.length ? steps.map((t) => ({ icon: 'trendUp', label: tr('From {n} views', { n: nf(t.from_views) }), value: perK(t.cpm, cur), hint: tr('per 1,000 views') })) : []),
+    ...(staff && official ? [] : [{ icon: 'money', label: staff ? tr('Rate') : tr('Your rate'), value: perK(stats.effective_cpm, cur), hint: tr('per 1,000 views') }]),
+    ...(steps?.length && !(staff && official) ? steps.map((t) => ({ icon: 'trendUp', label: tr('From {n} views', { n: nf(t.from_views) }), value: perK(t.cpm, cur), hint: tr('per 1,000 views') })) : []),
     { icon: 'video', label: tr('What counts'), value: tr('New videos'), hint: tr('posted in {m}', { m: monthLabel(month.year, month.month) }) },
     { icon: 'calendar', label: tr('Paid'), value: tr('Monthly'), hint: tr('after the month closes') },
-    ...(Number(member.monthly_fee) > 0 ? [{ icon: 'wallet', label: tr('Monthly bonus'), value: money(member.monthly_fee, cur, { cents: false }), hint: member.fee_min_videos ? tr('with {n}+ videos', { n: member.fee_min_videos }) : tr('every month') }] : []),
-    ...(cap ? [{ icon: 'shield', label: tr('Monthly cap'), value: money(cap, cur, { cents: false }), hint: tr('on views pay') }] : []),
+    ...(!staff && Number(member.monthly_fee) > 0 ? [{ icon: 'wallet', label: tr('Monthly bonus'), value: money(member.monthly_fee, cur, { cents: false }), hint: member.fee_min_videos ? tr('with {n}+ videos', { n: member.fee_min_videos }) : tr('every month') }] : []),
+    ...(cap && !(staff && official) ? [{ icon: 'shield', label: tr('Monthly cap'), value: money(cap, cur, { cents: false }), hint: tr('on views pay') }] : []),
   ]
   return (
-    <section className={cx('rounded-card border border-gray-100 bg-white shadow-card animate-rise', staff ? 'p-3 sm:p-4' : 'p-5')}>
-      <h2 className={cx('flex items-center gap-2 text-[15px] font-bold text-ink', staff ? 'mb-3 px-1' : 'mb-4')}><Icon name="money" className="h-5 w-5 text-brand" />{staff ? (programme.kind === 'official' ? tr('How the official creators are paid') : tr('How VIPs here are paid')) : tr('How you are paid')}</h2>
-      <dl className={cx('grid gap-2', staff ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2')}>
+    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
+      <h2 className="flex items-center gap-2 px-5 pt-4 text-[15px] font-bold text-ink"><Icon name="money" className="h-5 w-5 text-brand" />{staff ? (official ? tr('How the official creators are paid') : tr('How VIPs here are paid')) : tr('How you are paid')}</h2>
+      {/* The facts as one even row, divided by hairlines rather than boxed in grey, so a short row never leaves a hole. */}
+      <dl className={cx('mt-3 grid divide-gray-100 border-t border-gray-100', facts.length > 2 ? 'grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] sm:divide-x' : 'grid-cols-2 divide-x')}>
         {facts.map((f, i) => (
-          <div key={`${f.label}${i}`} className="rounded-xl bg-cloud/60 px-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 45}ms` }}>
-            <dt className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400"><Icon name={f.icon} className="h-3 w-3 text-brand" />{f.label}</dt>
-            <dd className="mt-0.5 truncate text-[15px] font-bold tabular-nums text-ink">{f.value}</dd>
-            <dd className="truncate text-[11px] text-smoke">{f.hint}</dd>
+          <div key={`${f.label}${i}`} className="min-w-0 px-5 py-3.5 animate-rise" style={{ animationDelay: `${i * 45}ms` }}>
+            <dt className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400"><Icon name={f.icon} className="h-3.5 w-3.5 shrink-0 text-brand" />{f.label}</dt>
+            <dd className="mt-1 text-lg font-bold leading-tight tabular-nums text-ink">{f.value}</dd>
+            <dd className="text-[12px] leading-snug text-smoke">{f.hint}</dd>
           </div>
         ))}
       </dl>
+      {staff && official && (
+        <div className="border-t border-gray-100 px-5 py-4">
+          <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('Each creator\'s deal')}</p>
+          {deals === null ? <Skeleton className="h-24 w-full rounded-xl" /> : deals.length === 0 ? <p className="text-sm text-smoke">{tr('Nobody in this programme yet.')}</p> : (
+            <ul className="divide-y divide-gray-50">
+              {deals.map((d, i) => {
+                const fee = Number(d.monthly_fee) || 0
+                return (
+                  <li key={d.profile_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+                    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <Avatar src={d.profiles?.photo_url} name={d.profiles?.name} size="sm" />
+                      <span className="truncate text-sm font-semibold text-ink">{d.profiles?.name || tr('Creator')}</span>
+                      {d.invoice_outside && <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('Invoices outside')}</span>}
+                    </span>
+                    <span className="flex items-center gap-4 text-right text-[13px] tabular-nums">
+                      <span><span className="font-bold text-ink">{perK(d.cpm ?? stats.effective_cpm, cur)}</span> <span className="text-smoke">{tr('per 1,000')}</span></span>
+                      <span className="min-w-[8.5rem]">{fee > 0
+                        ? <><span className="font-bold text-ink">+ {money(fee, cur, { cents: false })}</span> <span className="text-smoke">{d.fee_min_videos ? tr('a month, {n}+ videos', { n: d.fee_min_videos }) : tr('a month')}</span></>
+                        : <span className="text-smoke">{tr('No monthly fee')}</span>}</span>
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   )
 }

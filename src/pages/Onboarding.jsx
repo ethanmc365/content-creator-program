@@ -1022,7 +1022,7 @@ export default function Onboarding() {
             )}
 
             {error && (
-              <p role="alert" className="mt-6 rounded-xl bg-brand-tint/60 px-4 py-3 text-center text-sm font-medium text-brand">
+              <p role="alert" className="mt-6 rounded-xl bg-cloud/70 px-4 py-3 text-center text-sm font-medium text-brand">
                 {error}
               </p>
             )}
@@ -1458,7 +1458,7 @@ function MarketCard({ market, country, ready }) {
 
   const m = market.market
   return (
-    <div key={m.slug} className="onb-market rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3.5">
+    <div key={m.slug} className="onb-market rounded-card border border-gray-100 bg-white px-4 py-3.5">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0 text-xl leading-none" aria-hidden>
           {(m.country_codes || []).map(flagFromIso).join('') || '🌍'}
@@ -1710,7 +1710,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo, vipHo
   return (
     <div className="space-y-6">
       {problems.length > 0 && (
-        <div className="rounded-card border border-brand/30 bg-brand-tint/30 p-4">
+        <div className="rounded-card border border-gray-100 bg-white p-4">
           <p className="text-sm font-semibold text-brand">
             {problems.length} thing{problems.length === 1 ? '' : 's'} still to fill in
           </p>
@@ -1749,7 +1749,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo, vipHo
       </div>
 
       {vipHome ? (
-        <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
           <span className="text-xl leading-none" aria-hidden>{vipHome.worldwide ? '🌍' : ((vipHome.country_codes || []).map(flagFromIso).join('') || '⭐')}</span>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-smoke">{tr('Your VIP market')}</p>
@@ -1758,7 +1758,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo, vipHo
           <Icon name="star" className="h-5 w-5 shrink-0 text-brand" />
         </div>
       ) : market.market ? (
-        <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
           <span className="text-xl leading-none" aria-hidden>
             {(market.market.country_codes || []).map(flagFromIso).join('') || '🌍'}
           </span>

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
@@ -78,7 +78,7 @@ export function VipWalletsTab({ programme }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile icon="wallet" label={tr('Held in balances')} value={<CountUp value={owed} format={(n) => money(n, cur, { cents: false })} />} hint={tr('Earned, not yet taken')} />
+        <Tile icon="wallet" label={tr('Held in balances')} value={<CountUp duration={VIP_COUNT_MS} value={owed} format={(n) => money(n, cur, { cents: false })} />} hint={tr('Earned, not yet taken')} />
         <Tile icon="cash" label={tr('Ready for cash')} value={nf(ready.length)} hint={tr('Can ask for cash ({a}+)', { a: money(data.threshold, cur, { cents: false }) })} tone="good" delay={50} />
         <Tile icon="ticket" label={tr('Voucher codes to send')} value={nf(openCodes.length)} hint={tr('Asked for, no code yet')} tone={openCodes.length ? 'warn' : 'brand'} delay={100} />
         <Tile icon="clock" label={tr('Cash not yet paid')} value={nf(unpaid.length)} hint={tr('Invoices approved or sent')} delay={150} />
@@ -103,7 +103,7 @@ export function VipWalletsTab({ programme }) {
               <li key={q.id} className="flex items-center gap-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
                 {/* CASH OR VOUCHER, AT A GLANCE (3 Oct 2026). Ethan: "make it more clear if it's cash or Tryp.com
                     voucher. There's not much difference there." Each request leads with what it is. */}
-                <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
+                <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'text-brand' : 'text-ink')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-semibold text-ink"><span className="truncate">{q.name}</span>
                     <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', q.kind === 'voucher' ? 'bg-brand-tint text-brand' : 'bg-cloud text-ink')}>{q.kind === 'voucher' ? tr('Voucher') : tr('Cash')}</span>
@@ -410,8 +410,8 @@ export function VipSheetTab({ programme }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile icon="eye" label={tr('Views, all months')} value={<CountUp value={data.total_views} format={nf} />} />
-        <Tile icon="money" label={tr('Earned, all months')} value={<CountUp value={data.total_earned} format={(n) => money(n, cur, { cents: false })} />} delay={50} />
+        <Tile icon="eye" label={tr('Views, all months')} value={<CountUp duration={VIP_COUNT_MS} value={data.total_views} format={nf} />} />
+        <Tile icon="money" label={tr('Earned, all months')} value={<CountUp duration={VIP_COUNT_MS} value={data.total_earned} format={(n) => money(n, cur, { cents: false })} />} delay={50} />
         <Tile icon="users" label={tr('Creators')} value={nf(data.rows.length)} delay={100} />
         <Tile icon="chart" label={tr('Average per 1,000 views')} value={perK(data.total_views ? (data.total_earned / data.total_views) * 1000 : data.cpm, cur)} hint={tr('Every creator, every month shown')} delay={150} />
       </div>
@@ -666,11 +666,14 @@ export function TeamPulse({ programme, onTool }) {
   const codes = (wal.data?.requests || []).filter((q) => q.kind === 'voucher' && !q.voucher_code).length
   const ready = (wal.data?.rows || []).filter((r) => Number(r.balance) >= Number(wal.data?.threshold) && Number(r.balance) > 0).length
   const onTrackPct = rows.length ? (rows.length - behind.length) / rows.length : 0
+  // THE STAY-IN RULE CAN BE SWITCHED OFF PER MARKET (11 Oct 2026). Ethan: when it is off for a market, nothing about it
+  // should show there - so the card goes and the other two share the row.
+  const stayOff = !official && (req.data?.rule?.on === false || programme.req_on === false)
 
   const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {official ? <OfficialFeesCard programme={programme} className={card} onOpen={() => onTool('members')} /> : (
+    <div className={cx('grid grid-cols-1 gap-3', stayOff ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+      {official ? <OfficialFeesCard programme={programme} className={card} onOpen={() => onTool('members')} /> : stayOff ? null : (
       <button type="button" onClick={() => onTool('requirements')} className={card}>
         <span className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
           <span className="flex items-center gap-1.5"><Icon name="shield" className="h-3.5 w-3.5 text-brand" />{tr('Stay-in check')}</span>
@@ -698,7 +701,7 @@ export function TeamPulse({ programme, onTool }) {
         </span>
         {wal.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
           <>
-            <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp value={owed} format={(n) => money(n, cur, { cents: false })} /></span>
+            <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={owed} format={(n) => money(n, cur, { cents: false })} /></span>
             <span className="text-xs text-smoke">{official ? tr('held for the creators, {n} over the cash threshold', { n: ready }) : tr('held for VIPs, {n} over the cash threshold', { n: ready })}</span>
           </>
         )}
@@ -745,7 +748,7 @@ function OfficialFeesCard({ programme, className, onOpen }) {
       </span>
       {deals === null || ov.data === undefined ? <Skeleton className="mt-2 h-10 w-full" /> : (
         <>
-          <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp value={total} format={(n) => money(n, programme.currency, { cents: false })} /></span>
+          <span className="mt-1.5 text-2xl font-bold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={total} format={(n) => money(n, programme.currency, { cents: false })} /></span>
           <span className="text-xs text-smoke">{tr('{a} of {b} have posted enough to earn theirs', { a: earned.length, b: paid.length })}{outside ? ` · ${tr('{n} send their own invoice', { n: outside })}` : ''}</span>
           <span className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-1000" style={{ width: `${paid.length ? Math.round((earned.length / paid.length) * 100) : 0}%` }} /></span>
         </>

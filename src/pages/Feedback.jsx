@@ -215,7 +215,7 @@ export default function Feedback() {
                   </a>
                 )}
                 {f.admin_note && (
-                  <p className="mt-3 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs text-ink">
+                  <p className="mt-3 rounded-xl bg-cloud/70 px-3 py-2 text-xs text-ink">
                     <span className="font-semibold text-brand">{tr("Team reply:")} </span>{f.admin_note}
                   </p>
                 )}

@@ -126,6 +126,24 @@ export function facebookIdCandidates(html: string): string[] {
   return found
 }
 
+// WHEN IT WAS POSTED (11 Oct 2026). The reel page states the video's own `publish_time` (Unix seconds) beside its
+// `"videoId"`, and the story wrapping it states `creation_time`. Only ever read next to OUR id, for the same reason as
+// the count: the page carries a dozen other videos with dates of their own. Null when it says nothing usable.
+export function facebookPostedAt(html: string, id: string): string | null {
+  const esc = id.replace(/\D/g, '')
+  if (!esc) return null
+  const pick = (re: RegExp) => {
+    const v = html.match(re)?.[1]
+    if (!v) return null
+    const ms = Number(v) * 1000
+    // 2004 (Facebook) to a day from now; anything else is not a date.
+    return ms > 1.08e12 && ms < Date.now() + 864e5 ? new Date(ms).toISOString() : null
+  }
+  return pick(new RegExp(`"videoId":"${esc}"[^{}]{0,600}?"publish_time":(\\d{9,11})`))
+    ?? pick(new RegExp(`publish_time\\\\?":(\\d{9,11})[^\\]]{0,200}?story_fbid\\\\?":\\[\\\\?"${esc}`))
+    ?? pick(new RegExp(`"creation_time":(\\d{9,11})[^{}]{0,400}?\\\\?/videos\\\\?/${esc}`))
+}
+
 // Regions to try, best first: the ones that answered most recently lead, then
 // the rest in a shuffled order so a sweep does not always lean on one region.
 export function regionOrder(good: string[], all: string[] = FB_REGIONS, rand: () => number = Math.random): string[] {

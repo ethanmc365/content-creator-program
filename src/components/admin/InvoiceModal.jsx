@@ -264,7 +264,7 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
         </div>
 
         {mode === 'send' && (
-          <div className="space-y-4 rounded-card border border-brand/25 bg-brand-tint/25 p-4">
+          <div className="space-y-4 rounded-card border border-gray-100 bg-white p-4">
             <AddressRows label="Send to" values={to} onChange={setTo} placeholder="andre@tryp.com" />
             <AddressRows label="CC" values={cc} onChange={setCc} placeholder="you@tryp.com" />
             <div>

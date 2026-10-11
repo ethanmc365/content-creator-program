@@ -311,7 +311,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
           <>
             {/* WHAT IT READ, BEFORE ANYTHING IS WRITTEN. The date especially:
                 the barcode says "day 195" and not which year. */}
-            <div className="rounded-card border border-brand/25 bg-brand-tint/40 p-4">
+            <div className="rounded-card border border-gray-100 bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">{tr("From")}</p>

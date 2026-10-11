@@ -368,7 +368,7 @@ function MarketAnswer({ result, country }) {
   }
   const m = result.market
   return (
-    <div className="rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-4">
+    <div className="rounded-card border border-gray-100 bg-white px-4 py-4">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0 text-xl leading-none" aria-hidden>
           {(m.country_codes || []).map(flagFromIso).join('')}

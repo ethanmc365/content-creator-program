@@ -98,7 +98,7 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
     if (rail) {
       return (
         <section className="rounded-card border border-dashed border-gray-200 p-4 text-center">
-          <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand">
+          <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl text-brand">
             <Icon name="plane-tryp" className="h-4 w-4" />
           </span>
           <p className="text-sm font-semibold text-ink">{tr('Your flight log is empty')}</p>
@@ -111,7 +111,7 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
     }
     return (
       <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center">
-        <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+        <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl text-brand">
           <Icon name="plane-tryp" className="h-5 w-5" />
         </span>
         <p className="text-sm font-semibold text-ink">{tr('Your flight log is empty')}</p>

@@ -114,7 +114,7 @@ export default function RecapLab() {
           <div className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-smoke">1 · The notification</p>
             <div className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-card">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand">
                 <Icon name="trophy" className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">

@@ -186,7 +186,7 @@ function Idle() {
   const tr = useT()
   return (
     <div className="rounded-card border border-dashed border-gray-200 bg-white/60 px-6 py-14 text-center">
-      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-brand">
         <Icon name="shield" className="h-7 w-7" />
       </span>
       <h1 className="mt-5 text-lg font-bold text-ink">{tr("Check a Tryp.com certificate")}</h1>

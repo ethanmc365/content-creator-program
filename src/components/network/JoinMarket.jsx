@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
@@ -181,15 +182,19 @@ function JoinMarketSheet({ initial, onClose }) {
 export function JoinMarketCard({ className }) {
   const tr = useT()
   const can = useCanJoinMarkets()
-  if (!can) return null
+  const { isAdmin } = useAuth()
+  const navigate = useNavigate()
+  // THE TEAM SEES IT TOO (11 Oct 2026). Ethan could not find this card because it is for creators only, so the team now
+  // sees the same card, marked as what creators see, and it opens the requests they send instead of the sheet.
+  if (!can && !isAdmin) return null
   return (
-    <button type="button" onClick={() => openJoinMarket()}
+    <button type="button" onClick={() => (can ? openJoinMarket() : navigate('/admin/applications?tab=markets'))}
       className={cx('group relative flex w-full items-center gap-3 overflow-hidden rounded-card border border-gray-100 bg-white px-4 py-3.5 text-left shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift', className)}>
-      <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-brand/10 blur-2xl transition-transform duration-500 group-hover:scale-125" />
       <Icon name="globe" className="relative h-6 w-6 shrink-0 text-brand transition-transform duration-500 group-hover:rotate-12" />
       <span className="relative min-w-0 flex-1">
+        {!can && <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-brand">{tr('What creators see')}</span>}
         <span className="block text-sm font-bold text-ink">{tr('Create for another market?')}</span>
-        <span className="block text-xs text-smoke">{tr('Ask to join it as well. You keep yours.')}</span>
+        <span className="block text-xs text-smoke">{can ? tr('Ask to join it as well. You keep yours.') : tr('Their requests land in Applications, Market requests.')}</span>
       </span>
       <Icon name="chevronRight" className="relative h-4 w-4 shrink-0 text-brand transition-transform duration-200 group-hover:translate-x-0.5" />
     </button>

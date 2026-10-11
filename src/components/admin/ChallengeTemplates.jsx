@@ -241,7 +241,7 @@ function TemplateDetail({ row, market, onUse, onDelete, onBack, busy, tr }) {
           template" is entitled to know that the dates are not coming with it -
           otherwise the first thing they do is publish a challenge whose dates
           they never looked at because they assumed it had them. */}
-      <p className="rounded-xl bg-brand-tint/50 px-4 py-3 text-[12px] leading-relaxed text-smoke">
+      <p className="rounded-xl bg-cloud/70 px-4 py-3 text-[12px] leading-relaxed text-smoke">
         {tr('Dates, the market and the status are never part of a template. Everything above fills in, you set when it runs, and nothing is published until you say so.')}
       </p>
 

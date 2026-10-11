@@ -46,8 +46,8 @@ export default function SubmittedCard({ pending, state = 'sent', onSignOut, demo
         <span
           className={
             sending
-              ? 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand'
-              : 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600'
+              ? 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-brand'
+              : 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-green-600'
           }
         >
           {sending ? <Spinner className="h-6 w-6" /> : <Icon name="check" className="h-7 w-7" />}

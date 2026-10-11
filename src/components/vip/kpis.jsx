@@ -223,7 +223,7 @@ export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
                   className={cx('group flex cursor-pointer flex-col gap-3 rounded-card border bg-white p-4 shadow-card transition-[box-shadow,border-color,transform] duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-lift', r.t ? 'border-gray-100' : 'border-dashed border-gray-200')}
                 >
                   <div className="flex items-start gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand"><Icon name={r.icon} className="h-4 w-4" /></span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand"><Icon name={r.icon} className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1 pt-1 text-[15px] font-semibold leading-snug text-ink">{tr(r.label)}</span>
                     {!all && <Icon name="pencil" className="mt-1.5 h-3.5 w-3.5 text-gray-300 transition-colors group-hover:text-brand" />}
                   </div>

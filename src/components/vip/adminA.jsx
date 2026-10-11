@@ -352,7 +352,7 @@ export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
           {!review ? (
             <button type="button" onClick={() => setReview(true)} className="btn-primary w-full justify-center">{tr('Continue')}</button>
           ) : (
-            <div className="rounded-xl border border-brand/30 bg-brand-tint/60 p-4">
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
               <p className="text-sm font-bold text-ink">{tr('Make {n} a VIP in {p}?', { n: pick.name, p: programme.name.replace(/^VIP /, '') })}</p>
               <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('They leave the challenges and the leaderboard, and are told. You can move them back at any time.')}</p>
               <div className="mt-3 flex gap-2">
@@ -867,7 +867,7 @@ export function VipMoveBlock({ creator, onChanged }) {
     <div>
       <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>
       {isVip && done !== 'back' ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/25 bg-brand-tint/50 px-3.5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
           <p className="text-sm font-semibold text-ink"><Icon name="star" className="mr-1.5 inline h-4 w-4 text-brand" />{tr('A VIP')}{here ? ` · ${here.name.replace(/^VIP /, '')}` : ''}</p>
           {member && <button type="button" onClick={() => setMoving(true)} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
         </div>

@@ -727,7 +727,7 @@ export default function Collab() {
           does the comparison for them and puts the answer at the top. If nobody
           overlaps, the section is not there at all. */}
       {overlaps.length > 0 && (
-        <section className="mb-10 rounded-card border border-brand/25 bg-brand-tint/20 p-5 sm:p-6">
+        <section className="mb-10 rounded-card border border-gray-100 bg-white p-5 sm:p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name="sparkles" className="h-5 w-5 text-brand" />
             {tr("You will be in the same place")}

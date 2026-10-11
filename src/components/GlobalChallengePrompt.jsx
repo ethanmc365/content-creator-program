@@ -130,7 +130,7 @@ function PromptCard({ card, name, onClose }) {
                   </li>
                 ))}
                 {mineRow && mine > 2 && (
-                  <li className="flex items-center gap-2.5 rounded-xl bg-brand-tint/60 px-3 py-2">
+                  <li className="flex items-center gap-2.5 rounded-xl bg-cloud/70 px-3 py-2">
                     <span className="w-4 text-center text-xs font-extrabold tabular-nums text-gray-400">{mine + 1}</span>
                     <FlagTile codes={mineRow.codes} size="h-6 w-6" glyph="text-sm" />
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{mineRow.name}<span className="ml-1.5 text-[10px] font-bold uppercase text-brand">{tr('You')}</span></span>
@@ -142,7 +142,7 @@ function PromptCard({ card, name, onClose }) {
             </div>
           )}
           {welcome && (
-            <div className="flex items-start gap-3 rounded-xl border border-brand/20 bg-brand-tint/40 px-3.5 py-3">
+            <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
               <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <p className="text-[13px] leading-snug text-ink">{tr('New to challenges? Your first video that passes {v} views earns a {a} Tryp.com voucher.', { v: Number(ch.welcome_views).toLocaleString(), a: formatMoney(ch.welcome_amount, ch.prize_currency || 'EUR') })}</p>
             </div>

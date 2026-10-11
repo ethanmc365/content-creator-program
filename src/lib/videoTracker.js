@@ -69,11 +69,14 @@ export const challengeOf = (v) => v.challenge_title || v.history_title || null
  * is words rather than numbers. Tags are joined in so typing a tag name finds
  * its videos without a separate tag filter to learn.
  */
-const haystack = (v) => [
-  v.hook, v.caption, v.creator_name, v.creator_handle,
-  challengeOf(v), v.market_name, v.platform, v.notes,
+// Accents fold away, so "garcia" finds "García" and "espana" finds "ESPAÑA".
+const fold = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+// `screen_text` is the hook written ON the video (read by view-sync), which is what a person remembers it by.
+const haystack = (v) => fold([
+  v.hook, v.screen_text, v.caption, v.creator_name, v.creator_handle,
+  challengeOf(v), v.market_name, v.platform, v.notes, v.video_url,
   ...(v.tags || []),
-].filter(Boolean).join(' ').toLowerCase()
+].filter(Boolean).join(' '))
 
 export const SORTS = {
   views: { label: 'Most views', cmp: (a, b) => (b.views ?? -1) - (a.views ?? -1) },
@@ -112,7 +115,7 @@ export function visibleVideos(rows, filter = {}) {
     market = '', challenge = '', platform = '', month = '',
     q = '', sort = 'views',
   } = filter
-  const needle = q.trim().toLowerCase()
+  const needle = fold(q.trim())
 
   const kept = (rows || []).filter((v) => {
     if (!v.qualifies && !v.pinned) return false

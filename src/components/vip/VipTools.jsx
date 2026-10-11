@@ -40,7 +40,9 @@ const ALL = GROUPS.flatMap((g) => g.tabs.map(([k]) => k))
 // WHAT AN OFFICIAL PROGRAMME DOES NOT HAVE (11 Oct 2026): no stay-in rule (their contract sets what they post) and no VIP
 // markets to open, so those two tools are not offered there at all rather than shown switched off.
 const NOT_FOR_OFFICIAL = new Set(['requirements', 'markets'])
+// A market whose stay-in rule is switched off has no stay-in check to look at (11 Oct 2026); the switch itself is in Settings.
 const offered = (k, p, isOwner) => (k !== 'access' || isOwner) && !(p?.kind === 'official' && NOT_FOR_OFFICIAL.has(k))
+  && !(k === 'requirements' && p?.req_on === false)
 
 // THE MARKETS ARE ASKED FOR ONCE A SESSION (7 Oct 2026). Ethan: going from the VIP page to VIP tools "the screen just
 // appears, and it's really flashy. Everything loads in." The list of markets (and which ones you can manage) is one
@@ -188,7 +190,7 @@ export default function VipTools({ programmeId }) {
       </div>
 
       {!programme.can_manage && !['markets', 'access', 'sheet', 'requirements', 'wallets', 'preview'].includes(tab) && (
-        <p className="mb-4 rounded-card border border-brand/15 bg-brand-tint/40 px-4 py-3 text-sm text-ink">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
+        <p className="mb-4 rounded-card border border-gray-100 bg-white px-4 py-3 text-sm text-ink">{tr('You are looking at {p}. You can see everything here, but only its own lead can change it.', { p: programme.name })}</p>
       )}
 
       {programmes.filter((p) => p.id === programme.id || [...seen].some((k) => k.startsWith(`${p.id}:`))).map((p) => {

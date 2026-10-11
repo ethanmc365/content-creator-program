@@ -339,7 +339,7 @@ export default function ErrorWatch() {
                       guess, because a confident wrong answer on a monitoring
                       panel sends somebody looking in the wrong place. */}
                   {guide ? (
-                    <div className="mb-4 rounded-card border border-brand/20 bg-brand-tint/30 p-4">
+                    <div className="mb-4 rounded-card border border-gray-100 bg-white p-4">
                       <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-brand">
                         <Icon name="bulb" className="h-3.5 w-3.5" />
                         {tr('What this is')}

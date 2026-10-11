@@ -212,7 +212,7 @@ export default function Rewards() {
             <Reveal className="overflow-hidden rounded-card border border-gray-100 shadow-card" dense delay={0.1}>
               {rewards.map((r) => (
                 <div key={r.id} className="flex flex-wrap items-center gap-3 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand" aria-hidden>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand" aria-hidden>
                     <Icon name={r.reward_type === 'cash' ? 'money' : 'ticket'} className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">

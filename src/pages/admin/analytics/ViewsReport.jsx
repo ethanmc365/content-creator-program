@@ -14,7 +14,7 @@ import { copyToClipboard } from '../../../lib/clipboard'
 import { toastSuccess } from '../../../lib/toast'
 import { notice } from '../../../lib/confirm'
 import { compact, foldWeeks, pctChange, rangeLabel, snapshotSvg, snapshotText, viewsFor } from '../../../lib/weeklySnapshot'
-import { cx, formatViews } from '../../../lib/utils'
+import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import { useT } from '../../../lib/i18n'
 
 // VIEWS GAINED, ANY DAYS, ONE HALF OR BOTH - AND THE WEEKLY SNAPSHOT (9 Oct 2026).
@@ -27,6 +27,12 @@ import { useT } from '../../../lib/i18n'
 // when the dates or the Refresh button change and at no other time - no polling - so leaving the tab open costs the database nothing.
 const PERIOD_KEYS = ['last_7', 'this_week', 'last_week', 'last_3', 'this_month', 'last_month', 'last_30', 'last_90', 'custom']
 const PICKER = PERIOD_KEYS.map((k) => PERIODS.find((p) => p.key === k))
+// THE PERIODS AS BUTTONS (11 Oct 2026). Ethan: "if I click Last 7 Days, This Week, or This Month, it updates correctly and
+// shows the correct things". The six that get used are one press each; anything else is behind "More dates".
+const QUICK = ['last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30']
+// What the picture and the file are called, so a month is not handed round as a "weekly" snapshot.
+const SNAP_TITLE = { last_7: 'Weekly snapshot', this_week: 'Weekly snapshot', last_week: 'Weekly snapshot', this_month: 'Monthly snapshot', last_month: 'Monthly snapshot' }
+const longDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const ymd = (d) => format(d, 'yyyy-MM-dd')
 
 export default function ViewsReport() {
@@ -45,16 +51,20 @@ export default function ViewsReport() {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const [tick, setTick] = useState(0)
+  // Which period the numbers on screen belong to. The buttons change at once; the numbers follow when they land, and the
+  // heading must name the numbers, not the button (it said "This month" over last week's dates while loading).
+  const [shownKey, setShownKey] = useState(periodKey)
   const key = `${from}|${to}`
   useEffect(() => {
     if (!from || !to) return undefined
     let alive = true
     const hit = cache.current.get(key)
-    if (hit && tick === 0) { setData(hit); setErr('') } else setLoading(true)
+    const pk = periodKey
+    if (hit && tick === 0) { setData(hit); setShownKey(pk); setErr('') } else setLoading(true)
     supabase.rpc('admin_views_gained', { p_from: from, p_to: to }).then(({ data: d, error }) => {
       if (!alive) return
       if (error) { setErr(error.message); setLoading(false); return }
-      cache.current.set(key, d); setData(d); setErr(''); setLoading(false)
+      cache.current.set(key, d); setData(d); setShownKey(pk); setErr(''); setLoading(false)
     })
     return () => { alive = false }
   }, [key, tick]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -86,9 +96,40 @@ export default function ViewsReport() {
     const ok = await copyToClipboard(snapshotText(data, scope))
     if (ok) toastSuccess(tr('Copied. Paste it into the chat or an email.')); else notice(tr('Could not copy. Try again.'))
   }
+  const snapTitle = tr(SNAP_TITLE[shownKey] || 'Snapshot')
+  const periodName = shownKey === 'custom' ? tr('Custom dates') : tr(PERIODS.find((p) => p.key === shownKey)?.label || '')
+
+  // THE NUMBERS AS A SPREADSHEET: every day (or week), every market and the videos that gained most, one file.
+  function downloadData() {
+    if (!data) return
+    const rows = [
+      ...(weekly ? foldWeeks(data.daily) : data.daily).map((r) => ({
+        section: weekly ? 'Week starting' : 'Day', name: r.d,
+        views: viewsFor(r, scope), community: scope === 'vip' ? '' : r.community, vip: scope === 'community' ? '' : r.vip,
+        videos: '', new_creators: '', active_creators: '',
+      })),
+      ...(data.markets || []).map((m) => ({
+        section: 'Market', name: m.name, views: viewsFor(m, scope), community: scope === 'vip' ? '' : m.community,
+        vip: scope === 'community' ? '' : m.vip, videos: m.videos, new_creators: m.new_members, active_creators: m.active_creators,
+      })),
+      ...(data.top_videos || []).filter((v) => scope === 'both' || (scope === 'vip') === v.vip).map((v) => ({
+        section: 'Top video', name: `${v.name}${v.vip ? ' (VIP)' : ''} ${v.url}`, views: v.views, community: '', vip: '',
+        videos: '', new_creators: '', active_creators: '',
+      })),
+      { section: 'Total', name: rangeLabel(data.from, data.to), views: now, community: scope === 'vip' ? '' : t.community,
+        vip: scope === 'community' ? '' : t.vip, videos: (t.videos || 0) + (scope === 'community' ? 0 : t.vip_videos || 0),
+        new_creators: t.new_members || 0, active_creators: t.active_creators || 0 },
+    ]
+    downloadCsv(`tryp-views-${shownKey}-${data.from}-to-${data.to}.csv`, rows, [
+      { key: 'section', label: 'Row' }, { key: 'name', label: 'Day / market / video' }, { key: 'views', label: 'Views gained' },
+      { key: 'community', label: 'Community' }, { key: 'vip', label: 'VIP' }, { key: 'videos', label: 'Videos' },
+      { key: 'new_creators', label: 'New creators' }, { key: 'active_creators', label: 'Creators gaining views' },
+    ])
+  }
+
   function download(kind) {
-    const svg = snapshotSvg(data, scope, tr('Weekly snapshot'))
-    const name = `tryp-weekly-snapshot-${data.from}-to-${data.to}`
+    const svg = snapshotSvg(data, scope, snapTitle)
+    const name = `tryp-${(SNAP_TITLE[shownKey] || 'snapshot').toLowerCase().replace(/\s+/g, '-')}-${data.from}-to-${data.to}`
     const save = (blob, ext) => {
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
@@ -112,16 +153,39 @@ export default function ViewsReport() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <Segmented value={scope} onChange={setScope} label={tr('Which views')} options={[
-          { value: 'both', label: tr('Community + VIP') }, { value: 'community', label: tr('Community') }, { value: 'vip', label: tr('VIP') },
-        ]} />
-        <div className="flex items-center gap-2">
-          <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER} className="" width="w-44"
-            onChange={(k, f, tt) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: tt }) }} />
-          <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label={tr('Refresh')} title={tr('Read it again')} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
-            <Icon name="refresh" className={cx('h-4 w-4', loading && 'animate-spin')} />
-          </button>
+      {/* THE CONTROLS, ONE PANEL: the dates as buttons on top, which views and the actions under them. */}
+      <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex flex-col gap-2 p-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="pick-row -mx-1 !mt-0 flex gap-1 overflow-x-auto px-1 !pb-1 !pt-0" role="group" aria-label={tr('Dates')}>
+            {QUICK.map((k) => {
+              const on = periodKey === k
+              return (
+                <button key={k} type="button" onClick={() => setPeriodKey(k)} aria-pressed={on}
+                  className={cx('shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200',
+                    on ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink')}>
+                  {tr(PERIODS.find((p) => p.key === k).label)}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <PeriodPicker value={QUICK.includes(periodKey) ? '' : periodKey} from={custom.from} to={custom.to}
+              periods={[{ key: '', label: tr('More dates') }, ...PICKER.filter((p) => !QUICK.includes(p.key))]} className="" width="w-44"
+              onChange={(k, f, tt) => { if (!k) return; setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: tt }) }} />
+            <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label={tr('Refresh')} title={tr('Read it again')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
+              <Icon name="refresh" className={cx('h-4 w-4', loading && 'animate-spin')} />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-gray-50 bg-cloud/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <Segmented value={scope} onChange={setScope} label={tr('Which views')} options={[
+            { value: 'both', label: tr('Community + VIP') }, { value: 'community', label: tr('Community') }, { value: 'vip', label: tr('VIP') },
+          ]} />
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" disabled={!data} onClick={downloadData} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="download" className="h-3.5 w-3.5" />{tr('Data (CSV)')}</button>
+            <button type="button" disabled={!data} onClick={() => download('png')} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="image" className="h-3.5 w-3.5" />{tr('Picture (PNG)')}</button>
+            <button type="button" disabled={!data} onClick={copyText} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy as text')}</button>
+          </div>
         </div>
       </div>
 
@@ -130,13 +194,17 @@ export default function ViewsReport() {
 
       {data && (
         <div className={cx('space-y-5 transition-opacity duration-300', stale && 'opacity-60')}>
-          <p className="flex flex-wrap items-center gap-x-2 text-sm text-smoke">
-            <Icon name="calendar" className="h-4 w-4 text-brand" />
-            <span className="font-semibold text-ink">{rangeLabel(data.from, data.to)}</span>
-            <span>· {tr('{n} days', { n: data.days })}</span>
-            <span className="text-gray-300">|</span>
-            <span>{tr('Views gained inside these dates, not lifetime totals.')}</span>
-          </p>
+          {/* WHICH DAYS THESE ARE, SAID IN FULL, so "This week" on a Sunday and "Last 7 days" never look like the same thing. */}
+          <div key={`${data.from}|${data.to}`} className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 animate-tab-in">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">{periodName}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-lg font-bold text-ink">
+                <Icon name="calendar" className="h-4 w-4 text-brand" />
+                {data.from === data.to ? longDay(data.from) : `${longDay(data.from)} to ${longDay(data.to)}`}
+              </p>
+            </div>
+            <p className="text-xs text-smoke">{tr('{n} days', { n: data.days })} · {tr('Views gained inside these dates, not lifetime totals.')}</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="animate-rise rounded-card border border-brand/20 bg-white p-4 shadow-card">
@@ -225,17 +293,18 @@ export default function ViewsReport() {
           <section className="animate-rise overflow-hidden rounded-card border border-brand/25 bg-white shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-5">
               <div>
-                <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="megaphone" className="h-4 w-4 text-brand" />{tr('Weekly snapshot for the meeting')}</h3>
+                <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="megaphone" className="h-4 w-4 text-brand" />{tr('{t} for the meeting', { t: snapTitle })}</h3>
                 <p className="text-xs text-smoke">{tr('One picture for the screen, one paragraph for the chat. It follows the dates and the switch above.')}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => download('png')} className="btn-primary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Picture (PNG)')}</button>
                 <button type="button" onClick={() => download('svg')} className="btn-secondary !py-2 text-xs">{tr('SVG')}</button>
+                <button type="button" onClick={downloadData} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Data (CSV)')}</button>
                 <button type="button" onClick={copyText} className="btn-secondary !py-2 text-xs"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy as text')}</button>
               </div>
             </div>
             <div className="p-4 sm:p-5">
-              <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm" dangerouslySetInnerHTML={{ __html: snapshotSvg(data, scope, tr('Weekly snapshot')).replace(/ width="1280" height="720"/, ' style="width:100%;height:auto;display:block"') }} />
+              <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm" dangerouslySetInnerHTML={{ __html: snapshotSvg(data, scope, snapTitle).replace(/ width="1280" height="720"/, ' style="width:100%;height:auto;display:block"') }} />
             </div>
           </section>
         </div>

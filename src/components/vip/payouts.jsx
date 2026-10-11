@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import InvoicePreview from '../InvoicePreview'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow } from '../../lib/sendInvoice'
 import { cx } from '../../lib/utils'
@@ -48,13 +48,13 @@ export function PayoutSummary({ overview, statements, programme }) {
         ].map((t, i) => (
           <div key={t.label} className="rounded-card border border-gray-100 bg-white px-3.5 py-3 shadow-card animate-rise sm:px-4" style={{ animationDelay: `${i * 60}ms` }}>
             <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400"><Icon name={t.icon} className="h-3.5 w-3.5 text-brand" />{t.label}</p>
-            <p className="mt-1 text-xl font-bold tabular-nums text-ink sm:text-2xl"><CountUp value={t.value} format={t.fmt} /></p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-ink sm:text-2xl"><CountUp duration={VIP_COUNT_MS} value={t.value} format={t.fmt} /></p>
           </div>
         ))}
       </div>
 
       <Link to="/settings?section=payment" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
-        <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', overview.payment_ready ? 'bg-emerald-50 text-emerald-600' : 'bg-brand-tint text-brand')}>
+        <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', overview.payment_ready ? 'text-emerald-600' : 'text-brand')}>
           <Icon name={overview.payment_ready ? 'check' : 'wallet'} className="h-5 w-5" strokeWidth={overview.payment_ready ? 2.4 : 1.9} />
         </span>
         <span className="min-w-0 flex-1">
@@ -106,7 +106,7 @@ function Statement({ s, programmeCpm, delay }) {
   return (
     <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise" style={{ animationDelay: `${delay}ms` }}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 pb-3 pt-4 text-left">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-bold text-ink">{monthLabel(s.year, s.month)}</span>
           <span className="block text-xs text-smoke">{tr('{n} views', { n: nf(s.views) })}</span>

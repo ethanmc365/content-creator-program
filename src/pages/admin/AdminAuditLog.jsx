@@ -42,13 +42,18 @@ const CATEGORIES = [
 ]
 
 const PERIODS = [
-  { value: '7', label: 'Last 7 days' },
-  { value: '30', label: 'Last 30 days' },
-  { value: '90', label: 'Last 3 months' },
-  { value: '', label: 'All time' },
+  { value: '7', label: 'Last 7 days', short: '7 days' },
+  { value: '30', label: 'Last 30 days', short: '30 days' },
+  { value: '90', label: 'Last 3 months', short: '3 months' },
+  { value: '', label: 'All time', short: 'All time' },
 ]
 
-const PAGE = 100
+// 200 A PAGE (11 Oct 2026). Ethan: "it only shows four things... Load More only loads one at a time". The page asked for
+// 100 rows and then hid the view sync's own progress writes in the browser, and those were 4,129 of the week's 4,513
+// rows, so a "page" was ninety-odd invisible rows and a handful of real ones. The sync no longer writes them into the
+// log at all (migration 382) and they are excluded in the query, so a page is a page.
+const PAGE = 200
+const BOOKKEEPING_KEYS = '(view_sync_run,view_sync_last_run,fx_rates)'
 
 const catOf = (row) => CATEGORIES.find((c) => c.value === row.category) ?? CATEGORIES[0]
 
@@ -173,6 +178,7 @@ export default function AdminAuditLog() {
   const [days, setDays] = useState('7')
   const [search, setSearch] = useState('')
   const [more, setMore] = useState(false)
+  const [total, setTotal] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const since = useRef(0)
 
@@ -183,7 +189,8 @@ export default function AdminAuditLog() {
     if (!append) setRows(null)
     let q = supabase
       .from('admin_audit_log')
-      .select('*')
+      .select('*', append ? undefined : { count: 'exact' })
+      .or(`entity.is.null,entity.neq.app_settings,target_name.is.null,target_name.not.in.${BOOKKEEPING_KEYS}`)
       .order('created_at', { ascending: false })
       .limit(PAGE)
 
@@ -193,8 +200,9 @@ export default function AdminAuditLog() {
     if (days) q = q.gte('created_at', new Date(since.current - Number(days) * 86400000).toISOString())
     if (append && rows?.length) q = q.lt('created_at', rows[rows.length - 1].created_at)
 
-    const { data } = await q
+    const { data, count } = await q
     const batch = data ?? []
+    if (!append) setTotal(count ?? null)
     setMore(batch.length === PAGE)
     setRows((prev) => (append && prev ? [...prev, ...batch] : batch))
   }, [category, actor, market, days, rows])
@@ -294,35 +302,12 @@ export default function AdminAuditLog() {
         }
       />
 
-      {/* THE CONTROLS, AS ONE PANEL (24 Sep 2026) - the same shape as the KPI
-          tracker's and the analytics filter bar, instead of a loose row of
-          multicoloured pills over a loose row of fields. */}
-      {/* COMPACT (28 Sep 2026): smaller chips, tighter padding, the fields on
-          one line from a tablet up. Ethan: "too much space there". */}
-      <div className="mb-5 space-y-2.5 rounded-card border border-gray-100 bg-white p-2.5 shadow-card sm:p-3">
-        <div className="pick-row -mx-1 flex gap-1 overflow-x-auto px-1">
-          {CATEGORIES.map((c) => {
-            const on = category === c.value
-            return (
-              <button
-                key={c.value || 'all'}
-                type="button"
-                onClick={() => setCategory(c.value)}
-                aria-pressed={on}
-                className={cx(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 sm:text-[13px]',
-                  on ? 'bg-brand text-white shadow-card'
-                    : 'border border-gray-200 text-smoke hoverable:hover:border-brand/40 hoverable:hover:text-brand',
-                )}
-              >
-                <Icon name={c.icon} className="h-3.5 w-3.5" />
-                {c.label}
-              </button>
-            )
-          })}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="relative w-full sm:w-auto sm:flex-1">
+      {/* THE CONTROLS (rebuilt 11 Oct 2026). Ethan: "a lot of white space between those buttons. The buttons are
+          confusing." One line to find something (search, who, market), one line to narrow it (what kind, and when), with
+          the period as four plain choices rather than a dropdown, and a count that says how much the filters found. */}
+      <div className="mb-5 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+          <div className="relative">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input
               type="search"
@@ -333,19 +318,64 @@ export default function AdminAuditLog() {
               aria-label="Search the log"
             />
           </div>
-          <Select variant="chip" className="w-40" ariaLabel="Period" value={days} onChange={setDays} options={PERIODS} />
-          <Select
-            variant="chip" className="w-44" ariaLabel="Who" value={actor} onChange={setActor}
-            options={[{ value: '', label: 'Anybody' }, ...actors.map((a) => ({ value: a.id, label: a.name }))]}
-          />
-          {chapterMarkets.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:contents">
             <Select
-              variant="chip" className="w-44" ariaLabel="Market" value={market} onChange={setMarket}
-              options={[{ value: '', label: 'Every market' }, ...chapterMarkets.map((m) => ({ value: m.id, label: m.name }))]}
+              variant="chip" className="sm:w-44" ariaLabel="Who" value={actor} onChange={setActor}
+              options={[{ value: '', label: 'Anybody' }, ...actors.map((a) => ({ value: a.id, label: a.name }))]}
             />
-          )}
+            {chapterMarkets.length > 0 && (
+              <Select
+                variant="chip" className="sm:w-44" ariaLabel="Market" value={market} onChange={setMarket}
+                options={[{ value: '', label: 'Every market' }, ...chapterMarkets.map((m) => ({ value: m.id, label: m.name }))]}
+              />
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1 justify-self-start rounded-full bg-cloud p-1" role="group" aria-label="Period">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value || 'all'}
+                type="button"
+                onClick={() => setDays(p.value)}
+                aria-pressed={days === p.value}
+                className={cx(
+                  'whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-semibold transition-all duration-200',
+                  days === p.value ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink',
+                )}
+              >
+                {p.short}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-gray-50 bg-cloud/40 px-3 py-2.5">
+          <div className="pick-row -mx-1 !mt-0 flex gap-1 overflow-x-auto px-1 !pb-1 !pt-0 sm:flex-wrap sm:overflow-visible">
+            {CATEGORIES.map((c) => {
+              const on = category === c.value
+              return (
+                <button
+                  key={c.value || 'all'}
+                  type="button"
+                  onClick={() => setCategory(c.value)}
+                  aria-pressed={on}
+                  className={cx(
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-all duration-200',
+                    on ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:bg-white hoverable:hover:text-brand',
+                  )}
+                >
+                  <Icon name={c.icon} className="h-3.5 w-3.5" />
+                  {c.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
+
+      {rows !== null && total != null && (
+        <p className="mb-3 px-1 text-xs text-smoke">
+          {total === 0 ? 'Nothing recorded' : <><span className="font-semibold tabular-nums text-ink">{total.toLocaleString()}</span> {total === 1 ? 'change' : 'changes'}{search.trim() ? `, ${shown.length.toLocaleString()} matching "${search.trim()}" in the ${rows.length.toLocaleString()} loaded` : rows.length < total ? `, newest ${rows.length.toLocaleString()} shown` : ''}</>}
+        </p>
+      )}
 
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
@@ -466,7 +496,7 @@ export default function AdminAuditLog() {
                 disabled={loadingMore}
                 onClick={async () => { setLoadingMore(true); await load(true); setLoadingMore(false) }}
               >
-                {loadingMore ? 'Loading…' : 'Load more'}
+                {loadingMore ? 'Loading…' : `Load ${Math.min(PAGE, Math.max(0, (total ?? 0) - rows.length) || PAGE).toLocaleString()} more`}
               </button>
             </div>
           )}

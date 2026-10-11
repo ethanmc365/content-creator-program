@@ -1143,7 +1143,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   const countryCard = countryDetail && (
     <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
       <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand">
           <Icon name="globe" className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">

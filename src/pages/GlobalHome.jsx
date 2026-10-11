@@ -523,7 +523,7 @@ export default function GlobalHome() {
         {!d ? (
           <div className="space-y-2"><Skeleton className="h-16 w-full" /></div>
         ) : myLive.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
+          <div className="flex items-center gap-3 rounded-xl bg-cloud/70 px-3 py-3">
             <TrypPlane variant="badge" />
             <p className="text-xs text-smoke">
               {tr("Nothing running in your markets right now. The next brief lands here.")}

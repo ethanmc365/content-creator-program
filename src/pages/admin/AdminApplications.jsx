@@ -1242,7 +1242,7 @@ export function ApplicationCard({
             ordinary memberships. That is said on screen rather than implied,
             because it decides which hub they land on. */}
         {app.team_application ? (
-          <div className="rounded-xl border border-brand/25 bg-brand-tint/50 px-4 py-3 text-sm text-ink">
+          <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-ink">
             <p className="flex items-center gap-2 font-semibold text-brand"><Icon name="shield" className="h-4 w-4" /> Adding them to the team gives them admin access</p>
             <p className="mt-1 text-xs leading-relaxed text-smoke">
               They will be able to open the admin panel. They are not placed in a market as a creator. Check who they are before you approve, and change their title any time on the Team page.

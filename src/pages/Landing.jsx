@@ -1001,7 +1001,7 @@ export default function Landing() {
                   [String(miniProfile.videos ?? 0), tr('videos')],
                   [String(miniProfile.wins ?? 0), tr('Challenge wins')],
                 ].map(([v, l]) => (
-                  <div key={l} className="rounded-xl bg-brand-tint/60 px-2 py-2.5">
+                  <div key={l} className="rounded-xl bg-cloud/70 px-2 py-2.5">
                     <p className="text-lg font-bold tabular-nums leading-none text-brand">{v}</p>
                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-smoke">{l}</p>
                   </div>

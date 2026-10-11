@@ -154,7 +154,7 @@ export default function AdminNotes() {
             <button
               onClick={() => setEmojiOpen((o) => !o)}
               aria-label="Change note icon"
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint transition-transform hover:-translate-y-0.5"
+              className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5"
             >
               <NoteGlyph name={active.emoji} className="h-7 w-7" />
             </button>
@@ -248,7 +248,7 @@ export default function AdminNotes() {
               )}
             >
               <div className="mb-3 flex items-start justify-between gap-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl">
                   <NoteGlyph name={n.emoji} className="h-6 w-6" />
                 </span>
                 <span className="flex items-center gap-1">
@@ -286,7 +286,7 @@ export default function AdminNotes() {
                   className="card group flex flex-col !p-6 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift"
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl">
                       <NoteGlyph name={n.emoji} className="h-6 w-6" />
                     </span>
                     <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">

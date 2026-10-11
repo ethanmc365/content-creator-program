@@ -413,7 +413,7 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
           about to take. Brand orange is the "look at this" tone, which is what
           this is, and it still blocks the save. */}
       {unassigned.length > 0 && (
-        <div className="rounded-xl border border-brand/25 bg-brand-tint/40 px-4 py-3">
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
           <p className="flex items-center gap-2 text-sm font-semibold text-brand">
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {unassigned.length} {unassigned.length === 1 ? 'creator is' : 'creators are'} not in a group yet

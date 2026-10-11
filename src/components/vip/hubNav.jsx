@@ -5,7 +5,7 @@ import Icon from '../Icon'
 import FlagStack from '../network/FlagStack'
 import { SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
-import { CountUp } from '../network/Motion'
+import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { money, useOptionalRpc, useKindT } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
@@ -50,10 +50,10 @@ export function VipSideNav({ value, onChange, hidden, links, official = false })
                 aria-current={on ? 'page' : undefined}
                 className={cx('group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200', !on && 'hoverable:hover:bg-cloud/70')}
               >
-                {on && <motion.span layoutId="vip-side-nav" transition={SPRING} className="absolute inset-0 rounded-xl bg-brand-tint/70" />}
+                {on && <motion.span layoutId="vip-side-nav" transition={SPRING} className="absolute inset-0 rounded-xl bg-cloud" />}
                 <span className={cx(
                   'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
-                  on ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'bg-cloud text-smoke group-hover:scale-105 group-hover:text-brand',
+                  on ? 'bg-gradient-to-br from-brand to-brand-light text-white shadow-card' : 'text-brand group-hover:scale-110',
                 )}>
                   <Icon name={s.icon} className="h-[18px] w-[18px]" strokeWidth={on ? 2.2 : 1.9} />
                 </span>
@@ -72,7 +72,7 @@ export function VipSideNav({ value, onChange, hidden, links, official = false })
           {links.map((l) => (
             <li key={l.to}>
               <Link to={l.to} className="group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200 hoverable:hover:bg-cloud/70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke transition-all duration-300 group-hover:scale-105 group-hover:text-brand"><Icon name={l.icon} className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand/80 transition-all duration-300 group-hover:scale-110 group-hover:text-brand"><Icon name={l.icon} className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13.5px] font-semibold leading-tight text-ink/85">{tr(l.label)}</span>
                   <span className="mt-0.5 block truncate text-[11px] text-smoke">{tr(l.hint)}</span>
@@ -146,7 +146,7 @@ export function VipBalanceMini({ onOpen }) {
         <span className="flex items-center gap-1.5"><Icon name="wallet" className="h-3.5 w-3.5 text-brand" />{tr('Your balance')}</span>
         <Icon name="chevronRight" className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
       </span>
-      <span className="mt-1 block text-2xl font-bold tabular-nums text-ink"><CountUp value={Number(w.balance) || 0} format={(n) => money(n, w.currency)} /></span>
+      <span className="mt-1 block text-2xl font-bold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={Number(w.balance) || 0} format={(n) => money(n, w.currency)} /></span>
     </button>
   )
 }

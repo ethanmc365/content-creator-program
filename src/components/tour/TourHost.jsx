@@ -1251,7 +1251,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
             thing is a tab at the bottom of the screen in the other direction.
             The spotlight is what points; this line is what says. */}
         {said.do && !hit && (
-          <p className="tour-do mt-3 rounded-xl bg-brand-tint/60 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
+          <p className="tour-do mt-3 rounded-xl bg-cloud/70 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
             {said.do}
           </p>
         )}

@@ -86,7 +86,7 @@ export default function BoardCard({ className }) {
           to="/board"
           className="flex items-center gap-4 rounded-card border border-dashed border-gray-200 bg-white px-5 py-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-card"
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-brand">
             <Icon name="chat" className="h-5 w-5" />
           </span>
           <span className="min-w-0">

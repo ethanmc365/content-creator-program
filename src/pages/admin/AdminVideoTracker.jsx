@@ -145,7 +145,7 @@ export default function AdminVideoTracker() {
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
       {syncNote && (
-        <p className="mb-5 flex items-center gap-2 rounded-xl bg-brand-tint/50 px-4 py-3 text-sm text-ink">
+        <p className="mb-5 flex items-center gap-2 rounded-xl bg-cloud/70 px-4 py-3 text-sm text-ink">
           <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />
           {syncNote}
         </p>
@@ -217,6 +217,20 @@ export default function AdminVideoTracker() {
           a phone and needs no second rule to say so. */}
       <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2 shadow-card [animation-delay:80ms] sm:p-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* THE SEARCH BOX IS BACK (11 Oct 2026), now that the list is hundreds of videos. Ethan: "a search bar to
+              search for a particular hook, video, or name". It matches the creator, their handle, the hook (typed or
+              read off the video), the caption, the challenge, the market and the link, accents ignored. */}
+          <div className="relative w-full sm:w-[16rem] sm:shrink-0">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+            <input
+              type="search"
+              value={filter.q}
+              onChange={(e) => set({ q: e.target.value })}
+              placeholder={tr('Search a creator, hook or caption')}
+              aria-label={tr('Search videos')}
+              className="input !py-2.5 !pl-9 text-sm"
+            />
+          </div>
           <Select
             value={filter.challenge}
             onChange={(v) => set({ challenge: v })}

@@ -129,7 +129,7 @@ export default function AdminAgreements() {
         {!draft && <button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />{audience === 'vip' && market && !list.length ? `Make one for ${marketName}` : 'New version'}</button>}
       </div>
       {tab === 'official' && (
-        <p className="mb-5 flex items-start gap-2 rounded-card border border-brand/20 bg-brand-tint/40 px-5 py-4 text-sm text-ink">
+        <p className="mb-5 flex items-start gap-2 rounded-card border border-gray-100 bg-white px-5 py-4 text-sm text-ink">
           <Icon name="badge" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
           <span>The agreement the official Tryp.com content creators sign: monthly fee, rate per 1,000 views, cap and invoicing filled in from each person's own deal (VIP tools &gt; Members &gt; Edit). Written from the signed Content Creator Agreement (ES) of 25 March 2026.</span>
         </p>

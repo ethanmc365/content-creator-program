@@ -2852,7 +2852,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       {connectionsView && !hasMappedConnections && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center p-6">
           <div className="pointer-events-auto max-w-xs rounded-card border border-gray-100 bg-white/95 p-5 text-center shadow-lift backdrop-blur">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-brand">
               <Icon name="users" className="h-6 w-6" />
             </div>
             <p className="text-sm font-semibold text-ink">{tr("No connections on the map yet")}</p>

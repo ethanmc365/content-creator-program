@@ -155,7 +155,7 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
                 {tr('This challenge is for creators in the {market} community. Ask to join it and tell the team why you would like to create content for {market} and take part.', { market: asking.market_name })}
               </p>
               {asking.join_state === 'pending' ? (
-                <p className="flex items-center gap-2 rounded-xl border border-brand/20 bg-brand-tint/40 px-4 py-3 text-sm font-medium text-ink">
+                <p className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium text-ink">
                   <Icon name="check" className="h-4 w-4 text-brand" />
                   {tr('You have already asked to join {market}. The team will let you know.', { market: asking.market_name })}
                 </p>

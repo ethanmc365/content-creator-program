@@ -3427,8 +3427,21 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 .vip-locked-hero { background-color: #111; background-image: radial-gradient(110% 130% at 50% 0%, #4a1f07 0%, #141414 60%); }
 .vip-lock-halo { background: radial-gradient(circle, rgba(245, 133, 63, 0.45) 0%, rgba(245, 133, 63, 0) 68%); animation: vip-lock-halo 3.6s ease-in-out infinite; }
 @keyframes vip-lock-halo { 0%, 100% { transform: scale(0.92); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
-.vip-lock-shackle { transform-origin: 60px 54px; animation: vip-lock-shackle 4.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite; }
-@keyframes vip-lock-shackle { 0%, 62%, 100% { transform: translateY(0); } 70% { transform: translateY(-7px); } 80% { transform: translateY(1.5px); } 86% { transform: translateY(0); } }
+/* A REAL PADLOCK OPENING (11 Oct 2026). The origin sits on the LONG left leg, so scaleX turns the shackle about that
+   leg (the 2D read of it swinging on its axis) while the leg itself stays seated in the body. Lift, turn, hold, turn
+   back, drop, and the body gives a small click. */
+.vip-lock-shackle { transform-origin: 42px 60px; transform-box: view-box; animation: vip-lock-shackle 5.2s cubic-bezier(0.45, 0, 0.2, 1) infinite; }
+@keyframes vip-lock-shackle {
+  0%, 34% { transform: translateY(0) scaleX(1); }
+  40% { transform: translateY(-15px) scaleX(1); }
+  43% { transform: translateY(-13px) scaleX(1); }
+  52%, 66% { transform: translateY(-13px) scaleX(0.78); }
+  76% { transform: translateY(-13px) scaleX(1); }
+  82% { transform: translateY(0) scaleX(1); }
+  100% { transform: translateY(0) scaleX(1); }
+}
+.vip-lock-body { transform-origin: 60px 100px; transform-box: view-box; animation: vip-lock-click 5.2s ease-out infinite; }
+@keyframes vip-lock-click { 0%, 81%, 100% { transform: translateY(0); } 83% { transform: translateY(1.5px); } 86% { transform: translateY(0); } }
 .vip-lock-sweep { animation: vip-lock-sweep 4.2s ease-in-out infinite; }
 @keyframes vip-lock-sweep { 0%, 30% { transform: skewX(-18deg) translateX(0); } 60%, 100% { transform: skewX(-18deg) translateX(150px); } }
 .vip-lock-star { position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: #ffd2a8; box-shadow: 0 0 10px 2px rgba(255, 179, 107, 0.8); opacity: 0; animation: vip-lock-star 3.8s ease-in-out infinite; }
@@ -3438,7 +3451,20 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 .vip-lock-star-3 { left: 14%; bottom: 8%; animation-delay: 2.2s; width: 4px; height: 4px; }
 .vip-lock-star-4 { left: 46%; top: -2%; animation-delay: 2.9s; }
 @keyframes vip-lock-star { 0%, 100% { opacity: 0; transform: scale(0.4) translateY(4px); } 40% { opacity: 1; transform: scale(1) translateY(-4px); } 70% { opacity: 0; transform: scale(0.6) translateY(-10px); } }
-@media (prefers-reduced-motion: reduce) { .vip-lock-halo, .vip-lock-shackle, .vip-lock-sweep, .vip-lock-star { animation: none; } .vip-lock-star { opacity: 0.8; } }
+/* The page arriving: the hero settles in, the lock drops onto it, then the words and cards follow in a quick stagger. */
+.vip-in-hero { animation: vip-in-hero 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes vip-in-hero { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+.vip-in-lock { animation: vip-in-lock 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s both; }
+@keyframes vip-in-lock { from { opacity: 0; transform: translateY(-18px) scale(0.7) rotate(-8deg); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+.vip-in-line { animation: vip-in-line 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes vip-in-line { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.vip-in-card { animation: vip-in-card 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes vip-in-card { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+.vip-in-icon { animation: vip-in-icon 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes vip-in-icon { from { opacity: 0; transform: scale(0.4) rotate(-12deg); } to { opacity: 1; transform: none; } }
+.vip-teaser-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 179, 107, 0.16) 50%, transparent 65%); transform: translateX(-100%); animation: vip-teaser-shine 4.5s ease-in-out 1.2s infinite; }
+@keyframes vip-teaser-shine { 0% { transform: translateX(-100%); } 35%, 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .vip-lock-halo, .vip-lock-shackle, .vip-lock-body, .vip-lock-sweep, .vip-lock-star, .vip-in-hero, .vip-in-lock, .vip-in-line, .vip-in-card, .vip-in-icon, .vip-teaser-shine { animation: none; } .vip-lock-star { opacity: 0.8; } }
 
 /* QUESTIONS AND ANSWERS (pages/Faq): brand gradient with big drifting question marks. */
 .faq-hero { background: linear-gradient(135deg, #d94407 0%, #f5853f 100%); }
@@ -3525,3 +3551,10 @@ html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color
 
 /* The send button is white on the orange card in BOTH themes (the dark theme remaps bg-white to a dark surface). */
 .ask-send { background: #fff !important; color: #d94407 !important; }
+
+/* The notifications banner (components/PushBanner): it drops in once, and the bell gives a small ring now and then. */
+.push-banner { animation: push-banner-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes push-banner-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.push-banner-bell { transform-origin: 50% 10%; animation: push-bell 4s ease-in-out 0.8s infinite; }
+@keyframes push-bell { 0%, 84%, 100% { transform: rotate(0); } 87% { transform: rotate(14deg); } 90% { transform: rotate(-12deg); } 93% { transform: rotate(8deg); } 96% { transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: reduce) { .push-banner, .push-banner-bell { animation: none; } }

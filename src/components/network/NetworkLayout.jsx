@@ -75,9 +75,11 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
               // a permanent grey gutter down the side of five white cards reads
               // as a seam. The region is still keyboard and wheel scrollable.
               'lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden',
-              // Room for the last card's shadow, which a hard overflow edge
-              // would otherwise slice off.
-              'lg:pb-4 lg:pr-1',
+              // Room for every card's shadow, which a hard overflow edge would otherwise slice off. The LEFT side matters
+              // most (11 Oct 2026): with no room there the cards' shadows were cut on one straight vertical line that ran
+              // down the gaps between them, a grey seam joining "Your markets", "Video Ideas" and the rest. The negative
+              // margin keeps the cards exactly where they were.
+              'lg:-mx-3 lg:-mt-2 lg:px-3 lg:pb-4 lg:pt-2',
             )}
           >
             {/* The rail arrives from the side it lives on, a beat behind the

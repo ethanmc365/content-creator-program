@@ -133,7 +133,7 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
                   done ? 'bg-white/70 opacity-70' : 'bg-white hoverable:hover:-translate-y-0.5',
                 )}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name={ICON[r.kind] || 'star'} className="h-4 w-4" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{tx.pick(r.label.trim())}</span>
                   {state !== 'always' && (

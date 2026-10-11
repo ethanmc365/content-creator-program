@@ -77,7 +77,7 @@ export default function MarketRequests({ onChanged }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/50 px-4 py-3.5 animate-rise">
+      <div className="flex items-start gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5 animate-rise">
         <Icon name="globe" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
         <p className="text-sm leading-relaxed text-ink">
           <strong>Creators already in the community, asking to join another market as well.</strong>{' '}

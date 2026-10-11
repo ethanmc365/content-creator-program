@@ -215,7 +215,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
       </ol>
 
       {mine && mine.members && mine.creators < mine.members && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-white px-4 py-3.5">
           <p className="min-w-0 text-sm font-semibold text-ink">{tr('{n} members of {c} have not entered yet. One video from you moves {c} up.', { n: mine.members - mine.creators, c: mine.name })}</p>
           <Link to={`/challenges/${challenge.id}?tab=brief&submit=1`} className="btn-primary !py-2 text-xs"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Add my video')}</Link>
         </div>

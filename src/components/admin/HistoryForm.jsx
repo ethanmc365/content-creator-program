@@ -135,7 +135,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
       <div className="space-y-5">
         {/* WHAT THIS FORM IS FOR, AT THE TOP, IN ONE SENTENCE. It used to be
             implied by a dropdown option, which is not the same as being said. */}
-        <p className="flex items-start gap-2.5 rounded-card border border-brand/20 bg-brand-tint/30 px-4 py-3 text-xs leading-relaxed text-smoke">
+        <p className="flex items-start gap-2.5 rounded-card border border-gray-100 bg-white px-4 py-3 text-xs leading-relaxed text-smoke">
           <Icon name="bulb" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <span>
             {tr('For a challenge that ran off the platform - on WhatsApp, or before this was built. It joins every programme average; it has no entries, leaderboard or payouts.')}
@@ -189,7 +189,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
         </div>
 
         {/* ---- The four numbers everything is computed from ---- */}
-        <div className="rounded-card border border-brand/20 bg-brand-tint/25 p-4">
+        <div className="rounded-card border border-gray-100 bg-white p-4">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-brand">{tr('The results')}</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <Field label={tr('Prize (EUR)')}><Num value={f.prize_total} onChange={(v) => set({ prize_total: v })} /></Field>
