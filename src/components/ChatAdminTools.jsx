@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Modal, Skeleton, Spinner } from './ui'
-import ResourcePicker from './ResourcePicker'
 import { DateField, TimeField } from './DateTimeFields'
 import { CONTINENTS } from '../lib/countries'
 import { Select } from './ui'
@@ -145,13 +144,6 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
       })
       .select('id').single()
     if (!error && data) await postCard({ game_event_id: data.id })
-    close()
-  }
-
-  async function shareResource(id) {
-    if (busy) return
-    setBusy(true)
-    await postCard({ resource_id: id })
     close()
   }
 
@@ -349,15 +341,6 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
         </form>
       </Modal>
 
-      {/* The same picker the DMs use. It was inline here, which is why a DM
-          could not share a resource at all. */}
-      <ResourcePicker
-        open={tool === 'resource'}
-        onClose={close}
-        onPick={shareResource}
-        busy={busy}
-        where="Post"
-      />
 
     </>
   )

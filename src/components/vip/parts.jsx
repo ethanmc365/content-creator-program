@@ -179,7 +179,9 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
             disabled={disabled}
             aria-label={tr('Link to your video')}
             aria-invalid={!!err}
-            className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[15px] text-ink outline-none placeholder:text-gray-400"
+            // A DISABLED BOX STILL TAKES THE TAP (12 Oct 2026): a disabled input swallows clicks, so the walkthrough's
+            // "Tap the box to add a video" could never be done on the preview. The press now lands on the box around it.
+            className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[15px] text-ink outline-none placeholder:text-gray-400 disabled:pointer-events-none"
           />
           {looksLink && (
             <span className={cx('mr-2.5 shrink-0 animate-rise rounded-full px-2.5 py-1 text-[11px] font-bold', platform ? 'bg-brand-tint text-brand' : 'bg-amber-50 text-amber-700')}>
@@ -187,7 +189,7 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
             </span>
           )}
         </div>
-        <button type="submit" disabled={busy || disabled} className="btn-primary shrink-0 justify-center !px-6 disabled:opacity-50">
+        <button type="submit" disabled={busy || disabled} className="btn-primary shrink-0 justify-center !px-6 disabled:pointer-events-none disabled:opacity-50">
           {busy ? <Spinner className="h-4 w-4" /> : <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />}
           {tr('Add video')}
         </button>

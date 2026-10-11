@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '../../../lib/supabase'
+import { Select } from '../../../components/ui'
 import { LabPage, Panel, Note } from './kit'
 import Icon from '../../../components/Icon'
 import { startTour } from '../../../components/tour/TourGate'
-import { stepsFor } from '../../../lib/tour'
+import { setTourPreviewWho, stepsFor, tourPreviewWho } from '../../../lib/tour'
 import { notice } from '../../../lib/confirm'
 import { cx } from '../../../lib/utils'
 
@@ -33,7 +35,19 @@ const WALKS = [
 
 export default function WalkthroughLab() {
   const lists = useMemo(() => ({ community: stepsFor({ network: true }), vip: stepsFor({ network: true, vip: true }) }), [])
-  const run = (key) => { if (!startTour(key)) notice('Open the app first, then try again.') }
+  // WALK IT AS A REAL VIP (12 Oct 2026). Ethan: "show it from a natural VIP creator standpoint, not from my account,
+  // where the VIP thing is a bit different." Pick one of the VIPs and the walk shows their own page (their month, their
+  // videos, their payouts), read only, the way they see it. "A new VIP" is a first day with nothing in it yet.
+  const [vips, setVips] = useState([])
+  const [who, setWho] = useState(() => tourPreviewWho() || '')
+  useEffect(() => {
+    supabase.from('profiles').select('id, name').eq('is_vip', true).eq('status', 'active').eq('is_test', false).order('name')
+      .then(({ data }) => setVips(data || []))
+  }, [])
+  const run = (key) => {
+    if (key === 'vip') setTourPreviewWho(who || null)
+    if (!startTour(key)) notice('Open the app first, then try again.')
+  }
 
   return (
     <LabPage
@@ -57,6 +71,14 @@ export default function WalkthroughLab() {
                 </li>
               ))}
             </ol>
+            {w.key === 'vip' && (
+              <div className="mt-5">
+                <p className="label">Walk it as</p>
+                <Select variant="field" className="w-full" ariaLabel="Walk it as" value={who} onChange={setWho}
+                  options={[{ value: '', label: 'A new VIP, first day' }, ...vips.map((v) => ({ value: v.id, label: v.name }))]} />
+                <p className="mt-1.5 text-xs text-smoke">Their real page, read only: adding a video is shown but not sent.</p>
+              </div>
+            )}
             <button type="button" onClick={() => run(w.key)} className="btn-primary mt-5 w-full justify-center">
               <Icon name={w.icon} className="h-4 w-4" />Run the {w.key === 'vip' ? 'VIP' : 'community'} walkthrough
             </button>

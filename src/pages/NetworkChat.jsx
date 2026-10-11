@@ -87,6 +87,19 @@ import { onResume } from '../lib/resume'
 // is a second chance for the two to disagree. See context/UnreadContext.
 const scopedKey = scopedChannel
 
+// What the rooms already read this session: channel lists by community, the sidebar, and messages by room. Module
+// level, so it outlives the page unmounting when somebody opens a profile and comes back.
+const ROOM_CACHE = { user: null, channels: new Map(), sidebar: null, messages: new Map() }
+function roomCacheFor(userId) {
+  if (ROOM_CACHE.user !== (userId || null)) {
+    ROOM_CACHE.user = userId || null
+    ROOM_CACHE.channels.clear()
+    ROOM_CACHE.sidebar = null
+    ROOM_CACHE.messages.clear()
+  }
+  return ROOM_CACHE
+}
+
 // The reader's own order for the market cards in the sidebar. Per device, like
 // every other reorderable list here: it is a preference about a layout, not a
 // fact about the person, and a round trip to store it would be the tail wagging
@@ -219,6 +232,9 @@ function QuotedParent({ id, lookup, onDark = false }) {
 // mistake. A card-only message has no text to bubble anyway - `hasContent`
 // already treats the card AS the message - so it breaks out and sits on the
 // thread's own ground at full width.
+/** A card with nothing else said: it stands on its own, with no bubble around it. */
+const cardOnly = (m) => !m.body?.trim() && !m.image_url && !m.video_url && !m.reply_to && CARD_KINDS.some((c) => m[c.idKey])
+
 function AttachedCard({ message }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
@@ -233,7 +249,7 @@ function AttachedCard({ message }) {
       {message.game_event_id && <GameEventCard eventId={message.game_event_id} />}
       {message.resource_id && <ResourceCard resourceId={message.resource_id} />}
       {message.leaderboard_challenge_id && (
-        <LiveLeaderboardCard challengeId={message.leaderboard_challenge_id} groupId={message.leaderboard_group_id} />
+        <LiveLeaderboardCard challengeId={message.leaderboard_challenge_id} groupId={message.leaderboard_group_id} view={message.leaderboard_view || 'board'} />
       )}
     </div>
   )
@@ -246,10 +262,16 @@ export default function NetworkChat() {
   const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
-  const [channels, setChannels] = useState([])
-  const [sidebarRooms, setSidebarRooms] = useState([])
-  const [messages, setMessages] = useState([])
-  const [loading, setLoading] = useState(true)
+  // BACK FROM A PROFILE, THE ROOM IS STILL THERE (12 Oct 2026). Ethan: "if I click on a creator ... and then go back to
+  // the chat, the whole thing has to refresh. Couldn't it just be saved?" The room's list, the sidebar and the last
+  // messages read are kept for the session (ROOM_CACHE), drawn at once on the way back, and refreshed quietly behind.
+  // Another account (a sign-in, or "view as creator") never sees what the last one read.
+  const cacheFor = roomCacheFor(user?.id)
+  const cachedKey = community && channelKey ? scopedKey(community, channelKey) : null
+  const [channels, setChannels] = useState(() => (community && cacheFor.channels.get(community.id)) || [])
+  const [sidebarRooms, setSidebarRooms] = useState(() => cacheFor.sidebar || [])
+  const [messages, setMessages] = useState(() => (cachedKey && cacheFor.messages.get(cachedKey)) || [])
+  const [loading, setLoading] = useState(() => !(cachedKey && cacheFor.messages.has(cachedKey)))
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
@@ -508,7 +530,11 @@ export default function NetworkChat() {
     supabase.from('channels')
       .select('id, key, label, hint, icon, visibility, post_policy, position')
       .eq('community_id', community.id).order('position')
-      .then(({ data }) => { if (!cancelled) setChannels(data || []) })
+      .then(({ data }) => {
+        if (cancelled) return
+        ROOM_CACHE.channels.set(community.id, data || [])
+        setChannels(data || [])
+      })
     return () => { cancelled = true }
   }, [community])
 
@@ -556,14 +582,17 @@ export default function NetworkChat() {
     supabase.from('channels')
       .select('id, key, label, icon, visibility, position, community_id')
       .in('community_id', sidebarIds).order('position')
-      .then(({ data }) => { if (!cancelled) setSidebarRooms(data || []) })
+      .then(({ data }) => { if (!cancelled) { ROOM_CACHE.sidebar = data || []; setSidebarRooms(data || []) } })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sidebarIds.join(',')])
 
   const load = useCallback(async () => {
     if (!community || !active) return
-    setLoading(true)
+    const key = scopedKey(community, active.key)
+    // A room read before this session shows what it had at once; the fresh read replaces it without a skeleton.
+    const cached = ROOM_CACHE.messages.get(key)
+    if (cached) { setMessages(cached); setLoading(false) } else setLoading(true)
     const { data } = await supabase
       .from('messages')
       .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
@@ -571,9 +600,15 @@ export default function NetworkChat() {
       .eq('deleted', false)
       .order('created_at', { ascending: true })
       .limit(200)
+    ROOM_CACHE.messages.set(key, data || [])
     setMessages(data || [])
     setLoading(false)
   }, [community, active])
+  // Keep the cache as current as the screen (realtime inserts, edits, deletes), so coming back shows the latest.
+  const liveKey = community && active ? scopedKey(community, active.key) : null
+  useEffect(() => {
+    if (liveKey && !loading) ROOM_CACHE.messages.set(liveKey, messages.filter((m) => !m.pending && !m.failed))
+  }, [liveKey, messages, loading])
 
   useEffect(() => { load() }, [load])
 
@@ -1508,7 +1543,8 @@ export default function NetworkChat() {
                     // keeps the two at opposite ends of it.
                     footer={(
                       <>
-                        {m.edited_at && !m.pending && (
+                        {/* Only the team sees that a team message was edited (12 Oct 2026). */}
+                        {m.edited_at && !m.pending && (isAdmin || !m.profiles?.is_admin) && (
                           <p className={cx('mt-0.5 px-1 text-[10px] text-gray-400', mine && 'text-right')}>edited</p>
                         )}
                         {m.pending && (
@@ -1594,8 +1630,8 @@ export default function NetworkChat() {
                         // min-width - see components/MessageEditor.
                         editingId === m.id ? 'w-full' : 'w-fit',
                         'max-w-full rounded-2xl text-sm leading-relaxed',
-                        // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE.
-                        introOf(m) && editingId !== m.id
+                        // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE. Nor is a card posted with no words.
+                        (introOf(m) || cardOnly(m)) && editingId !== m.id
                           ? cx('!bg-transparent !p-0 text-ink', mine && 'ml-auto')
                           : cx(
                             mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
@@ -1656,6 +1692,8 @@ export default function NetworkChat() {
                             return copy
                           })}
                         />
+                      ) : cardOnly(m) ? (
+                        <AttachedCard message={m} />
                       ) : (
                         m.body && (
                           <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>
@@ -1677,10 +1715,15 @@ export default function NetworkChat() {
                           </div>
                         )
                       )}
-                      <div className={cx((m.image_url || m.video_url) && 'px-2 pb-1.5')}>
+                    </div>
+                    {/* THE CARD SITS UNDER THE BUBBLE, NEVER IN IT (12 Oct 2026). Ethan: "I don't like that the leaderboard
+                        appears on an orange card." A results share carries a sentence, so the board was drawn inside the
+                        team's own orange bubble. Now the words are the bubble and the card is its own white thing below. */}
+                    {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && (
+                      <div className={cx('mt-1.5 flex w-full', mine && 'justify-end')}>
                         <AttachedCard message={m} />
                       </div>
-                    </div>
+                    )}
                   </MessageActions>
                 </div>
               </motion.div>
@@ -1736,7 +1779,6 @@ export default function NetworkChat() {
           onAttach={attach}
           isAdmin={isAdmin}
           onGame={() => setAdminTool('game')}
-          onResource={() => setAdminTool('resource')}
           onPoll={() => setAdminTool('poll')}
           onSchedule={() => setAdminTool('schedule')}
           isMobile={isMobile}

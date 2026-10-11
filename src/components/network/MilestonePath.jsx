@@ -852,24 +852,31 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                 type="button"
                 onClick={() => setOpen(n)}
                 className={cx(
-                  'group block w-full rounded-2xl border px-3 py-2.5 text-left transition-all duration-200',
-                  'hover:-translate-y-0.5 hover:shadow-card',
-                  // WHITE CARDS, THE ORANGE IS A LINE (12 Oct 2026). Ethan
-                  // did not like the orange wash on "Getting Started". The
-                  // next stop is a white card with a brand outline and a
-                  // brand bar down its left edge; reached ones are plain.
+                  'group block w-full rounded-2xl px-3 py-2.5 text-left transition-all duration-200',
+                  'hover:-translate-y-0.5 hover:shadow-lift focus-visible:-translate-y-0.5',
+                  // ONE OUTLINE THAT STAYS PUT (12 Oct 2026). Ethan: "There's this orange border around just the left side,
+                  // but whenever I click on it, that border disappears." The left bar was an inset box-shadow, and the
+                  // hover shadow REPLACED it. Now the state is a ring (Tailwind composes rings and shadows, so hover can
+                  // never wipe it) and a small chip at the top that says where you are: Next stop, Reached, or Ahead.
                   done
-                    ? 'border-gray-100 bg-white shadow-card hover:border-brand/40'
+                    ? 'border border-gray-100 bg-white shadow-card'
                     : isNext
-                      ? 'border-brand bg-white shadow-card [box-shadow:inset_3px_0_0_#d94407,0_1px_3px_rgba(0,0,0,0.06)]'
+                      ? 'bg-white shadow-card ring-2 ring-brand'
                       : n.blocked
-                        ? 'border-amber-200 bg-amber-50/60 hover:border-amber-400'
-                        : 'border-gray-100 bg-white/80 hover:border-gray-300',
+                        ? 'border border-amber-200 bg-amber-50/60 hover:border-amber-400'
+                        : 'border border-dashed border-gray-200 bg-white/80 hover:border-gray-300',
                 )}
               >
+                <span className={cx(
+                  'mb-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                  done ? 'bg-brand-tint text-brand' : isNext ? 'bg-brand text-white' : 'bg-cloud text-gray-400',
+                )}>
+                  <Icon name={done ? 'check' : isNext ? 'plane' : 'lock'} className="h-3 w-3" />
+                  {done ? tr('Reached') : isNext ? tr('Next stop') : tr('Ahead')}
+                </span>
                 <p className={cx(
                   'text-sm font-bold leading-snug',
-                  done ? 'text-ink' : isNext ? 'text-brand' : 'text-smoke',
+                  done || isNext ? 'text-ink' : 'text-smoke',
                 )}>
                   {n.title}
                 </p>
@@ -916,11 +923,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                     three things now, and "3 of 10 videos" under a milestone
                     that also wants 500k views and two referrals would be a
                     progress line that lies by omission. */}
-                {done ? (
-                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-brand">
-                    <Icon name="check" className="h-3 w-3" /> {tr("Reached")}
-                  </p>
-                ) : (
+                {done ? null : (
                   <ul className="mt-1.5 space-y-0.5">
                     {(n.criteria || []).map((c) => (
                       <li key={c.metric} className="flex items-start gap-1 text-[11px] leading-tight">

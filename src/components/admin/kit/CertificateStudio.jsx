@@ -68,7 +68,7 @@ const BLANK = {
   emblem: 'trophy', pattern: 'plain',
   signature: 'Tryp.com', signature_role: 'Creator Community',
   award_on: 'manual', ranks: [], community_ids: [], milestone_id: null,
-  all_prize_places: true, options: {},
+  all_prize_places: true, options: {}, audience: 'community',
   is_active: true,
 }
 
@@ -445,7 +445,7 @@ export function triggerText(row, markets = []) {
     if (!places.length) return 'No places chosen yet, so nobody gets it'
     return `Finishing ${places.map((p) => `#${p}`).join(', ')} in ${where}`
   }
-  if (row.award_on === 'challenge_entry') return `Entering any challenge in ${where}`
+  if (row.award_on === 'challenge_entry') return `First video, in ${where}`
   if (row.award_on === 'creator_joined') return `Joining the community, in ${where}`
   if (row.award_on === 'milestone') return row.milestone_id ? 'Reaching a milestone' : 'No milestone chosen yet'
   return 'Given by hand'
@@ -957,7 +957,7 @@ const PLACES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 function AwardRules({ design, set, markets, milestones }) {
   const OPTIONS = [
     { key: 'challenge_rank', label: 'Finishing on the podium', hint: 'Given when winners are published' },
-    { key: 'challenge_entry', label: 'Entering a challenge', hint: 'Everyone who submitted gets one' },
+    { key: 'challenge_entry', label: 'Posting their first video', hint: 'Once per creator, the moment their first entry goes in, in any challenge' },
     { key: 'creator_joined', label: 'Joining the community', hint: 'Every creator gets one the day they are approved' },
     { key: 'milestone', label: 'Reaching a milestone', hint: 'Given the moment they reach it' },
     { key: 'manual', label: 'By hand', hint: 'You award it from the Awarded tab' },
@@ -1007,15 +1007,29 @@ function AwardRules({ design, set, markets, milestones }) {
                   onClick={() => {
                     const current = design.all_prize_places ? PLACES : (design.ranks || [])
                     const next = on ? current.filter((r) => r !== n) : [...current, n].sort((x, y) => x - y)
-                    if (next.length === PLACES.length) set({ all_prize_places: true, ranks: [] })
-                    else set({ all_prize_places: false, ranks: next })
+                    set({ all_prize_places: false, ranks: next })
                   }}
                   className={pickClass(on, 'h-10 min-w-[3rem] rounded-xl border px-2 text-sm font-bold')}>
                   {ordinal(n)}
                 </button>
               )
             })}
+            {/* AND EVERY PLACE AFTER TENTH (12 Oct 2026). Ethan: "It only goes up to 10th. Add three dots to show me that
+                if we have, for example, a global challenge in the future with 20 places, they would also receive one."
+                With every place on (`all_prize_places`) a challenge paying twenty places gives twenty certificates; this
+                pill is that promise made visible, and it only switches off together with the rest. */}
+            <button type="button" aria-pressed={!!design.all_prize_places}
+              title="11th and every prize place after it"
+              onClick={() => set(design.all_prize_places ? { all_prize_places: false, ranks: PLACES } : { all_prize_places: true, ranks: [] })}
+              className={pickClass(!!design.all_prize_places, 'h-10 min-w-[4.5rem] rounded-xl border px-2.5 text-sm font-bold')}>
+              11th <span className="tracking-widest">…</span>
+            </button>
           </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-smoke">
+            {design.all_prize_places
+              ? 'Every prize place gets one, however many the challenge pays: 3, 10 or 20.'
+              : 'Only the places switched on above get one.'}
+          </p>
           {!design.all_prize_places && (
             <button type="button" onClick={() => set({ all_prize_places: true, ranks: [] })} className="mt-2 text-xs font-semibold text-brand hover:underline">
               Switch them all back on
@@ -1072,6 +1086,19 @@ function AwardRules({ design, set, markets, milestones }) {
           {(design.community_ids || []).length === 0 && (
             <p className="mt-2 text-[11px] font-semibold text-brand">Every market</p>
           )}
+        </Field>
+      )}
+
+      {/* WHO IT IS FOR (12 Oct 2026, migration 384). Community certificates are never given to VIP or official
+          creators; VIP tools has the same switch for the team running those programmes. */}
+      {design.award_on !== 'manual' && (
+        <Field label="Who gets it" hint={design.audience === 'vip' ? 'Only VIP and official creators. For them, a first video is their first VIP video.' : design.audience === 'all' ? 'The community and VIP and official creators alike.' : 'The creator community. VIP and official creators do not get it.'}>
+          <div className="flex flex-wrap gap-2">
+            {[['community', 'Community'], ['vip', 'VIP and official'], ['all', 'Both']].map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={(design.audience || 'community') === k} onClick={() => set({ audience: k })}
+                className={pickClass((design.audience || 'community') === k, 'rounded-xl border px-3 py-1.5 text-xs font-semibold')}>{label}</button>
+            ))}
+          </div>
         </Field>
       )}
 

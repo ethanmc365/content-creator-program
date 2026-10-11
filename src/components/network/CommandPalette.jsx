@@ -39,7 +39,6 @@ const PAGES = [
   { id: 'p-events', label: 'Calendar', hint: 'Events and meetups', icon: 'calendar', to: '/events' },
   { id: 'p-leaderboard', label: 'Leaderboard', hint: 'Across every market', icon: 'chart', to: '/leaderboard' },
   { id: 'p-game', label: 'Daily games', hint: 'One puzzle a day', icon: 'joystick', to: '/game' },
-  { id: 'p-resources', label: 'Resource library', hint: 'Guides and templates', icon: 'book', to: '/resources' },
   { id: 'p-jobs', label: 'Roles', hint: 'Paid work', icon: 'briefcase', to: '/jobs' },
   { id: 'p-refer', label: 'Refer a creator', hint: 'Bring someone in', icon: 'share', to: '/refer' },
   { id: 'p-challenges', label: 'Challenges', hint: 'Your board', icon: 'flag', to: '/challenges' },

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
@@ -47,8 +47,9 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // full-screen open, the + / - buttons - is looking at the same two numbers.
 const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
-function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false, fill = false }) {
+function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false, fill = false, focusHere = false }) {
   const tr = useT()
+  const clipId = `here-clip-${useId().replace(/:/g, '')}`
   const place = usePlaceNames()
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
@@ -135,16 +136,22 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     return () => { cancelled = true }
   }, [selectable])
 
-  // Zoom the map onto one country (used by the collab cards) via its centroid.
+  // Zoom the map onto one country (used by the collab cards) via its centroid. No country the map knows, but a place
+  // pinned: zoom onto the place instead, so a trip always has a map.
+  const hereLng = here?.lng
+  const hereLat = here?.lat
   useEffect(() => {
-    if (!focusCountry) { setFocusPos(null); return }
+    if (!focusCountry) {
+      setFocusPos(focusHere && Number.isFinite(hereLng) && Number.isFinite(hereLat) ? { coordinates: [hereLng, hereLat], zoom: 4 } : null)
+      return
+    }
     let cancelled = false
     loadMapCentroids().then((cmap) => {
       const c = cmap.get(focusCountry)
       if (!cancelled && c) setFocusPos({ coordinates: c, zoom: 4 })
     })
     return () => { cancelled = true }
-  }, [focusCountry])
+  }, [focusCountry, hereLng, hereLat, focusHere])
 
   // fitSelected → zoom the read-only map to the countries actually visited
   // (bounding box of their centroids), so a Europe-heavy map shows Europe big
@@ -460,7 +467,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                     <circle r={13} className="profile-here-pulse" fill={BRAND} opacity={0.35} />
                   )}
                   <circle r={11} fill="#fff" stroke={here.travelling ? BRAND : '#c9c9cf'} strokeWidth={2} />
-                  <clipPath id="profile-here-clip">
+                  {/* An id of its own per map: every trip card on the board drew the same id, so each photo was clipped
+                      by the FIRST card's circle, somewhere else entirely. */}
+                  <clipPath id={clipId}>
                     <circle r={9} />
                   </clipPath>
                   {here.photo ? (
@@ -468,7 +477,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                       // At marker size, not at upload size - see lib/avatarUrl.
                       href={thumbUrl(here.photo, 36)}
                       x={-9} y={-9} width={18} height={18}
-                      clipPath="url(#profile-here-clip)"
+                      clipPath={`url(#${clipId})`}
                       preserveAspectRatio="xMidYMid slice"
                     />
                   ) : (

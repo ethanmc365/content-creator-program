@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
@@ -23,6 +23,18 @@ import { useT } from '../../lib/i18n'
 //
 // One sheet for the whole app: `openJoinMarket()` from anywhere, `<JoinMarketHost />` mounted once in AppLayout.
 
+const MIN_WHY = 20
+const LEVELS = [['native', 'Native'], ['fluent', 'Fluent'], ['some', 'A little'], ['none', 'Not yet']]
+const TIES = [['live', 'I live there'], ['part_time', 'I live there part of the year'], ['study', 'I study there'], ['work', 'I work there'], ['family', 'My family is there'], ['audience', 'My audience is there']]
+const NORDIC = { SE: 'Swedish', NO: 'Norwegian', DK: 'Danish', FI: 'Finnish' }
+const LANG = { en: 'English', es: 'Spanish', pt: 'Portuguese', de: 'German', ro: 'Romanian', fr: 'French', it: 'Italian' }
+/** The language a market posts in, as a word: "Spanish", or the Nordic languages for the Nordics. */
+export function marketLanguage(c) {
+  const nordic = (c?.country_codes || []).map((k) => NORDIC[k]).filter(Boolean)
+  if (nordic.length) return nordic.join(', ')
+  return LANG[c?.language] || 'English'
+}
+
 let state = { open: false, pick: null }
 const subs = new Set()
 const emit = () => subs.forEach((fn) => fn())
@@ -39,6 +51,18 @@ export function useCanJoinMarkets() {
 
 export function JoinMarketHost() {
   const { open, pick } = useSheet()
+  const can = useCanJoinMarkets()
+  const location = useLocation()
+  const navigate = useNavigate()
+  // A NOTIFICATION CAN OPEN IT (12 Oct 2026): "Tell us more about joining Germany" links to ?join=<market>.
+  const asked = new URLSearchParams(location.search).get('join')
+  useEffect(() => {
+    if (!asked || !can) return
+    openJoinMarket(asked)
+    const q = new URLSearchParams(location.search)
+    q.delete('join')
+    navigate({ pathname: location.pathname, search: q.toString() ? `?${q}` : '' }, { replace: true })
+  }, [asked, can]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null
   return <JoinMarketSheet initial={pick} onClose={close} />
 }
@@ -50,12 +74,14 @@ function JoinMarketSheet({ initial, onClose }) {
   const [requests, setRequests] = useState(null)
   const [picked, setPicked] = useState(initial)
   const [note, setNote] = useState('')
+  const [level, setLevel] = useState(null)
+  const [ties, setTies] = useState([])
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(null)
 
   const load = useCallback(async () => {
     if (!user?.id) return
-    const { data } = await supabase.from('market_join_requests').select('id, community_id, status, note, created_at, decision_note')
+    const { data } = await supabase.from('market_join_requests').select('id, community_id, status, note, created_at, decision_note, language_level, ties')
       .eq('profile_id', user.id).order('created_at', { ascending: false }).limit(20)
     setRequests(data || [])
   }, [user?.id])
@@ -63,18 +89,30 @@ function JoinMarketSheet({ initial, onClose }) {
 
   const mine = new Set((myChapters || []).map((c) => c.id))
   const pendingFor = (id) => (requests || []).find((r) => r.community_id === id && r.status === 'pending')
+  // A request sent before the questions existed (or with no reason) can be finished, not only waited on.
+  const unfinished = (r) => !!r && (!r.language_level || (r.note || '').trim().length < MIN_WHY)
   const open = (chapters || []).filter((c) => c.is_active && !c.retired_at && !mine.has(c.id))
   const target = open.find((c) => c.id === picked)
   const minesNames = (myChapters || []).map((c) => c.name)
 
+  // Picking a market that already has an unfinished request fills the form with what they sent.
+  useEffect(() => {
+    const r = picked ? pendingFor(picked) : null
+    if (r) { setNote(r.note || ''); setLevel(r.language_level || null); setTies(r.ties || []) }
+  }, [picked, requests]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const why = note.trim()
+  const ready = !!target && !!level && why.length >= MIN_WHY
   async function send() {
-    if (!target) return
+    if (!ready) return
     setBusy(true)
-    const { error } = await supabase.rpc('request_join_market', { p_community: target.id, p_note: note.trim() || null })
+    const { error } = await supabase.rpc('request_join_market', { p_community: target.id, p_note: why, p_language: level, p_ties: ties })
     setBusy(false)
     if (error) { notice(error.message); return }
     setSent(target)
     setNote('')
+    setLevel(null)
+    setTies([])
     load()
   }
 
@@ -111,7 +149,8 @@ function JoinMarketSheet({ initial, onClose }) {
           ) : (
             <div role="radiogroup" aria-label={tr('Market')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {open.map((c, i) => {
-                const pending = pendingFor(c.id)
+                const pendingRow = pendingFor(c.id)
+                const pending = pendingRow && !unfinished(pendingRow)
                 const on = picked === c.id
                 return (
                   <button key={c.id} type="button" role="radio" aria-checked={on} disabled={!!pending}
@@ -123,7 +162,7 @@ function JoinMarketSheet({ initial, onClose }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold">{c.name}</span>
                       <span className={cx('block truncate text-[11px]', on ? 'text-white/85' : 'text-smoke')}>
-                        {pending ? tr('Asked, waiting for the team') : c.language && c.language !== 'en' ? tr('Rooms in {l}', { l: c.language.toUpperCase() }) : tr('Briefs, rooms and challenges')}
+                        {pending ? tr('Asked, waiting for the team') : pendingRow ? tr('Asked: add your answers') : c.language && c.language !== 'en' ? tr('Rooms in {l}', { l: c.language.toUpperCase() }) : tr('Briefs, rooms and challenges')}
                       </span>
                     </span>
                     {pending ? <Icon name="clock" className="h-4 w-4 shrink-0 text-smoke" /> : on && <Icon name="check" className="h-5 w-5 shrink-0 animate-pop-in" strokeWidth={2.2} />}
@@ -134,17 +173,57 @@ function JoinMarketSheet({ initial, onClose }) {
           )}
 
           {target && (
-            <label className="block animate-rise">
-              <span className="label">{tr('Why {m}? (optional)', { m: target.name })}</span>
-              <textarea className="input min-h-[5rem] resize-none" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}
-                placeholder={tr('For example: I also post in Spanish and most of my audience is in Spain.')} />
-            </label>
+            <div className="space-y-5 animate-rise">
+              {/* THREE QUESTIONS (12 Oct 2026). Ethan: "a lot of creators requesting to join other markets that don't even
+                  speak the language ... They just say they want to visit there sometime." The team sees every answer,
+                  next to the languages on the creator's profile. */}
+              <fieldset>
+                <legend className="label">{tr('How well do you speak {l}?', { l: tr(marketLanguage(target)) })}</legend>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {LEVELS.map(([k, label]) => (
+                    <button key={k} type="button" aria-pressed={level === k} onClick={() => setLevel(k)}
+                      className={cx('rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200', level === k ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40')}>
+                      {tr(label)}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="label">{tr('What ties you to {m}?', { m: target.name })} <span className="font-normal normal-case text-smoke">{tr('(pick any)')}</span></legend>
+                <div className="flex flex-wrap gap-2">
+                  {TIES.map(([k, label]) => {
+                    const on = ties.includes(k)
+                    return (
+                      <button key={k} type="button" aria-pressed={on} onClick={() => setTies((cur) => (on ? cur.filter((x) => x !== k) : [...cur, k]))}
+                        className={cx('rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink hoverable:hover:border-brand/40')}>
+                        {tr(label)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </fieldset>
+
+              <label className="block">
+                <span className="label">{tr('Why do you want to join {m}?', { m: target.name })}</span>
+                <textarea className="input min-h-[6rem] resize-none" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}
+                  placeholder={tr('For example: I live in Madrid part of the year, I post in Spanish and most of my audience is in Spain.')} />
+                <span className={cx('mt-1 block text-[11px]', why.length >= MIN_WHY ? 'text-smoke' : 'text-brand')}>
+                  {why.length >= MIN_WHY ? tr('Thanks, that helps the team decide.') : tr('A sentence or two, please ({n} more characters).', { n: MIN_WHY - why.length })}
+                </span>
+              </label>
+
+              <p className="flex items-start gap-2 rounded-xl bg-cloud/70 px-3.5 py-2.5 text-xs leading-relaxed text-smoke">
+                <Icon name="bulb" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                {tr('Planning a trip there is not a reason to join: you can make videos about anywhere from your own market. A market is for creators who post in its language for people who live there.')}
+              </p>
+            </div>
           )}
 
           {open.length > 0 && (
-            <button type="button" onClick={send} disabled={!target || busy} className="btn-primary w-full justify-center disabled:opacity-50">
+            <button type="button" onClick={send} disabled={!ready || busy} className="btn-primary w-full justify-center disabled:opacity-50">
               {busy ? <Spinner className="h-4 w-4" /> : <Icon name="userPlus" className="h-4 w-4" />}
-              {target ? tr('Ask to join {m}', { m: target.name }) : tr('Pick a market')}
+              {!target ? tr('Pick a market') : pendingFor(target.id) ? tr('Send my answers') : tr('Ask to join {m}', { m: target.name })}
             </button>
           )}
 

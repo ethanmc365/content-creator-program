@@ -230,7 +230,7 @@ export default function GlobalHome() {
       const [
         { data: mems }, { count: creators }, { data: challenges },
         { data: ann }, { data: trips }, { data: fresh },
-        { count: connCount }, { data: latestRes },
+        { count: connCount },
         { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
         supabase.from('community_members')
@@ -280,7 +280,6 @@ export default function GlobalHome() {
         supabase.from('connections').select('id', { count: 'exact', head: true })
           .eq('connected_creator_id', session?.user?.id ?? '00000000-0000-0000-0000-000000000000')
           .eq('status', 'pending'),
-        supabase.from('resources').select('created_at').order('created_at', { ascending: false }).limit(1),
         // The map's own data. CreatorMap takes creators and trips as props
         // rather than fetching for itself, because the directory page needs the
         // same rows for its card grid and filters and two components loading
@@ -328,15 +327,12 @@ export default function GlobalHome() {
       // The live boards' top three, before the page draws (see prefetchTopThree).
       await prefetchTopThree((challenges || []).map((c) => c.id)).catch(() => {})
       if (cancelled) return
-      const latestResource = latestRes?.[0]?.created_at ? new Date(latestRes[0].created_at).getTime() : 0
-      const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({
         counts: tally, creators, live, anns: recentAnnouncements(ann, { now: Date.now(), limit: ANNOUNCEMENT_LIMIT }), trips: trips || [], fresh: fresh || [],
         // From the map's own roster (8 Oct 2026): a second whole-table read of profiles for one column was
         // the same people, plus pending and deleted ones who should not shade a country anyway.
         visited: [...new Set((mapPeople || []).flatMap((p) => p.countries_visited || []))],
         connReqs: connCount ?? 0,
-        newResources: latestResource > seenResources,
         mapPeople: mapPeople || [],
         // Every upcoming trip per creator, soonest first. CreatorMap picks the
         // one it can actually draw an arc for and decides how far ahead is
@@ -351,7 +347,7 @@ export default function GlobalHome() {
     }
     load()
     return () => { cancelled = true }
-  }, [session?.user?.id, profile?.resources_seen_at, networkId])
+  }, [session?.user?.id, networkId])
 
   // Remember it for the next visit. See lib/pageCache.
   useEffect(() => { if (d) writePageCache(HUB_CACHE_KEY, d) }, [d])
@@ -581,7 +577,6 @@ export default function GlobalHome() {
               dragging={dragging}
               handleProps={handleProps}
               count={l.badge === 'connections' ? (d?.connReqs ?? 0) : 0}
-              isNew={l.badge === 'resources' && d?.newResources}
             />
           )}
         />

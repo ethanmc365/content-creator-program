@@ -411,6 +411,10 @@ export function setTourScope(userId) {
  */
 export const tourKey = (name) => `tryp_tour_${name}${scope}`
 
+/** The VIP the Testing Centre asked the VIP walk to be shown as, or null for "a new VIP" (12 Oct 2026). */
+export function tourPreviewWho() { try { return localStorage.getItem(tourKey('vip_who')) || null } catch { return null } }
+export function setTourPreviewWho(id) { try { if (id) localStorage.setItem(tourKey('vip_who'), id); else localStorage.removeItem(tourKey('vip_who')) } catch { /* private mode */ } }
+
 const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}${scope}_v${TOUR_VERSION}`
 
 /**

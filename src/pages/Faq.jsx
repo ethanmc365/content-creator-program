@@ -15,7 +15,6 @@ import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
-import { useMediaQuery } from '../lib/useKeyboardInset'
 
 // QUESTIONS AND ANSWERS (7 Oct 2026).
 //
@@ -46,7 +45,6 @@ const TOOLBAR = ['h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol', 'qu
 
 export default function Faq() {
   const tr = useT()
-  const wide = useMediaQuery('(min-width: 1024px)')
   const { user, profile } = useAuth()
   const isAdmin = !!profile?.is_admin
   const [params, setParams] = useSearchParams()
@@ -112,15 +110,6 @@ export default function Faq() {
           answers, with a one-tap jump to it so asking is never a long scroll away. */}
       <div className={cx('grid items-start gap-6', tab !== 'questions' && 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
         <div className="min-w-0">
-          {/* ASKING COMES FIRST ON A PHONE (12 Oct 2026). Ethan: "you have to
-              scroll through everything to get to the ask a question... it
-              should be a quick thing at the top." The ask card sits above the
-              answers below `lg`; the side column keeps it on a desktop. */}
-          {tab !== 'questions' && !wide && (
-            <div id="help-ask" className="mb-5 scroll-mt-24">
-              <AskCard compact onAsked={() => { loadMine(); loadInbox() }} />
-            </div>
-          )}
           {tab === 'faq' && (
             <AnswersTab
               faqs={faqs}
@@ -135,7 +124,11 @@ export default function Faq() {
         </div>
         {tab !== 'questions' && (
           <aside id="help-side" className="min-w-0 scroll-mt-24 space-y-4">
-            {wide && <div id="help-ask" className="scroll-mt-24"><AskCard compact onAsked={() => { loadMine(); loadInbox() }} /></div>}
+            {/* ONE ASK CARD, NOT TWO (12 Oct 2026). Ethan: "We have Ask a question at the top, so it makes no sense to have
+                it as a button above ... move Ask a question to the bottom, just above where it shows Ethan." On a phone the
+                column falls under the answers, so the card sits just above the team, and the two buttons in the header
+                jump straight to it or to the team. */}
+            <div id="help-ask" className="scroll-mt-24"><AskCard compact onAsked={() => { loadMine(); loadInbox() }} /></div>
             <div id="help-team" className="scroll-mt-24"><HelpTeam /></div>
             <HelpOpenDoors />
           </aside>
@@ -184,13 +177,15 @@ function FaqHero({ isAdmin, editing, onEdit, onAsk, onTeam }) {
           <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask the team.')}</p>
           {/* TWO REAL BUTTONS (12 Oct 2026). Ethan: "I don't like the design of
               that button... It doesn't even look like a button." */}
-          <div className="mt-5 flex flex-wrap gap-2.5">
+          {/* SIDE BY SIDE AND COMPACT ON A PHONE (12 Oct 2026): "those buttons should be side by side in a better UI and
+              be more compact." */}
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
             <button type="button" onClick={onAsk}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-brand shadow-card transition-transform active:scale-95 hoverable:hover:-translate-y-0.5">
-              <Icon name="handRaised" className="h-4 w-4" />{tr('Ask a question')}
+              className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-2.5 text-[13px] font-bold text-brand shadow-card transition-transform active:scale-95 hoverable:hover:-translate-y-0.5 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm">
+              <Icon name="handRaised" className="h-4 w-4 shrink-0" />{tr('Ask a question')}
             </button>
             <button type="button" onClick={onTeam}
-              className="inline-flex items-center gap-2 rounded-full border border-white/60 px-5 py-3 text-sm font-bold text-white transition-transform active:scale-95 hoverable:hover:-translate-y-0.5">
+              className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/60 px-3 py-2.5 text-[13px] font-bold text-white transition-transform active:scale-95 hoverable:hover:-translate-y-0.5 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm">
               <Icon name="chat" className="h-4 w-4" />{tr('Message the team')}
             </button>
           </div>

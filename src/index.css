@@ -1599,6 +1599,9 @@ html[data-reduce-motion] *::after {
   100% { transform: scale(1.6); opacity: 0; }
 }
 .profile-here-pulse {
+  /* fill-box: scale about the circle itself. With the default view-box the "center" is the middle of the whole map, so
+     the pulse flew across it on every beat (12 Oct 2026, "this weird animated dot that just goes flying across the map"). */
+  transform-box: fill-box;
   transform-origin: center;
   animation: profile-here-pulse 2.4s ease-out infinite;
 }

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import MediaAttachment from './MediaAttachment'
 import { noteExcerpt } from '../lib/noteMarkdown'
 import { useT } from '../lib/i18n'
 
-// An inline resource-library card inside a chat message: admins drop these into
-// any room or DM so creators can jump straight to a guide or asset.
+// An inline guide card inside a chat message. The resource library itself was retired on 12 Oct 2026 (Video ideas took
+// its place), so cards already posted still show what they shared, with no link to a page that is gone.
 //
 // WHAT CHANGED, 26 Aug 2026
 //
@@ -40,7 +39,7 @@ export default function ResourceCard({ resourceId }) {
     <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white text-ink sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80">
-          <Icon name="book" className="h-3.5 w-3.5" /> {tr("Resource library")}
+          <Icon name="book" className="h-3.5 w-3.5" /> {tr("Guide")}
         </p>
         <p className="mt-0.5 text-sm font-bold leading-snug">{resource.title}</p>
         {resource.category && <p className="text-xs text-white/85">{resource.category}</p>}
@@ -66,9 +65,6 @@ export default function ResourceCard({ resourceId }) {
 
         {/* Preview the attachment inline (image/video) with a save button. */}
         {resource.file_url && <MediaAttachment url={resource.file_url} compact className="mb-3" />}
-        <Link to={`/resources?open=${resourceId}`} className="btn-primary block w-full !py-2 text-center text-xs">
-          {tr("Open in library →")}
-        </Link>
       </div>
     </div>
   )

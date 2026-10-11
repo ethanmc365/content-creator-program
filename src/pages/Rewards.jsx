@@ -252,7 +252,8 @@ export default function Rewards() {
               why a certificate button on every reward ROW was removed and why
               a section of its own is a different thing. Draws nothing at all
               until somebody has one. */}
-          <CertificateWall profileId={whose} className="mt-12" readOnly={viewing} />
+          {/* WIDER THAN THE LEDGER (12 Oct 2026): "You can make that page even wider, maybe for the certificate part". */}
+          <CertificateWall profileId={whose} className="mt-12 lg:-mx-16 xl:-mx-28" readOnly={viewing} />
         </>
       )}
 

@@ -152,11 +152,11 @@ const TripCard = memo(function TripCard({
           </p>
         </div>
 
-        {mapCountry && (
+        {(mapCountry || here) && (
           <div className="px-4 pt-3">
             <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-2xl bg-cloud/70" />}>
               <div className="overflow-hidden rounded-2xl border border-gray-100">
-                <WorldMap selected={selectedCountries} focusCountry={mapCountry} here={here} />
+                <WorldMap selected={selectedCountries} focusCountry={mapCountry} here={here} focusHere />
               </div>
             </WhenVisible>
           </div>
@@ -170,20 +170,24 @@ const TripCard = memo(function TripCard({
 
         {!mine ? (
           <div className="grid grid-cols-2 gap-2 p-4">
+            {/* THE ASK IS THE ORANGE BUTTON (12 Oct 2026). Ethan: "the I'm interested button ... should be Tryp orange,
+                because currently the way the button looks, it's like you've already pressed it." An orange outline read
+                as a picked option. Now: solid orange to ask; once pressed it settles to a quiet white with a tick. */}
             <button
               onClick={() => onToggleInterest(p.id)}
+              aria-pressed={iAmInterested}
               className={cx(
-                'flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold transition-transform active:scale-95',
-                iAmInterested ? 'bg-brand text-white' : 'border-2 border-brand text-brand',
+                'flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold transition-all duration-200 active:scale-95 hoverable:hover:-translate-y-0.5',
+                iAmInterested ? 'border border-gray-200 bg-white text-ink' : 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card hoverable:hover:shadow-lift',
               )}
             >
-              <Icon name={iAmInterested ? 'check' : 'handRaised'} className="h-4 w-4" />
+              <Icon name={iAmInterested ? 'check' : 'handRaised'} className={cx('h-4 w-4', iAmInterested && 'text-brand')} />
               {iAmInterested ? tr('Interested') : tr("I'm interested")}
               {interestCount > 0 && <span className="tabular-nums opacity-80">· {interestCount}</span>}
             </button>
             <button
               onClick={() => onMessage(p.creator_id)}
-              className="flex items-center justify-center gap-1.5 rounded-full bg-ink px-3 py-2.5 text-[13px] font-bold text-white transition-transform active:scale-95"
+              className="flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-2.5 text-[13px] font-bold text-ink transition-all duration-200 active:scale-95 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40"
             >
               <Icon name="chat" className="h-4 w-4" />
               {tr('Message')}

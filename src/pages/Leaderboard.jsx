@@ -102,11 +102,18 @@ export default function Leaderboard() {
   // on the board - they are in the programme - but forty names on nought views
   // under the top ten reads as a wall of failure rather than as a standing.
   const yetToPost = (rows || []).length - posted.length
-  const mine = (rows || []).findIndex((r) => r.creator_id === profile?.id)
+  const ownIndex = (rows || []).findIndex((r) => r.creator_id === profile?.id)
+  // THE TEAM SEES IT TOO (12 Oct 2026). Ethan: "Maybe it's just not showing up for me because I'm not on it, but I want to
+  // see how that shows up for the creator." An admin off the board gets the same card for a creator halfway down,
+  // marked as what a creator sees, and Show me finds that creator's row.
+  const sampleIndex = ownIndex < 0 && isAdmin && posted.length ? Math.floor(posted.length / 2) : -1
+  const mine = ownIndex >= 0 ? ownIndex : sampleIndex
+  const focusId = mine >= 0 ? rows[mine].creator_id : null
+  const focusPerson = mine >= 0 ? (ownIndex >= 0 ? profile : rows[mine]) : null
   // Opens the list if the reader is past the fold, then centres and flashes
   // their row. The timer waits for the expanded rows to mount.
   const showMe = () => {
-    const meIndex = everyone.findIndex((r) => r.creator_id === profile?.id)
+    const meIndex = everyone.findIndex((r) => r.creator_id === focusId)
     if (meIndex >= COLLAPSED) setExpanded(true)
     setTimeout(() => {
       const el = document.querySelector('[data-me]')
@@ -157,9 +164,10 @@ export default function Leaderboard() {
           to find it." One line with the reader's place and a Show me that opens
           the list if needed, scrolls their row to the middle and flashes it. */}
       {rows !== null && mine >= 0 && (
-        <div className="mb-5 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card">
-          <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
+        <div className="mb-5 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise">
+          <Avatar src={focusPerson?.photo_url} name={focusPerson?.name} size="sm" />
           <div className="min-w-0 flex-1">
+            {ownIndex < 0 && <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand">{tr('What {name} sees', { name: focusPerson?.name || tr('a creator') })}</p>}
             <p className="text-sm font-semibold text-ink">
               {rows[mine].views > 0
                 ? tr('You are #{n} of {total}', { n: mine + 1, total: rows.length })
@@ -225,7 +233,7 @@ export default function Leaderboard() {
                      the siblings now, so the rule means what it says. */
                   <motion.div
                     key={c.creator_id}
-                    data-me={isMe ? '' : undefined}
+                    data-me={c.creator_id === focusId ? '' : undefined}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.34 + Math.min(i, 8) * 0.045, duration: 0.32, ease: EASE }}

@@ -1078,6 +1078,41 @@ async function instagramViews(url: string, cache: IgCache, handleHint: string | 
   return last ?? instagramReadHere(url, cache, handleHint, meta)
 }
 
+// TIKTOK FROM ANOTHER REGION WHEN THIS ONE COMES BACK EMPTY (12 Oct 2026). Noemi's photo post read 866 from a Mac and
+// from every page variant, yet the sweep stamped it "no view count on the post": TikTok now and then serves one server a
+// page with the item stripped out. The same hop Instagram and Facebook use, capped low because a real removal answers
+// the same everywhere and TikTok rarely walls a region for long.
+const TT_RETRY = new Set(['no_count_in_page', 'blocked', 'fetch_failed'])
+const ttGoodRegions: string[] = ['eu-central-1', 'eu-west-2', 'us-east-1']
+const TT_MAX_HOPS = 4
+
+async function tiktokViewsAnywhere(url: string, knownId: string | null, meta = false): Promise<Resolved> {
+  const here = await tiktokViews(url, knownId, meta)
+  if (here.views != null || !TT_RETRY.has(here.error ?? '') || !WEBHOOK_SECRET) return here
+  for (const region of regionOrder(ttGoodRegions).slice(0, TT_MAX_HOPS)) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 30_000)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET, 'x-region': region },
+        body: JSON.stringify({ tiktok_read: { url, knownId: here.videoId ?? knownId, meta } }),
+        signal: ctrl.signal,
+      }).finally(() => clearTimeout(timer))
+      if (!res.ok) { await res.body?.cancel(); continue }
+      const r = (await res.json()) as Resolved
+      if (r.views != null) {
+        const at = ttGoodRegions.indexOf(region)
+        if (at >= 0) ttGoodRegions.splice(at, 1)
+        ttGoodRegions.unshift(region)
+        return r
+      }
+      if (r.error === 'removed') return r
+    } catch { /* next region */ }
+  }
+  return here
+}
+
 // --------------------------------------------------------------- dispatcher
 // Takes a HOSTNAME, anchored at both ends. A substring test would accept
 // `tiktok.com.evil.test`, and the platform branches fall back to fetching the
@@ -1110,7 +1145,7 @@ async function resolveOne(
     return fail({}, 'bad_url', 'Only http(s) links.')
   }
   switch (platformOf(target.hostname)) {
-    case 'TikTok': return tiktokViews(target.toString(), knownId, !!opts.meta)
+    case 'TikTok': return tiktokViewsAnywhere(target.toString(), knownId, !!opts.meta)
     case 'Instagram':
       return instagramViews(target.toString(), opts.igCache ?? newIgCache(), opts.igHandle ?? null, !!opts.meta)
     case 'YouTube': return youtubeViews(target.toString(), !!opts.meta)
@@ -1432,6 +1467,7 @@ Deno.serve(async (req) => {
   const body = (await req.json().catch(() => ({}))) as {
     facebook_read?: { url: string; knownId: string | null }
     instagram_read?: { url: string; handle: string | null; meta?: boolean }
+    tiktok_read?: { url: string; knownId: string | null; meta?: boolean }
     probe?: string
     challenge_id?: string
     submission_ids?: string[]
@@ -1450,6 +1486,13 @@ Deno.serve(async (req) => {
     if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
     const { url, knownId } = body.facebook_read
     return json(req, await facebookReadHere(String(url), knownId ? String(knownId) : null))
+  }
+
+  // ONE TIKTOK READ, in whatever region this invocation landed in (see tiktokViewsAnywhere).
+  if (body.tiktok_read) {
+    if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
+    const { url, knownId, meta } = body.tiktok_read
+    return json(req, await tiktokViews(String(url), knownId ? String(knownId) : null, !!meta))
   }
 
   // ONE INSTAGRAM READ, in whatever region this invocation landed in (see instagramViews).

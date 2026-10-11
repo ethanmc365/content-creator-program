@@ -18,8 +18,7 @@ import { useT } from '../lib/i18n'
 // It shows for a creator who has NOT entered the live worldwide challenge, at most once a day and no more than six times in all, and it
 // stops for good the moment they enter. It joins the same one-ask-per-open queue as the home-screen, notifications, bank-details and
 // survey asks (lib/appNag) so nobody gets two dialogs, never while the walkthrough is running, and never on the challenge page itself.
-// The card says what is in it for them: where their country stands, what ends when, and - when the team has switched it on - the
-// welcome voucher for a first video that passes the views.
+// The card says what is in it for them: where their country stands, what ends when, and the joining bonus when it is on.
 const KEY = (id) => `tryp_gc_prompt_${id}`
 const MAX_SHOWS = 6
 // A ONE-TIME LOOK FOR THE TEAM (4 Oct 2026). Ethan: "push that to me one time whenever I next open the app, so I can see it and how it looks."
@@ -50,7 +49,7 @@ export default function GlobalChallengePrompt() {
       const { data: net } = await supabase.from('communities').select('id').eq('kind', 'network').maybeSingle()
       if (!alive || !net) return
       const { data: ch } = await supabase.from('challenges')
-        .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id')
+        .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id, join_bonus_points')
         .eq('community_id', net.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle()
       if (!alive || !ch) return
       const s = seen(ch.id)
@@ -93,8 +92,8 @@ function PromptCard({ card, name, onClose }) {
   const mine = ranked.findIndex((m) => m.mine)
   const mineRow = mine >= 0 ? ranked[mine] : null
   const total = (board?.markets || []).reduce((n, m) => n + (Number(m.creators) || 0), 0)
-  // The welcome voucher for new creators is switched off for now (5 Oct 2026).
-  const welcome = false
+  // The joining bonus (migration 383) replaced the old welcome voucher, which is gone (12 Oct 2026, migration 384).
+  const join = ch.scoring === 'points' ? Number(ch.join_bonus_points) || 0 : 0
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={ch.title} className="fixed inset-0 z-[90] flex items-end justify-center p-3 sm:items-center sm:p-6">
@@ -141,10 +140,11 @@ function PromptCard({ card, name, onClose }) {
               {mineRow && <p className="mt-2 text-xs text-smoke">{tr('{c} has {a} of {b} members in. One video from you moves it up.', { c: mineRow.name, a: mineRow.creators, b: mineRow.members || mineRow.creators })}</p>}
             </div>
           )}
-          {welcome && (
-            <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
-              <Icon name="ticket" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-              <p className="text-[13px] leading-snug text-ink">{tr('New to challenges? Your first video that passes {v} views earns a {a} Tryp.com voucher.', { v: Number(ch.welcome_views).toLocaleString(), a: formatMoney(ch.welcome_amount, ch.prize_currency || 'EUR') })}</p>
+          {join > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
+              <Icon name="userPlus" className="h-5 w-5 shrink-0 text-brand" />
+              <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink">{tr('Your first video earns a joining bonus of {n} points, straight onto the leaderboard.', { n: join })}</p>
+              <span className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-xs font-extrabold tabular-nums text-white">+{join}</span>
             </div>
           )}
           <div className="flex flex-col gap-2 sm:flex-row-reverse">

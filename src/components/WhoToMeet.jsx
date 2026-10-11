@@ -179,9 +179,12 @@ export default function WhoToMeet({ className }) {
                 className="absolute inset-0 z-0 rounded-card"
                 aria-label={`${creator.name}'s profile`}
               />
-              {/* A thin brand rule along the top: the one splash of colour,
-                  and it fades for the "no particular reason" pick. */}
-              <span aria-hidden className={cx('h-1 w-full bg-gradient-to-r from-brand to-[#f5853f]', chance && 'opacity-30')} />
+              {/* THE BRAND BAND ALONG THE TOP, THICKER AND RUNNING DOWN INTO THE CARD (12 Oct 2026). Ethan: "you added this
+                  orange, just a little gradient line at the top, which looks good. Although it's too thin, it should be a
+                  bit thicker, so make it go down more." A solid band, then a soft wash of the same colour fading out behind
+                  the avatar. It fades for the "no particular reason" pick. */}
+              <span aria-hidden className={cx('h-2.5 w-full bg-gradient-to-r from-brand to-[#f5853f]', chance && 'opacity-30')} />
+              <span aria-hidden className={cx('pointer-events-none absolute inset-x-0 top-2.5 h-16 bg-gradient-to-b from-[#f5853f]/25 via-brand-tint/40 to-transparent', chance && 'opacity-40')} />
 
               <div className="pointer-events-none relative z-10 flex flex-1 flex-col p-4">
                 <div className="flex items-center gap-3">

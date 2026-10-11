@@ -4,7 +4,8 @@ import { Modal } from '../ui'
 import { useT } from '../../lib/i18n'
 import { useContentTranslations } from '../../lib/contentTranslate'
 import { TranslateSwitch } from '../TranslatedText'
-import { cx, dateTag } from '../../lib/utils'
+import { cx, dateTag, formatMoney } from '../../lib/utils'
+import { voucherDayState } from '../../lib/voucherDays'
 import { ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
 import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
@@ -75,7 +76,7 @@ function howToEarn(r, tr) {
   return tr('Given by the team')
 }
 
-export default function BonusPointsCard({ rules, now = 0, className, boost = null }) {
+export default function BonusPointsCard({ rules, now = 0, className, boost = null, joinPts = 0, voucherDays = [] }) {
   const tr = useT()
   // Before the early return: a hook cannot be called conditionally, and this
   // component returns nothing at all when a challenge has no bonuses.
@@ -85,7 +86,10 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
   // translated, with ONE Translated | Original switch for the whole card (30 Sep 2026).
   const tx = useContentTranslations(bonuses.flatMap((r) => [r.label?.trim(), r.prompt?.trim()]))
   const stateOf = (r) => ruleWindowState(r, now || undefined)
-  if (bonuses.length === 0 && !boost) return null
+  // THE JOINING BONUS AND THE VOUCHER DAYS ARE OFFERS TOO (12 Oct 2026). Ethan: "Currently that bonus points thing isn't
+  // showing up on the bonus points." `joinPts` is passed only while the reader has not entered yet.
+  const vdays = (voucherDays || []).filter((d) => voucherDayState(d, now || Date.parse(d.starts_at)) !== 'done')
+  if (bonuses.length === 0 && !boost && !joinPts && !vdays.length) return null
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
   const ended = bonuses.filter((r) => stateOf(r) === 'ended')
 
@@ -119,6 +123,34 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
         </div>
       )}
       <ul className="space-y-1.5 px-3 pb-3">
+        {joinPts > 0 && (
+          <li className="flex items-center gap-3 rounded-xl bg-white px-3 py-3 shadow-sm">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name="userPlus" className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold leading-snug text-ink">{tr('Joining bonus')}</span>
+              <span className="block text-[11.5px] leading-snug text-smoke">{tr('Your first video in this challenge earns it, straight onto the leaderboard.')}</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">+{joinPts}</span>
+          </li>
+        )}
+        {vdays.map((d) => {
+          const today = voucherDayState(d, now || 0) === 'today'
+          return (
+            <li key={d.id} className="flex items-center gap-3 rounded-xl bg-white px-3 py-3 shadow-sm">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-brand"><Icon name="ticket" className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold leading-snug text-ink">
+                  {d.reward_type === 'cash' ? tr('{a} cash day', { a: formatMoney(d.amount, d.currency) }) : tr('{a} voucher day', { a: formatMoney(d.amount, d.currency) })}
+                </span>
+                <span className="block text-[11.5px] leading-snug text-smoke">{tr('A video posted on {d} that reaches {v} views wins it.', { d: dm(`${d.day}T12:00:00`), v: Number(d.min_views).toLocaleString() })}</span>
+                <span className={cx('mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', today ? 'bg-brand text-white' : 'border border-gray-200 text-smoke')}>
+                  <Icon name="clock" className="h-3 w-3" />{today ? tr('Today') : dm(`${d.day}T12:00:00`)}
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">{formatMoney(d.amount, d.currency)}</span>
+            </li>
+          )
+        })}
         {[...current, ...ended].map((r) => {
           const state = stateOf(r)
           const done = state === 'ended'

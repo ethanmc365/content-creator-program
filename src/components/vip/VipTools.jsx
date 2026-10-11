@@ -16,6 +16,7 @@ import { SyncEvery, VipBonusesTab, VipCloseTab, VipSettingsTab } from './adminB'
 import { VipAnalyticsTab } from './analytics'
 import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
+import { VipCertificatesTab } from './certificates'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
 
 // THE VIP TOOLS, INSIDE THE VIP PAGE (2 Oct 2026).
@@ -32,7 +33,7 @@ import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './
 const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
   { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses and perks']] },
-  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['guides', 'Guides']] },
+  { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['guides', 'Guides'], ['certificates', 'Certificates']] },
   { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
@@ -134,6 +135,7 @@ export default function VipTools({ programmeId }) {
     announcements: (p) => <AnnouncementsTab programme={p} programmes={sameKind(p)} isOwner={isOwner} />,
     challenges: (p) => <VipContentTab programme={p} isOwner={isOwner} part="briefs" />,
     guides: (p) => <VipContentTab programme={p} isOwner={isOwner} part="guides" />,
+    certificates: () => <VipCertificatesTab />,
     kpis: (p) => <VipKpiTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
     analytics: (p) => <VipAnalyticsTab programme={p} programmes={sameKind(p)} isAdmin={isAdmin} />,
     settings: (p) => (

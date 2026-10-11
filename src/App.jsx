@@ -37,7 +37,6 @@ import GuardianConsent from './pages/legal/GuardianConsent'
 import Profile from './pages/Profile'
 import Challenges from './pages/Challenges'
 import Rewards from './pages/Rewards'
-import Resources from './pages/Resources'
 import Notifications from './pages/Notifications'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
@@ -102,7 +101,6 @@ const VipRecap = lazyRoute(chunk.VipRecap)
 const AdminHooks = lazyRoute(chunk.AdminHooks)
 const ChallengeRecap = lazyRoute(chunk.ChallengeRecap)
 const AdminEvents = lazyRoute(chunk.AdminEvents)
-const AdminResources = lazyRoute(chunk.AdminResources)
 const AdminCreatorKit = lazyRoute(chunk.AdminCreatorKit)
 const Updates = lazyRoute(chunk.Updates)
 const VideoIdeas = lazyRoute(chunk.VideoIdeas)
@@ -320,7 +318,8 @@ export default function App() {
             <Route path="/challenges/:id/recap" element={<ChallengeRecap />} />
               </Route>
           <Route path="/rewards" element={<Rewards />} />
-          <Route path="/resources" element={<Resources />} />
+          {/* THE RESOURCE LIBRARY IS RETIRED (12 Oct 2026): Video ideas took its place. Old links land there. */}
+          <Route path="/resources" element={<Navigate to="/ideas" replace />} />
           <Route path="/events" element={<Events />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/refer" element={<Refer />} />
@@ -420,7 +419,7 @@ export default function App() {
                 It was a second door onto "how is the community doing". */}
             <Route path="/admin/network" element={<Navigate to="/admin/analytics?tab=network" replace />} />
             <Route path="/admin/events" element={<AdminEvents />} />
-            <Route path="/admin/resources" element={<AdminResources />} />
+            <Route path="/admin/resources" element={<Navigate to="/admin" replace />} />
             {/* The graphics creators repost and the certificates they are
                 awarded. One page because they are one idea - see
                 pages/admin/AdminCreatorKit. */}

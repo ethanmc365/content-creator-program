@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useVoucherDays } from '../../lib/voucherDays'
+import { SLOT, SLOT_ICON } from './SwapIn'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
 import { cx, formatMoney } from '../../lib/utils'
@@ -12,23 +13,8 @@ const fmtDay = (ymd, locale) => new Date(`${ymd}T12:00:00`).toLocaleDateString(l
 
 export default function ChallengeKickers({ challenge, myEntries = 0, meId, live = true, className }) {
   const tr = useT()
-  const [days, setDays] = useState([])
-  const [board, setBoard] = useState([])
+  const { days, board } = useVoucherDays(challenge?.id)
   const [now] = useState(() => Date.now())
-  useEffect(() => {
-    if (!challenge?.id) return undefined
-    let alive = true
-    Promise.all([
-      supabase.from('challenge_voucher_days').select('*').eq('challenge_id', challenge.id).eq('is_active', true).order('day'),
-      supabase.rpc('voucher_day_board', { p_challenge: challenge.id }),
-    ]).then(([{ data: d }, { data: b }]) => {
-      if (!alive) return
-      setDays(d || [])
-      setBoard(b || [])
-    })
-    return () => { alive = false }
-  }, [challenge?.id])
-
   const joinPts = Number(challenge?.join_bonus_points) || 0
   const showJoin = live && joinPts > 0 && myEntries === 0
   const stateOf = (d) => (Date.parse(d.ends_at) <= now ? 'done' : Date.parse(d.starts_at) <= now ? 'today' : 'soon')
@@ -104,4 +90,63 @@ export default function ChallengeKickers({ challenge, myEntries = 0, meId, live 
       )}
     </section>
   )
+}
+
+// THE DARK CARD BESIDE THE TABS, FOR A VOUCHER DAY OR THE JOINING BONUS (12 Oct 2026). Ethan: "it should show up on that
+// nice little black card where the 2x points are currently showing on the actual day this is active." Same slot, same
+// look as the boost card: the reward as the disc, what to do, and the time left on the day.
+const DARK = 'board-status group relative min-w-0 overflow-hidden text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]'
+
+export function VoucherDayCallout({ day, now, onOpen }) {
+  const tr = useT()
+  const left = Math.max(0, Date.parse(day.ends_at) - now)
+  const h = Math.floor(left / 3600000)
+  const m = Math.max(1, Math.ceil((left % 3600000) / 60000))
+  const prize = formatMoney(day.amount, day.currency)
+  return (
+    <button type="button" onClick={onOpen} className={cx(DARK, SLOT)}>
+      <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+      <span className={cx('relative bg-gradient-to-br from-[#ffb36b] via-brand-light to-brand text-[11px] font-black tabular-nums shadow-[0_0_0_3px_rgba(245,133,63,0.35)]', SLOT_ICON)}>
+        {prize.replace(/\.00$/, '')}
+        <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/40 [animation-duration:2.4s]" />
+      </span>
+      <span className="relative min-w-0 flex-1">
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">
+          {day.reward_type === 'cash' ? tr('Cash day, today') : tr('Voucher day, today')}
+        </span>
+        <span className="block truncate text-[13px] font-semibold">
+          {tr('Post today, reach {v} views, win {p}. {t} left.', { v: Number(day.min_views).toLocaleString(), p: prize, t: h > 0 ? `${h}h ${String(m % 60).padStart(2, '0')}m` : `${m}m` })}
+        </span>
+      </span>
+      <Icon name="ticket" className="relative h-5 w-5 shrink-0 text-brand-light" />
+    </button>
+  )
+}
+
+export function JoinBonusCallout({ points, onOpen }) {
+  const tr = useT()
+  return (
+    <button type="button" onClick={onOpen} className={cx(DARK, SLOT)}>
+      <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+      <span className={cx('relative bg-gradient-to-br from-[#ffb36b] via-brand-light to-brand text-[13px] font-black tabular-nums shadow-[0_0_0_3px_rgba(245,133,63,0.35)]', SLOT_ICON)}>+{points}</span>
+      <span className="relative min-w-0 flex-1">
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-light">{tr('Joining bonus')}</span>
+        <span className="block truncate text-[13px] font-semibold">{tr('Your first video earns {n} extra points.', { n: points })}</span>
+      </span>
+      <Icon name="userPlus" className="relative h-5 w-5 shrink-0 text-brand-light" />
+    </button>
+  )
+}
+
+/** Several offers in one slot take turns, a few seconds each. */
+export function OfferRotator({ items }) {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    if (items.length < 2) return undefined
+    const t = setInterval(() => setI((n) => n + 1), 6000)
+    return () => clearInterval(t)
+  }, [items.length])
+  if (!items.length) return null
+  const k = i % items.length
+  return <div key={k} className="animate-tab-in flex w-full min-w-0 sm:flex-1">{items[k]}</div>
 }

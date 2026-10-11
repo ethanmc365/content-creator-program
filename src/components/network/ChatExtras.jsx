@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
@@ -276,38 +277,73 @@ export function MentionMenu({ query, members, onPick, onClose, isAdmin = false }
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  if (hits.length === 0) return null
+  const [anchor, setAnchor] = useState(null)
+  const [rect, setRect] = useState(null)
+  useEffect(() => {
+    if (!anchor) return undefined
+    const measure = () => {
+      const r = anchor.getBoundingClientRect()
+      const left = Math.max(8, r.left)
+      setRect({ top: r.top, left, width: Math.min(r.width || 320, window.innerWidth - left - 8, 420) })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [anchor, query])
 
+  // A POP-UP OVER THE PAGE, JUST ABOVE THE MESSAGE BOX (12 Oct 2026). Ethan: "whenever I type in the @ symbol to actually
+  // tag a creator, it shows up at the very, very top, and I can't even click it." It was `absolute bottom-full` with no
+  // positioned parent in between, so it hung off whichever ancestor was positioned - the room's top - under the header.
+  // Now an invisible marker sits where the menu used to be and the menu is drawn into <body>, fixed above that marker,
+  // so no scroller, transform or header can move or cover it. A press keeps the caret in the box (mousedown is held).
   return (
-    <motion.div
-      {...overlay}
-      className="absolute bottom-full left-3 right-3 z-30 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lift"
-    >
-      {hits.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => onPick(m)}
-          className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-cloud"
+    <>
+      <span ref={setAnchor} aria-hidden className="block h-0 w-full" />
+      {hits.length > 0 && rect && createPortal(
+        <motion.div
+          {...overlay}
+          role="listbox"
+          aria-label="People to mention"
+          style={{ position: 'fixed', left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 14 }}
+          className="z-[120] max-h-[min(18rem,50vh)] overflow-y-auto overscroll-contain rounded-2xl border border-gray-100 bg-white py-1 shadow-lift"
         >
-          {m.broadcast ? (
-            <>
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-brand">
-                <Icon name="megaphone" className="h-3.5 w-3.5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{m.label}</span>
-                <span className="block truncate text-[11px] text-smoke">{m.hint}</span>
-              </span>
-            </>
-          ) : (
-            <>
-              <Avatar src={m.photo_url} name={m.name} size="xs" />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
-            </>
-          )}
-        </button>
-      ))}
-    </motion.div>
+          {hits.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="option"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onPick(m)}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-cloud active:bg-brand-tint"
+            >
+              {m.broadcast ? (
+                <>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-brand">
+                    <Icon name="megaphone" className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{m.label}</span>
+                    <span className="block truncate text-[11px] text-smoke">{m.hint}</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Avatar src={m.photo_url} name={m.name} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
+                </>
+              )}
+            </button>
+          ))}
+        </motion.div>,
+        document.body,
+      )}
+    </>
   )
 }
 

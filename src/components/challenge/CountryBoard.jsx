@@ -33,31 +33,51 @@ function Figure({ value, measure }) {
   return <span className="inline-block min-w-[4.5rem] text-right tabular-nums">{fmt(measure, value)}</span>
 }
 
-// A NEW ORDER SETTLES IN, IT DOES NOT SLIDE (12 Oct 2026). Ethan: "The
-// animation, the way it moves up and down, I don't really like." The rows used
-// to fly from their old places to their new ones for up to a second, crossing
-// over each other. Now, when the measure changes, the list is simply in its new
-// order and each row settles into place from a hair below, top to bottom, in a
-// quick stagger - the board reads as re-dealt rather than shuffled. It never
-// starts from invisible (a background tab would freeze it there), and the very
-// first draw is left to the page's own entrance.
-function useSettle(listRef, order) {
-  const first = useRef(true)
+// THE CARDS SLIDE TO THEIR NEW PLACES, ONCE, CLEANLY (12 Oct 2026, second pass). Ethan: "It just appears immediately. I
+// want it to actually visibly show the things switching. Before, it was too laggy and too confusing, and there's too much
+// movement ... cleaner animations, but actually still show a bit of movement, like where they're moving to."
+// So: a FLIP. Each card is measured where it was and where it is now, and only the cards that changed place travel the
+// difference, together, in 480ms on one decelerating curve - no stagger, no overshoot, no count-ups. A card going UP rides
+// above the ones it passes, so an overtake reads as an overtake. For a moment each mover also says by how much
+// (up 2 / down 1) beside its place number. Offsets are layout positions (offsetTop), so a page scroll cannot fake a move.
+function useFlip(listRef, order) {
+  const tops = useRef(null)
+  const ranks = useRef(null)
+  const [moved, setMoved] = useState(() => new Map())
   useLayoutEffect(() => {
     const list = listRef.current
-    if (!list) return
-    if (first.current) { first.current = false; return }
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    let i = 0
-    for (const el of list.children) {
-      el.getAnimations?.().forEach((a) => a.cancel())
-      el.animate(
-        [{ opacity: 0.35, transform: 'translateY(8px) scale(0.985)' }, { opacity: 1, transform: 'none' }],
-        { duration: 380, delay: Math.min(i, 10) * 32, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
+    if (!list) return undefined
+    const kids = [...list.children]
+    const now = new Map(kids.map((el) => [el.dataset.key, el.offsetTop]))
+    const rankNow = new Map(kids.map((el, i) => [el.dataset.key, i]))
+    const before = tops.current
+    const rankBefore = ranks.current
+    tops.current = now
+    ranks.current = rankNow
+    if (!before || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
+    const deltas = new Map()
+    for (const el of kids) {
+      const k = el.dataset.key
+      const was = before.get(k)
+      if (was == null) continue
+      const dy = was - now.get(k)
+      if (Math.abs(dy) < 2) continue
+      el.getAnimations?.().forEach((x) => x.cancel())
+      el.style.zIndex = dy > 0 ? '2' : '1'
+      const anim = el.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+        { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
       )
-      i += 1
+      anim.onfinish = () => { el.style.zIndex = '' }
+      const d = (rankBefore?.get(k) ?? rankNow.get(k)) - rankNow.get(k)
+      if (d) deltas.set(k, d)
     }
+    // Set after the frame: the movers' chips appear as they start to travel and fade after a moment.
+    const t1 = setTimeout(() => setMoved(deltas), 0)
+    const t2 = setTimeout(() => setMoved(new Map()), 1900)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [listRef, order])
+  return moved
 }
 
 const fmt = (measure, n) => (measure === 'views' ? formatViews(Math.round(Number(n) || 0)) : Math.round(Number(n) || 0).toLocaleString())
@@ -94,7 +114,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
   }, [data, measure])
 
   // Keyed on the measure as well, so switching tab always re-deals even when the order happens not to change.
-  useSettle(listRef, `${measure}:${rows.map((r) => r.id || 'none').join(',')}`)
+  const moved = useFlip(listRef, `${measure}:${rows.map((r) => r.id || 'none').join(',')}`)
   useEffect(() => {
     if (!data) return undefined
     const t = setTimeout(() => setGrown(true), 60)
@@ -148,7 +168,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
           const share = total ? value / total : 0
           const others = measures.filter((m) => m.value !== measure)
           return (
-            <li key={r.id || 'none'} data-key={r.id || 'none'}>
+            <li key={r.id || 'none'} data-key={r.id || 'none'} className="relative">
               <button
                 type="button"
                 onClick={() => setOpen(r)}
@@ -162,7 +182,16 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums transition-colors duration-300', r.mine ? 'bg-white text-brand' : i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <span className="relative shrink-0">
+                    <span className={cx('flex h-8 w-8 items-center justify-center rounded-full text-xs font-extrabold tabular-nums transition-colors duration-300', r.mine ? 'bg-white text-brand' : i === 0 && value > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                    {moved.get(r.id || 'none') ? (
+                      <span className={cx('absolute -right-2 -top-2 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-black tabular-nums shadow-card animate-pop-in',
+                        moved.get(r.id || 'none') > 0 ? 'bg-brand text-white' : 'bg-white text-smoke ring-1 ring-gray-200')}>
+                        <svg viewBox="0 0 10 10" className={cx('h-2 w-2', moved.get(r.id || 'none') < 0 && 'rotate-180')} aria-hidden><path d="M5 2 9 7H1z" fill="currentColor" /></svg>
+                        {Math.abs(moved.get(r.id || 'none'))}
+                      </span>
+                    ) : null}
+                  </span>
                   <Badge market={r} />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">

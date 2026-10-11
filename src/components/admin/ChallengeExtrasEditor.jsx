@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
+import DayPicker from '../DayPicker'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
@@ -21,7 +22,6 @@ import { COMMON_ZONES } from '../../lib/timezones'
 
 const chip = (on) => cx('rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink hoverable:hover:border-brand')
 const dayLabel = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-const todayYmd = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 export function JoinBonusEditor({ challengeId }) {
   const [row, setRow] = useState(undefined)
@@ -71,7 +71,14 @@ export function JoinBonusEditor({ challengeId }) {
             {[5, 10].map((n) => (
               <button key={n} type="button" aria-pressed={!custom && pts === n} onClick={() => { setPts(n); setCustom('') }} className={chip(!custom && pts === n)}>+{n} points</button>
             ))}
-            <input className="input !w-24 !py-1.5 text-center text-sm" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="Other" aria-label="Other number of points" />
+            {/* TYPE THE NUMBER, "points" FOLLOWS IT (12 Oct 2026): "Make sure it shows that I just type in the number,
+                and then it says 'points' after it, with a similar design to the other ones." */}
+            <label className={cx('flex items-center gap-1 rounded-full border px-3.5 py-1 text-xs font-semibold transition-all duration-200', custom ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink focus-within:border-brand')}>
+              <span aria-hidden>+</span>
+              <input className="w-10 bg-transparent text-center text-xs font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-smoke" inputMode="numeric"
+                value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, '').slice(0, 4))} placeholder="Other" aria-label="Other number of points" />
+              <span>points</span>
+            </label>
           </div>
           {on && (
             <p className="text-xs text-smoke">
@@ -184,7 +191,7 @@ export function VoucherDaysEditor({ challengeId, currency = 'EUR' }) {
 
 function VoucherDayModal({ challengeId, currency, day, taken, onClose, onSaved }) {
   const editing = !!day
-  const [dates, setDates] = useState(day ? [day.day] : [todayYmd()])
+  const [dates, setDates] = useState(day ? [day.day] : [])
   const [views, setViews] = useState(day ? Number(day.min_views) : 5000)
   const [viewsCustom, setViewsCustom] = useState(day && ![2000, 5000, 10000].includes(Number(day.min_views)) ? String(day.min_views) : '')
   const [type, setType] = useState(day?.reward_type || 'voucher')
@@ -217,17 +224,11 @@ function VoucherDayModal({ challengeId, currency, day, taken, onClose, onSaved }
       <div className="space-y-5">
         <div>
           <p className="label">{editing ? 'Day' : 'Days'}</p>
-          <div className="space-y-2">
-            {dates.map((d, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input type="date" className="input" value={d} onChange={(e) => setDates((cur) => cur.map((x, k) => (k === i ? e.target.value : x)))} />
-                {!editing && dates.length > 1 && (
-                  <button type="button" onClick={() => setDates((cur) => cur.filter((_, k) => k !== i))} aria-label="Remove this date" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke hover:bg-cloud"><Icon name="close" className="h-4 w-4" /></button>
-                )}
-              </div>
-            ))}
-          </div>
-          {!editing && <button type="button" onClick={() => setDates((cur) => [...cur, ''])} className="mt-2 text-xs font-semibold text-brand">+ Add another date</button>}
+          <DayPicker value={clean} multiple={!editing} min={editing ? null : new Date().toISOString().slice(0, 10)} taken={editing ? taken.filter((t) => t !== day.day) : taken}
+            onChange={(next) => setDates(next.length ? next : editing ? dates : [])} />
+          <p className="mt-2 text-xs text-smoke">
+            {clean.length ? `${clean.length === 1 ? '1 day' : `${clean.length} days`}: ${clean.map(dayLabel).join(', ')}` : editing ? '' : 'Tap the days. You can pick several.'}
+          </p>
           {clash && <p className="mt-1 text-xs text-red-600">One of those days is already a voucher day.</p>}
         </div>
         <div>
@@ -236,7 +237,11 @@ function VoucherDayModal({ challengeId, currency, day, taken, onClose, onSaved }
             {[2000, 5000, 10000].map((n) => (
               <button key={n} type="button" aria-pressed={!viewsCustom && views === n} onClick={() => { setViews(n); setViewsCustom('') }} className={chip(!viewsCustom && views === n)}>{n.toLocaleString('en-GB')} views</button>
             ))}
-            <input className="input !w-28 !py-1.5 text-center text-sm" inputMode="numeric" value={viewsCustom} onChange={(e) => setViewsCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="Other" aria-label="Another view count" />
+            <label className={cx('flex items-center gap-1 rounded-full border px-3.5 py-1 text-xs font-semibold transition-all duration-200', viewsCustom ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink focus-within:border-brand')}>
+              <input className="w-14 bg-transparent text-center text-xs font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-smoke" inputMode="numeric"
+                value={viewsCustom} onChange={(e) => setViewsCustom(e.target.value.replace(/[^\d]/g, '').slice(0, 8))} placeholder="Other" aria-label="Another view count" />
+              <span>views</span>
+            </label>
           </div>
         </div>
         <div>
@@ -249,26 +254,31 @@ function VoucherDayModal({ challengeId, currency, day, taken, onClose, onSaved }
             {[5, 10].map((n) => (
               <button key={n} type="button" aria-pressed={!amountCustom && amount === n} onClick={() => { setAmount(n); setAmountCustom('') }} className={chip(!amountCustom && amount === n)}>{formatMoney(n, cur)}</button>
             ))}
-            <input className="input !w-24 !py-1.5 text-center text-sm" inputMode="decimal" value={amountCustom} onChange={(e) => setAmountCustom(e.target.value.replace(/[^\d.]/g, ''))} placeholder="Other" aria-label="Another amount" />
-            <select className="input !w-24 !py-1.5 text-sm" value={cur} onChange={(e) => setCur(e.target.value)} aria-label="Currency">
-              {['EUR', 'GBP', 'RON', 'DKK', 'SEK', 'NOK'].map((c) => <option key={c}>{c}</option>)}
-            </select>
+            <label className={cx('flex items-center gap-1 rounded-full border px-3.5 py-1 text-xs font-semibold transition-all duration-200', amountCustom ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink focus-within:border-brand')}>
+              <input className="w-12 bg-transparent text-center text-xs font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-smoke" inputMode="decimal"
+                value={amountCustom} onChange={(e) => setAmountCustom(e.target.value.replace(/[^\d.]/g, '').slice(0, 6))} placeholder="Other" aria-label="Another amount" />
+              <span>{cur}</span>
+            </label>
+            <Select className="w-28" ariaLabel="Currency" value={cur} onChange={setCur}
+              options={['EUR', 'GBP', 'RON', 'DKK', 'SEK', 'NOK'].map((c) => ({ value: c, label: c }))} />
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">Timezone of the day</span>
-            <select className="input" value={tz} onChange={(e) => setTz(e.target.value)}>
-              <option value="">The market's own</option>
-              {COMMON_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
-            </select>
-          </label>
+          <div className="block"><span className="label">Timezone of the day</span>
+            <Select variant="field" className="w-full" ariaLabel="Timezone of the day" value={tz} onChange={setTz}
+              options={[{ value: '', label: "The market's own" }, ...COMMON_ZONES]} />
+          </div>
           <label className="block"><span className="label">Most winners (optional)</span>
-            <input className="input" inputMode="numeric" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} placeholder="No limit" />
+            <span className="relative block">
+              <input className="input pr-20" inputMode="numeric" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} placeholder="No limit" />
+              {cap && <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-smoke">winners</span>}
+            </span>
           </label>
         </div>
         {!bad && (
           <p className="rounded-xl bg-cloud px-3.5 py-2.5 text-xs text-smoke">
             Creators will see: <strong className="text-ink">Post on {clean.map(dayLabel).join(', ')} and reach {Number(minViews).toLocaleString('en-GB')} views to win a {formatMoney(amt, cur)} {type === 'cash' ? 'cash prize' : 'Tryp.com voucher'}.</strong>
+            {type === 'voucher' && ' Vouchers can be combined with their other Tryp.com vouchers.'}
           </p>
         )}
         <button type="button" onClick={save} disabled={bad || busy} className="btn-primary w-full justify-center disabled:opacity-50">{busy ? <Spinner className="h-4 w-4" /> : editing ? 'Save changes' : 'Save'}</button>

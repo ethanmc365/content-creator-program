@@ -22,6 +22,7 @@ import PushBanner from '../PushBanner'
 import SurveyHost from '../SurveyHost'
 import GlobalChallengePrompt from '../GlobalChallengePrompt'
 import BoostPrompt from '../BoostPrompt'
+import VoucherDayPrompt from '../VoucherDayPrompt'
 import AgreementGate from '../agreements/AgreementGate'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
@@ -283,7 +284,6 @@ export default function AppLayout() {
   const { unread: unreadRooms } = useUnread()
   const roomsUnread = unreadRooms.size
   const [connReqs, setConnReqs] = useState(0)
-  const [newResources, setNewResources] = useState(false)
   const [newUpdates, setNewUpdates] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [exitError, setExitError] = useState('')
@@ -434,21 +434,6 @@ export default function AppLayout() {
   // Feed the saved preference in once the profile loads (and on any change).
   useEffect(() => { syncTheme(!!profile?.dark_mode) }, [profile?.dark_mode])
 
-  // "New in the library" dot: anything published since the last time this
-  // creator opened the Resources page (which stamps resources_seen_at).
-  useEffect(() => {
-    if (!user || !profile) return
-    let alive = true
-    supabase.from('resources').select('created_at').order('created_at', { ascending: false }).limit(1)
-      .then(({ data }) => {
-        if (!alive || !data?.[0]) return
-        const latest = new Date(data[0].created_at).getTime()
-        const seen = profile.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
-        setNewResources(latest > seen)
-      })
-    return () => { alive = false }
-  }, [user, profile])
-
   // "What's new" dot: the newest published update is later than the one this browser last saw on the page.
   useEffect(() => {
     if (!user) return undefined
@@ -590,6 +575,7 @@ export default function AppLayout() {
       {/* The live worldwide challenge, for a creator who has not entered it (4 Oct 2026). */}
       <AgreementGate />
       <BoostPrompt />
+      <VoucherDayPrompt />
       <JoinMarketHost />
       <GlobalChallengePrompt />
       {/* Surveys from the team (migration 291), last in the same queue. */}
@@ -800,7 +786,7 @@ export default function AppLayout() {
                   missing attribute rather than a new one. */}
               <button onClick={() => setMenuOpen((o) => !o)} aria-label={tr("Account menu")} aria-haspopup="menu" aria-expanded={menuOpen} data-tour="avatar-menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
-                {(connReqs > 0 || newResources || newUpdates) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
+                {(connReqs > 0 || newUpdates) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'Something new'} />}
               </button>
               {menuOpen && (
                 <div data-ptr-ignore data-tour-keepout className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
@@ -883,9 +869,6 @@ export default function AppLayout() {
                             <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
                               {connReqs > 9 ? '9+' : connReqs}
                             </span>
-                          )}
-                          {l.badge === 'resources' && newResources && (
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />
                           )}
                         </Link>
                       ))}

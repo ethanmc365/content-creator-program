@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, SaveButton, Skeleton, Spinner, useSavedFlash } from '../ui'
@@ -285,7 +284,6 @@ export function VipLibrary({ programmeId }) {
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[15px] font-bold text-ink">{tr('Guides')}</h2>
-          <Link to="/resources" className="text-xs font-semibold text-brand hover:underline">{tr('More in the content library')}</Link>
         </div>
         {cats.length > 1 && (
           <div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label={tr('Guide topics')}>

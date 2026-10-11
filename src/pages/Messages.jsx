@@ -37,7 +37,6 @@ import { playSend, playSendFail, playDmArrival, playReactionPop } from '../lib/a
 import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
 import ResourceCard from '../components/ResourceCard'
-import ResourcePicker from '../components/ResourcePicker'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
@@ -1458,20 +1457,6 @@ export default function Messages() {
   // caption). Both land in the private dm-media bucket; the storage PATH is
   // stored in image_url and rendered back through a signed URL (video paths end
   // in .mp4 etc, so the renderer picks the right player from the extension).
-  // SHARING A RESOURCE INTO A DM.
-  //
-  // Admins only, same as in the rooms: a creator can paste a link, but an
-  // admin pointing somebody at the brand rules does it several times a week.
-  // It goes through the same outbox as every other message, so it survives a
-  // dead tunnel and appears optimistically like anything else.
-  const [pickingResource, setPickingResource] = useState(false)
-  async function shareResource(resourceId) {
-    setPickingResource(false)
-    const cid = await ensureConversation()
-    if (!cid) return
-    queueDm({ resource_id: resourceId }, cid)
-  }
-
   async function sendAttachment(file) {
     if (!file || !active || dmLocked) return
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
@@ -2416,7 +2401,9 @@ export default function Messages() {
                           <>
                             <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
                               <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
-                              {m.edited_at && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
+                              {/* A TEAM EDIT IS NOT ANNOUNCED TO CREATORS (12 Oct 2026). Ethan: "only I will see that it was
+                                  edited, but the creators won't see that the message was edited." */}
+                              {m.edited_at && (isAdmin || !(mine ? isAdmin : isGroup ? sender?.is_admin : active?.other?.is_admin)) && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
                               {m.pending
                                 ? <PendingLabel tries={m.tries} prefix=" · " />
                                 : (mine && !isGroup && m.read && ' · Read')}
@@ -2690,7 +2677,6 @@ export default function Messages() {
                   sending={sending}
                   onAttach={sendAttachment}
                   isAdmin={isAdmin}
-                  onResource={isAdmin ? () => setPickingResource(true) : undefined}
                   onFocus={hideChrome}
                   isMobile={isMobile}
                   kbOpen={kbOpen}
@@ -2703,13 +2689,6 @@ export default function Messages() {
           )}
         </section>
       </div>
-
-      <ResourcePicker
-        open={pickingResource}
-        onClose={() => setPickingResource(false)}
-        onPick={shareResource}
-        where="Send"
-      />
 
       <NewGroupModal
         open={showNewGroup}

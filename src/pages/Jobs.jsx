@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
-import Reveal from '../components/network/Reveal'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -108,9 +107,12 @@ export default function Jobs() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : (
-        <Reveal className="space-y-8" stagger={0.06}>
+        // A CSS ENTRANCE, NOT A MOTION ONE (12 Oct 2026). Ethan: "improve the animations on the roles page. Currently, it's
+        // laggy when that page loads." The page waited for Reveal's settle signal and then sprang three big blocks in
+        // with the motion library on the same frame the list drew. Each block now rises on the compositor, 70ms apart.
+        <div className="space-y-8">
           {featured && (
-            <article className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+            <article className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
               <div className="relative overflow-hidden bg-gradient-to-br from-brand to-[#f5853f] px-5 py-6 text-white sm:px-8 sm:py-8">
                 <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
                 <p className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.16em] text-white/90">
@@ -149,7 +151,7 @@ export default function Jobs() {
             </article>
           )}
 
-          <section>
+          <section className="animate-rise [animation-delay:70ms]">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
               <Icon name="briefcase" className="h-5 w-5 text-brand" />{tr('Open roles')}
               <span className="text-sm font-medium text-smoke">{rest.length}</span>
@@ -162,10 +164,10 @@ export default function Jobs() {
               />
             ) : (
               <div className="space-y-3">
-                {rest.map((j) => {
+                {rest.map((j, i) => {
                   const open = openId === j.id
                   return (
-                    <article key={j.id} className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+                    <article key={j.id} className="animate-rise rounded-card border border-gray-100 bg-white p-5 shadow-card" style={{ animationDelay: `${120 + Math.min(i, 6) * 60}ms` }}>
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <h3 className="text-base font-semibold text-ink">{j.title}</h3>
@@ -192,7 +194,7 @@ export default function Jobs() {
 
           {/* THE OTHER WAYS IN. Not jobs, but the same question: how do I do
               more with Tryp.com. */}
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className="grid animate-rise grid-cols-1 gap-3 [animation-delay:160ms] sm:grid-cols-2">
             <Link to="/challenges" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-transform hoverable:hover:-translate-y-0.5">
               <Icon name="flag" className="h-6 w-6 shrink-0 text-brand" />
               <span className="min-w-0 flex-1">
@@ -210,7 +212,7 @@ export default function Jobs() {
               <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-400" />
             </Link>
           </section>
-        </Reveal>
+        </div>
       )}
 
       {/* Apply modal */}

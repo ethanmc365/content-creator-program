@@ -7,6 +7,23 @@ import FlagTile from '../network/FlagTile'
 import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, timeAgo } from '../../lib/utils'
+import { marketLanguage } from '../network/JoinMarket'
+
+const LEVEL = { native: 'Native speaker', fluent: 'Fluent', some: 'Speaks a little', none: 'Does not speak it' }
+const TIE = { live: 'Lives there', part_time: 'Lives there part of the year', study: 'Studies there', work: 'Works there', family: 'Family there', audience: 'Audience there' }
+
+/** What the request and the profile say about whether this person belongs in that market. */
+function fit(r, want) {
+  const p = r.profiles || {}
+  const words = marketLanguage(want).split(', ')
+  const onProfile = (p.languages || []).filter((l) => words.some((w) => w.toLowerCase() === String(l).toLowerCase()))
+  const livesThere = (want?.country_codes || []).includes(p.country_code)
+  const speaks = ['native', 'fluent'].includes(r.language_level)
+  const ties = r.ties || []
+  const good = livesThere || ((speaks || onProfile.length > 0) && ties.length > 0)
+  const weak = !r.language_level ? 'unanswered' : r.language_level === 'none' && !livesThere ? 'no_language' : !ties.length && !livesThere ? 'no_ties' : null
+  return { words, onProfile, livesThere, good, weak }
+}
 
 // MARKET REQUESTS, IN APPLICATIONS (10 Oct 2026, migration 378).
 //
@@ -36,10 +53,10 @@ export default function MarketRequests({ onChanged }) {
     const since = new Date(Date.now() - 45 * 864e5).toISOString()
     const [{ data: req }, { data: comms }] = await Promise.all([
       supabase.from('market_join_requests')
-        .select('id, community_id, profile_id, note, status, created_at, decided_at, decision_note, challenge_id, profiles:profile_id(id, name, photo_url, country, city, instagram_url, tiktok_url, is_vip, status)')
+        .select('id, community_id, profile_id, note, status, created_at, decided_at, decision_note, challenge_id, language_level, ties, profiles:profile_id(id, name, photo_url, country, country_code, city, languages, instagram_url, tiktok_url, is_vip, status)')
         .or(`status.eq.pending,decided_at.gte.${since}`)
         .order('created_at', { ascending: false }),
-      supabase.from('communities').select('id, name, slug, country_codes, kind'),
+      supabase.from('communities').select('id, name, slug, country_codes, kind, language'),
     ])
     const byId = Object.fromEntries((comms || []).map((c) => [c.id, c]))
     const ids = [...new Set((req || []).map((r) => r.profile_id))]
@@ -52,6 +69,14 @@ export default function MarketRequests({ onChanged }) {
     setRows(req || [])
   }, [])
   useEffect(() => { load() }, [load])
+
+  async function askForMore(r) {
+    setBusy(r.id)
+    const { error } = await supabase.rpc('ask_join_request_details', { p_request: r.id })
+    setBusy(null)
+    if (error) { notice(error.message); return }
+    toastSuccess(`${r.profiles?.name || 'They'} has been asked to say why and how well they speak the language.`)
+  }
 
   async function decide(r, accept) {
     let reason = null
@@ -119,7 +144,41 @@ export default function MarketRequests({ onChanged }) {
                   <Icon name="chevronRight" className="h-4 w-4 text-brand" strokeWidth={2.4} />
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-bold text-brand ring-1 ring-brand/20"><FlagTile codes={want?.country_codes} kind="chapter" size="h-5 w-5" glyph="text-[12px]" />+ {want?.name || 'a market'}</span>
                 </div>
-                {r.note && <blockquote className="mt-3 rounded-xl bg-cloud/60 px-3.5 py-2.5 text-sm italic leading-relaxed text-ink">"{r.note}"</blockquote>}
+                {/* THE ANSWERS, AND WHAT THE PROFILE SAYS (12 Oct 2026). Ethan wanted it to "highlight, similar to how they
+                    highlight which market they should join, whether they actually speak the language, like it's on their
+                    profile". A request with no answers says so, and can be sent back for them. */}
+                {(() => {
+                  const f = fit(r, want)
+                  return (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold',
+                          ['native', 'fluent'].includes(r.language_level) ? 'bg-brand text-white' : r.language_level ? 'bg-red-50 text-red-700 ring-1 ring-red-100' : 'bg-cloud text-smoke')}>
+                          <Icon name="language" className="h-3.5 w-3.5" />
+                          {r.language_level ? `${f.words.join(' / ')}: ${LEVEL[r.language_level]}` : 'Language: not answered'}
+                        </span>
+                        <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                          f.onProfile.length ? 'bg-brand-tint text-brand ring-1 ring-brand/20' : 'bg-cloud text-smoke')}>
+                          <Icon name="user" className="h-3.5 w-3.5" />
+                          {f.onProfile.length ? `${f.onProfile.join(', ')} on their profile` : `No ${f.words.join(' / ')} on their profile`}
+                        </span>
+                        {f.livesThere && <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-semibold text-brand ring-1 ring-brand/20"><Icon name="pin" className="h-3.5 w-3.5" />Profile says they live there</span>}
+                        {(r.ties || []).map((t) => <span key={t} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-ink">{TIE[t] || t}</span>)}
+                      </div>
+                      {r.note
+                        ? <blockquote className="rounded-xl bg-cloud/60 px-3.5 py-2.5 text-sm italic leading-relaxed text-ink">"{r.note}"</blockquote>
+                        : <p className="rounded-xl border border-dashed border-gray-200 px-3.5 py-2.5 text-sm text-smoke">No reason given.</p>}
+                      {f.weak && (
+                        <p className={cx('flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold', f.weak === 'unanswered' ? 'bg-cloud text-ink' : 'bg-red-50 text-red-700')}>
+                          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+                          {f.weak === 'unanswered' ? 'Sent before the questions existed, or without them. Ask them to fill them in, then decide.'
+                            : f.weak === 'no_language' ? `They say they do not speak ${f.words.join(' / ')} and do not live there.`
+                              : 'They named nothing that ties them to this market.'}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
                 {p.is_vip && <p className="mt-2 text-xs font-semibold text-amber-700">They are on a paid programme now; their market is set in VIP tools.</p>}
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -127,6 +186,9 @@ export default function MarketRequests({ onChanged }) {
                     {busy === r.id ? <Spinner className="h-4 w-4" /> : <Icon name="check" className="h-4 w-4" />}Add {want?.name || 'market'}
                   </button>
                   <button type="button" disabled={busy === r.id} onClick={() => decide(r, false)} className="btn-secondary !py-2 text-sm disabled:opacity-50"><Icon name="close" className="h-4 w-4" />Decline</button>
+                  {(!r.language_level || (r.note || '').trim().length < 20) && (
+                    <button type="button" disabled={busy === r.id} onClick={() => askForMore(r)} className="btn-ghost !py-2 text-sm disabled:opacity-50"><Icon name="reply" className="h-4 w-4" />Ask them to explain</button>
+                  )}
                   <Link to={`/messages?to=${p.id}`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"><Icon name="chat" className="h-4 w-4" />Message</Link>
                 </div>
               </li>

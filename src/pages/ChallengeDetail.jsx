@@ -12,7 +12,8 @@ import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
-import ChallengeKickers from '../components/challenge/ChallengeKickers'
+import ChallengeKickers, { JoinBonusCallout, OfferRotator, VoucherDayCallout } from '../components/challenge/ChallengeKickers'
+import { useVoucherDays, voucherDayState } from '../lib/voucherDays'
 import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
 import { dailyStreaksByCreator } from '../lib/dailyStreak'
 import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
@@ -221,6 +222,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Which bonuses the creator has ticked in the submit form, before they send.
   const [claiming, setClaiming] = useState([])
   const boost = useBoost(challenge?.id, challenge?.status === 'active' && challenge?.scoring === 'points')
+  const { days: voucherDays } = useVoucherDays(challenge?.id)
   // The board being read on the leaderboard tab. Null means "mine", which is
   // the question a leaderboard is opened to answer.
   const [board, setBoard] = useState(null)
@@ -610,6 +612,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
   const isGlobalChallenge = !!networkId && challenge.community_id === networkId
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
+  // The joining bonus is on offer to somebody who has not entered a live points challenge (migration 383).
+  const joinOffer = isLive && challenge.scoring === 'points' && myEntries.length === 0 ? (Number(challenge.join_bonus_points) || 0) : 0
+  const vdayToday = isLive ? voucherDays.filter((d) => voucherDayState(d, nowMs) === 'today') : []
   const streaks = dailyStreaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
   const normName = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const entryQ = normName(entryQuery.trim())
@@ -1128,14 +1133,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         ))}
       </div>
       <SwapIn swapKey={tab === 'leaderboard' || tab === 'countries' ? 'board' : 'bonus'}>
-        {tab !== 'leaderboard' && tab !== 'countries' ? (boost ? <BoostCallout boost={boost} /> : <LiveBonusCallout
-            rules={pointRules}
-            now={nowMs}
-            onOpen={() => {
-              setTab('brief')
-              setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
-            }}
-          />) : (
+        {tab !== 'leaderboard' && tab !== 'countries' ? (() => {
+          const toBonus = () => {
+            setTab('brief')
+            setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+          }
+          // EVERY OFFER ON NOW TAKES A TURN IN THE DARK CARD (12 Oct 2026): a running boost, today's voucher day, the
+          // joining bonus for somebody who has not entered. A boost that has not started yet comes after those.
+          const offers = []
+          if (boost?.live) offers.push(<BoostCallout key="boost" boost={boost} />)
+          for (const d of vdayToday) offers.push(<VoucherDayCallout key={d.id} day={d} now={nowMs} onOpen={toBonus} />)
+          if (joinOffer) offers.push(<JoinBonusCallout key="join" points={joinOffer} onOpen={toBonus} />)
+          if (boost && !boost.live) offers.push(<BoostCallout key="boost-next" boost={boost} />)
+          return offers.length ? <OfferRotator items={offers} /> : <LiveBonusCallout rules={pointRules} now={nowMs} onOpen={toBonus} />
+        })() : (
           <BoardStatus
             key={challenge.results_status}
             status={challenge.results_status}
@@ -1457,7 +1468,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // below the brief section and above the points section but have that
         // same read all and show less button for it." They fold exactly like
         // the brief (CollapsibleRich), so the points are still close by.
-        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} />
+        const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} joinPts={joinOffer} voucherDays={voucherDays} />
         // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
         const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
         const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} meId={user.id} /> : null

@@ -62,7 +62,8 @@ export default function ShareLeaderboard({
   const [what, setWhat] = useState('live')
   // What gets PHOTOGRAPHED: the live board has no picture of its own, so its
   // download is the full table.
-  const picture = what === 'live' ? 'table' : what
+  const live = what === 'live' || what === 'livePodium'
+  const picture = what === 'live' ? 'table' : what === 'livePodium' ? 'podium' : what
   const [boardIdx, setBoardIdx] = useState(0)
   const [roomId, setRoomId] = useState(null)
   const [note, setNote] = useState('')
@@ -125,7 +126,7 @@ export default function ShareLeaderboard({
   // Draw whichever is selected, so what you send is what you have already seen.
   const drawKey = `${what}:${boardIdx}:${board?.ranking?.length ?? 0}:${board?.winners?.length ?? 0}:${board?.entries ?? 0}:${board?.views ?? 0}`
   useEffect(() => {
-    if (!open || what === 'live') return undefined
+    if (!open || live) return undefined
     let dead = false
     let url
     setDrawing(true)
@@ -145,7 +146,7 @@ export default function ShareLeaderboard({
       if (url) URL.revokeObjectURL(url)
       setPreview(null)
     }
-  }, [open, render, drawKey, what])
+  }, [open, render, drawKey, live])
 
   useEffect(() => {
     if (open) { setError(''); setNote(''); setBoardIdx(0) }
@@ -167,17 +168,17 @@ export default function ShareLeaderboard({
     setBusy(true)
     setError('')
     try {
-      if (what === 'live') {
+      if (live) {
         if (!room) throw new Error('Pick a room to post into.')
         const { posted, error: postError } = await postToRooms({
           communityIds: room.community_id ? [room.community_id] : [],
           base: room.key,
           senderId: user.id,
           body: (note.trim() || suggested),
-          extra: { leaderboard_challenge_id: challenge.id, leaderboard_group_id: board?.group?.id ?? null },
+          extra: { leaderboard_challenge_id: challenge.id, leaderboard_group_id: board?.group?.id ?? null, ...(what === 'livePodium' ? { leaderboard_view: 'podium' } : {}) },
         })
         if (postError) throw postError
-        onDone?.(posted ? `Live leaderboard posted to ${room.label || ROOM_LABELS[room.key]?.label}. It updates by itself with every sync.` : 'No matching room was found for this challenge.')
+        onDone?.(posted ? `${what === 'livePodium' ? 'Live podium' : 'Live leaderboard'} posted to ${room.label || ROOM_LABELS[room.key]?.label}. It updates by itself with every sync.` : 'No matching room was found for this challenge.')
         onClose?.()
         setBusy(false)
         return
@@ -278,11 +279,14 @@ export default function ShareLeaderboard({
 
           <div>
             <p className="label">What to share</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* LIVE FIRST, BOTH WAYS (12 Oct 2026): the podium moves in the chat like the board does. The pictures stay
+                for downloading and posting elsewhere. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
-                { key: 'live', title: 'Live board', hint: 'Updates in the chat with every sync.', icon: 'sparkles' },
-                { key: 'podium', title: 'Podium image', hint: 'A picture of the winners.', icon: 'trophy' },
-                { key: 'table', title: 'Board image', hint: 'A picture of every place.', icon: 'chart' },
+                { key: 'live', title: 'Live board', hint: 'The podium and every place. Moves with every sync.', icon: 'sparkles' },
+                { key: 'livePodium', title: 'Live podium', hint: 'The top three on their steps. Moves with every sync.', icon: 'trophy' },
+                { key: 'podium', title: 'Podium picture', hint: 'A still picture of the winners, to download too.', icon: 'image' },
+                { key: 'table', title: 'Board picture', hint: 'A still picture of every place, to download too.', icon: 'chart' },
               ].map((o) => (
                 <button
                   key={o.key}
@@ -311,9 +315,9 @@ export default function ShareLeaderboard({
           <div>
             <p className="label">How it will look</p>
             <div className="rounded-card border border-gray-100 bg-cloud/40 p-3">
-              {what === 'live' ? (
+              {live ? (
                 <div className="mx-auto max-w-md">
-                  <LiveLeaderboardCard challengeId={challenge?.id} groupId={board?.group?.id ?? null} />
+                  <LiveLeaderboardCard key={what} challengeId={challenge?.id} groupId={board?.group?.id ?? null} view={what === 'livePodium' ? 'podium' : 'board'} />
                 </div>
               ) : preview && !drawing ? (
                 <img src={preview} alt="Exactly what will be shared" className="mx-auto block w-full max-w-[320px] rounded-xl shadow-card" />
@@ -386,7 +390,7 @@ export default function ShareLeaderboard({
               <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose} disabled={busy}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy || (what !== 'live' && drawing) || !room}>
+              <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy || (!live && drawing) || !room}>
                 {busy ? <Spinner className="h-4 w-4" /> : <Icon name="share" className="h-4 w-4" />}
                 {busy ? 'Sharing…' : 'Share'}
               </button>

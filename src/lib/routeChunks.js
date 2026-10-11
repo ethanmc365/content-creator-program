@@ -87,7 +87,6 @@ export const chunk = {
   AdminHooks: () => import('../pages/admin/AdminHooks'),
   ChallengeRecap: () => import('../pages/ChallengeRecap'),
   AdminEvents: () => import('../pages/admin/AdminEvents'),
-  AdminResources: () => import('../pages/admin/AdminResources'),
   AdminCreatorKit: () => import('../pages/admin/AdminCreatorKit'),
   Updates: () => import('../pages/Updates'),
   VideoIdeas: () => import('../pages/VideoIdeas'),
@@ -152,7 +151,6 @@ const ROUTES = [
   [/^\/admin\/analytics\/[^/]+/, 'AdminChallengeAnalytics'],
   [/^\/admin\/analytics/, 'AdminAnalytics'],
   [/^\/admin\/events/, 'AdminEvents'],
-  [/^\/admin\/resources/, 'AdminResources'],
   [/^\/admin\/creator-kit/, 'AdminCreatorKit'],
   [/^\/updates/, 'Updates'],
   [/^\/ideas/, 'VideoIdeas'],
@@ -235,7 +233,7 @@ const SHAPES = [
   // The video tracker is a GRID OF CARDS, not the admin panel's tile wall
   // and not a form. `cards` is the shape it actually lands as.
   [/^\/admin\/videos/, 'cards'],
-  [/^\/admin\/(challenges|events|resources|notes|email)/, 'form'],
+  [/^\/admin\/(challenges|events|notes|email)/, 'form'],
   [/^\/admin/, 'panel'],
 ]
 

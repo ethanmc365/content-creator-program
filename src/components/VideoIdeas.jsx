@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { notice, promptText } from '../lib/confirm'
+import { toastSuccess } from '../lib/toast'
 import Icon from './Icon'
 import VideoThumb from './VideoThumb'
 import VideoEmbedModal from './VideoEmbedModal'
@@ -101,8 +104,28 @@ export function shelvesFor(rows, tr = (s) => s) {
 
 export default function VideoIdeasBoard({ compact = false }) {
   const tr = useT()
-  const rows = useVideoIdeas()
-  const [playing, setPlaying] = useState(null)
+  const { isAdmin } = useAuth()
+  const fetched = useVideoIdeas()
+  // HOOKS TYPED BY THE TEAM (12 Oct 2026). Ethan: "Admins on the video page can manually type in a hook if you're unable to
+  // register it. Is that right?" It was only possible in the video tracker. Now a team member playing a video here can
+  // type (or correct) the words on it; it is saved on the video and every creator sees it on the card at once.
+  const [typed, setTyped] = useState({})
+  const rows = useMemo(() => (fetched ? fetched.map((r) => (r.id in typed ? { ...r, screen_text: typed[r.id] } : r)) : fetched), [fetched, typed])
+  const [playingId, setPlayingId] = useState(null)
+  const playing = (rows || []).find((r) => r.id === playingId) || null
+  const setPlaying = (v) => setPlayingId(v ? v.id : null)
+  async function typeHook(v) {
+    const next = await promptText(tr('The words on this video, as they appear on screen. Creators see them on the card, in their own language.'), {
+      title: v.screen_text ? tr('Edit the hook') : tr('Type the hook'), defaultValue: v.screen_text || '', confirmLabel: tr('Save'),
+      placeholder: tr('For example: 3 places in Lisbon nobody tells you about'),
+    })
+    if (next === null) return
+    const text = next.trim().slice(0, 600) || null
+    const { error } = await supabase.rpc('set_video_hook', { p_video: v.id, p_is_vip: !!v.is_vip, p_text: text })
+    if (error) { notice(error.message); return }
+    setTyped((m) => ({ ...m, [v.id]: text }))
+    toastSuccess(text ? tr('Hook saved.') : tr('Hook removed.'))
+  }
   const shelves = useMemo(() => shelvesFor(rows, tr), [rows, tr])
   const total = (rows || []).reduce((n, r) => n + (Number(r.views) || 0), 0)
   const hooks = useHookTexts(rows)
@@ -131,7 +154,16 @@ export default function VideoIdeasBoard({ compact = false }) {
       {playing && (
         <VideoEmbedModal
           url={playing.video_url} platform={playing.platform} title={playing.creator_name || playing.platform} onClose={() => setPlaying(null)}
-          footer={playing.screen_text ? <HookPanel text={playing.screen_text} hooks={hooks} /> : null}
+          footer={(playing.screen_text || isAdmin) ? (
+            <div className="space-y-2">
+              {playing.screen_text && <HookPanel text={playing.screen_text} hooks={hooks} />}
+              {isAdmin && (
+                <button type="button" onClick={() => typeHook(playing)} className="btn-secondary w-full justify-center !py-2 text-sm">
+                  <Icon name="pencil" className="h-4 w-4" />{playing.screen_text ? tr('Edit the hook') : tr('Type the hook')}
+                </button>
+              )}
+            </div>
+          ) : null}
         />
       )}
     </div>

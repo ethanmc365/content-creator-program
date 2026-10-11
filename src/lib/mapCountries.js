@@ -135,8 +135,35 @@ export function loadMapCountryNames() {
 
 // Resolve free-text (e.g. "portugal") to the canonical map name ("Portugal"),
 // or null if it doesn't match a country on the map.
+// WHAT PEOPLE ACTUALLY TYPE (12 Oct 2026). Ethan: "some of them don't have maps. They should all be showing maps." Trips
+// on the board said "ID", "DK", "MA", "CZ" (the country picker stores codes) and "South africa"; only exact map names
+// drew a map. Codes are turned into names, and the usual short forms land on the map's own spelling.
+const ALIAS = {
+  usa: 'United States of America', us: 'United States of America', 'united states': 'United States of America', america: 'United States of America',
+  uk: 'United Kingdom', 'great britain': 'United Kingdom', britain: 'United Kingdom', england: 'United Kingdom', scotland: 'United Kingdom', wales: 'United Kingdom', 'northern ireland': 'United Kingdom',
+  'czech republic': 'Czechia', 'bosnia and herzegovina': 'Bosnia and Herz.', 'dominican republic': 'Dominican Rep.',
+  'democratic republic of the congo': 'Dem. Rep. Congo', 'central african republic': 'Central African Rep.',
+  holland: 'Netherlands', 'the netherlands': 'Netherlands', türkiye: 'Turkey', turkiye: 'Turkey', 'ivory coast': "Côte d'Ivoire",
+  'south korea': 'South Korea', 'korea': 'South Korea', 'uae': 'United Arab Emirates', 'emirates': 'United Arab Emirates',
+}
+let regionNames = null
+function nameForCode(code) {
+  try {
+    regionNames = regionNames || new Intl.DisplayNames(['en'], { type: 'region' })
+    return regionNames.of(code.toUpperCase()) || null
+  } catch { return null }
+}
+
 export function canonicalCountry(input, names) {
   if (!input) return null
   const q = input.trim().toLowerCase()
-  return names.find((n) => n.toLowerCase() === q) || null
+  const exact = (x) => (x ? names.find((n) => n.toLowerCase() === x.toLowerCase()) || null : null)
+  const direct = exact(q)
+  if (direct) return direct
+  if (ALIAS[q]) return exact(ALIAS[q])
+  if (/^[a-z]{2}$/.test(q)) {
+    const full = nameForCode(q)
+    return exact(full) || (full && ALIAS[full.toLowerCase()] ? exact(ALIAS[full.toLowerCase()]) : null)
+  }
+  return null
 }

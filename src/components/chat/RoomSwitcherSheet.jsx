@@ -100,6 +100,7 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
         <span className={cx('min-w-0 flex-1 truncate text-[15px] font-bold tracking-[-0.01em]', 'text-ink')}>
           {vip ? tr('VIP {m}', { m: p.name }) : p.name}
         </span>
+        {p.id === currentPlaceId && !vip && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('You are here')}</span>}
         {n > 0 && <UnreadCount n={n} />}
       </div>
     )
@@ -145,10 +146,13 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
                   )}
                 </section>
               )}
+              {/* EACH PLACE ITS OWN CARD (12 Oct 2026). Ethan: switching from Worldwide to UK & Ireland, "they're all
+                  combined together. They should still be a bit split." Every place is a card of its own with its flag
+                  and name on a tinted band, so Worldwide's rooms and a market's rooms never run into each other. */}
               {places.map((p) => (
-                <section key={p.id}>
-                  {placeHead(p)}
-                  <div className="space-y-0.5">
+                <section key={p.id} className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-card">
+                  <div className={cx('border-b border-gray-100 px-1.5 pb-1 pt-1.5', p.id === currentPlaceId ? 'bg-brand-tint/40' : 'bg-cloud/50')}>{placeHead(p)}</div>
+                  <div className="space-y-0.5 p-1.5">
                     {p.rooms.map((r, i) => (
                       <div key={r.id}>
                         {/* The split between the everyday rooms and the VIP ones: one quiet grey line, not a pill on every row (5 Oct 2026). */}
@@ -160,9 +164,9 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
                 </section>
               ))}
               {vipPlaces.map((p) => (
-                <section key={`vip-${p.id}`}>
-                  {placeHead(p, { vip: true })}
-                  <div className="space-y-0.5">{p.rooms.map((r) => row(p, r))}</div>
+                <section key={`vip-${p.id}`} className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-card">
+                  <div className="border-b border-gray-100 bg-cloud/50 px-1.5 pb-1 pt-1.5">{placeHead(p, { vip: true })}</div>
+                  <div className="space-y-0.5 p-1.5">{p.rooms.map((r) => row(p, r))}</div>
                 </section>
               ))}
             </div>

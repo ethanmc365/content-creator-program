@@ -6,7 +6,7 @@ import { Spinner } from '../ui'
 import { cx } from '../../lib/utils'
 import { useIsPhone, useKeyboardOpen } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
-import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor } from '../../lib/tour'
+import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor, tourPreviewWho } from '../../lib/tour'
 import { setTourRunning } from '../../lib/appNag'
 import { placeCard, restingPlace, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
@@ -379,7 +379,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // Put them where the step happens, unless the goal is to navigate somewhere
     // and they are already there.
     const raw = stepAt(step, network)
-    const to = vipPreview && raw && /^\/vip(\?|$)/.test(raw) ? `/vip?mode=as${raw.includes('?') ? `&${raw.split('?')[1]}` : ''}` : raw
+    // AS A REAL VIP WHEN ONE WAS PICKED (12 Oct 2026). Ethan: "show it from a natural VIP creator standpoint, not from my
+    // account". The Testing Centre can name a VIP; their own page is walked (their videos, their payouts), read only.
+    const asWho = vipPreview ? tourPreviewWho() : null
+    const to = vipPreview && raw && /^\/vip(\?|$)/.test(raw) ? `/vip?mode=as${asWho ? `&who=${asWho}` : ''}${raw.includes('?') ? `&${raw.split('?')[1]}` : ''}` : raw
     const g = stepGoal(step, network)
     const alreadyAtGoal = g?.kind === 'route' && location.pathname.startsWith(g.to)
     if (to && !alreadyAtGoal) {

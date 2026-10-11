@@ -5,12 +5,13 @@ import { certificateLocales, dateIn, prefetchCertificateDesign, useCertificateDe
 import { supabase } from '../../lib/supabase'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
+import SocialMark from '../SocialMark'
 import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { getLocale, tIn, useT } from '../../lib/i18n'
 import { downloadBlob, snapshotNode } from '../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
-import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates, tierOf } from '../../lib/certificates'
+import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates } from '../../lib/certificates'
 
 // WHAT THE PROGRAMME HAS GIVEN YOU, ON A WALL.
 //
@@ -57,6 +58,13 @@ export default function CertificateWall({ profileId, className, readOnly = false
     for (const r of sorted) prefetchCertificateDesign(r.design, langs)
   }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [load])
+  // The certificate notifications open /rewards?tab=certificates: bring the wall into view once it has drawn.
+  const loaded = rows !== null
+  useEffect(() => {
+    if (!loaded || !/[?&]tab=certificates\b/.test(window.location.search)) return undefined
+    const t = setTimeout(() => document.getElementById('certificates')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 250)
+    return () => clearTimeout(t)
+  }, [loaded])
 
   // SEEN IS MARKED WHEN THEY OPEN IT, not when the page loads. A creator who
   // scrolls past a section has not seen their certificate; a creator who opens
@@ -75,15 +83,20 @@ export default function CertificateWall({ profileId, className, readOnly = false
   // something that appears out of nowhere. Hand-given ones are left out - there is no way to "go
   // and get" those.
   const have = new Set(rows.map((r) => r.design_id))
-  const toEarn = designs.filter((d) => d.is_active && d.award_on !== 'manual' && !have.has(d.id))
+  // Only what this person can actually earn: community designs for the community, VIP ones for VIP and official creators.
+  const forMe = (d) => (d.audience === 'all') || (d.audience === 'vip' ? !!profile?.is_vip : !profile?.is_vip)
+  const toEarn = designs.filter((d) => d.is_active && d.award_on !== 'manual' && !have.has(d.id) && forMe(d))
   if (rows.length === 0 && toEarn.length === 0) return null
 
   return (
-    <section className={className}>
-      <div className="mb-3">
-        <h2 className="text-lg font-semibold text-ink">{tr('Your certificates')}</h2>
+    <section id="certificates" className={cx('scroll-mt-24', className)}>
+      <div className="mb-5">
+        <h2 className="flex items-center gap-2 text-xl font-bold text-ink sm:text-2xl">
+          <Icon name="badge" className="h-6 w-6 text-brand" />{tr('Your certificates')}
+          {rows.length > 0 && <span className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">{rows.length}</span>}
+        </h2>
         <p className="mt-1 text-sm text-smoke">
-          {tr('Yours to download and post. They also appear on your portfolio.')}
+          {tr('Yours to download and share on Instagram or LinkedIn. Each one has its own code anyone can check, and they also appear on your portfolio.')}
         </p>
         {speaks.length > 0 && (
           <p className="mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs text-smoke">
@@ -96,11 +109,14 @@ export default function CertificateWall({ profileId, className, readOnly = false
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {rows.map((row) => (
-          <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} />
+      {/* BIG, TWO A ROW (12 Oct 2026). Ethan: "Currently, it's really tiny. It should be big, especially on desktop ...
+          have two on each side and, on mobile, just one." Each tile is the certificate itself at the width of its column,
+          the thing you are about to open, with Save and Share under it. */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+        {rows.map((row, i) => (
+          <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} index={i} />
         ))}
-        {toEarn.map((d) => <LockedRow key={d.id} design={d} lang={listLang} />)}
+        {toEarn.map((d, i) => <LockedRow key={d.id} design={d} lang={listLang} index={rows.length + i} />)}
       </div>
 
       <CertificateViewer row={open} onClose={() => setOpen(null)} tr={tr} />
@@ -110,28 +126,53 @@ export default function CertificateWall({ profileId, className, readOnly = false
 
 const HOW_TO_EARN = {
   challenge_rank: 'Finish in a prize place in a challenge',
-  challenge_entry: 'Enter a challenge',
+  challenge_entry: 'Post your first video in a challenge',
   creator_joined: 'Given to every creator who joins',
   milestone: 'Reach the milestone',
 }
 
-function LockedRow({ design: raw, lang }) {
+function LockedRow({ design: raw, lang, index = 0 }) {
   const tr = useT()
   const { design } = useCertificateDesign(raw, lang)
   return (
-    <div className="relative flex items-center gap-3 rounded-card border border-dashed border-gray-200 bg-white/60 p-4">
-      <span className="relative block h-[62px] w-[88px] shrink-0 overflow-hidden rounded-lg border border-gray-100 opacity-45 grayscale">
-        <span className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${88 / CERT_W})` }}>
+    <div className="animate-rise overflow-hidden rounded-card border border-dashed border-gray-200 bg-white/70" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
+      <div className="relative p-3 sm:p-4">
+        <FitCard className="opacity-40 grayscale">
           <CertificateCard design={design} lang={lang} facts={sampleFacts(design)} />
+        </FitCard>
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-brand shadow-lift"><Icon name="lock" className="h-6 w-6" /></span>
         </span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-smoke">{design?.title || tr('Certificate')}</span>
-        <span className="mt-0.5 flex items-center gap-1 text-[11px] text-smoke">
-          <Icon name="lock" className="h-3 w-3" />
-          {tr(HOW_TO_EARN[raw.award_on] || 'Still to earn')}
+      </div>
+      <div className="flex items-center gap-2 border-t border-dashed border-gray-200 px-4 py-3">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-smoke">{design?.title || tr('Certificate')}</span>
+          <span className="block truncate text-xs text-smoke">{tr(HOW_TO_EARN[raw.award_on] || 'Still to earn')}</span>
         </span>
-      </span>
+        <span className="shrink-0 rounded-full border border-gray-200 px-2.5 py-0.5 text-[11px] font-semibold text-smoke">{tr('Still to earn')}</span>
+      </div>
+    </div>
+  )
+}
+
+/** A certificate drawn at its true size and scaled to whatever width its box has. */
+export function FitCard({ children, className, w = CERT_W, h = CERT_H }) {
+  const [box, setBox] = useState(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    if (!box) return undefined
+    const measure = () => setWidth(box.clientWidth)
+    measure()
+    // A timer as well: a hidden tab never delivers ResizeObserver callbacks.
+    const t = setTimeout(measure, 300)
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => { clearTimeout(t); ro.disconnect() }
+  }, [box])
+  const k = width ? width / w : 0
+  return (
+    <div ref={setBox} className={cx('relative w-full overflow-hidden rounded-xl shadow-card ring-1 ring-black/5', className)} style={{ aspectRatio: `${w} / ${h}` }}>
+      {k > 0 && <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${k})`, width: w, height: h }}>{children}</div>}
     </div>
   )
 }
@@ -164,11 +205,11 @@ function AdminPreview({ designs, className }) {
           {tr('Only admins see this preview. Each one uses your name and a sample challenge; open one to check the certificate, the Instagram story and both downloads. Drafts are not given to anybody.')}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {designs.map((d) => (
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+        {designs.map((d, i) => (
           <div key={d.id} className="relative">
-            <CertificateRow row={rowFor(d)} lang="en" readOnly onOpen={() => setOpen(rowFor(d))} />
-            <span className={cx('pointer-events-none absolute bottom-3 right-3 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', d.is_active ? 'bg-green-50 text-green-700' : 'bg-cloud text-gray-500')}>
+            <CertificateRow row={rowFor(d)} lang="en" readOnly onOpen={() => setOpen(rowFor(d))} index={i} />
+            <span className={cx('pointer-events-none absolute left-5 top-5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-sm', d.is_active ? 'bg-brand text-white' : 'bg-white text-gray-500')}>
               {d.is_active ? tr('Live') : tr('Draft')}
             </span>
           </div>
@@ -179,44 +220,35 @@ function AdminPreview({ designs, className }) {
   )
 }
 
-// ONE CERTIFICATE IN THE LIST, in the reader's language when they speak it.
-function CertificateRow({ row, lang, readOnly, onOpen }) {
+// ONE CERTIFICATE IN THE LIST, in the reader's language when they speak it: the card itself, big, and what it is for.
+function CertificateRow({ row, lang, readOnly, onOpen, index = 0 }) {
   const tr = useT()
   const { design } = useCertificateDesign(row.design, lang)
-  const tier = tierOf(design?.tier)
-  const accent = design?.accent || tier.accent
   const line = fillTemplate(design?.body, row.facts).split('\n')[0]
   return (
-            <button
-                            type="button"
-              onClick={onOpen}
-              className="group relative flex w-full items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"
-            >
-              {/* THE CERTIFICATE ITSELF, SMALL (28 Sep 2026), rather than an icon
-                  standing in for it: the thing you are about to open. */}
-              <span className="relative block h-[62px] w-[88px] shrink-0 overflow-hidden rounded-lg border border-gray-100 shadow-sm" style={{ background: accent }}>
-                <span className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${88 / CERT_W})` }}>
-                  <CertificateCard design={design} lang={lang} facts={{ ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }} />
-                </span>
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-ink">{design?.title || tr('Certificate')}</span>
-                {line && <span className="block truncate text-[11px] text-smoke">{line}</span>}
-                {/* THE SAME DATE THE CERTIFICATE ITSELF PRINTS. `facts.date`
-                    is the frozen one - the day the challenge ended - and
-                    `awarded_at` is the day the row happened to be written,
-                    which for the certificates backfilled onto an August
-                    challenge is today. Showing one here and the other on the
-                    card is two answers to one question. */}
-                <span className="mt-0.5 block text-[10px] text-gray-400">
-                  {lang === 'en' ? formatAwardDate(row.facts?.date || row.awarded_at) : dateIn(lang, row.facts?.date || row.awarded_at)}
-                </span>
-              </span>
-              {!row.seen_at && !readOnly && (
-                <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-brand" aria-label={tr('New')} />
-              )}
-              <Icon name="expand" className="h-4 w-4 shrink-0 text-gray-300 group-hover:text-brand" />
-            </button>
+    <article className="group animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
+      <button type="button" onClick={onOpen} aria-label={tr('Open {t}', { t: design?.title || tr('Certificate') })} className="relative block w-full p-3 text-left sm:p-4">
+        <FitCard className="transition-transform duration-500 group-hover:scale-[1.01]">
+          <CertificateCard design={design} lang={lang} facts={{ ...(row.facts || {}), serial: row.serial, photo: row.person?.photo_url || '' }} />
+        </FitCard>
+        {!row.seen_at && !readOnly && (
+          <span className="absolute left-6 top-6 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold text-white shadow-card sm:left-7 sm:top-7">{tr('New')}</span>
+        )}
+      </button>
+      <div className="flex items-center gap-3 border-t border-gray-50 px-4 py-3 sm:px-5">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-bold text-ink">{design?.title || tr('Certificate')}</span>
+          <span className="block truncate text-xs text-smoke">
+            {line ? `${line} · ` : ''}
+            {/* The same date the certificate itself prints: facts.date is frozen at award time. */}
+            {lang === 'en' ? formatAwardDate(row.facts?.date || row.awarded_at) : dateIn(lang, row.facts?.date || row.awarded_at)}
+          </span>
+        </span>
+        <button type="button" onClick={onOpen} className="btn-primary shrink-0 !px-4 !py-2 text-xs">
+          <Icon name="share" className="h-4 w-4" />{tr('Save and share')}
+        </button>
+      </div>
+    </article>
   )
 }
 
@@ -359,6 +391,8 @@ function CertificateViewer({ row, onClose, tr }) {
           </button>
         </div>
 
+        <ShareRow row={row} design={design} tr={tr} onStory={() => { setView('story'); snap('story') }} busy={busy} />
+
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-[11px] tracking-wider text-gray-400">{row.serial}</span>
           <button type="button" onClick={onClose} className="btn-ghost ml-auto">{tr('Close')}</button>
@@ -379,6 +413,50 @@ function CertificateViewer({ row, onClose, tr }) {
         </FullScreen>
       )}
     </Modal>
+  )
+}
+
+// SHARE IT (12 Oct 2026). Ethan: "There should maybe be a suggestion as well to share it on their Instagram, LinkedIn,
+// etc." Instagram takes the story picture (the share sheet on a phone, a download elsewhere); LinkedIn gets the
+// certificate on the creator's profile under Licenses & certifications, with the check link as its credential URL, or a
+// post linking to the check page; and the check link itself can be copied anywhere.
+function ShareRow({ row, design, tr, onStory, busy }) {
+  const [copied, setCopied] = useState(false)
+  if (!row) return null
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://trypcreators.vercel.app'
+  const verify = `${origin}/verify/${encodeURIComponent(row.serial)}`
+  const when = new Date(row.facts?.date || row.awarded_at || 0)
+  const addToProfile = `https://www.linkedin.com/profile/add?${new URLSearchParams({
+    startTask: 'CERTIFICATION_NAME', name: design?.title || 'Tryp.com certificate', organizationName: 'Tryp.com',
+    issueYear: String(when.getFullYear()), issueMonth: String(when.getMonth() + 1), certUrl: verify, certId: row.serial,
+  })}`
+  const post = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(verify)}`
+  async function copy() {
+    try { await navigator.clipboard.writeText(verify); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { /* ignore */ }
+  }
+  const tile = 'group flex min-w-0 items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:shadow-card'
+  return (
+    <section className="rounded-2xl bg-cloud/60 p-3 sm:p-4">
+      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">{tr('Share it')}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button type="button" onClick={onStory} disabled={!!busy} className={tile}>
+          <SocialMark brand="instagram" colored className="h-6 w-6 shrink-0" />
+          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Post it on your story')}</span><span className="block truncate text-[11px] text-smoke">{tr('Saves the story picture, ready to post')}</span></span>
+        </button>
+        <a href={addToProfile} target="_blank" rel="noreferrer" className={tile}>
+          <SocialMark brand="linkedin" colored className="h-6 w-6 shrink-0" />
+          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Add it to LinkedIn')}</span><span className="block truncate text-[11px] text-smoke">{tr('Under Licenses and certifications')}</span></span>
+        </a>
+        <a href={post} target="_blank" rel="noreferrer" className={tile}>
+          <SocialMark brand="linkedin" colored className="h-6 w-6 shrink-0" />
+          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Post about it on LinkedIn')}</span><span className="block truncate text-[11px] text-smoke">{tr('Attach the saved picture to your post')}</span></span>
+        </a>
+        <button type="button" onClick={copy} className={tile}>
+          <Icon name={copied ? 'check' : 'link'} className="h-6 w-6 shrink-0 text-brand" />
+          <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{copied ? tr('Copied') : tr('Copy the check link')}</span><span className="block truncate text-[11px] text-smoke">{tr('Anyone can confirm it is real')}</span></span>
+        </button>
+      </div>
+    </section>
   )
 }
 

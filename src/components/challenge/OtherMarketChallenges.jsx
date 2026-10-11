@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
 import { useT } from '../../lib/i18n'
 import { flagFromIso } from '../../lib/flags'
 import { cx, formatDate } from '../../lib/utils'
-import { notice } from '../../lib/confirm'
 import Icon from '../Icon'
-import { Modal } from '../ui'
+import { openJoinMarket } from '../network/JoinMarket'
 
 // WHAT THE OTHER MARKETS ARE RUNNING (1 Oct 2026).
 //
@@ -25,12 +23,8 @@ import { Modal } from '../ui'
 // already, so for them the rows are the page's own and each card opens it.
 export default function OtherMarketChallenges({ staffRows = null, communities = [] }) {
   const tr = useT()
-  const { user } = useAuth()
   const staff = Array.isArray(staffRows)
   const [rows, setRows] = useState(null)
-  const [asking, setAsking] = useState(null) // the challenge whose pop-up is open
-  const [note, setNote] = useState('')
-  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     if (staff) return undefined
@@ -52,27 +46,6 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
     })
     : (rows ?? [])
   if (list.length === 0) return null
-
-  async function sendRequest(e) {
-    e.preventDefault()
-    if (!asking || !user?.id) return
-    const why = note.trim()
-    if (why.length < 10) return
-    setSending(true)
-    const { error } = await supabase.from('market_join_requests').insert({
-      community_id: asking.community_id, profile_id: user.id, note: why, challenge_id: asking.id,
-    })
-    setSending(false)
-    // 23505 is the "one open request per market" index: they already asked.
-    if (error && error.code !== '23505') {
-      notice(tr('Could not send that request: {msg}', { msg: error.message }))
-      return
-    }
-    setRows((cur) => (cur ?? []).map((r) => (r.community_id === asking.community_id ? { ...r, join_state: 'pending' } : r)))
-    notice(tr('Request sent to the {market} team. They will let you know.', { market: asking.market_name }))
-    setAsking(null)
-    setNote('')
-  }
 
   return (
     <section>
@@ -127,7 +100,8 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
             <button
               key={c.id}
               type="button"
-              onClick={() => { setAsking(c); setNote('') }}
+              // ONE SHEET FOR EVERY REQUEST (12 Oct 2026): the same questions (language, ties, a real reason) wherever it is asked.
+              onClick={() => openJoinMarket(c.community_id)}
               // GREYED, NOT HIDDEN: it is somebody else's challenge, shown so
               // you know it exists. Full colour comes back on hover/press so the
               // card still reads as something you can open.
@@ -142,49 +116,6 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
         })}
       </div>
 
-      {!staff && (
-        <Modal open={!!asking} onClose={() => setAsking(null)} title={asking ? tr('Join {market} to take part', { market: asking.market_name }) : ''}>
-          {asking && (
-            <form onSubmit={sendRequest} className="space-y-4" noValidate>
-              <div className="rounded-xl bg-cloud/60 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-smoke">{asking.market_name}</p>
-                <p className="mt-0.5 font-semibold text-ink">{asking.title}</p>
-                <p className="mt-0.5 text-xs text-smoke">{formatDate(asking.start_date)} → {formatDate(asking.end_date)}</p>
-              </div>
-              <p className="text-sm text-ink/80">
-                {tr('This challenge is for creators in the {market} community. Ask to join it and tell the team why you would like to create content for {market} and take part.', { market: asking.market_name })}
-              </p>
-              {asking.join_state === 'pending' ? (
-                <p className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium text-ink">
-                  <Icon name="check" className="h-4 w-4 text-brand" />
-                  {tr('You have already asked to join {market}. The team will let you know.', { market: asking.market_name })}
-                </p>
-              ) : (
-                <>
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold text-ink">{tr('Why would you like to join?')}</span>
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={4}
-                      maxLength={600}
-                      className="input no-ios-zoom w-full resize-none"
-                      placeholder={tr('For example: I travel there often, I speak the language, my audience is there...')}
-                    />
-                    <span className="mt-1 block text-right text-[11px] text-smoke">{note.trim().length < 10 ? tr('A sentence or two, please.') : `${note.length}/600`}</span>
-                  </label>
-                  <div className="flex justify-end gap-2">
-                    <button type="button" onClick={() => setAsking(null)} className="btn-secondary">{tr('Cancel')}</button>
-                    <button type="submit" disabled={sending || note.trim().length < 10} className="btn-primary disabled:opacity-50">
-                      {sending ? tr('Sending...') : tr('Send request')}
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
-          )}
-        </Modal>
-      )}
     </section>
   )
 }
