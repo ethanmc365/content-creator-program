@@ -2,19 +2,28 @@ import { useEffect, useState } from 'react'
 import LegalShell, { H2 } from './LegalShell'
 import { supabase } from '../../lib/supabase'
 import { renderNote } from '../../lib/noteMarkdown'
+import { useLocale } from '../../lib/i18n'
 
 // ONE SET OF TERMS (7 Oct 2026). Once the team publishes the Community Terms on Admin > Agreements, this public page
 // shows exactly that text - the same words a creator accepts in the app - and the hand-written page below is only the
 // fallback for before then (or if the read fails).
 export default function Terms() {
   const [doc, setDoc] = useState(undefined)
+  const locale = useLocale()
   useEffect(() => {
     let alive = true
-    supabase.from('agreements').select('title, body, published_at, version').eq('audience', 'creator').not('published_at', 'is', null)
-      .order('version', { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => { if (alive) setDoc(data || null) }, () => { if (alive) setDoc(null) })
+    // In the reader's language when it has been translated (agreement_translations, migration 388); English otherwise.
+    supabase.from('agreements').select('id, title, body, published_at, version').eq('audience', 'creator').not('published_at', 'is', null)
+      .is('programme_id', null).order('version', { ascending: false }).limit(1).maybeSingle()
+      .then(async ({ data }) => {
+        if (data && locale !== 'en') {
+          const { data: tr } = await supabase.from('agreement_translations').select('title, body').eq('agreement_id', data.id).eq('locale', locale).maybeSingle()
+          if (tr) Object.assign(data, tr)
+        }
+        if (alive) setDoc(data || null)
+      }, () => { if (alive) setDoc(null) })
     return () => { alive = false }
-  }, [])
+  }, [locale])
   if (doc === undefined) return <LegalShell title="Terms of Service" updated=""><p className="text-smoke">Loading...</p></LegalShell>
   if (!doc) return <LegacyTerms />
   const updated = new Date(doc.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -74,7 +83,7 @@ export function publicText(md = '') {
 // relying on it.
 function LegacyTerms() {
   return (
-    <LegalShell title="Terms of Service" updated="4 September 2026">
+    <LegalShell title="Terms of Service" updated="12 October 2026">
       <p>
         These terms govern your use of the Tryp.com Content Creator Community ("the Programme"). By
         creating an account you agree to them. The Programme is operated by{' '}
@@ -84,7 +93,7 @@ function LegacyTerms() {
 
       <H2>1. Membership</H2>
       <p>
-        You must be at least 16 years old. One account per person. New applications are read by a
+        You must be at least 18 years old. One account per person. New applications are read by a
         member of the Tryp.com Team, who may approve or decline them; we are not obliged to give a
         reason for declining an application, although we usually will. You are responsible for
         keeping your login details secure and for what happens on your account.

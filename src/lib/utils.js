@@ -322,17 +322,12 @@ export function formatDobInput(iso) {
 
 // THE PROGRAMME'S MINIMUM AGE, IN ONE PLACE.
 //
-// It is SIXTEEN, and that is not a guess: the database enforces it
-// (`profiles_age_check`, age between 16 and 100), the Terms say "You must be at
-// least 16 years old", and the Privacy Policy says "The Programme is for people
-// aged 16 and over". Three statements of the same rule that have to agree, and
-// this is the fourth - the one the form checks BEFORE the database gets a
-// chance to refuse the row.
-//
-// Changing it is a real decision rather than an edit: raise this and the two
-// legal pages have to be raised with it, and 16- and 17-year-olds who have
-// already applied stop being eligible.
-export const MIN_AGE = 16
+// EIGHTEEN since 12 Oct 2026 (Ethan: "ensure the sign up is now limited to creators aged 18 or more"). The database
+// enforces it too (`trg_zz_adults_only`, migration 388): an under-18 date of birth, finishing onboarding or being
+// approved under 18 is refused, except for the few members who were already in aged 16 or 17 (`age_exceptions`) -
+// they stay with a parent or guardian's confirmation (lib/guardianConsent). The Community Terms, the fallback Terms
+// page and the Privacy Policy all say 18. `profiles_age_check` still says 16 only because those members exist.
+export const MIN_AGE = 18
 
 /** Whole years between a dob (ISO date) and today. Null if no dob. */
 export function ageFromDob(iso) {

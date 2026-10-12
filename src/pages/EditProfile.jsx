@@ -295,7 +295,7 @@ export default function EditProfile() {
                 <label htmlFor="name" className="label">{tr("Display name")}</label>
                 <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
               </div>
-              <DobField value={form.dob} onChange={(dob) => set({ dob })} fallbackAge={profile?.age ?? null} />
+              <DobField value={form.dob} onChange={(dob) => set({ dob })} fallbackAge={profile?.age ?? null} checkAge={!(profile?.age != null && profile.age < 18)} />
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>

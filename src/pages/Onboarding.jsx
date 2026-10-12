@@ -678,10 +678,7 @@ export default function Onboarding() {
     const age = ageFromDob(draft.dob)
     if (age != null && age < MIN_AGE) {
       setStep(steps.findIndex((s) => s.key === 'based'))
-      await notice(
-        tr('The Tryp.com Content Creator Community is for people aged {min} and over, and the date of birth you have entered makes you {age}. Nothing has been sent. You are very welcome to apply again once you turn {min} - we will still be here.', { min: MIN_AGE, age }),
-        { title: tr('You are a little too young for this one') },
-      )
+      await tooYoungNotice(tr)
       return
     }
     setBusy(true)
@@ -926,7 +923,13 @@ export default function Onboarding() {
                   </p>
                 </div>
 
-                <DobField value={draft.dob} onChange={(dob) => set({ dob })} required />
+                <DobField
+                  value={draft.dob}
+                  // 12 Oct 2026: the moment a whole date makes them under 18, say so in a pop-up - not only a red line
+                  // under the field and a blocked Next.
+                  onChange={(dob) => { set({ dob }); const a = ageFromDob(dob); if (a != null && a < MIN_AGE) tooYoungNotice(tr) }}
+                  required
+                />
                 <PhoneInput value={contact} onChange={(c) => { setError(''); setContact(c) }} required />
               </div>
             )}
@@ -1878,5 +1881,14 @@ function DemoGallery() {
       </div>
       <p className="mt-3 text-center text-xs text-smoke">{tr("Sample gallery. Uploading is switched off in the Testing Centre.")}</p>
     </div>
+  )
+}
+
+// THE ONE ANSWER TO AN UNDER-18 DATE OF BIRTH (12 Oct 2026), in Ethan's words: "just show a popup saying this community
+// is only for creators aged 18 or over". Shown when the date is typed and again if they reach Submit with it.
+export function tooYoungNotice(tr) {
+  return notice(
+    tr('Nothing has been sent. You are very welcome to apply once you turn 18.'),
+    { title: tr('This community is only for creators aged 18 or over') },
   )
 }

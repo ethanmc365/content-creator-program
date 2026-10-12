@@ -30,7 +30,7 @@ import LegalShell, { H2 } from './LegalShell'
 // it before it is relied on, and keep the "last updated" date honest.
 export default function PrivacyPolicy() {
   return (
-    <LegalShell title="Privacy Policy" updated="7 October 2026">
+    <LegalShell title="Privacy Policy" updated="12 October 2026">
       <p>
         This policy explains how the Tryp.com Content Creator Community ("the Programme", "we", "us")
         collects and uses your personal data, and the rights you have under the EU General Data
@@ -167,11 +167,12 @@ export default function PrivacyPolicy() {
 
       <H2>12. Children</H2>
       <p>
-        The Programme is for people aged 16 and over, and the VIP programme for people aged 18 and
-        over. We ask for your date of birth in order to enforce that. A creator aged 16 or 17 accepts
-        the Community Terms together with a parent or guardian, whose name and email we keep with
-        that acceptance and use only about the membership. If we learn that an account belongs to
-        somebody younger than 16, we delete it.
+        The Programme, including the VIP programme, is for people aged 18 and over, and we ask for
+        your date of birth in order to enforce that. The only exception is a creator who was already
+        a member aged 16 or 17 when the Programme became 18+ (13 October 2026): they stay only with
+        the confirmation of a parent or guardian, whose name, email and confirmation we keep with
+        that acceptance and use only about the membership. If we learn that any other account
+        belongs to somebody under 18, we close it and delete their data.
       </p>
 
       <H2>13. Changes</H2>

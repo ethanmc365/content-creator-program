@@ -234,8 +234,49 @@ function PublishedView({ doc, onPreview }) {
         <Icon name={open ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />{open ? 'Hide the text' : 'Read the text'}
       </button>
       {open && <div className="mt-2 animate-rise"><AgreementDoc body={sampleFill(doc.body)} /></div>}
+      <Translations doc={doc} />
       <p className="mt-4 break-all font-mono text-[10px] text-gray-400">SHA-256 {doc.body_sha256}</p>
     </section>
+  )
+}
+
+const LANG_NAMES = { es: 'Spanish', pt: 'Portuguese', de: 'German', ro: 'Romanian' }
+
+/**
+ * THE SAME DOCUMENT IN THE OTHER APP LANGUAGES (12 Oct 2026, migration 388). A creator reads, accepts and gets a signed
+ * copy in their own language when one exists here; English otherwise. Each translation says the English text prevails.
+ * They are locked with the document once it is published. A draft edited after translating needs them redone.
+ */
+function Translations({ doc, draft = false }) {
+  const [rows, setRows] = useState(null)
+  const [open, setOpen] = useState(null)
+  useEffect(() => {
+    let alive = true
+    supabase.from('agreement_translations').select('locale, title, body, updated_at').eq('agreement_id', doc.id)
+      .then(({ data }) => { if (alive) setRows(data || []) })
+    return () => { alive = false }
+  }, [doc.id])
+  if (!rows) return null
+  const shown = rows.find((r) => r.locale === open)
+  return (
+    <div className="mt-4 rounded-2xl bg-cloud/60 px-4 py-3">
+      <p className="text-sm font-semibold text-ink">
+        <Icon name="globe" className="mr-1.5 inline h-4 w-4 text-brand" />
+        {rows.length ? `Translated into ${rows.map((r) => LANG_NAMES[r.locale]).join(', ')}` : 'Not translated yet: everyone reads it in English'}
+      </p>
+      {draft && rows.length > 0 && <p className="mt-1 text-[13px] text-smoke">If you change the English draft, ask for the translations to be updated before publishing.</p>}
+      {rows.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {rows.map((r) => (
+            <button key={r.locale} type="button" onClick={() => setOpen(open === r.locale ? null : r.locale)}
+              className={cx('rounded-full px-3 py-1.5 text-[13px] font-bold transition-transform duration-200 hoverable:hover:-translate-y-px', open === r.locale ? 'bg-brand text-white' : 'bg-white text-ink')}>
+              {LANG_NAMES[r.locale]}
+            </button>
+          ))}
+        </div>
+      )}
+      {shown && <div className="mt-3 animate-rise"><AgreementDoc body={sampleFill(shown.body)} /></div>}
+    </div>
   )
 }
 
@@ -244,8 +285,8 @@ function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
   return (
     <div className="flex flex-wrap gap-2">
       <button type="button" onClick={() => onPreview(false)} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{label}</button>
-      {/* 9 Oct 2026: "it should say Preview Under 18 as well". The parent step itself is switched off for real creators (lib/guardianConsent). */}
-      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="How it would look for a creator aged 16 or 17, who adds a parent or guardian (switched off for real creators for now)"><Icon name="eye" className="h-4 w-4" />Preview Under 18</button>}
+      {/* 9 Oct 2026: "it should say Preview Under 18 as well". Since 12 Oct the parent step is live for the members who were already in aged 16 or 17. */}
+      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="What a member aged 16 or 17 (one of the few who joined before the community became 18+) sees: they add a parent or guardian, who confirms on a link"><Icon name="eye" className="h-4 w-4" />Preview Under 18</button>}
     </div>
   )
 }
@@ -345,6 +386,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
         {/* changeDelay: the whole text is turned back into markdown after a pause in typing, not on every key. */}
         <RichEditable ref={editor} docId={doc.id} initialMd={doc.body} onChangeMd={setBody} changeDelay={300} className={cx('agreement-text min-h-[24rem] rounded-card border border-gray-200 bg-white px-5 py-4 leading-relaxed focus:border-brand/40', size === 'sm' ? 'text-[13px]' : size === 'lg' ? 'text-[17px]' : 'text-[14.5px]')} />
       </div>
+      <Translations doc={doc} draft />
       <label className="flex items-center gap-2.5 text-sm font-semibold text-ink"><Toggle on={sig} onChange={setSig} label="Ask for a signature" />Ask for a signature (typed or drawn) instead of a tick</label>
       <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
         <button type="button" onClick={() => save(false)} disabled={busy || !dirty} className="btn-secondary !py-2.5 text-sm disabled:opacity-50">{busy ? <Spinner className="h-4 w-4" /> : null}Save draft</button>

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { onResume } from '../../lib/resume'
 import { setAgreementHold } from '../../lib/appNag'
 import AgreementSheet from './AgreementSheet'
+import { useLocale } from '../../lib/i18n'
 
 // Every published agreement this person has not accepted yet, one after another, the first time the app opens after
 // it is published (and again on resume, so a version published while the app sat in the background is still asked
@@ -20,6 +21,7 @@ import AgreementSheet from './AgreementSheet'
 export default function AgreementGate() {
   const { user, profile } = useAuth()
   const { pathname } = useLocation()
+  const locale = useLocale()
   const [queue, setQueue] = useState(null)
   const [accepted, setAccepted] = useState(() => new Set())
   const staff = profile?.platform_role === 'owner' || profile?.platform_role === 'global_admin'
@@ -35,7 +37,8 @@ export default function AgreementGate() {
 
   const load = useCallback(async () => {
     if (skip) return
-    const { data, error } = await supabase.rpc('my_pending_agreements')
+    // The text in the reader's language where it has been translated; accept_agreement records exactly that (388).
+    const { data, error } = await supabase.rpc('my_pending_agreements', { p_locale: locale })
     if (error) { setQueue((q) => q ?? []); return }
     // Was an earlier version of the same document accepted? Then this one is an UPDATE, and the sheet says so.
     const rows = data || []
@@ -45,7 +48,7 @@ export default function AgreementGate() {
     // The community terms before the VIP agreement: the one everybody has, then the one only VIPs have.
     rows.sort((a, b) => (a.audience === 'creator' ? 0 : 1) - (b.audience === 'creator' ? 0 : 1))
     setQueue(rows.map((d) => ({ ...d, updated: seenAudiences.has(d.audience) })))
-  }, [skip])
+  }, [skip, locale])
 
   useEffect(() => { load() }, [load])
   useEffect(() => onResume(load), [load])

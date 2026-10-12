@@ -7,7 +7,7 @@ import GuardianShare, { useGuardianLinks } from '../components/agreements/Guardi
 import { GUARDIAN_CONSENT_ON } from '../lib/guardianConsent'
 import { SignatureImage } from '../components/agreements/SignaturePad'
 import { dateTag, cx } from '../lib/utils'
-import { useT } from '../lib/i18n'
+import { useT, useLocale } from '../lib/i18n'
 import { useAuth } from '../context/AuthContext'
 import { notice } from '../lib/confirm'
 
@@ -39,6 +39,7 @@ function useSignedPdf() {
 export default function Agreements() {
   const guardianLinks = useGuardianLinks()
   const tr = useT()
+  const locale = useLocale()
   const [pdfBusy, downloadPdf] = useSignedPdf()
   const [current, setCurrent] = useState(undefined)
   const [pending, setPending] = useState([])
@@ -50,19 +51,20 @@ export default function Agreements() {
   // come from my_pending_agreements; signed ones show the exact filled-in text that was signed (`rendered_body`).
   const load = useCallback(async () => {
     const [{ data: pend }, { data: had }] = await Promise.all([
-      supabase.rpc('my_pending_agreements'),
-      supabase.rpc('my_agreements'),
+      // In the reader's language where the document has been translated (migration 388).
+      supabase.rpc('my_pending_agreements', { p_locale: locale }),
+      supabase.rpc('my_agreements', { p_locale: locale }),
     ])
     const signedNow = (had || []).filter((h) => h.is_current)
     const docs = await Promise.all(signedNow.map(async (h) => {
-      const { data } = await supabase.rpc('agreement_for_me', { p_agreement: h.agreement_id })
+      const { data } = await supabase.rpc('agreement_for_me', { p_agreement: h.agreement_id, p_locale: locale })
       const d = (Array.isArray(data) ? data[0] : data) || { id: h.agreement_id, title: h.title, audience: h.audience, version: h.version, summary: '' }
       return { ...d, body: h.rendered_body || d.body }
     }))
     setCurrent([...(pend || []), ...docs].sort((a, b) => (a.audience === 'creator' ? -1 : 1) - (b.audience === 'creator' ? -1 : 1)))
     setPending(pend || [])
     setMine(had || [])
-  }, [])
+  }, [locale])
   useEffect(() => { load() }, [load])
 
   const acceptanceOf = (doc) => mine.find((m) => m.agreement_id === doc.id)

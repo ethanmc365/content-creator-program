@@ -282,7 +282,8 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
  * Shows the derived age once a valid date is entered. We only ever surface age
  * publicly, never the full date of birth.
  */
-export function DobField({ value, onChange, required, fallbackAge = null }) {
+// `checkAge` off: a member who was already in aged 16 or 17 (an age exception, migration 388) editing their own profile.
+export function DobField({ value, onChange, required, fallbackAge = null, checkAge = true }) {
   const tr = useT()
   const [text, setText] = useState(() => formatDobInput(value))
 
@@ -312,7 +313,7 @@ export function DobField({ value, onChange, required, fallbackAge = null }) {
   const iso = parseDob(text)
   const showError = text.trim().length >= 10 && !iso
   const age = ageFromDob(iso)
-  const tooYoung = age != null && age < MIN_AGE
+  const tooYoung = checkAge && age != null && age < MIN_AGE
 
   function handle(e) {
     // Auto-insert the slashes as they type so "22122005" becomes "22/12/2005"
@@ -355,7 +356,7 @@ export function DobField({ value, onChange, required, fallbackAge = null }) {
            - see MIN_AGE in lib/utils, which the Terms and the Privacy Policy
            both state as well. */
         <p className="mt-1 text-xs text-red-600">
-          {tr("That makes you {n}, and the community is for {min} and over. You are welcome to apply again once you are old enough.", { n: age, min: MIN_AGE })}
+          {tr('This community is only for creators aged 18 or over.')}
         </p>
       ) : age != null ? (
         <p className="mt-1 text-xs text-smoke">

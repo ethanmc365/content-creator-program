@@ -1,7 +1,9 @@
-// PARENT OR GUARDIAN CONFIRMATION IS SWITCHED OFF (9 Oct 2026).
+// PARENT OR GUARDIAN CONFIRMATION IS ON (12 Oct 2026), FOR A HANDFUL OF PEOPLE ONLY.
 //
-// Ethan: "For now, remove the parent or guardian thing until I ask Francesco about it ... for now we're not going to push any
-// of that live ... we might just limit it to 18." The whole flow (the name and email asked for at acceptance, the confirmation
-// link, the /guardian page, the register's column) is built and kept, but a creator aged 16 or 17 accepts the terms like
-// everybody else until this is turned on. The admin "Preview Under 18" still shows what it WOULD look like.
-export const GUARDIAN_CONSENT_ON = false
+// The community is 18+ (MIN_AGE in lib/utils, `trg_zz_adults_only` in migration 388), so nobody new can be under 18.
+// The exception is the members who were already in aged 16 or 17 (`age_exceptions`): Ethan - "for these specific
+// creators i was thinking of creating a form that their parents can fill in and approve". They give a parent or
+// guardian's name and email when they accept the Community Terms (accept_agreement refuses them without), get a link to
+// send, and the parent confirms on /guardian/<token> with no account (guardian_consent_view/confirm are public since 388).
+// The register on Admin > Agreements shows who has and has not confirmed. Was OFF 9-12 Oct while Ethan asked Francesco.
+export const GUARDIAN_CONSENT_ON = true
