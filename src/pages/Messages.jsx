@@ -24,7 +24,7 @@ import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile, useViewportPin } from '../lib/useKeyboardInset'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
-import { useNoScrollChain } from '../lib/noScrollChain'
+import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
 import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
@@ -390,6 +390,7 @@ export default function Messages() {
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
+  useOverlayTouchLock(overlayRef, isMobile)
 
   // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
   // in a room.
@@ -1676,6 +1677,7 @@ export default function Messages() {
   return (
     <div
       ref={overlayRef}
+      data-kb-self
       style={mobileStyle}
       className={cx(
         // Mobile/tablet: a fixed overlay pinned to the visual viewport (geometry

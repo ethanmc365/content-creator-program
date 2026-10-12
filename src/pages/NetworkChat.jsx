@@ -16,7 +16,7 @@ import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } fro
 import { registerChatSearch } from '../lib/chatSearch'
 import { ComposerSearch } from '../components/ChatSearch'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
-import { useNoScrollChain } from '../lib/noScrollChain'
+import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -331,6 +331,7 @@ export default function NetworkChat() {
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
+  useOverlayTouchLock(overlayRef, isMobile)
   useNoScrollChain(scrollerRef, `${slug}-${channelKey}`)
 
   // Same geometry as Chat.jsx, for the same reasons. Closed keyboard: leave the
@@ -1952,6 +1953,7 @@ export default function NetworkChat() {
 
       <div
         ref={overlayRef}
+      data-kb-self
       style={mobileStyle}
         className={cx(
           // Mobile: a fixed overlay pinned to the visual viewport so the

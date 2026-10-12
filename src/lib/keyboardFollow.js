@@ -171,8 +171,17 @@ function revealTarget(el, visibleHeight) {
 let lastTouchAt = 0
 const TOUCH_QUIET = 700
 
+// A SCREEN THAT FOLLOWS THE KEYBOARD ITSELF IS LEFT ALONE (12 Oct 2026). The chat overlays (rooms, DMs) pin themselves
+// to the visual viewport frame by frame (useViewportPin). This helper ALSO scrolled the page to reveal their composer,
+// so pressing the message bar moved the screen twice - Ethan: "the profile pictures at the top and that header
+// reanimates and appears a second time". Anything inside `[data-kb-self]` is skipped here.
+function selfManaged(el) {
+  return !!el?.closest?.('[data-kb-self]')
+}
+
 export function revealFocusedField() {
   if (!keyboardUp()) return
+  if (selfManaged(document.activeElement)) return
   if (Date.now() - lastTouchAt < TOUCH_QUIET) return
   const el = document.activeElement
   if (!isField(el)) return
@@ -239,7 +248,7 @@ export function revealFocusedField() {
 // that a surface which handles its own keyboard geometry (the chat overlay,
 // which is `position: fixed` and locks the body) is unaffected either way.
 function applyScrollRoom() {
-  const px = keyboardInset()
+  const px = selfManaged(document.activeElement) ? 0 : keyboardInset()
   const root = document.documentElement
   // Only write when it changed: a style write that changes nothing is still a style recalculation for the whole body.
   const next = px > 0 ? `${px}px` : ''

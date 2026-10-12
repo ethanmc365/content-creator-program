@@ -130,7 +130,18 @@ export function useVisualViewport(project = asIs) {
       timers.forEach(clearTimeout)
       timers = [0, 60, 120, 200, 320, 480, 700, 1000].map((t) => setTimeout(apply, t))
     }
-    const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; poll() } }
+    // WHILE A FIELD HAS FOCUS, CHECK IT IS STILL THERE (12 Oct 2026). Leaving a chat with the composer focused removes
+    // the composer, and removal fires no focusout - so nothing re-measured and the tab bar stayed away on the next
+    // screen. A cheap check twice a second, only while something is focused, catches it.
+    let watch = 0
+    const stopWatch = () => { clearInterval(watch); watch = 0 }
+    const startWatch = () => {
+      if (watch) return
+      watch = setInterval(() => {
+        if (!isEditable(document.activeElement) || !document.activeElement.isConnected) { focused = false; stopWatch(); poll() }
+      }, 450)
+    }
+    const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; startWatch(); poll() } }
     const onFocusOut = () => { focused = false; poll() }
     // LEAVING THE APP WITH THE KEYBOARD UP (12 Oct 2026). Ethan: "I started typing a message and then exited the app
     // ... when clicking on the bar the keyboard came up and the type bar didn't appear above as it should ... the bar
@@ -159,6 +170,7 @@ export function useVisualViewport(project = asIs) {
     return () => {
       cancelAnimationFrame(raf)
       clearTimeout(tick)
+      stopWatch()
       timers.forEach(clearTimeout)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
