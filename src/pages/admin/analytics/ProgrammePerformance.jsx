@@ -776,7 +776,6 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
           nothing: the white ground, the type colours and the contrast of every
           figure on it are unchanged, which a tint over the whole card cannot
           claim. */}
-      {live && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-brand" />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">

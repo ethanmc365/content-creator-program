@@ -77,11 +77,13 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
           {rows.map((r, i) => (
             <li
               key={r.id}
-              className="flex animate-fade-up items-center gap-3 rounded-xl border border-gray-100 px-3.5 py-2.5"
+              // 12 Oct 2026: on a phone the status pill took the row and cut the title to "Global Challe...". It wraps
+              // under the name there instead.
+              className="flex animate-fade-up flex-col items-start gap-2 rounded-xl border border-gray-100 px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3"
               style={{ animationDelay: `${i * 70}ms`, animationFillMode: 'both' }}
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{r.title}</p>
+              <div className="w-full min-w-0 flex-1">
+                <p className="text-sm font-semibold leading-snug [overflow-wrap:anywhere] sm:truncate">{r.title}</p>
                 <p className="truncate text-[11px] text-smoke">{r.market}</p>
               </div>
               <span

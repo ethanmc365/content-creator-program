@@ -148,7 +148,7 @@ export default function CreatorSpotlight() {
           {!isMobile && creator.countries_visited?.length > 0 && (
             <div className="flex min-h-[18rem] shrink-0 self-stretch lg:w-[28rem]">
               <div className="relative flex-1 overflow-hidden rounded-card border border-gray-100">
-                <WorldMap selected={creator.countries_visited} fitSelected controlsBelowBadge fill />
+                <WorldMap selected={creator.countries_visited} fitSelected controlsBelowBadge fill tooltipAt="bottom" />
                 <div className="map-scrim-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 pb-6 pt-3">
                   <p className="text-xs font-semibold text-ink">{tr("{name}'s travel map", { name: firstName })}</p>
                   <span className="rounded-full bg-white px-2.5 py-1 text-[13px] font-bold text-brand shadow-card ring-1 ring-black/5">

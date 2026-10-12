@@ -622,7 +622,6 @@ export function PaymentBanner() {
   const tr = useKindT()
   return (
     <Link to="/settings?section=payment" className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-brand/20 bg-white px-4 py-3.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name="wallet" className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-ink">{tr('Add your payment details')}</span>

@@ -11,6 +11,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { DateField } from '../../components/DateTimeFields'
 import {
   AUDIENCES, QUESTION_TYPES, SURVEY_STARTERS, TIMINGS, blankSurvey, cleanSurvey, fromStarter, hasOptions, newQuestion,
   responsesByDay, summarise, surveyProblem,
@@ -460,7 +461,9 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
                   ))}
                 </div>
                 {survey.timing === 'date' && (
-                  <input type="date" className="input mt-3 max-w-[14rem] animate-fade-up" value={survey.starts_at ? survey.starts_at.slice(0, 10) : ''} onChange={(e) => set({ starts_at: e.target.value ? new Date(`${e.target.value}T09:00:00`).toISOString() : null })} />
+                  <div className="mt-3 max-w-[14rem] animate-fade-up">
+                    <DateField id="survey-start" value={survey.starts_at ? survey.starts_at.slice(0, 10) : ''} onChange={(v) => { if (v) set({ starts_at: new Date(`${v}T09:00:00`).toISOString() }) }} />
+                  </div>
                 )}
               </>
             )}

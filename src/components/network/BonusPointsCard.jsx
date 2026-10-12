@@ -313,6 +313,9 @@ export function OfferDetail({ offer, onClose }) {
         ? { icon: 'calendar', label: tr('Who gets it'), value: tr('Creators who enter this challenge for the first time on or after {d}. Anybody who entered before then already had the whole challenge to climb, so it is not added for them.', { d: dm(offer.from) }) }
         : null,
       { icon: 'clock', label: tr('When it runs'), value: tr('Until the challenge closes.') },
+      // 12 Oct 2026, Ethan: "add a line noting that these points will not be duplicated on double points day". The
+      // database never multiplies it: a boost only multiplies points tied to a video (recalc_challenge_points_internal).
+      { icon: 'star', label: tr('On double points days'), value: tr('The joining bonus is added once and is never doubled or multiplied by a points boost. The points your videos earn still are.') },
     ].filter(Boolean)
     return <OfferShell onClose={onClose} icon="userPlus" title={tr('New creator bonus')} sub={tr('Extra points for your first video')} pays={`+${offer.points}`} facts={facts} />
   }

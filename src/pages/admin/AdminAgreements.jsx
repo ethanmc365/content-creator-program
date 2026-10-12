@@ -12,6 +12,9 @@ import AgreementDoc from '../../components/agreements/AgreementDoc'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, dateTag } from '../../lib/utils'
+import { copyToClipboard } from '../../lib/clipboard'
+import { guardianUrl } from '../../components/agreements/GuardianShare'
+import { guardianEmail, guardianEmailLang } from '../../lib/guardianEmail'
 
 // ADMIN > AGREEMENTS (7 Oct 2026).
 //
@@ -121,73 +124,117 @@ export default function AdminAgreements() {
     return true
   }
 
+  // The three documents as cards at the top: what each is, whether it is on, which version.
+  const docCards = [
+    { value: 'creator', label: 'Community Terms', who: 'Every creator', icon: 'shield' },
+    { value: 'vip', label: 'VIP agreement', who: 'VIP creators', icon: 'star' },
+    ...(officials.length ? [{ value: 'official', label: 'Official creators', who: 'Official Tryp.com creators', icon: 'badge' }] : []),
+  ].map((c) => {
+    const rows = (docs || []).filter((d) => d.audience === (c.value === 'creator' ? 'creator' : 'vip')
+      && (c.value === 'official' ? officials.some((p) => p.id === d.programme_id) : c.value === 'vip' ? !officials.some((p) => p.id === d.programme_id) : true))
+    const on = rows.find((d) => d.published_at)
+    return { ...c, on, draft: rows.find((d) => !d.published_at) }
+  })
+
   return (
-    <div className="page max-w-5xl">
-      <PageHeader back="/admin" title="Agreements" subtitle="The terms creators accept and the agreement VIPs sign. Publish a version and everyone it applies to is asked to accept it." />
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <Segmented value={tab} onChange={(v) => { setTab(v); setOpenId(null) }} options={[{ value: 'creator', label: 'Community Terms' }, { value: 'vip', label: 'VIP agreement' }, ...(officials.length ? [{ value: 'official', label: 'Official creators' }] : [])]} />
-        {!draft && <button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />{audience === 'vip' && market && !list.length ? `Make one for ${marketName}` : 'New version'}</button>}
-      </div>
-      {tab === 'official' && (
-        <p className="mb-5 flex items-start gap-2 rounded-card border border-gray-100 bg-white px-5 py-4 text-sm text-ink">
-          <Icon name="badge" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-          <span>The agreement the official Tryp.com content creators sign: monthly fee, rate per 1,000 views, cap and invoicing filled in from each person's own deal (VIP tools &gt; Members &gt; Edit). Written from the signed Content Creator Agreement (ES) of 25 March 2026.</span>
-        </p>
-      )}
-      {(tab === 'vip' || (tab === 'official' && officials.length > 1)) && (
-        <div className="mb-5 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-          {(tab === 'official' ? officials : [{ id: '', name: 'Every VIP market' }, ...vipProgrammes]).map((p) => (
-            <button key={p.id || 'all'} type="button" onClick={() => { setMarket(p.id); setOpenId(null) }} aria-pressed={market === p.id}
-              className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', market === p.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
-              {p.name}
-            </button>
-          ))}
-        </div>
-      )}
-      {tab === 'vip' && market && !list.length && (
-        <p className="mb-5 rounded-card border border-brand/20 bg-white px-5 py-4 text-sm text-ink shadow-card">
-          <strong>{marketName}</strong> uses the shared VIP agreement, with {marketName}'s own numbers filled in. Make a version just for {marketName} only if its wording has to differ.
-        </p>
-      )}
+    <div className="page max-w-6xl">
+      <PageHeader back="/admin" title="Agreements" />
 
-      {docs !== undefined && (list.length > 0 || audience === 'creator' || !market) && (
-        <StatusBanner audience={audience} official={tab === 'official'} live={live} draft={draft} market={marketName} sharedLive={tab === 'vip' && market ? sharedLive : null}
-          onPublish={() => draft && publishDoc(draft)} onPreview={(d, minor) => openPreview(d, minor)} onOpen={(d) => setOpenId(d.id)} />
-      )}
-
-      {docs === undefined ? <Skeleton className="h-64 w-full rounded-card" /> : !selected ? (
-        !(audience === 'vip' && market) && <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <div className="min-w-0 space-y-5">
-            {selected.published_at
-              ? <PublishedView doc={selected} onPreview={(minor) => openPreview(selected, minor)} />
-              : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d, minor) => openPreview(d, minor)} onPublish={publishDoc} />}
-            {selected.published_at && <Register key={`${selected.id}-${registerKey}`} doc={selected} />}
-          </div>
-          <aside className="space-y-2">
-            <p className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Versions</p>
-            {list.map((d) => (
-              <button key={d.id} type="button" onClick={() => setOpenId(d.id)}
-                className={cx('flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200', d.id === selected.id ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5')}>
-                <span className="text-sm font-black tabular-nums">v{d.version}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{d.title}</span>
-                  <span className={cx('block text-[11px]', d.id === selected.id ? 'text-white/80' : 'text-smoke')}>{d.published_at ? (d.id === live?.id ? `Live since ${when(d.published_at)}` : `Published ${when(d.published_at)}`) : 'Draft'}</span>
+      {/* THE DOCUMENTS (12 Oct 2026 redesign): one card each, a swipeable row on a phone. */}
+      <div role="tablist" aria-label="Documents" className="-mx-4 mb-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+        {docCards.map((c, i) => {
+          const picked = tab === c.value
+          return (
+            <button key={c.value} type="button" role="tab" aria-selected={picked} onClick={() => { setTab(c.value); setOpenId(null) }}
+              style={{ animationDelay: `${i * 60}ms` }}
+              className={cx('animate-rise relative w-[78%] shrink-0 snap-start overflow-hidden rounded-[22px] border p-4 text-left transition-all duration-300 sm:w-auto',
+                picked ? 'border-brand bg-brand text-white shadow-lift' : 'border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift')}>
+              <span className="flex items-center justify-between gap-2">
+                <Icon name={c.icon} className={cx('h-5 w-5', picked ? 'text-white' : 'text-brand')} />
+                <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold',
+                  picked ? 'bg-white/20 text-white' : c.on ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>
+                  {c.on && <span className={cx('h-1.5 w-1.5 rounded-full', picked ? 'bg-white' : 'bg-brand')} />}
+                  {c.on ? `Live · v${c.on.version}` : c.draft ? 'Draft' : 'Off'}
                 </span>
-              </button>
-            ))}
-            <PlaceholderGuide programme={market || null} audience={audience} official={tab === 'official'} />
-          </aside>
-        </div>
-      )}
+              </span>
+              <span className="mt-3 block text-[15px] font-bold leading-tight">{c.label}</span>
+              <span className={cx('mt-0.5 block text-[12px]', picked ? 'text-white/80' : 'text-smoke')}>{c.who}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div key={`${tab}-${market}`} className="animate-tab-in">
+        {(tab === 'vip' || (tab === 'official' && officials.length > 1)) && (
+          <div className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max items-center gap-1.5 rounded-full border border-gray-100 bg-white p-1 shadow-card">
+              {(tab === 'official' ? officials : [{ id: '', name: 'Every VIP market' }, ...vipProgrammes]).map((p) => (
+                <button key={p.id || 'all'} type="button" onClick={() => { setMarket(p.id); setOpenId(null) }} aria-pressed={market === p.id}
+                  className={cx('whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200', market === p.id ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink')}>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {tab === 'vip' && market && !list.length && (
+          <p className="mb-5 rounded-[22px] border border-gray-100 bg-white px-5 py-4 text-sm text-ink shadow-card">
+            <strong>{marketName}</strong> uses the shared VIP agreement with its own numbers filled in. Make a version just for {marketName} only if the wording has to differ.
+          </p>
+        )}
+
+        {docs !== undefined && (list.length > 0 || audience === 'creator' || !market) && (
+          <StatusBanner audience={audience} official={tab === 'official'} live={live} draft={draft} market={marketName} sharedLive={tab === 'vip' && market ? sharedLive : null}
+            canStart={!draft} startLabel={audience === 'vip' && market && !list.length ? `Make one for ${marketName}` : 'New version'} onStart={newVersion}
+            onPublish={() => draft && publishDoc(draft)} onPreview={(d, minor) => openPreview(d, minor)} onOpen={(d) => setOpenId(d.id)} />
+        )}
+        {docs !== undefined && audience === 'vip' && market && !list.length && (
+          <div className="mb-5 flex justify-end"><button type="button" onClick={newVersion} className="btn-primary !py-2 text-sm"><Icon name="plus" className="h-4 w-4" />Make one for {marketName}</button></div>
+        )}
+
+        {docs === undefined ? <Skeleton className="h-64 w-full rounded-[22px]" /> : !selected ? (
+          !(audience === 'vip' && market) && <p className="rounded-[22px] border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">No versions yet. Press New version to write the first.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            {/* Versions: a chip row above the document on a phone, a column beside it on a wide screen. */}
+            <aside className="space-y-3 lg:order-2">
+              <div>
+                <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Versions</p>
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 [&::-webkit-scrollbar]:hidden">
+                  {list.map((d) => (
+                    <button key={d.id} type="button" onClick={() => setOpenId(d.id)}
+                      className={cx('flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 lg:w-full', d.id === selected.id ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5')}>
+                      <span className="text-sm font-black tabular-nums">v{d.version}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block max-w-[11rem] truncate text-sm font-semibold lg:max-w-none">{d.title}</span>
+                        <span className={cx('block whitespace-nowrap text-[11px]', d.id === selected.id ? 'text-white/80' : 'text-smoke')}>{d.published_at ? (d.id === live?.id ? `Live since ${when(d.published_at)}` : `Published ${when(d.published_at)}`) : 'Draft'}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="hidden lg:block"><PlaceholderGuide programme={market || null} audience={audience} official={tab === 'official'} /></div>
+            </aside>
+            <div className="min-w-0 space-y-5 lg:order-1">
+              {selected.published_at
+                ? <PublishedView doc={selected} onPreview={(minor) => openPreview(selected, minor)} />
+                : <DraftEditor key={selected.id} doc={selected} hasLive={!!live} onSaved={load} onPreview={(d, minor) => openPreview(d, minor)} onPublish={publishDoc} />}
+              {selected.published_at && <Register key={`${selected.id}-${registerKey}`} doc={selected} />}
+              <details className="group rounded-[22px] border border-gray-100 bg-white shadow-card lg:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-bold text-ink">Fill-ins<Icon name="chevronDown" className="h-4 w-4 text-smoke transition-transform duration-300 group-open:rotate-180" /></summary>
+                <div className="px-1 pb-1"><PlaceholderGuide programme={market || null} audience={audience} official={tab === 'official'} bare /></div>
+              </details>
+            </div>
+          </div>
+        )}
+      </div>
       {preview && <AgreementSheet preview previewMinor={!!preview.minor} doc={preview} onClose={() => setPreview(null)} onAccepted={() => setPreview(null)} />}
     </div>
   )
 }
 
 /** What each placeholder turns into for the chosen market, so the team can write the template with the answers in front of them. */
-function PlaceholderGuide({ programme, audience, official = false }) {
+function PlaceholderGuide({ programme, audience, official = false, bare = false }) {
   const shown = PLACEHOLDERS.filter(([, , who]) => who === 'all' || (who === 'vip' && audience === 'vip') || (who === 'official' && official))
   const [values, setValues] = useState(null)
   useEffect(() => {
@@ -202,8 +249,8 @@ function PlaceholderGuide({ programme, audience, official = false }) {
     return () => { alive = false }
   }, [programme])
   return (
-    <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Fill-ins</p>
+    <div className={cx(bare ? 'px-4 pb-4' : 'rounded-[22px] border border-gray-100 bg-white p-4 shadow-card')}>
+      {!bare && <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Fill-ins</p>}
       <p className="mt-1 text-[11.5px] leading-snug text-smoke">{audience === 'vip' ? 'Type these into the text and each VIP sees their own name and their market\'s values.' : 'Type these into the text and each creator sees their own details. Shown here for a sample creator.'}</p>
       <ul className="mt-3 space-y-2">
         {shown.map(([k, label]) => (
@@ -221,7 +268,7 @@ function PlaceholderGuide({ programme, audience, official = false }) {
 function PublishedView({ doc, onPreview }) {
   const [open, setOpen] = useState(false)
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-6 shadow-card animate-rise">
+    <section className="rounded-[22px] border border-gray-100 bg-white p-5 shadow-card sm:p-6 animate-rise">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Published · v{doc.version}{doc.requires_signature ? ' · signature' : ' · tick to accept'}</p>
@@ -296,13 +343,14 @@ function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
  * 'Draft', but at the bottom it says 'Publish V1'." The answer to "are creators being asked?" is now the first thing
  * on the page, with the button that changes it beside it.
  */
-function StatusBanner({ audience, official = false, live, draft, market, sharedLive, onPublish, onPreview, onOpen }) {
+function StatusBanner({ audience, official = false, live, draft, market, sharedLive, canStart, startLabel, onStart, onPublish, onPreview, onOpen }) {
   const who = official ? `every official creator in ${String(market || '').replace(/^Tryp\.com Official /, '') || 'this market'}` : audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
   if (!live && !draft && sharedLive) return null
   const on = !!live
   return (
-    <section className={cx('mb-5 overflow-hidden rounded-card border shadow-card animate-rise', on ? 'border-gray-100 bg-white' : 'border-brand/30 bg-white')}>
-      <div className="flex flex-wrap items-center gap-4 p-5">
+    <section className={cx('mb-5 overflow-hidden rounded-[22px] border shadow-card animate-rise', on ? 'border-gray-100 bg-white' : 'border-brand/30 bg-white')}>
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
         <span className={cx('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full', on ? 'bg-brand text-white' : 'bg-cloud text-brand')}>
           {on && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/30 [animation-duration:2.4s]" />}
           <Icon name={on ? 'check' : 'shield'} className="relative h-5 w-5" />
@@ -311,13 +359,15 @@ function StatusBanner({ audience, official = false, live, draft, market, sharedL
           <p className="text-[15px] font-bold text-ink">
             {on ? `On: v${live.version} is live` : 'Not switched on yet'}
           </p>
-          <p className="text-sm text-smoke">
+          <p className="text-[13px] leading-snug text-smoke">
             {on
-              ? `${who[0].toUpperCase()}${who.slice(1)} has to ${live.requires_signature ? 'sign' : 'accept'} it before using the app. It is the first thing they see, before any other pop-up.${draft ? ` v${draft.version} is a draft waiting to replace it.` : ''}`
+              ? `${who[0].toUpperCase()}${who.slice(1)} ${live.requires_signature ? 'signs' : 'accepts'} it before using the app.${draft ? ` v${draft.version} is a draft waiting to replace it.` : ''}`
               : `Nobody is being asked yet. Publish v${draft?.version ?? 1} and ${who} will have to ${draft?.requires_signature ? 'sign' : 'accept'} it the next time they open the app, before anything else.`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        </div>
+        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+          {canStart && <button type="button" onClick={onStart} className="btn-secondary !py-2.5 text-sm"><Icon name="plus" className="h-4 w-4" />{startLabel}</button>}
           {draft && <button type="button" onClick={() => onPreview(draft, false)} className="btn-secondary !py-2.5 text-sm"><Icon name="eye" className="h-4 w-4" />Preview v{draft.version}</button>}
           {draft && <button type="button" onClick={() => { onOpen(draft); onPublish() }} className="btn-primary !py-2.5 text-sm"><Icon name="megaphone" className="h-4 w-4" />{on ? `Publish v${draft.version}` : `Switch on: publish v${draft.version}`}</button>}
         </div>
@@ -361,7 +411,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   }
 
   return (
-    <section className="space-y-4 rounded-card border border-brand/25 bg-white p-6 shadow-card">
+    <section className="space-y-4 rounded-[22px] border border-brand/25 bg-white p-5 shadow-card sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Draft · v{doc.version}</p>
         <div className="flex gap-2">
@@ -418,11 +468,18 @@ function Register({ doc }) {
     let alive = true
     supabase.rpc('agreement_register', { p_agreement: doc.id }).then(({ data }) => { if (alive) setRows(data || []) })
     // Under-18s: has their parent or guardian confirmed on the link yet (migration 367)?
-    supabase.from('guardian_consents').select('confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id)')
+    // 12 Oct 2026: with the token, so the team can email the parent the link (the creator no longer sends it), and the
+    // creator's language and country, to write to the parent in theirs.
+    supabase.from('guardian_consents').select('token, confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id, profiles!agreement_acceptances_profile_id_fkey(locale, country))')
       .eq('agreement_acceptances.agreement_id', doc.id)
       .then(({ data }) => { if (alive) setGuardians(Object.fromEntries((data || []).map((g) => [g.agreement_acceptances.profile_id, g]))) })
     return () => { alive = false }
   }, [doc.id])
+  // The "parent details added" notification links here with ?tab=register: bring the register into view.
+  const regRef = useRef(null)
+  useEffect(() => {
+    if (rows && /tab=register/.test(window.location.search)) setTimeout(() => regRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250)
+  }, [rows])
   const done = (rows || []).filter((r) => r.accepted_at)
   const shown = useMemo(() => (rows || [])
     .filter((r) => (filter === 'all' ? true : filter === 'done' ? !!r.accepted_at : !r.accepted_at))
@@ -441,7 +498,7 @@ function Register({ doc }) {
   }
 
   return (
-    <section className="rounded-card border border-gray-100 bg-white p-6 shadow-card">
+    <section ref={regRef} className="scroll-mt-20 rounded-[22px] border border-gray-100 bg-white p-5 shadow-card sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-ink">Who has {doc.requires_signature ? 'signed' : 'accepted'}</h3>
@@ -454,24 +511,17 @@ function Register({ doc }) {
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Segmented size="sm" value={filter} onChange={setFilter} options={[{ value: 'all', label: 'Everyone' }, { value: 'done', label: 'Done' }, { value: 'waiting', label: 'Waiting' }]} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" className="input !w-56 !py-2 text-sm" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" className="input !py-2 text-sm sm:!w-56" />
       </div>
       {rows === undefined ? <Skeleton className="mt-4 h-40 w-full" /> : (
         <ul className="mt-4 max-h-[32rem] divide-y divide-gray-50 overflow-y-auto">
           {shown.map((r) => (
-            <li key={r.profile_id} className="flex items-center gap-3 py-2.5">
+            <li key={r.profile_id} className="flex items-start gap-3 py-3 sm:items-center">
               <Avatar src={r.photo_url} name={r.name || ''} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                 <span className="block truncate text-[11px] text-smoke">{r.accepted_at ? `${when(r.accepted_at)} · ${r.method === 'click' ? 'ticked' : r.method === 'typed' ? 'typed signature' : 'drawn signature'}${r.ip ? ` · ${r.ip}` : ''}` : 'Not yet'}</span>
-                {r.guardian_name && (
-                  <span className="block truncate text-[11px] font-semibold text-ink/80">
-                    Parent or guardian: {r.guardian_name} · {r.guardian_email} ·{' '}
-                    {guardians[r.profile_id]?.confirmed_at
-                      ? <span className="text-brand">confirmed by {guardians[r.profile_id].confirmed_name} {dateTag(guardians[r.profile_id].confirmed_at)}</span>
-                      : <span className="text-amber-700">not confirmed yet</span>}
-                  </span>
-                )}
+                {r.guardian_name && <GuardianRow r={r} g={guardians[r.profile_id]} />}
               </span>
               {r.method && r.method !== 'click' && <SignatureImage svg={r.signature_svg} method={r.method} name={r.signed_name} className="max-h-9 max-w-[140px]" textClass="text-[20px]" />}
               {r.accepted_at && (
@@ -486,5 +536,36 @@ function Register({ doc }) {
         </ul>
       )}
     </section>
+  )
+}
+
+/**
+ * A PARENT TO EMAIL (12 Oct 2026). Ethan sends the parent the link himself, so the row holds everything for that email:
+ * the address, the link, and the whole message in the parent's likely language, each a press to copy.
+ */
+function GuardianRow({ r, g }) {
+  const url = g?.token ? guardianUrl(g.token) : null
+  const lang = guardianEmailLang(g?.agreement_acceptances?.profiles || {})
+  const mail = url ? guardianEmail({ parent: r.guardian_name, creator: r.name, url, lang }) : null
+  const copy = async (text, what) => { if (await copyToClipboard(text)) toastSuccess(`${what} copied`) }
+  return (
+    <span className="mt-1.5 block rounded-2xl bg-cloud/70 px-3 py-2.5">
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] font-semibold text-ink">
+        <Icon name="users" className="h-3.5 w-3.5 text-brand" />Parent: {r.guardian_name}
+        <span className="font-normal text-smoke [overflow-wrap:anywhere]">{r.guardian_email}</span>
+        {g?.confirmed_at
+          ? <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">Confirmed {dateTag(g.confirmed_at)}</span>
+          : <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700">Waiting for them</span>}
+      </span>
+      {!g?.confirmed_at && mail && (
+        <span className="mt-2 flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => copy(r.guardian_email, 'Email address')} className="btn-secondary !px-3 !py-1.5 text-[12px]"><Icon name="envelope" className="h-3.5 w-3.5" />Address</button>
+          <button type="button" onClick={() => copy(mail.subject, 'Subject')} className="btn-secondary !px-3 !py-1.5 text-[12px]">Subject</button>
+          <button type="button" onClick={() => copy(mail.body, 'Email')} className="btn-primary !px-3 !py-1.5 text-[12px]"><Icon name="copy" className="h-3.5 w-3.5" />Copy email ({mail.lang.toUpperCase()})</button>
+          <button type="button" onClick={() => copy(url, 'Link')} className="btn-secondary !px-3 !py-1.5 text-[12px]"><Icon name="link" className="h-3.5 w-3.5" />Link</button>
+          <a href={`mailto:${encodeURIComponent(r.guardian_email)}?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`} className="btn-secondary !px-3 !py-1.5 text-[12px]"><Icon name="share" className="h-3.5 w-3.5" />Open in mail</a>
+        </span>
+      )}
+    </span>
   )
 }

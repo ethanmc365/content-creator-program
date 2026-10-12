@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { confirm } from '../../lib/confirm'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { copyToClipboard } from '../../lib/clipboard'
+import { toastSuccess } from '../../lib/toast'
+import { useIsPhone } from '../../lib/useKeyboardInset'
 import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
@@ -61,6 +64,7 @@ function PresenceChip({ when, online, quiet, detail = false }) {
 export default function AdminCreators() {
   const { user, sendPasswordReset } = useAuth()
   const navigate = useNavigate()
+  const isPhone = useIsPhone()
 
   const [creators, setCreators] = useState([])
   const [emails, setEmails] = useState({}) // id -> email
@@ -740,7 +744,10 @@ export default function AdminCreators() {
       )}
 
       {/* ---------- Creator detail modal ---------- */}
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''} wide>
+      {/* ON A PHONE (12 Oct 2026, Ethan: "that popup on mobile is so hard to use, the text is all over the place, buttons
+          are overlapping"): no second copy of the name in the sheet's title bar, a centred identity with the three things
+          you open it for as equal buttons, and the account controls as a tidy two-column grid. */}
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={isPhone ? 'Creator' : (selected?.name ?? '')} wide>
         {selected && (
           <div key={selected.id} className="rise-stagger space-y-7">
             {/* IDENTITY, then CONTACT, then everything else. The old header
@@ -748,10 +755,10 @@ export default function AdminCreators() {
                 presence chip together as four lines of small grey text, so the
                 two things you open this panel for - how do I reach them, and
                 are they all right - were the hardest to find in it. */}
-            <div className="flex flex-wrap items-start gap-4">
+            <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:flex-wrap sm:items-start sm:gap-4 sm:text-left">
               <Avatar src={selected.photo_url} name={selected.name} size="lg" />
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <h3 className="text-lg font-bold leading-tight">{selected.name}</h3>
                   {badgeWorthShowing(selected) && <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>}
                   {selected.is_admin && <Badge tone="light">Team</Badge>}
@@ -760,7 +767,7 @@ export default function AdminCreators() {
                   <PresenceChip when={lastActive(selected)} online={isOnline(selected)} quiet={isInactive(selected)} detail />
                 </p>
                 {(marketOf[selected.id] ?? []).length > 0 && (
-                  <p className="mt-1.5 flex flex-wrap gap-1.5">
+                  <p className="mt-1.5 flex flex-wrap justify-center gap-1.5 sm:justify-start">
                     {(marketOf[selected.id] ?? []).map((m) => (
                       <span key={m} className="rounded-full bg-cloud px-2.5 py-0.5 text-[11px] font-medium text-smoke">{m}</span>
                     ))}
@@ -772,6 +779,18 @@ export default function AdminCreators() {
               <button onClick={() => dmCreator(selected)} className="btn-primary hidden shrink-0 !py-2 text-xs sm:inline-flex">
                 <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
               </button>
+              <div className="grid w-full grid-cols-3 gap-2 sm:hidden">
+                <button onClick={() => dmCreator(selected)} className="flex flex-col items-center gap-1 rounded-2xl bg-brand px-2 py-2.5 text-[12px] font-bold text-white shadow-card transition-transform duration-200 active:scale-95">
+                  <Icon name="chat" className="h-5 w-5" />Message
+                </button>
+                <button onClick={async () => { if (emails[selected.id] && await copyToClipboard(emails[selected.id])) toastSuccess('Email copied') }} disabled={!emails[selected.id]}
+                  className="flex flex-col items-center gap-1 rounded-2xl border border-gray-100 bg-white px-2 py-2.5 text-[12px] font-bold text-ink shadow-card transition-transform duration-200 active:scale-95 disabled:opacity-50">
+                  <Icon name="envelope" className="h-5 w-5 text-brand" />Copy email
+                </button>
+                <Link to={`/profile/${selected.id}`} onClick={() => setSelected(null)} className="flex flex-col items-center gap-1 rounded-2xl border border-gray-100 bg-white px-2 py-2.5 text-[12px] font-bold text-ink shadow-card transition-transform duration-200 active:scale-95">
+                  <Icon name="users" className="h-5 w-5 text-brand" />Profile
+                </Link>
+              </div>
             </div>
 
             {/* ---- THEIR PAGES, AS THEY SEE THEM ----
@@ -926,21 +945,16 @@ export default function AdminCreators() {
                 What is left is ordered by consequence: the two reversible
                 account controls first, then the two that stop somebody using
                 the platform, then deletion in its own box. */}
-            <div className="border-t border-gray-100 pt-5 sm:hidden">
-              <button onClick={() => dmCreator(selected)} className="btn-primary w-full justify-center !py-2.5 text-xs">
-                <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
-              </button>
-            </div>
 
             <div className="space-y-3">
               <SheetLabel>Account actions</SheetLabel>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>button]:justify-center sm:[&>button]:justify-start">
                 {isDeleting(selected) && (
                   <button onClick={() => restoreCreator(selected)} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Restore account</button>
                 )}
-                <button onClick={() => { setPwFor(selected.id); setPwToken('') }} disabled={pwFor === selected.id} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
+                <button onClick={() => { setPwFor(selected.id); setPwToken('') }} disabled={pwFor === selected.id} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Reset password</button>
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">
-                  <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Promote to admin'}
+                  <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Make admin'}
                 </button>
                 {selected.status === 'muted' && (
                   <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="megaphone" className="h-4 w-4" /> Unmute</button>

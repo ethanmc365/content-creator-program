@@ -224,6 +224,8 @@ export function UnreadProvider({ children }) {
     lastByChannel,
     rooms: keyed,
     ready: !!readAt && channels !== null,
+    // Where each room was last read up to (channel -> iso), so a room can mark where the new messages start.
+    readAt,
     markRead,
     refresh,
   }), [unread, unreadByCommunity, lastByChannel, keyed, readAt, channels, markRead, refresh])

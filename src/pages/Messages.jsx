@@ -22,9 +22,10 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
-import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin } from '../lib/useKeyboardInset'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
-import { RoomSearch } from '../components/ChatSearch'
+import { useNoScrollChain } from '../lib/noScrollChain'
+import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
 import ChatComposer from '../components/ChatComposer'
@@ -215,6 +216,8 @@ export default function Messages() {
   // finds a message, and they are different questions - "where is Jacob" and
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
   const [threadSearch, setThreadSearch] = useState('')
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false)
+  useEffect(() => { setThreadSearchOpen(false); setThreadSearch('') }, [conversationId])
 
   // ---- The outbox -------------------------------------------------------
   //
@@ -383,8 +386,10 @@ export default function Messages() {
   // hugs the keyboard, the person you're messaging stays pinned at the top, and
   // the app header + bottom tab bar collapse away while typing. Same approach as
   // the #general chat (see useVisualViewport for the iOS reasoning).
-  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
+  const overlayRef = useRef(null)
   const isMobile = useIsMobile()
+  useViewportPin(overlayRef, isMobile)
 
   // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
   // in a room.
@@ -441,6 +446,7 @@ export default function Messages() {
   // state over a conversation somebody was looking at. This is the one flag,
   // and it covers both.
   const threadOpen = !!active
+  useNoScrollChain(scrollerRef, `${threadOpen}-${active?.id ?? ''}`)
 
   // A THREAD OPENS WITH THE HEADER ALREADY AWAY, and the inbox always has it.
   // Hiding on scroll alone is not enough: a short conversation never scrolls,
@@ -466,7 +472,7 @@ export default function Messages() {
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
         // negative, which would ride the overlay up above the header.
-        transform: `translateY(${Math.max(0, vpOffset)}px)`,
+        // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
         paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
         // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (12 Sep 2026.)
         //
@@ -1669,6 +1675,7 @@ export default function Messages() {
 
   return (
     <div
+      ref={overlayRef}
       style={mobileStyle}
       className={cx(
         // Mobile/tablet: a fixed overlay pinned to the visual viewport (geometry
@@ -2222,13 +2229,27 @@ export default function Messages() {
                     </div>
                   </Link>
                 )}
-                <RoomSearch
-                  value={threadSearch}
-                  onChange={setThreadSearch}
-                  count={visibleThread.length}
-                  total={thread.length}
-                  label={tr("Search this conversation")}
-                />
+                {isMobile ? (
+                  // ON A PHONE THE SEARCH OPENS WHERE THE MESSAGE BOX IS (12 Oct 2026): see ComposerSearch.
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => { setThreadSearchOpen((v) => !v); if (threadSearchOpen) setThreadSearch('') }}
+                    aria-label={threadSearchOpen ? tr('Close search') : tr('Search this conversation')}
+                    aria-expanded={threadSearchOpen}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-transform duration-200 active:scale-90"
+                  >
+                    <Icon name={threadSearchOpen ? 'close' : 'magnifier'} className="h-[18px] w-[18px]" />
+                  </button>
+                ) : (
+                  <RoomSearch
+                    value={threadSearch}
+                    onChange={setThreadSearch}
+                    count={visibleThread.length}
+                    total={thread.length}
+                    label={tr("Search this conversation")}
+                  />
+                )}
               </div>
 
               {/* Inline connection request: accept without leaving the thread. */}
@@ -2631,8 +2652,11 @@ export default function Messages() {
                   has taken its `flex-1 basis-0`, so a composer grown to six
                   lines is the thing the browser squeezes when the keyboard
                   takes half the screen. */}
-              <div ref={composerRef} className="shrink-0 border-t border-gray-100 px-5 py-4">
-                {dmLocked ? (
+              <div ref={composerRef} className={cx('shrink-0 border-t border-gray-100', isMobile && threadSearchOpen ? 'px-3 py-2.5' : 'px-5 py-4')}>
+                {isMobile && threadSearchOpen ? (
+                  <ComposerSearch value={threadSearch} onChange={setThreadSearch} count={visibleThread.length} total={thread.length}
+                    placeholder="Search this conversation" onClose={() => { setThreadSearchOpen(false); setThreadSearch('') }} />
+                ) : dmLocked ? (
                   <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
                     Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.
                   </div>

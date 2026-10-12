@@ -9,6 +9,7 @@ import { flagFromIso } from '../../lib/flags'
 import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
+import { MonthField } from '../DateTimeFields'
 import { cx, formatDate } from '../../lib/utils'
 import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc, useKindT } from '../../lib/vip'
 
@@ -332,7 +333,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ScopeField value={scope} onChange={setScope} programme={programme} isOwner={isOwner} />
-          <label className="block"><span className="label">{tr('Month')}</span><input type="month" className="input" value={ym} onChange={(e) => setYm(e.target.value)} /></label>
+          <MonthField id="brief-month" label={tr('Month')} value={ym} onChange={(v) => { if (v) setYm(v) }} />
         </div>
         <label className="block"><span className="label">{tr('Title')}</span><input className="input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr('For example: Hidden-gem city breaks')} /></label>
         <label className="block"><span className="label">{tr('Theme (a short tag)')}</span><input className="input" maxLength={60} value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={tr('For example: Autumn')} /></label>

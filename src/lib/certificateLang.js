@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LOCALES, DEFAULT_LOCALE, loadLocale } from './i18n'
+import { LOCALES, DEFAULT_LOCALE, getLocale, loadLocale } from './i18n'
 import { loadOverrides } from './translations'
 import { translateTexts } from './contentTranslate'
 
@@ -23,13 +23,18 @@ import { translateTexts } from './contentTranslate'
 
 const LOCALE_TAG = { en: 'en-GB', es: 'es-ES', pt: 'pt-PT', de: 'de-DE', ro: 'ro-RO' }
 
-/** Which languages this person may save a certificate in. English is always on the list. */
+/**
+ * Which languages this person may save a certificate in.
+ *
+ * THE APP'S LANGUAGE AND ENGLISH, NOTHING ELSE (12 Oct 2026). Ethan: "not every language should be showing as an
+ * option, if the creator is on the platform in English then there should be no options, it should just be English, if
+ * they are on the platform in Spanish for example then it should show Spanish and English". It used to add every
+ * language on their profile as well. The team (`all`) still sees every language, to review the wording.
+ */
 export function certificateLocales(profile, { all = false } = {}) {
   if (all) return LOCALES
-  const spoken = new Set((profile?.languages || []).map((l) => String(l).trim().toLowerCase()))
-  return LOCALES.filter((l) => l.code === DEFAULT_LOCALE
-    || spoken.has(l.label.toLowerCase()) || spoken.has(l.native.toLowerCase())
-    || (profile?.locale && profile.locale === l.code))
+  const using = getLocale() || profile?.locale || DEFAULT_LOCALE
+  return LOCALES.filter((l) => l.code === DEFAULT_LOCALE || l.code === using)
 }
 
 /** "1st" in the language: 1.º (es, pt), 1. (de), 1 (ro). */
@@ -38,6 +43,20 @@ export function ordinalIn(lang, n, en) {
   if (lang === 'es' || lang === 'pt') return `${n}.º`
   if (lang === 'de') return `${n}.`
   return String(n)
+}
+
+/**
+ * A STAMP'S DATE: "12 OCT" over "2026", in the language (12 Oct 2026). The postmark and the passport's entry stamp
+ * used to cut the English long date into three words; "12 de octubre de 2026" and "12. Oktober 2026" do not cut that
+ * way, so the German stamp read "12. Oktober" over "2026" and ran off the ring. Built from the date itself instead.
+ */
+export function stampDateIn(lang, value) {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  const mon = d.toLocaleDateString(LOCALE_TAG[lang] || 'en-GB', { month: 'short' }).replace(/\./g, '').toUpperCase().slice(0, 4)
+  const dm = `${d.getDate()} ${mon}`
+  const y = String(d.getFullYear())
+  return { dm, y, full: `${dm} ${y}` }
 }
 
 /** "30 September 2026" in the language. */

@@ -188,7 +188,6 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
       className="relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white text-ink shadow-card"
     >
       {/* ---------- The head (12 Oct 2026): white, the brand as a band and a glyph, not a whole orange card. ---------- */}
-      <span aria-hidden className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand via-brand-light to-brand" />
       <div className="relative px-4 pb-1 pt-4">
         <div className="flex items-start gap-3">
           <Icon name={podiumOnly ? 'trophy' : 'chart'} className="mt-0.5 h-6 w-6 shrink-0 text-brand" />

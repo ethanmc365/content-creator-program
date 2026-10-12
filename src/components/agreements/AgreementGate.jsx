@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { onResume } from '../../lib/resume'
 import { setAgreementHold } from '../../lib/appNag'
 import AgreementSheet from './AgreementSheet'
+import DobSheet from './DobSheet'
 import { useLocale } from '../../lib/i18n'
 
 // Every published agreement this person has not accepted yet, one after another, the first time the app opens after
@@ -28,10 +29,22 @@ export default function AgreementGate() {
   const outside = /^\/(login|signup|onboarding|auth|vip\/join|terms|privacy)/.test(pathname)
   const skip = !user?.id || !profile || staff || profile.is_test || !profile.onboarded || outside
 
+  // NO DATE OF BIRTH AT ALL (12 Oct 2026): asked first, before the terms. Only looked up when the profile has no age
+  // either, so nobody else pays a request for it. null = not known yet.
+  const [needsDob, setNeedsDob] = useState(null)
+  const ageKnown = profile?.age != null
+  useEffect(() => {
+    if (skip || ageKnown || profile?.status !== 'active') { setNeedsDob(false); return undefined }
+    let alive = true
+    supabase.from('creator_private').select('dob').eq('id', user.id).maybeSingle()
+      .then(({ data, error }) => { if (alive) setNeedsDob(!error && !data?.dob) }, () => { if (alive) setNeedsDob(false) })
+    return () => { alive = false }
+  }, [skip, ageKnown, profile?.status, user?.id])
+
   const pending = (queue || []).filter((d) => !accepted.has(d.id))
   // Up while we do not know yet, and while anything is waiting. RAISED during render on purpose (see appNag), LOWERED
   // in an effect, because lowering it wakes the other prompts and they set state.
-  const holding = !skip && (queue === null || pending.length > 0)
+  const holding = !skip && (queue === null || pending.length > 0 || needsDob !== false)
   if (holding) setAgreementHold(true)
   useEffect(() => { if (!holding) setAgreementHold(false) }, [holding])
 
@@ -60,6 +73,7 @@ export default function AgreementGate() {
   }, [skip, queue])
   useEffect(() => () => setAgreementHold(false), [])
 
+  if (!skip && needsDob) return <DobSheet onSaved={() => setNeedsDob(false)} />
   const doc = pending[0]
   if (skip || !doc) return null
   const step = queue.length > 1 ? `${queue.length - pending.length + 1} / ${queue.length}` : null

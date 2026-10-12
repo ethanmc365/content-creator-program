@@ -7,6 +7,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { windowPhrase, wholeDays } from '../../lib/boostWindow'
+import { DateField, TimeField } from '../DateTimeFields'
 
 // POINT BOOSTS (4 Oct 2026, migration 334).
 //
@@ -149,12 +150,17 @@ function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
           </div>
           {byDays ? (
             <div className="grid grid-cols-2 gap-3">
-              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">From</span><input type="date" className="input" value={fromDay} onChange={(e) => { setFromDay(e.target.value); if (e.target.value > toDay) setToDay(e.target.value) }} /></label>
-              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Until the end of</span><input type="date" className="input" value={toDay} min={fromDay} onChange={(e) => setToDay(e.target.value)} /></label>
+              {/* The platform's own date boxes, not the browser's calendar (12 Oct 2026). A half-typed date emits '' and is
+                  ignored, so the window never goes blank while somebody is typing. */}
+              <DateField id="boost-from" label="From" value={fromDay} onChange={(v) => { if (!v) return; setFromDay(v); if (v > toDay) setToDay(v) }} />
+              <DateField id="boost-to" label="Until the end of" value={toDay} min={fromDay} onChange={(v) => { if (v) setToDay(v) }} />
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="block"><span className="mb-1 block text-[11px] font-semibold text-smoke">Starts</span><input type="datetime-local" className="input" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+              <div className="grid grid-cols-2 gap-3">
+                <DateField id="boost-start-d" label="Starts" value={start.slice(0, 10)} onChange={(v) => { if (v) setStart(`${v}T${start.slice(11, 16) || '09:00'}`) }} />
+                <TimeField id="boost-start-t" label="At" value={start.slice(11, 16)} onChange={(v) => { if (v) setStart(`${start.slice(0, 10)}T${v}`) }} />
+              </div>
               <div>
                 <p className="mb-1 text-[11px] font-semibold text-smoke">Runs for</p>
                 <div className="flex flex-wrap gap-1.5">

@@ -114,6 +114,11 @@ export function useVisualViewport(project = asIs) {
       const once = () => {
         cancelAnimationFrame(raf)
         clearTimeout(tick)
+        // THE LIVE ANSWER, NOT THE LAST EVENT (12 Oct 2026). iOS fires no focusout when the focused composer is
+        // REMOVED (swiping back out of a chat with the keyboard up) or when the app goes to the background, so the
+        // flag stayed true: the tab bar stayed hidden and the inbox overlay kept covering the header ("the header and
+        // the footer with the buttons disappear"). Whatever the events said, read what actually has focus.
+        focused = isEditable(document.activeElement) && document.visibilityState !== 'hidden'
         setVp(readViewport(focused))
       }
       raf = requestAnimationFrame(once)
@@ -127,9 +132,25 @@ export function useVisualViewport(project = asIs) {
     }
     const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; poll() } }
     const onFocusOut = () => { focused = false; poll() }
+    // LEAVING THE APP WITH THE KEYBOARD UP (12 Oct 2026). Ethan: "I started typing a message and then exited the app
+    // ... when clicking on the bar the keyboard came up and the type bar didn't appear above as it should ... the bar
+    // below that shows rooms, challenges ... had disappeared". Coming back, iOS had put the keyboard away but the
+    // composer still held focus, so nothing changed when it was tapped again and no focus event ever re-measured.
+    // Let go of the field on the way out (the draft is kept); the next tap is a real focus with a fresh measurement.
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        const el = document.activeElement
+        if (isEditable(el)) el.blur()
+        focused = false
+      }
+      poll()
+    }
 
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('focusout', onFocusOut)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pageshow', poll)
+    window.addEventListener('popstate', poll)
     if (vv) {
       vv.addEventListener('resize', apply)
       vv.addEventListener('scroll', apply)
@@ -141,6 +162,9 @@ export function useVisualViewport(project = asIs) {
       timers.forEach(clearTimeout)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pageshow', poll)
+      window.removeEventListener('popstate', poll)
       if (vv) {
         vv.removeEventListener('resize', apply)
         vv.removeEventListener('scroll', apply)
@@ -194,4 +218,54 @@ export function useIsMobile() {
 // description under every tile turns a hub into a scroll.
 export function useIsPhone() {
   return useMediaQuery('(max-width: 639.98px)')
+}
+
+/**
+ * HOLD A FIXED OVERLAY ON THE VISIBLE SCREEN, FRAME BY FRAME (12 Oct 2026).
+ *
+ * Ethan: "when I press on the message bar ... the profile pictures at the top and that header reanimates and appears a
+ * second time, rather than just staying where it is". When the keyboard opens iOS pans the visual viewport up to keep
+ * the field in view, which carries a fixed overlay (and its header) up with it. The overlay's own `translateY(offsetTop)`
+ * came through React after a frame and a 48ms timer, so the header visibly left and slid back. This writes the
+ * transform straight onto the element, on every frame while the viewport is moving (a short burst after any focus
+ * change or viewport event), so the header never leaves. Phones only; React no longer sets `transform` on the overlay.
+ */
+export function useViewportPin(ref, enabled) {
+  useEffect(() => {
+    const el = ref.current
+    const vv = window.visualViewport
+    if (!enabled || !el || !vv) {
+      if (el) el.style.transform = ''
+      return undefined
+    }
+    let raf = 0
+    let until = 0
+    let timer = 0
+    const write = () => { el.style.transform = `translate3d(0, ${Math.max(0, Math.round(vv.offsetTop))}px, 0)` }
+    const frame = () => {
+      write()
+      raf = performance.now() < until ? requestAnimationFrame(frame) : 0
+    }
+    const burst = () => {
+      write()
+      until = performance.now() + 700
+      if (!raf) raf = requestAnimationFrame(frame)
+      // Never only a frame loop (a hidden pane does not run it): one late write as well.
+      clearTimeout(timer)
+      timer = setTimeout(write, 720)
+    }
+    write()
+    vv.addEventListener('resize', burst)
+    vv.addEventListener('scroll', burst)
+    document.addEventListener('focusin', burst)
+    document.addEventListener('focusout', burst)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+      vv.removeEventListener('resize', burst)
+      vv.removeEventListener('scroll', burst)
+      document.removeEventListener('focusin', burst)
+      document.removeEventListener('focusout', burst)
+    }
+  }, [ref, enabled])
 }

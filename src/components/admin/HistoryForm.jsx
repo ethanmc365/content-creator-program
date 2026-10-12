@@ -4,6 +4,7 @@ import Icon from '../Icon'
 import { cx, formatMoney } from '../../lib/utils'
 import { historyMetrics, saveHistory, deleteHistory, PRIZE_TYPES } from '../../lib/challengeHistory'
 import { useT } from '../../lib/i18n'
+import { DateField } from '../DateTimeFields'
 
 // LOGGING A CHALLENGE THAT DID NOT RUN ON THIS PLATFORM.
 //
@@ -175,7 +176,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={tr('Started')}>
-            <input type="date" className="input" value={f.starts_at} onChange={(e) => set({ starts_at: e.target.value })} />
+            <DateField id="hist-start" value={f.starts_at} onChange={(v) => { if (v) set({ starts_at: v }) }} />
           </Field>
           <Field
             label={tr('Ended')}
@@ -184,7 +185,7 @@ export default function HistoryForm({ row, markets, userId, onClose, onSaved, on
                removed silently is something the next person re-adds. */
             hint={preview.days ? `${preview.days} ${tr('days')} · ${tr(cadence === 'monthly' ? 'a monthly' : 'an express')}` : undefined}
           >
-            <input type="date" className="input" value={f.ends_at} onChange={(e) => set({ ends_at: e.target.value })} />
+            <DateField id="hist-end" value={f.ends_at} onChange={(v) => { if (v) set({ ends_at: v }) }} />
           </Field>
         </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
@@ -683,6 +683,12 @@ export default function AdminAnalytics() {
   // A MARKET SWITCH IS A TRANSITION (3 Oct 2026): every figure on the page is rebuilt for the new market, and doing
   // that inside the click froze the chips for a moment - "it takes a while for Germany, Nordic, Portugal ... to load
   // in". The chip now lights at once and the page dims while the numbers catch up.
+  const marketRowRef = useRef(null)
+  useEffect(() => {
+    const row = marketRowRef.current
+    const chip = row?.querySelector('[aria-pressed="true"]')
+    if (row && chip) row.scrollTo({ left: Math.max(0, chip.offsetLeft - 8), behavior: 'smooth' })
+  }, [market])
   const setMarket = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next) q.market = next; else delete q.market
@@ -723,7 +729,10 @@ export default function AdminAnalytics() {
 
   const filterBar = (marketsOff = false, periodOff = false) => (
     <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-      <div aria-hidden={marketsOff || undefined} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
+      {/* ON A PHONE THE MARKETS GET THEIR OWN ROW (12 Oct 2026). Squeezed beside the date they scrolled in a sliver, and a
+          picked market chip clipped at the edge read as "an orange bar on the right side" of the date. Full width, a fade
+          at the edge instead of a hard cut, and the picked chip scrolled into view. */}
+      <div aria-hidden={marketsOff || undefined} ref={marketRowRef} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:basis-full max-sm:[mask-image:linear-gradient(to_right,#000_88%,transparent)] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
         <button
           type="button"
           onClick={() => setMarket('')}
@@ -907,7 +916,7 @@ export default function AdminAnalytics() {
             value={formatViewsTotal(derived.totalViews)}
             hint={derived.verifiedViews > 0 ? `${formatViewsTotal(derived.verifiedViews)} verified` : 'logged by creators'}
           />
-          <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" accent onClick={() => navigate('/admin/rewards')} />
+          <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" onClick={() => navigate('/admin/rewards')} />
           <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
           <StatCard
             label="Cash CPM"
@@ -1214,7 +1223,7 @@ function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreato
         <StatCard label="Challenges running" value={now.challenges} delta={d('challenges')} hint="open at any point in it" onClick={onChallenges} />
         <StatCard label="Videos submitted" value={now.submissions} delta={d('submissions')} />
         <StatCard label="Views" value={formatViewsTotal(now.views)} delta={d('views')} hint="on videos submitted in it" />
-        <StatCard label="Cash prizes paid" value={formatMoney(now.cash, currency)} delta={d('cash')} accent onClick={onMoney} />
+        <StatCard label="Cash prizes paid" value={formatMoney(now.cash, currency)} delta={d('cash')} onClick={onMoney} />
         <StatCard label="Voucher value given" value={formatMoney(now.vouchers, currency)} delta={d('vouchers')} onClick={onMoney} />
         <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 views" />
         <StatCard label="Total CPM" value={cpm(now.totalCpm)} delta={d('totalCpm', true)} hint="cash and vouchers per 1,000 views" />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { renderNote } from '../../lib/noteMarkdown'
 import { cx } from '../../lib/utils'
 
@@ -7,8 +7,11 @@ import { cx } from '../../lib/utils'
 // Ethan, on the first sheet (a list of headings as chips and a "Read the full text" button): "Should it always show up
 // as full text rather than those buttons ... or they can expand it to read it all, like the other websites go." The
 // full text is what is being agreed to, so it is what is shown - the way the better clickwrap screens do it: the
-// whole document in a reading pane, a strip of its sections that follows you as you read and jumps on a press, and a
-// thin line that says how far through you are. Nobody is made to scroll to the bottom first; the text is simply there.
+// whole document in a reading pane and a line that says how far through you are. Nobody is made to scroll to the
+// bottom first; the text is simply there.
+//
+// THE NUMBERED STRIP IS GONE (12 Oct 2026). Ethan: "remove the numbered buttons at the top, just have them to scroll
+// through or press accept". The sections keep their numbers in the text; the reader scrolls or accepts.
 //
 // The same component draws the document in the sign-up sheet, in Settings > Agreements and on Admin > Agreements, so
 // the team previews exactly what a creator reads.
@@ -43,17 +46,15 @@ export function headingsOf(md = '') {
 /**
  * @param body        the markdown, already filled in for the reader
  * @param scrollRef   the element that scrolls (the sheet's body, or the window when omitted)
- * @param navTop      the sticky offset of the section strip inside that scroller
  */
-export default function AgreementDoc({ body, scrollRef, navTop = 0, className, onProgress }) {
+export default function AgreementDoc({ body, scrollRef, className, onProgress }) {
   const { intro, sections } = useMemo(() => splitSections(body), [body])
-  const [active, setActive] = useState(sections[0]?.id || null)
-  const navRef = useRef(null)
   const rootRef = useRef(null)
 
-  // Which section is being read, and how far through the document. One scroll listener, measured, not observed: an
-  // IntersectionObserver on a scroller inside a fixed sheet reports the wrong root on iOS 16.
+  // How far through the document. One scroll listener, measured, not observed: an IntersectionObserver on a scroller
+  // inside a fixed sheet reports the wrong root on iOS 16.
   useEffect(() => {
+    if (!onProgress) return undefined
     const scroller = scrollRef?.current || window
     const box = () => (scrollRef?.current ? scrollRef.current.getBoundingClientRect() : { top: 0, height: window.innerHeight })
     let raf = 0
@@ -62,18 +63,9 @@ export default function AgreementDoc({ body, scrollRef, navTop = 0, className, o
       const root = rootRef.current
       if (!root) return
       const b = box()
-      const line = b.top + Math.min(160, b.height * 0.3)
-      let current = sections[0]?.id || null
-      for (const s of sections) {
-        const el = root.querySelector(`#${CSS.escape(s.id)}`)
-        if (el && el.getBoundingClientRect().top <= line) current = s.id
-      }
-      setActive(current)
-      if (onProgress) {
-        const r = root.getBoundingClientRect()
-        const total = r.height - b.height * 0.6
-        onProgress(total <= 0 ? 1 : Math.max(0, Math.min(1, (b.top - r.top) / total)))
-      }
+      const r = root.getBoundingClientRect()
+      const total = r.height - b.height * 0.6
+      onProgress(total <= 0 ? 1 : Math.max(0, Math.min(1, (b.top - r.top) / total)))
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(read) }
     read()
@@ -82,47 +74,8 @@ export default function AgreementDoc({ body, scrollRef, navTop = 0, className, o
     return () => { scroller.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); if (raf) cancelAnimationFrame(raf) }
   }, [sections, scrollRef, onProgress])
 
-  // Keep the lit chip in view on the strip as the reader moves down.
-  useEffect(() => {
-    const chip = navRef.current?.querySelector(`[data-chip="${active}"]`)
-    if (!chip || !navRef.current) return
-    const nav = navRef.current
-    const left = chip.offsetLeft - nav.clientWidth / 2 + chip.clientWidth / 2
-    nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-  }, [active])
-
-  const jump = (id) => {
-    const el = rootRef.current?.querySelector(`#${CSS.escape(id)}`)
-    if (!el) return
-    const scroller = scrollRef?.current
-    if (scroller) {
-      const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - navTop - 56
-      scroller.scrollTo({ top, behavior: 'smooth' })
-    } else {
-      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 120, behavior: 'smooth' })
-    }
-  }
-
   return (
     <div ref={rootRef} className={cx('agreement-doc', className)}>
-      {sections.length > 2 && (
-        <nav
-          ref={navRef}
-          aria-label="Sections"
-          className="agreement-nav sticky z-10 -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 py-2"
-          style={{ top: navTop }}
-        >
-          {sections.map((s) => (
-            <button
-              key={s.id} type="button" data-chip={s.id} onClick={() => jump(s.id)} aria-current={active === s.id ? 'true' : undefined}
-              className={cx('flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-all duration-300',
-                active === s.id ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-px hoverable:hover:border-brand/50')}
-            >
-              <span className={cx('tabular-nums', active === s.id ? 'text-white/80' : 'text-brand')}>{s.n}</span>{s.title}
-            </button>
-          ))}
-        </nav>
-      )}
       {intro && <div className="agreement-text agreement-intro text-[14.5px]">{renderNote(intro)}</div>}
       {sections.map((s, i) => (
         <section key={s.id} id={s.id} className="agreement-section scroll-mt-24" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>

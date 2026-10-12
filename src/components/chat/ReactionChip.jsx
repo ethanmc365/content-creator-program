@@ -166,7 +166,9 @@ export default function ReactionChip({ emoji, count, mine, names = [], ids = [],
         className={cx(
           'reaction-chip inline-flex select-none items-center gap-1 rounded-full px-1.5 py-0.5 leading-none transition-[transform,background-color] duration-150 ease-out',
           'hoverable:hover:scale-110 active:scale-95',
-          mine ? 'bg-brand-tint' : 'hoverable:hover:bg-cloud',
+          // No tinted card behind your own reaction (12 Oct 2026, Ethan: "it shows like an orange colour card around the
+          // reaction and number ... I don't like it"). Yours is told by the brand-coloured count alone.
+          'hoverable:hover:bg-cloud',
         )}
       >
         <span aria-hidden className="text-[17px] leading-none">{emoji}</span>

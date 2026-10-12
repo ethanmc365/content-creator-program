@@ -13,7 +13,7 @@ import FlagTile from '../components/network/FlagTile'
 import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
 import UnreadDot, { UnreadCount } from '../components/UnreadDot'
-import { EmptyState } from '../components/ui'
+import { Avatar, EmptyState } from '../components/ui'
 import PageSkeleton from '../components/PageSkeleton'
 import { stripMarkup } from '../lib/richText'
 import { cx, shortAgo } from '../lib/utils'
@@ -86,7 +86,9 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
   return (
     <Link
       to={to}
-      className={cx('group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors', dark ? 'hover:bg-white/10 active:bg-white/10' : 'hover:bg-cloud active:bg-cloud')}
+      // 12 Oct 2026 (Ethan: "really improve the UI of the rooms picker on mobile"): a press shrinks the row a touch,
+      // like a native list, and rows are split by hairlines (the card draws them) rather than floating in space.
+      className={cx('group flex items-center gap-3 rounded-2xl px-2 py-3 transition-[background-color,transform] duration-150 active:scale-[0.985]', dark ? 'hover:bg-white/10 active:bg-white/10' : 'hover:bg-cloud/70 active:bg-cloud')}
     >
       {/* THE GLYPH IS ORANGE. THERE IS NO TILE BEHIND IT.
           It was a solid 40px brand square with a white icon in it, and eight of
@@ -156,11 +158,21 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
         {/* The last thing said, or what the room is for if nothing has been.
             An empty room that explains itself is an invitation; an empty room
             that says nothing is a dead end. */}
-        <span className={cx('mt-1 block truncate text-[13px] leading-snug', dark ? 'text-white/60' : unread ? 'font-medium text-ink/80' : 'text-smoke')}>
-          {place && <span className="font-semibold text-ink/70">{place} · </span>}
-          {last
-            ? `${last.profiles?.name?.split(' ')[0] || 'Someone'}: ${stripMarkup(last.body || '')}`
-            : (room.hint ? tr(room.hint) : tr('Nothing posted yet'))}
+        {place && <span className="mt-0.5 block truncate text-[11px] font-bold uppercase tracking-wide text-gray-400">{place}</span>}
+        {/* WHO SAID IT, WITH THEIR FACE, AND NEVER AN EMPTY "Ethan:" (12 Oct 2026): a photo or a video says so. */}
+        <span className={cx('mt-1 flex min-w-0 items-center gap-1.5 text-[13px] leading-snug', dark ? 'text-white/60' : unread ? 'font-medium text-ink/80' : 'text-smoke')}>
+          {last ? (
+            <>
+              {last.profiles?.photo_url && <Avatar src={last.profiles.photo_url} name={last.profiles.name || ''} size="xs" className="!h-4 !w-4 shrink-0 !text-[7px]" />}
+              <span className="min-w-0 truncate">
+                <span className={cx('font-semibold', dark ? 'text-white/80' : 'text-ink/80')}>{last.profiles?.name?.split(' ')[0] || tr('Someone')}</span>
+                {': '}
+                {stripMarkup(last.body || '').trim() || (last.video_url ? tr('sent a video') : last.image_url ? tr('sent a photo') : tr('posted'))}
+              </span>
+            </>
+          ) : (
+            <span className="truncate">{room.hint ? tr(room.hint) : tr('Nothing posted yet')}</span>
+          )}
         </span>
       </span>
     </Link>
@@ -197,7 +209,8 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
       // THE VIP ROOMS ARE THEIR OWN MATERIAL (2 Oct 2026): the dark `.vip-surface`, not the pale orange wash Ethan
       // did not like ("I want it to be more different").
       // Ethan, 4 Oct 2026: "make the cards the same colour ... just have them the same white".
-      cx('border bg-white', unreadCount > 0 ? 'border-brand/30' : 'border-gray-100'),
+      // One quiet edge for every card (12 Oct 2026): what is new is said by the count and the dots, not an orange border.
+      'border border-gray-100 bg-white',
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
       <div className={cx('-mx-4 -mt-4 mb-3 flex items-center gap-3 border-b px-4 py-3', 'border-gray-100')}>
@@ -245,7 +258,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
           </button>
         )}
       </div>
-      <div className="space-y-0.5">
+      <div className="divide-y divide-gray-100/80">
         {rooms.map((r, i) => (
           <div key={r.id}>
             {/* THE SPLIT: one quiet grey line where the everyday rooms end and the VIP rooms begin. */}
@@ -497,12 +510,12 @@ export default function Rooms() {
               <div key={filter} className="flex flex-col gap-4 animate-tab-in">
                 {/* NEW SINCE YOU LOOKED - what needs you, across every place, newest first (Slack's "bubble it up"). */}
                 {(filter === 'all' || filter === 'unread') && unreadRooms.length > 0 && (
-                  <section className="rounded-card border border-brand/25 bg-white p-3 shadow-card">
-                    <p className="flex items-center gap-2 px-2 pb-1.5 pt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-brand">
+                  <section className="rounded-card border border-gray-100 bg-white p-3 shadow-card">
+                    <p className="flex items-center gap-2 px-2 pb-1.5 pt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/70">
                       <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
                       {tr('New since you looked')}
                     </p>
-                    <div className="space-y-0.5">
+                    <div className="divide-y divide-gray-100/80">
                       {(filter === 'all' ? unreadRooms.slice(0, 4) : unreadRooms).map(({ g, r, last }) => (
                         <RoomRow
                           key={`${g.place.id}-${r.id}`}

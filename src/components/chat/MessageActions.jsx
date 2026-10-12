@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
 import ReactionChip, { reactorTitle } from './ReactionChip'
@@ -117,6 +117,29 @@ export default function MessageActions({
   // inside the collapsed box the next time the message was opened.
   useEffect(() => { if (!open) setPicking(false) }, [open])
 
+  // A BAR THAT OPENS BELOW THE FOLD IS BROUGHT INTO VIEW (12 Oct 2026). Ethan: "if I click on a chat bubble at the
+  // bottom of the screen, those extra tools open but can be hidden under the bottom ... it should always scroll up
+  // slightly so those tools are clickable and visible". Measured once the row has finished growing (220ms), against
+  // the thread's own scroller, and only ever scrolled by what is hidden plus a little air.
+  const barRef = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const t = setTimeout(() => {
+      const bar = barRef.current
+      if (!bar) return
+      let sc = bar.parentElement
+      while (sc && sc !== document.body) {
+        const oy = getComputedStyle(sc).overflowY
+        if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break
+        sc = sc.parentElement
+      }
+      if (!sc || sc === document.body) return
+      const hidden = bar.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom + 16
+      if (hidden > 0) sc.scrollBy({ top: hidden, behavior: 'smooth' })
+    }, 240)
+    return () => clearTimeout(t)
+  }, [open])
+
   // Escape closes the message, not just the picker. ReactionPicker already
   // stops the event when IT is the thing open, so this only ever fires for a
   // bar with no panel over it.
@@ -155,6 +178,7 @@ export default function MessageActions({
 
       {hasBar && (
         <div
+          ref={barRef}
           data-msg-bar
           data-open={open ? 'true' : 'false'}
           className={cx(

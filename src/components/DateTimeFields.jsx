@@ -191,6 +191,48 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
 }
 
 /**
+ * MM / YYYY (12 Oct 2026: the VIP brief's month was the browser's own month picker). Emits 'yyyy-MM' when both halves
+ * are complete and the month is 01-12, '' otherwise.
+ */
+export function MonthField({ id, label, value, onChange, hint }) {
+  const tr = useT()
+  const [m, setM] = useState(() => (value ? value.slice(5, 7) : ''))
+  const [y, setY] = useState(() => (value ? value.slice(0, 4) : ''))
+  const mRef = useRef(null)
+  const yRef = useRef(null)
+  useEffect(() => {
+    if (!value) { if (m || y) { setM(''); setY('') } return }
+    if (`${y}-${m}` !== value) { setM(value.slice(5, 7)); setY(value.slice(0, 4)) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+  useEffect(() => {
+    if (m.length === 2 && y.length === 4 && Number(m) >= 1 && Number(m) <= 12) onChange(`${y}-${m}`)
+    else onChange('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m, y])
+  const bad = m.length === 2 && (Number(m) < 1 || Number(m) > 12)
+  return (
+    <Frame
+      id={`${id}-m`} label={label} hint={hint} invalid={bad}
+      onMouseDown={(e) => {
+        const first = focusFirstUnfinished([mRef, yRef], [2, 4])
+        if (!first || first === e.target) return
+        e.preventDefault()
+        first.focus()
+        first.select()
+      }}
+      error={bad ? 'Months run from 01 to 12.' : null}
+    >
+      <Part id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
+        onChange={setM} onOverflow={() => yRef.current?.focus()} />
+      <span className="text-gray-300">/</span>
+      <Part id={`${id}-y`} inputRef={yRef} label={tr("YYYY")} max={4} width="w-12" value={y}
+        onChange={setY} onBack={() => mRef.current?.focus()} />
+    </Frame>
+  )
+}
+
+/**
  * HH : MM, 24 hour. Emits 'HH:MM' when both halves are complete and in range,
  * '' otherwise. The colon is painted, never typed.
  */

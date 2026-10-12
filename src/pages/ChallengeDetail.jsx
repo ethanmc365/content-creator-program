@@ -581,6 +581,18 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     }
   }
 
+  // TAKING A BONUS BACK (12 Oct 2026). Jacob ticked a bonus on a video that did not qualify and had to ask the team to
+  // undo it. Ethan: "the specific creator should also be able to correct it themself if they accidentally add it". The
+  // creator may delete their own claim (RLS since 155) and the delete rescoring trigger takes the points off.
+  async function unclaimBonus(sub, rule) {
+    if (!await confirm(tr('Take the "{b}" bonus off this video? The {n} points come off your score.', { b: rule.label.replace(/^\+?\d+\s*/, ''), n: rule.points }), { confirmLabel: tr('Take it off') })) return
+    const before = bonusClaims
+    setBonusClaims((cur) => cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id)))
+    const { error } = await supabase.from('submission_bonus_claims').delete()
+      .eq('submission_id', sub.id).eq('rule_id', rule.id).eq('creator_id', user.id)
+    if (error) { setBonusClaims(before); await notice(tr('Could not remove that bonus. Please try again.')) }
+  }
+
   async function removeMySubmission(subId) {
     if (!await confirm('Remove this entry?')) return
     await supabase.from('submissions').delete().eq('id', subId)
@@ -1693,6 +1705,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                             <Icon name={waiting ? 'clock' : 'check'} className="h-3 w-3 shrink-0" />
                             <span className="min-w-0 truncate">+{r.points} <TLine text={r.label.replace(/^\+?\d+\s*/, '')} /></span>
                             {waiting && ` · ${tr("at {n} views", { n: Number(r.min_views).toLocaleString() })}`}
+                            {isLive && s.creator_id === user.id && (
+                              <button type="button" onClick={() => unclaimBonus(s, r)} aria-label={tr('Remove this bonus')} title={tr('Ticked by mistake? Remove it')}
+                                className="-mr-0.5 ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-transform duration-200 hoverable:hover:scale-125">
+                                <Icon name="close" className="h-3 w-3" />
+                              </button>
+                            )}
                           </span>
                         )
                       })}

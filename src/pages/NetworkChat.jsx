@@ -14,7 +14,9 @@ import FlagTile from '../components/network/FlagTile'
 import NetworkMotion from '../components/NetworkMotion'
 import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { registerChatSearch } from '../lib/chatSearch'
+import { ComposerSearch } from '../components/ChatSearch'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
+import { useNoScrollChain } from '../lib/noScrollChain'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -46,7 +48,7 @@ import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
 import { Avatar, EmptyState } from '../components/ui'
-import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 import MessageActions from '../components/chat/MessageActions'
@@ -325,8 +327,11 @@ export default function NetworkChat() {
   const mentionLenRef = useRef(0)
   const atBottomRef = useRef(true)
 
-  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
+  const overlayRef = useRef(null)
   const isMobile = useIsMobile()
+  useViewportPin(overlayRef, isMobile)
+  useNoScrollChain(scrollerRef, `${slug}-${channelKey}`)
 
   // Same geometry as Chat.jsx, for the same reasons. Closed keyboard: leave the
   // header (4rem) and the tab bar (4.5rem + safe area) alone. Open: take the
@@ -422,7 +427,7 @@ export default function NetworkChat() {
         height: kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
-        transform: `translateY(${Math.max(0, vpOffset)}px)`,
+        // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
         // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (1 Sep 2026.)
         //
         // Ethan: "on the rooms, please make the header disappearing animation
@@ -808,7 +813,13 @@ export default function NetworkChat() {
   // room puts its dot out on the same frame rather than after the throttled
   // upsert has been acknowledged, which is the difference between a signal you
   // trust and one that lingers on the thing you are reading.
-  const { unread, markRead } = useUnread()
+  const { unread, markRead, readAt } = useUnread()
+  // WHERE THE NEW MESSAGES START (12 Oct 2026). Ethan, on chat on a desktop: "a few controls at the top to go to unread
+  // messages". The room's read watermark as it was the moment it was opened - taken DURING RENDER, before the effect
+  // below moves it to now - so the thread can draw a "New messages" line and the bar can jump to it.
+  const [openedRead, setOpenedRead] = useState({})
+  if (roomKey && readAt && !(roomKey in openedRead)) setOpenedRead((o) => ({ ...o, [roomKey]: readAt.get(roomKey) || null }))
+  const openedReadAt = roomKey ? openedRead[roomKey] ?? null : null
   useEffect(() => {
     if (roomKey) markRead(roomKey)
   }, [roomKey, markRead])
@@ -965,6 +976,26 @@ export default function NetworkChat() {
     )
   }, [messages, search, queued, user?.id])
 
+  const firstUnread = useMemo(() => {
+    if (!openedReadAt || search) return null
+    return visible.find((m) => !m.pending && m.created_at > openedReadAt && m.sender_id !== user?.id) || null
+  }, [visible, openedReadAt, search, user?.id])
+  const unreadSince = firstUnread ? visible.filter((m) => m.created_at >= firstUnread.created_at && m.sender_id !== user?.id).length : 0
+  const [farFromEnd, setFarFromEnd] = useState(false)
+  const scrollToMessage = useCallback((id) => {
+    const el = scrollerRef.current
+    const row = document.getElementById(`msg-${id}`)
+    if (!el || !row) return
+    const top = row.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 72
+    el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  }, [])
+  const jumpToEnd = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    atBottomRef.current = true
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [])
+
   // Typing "@" opens the picker; a space or a match closes it.
   // The composer serialises to markdown on every keystroke, so `body` stays
   // exactly what it always was and send/drafts/search are untouched.
@@ -997,6 +1028,8 @@ export default function NetworkChat() {
     // anybody to have scrolled.
     if (!isPinning(el)) {
       atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+      const far = el.scrollHeight - el.scrollTop - el.clientHeight > 600
+      setFarFromEnd((f) => (f === far ? f : far))
     }
     // Reading hides the chrome; running out of messages at the top brings it
     // back, because that is the moment you are looking for something else.
@@ -1242,22 +1275,8 @@ export default function NetworkChat() {
         >
           <Icon name="chevronLeft" className="h-5 w-5" />
         </Link>
-        {stripSearch ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-cloud px-3.5 py-1.5 animate-tab-in">
-            <Icon name="magnifier" className="h-4 w-4 shrink-0 text-smoke" />
-            <input
-              autoFocus
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${active?.label || 'this room'}`}
-              aria-label={`Search ${active?.label || 'this room'}`}
-              // 16px on a phone so iOS never zooms into the field (see `.no-ios-zoom`).
-              className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
-            />
-            {search && <span className="shrink-0 text-[11px] tabular-nums text-smoke">{visible.length}/{messages.length}</span>}
-          </div>
-        ) : (
+        {/* The search field lives in the composer's slot now (12 Oct 2026), so the room's name stays here. */}
+        {(
           // ONE LINE: THE ROOM, THEN WHERE IT IS (12 Oct 2026). Ethan: "we don't
           // need to show the icon there... it should show the worldwide option
           // that's currently below general to the right of general, to swap to
@@ -1296,6 +1315,8 @@ export default function NetworkChat() {
         )}
         <button
           type="button"
+          // Keeps the composer focused until the search field takes over, so the keyboard stays up.
+          onPointerDown={(e) => e.preventDefault()}
           onClick={() => { setStripSearch((v) => !v); if (stripSearch) setSearch('') }}
           aria-label={stripSearch ? 'Close search' : `Search ${active?.label || 'this room'}`}
           aria-expanded={stripSearch}
@@ -1335,6 +1356,23 @@ export default function NetworkChat() {
           active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
         )}>
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
+          {/* THE ROOM'S OWN CONTROLS, ON THE RIGHT (12 Oct 2026). */}
+          {!search && (firstUnread || farFromEnd) && (
+            <span className="order-last ml-auto flex shrink-0 items-center gap-1.5">
+              {firstUnread && (
+                <button type="button" onClick={() => scrollToMessage(firstUnread.id)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[12px] font-bold text-white shadow-card transition-transform duration-200 animate-pop-in hoverable:hover:-translate-y-px">
+                  <Icon name="chevronUp" className="h-3.5 w-3.5" />{unreadSince === 1 ? tr('1 new message') : tr('{n} new messages', { n: unreadSince })}
+                </button>
+              )}
+              {farFromEnd && (
+                <button type="button" onClick={jumpToEnd}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-[12px] font-bold text-ink transition-transform duration-200 animate-pop-in hoverable:hover:-translate-y-px">
+                  <Icon name="chevronDown" className="h-3.5 w-3.5" />{tr('Latest')}
+                </button>
+              )}
+            </span>
+          )}
           {!search && (
             <span className="min-w-0 flex-1 truncate">
               <span className="font-semibold">{tr(active.label)}</span>
@@ -1418,6 +1456,12 @@ export default function NetworkChat() {
             })()
             const seen = (isAdmin || mine) ? seenBy(m) : []
             return (
+              <Fragment key={m.id}>
+              {firstUnread?.id === m.id && (
+                <div role="separator" className="flex items-center gap-3 py-1 text-[11px] font-bold uppercase tracking-wider text-brand animate-fade-up">
+                  <span className="h-px flex-1 bg-brand/30" />{tr('New messages')}<span className="h-px flex-1 bg-brand/30" />
+                </div>
+              )}
               <motion.div
                 key={m.id}
                 id={`msg-${m.id}`}
@@ -1755,11 +1799,21 @@ export default function NetworkChat() {
                   </MessageActions>
                 </div>
               </motion.div>
+              </Fragment>
             )
           })
         )}
       </div>
 
+      {/* BACK TO THE LATEST, on a phone (the desktop bar has its own button). */}
+      {farFromEnd && !search && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center lg:hidden">
+          <button type="button" onClick={jumpToEnd}
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-ink/90 px-3.5 py-2 text-[12px] font-bold text-white shadow-lift animate-pop-in active:scale-95">
+            <Icon name="chevronDown" className="h-4 w-4" />{tr('Latest')}
+          </button>
+        </div>
+      )}
       {!settled && (
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <ChatSkeleton fill rows={6} />
@@ -1775,7 +1829,12 @@ export default function NetworkChat() {
           to read. `stripSearch` is the phone's search - the desktop bar is a
           different control and does not do this - so this only ever applies
           where the space is actually contested. */}
-      {stripSearch ? null : !canPost ? (
+      {stripSearch ? (
+        <div className="shrink-0 border-t border-gray-100 px-3 py-2.5 lg:hidden">
+          <ComposerSearch value={search} onChange={setSearch} count={visible.length} total={messages.length}
+            placeholder="Search this room" onClose={() => { setStripSearch(false); setSearch('') }} />
+        </div>
+      ) : !canPost ? (
         <div className="shrink-0 border-t border-gray-100 p-3">
           <p className="flex items-center justify-center gap-2 rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
             <Icon name="bell" className="h-4 w-4 shrink-0" />
@@ -1892,7 +1951,8 @@ export default function NetworkChat() {
       </div>
 
       <div
-        style={mobileStyle}
+        ref={overlayRef}
+      style={mobileStyle}
         className={cx(
           // Mobile: a fixed overlay pinned to the visual viewport so the
           // document never scrolls and the composer hugs the keyboard. Desktop
@@ -1995,7 +2055,7 @@ export default function NetworkChat() {
                           kind={place.kind}
                           size="h-7 w-7"
                           glyph="text-base"
-                          className={cx('rounded-lg', here && 'bg-brand-tint')}
+                          className="rounded-lg"
                           title={place.name}
                         />
                         <span className="min-w-0 truncate text-sm font-bold tracking-[-0.01em]">{place.name}</span>

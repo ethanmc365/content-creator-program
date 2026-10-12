@@ -73,8 +73,10 @@ function factText(key, facts) {
   // zero-view certificate as though the number were unknown.
   if (raw === null || raw === undefined || raw === '') return ''
   if (key === 'views') return Number(raw).toLocaleString()
-  if (key === 'place') return ordinal(Number(raw))
-  if (key === 'date') return formatAwardDate(raw)
+  // A certificate drawn in another language passes its own "1.º" / date (12 Oct 2026): a Spanish card read
+  // "por quedar 1st en ...".
+  if (key === 'place') return facts.placeText || ordinal(Number(raw))
+  if (key === 'date') return facts.dateText || formatAwardDate(raw)
   return String(raw)
 }
 

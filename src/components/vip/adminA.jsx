@@ -14,6 +14,7 @@ import { curSym, money, monthLabel, nf, perK, rate, vipRpc, useKindT } from '../
 import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './adminC'
 import { VipLinkCard } from './adminD'
+import { DateField } from '../DateTimeFields'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -551,7 +552,7 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
 
         {section('pencil', tr('For the team'), (
           <div className="space-y-3">
-            <label className="block"><span className="label">{tr('Look at this rate again on')}</span><input type="date" className="input" value={f.review} onChange={(e) => set({ review: e.target.value })} /><span className="mt-1 block text-[11px] text-smoke">{tr('Optional. On that day you and the other managers of this market are reminded, and the Members list marks it.')}</span></label>
+            <div><DateField id="rate-review" label={tr('Look at this rate again on')} value={f.review} onChange={(v) => { if (v) set({ review: v }) }} />{f.review && <button type="button" onClick={() => set({ review: '' })} className="mt-1 text-[12px] font-semibold text-brand">{tr('Clear the date')}</button>}<span className="mt-1 block text-[11px] text-smoke">{tr('Optional. On that day you and the other managers of this market are reminded, and the Members list marks it.')}</span></div>
             <label className="block"><span className="label">{tr('Notes (only the team sees these)')}</span><textarea className="input min-h-[4rem] resize-none" value={f.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
           </div>
         ), 4)}

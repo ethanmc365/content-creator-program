@@ -26,7 +26,6 @@ export function AttentionCard({ programme }) {
   // IN THE PLATFORM'S OWN COLOURS (3 Oct 2026). Ethan: "I don't like that color of that card. It's like a weird yellow."
   return (
     <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand to-brand-light" />
       <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="bell" className="h-5 w-5 text-brand" />{tr('Needs a nudge')} <span className="rounded-full bg-brand-tint px-2 py-0.5 text-xs font-bold text-brand">{data.length}</span></h2>
       <ul className="divide-y divide-gray-50">
         {data.map((r, i) => (

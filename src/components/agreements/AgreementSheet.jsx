@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import GuardianShare from './GuardianShare'
+import { GuardianSent } from './GuardianShare'
 import { GUARDIAN_CONSENT_ON } from '../../lib/guardianConsent'
 import Icon from '../Icon'
 import { Spinner } from '../ui'
@@ -83,7 +83,12 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
 
   async function accept() {
     // The team's preview (Admin > Agreements) shows the real screen and records nothing.
-    if (preview) { setDone(true); setTimeout(leave, 650); return }
+    if (preview) {
+      setDone(true)
+      if (needsGuardian) { setGuardianRow({ guardian_name: guardian.name.trim(), guardian_email: guardian.email.trim() }); return }
+      setTimeout(leave, 650)
+      return
+    }
     setBusy(true); setErr('')
     const { error } = await supabase.rpc('accept_agreement', {
       p_agreement: doc.id,
@@ -97,12 +102,9 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
     setBusy(false)
     if (error) { setErr(error.message); return }
     setDone(true)
-    // UNDER 18: stay, and hand them the link for their parent (migration 367) instead of closing.
-    if (needsGuardian) {
-      const { data } = await supabase.rpc('my_guardian_links')
-      const row = (data || []).find((r) => r.title === doc.title) || (data || [])[0]
-      if (row) { setGuardianRow(row); return }
-    }
+    // UNDER 18: stay a moment and say what happens next. The team emails the parent the link (12 Oct 2026, Ethan: "rather
+    // than them having to copy the link and send it to their parents ... I will send the email to their parents").
+    if (needsGuardian) { setGuardianRow({ guardian_name: guardian.name.trim(), guardian_email: guardian.email.trim() }); return }
     setTimeout(leave, 750)
   }
 
@@ -139,9 +141,15 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
               <p className="mt-2 text-sm leading-relaxed text-white/90">{updated && doc.change_note ? doc.change_note : doc.summary}</p>
             </div>
           </div>
-          <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-white/15">
-            <span className="block h-full origin-left bg-white transition-transform duration-150" style={{ transform: `scaleX(${progress})` }} />
-          </span>
+          {/* HOW FAR THROUGH (12 Oct 2026): a proper reading line with the percentage, not a hairline on the edge. */}
+          <div className="relative mt-3 flex items-center gap-3" aria-hidden>
+            <div className="agreement-progress flex-1"><span style={{ transform: `scaleX(${Math.max(0.02, progress)})` }} /></div>
+            <span className="agreement-progress-pct flex items-center justify-end gap-1 text-right text-[11px] font-bold tabular-nums text-white/90">
+              {progress >= 0.99
+                ? <><Icon name="check" className="agreement-progress-done h-3.5 w-3.5" />{tr('Read')}</>
+                : `${Math.round(progress * 100)}%`}
+            </span>
+          </div>
         </div>
 
         <div ref={bodyRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
@@ -169,7 +177,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
           {!readOnly && needsGuardian && (
             <div className="agreement-section mt-8 rounded-[22px] border border-brand/25 bg-white p-5">
               <p className="flex items-center gap-2 text-sm font-bold text-ink"><Icon name="users" className="h-4 w-4 text-brand" />{tr('Your parent or guardian')}</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-smoke">{tr('You are under 18, so a parent or guardian agrees to these terms with you. Add their details; after you accept you get a link to send them, and they confirm it themselves. We only use their details about your membership.')}</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-smoke">{tr('You are under 18, so a parent or guardian agrees to these terms with you. Add their details and the Tryp.com team will email them a link to read the terms and confirm. We only use their details about your membership.')}</p>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block"><span className="label">{tr('Their full name')}</span>
                   <input className="input no-ios-zoom" value={guardian.name} autoComplete="off" onChange={(e) => setGuardian((g) => ({ ...g, name: e.target.value }))} /></label>
@@ -187,8 +195,8 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
           </div>
         ) : guardianRow ? (
           <div className="shrink-0 space-y-3 border-t border-gray-100 bg-white px-6 pb-[calc(1.1rem+env(safe-area-inset-bottom))] pt-4">
-            <GuardianShare row={guardianRow} compact />
-            <button type="button" onClick={leave} className="btn-secondary w-full justify-center">{tr('Done')}</button>
+            <GuardianSent row={guardianRow} />
+            <button type="button" onClick={leave} className="btn-primary w-full justify-center">{tr('Done')}</button>
           </div>
         ) : (
         <div className="shrink-0 border-t border-gray-100 bg-white px-6 pb-[calc(1.1rem+env(safe-area-inset-bottom))] pt-4">
@@ -198,7 +206,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
               {doc.requires_signature
                 ? tr('I have read the {t} and I agree to it. I sign it electronically with my name above.', { t: doc.title })
                 : needsGuardian
-                  ? tr('I have read and agree to the {t}. I will send my parent or guardian named above the link to confirm it.', { t: doc.title })
+                  ? tr('I have read and agree to the {t}. The Tryp.com team will email my parent or guardian named above to confirm it.', { t: doc.title })
                   : tr('I have read and agree to the {t}.', { t: doc.title })}
             </span>
           </label>

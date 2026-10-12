@@ -47,7 +47,7 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // full-screen open, the + / - buttons - is looking at the same two numbers.
 const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
-function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false, fill = false, focusHere = false }) {
+function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null, controlsBelowBadge = false, fill = false, focusHere = false, tooltipAt = 'top' }) {
   const tr = useT()
   const clipId = `here-clip-${useId().replace(/:/g, '')}`
   const place = usePlaceNames()
@@ -258,11 +258,17 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         {/* THE COUNTRY CARD (4 Oct 2026). Ethan: the name came up in a dark pill over the map and the pinned country in a flat
             orange; he wanted it like the language buttons - a white card with the flag and the name. On a map you are pinning
             it also says what a tap will do (or has just done), so a country is never added without it saying so. */}
+        {/* 12 Oct 2026: on the creator spotlight it covered the "11 countries" badge at the top, so a map with a header
+            over it puts the card at the BOTTOM (`tooltipAt`). Every country now has its flag (lib/flags), and a travel
+            map says whether this one was visited. Keyed by country, so it pops in fresh as you move across the map. */}
         {tooltip && (
-          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 animate-pop-in">
-            <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-ink shadow-lift">
-              <span aria-hidden className="text-base leading-none">{flagForCountry(tooltip)}</span>
-              {place.country(tooltip)}
+          <div key={tooltip} className={cx('pointer-events-none absolute left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 animate-pop-in', tooltipAt === 'bottom' ? 'bottom-3' : 'top-3')}>
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2.5 pr-3.5 text-[13px] font-semibold text-ink shadow-lift">
+              <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center text-[20px] leading-none">{flagForCountry(tooltip) || '🌍'}</span>
+              <span className="min-w-0 truncate">{place.country(tooltip)}</span>
+              {!selectable && selectedSet.has(tooltip) && (
+                <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('Visited')}</span>
+              )}
               {selectable && (
                 <span className={selectedSet.has(tooltip) ? 'text-xs font-semibold text-brand' : 'text-xs font-medium text-smoke'}>
                   {selectedSet.has(tooltip) ? tr('Added ✓') : tr('Tap to add')}

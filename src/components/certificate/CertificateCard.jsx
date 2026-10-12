@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import Icon from '../Icon'
 import { tIn } from '../../lib/i18n'
-import { dateIn, ordinalIn } from '../../lib/certificateLang'
+import { dateIn, ordinalIn, stampDateIn } from '../../lib/certificateLang'
 import { qrPath, useQrMatrix } from '../../lib/qr'
 import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf, ordinal } from '../../lib/certificates'
 
@@ -57,10 +57,14 @@ const M = 56 // the margin, on every side of every layout
 
 const SANS = 'Poppins, system-ui, sans-serif'
 
-/** "30 September 2026" -> "30 SEP 2026", for a postmark ring. */
-function shortDate(text) {
-  const m = /^(\d{1,2}) ([A-Za-z]+) (\d{4})$/.exec(String(text || '').trim())
-  return m ? `${m[1]} ${m[2].slice(0, 3).toUpperCase()} ${m[3]}` : String(text || '')
+/**
+ * The size that fits capitals of `text` into `width` px on a stamp (12 Oct 2026): "PUBLICACIÓN DE CREADOR" was set at
+ * the size of "CREATOR POST" and ran round the postmark into its own date. `per` is a capital's width plus its letter
+ * spacing, in ems.
+ */
+function ringSize(text, max, width, per = 0.86) {
+  const n = String(text || '').length || 1
+  return Math.max(6, Math.min(max, width / (n * per)))
 }
 
 /** A display size that survives a long name, in steps so a set stays a set. */
@@ -81,7 +85,12 @@ const useL = () => { const lang = useContext(LangContext); return (en) => tIn(la
 export default function CertificateCard({ design, facts: rawFacts = {}, cardRef, className, lang = 'en' }) {
   // A market's name is ours, not the author's, so it is said in the certificate's language
   // ("em Worldwide" read wrong on a Portuguese certificate, 2 Oct 2026).
-  const facts = lang !== 'en' && rawFacts.market ? { ...rawFacts, market: tIn(lang, rawFacts.market) } : rawFacts
+  const facts = lang === 'en' ? rawFacts : {
+    ...rawFacts,
+    ...(rawFacts.market ? { market: tIn(lang, rawFacts.market) } : {}),
+    ...(rawFacts.place ? { placeText: ordinalIn(lang, Number(rawFacts.place), ordinal(Number(rawFacts.place))) } : {}),
+    ...(rawFacts.date ? { dateText: dateIn(lang, rawFacts.date) } : {}),
+  }
   const d = design || {}
   const s = designStyle(d)
   const o = optionsOf(d)
@@ -94,6 +103,7 @@ export default function CertificateCard({ design, facts: rawFacts = {}, cardRef,
     footnote: fillTemplate(d.footnote, facts),
     name: facts.name || '',
     date: facts.date ? (lang === 'en' ? formatAwardDate(facts.date) : dateIn(lang, facts.date)) : '',
+    stamp: facts.date ? stampDateIn(lang, facts.date) : null,
     serial: facts.serial || '',
     signature: d.signature || '',
     signatureRole: d.signature_role || '',
@@ -642,7 +652,7 @@ function Boarding({ s, c, o }) {
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
             <QrCode text={verifyUrl} size={STUB - 56} color={ink} />
             <p style={{ margin: 0, fontSize: 8.5, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: faint, lineHeight: 1.4, textAlign: 'center' }}>
-              Scan to verify
+              {tIn(c.lang, 'Scan to verify')}
             </p>
           </div>
         </div>
@@ -757,17 +767,17 @@ function Postcard({ s, c, o }) {
         </defs>
         <circle cx="65" cy="65" r="58" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="2.5" />
         <circle cx="65" cy="65" r="40" fill="none" stroke={s.light ? s.accentText : s.ink} strokeWidth="1.5" />
-        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
+        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: ringSize(tIn(c.lang, 'Creator post'), 9.5, 128), fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
           <textPath href="#pm-top" startOffset="50%" textAnchor="middle">{tIn(c.lang, 'Creator post').toUpperCase()}</textPath>
         </text>
-        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
+        <text fill={s.light ? s.accentText : s.ink} style={{ fontSize: ringSize(c.market || tIn(c.lang, 'Worldwide'), 9.5, 140), fontWeight: 700, letterSpacing: '0.2em', fontFamily: SANS }}>
           <textPath href="#pm-bottom" startOffset="50%" textAnchor="middle">{(c.market || tIn(c.lang, 'Worldwide')).toUpperCase()}</textPath>
         </text>
         <text x="65" y="62" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 13, fontWeight: 700, fontFamily: SANS }}>
-          {(shortDate(c.date) || 'TRYP.COM').split(' ').slice(0, 2).join(' ')}
+          {c.stamp?.dm || 'TRYP.COM'}
         </text>
         <text x="65" y="78" textAnchor="middle" fill={s.light ? s.accentText : s.ink} style={{ fontSize: 11, fontWeight: 700, fontFamily: SANS }}>
-          {(shortDate(c.date) || '').split(' ')[2] || ''}
+          {c.stamp?.y || ''}
         </text>
         {/* Three waves, ending well inside the 220 box. */}
         {o.route && [0, 1, 2, 3].map((i) => (
@@ -994,9 +1004,9 @@ function Passport({ s, c, o }) {
           border: `3px solid ${alpha(s.accent, 0.7)}`, color: alpha(s.accent, 0.85), transform: 'rotate(-9deg)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
         }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.24em' }}>{tIn(c.lang, 'Admitted').toUpperCase()}</span>
-          <span style={{ fontSize: 17, fontWeight: 700, marginTop: 3, whiteSpace: 'nowrap' }}>{shortDate(c.date) || 'TRYP.COM'}</span>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', marginTop: 3 }}>{(c.market || 'WORLDWIDE').toUpperCase()}</span>
+          <span style={{ fontSize: ringSize(tIn(c.lang, 'Admitted'), 9, 130, 0.84), fontWeight: 700, letterSpacing: '0.24em', whiteSpace: 'nowrap' }}>{tIn(c.lang, 'Admitted').toUpperCase()}</span>
+          <span style={{ fontSize: 17, fontWeight: 700, marginTop: 3, whiteSpace: 'nowrap' }}>{c.stamp?.full || 'TRYP.COM'}</span>
+          <span style={{ fontSize: ringSize((c.market || tIn(c.lang, 'Worldwide')), 9, 130, 0.78), fontWeight: 700, letterSpacing: '0.16em', marginTop: 3, whiteSpace: 'nowrap' }}>{(c.market || tIn(c.lang, 'Worldwide')).toUpperCase()}</span>
         </div>
       )}
 

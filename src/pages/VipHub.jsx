@@ -244,8 +244,16 @@ export default function VipHub() {
         // THE FLAG, IN WHITE (1 Oct 2026). Ethan: "Maybe show the flag instead in a different colour. Don't make that
         // orange colour."
         // ON A PHONE THE MARKETS MOVE INTO THE CONTROL CARD (12 Oct 2026), as a row that scrolls - see below.
-        action={staffMode && spaceProgrammes.length > 1
-          ? (isMobile ? null : <ProgrammeSwitch programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />)
+        // ONE CONTROL IN BOTH SPACES, AND IT CROSS-FADES (12 Oct 2026). Ethan: switching from VIP community to official
+        // creators, "Tryp.com Official Spain" in the top right had a UI bug. The VIP space drew the market switch and the
+        // official space (one market) a differently shaped pill, swapped in on the same frame. For the team the same
+        // switch is drawn either way (one market = one lit chip), keyed by the space so it rises in.
+        action={staffMode && spaceProgrammes.length > 0
+          ? (isMobile && spaceProgrammes.length > 1 ? null : (
+            <span key={space} className="inline-flex animate-tab-in">
+              <ProgrammeSwitch programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />
+            </span>
+          ))
           : <ProgrammePill name={programme.name} codes={codes} official={official} />}
       />
 

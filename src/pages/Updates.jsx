@@ -12,6 +12,7 @@ import { toastSuccess } from '../lib/toast'
 import { renderNote } from '../lib/noteMarkdown'
 import { useTranslateOnDemand } from '../lib/quickTranslate'
 import { cx } from '../lib/utils'
+import { DateField } from '../components/DateTimeFields'
 import { useLocale, useT } from '../lib/i18n'
 
 // WHAT'S NEW (6 Oct 2026).
@@ -256,7 +257,7 @@ function UpdateEditor({ row, authorId, onClose, onSaved }) {
             <p className="label">{tr('Tag')}</p>
             <Segmented size="sm" value={kind} onChange={setKind} label={tr('Tag')} options={Object.entries(KINDS).map(([k, v]) => ({ value: k, label: tr(v.label) }))} />
           </div>
-          <label className="block"><span className="label">{tr('Date it went live')}</span><input type="date" className="input" value={date} max={today()} onChange={(e) => setDate(e.target.value || today())} /></label>
+          <DateField id="update-date" label={tr('Date it went live')} value={date} max={today()} onChange={(v) => { if (v) setDate(v) }} />
         </div>
         <div>
           <p className="label">{tr('Icon')}</p>

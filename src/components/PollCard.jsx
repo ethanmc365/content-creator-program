@@ -134,9 +134,7 @@ export default function PollCard({ pollId }) {
       )}
     >
       <div className="mb-3.5 flex items-start gap-2.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-light text-white">
-          <Icon name="chart" className="h-4 w-4" />
-        </span>
+        <Icon name="poll" className="mt-1 h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand">{closed ? tr('Poll · closed') : tr('Poll')}</p>
           <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">{question}</p>
@@ -150,6 +148,10 @@ export default function PollCard({ pollId }) {
           const mine = myVote?.option_id === o.id
           const leading = count > 0 && count === leaderCount
           return (
+            // THE BAR IS THE RESULT, NOT THE BUTTON (12 Oct 2026). Ethan: "whenever you haven't selected anything, it's
+            // unclear which has votes and which is winning ... and when selected, not all the bar should be filled in,
+            // only the percent". The option is a white row: its name and share on top, a slim track under it filled to
+            // exactly its percentage. Your pick has a solid brand bar, a brand outline and a tick; the leader says so.
             <button
               key={o.id}
               type="button"
@@ -157,37 +159,40 @@ export default function PollCard({ pollId }) {
               disabled={closed || busy}
               aria-pressed={mine}
               className={cx(
-                'group/opt relative w-full overflow-hidden rounded-xl px-3.5 py-2.5 text-left text-sm transition-all duration-200 disabled:cursor-default',
-                mine
-                  ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-[0_6px_16px_-8px_rgba(217,68,7,0.7)]'
-                  : 'bg-cloud text-ink hoverable:hover:-translate-y-px hoverable:hover:shadow-card',
+                'relative w-full rounded-xl border bg-white px-3.5 pb-2.5 pt-2 text-left text-sm transition-all duration-200 disabled:cursor-default',
+                mine ? 'border-brand shadow-[0_6px_16px_-10px_rgba(217,68,7,0.7)]' : 'border-gray-200 hoverable:hover:-translate-y-px hoverable:hover:border-brand/50 hoverable:hover:shadow-card',
               )}
             >
-              {/* Result bar: a quiet grey for the rest, a lighter wash of white over the picked one. */}
-              <span
-                className={cx('absolute inset-y-0 left-0 transition-[width] duration-500', mine ? 'bg-white/25' : 'bg-gray-200/80')}
-                style={{ width: `${pct}%` }}
-                aria-hidden
-              />
-              <span className="relative flex items-center justify-between gap-3">
+              <span className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2">
                   <span
                     aria-hidden
-                    className={cx(
-                      'flex shrink-0 items-center justify-center rounded-full border transition-colors',
-                      mine ? 'border-white bg-white text-brand' : 'border-gray-300 bg-white',
-                    )}
+                    className={cx('flex shrink-0 items-center justify-center rounded-full border transition-colors duration-200',
+                      mine ? 'border-brand bg-brand text-white' : 'border-gray-300 bg-white')}
                     style={{ height: 18, width: 18 }}
                   >
                     {mine && (
-                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.4l2.3 2.3L9.5 3.6" /></svg>
+                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 animate-pop-in" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.4l2.3 2.3L9.5 3.6" /></svg>
                     )}
                   </span>
-                  <span className={cx('truncate font-semibold', mine ? 'text-white' : 'text-ink')}>{o.label}</span>
+                  <span className="min-w-0 truncate font-semibold text-ink">{o.label}</span>
+                  {leading && total > 0 && (
+                    <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                      <Icon name="trophy" className="h-3 w-3" />{tr('Leading')}
+                    </span>
+                  )}
                 </span>
-                <span className={cx('shrink-0 text-xs font-bold tabular-nums', mine ? 'text-white' : leading ? 'text-brand' : 'text-smoke')}>
-                  {pct}%
+                <span className="shrink-0 text-right tabular-nums">
+                  <span className={cx('text-[13px] font-bold', mine || leading ? 'text-brand' : 'text-ink')}>{pct}%</span>
+                  <span className="ml-1 text-[11px] text-smoke">{count === 1 ? tr('1 vote') : tr('{n} votes', { n: count })}</span>
                 </span>
+              </span>
+              <span aria-hidden className="mt-2 block h-1.5 overflow-hidden rounded-full bg-cloud">
+                <span
+                  className={cx('block h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                    mine ? 'bg-gradient-to-r from-brand to-brand-light' : leading ? 'bg-brand-light/70' : 'bg-gray-300')}
+                  style={{ width: `${pct}%` }}
+                />
               </span>
             </button>
           )

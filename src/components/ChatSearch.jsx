@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useIsPhone } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
@@ -102,5 +102,49 @@ export function Highlight({ text, term }) {
       <mark className="rounded bg-brand/20 px-0.5 text-inherit">{text.slice(i, i + term.length)}</mark>
       {text.slice(i + term.length)}
     </>
+  )
+}
+
+/**
+ * THE PHONE'S CHAT SEARCH, WHERE THE MESSAGE BOX WAS (12 Oct 2026).
+ *
+ * Ethan: "if I click that search icon while the keyboard is up, it temporarily for a split second flashes a random
+ * screen ... there's almost no space to see what you're typing ... that search bar should appear where the message box
+ * usually is ... and when you press out of it, that search box should close." The field replaces the composer at the
+ * bottom of the chat, so the keyboard and the field sit exactly where they were. It takes focus in a LAYOUT effect, in
+ * the same press that opened it, so focus passes straight from the composer to the search and the keyboard never drops
+ * and comes back (the flash). Pressing out of it closes it when nothing is typed; with a search typed it stays, so the
+ * matches can be read, and the cross closes it.
+ */
+export function ComposerSearch({ value, onChange, count, total, placeholder = 'Search', onClose }) {
+  const tr = useT()
+  const ref = useRef(null)
+  useLayoutEffect(() => { ref.current?.focus({ preventScroll: true }) }, [])
+  return (
+    <div className="composer-search flex h-11 items-center gap-2 rounded-full border border-gray-200 bg-cloud/70 pl-3.5 pr-1.5">
+      <Icon name="magnifier" className="h-4 w-4 shrink-0 text-smoke" />
+      <input
+        ref={ref}
+        type="search"
+        enterKeyHint="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+        onBlur={() => { if (!value.trim()) onClose() }}
+        placeholder={tr(placeholder)}
+        aria-label={tr(placeholder)}
+        className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 outline-none placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0 [&::-webkit-search-cancel-button]:hidden"
+      />
+      {value && <span className="shrink-0 whitespace-nowrap text-[12px] font-semibold tabular-nums text-smoke">{tr('{a} of {b}', { a: count, b: total })}</span>}
+      <button
+        type="button"
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={onClose}
+        aria-label={tr('Close search')}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-transform duration-200 active:scale-90"
+      >
+        <Icon name="close" className="h-4 w-4" />
+      </button>
+    </div>
   )
 }
