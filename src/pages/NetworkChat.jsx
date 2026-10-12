@@ -1631,7 +1631,7 @@ export default function NetworkChat() {
                         // `w-fit`, so while the editor is inside it the width
                         // would otherwise be decided by the editor's own
                         // min-width - see components/MessageEditor.
-                        editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[27rem]' : 'w-fit',
+                        editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[29rem]' : 'w-fit',
                         'max-w-full rounded-2xl text-sm leading-relaxed',
                         // A SHARED LEADERBOARD IS A MESSAGE AGAIN (13 Oct 2026). Ethan: "I still prefer it when it was in an
                         // actual text bubble because then people could react to it ... can't you reverse that, but just
@@ -1639,7 +1639,11 @@ export default function NetworkChat() {
                         // the reactions bar like any message - but a white one, never the orange that he did not want
                         // round a leaderboard, sitting on the sender's side rather than across the middle of the room.
                         boardBubble(m) && editingId !== m.id
-                          ? cx('border border-gray-100 bg-white p-2 text-ink shadow-card', mine ? 'ml-auto rounded-br-md' : 'rounded-bl-md')
+                          // YOUR OWN COLOUR, AND A FRAME TO PRESS (13 Oct 2026). Ethan: "it's not showing the orange
+                          // background like my actual message shows ... make the background a little bit bigger so it's
+                          // clickable". The bubble is the sender's normal bubble (orange for you, grey for others) with
+                          // a wide margin round the white board, and that margin is what opens the reactions.
+                          ? cx('p-2.5 sm:p-3', mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink')
                         // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE. Nor is a card posted with no words.
                         : (introOf(m) || cardOnly(m)) && editingId !== m.id
                           ? cx('!bg-transparent !p-0 text-ink', mine && 'ml-auto')
@@ -1707,10 +1711,10 @@ export default function NetworkChat() {
                       ) : boardBubble(m) ? (
                         <>
                           {m.body && (
-                            <div className="whitespace-pre-wrap break-words px-1.5 pb-1.5 pt-0.5">
-                              {search ? <Highlight text={m.body} term={search} /> : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: false })}
+                            <div className="whitespace-pre-wrap break-words px-1 pb-2.5 pt-0.5">
+                              {search ? <Highlight text={m.body} term={search} /> : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: mine })}
                               {mt.isOn(m) && (
-                                <button type="button" onClick={() => mt.toggle(m)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand">
+                                <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
                                   <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
                                 </button>
                               )}

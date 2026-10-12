@@ -1483,7 +1483,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // finished challenge.
         const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
         // THE JOINING BONUS AND THE VOUCHER DAYS (12 Oct 2026, migration 383) lead the page: they exist to get somebody posting.
-        const kickersCard = <ChallengeKickers challenge={challenge} myEntries={myEntries.length} meId={user.id} live={isLive} />
+        const kickersCard = <ChallengeKickers challenge={challenge} meId={user.id} />
         if (isMobile) {
           return (
             <div className="space-y-6">

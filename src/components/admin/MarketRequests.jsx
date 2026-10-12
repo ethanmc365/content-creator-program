@@ -85,7 +85,7 @@ export default function MarketRequests({ onChanged }) {
       // A REASON IS OPTIONAL (13 Oct 2026, migration 387). Ethan: pressing Decline again "should automatically decline
       // without me saying anything". Left empty, the creator gets a short standard line instead.
       reason = await promptText(`Add a sentence for ${r.profiles?.name || 'them'} if you like. Leave it empty and they get a short, kind standard message.`, {
-        title: `Decline ${markets.byId?.[r.community_id]?.name || 'this market'}`, confirmLabel: 'Decline', placeholder: 'Optional. For example: Spain is full for this month; ask again in November.',
+        title: `Decline ${markets.byId?.[r.community_id]?.name || 'this market'}`, confirmLabel: 'Decline', placeholder: 'Optional. For example: Spain is full for this month; ask again in November.', allowEmpty: true, danger: true,
       })
       if (reason === null) return
       reason = reason.trim() || null

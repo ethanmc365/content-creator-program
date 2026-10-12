@@ -230,8 +230,10 @@ export function SpaceSwitch({ programmes, value, onChange, bare = false }) {
   // Plain words on purpose: this switch names BOTH spaces, so it must not take the official page's wording.
   const tr = useT()
   const spaces = [
-    { key: 'vip', icon: 'star', label: tr('VIP community'), short: tr('VIP'), hint: tr('Paid by views') },
-    { key: 'official', icon: 'badge', label: tr('Official creators'), short: tr('Official'), hint: tr('Tryp.com content team') },
+    // NO SECOND LINE (13 Oct 2026). Ethan: remove "paid by views" and "Tryp.com content team" "so that the actual whole
+    // card is smaller". The name and the head count say enough.
+    { key: 'vip', icon: 'star', label: tr('VIP community'), short: tr('VIP') },
+    { key: 'official', icon: 'badge', label: tr('Official creators'), short: tr('Official') },
   ].map((s) => {
     const list = programmes.filter((p) => (p.kind || 'vip') === s.key)
     return { ...s, list, members: list.reduce((a, p) => a + (Number(p.members) || 0), 0) }
@@ -248,14 +250,13 @@ export function SpaceSwitch({ programmes, value, onChange, bare = false }) {
             role="tab"
             aria-selected={on}
             onClick={() => !on && onChange(s.key, s.list[0].id)}
-            className={cx('relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 sm:px-4', on ? 'text-white' : 'text-ink hoverable:hover:bg-cloud')}
+            className={cx('relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors duration-200 sm:px-3.5', on ? 'text-white' : 'text-ink hoverable:hover:bg-cloud')}
           >
             {on && <motion.span layoutId="vip-space-switch" transition={SPRING} className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand to-brand-light shadow-card" />}
             <Icon name={s.icon} className={cx('relative h-5 w-5 shrink-0 transition-transform duration-300', on ? 'scale-110 text-white' : 'text-brand')} strokeWidth={on ? 2.1 : 1.8} />
             <span className="relative min-w-0 flex-1">
-              {/* A phone gets the one word; the full name and its line come back from sm up. */}
+              {/* A phone gets the one word; the full name comes back from sm up. */}
               <span className="block truncate text-sm font-bold"><span className="sm:hidden">{s.short}</span><span className="hidden sm:inline">{s.label}</span></span>
-              <span className={cx('hidden truncate text-[11px] sm:block', on ? 'text-white/85' : 'text-smoke')}>{s.hint}</span>
             </span>
             <span className={cx('relative shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', on ? 'bg-white/20 text-white' : 'bg-cloud text-smoke')}>{s.members}</span>
           </button>

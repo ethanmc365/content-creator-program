@@ -11,35 +11,22 @@ import { useT } from '../../lib/i18n'
 // challenge runs neither. See components/admin/ChallengeExtrasEditor for how the team sets them.
 const fmtDay = (ymd, locale) => new Date(`${ymd}T12:00:00`).toLocaleDateString(locale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
-export default function ChallengeKickers({ challenge, myEntries = 0, meId, live = true, className }) {
+export default function ChallengeKickers({ challenge, meId, className }) {
   const tr = useT()
   const { days, board } = useVoucherDays(challenge?.id)
   const [now] = useState(() => Date.now())
-  const joinPts = Number(challenge?.join_bonus_points) || 0
-  const showJoin = live && joinPts > 0 && myEntries === 0
+  // NOT HERE ANY MORE (13 Oct 2026). Ethan: the joining bonus "above the Hook Me Up button ... We already have it on the
+  // black card just above that, so it doesn't need to show it again below it." It lives on the dark card by the tabs and
+  // in Bonus points (whose row opens its pop-up); this card is the voucher days only.
   const stateOf = (d) => (Date.parse(d.ends_at) <= now ? 'done' : Date.parse(d.starts_at) <= now ? 'today' : 'soon')
   const order = { today: 0, soon: 1, done: 2 }
   const shown = [...days].sort((a, b) => order[stateOf(a)] - order[stateOf(b)] || String(a.day).localeCompare(String(b.day)))
-  if (!showJoin && !shown.length) return null
+  if (!shown.length) return null
 
   return (
     <section className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise', className)}>
-      {showJoin && (
-        <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
-          <Icon name="userPlus" className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold text-ink">{tr('New creator bonus: +{n} points', { n: joinPts })}</p>
-            <p className="mt-0.5 text-[13px] leading-snug text-smoke">
-              {challenge?.join_bonus_from
-                ? tr('For new creators, to get straight onto the leaderboard: enter this challenge from {d} and your first video earns {n} extra points.', { d: new Date(challenge.join_bonus_from).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }), n: joinPts })
-                : tr('For new creators, to get straight onto the leaderboard: your first video in this challenge earns {n} extra points.', { n: joinPts })}
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-[12px] font-extrabold tabular-nums text-white">+{joinPts}</span>
-        </div>
-      )}
       {shown.length > 0 && (
-        <div className={cx(showJoin && 'border-t border-gray-100')}>
+        <div>
           <p className="flex items-center gap-2 px-4 pt-4 text-[15px] font-bold text-ink sm:px-5">
             <Icon name="ticket" className="h-5 w-5 text-brand" />{tr('Voucher days')}
           </p>
