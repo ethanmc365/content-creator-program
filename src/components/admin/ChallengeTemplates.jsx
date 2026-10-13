@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
@@ -9,6 +8,7 @@ import { confirm, notice, promptText } from '../../lib/confirm'
 import { formFromTemplate, templateSummary } from '../../lib/challengeTemplates'
 import { useT } from '../../lib/i18n'
 import { mdToHtml } from '../../lib/richEditor'
+import { challengesApi } from '../../api/challenges'
 
 // START FROM THE BEST BRIEF THE PROGRAMME HAS EVER RUN.
 //
@@ -50,8 +50,8 @@ export default function ChallengeTemplates({ onUse, markets = [] }) {
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('challenge_templates')
+    const { data } = await challengesApi
+      .challengeTemplates()
       .select('id, name, payload, created_at, created_by, community_id, author:profiles!challenge_templates_created_by_fkey(id, name, photo_url)')
       .order('created_at', { ascending: false })
     setRows(data || [])
@@ -76,7 +76,7 @@ export default function ChallengeTemplates({ onUse, markets = [] }) {
       { title: tr('Delete template'), confirmLabel: tr('Delete'), danger: true },
     )) return
     setBusy(true)
-    const { error } = await supabase.from('challenge_templates').delete().eq('id', row.id)
+    const { error } = await challengesApi.challengeTemplates().delete().eq('id', row.id)
     setBusy(false)
     if (error) return notice(error.message, { title: tr('Could not delete that') })
     setOpen(null)
@@ -306,7 +306,7 @@ export function SaveAsTemplate({ build, communityId, onSaved, disabled }) {
     )
     if (!name) return
     setBusy(true)
-    const { error } = await supabase.from('challenge_templates').insert({
+    const { error } = await challengesApi.challengeTemplates().insert({
       name: name.slice(0, 80),
       created_by: profile?.id,
       community_id: communityId || null,

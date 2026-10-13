@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 /**
  * THE WINNERS PODIUM'S DATA, IN ONE PLACE.
@@ -33,21 +34,21 @@ export async function loadWinnerGalleries(challenges) {
   // board - migration 154). Almost every challenge returns no groups at all,
   // and then everything below behaves exactly as it did.
   const [{ data: results }, { data: subs }, { data: groups }, { data: members }] = await Promise.all([
-    supabase.from('results')
+    challengesApi.results()
       .select('challenge_id, creator_id, final_views, rank, group_id, profiles:creator_id(id, name, photo_url)')
       .in('challenge_id', publishedIds)
       .order('final_views', { ascending: false }),
-    supabase.from('submissions')
+    submissionsApi.submissions()
       .select('challenge_id, creator_id, video_url, platform, logged_views, profiles:creator_id(id, name, photo_url)')
       .in('challenge_id', publishedIds),
-    supabase.from('challenge_groups')
+    challengesApi.challengeGroups()
       .select('id, challenge_id, name, position, winners_count')
       .in('challenge_id', publishedIds).order('position'),
     // Membership, so a board's ENTRY count is its own rather than the whole
     // challenge's. Deriving it from the result rows instead would silently drop
     // anybody who entered and never had a view logged, and then the two boards'
     // counts would not add up to the challenge's.
-    supabase.from('challenge_group_members')
+    challengesApi.challengeGroupMembers()
       .select('challenge_id, group_id, creator_id')
       .in('challenge_id', publishedIds),
   ])

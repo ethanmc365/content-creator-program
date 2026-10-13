@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { confirm, saved } from '../../lib/confirm'
 import { useParams, Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../lib/utils'
@@ -20,6 +19,8 @@ import SocialMark from '../../components/SocialMark'
 import { scrollToElement } from '../../lib/scrollTo'
 import { useEntryPoints } from '../../lib/entryPoints'
 import { safeUrl } from '../../lib/safeUrl'
+import { challengesApi } from '../../api/challenges'
+import { submissionsApi } from '../../api/submissions'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -93,13 +94,13 @@ export default function AdminResults() {
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
-      supabase.from('challenges').select('*').eq('id', id).single(),
-      supabase
-        .from('submissions')
+      challengesApi.challenges().select('*').eq('id', id).single(),
+      submissionsApi
+        .submissions()
         .select('*, profiles:creator_id(id, name, photo_url)')
         .eq('challenge_id', id)
         .order('submitted_at'),
-      supabase.from('results').select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id),
+      challengesApi.results().select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id),
     ])
     // THE SAVED RESULTS ARE READ AGAIN (21 Sep 2026), and they are the ranking.
     // They were dropped because they only changed when somebody pressed
@@ -110,8 +111,8 @@ export default function AdminResults() {
     // a podium nobody had actually won. `rebuild_challenge_results` is the
     // one piece of code that decides who is first, ties included.
     const [{ data: start }, { data: dqs }] = await Promise.all([
-      supabase.rpc('challenge_starts_at', { p_challenge: id }),
-      supabase.from('submission_disqualifications')
+      challengesApi.challengeStartsAt({ p_challenge: id }),
+      submissionsApi.submissionDisqualifications()
         .select('id, creator_id, snapshot, reason, disqualified_at, profiles:creator_id(name, photo_url)')
         .eq('challenge_id', id).order('disqualified_at', { ascending: false }),
     ])
@@ -124,7 +125,7 @@ export default function AdminResults() {
     setLoading(false)
   }, [id])
   const reloadResults = useCallback(async () => {
-    const { data } = await supabase.from('results').select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id)
+    const { data } = await challengesApi.results().select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id)
     setResults(data ?? [])
     setResultsCount((data ?? []).length)
   }, [id])
@@ -154,13 +155,13 @@ export default function AdminResults() {
 
   const loadBonuses = useCallback(async () => {
     const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
-      supabase.from('point_rules').select('id, label, points, prompt, min_views, max_points, starts_at, ends_at')
+      challengesApi.pointRules().select('id, label, points, prompt, min_views, max_points, starts_at, ends_at')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
-      supabase.from('point_awards').select('submission_id, rule_id')
+      challengesApi.pointAwards().select('submission_id, rule_id')
         .eq('challenge_id', id).eq('is_auto', false),
-      supabase.from('submission_bonus_claims').select('submission_id, rule_id').eq('challenge_id', id),
-      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
-      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+      submissionsApi.submissionBonusClaims().select('submission_id, rule_id').eq('challenge_id', id),
+      challengesApi.challengeGroups().select('*').eq('challenge_id', id).order('position'),
+      challengesApi.challengeGroupMembers().select('group_id, creator_id').eq('challenge_id', id),
     ])
     // A bonus the ADMIN gives has no prompt; one the CREATOR claims does. The
     // two lists never overlap, so the row below can offer the right control for
@@ -193,9 +194,9 @@ export default function AdminResults() {
       ? cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id))
       : [...cur, { submission_id: sub.id, rule_id: rule.id }]))
     const { error } = claimed
-      ? await supabase.from('submission_bonus_claims').delete()
+      ? await submissionsApi.submissionBonusClaims().delete()
         .eq('submission_id', sub.id).eq('rule_id', rule.id)
-      : await supabase.from('submission_bonus_claims').insert({
+      : await submissionsApi.submissionBonusClaims().insert({
         submission_id: sub.id, rule_id: rule.id, creator_id: sub.creator_id, challenge_id: id,
       })
     if (error) { flash(error.message); loadBonuses() }
@@ -211,7 +212,7 @@ export default function AdminResults() {
       if (given) next.delete(key); else next.add(key)
       return next
     })
-    const { error } = await supabase.rpc(given ? 'withdraw_bonus' : 'award_bonus', {
+    const { error } = await challengesApi.call(given ? 'withdraw_bonus' : 'award_bonus', {
       p_submission: sub.id, p_rule: rule.id,
     })
     if (error) { flash(error.message) } else reloadResults()
@@ -225,8 +226,8 @@ export default function AdminResults() {
     if (raw !== '' && (isNaN(views) || views < 0)) return
     if (views === submission.logged_views && !submission.views_sync_error) return
     setSavingId(submission.id)
-    const ok = await saved(supabase
-      .from('submissions')
+    const ok = await saved(submissionsApi
+      .submissions()
       .update({ logged_views: views, views_source: 'manual', views_sync_error: null })
       .eq('id', submission.id))
     if (!ok) { setSavingId(null); return }
@@ -236,7 +237,7 @@ export default function AdminResults() {
     // The saved leaderboard follows the entries, always. Typing a number used
     // to change the preview on this page and leave the board creators actually
     // see untouched until somebody remembered to press Generate.
-    await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
+    await challengesApi.rebuildChallengeResults({ p_challenge: id })
     await reloadResults()
     setSavingId(null)
   }
@@ -254,7 +255,7 @@ export default function AdminResults() {
   async function confirmDisqualify() {
     if (!dq?.reason?.trim()) return
     setDq((d) => ({ ...d, busy: true }))
-    const { error } = await supabase.rpc('disqualify_submission', {
+    const { error } = await submissionsApi.disqualifySubmission({
       p_submission: dq.sub.id, p_reason: dq.reason.trim(), p_notify: dq.notify,
     })
     if (error) { setDq((d) => ({ ...d, busy: false })); flash(`Could not disqualify: ${error.message}`); return }
@@ -267,7 +268,7 @@ export default function AdminResults() {
 
   async function reinstate(row) {
     if (!await confirm(`Put ${row.profiles?.name || 'this creator'}'s entry back into the challenge? It rejoins the board with the views it had.`)) return
-    const { error } = await supabase.rpc('reinstate_submission', { p_submission: row.id })
+    const { error } = await submissionsApi.reinstateSubmission({ p_submission: row.id })
     if (error) { flash(`Could not reinstate: ${error.message}`); return }
     flash('Entry reinstated.')
     await load()
@@ -300,7 +301,7 @@ export default function AdminResults() {
     // Publishing the winners is also the moment the standings stop being a
     // snapshot, so the label on the public page catches up in the same write.
     if (!already) patch.results_status = 'final'
-    const { error } = await supabase.from('challenges').update(patch).eq('id', id)
+    const { error } = await challengesApi.challenges().update(patch).eq('id', id)
     setPublishing(false)
     if (error) return flash(`Couldn't update: ${error.message}`)
     setChallenge((c) => ({ ...c, ...patch }))
@@ -314,7 +315,7 @@ export default function AdminResults() {
   // Payouts now rather than a second copy of it here.
   async function awardPrizesNow() {
     setAwarding(true)
-    const { data, error } = await supabase.rpc('award_challenge_prizes', { p_challenge_id: id, p_dry_run: false })
+    const { data, error } = await challengesApi.awardChallengePrizes({ p_challenge_id: id, p_dry_run: false })
     setAwarding(false)
     if (error) return flash(`Could not award the prizes: ${error.message}`)
     const made = (data ?? []).filter((r) => r.outcome === 'created').length

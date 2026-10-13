@@ -9,6 +9,7 @@ import { VipMoveBlock } from '../vip/adminA'
 import { CreatorMarketsBlock } from './CreatorMarkets'
 import ChallengeParticipation from './ChallengeParticipation'
 import { moneyApi } from '../../api/money'
+import { submissionsApi } from '../../api/submissions'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -51,7 +52,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
     async function load() {
       const [{ data: subs }, { data: rewards }, { data: n }, { data: priv }, { data: emails }, { data: members }] =
         await Promise.all([
-          supabase.from('submissions').select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
+          submissionsApi.submissions().select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
             .eq('creator_id', id).order('submitted_at', { ascending: false }),
           moneyApi.rewards().select('amount, currency, status').eq('creator_id', id),
           supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', id).maybeSingle(),

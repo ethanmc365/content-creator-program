@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { SLOT } from './SwapIn'
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 import { windowPhrase } from '../../lib/boostWindow'
+import { challengesApi } from '../../api/challenges'
 
 // A POINT BOOST, IN THE SAME PLACE AS A LIVE BONUS (4 Oct 2026, migration 334).
 //
@@ -27,7 +27,7 @@ export function useBoost(challengeId, enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined
     let alive = true
-    supabase.from('challenge_boosts').select('*').eq('challenge_id', challengeId).eq('is_active', true).gt('ends_at', new Date().toISOString()).order('starts_at')
+    challengesApi.challengeBoosts().select('*').eq('challenge_id', challengeId).eq('is_active', true).gt('ends_at', new Date().toISOString()).order('starts_at')
       .then(({ data }) => { if (alive) setBoosts(data || []) })
     return () => { alive = false }
   }, [challengeId, enabled])

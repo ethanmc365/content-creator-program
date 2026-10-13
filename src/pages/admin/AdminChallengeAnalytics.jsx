@@ -21,6 +21,8 @@ import { useEntryPoints } from '../../lib/entryPoints'
 import { FILL } from '../../components/charts/chartTheme'
 import { safeUrl } from '../../lib/safeUrl'
 import { moneyApi } from '../../api/money'
+import { challengesApi } from '../../api/challenges'
+import { submissionsApi } from '../../api/submissions'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -83,19 +85,19 @@ export default function AdminChallengeAnalytics() {
           // `maybeSingle`, NOT `single`. `single()` treats "no row" as an error
           // and hands back a null `data` either way, which is precisely how a
           // missing challenge became an unhandled null two lines later.
-          supabase.from('challenges').select('*').eq('id', id).maybeSingle(),
-          supabase.from('challenge_history').select('*').eq('id', id).maybeSingle(),
+          challengesApi.challenges().select('*').eq('id', id).maybeSingle(),
+          challengesApi.challengeHistory().select('*').eq('id', id).maybeSingle(),
           // The rest of the log, so a logged challenge can be shown AGAINST the
           // programme rather than as four numbers on their own. See the note on
           // `Compare` below - this is the whole of "I want a much better view,
           // we want graphs".
-          supabase.from('challenge_history').select('id, community_id, title, starts_at, prize_total, total_views, creators, posts'),
-          supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
-          supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
+          challengesApi.challengeHistory().select('id, community_id, title, starts_at, prize_total, total_views, creators, posts'),
+          submissionsApi.submissions().select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
+          challengesApi.results().select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
           moneyApi.rewards().select('*').eq('challenge_id', id),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
-          supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
-          supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+          challengesApi.challengeGroups().select('*').eq('challenge_id', id).order('position'),
+          challengesApi.challengeGroupMembers().select('group_id, creator_id').eq('challenge_id', id),
         ])
       setRaw({
         challenge, logged, siblings: siblings ?? [], subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],

@@ -20,6 +20,7 @@ import { VipMoveBlock } from '../../components/vip/adminA'
 import { CreatorMarketsBlock } from '../../components/admin/CreatorMarkets'
 import { vipApi } from '../../api/vip'
 import { moneyApi } from '../../api/money'
+import { submissionsApi } from '../../api/submissions'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -222,7 +223,7 @@ export default function AdminCreators() {
     if (!selected) { setDetail(null); setNote(''); setNoteMeta(null); setPriv(null); setNoteSaved(false); return }
     async function loadDetail() {
       const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }, { data: p }] = await Promise.all([
-        supabase.from('submissions').select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
+        submissionsApi.submissions().select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
         moneyApi.rewards().select('*').eq('creator_id', selected.id),
         // The note carries WHO wrote it. It was always shared between admins -

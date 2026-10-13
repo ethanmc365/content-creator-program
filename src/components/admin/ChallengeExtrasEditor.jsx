@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
 import DayPicker from '../DayPicker'
 import Icon from '../Icon'
@@ -8,6 +7,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatMoney } from '../../lib/utils'
 import { COMMON_ZONES } from '../../lib/timezones'
 import { moneyApi } from '../../api/money'
+import { challengesApi } from '../../api/challenges'
 
 // TWO WAYS TO GET PEOPLE POSTING (12 Oct 2026, migration 383).
 //
@@ -32,8 +32,8 @@ export function JoinBonusEditor({ challengeId }) {
   const [busy, setBusy] = useState(false)
   const load = useCallback(async () => {
     const [{ data }, { count }] = await Promise.all([
-      supabase.from('challenges').select('join_bonus_points, join_bonus_from').eq('id', challengeId).single(),
-      supabase.from('point_awards').select('id', { count: 'exact', head: true }).eq('challenge_id', challengeId).eq('reason', 'Joining bonus'),
+      challengesApi.challenges().select('join_bonus_points, join_bonus_from').eq('id', challengeId).single(),
+      challengesApi.pointAwards().select('id', { count: 'exact', head: true }).eq('challenge_id', challengeId).eq('reason', 'Joining bonus'),
     ])
     setRow(data || {})
     setEarned(count || 0)
@@ -50,7 +50,7 @@ export function JoinBonusEditor({ challengeId }) {
     if (next != null && !(next > 0 && next <= 1000)) { notice('Pick a number of points between 1 and 1000.'); return }
     if (next == null && !await confirm('Switch the joining bonus off? Points already given are taken back as the challenge rescores.', { confirmLabel: 'Switch off', danger: true })) return
     setBusy(true)
-    const { error } = await supabase.from('challenges').update({ join_bonus_points: next }).eq('id', challengeId)
+    const { error } = await challengesApi.challenges().update({ join_bonus_points: next }).eq('id', challengeId)
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(next == null ? 'Joining bonus switched off.' : on ? 'Joining bonus updated. The challenge has been rescored.' : 'Joining bonus is on.')
@@ -106,8 +106,8 @@ export function VoucherDaysEditor({ challengeId, currency = 'EUR' }) {
   const [awarding, setAwarding] = useState(false)
   const load = useCallback(async () => {
     const [{ data: d }, { data: w }] = await Promise.all([
-      supabase.from('challenge_voucher_days').select('*').eq('challenge_id', challengeId).order('day'),
-      supabase.from('challenge_voucher_day_wins').select('day_id, views, creator:profiles!challenge_voucher_day_wins_creator_id_fkey(id, name, photo_url)').eq('challenge_id', challengeId),
+      challengesApi.challengeVoucherDays().select('*').eq('challenge_id', challengeId).order('day'),
+      challengesApi.challengeVoucherDayWins().select('day_id, views, creator:profiles!challenge_voucher_day_wins_creator_id_fkey(id, name, photo_url)').eq('challenge_id', challengeId),
     ])
     setDays(d || [])
     setWins(w || [])
@@ -119,7 +119,7 @@ export function VoucherDaysEditor({ challengeId, currency = 'EUR' }) {
   async function remove(d) {
     const n = wins.filter((w) => w.day_id === d.id).length
     if (!await confirm(n ? `Remove ${dayLabel(d.day)}? The ${n} reward${n === 1 ? '' : 's'} already given stay on the Rewards page.` : `Remove ${dayLabel(d.day)}?`, { confirmLabel: 'Remove', danger: true })) return
-    const { error } = await supabase.from('challenge_voucher_days').delete().eq('id', d.id)
+    const { error } = await challengesApi.challengeVoucherDays().delete().eq('id', d.id)
     if (error) { notice(error.message); return }
     load()
   }
@@ -212,8 +212,8 @@ function VoucherDayModal({ challengeId, currency, day, taken, onClose, onSaved }
     setBusy(true)
     const base = { min_views: Math.floor(minViews), reward_type: type, amount: amt, currency: cur, max_winners: Number(cap) > 0 ? Math.floor(Number(cap)) : null, ...(tz ? { tz } : {}) }
     const { error } = editing
-      ? await supabase.from('challenge_voucher_days').update({ ...base, day: clean[0] }).eq('id', day.id)
-      : await supabase.from('challenge_voucher_days').insert(clean.map((d) => ({ ...base, challenge_id: challengeId, day: d })))
+      ? await challengesApi.challengeVoucherDays().update({ ...base, day: clean[0] }).eq('id', day.id)
+      : await challengesApi.challengeVoucherDays().insert(clean.map((d) => ({ ...base, challenge_id: challengeId, day: d })))
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(editing ? 'Voucher day saved.' : clean.length === 1 ? 'Voucher day added.' : `${clean.length} voucher days added.`)

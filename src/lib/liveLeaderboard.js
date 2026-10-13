@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
 import { prizeForGroup } from './challengeGroups'
 import { onResume } from './resume'
+import { challengesApi } from '../api/challenges'
 
 // ONE LIVE BOARD PER CHALLENGE, HOWEVER MANY CARDS ARE SHOWING IT (22 Sep 2026).
 //
@@ -25,12 +26,12 @@ const EMPTY = { status: 'loading', challenge: null, rows: [], prevRanks: new Map
 
 async function read(challengeId, groupId) {
   const [{ data: challenge, error: chErr }, { data: rows, error: rowErr }] = await Promise.all([
-    supabase.from('challenges')
+    challengesApi.challenges()
       .select('id, title, scoring, status, end_date, prize_structure, prize_currency, winners_count, winners_published_at, results_status, results_updated_at, participation_threshold, participation_prize, participation_basis, participation_scope, community_id')
       .eq('id', challengeId)
       .maybeSingle(),
     (() => {
-      let q = supabase.from('results')
+      let q = challengesApi.results()
         .select('creator_id, rank, final_views, total_views, group_id, profiles:creator_id(id, name, photo_url)')
         .eq('challenge_id', challengeId)
         .order('rank')
@@ -42,7 +43,7 @@ async function read(challengeId, groupId) {
   // ONE GROUP'S BOARD PLAYS FOR THAT GROUP'S PRIZES (1 Oct 2026), not the
   // challenge's - which on a split challenge are usually empty.
   if (groupId && challenge) {
-    const { data: group } = await supabase.from('challenge_groups').select('*').eq('id', groupId).maybeSingle()
+    const { data: group } = await challengesApi.challengeGroups().select('*').eq('id', groupId).maybeSingle()
     if (group) return { challenge: { ...challenge, ...prizeForGroup(group, challenge), group_name: group.name }, rows: rows ?? [] }
   }
   return { challenge, rows: rows ?? [] }

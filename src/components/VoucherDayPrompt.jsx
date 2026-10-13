@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { claimNag, finishNag, onNagChange, onTourRunning, releaseNag, tourRunning } from '../lib/appNag'
 import { lockScroll } from '../lib/scrollLock'
 import { useT } from '../lib/i18n'
 import { cx, formatMoney } from '../lib/utils'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // "A VOUCHER DAY IS ON", THE FIRST TIME YOU OPEN THE APP THAT DAY (12 Oct 2026).
 //
@@ -35,7 +36,7 @@ export default function VoucherDayPrompt() {
     let alive = true
     const id = setTimeout(async () => {
       const nowIso = new Date().toISOString()
-      const { data } = await supabase.from('challenge_voucher_days')
+      const { data } = await challengesApi.challengeVoucherDays()
         .select('id, day, min_views, reward_type, amount, currency, max_winners, starts_at, ends_at, challenge:challenges!inner(id, title, status, scoring, join_bonus_points)')
         .eq('is_active', true).lte('starts_at', nowIso).gt('ends_at', nowIso)
         .eq('challenge.status', 'active').order('ends_at').limit(5)
@@ -45,7 +46,7 @@ export default function VoucherDayPrompt() {
       if (tourRunning()) return
       if (document.querySelector('[role="dialog"]')) { setTimeout(() => alive && setTurn((n) => n + 1), 8000); return }
       if (!claimNag('voucher-day')) return
-      const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', day.challenge.id).eq('creator_id', user.id)
+      const { count } = await submissionsApi.submissions().select('id', { count: 'exact', head: true }).eq('challenge_id', day.challenge.id).eq('creator_id', user.id)
       if (!alive) { releaseNag('voucher-day'); return }
       markShown(day.id)
       setCard({ ...day, entered: (count || 0) > 0 })

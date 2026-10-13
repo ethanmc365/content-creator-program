@@ -41,6 +41,8 @@ import GlowRing from '../components/network/GlowRing'
 import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // See lib/pageCache: the hub is the tab a creator lands on and comes back to
 // more than any other, and it was rebuilding itself from nothing every time.
@@ -238,7 +240,7 @@ export default function GlobalHome() {
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
-        supabase.from('challenges').select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
+        challengesApi.challenges().select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
         // worldwide one. Somebody in the UK and Spain had no way to see either
         // market's announcements from the hub, which is what a hub is for.
@@ -368,8 +370,8 @@ export default function GlobalHome() {
     if (!uid) return undefined
     let cancelled = false
     Promise.all([
-      supabase.from('submissions').select('id', { count: 'exact', head: true }),
-      supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('creator_id', uid),
+      submissionsApi.submissions().select('id', { count: 'exact', head: true }),
+      submissionsApi.submissions().select('id', { count: 'exact', head: true }).eq('creator_id', uid),
       // Connections are DIRECTIONAL rows, so being connected to somebody is a
       // row in one direction or the other. Counting only `creator_id = me`
       // would show roughly half of anybody's real network.

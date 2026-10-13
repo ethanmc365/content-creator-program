@@ -20,6 +20,8 @@ import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -41,7 +43,7 @@ export default function Challenges() {
   useEffect(() => {
     if (!user?.id) return undefined
     let alive = true
-    supabase.from('submissions').select('challenge_id').eq('creator_id', user.id)
+    submissionsApi.submissions().select('challenge_id').eq('creator_id', user.id)
       .then(({ data }) => { if (alive) setEnteredIds(new Set((data || []).map((r) => r.challenge_id))) })
     return () => { alive = false }
   }, [user?.id])
@@ -77,8 +79,8 @@ export default function Challenges() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('challenges')
+      const { data } = await challengesApi
+        .challenges()
         .select('*, submissions(count)')
         .order('start_date', { ascending: false })
       const all = data ?? []
@@ -136,7 +138,7 @@ export default function Challenges() {
       .map((c) => c.id)
     if (!liveIds.length) return undefined
     let cancelled = false
-    supabase.from('results')
+    challengesApi.results()
       .select('challenge_id, creator_id, rank, group_id, final_views, total_views, profiles:creator_id(name, photo_url, is_test)')
       .in('challenge_id', liveIds)
       .lte('rank', 5)
@@ -173,8 +175,8 @@ export default function Challenges() {
     if (!liveIds.length || !user?.id) return undefined
     let alive = true
     Promise.all([
-      supabase.from('challenge_groups').select('*').in('challenge_id', liveIds).order('position'),
-      supabase.from('challenge_group_members').select('challenge_id, group_id').in('challenge_id', liveIds).eq('creator_id', user.id),
+      challengesApi.challengeGroups().select('*').in('challenge_id', liveIds).order('position'),
+      challengesApi.challengeGroupMembers().select('challenge_id, group_id').in('challenge_id', liveIds).eq('creator_id', user.id),
     ]).then(([{ data: gs }, { data: mine }]) => {
       if (!alive) return
       const groups = {}
@@ -209,7 +211,7 @@ export default function Challenges() {
               .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
               .is('deletion_requested_at', null)
         const [{ data: entrants }, { count }] = await Promise.all([
-          supabase.from('submissions').select('creator_id').eq('challenge_id', c.id),
+          submissionsApi.submissions().select('creator_id').eq('challenge_id', c.id),
           roster,
         ])
         return [c.id, {

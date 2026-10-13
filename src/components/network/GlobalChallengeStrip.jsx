@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { localizePrize } from '../../lib/prizeText'
 import { getLocale } from '../../lib/i18n'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import CountdownTimer from '../CountdownTimer'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
@@ -11,6 +10,7 @@ import { isHiddenTestRow } from '../../lib/testData'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import GlowRing from './GlowRing'
+import { challengesApi } from '../../api/challenges'
 
 // THE GLOBAL CHALLENGE, ON THE COMMUNITY CARD (21 Sep 2026).
 //
@@ -49,7 +49,7 @@ const TOP_SELECT = 'challenge_id, creator_id, rank, final_views, profiles:creato
 export async function prefetchTopThree(challengeIds) {
   const ids = (challengeIds || []).filter(Boolean)
   if (!ids.length) return
-  const { data } = await supabase.from('results').select(TOP_SELECT).in('challenge_id', ids).lte('rank', 4).order('rank')
+  const { data } = await challengesApi.results().select(TOP_SELECT).in('challenge_id', ids).lte('rank', 4).order('rank')
   for (const id of ids) {
     topCache.set(id, (data || []).filter((r) => r.challenge_id === id && !isHiddenTestRow(r.profiles)).slice(0, 3))
   }
@@ -60,7 +60,7 @@ function useTopThree(challengeId) {
   useEffect(() => {
     if (!challengeId) return undefined
     let alive = true
-    supabase.from('results')
+    challengesApi.results()
       .select(TOP_SELECT)
       .eq('challenge_id', challengeId)
       .lte('rank', 4)

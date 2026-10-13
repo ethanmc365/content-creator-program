@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { LabPage, Panel, Note, Stage, useStage } from './kit'
 import { Avatar, Select, Skeleton } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import RecapBanner from '../../../components/challenge/RecapBanner'
 import { formatDate } from '../../../lib/utils'
+import { challengesApi } from '../../../api/challenges'
+import { submissionsApi } from '../../../api/submissions'
 
 // THE CHALLENGE RECAP, BEFORE ANY CREATOR SEES IT (26 Sep 2026).
 //
@@ -29,7 +30,7 @@ export default function RecapLab() {
 
   useEffect(() => {
     let alive = true
-    supabase.from('challenges')
+    challengesApi.challenges()
       .select('id, title, status, start_date, end_date')
       .neq('status', 'draft')
       .order('start_date', { ascending: false })
@@ -47,8 +48,8 @@ export default function RecapLab() {
     setEntrants(null)
     ;(async () => {
       const [{ data: subs }, { data: res }] = await Promise.all([
-        supabase.from('submissions').select('creator_id, profiles:creator_id(id, name, photo_url, is_test)').eq('challenge_id', challengeId).limit(1000),
-        supabase.from('results').select('creator_id, rank').eq('challenge_id', challengeId),
+        submissionsApi.submissions().select('creator_id, profiles:creator_id(id, name, photo_url, is_test)').eq('challenge_id', challengeId).limit(1000),
+        challengesApi.results().select('creator_id, rank').eq('challenge_id', challengeId),
       ])
       if (!alive) return
       const rank = new Map((res || []).map((r) => [r.creator_id, r.rank]))

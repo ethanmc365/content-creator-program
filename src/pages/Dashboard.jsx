@@ -13,6 +13,8 @@ import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
 import { moneyApi } from '../api/money'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
@@ -46,10 +48,10 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       const [{ data: mySubs }, { data: myResults }, { data: myRewards }, { data: me }] = await Promise.all([
-        supabase.from('submissions')
+        submissionsApi.submissions()
           .select('id, challenge_id, logged_views, platform, video_url, thumbnail_url, caption, submitted_at, challenges(title)')
           .eq('creator_id', whose).order('logged_views', { ascending: false, nullsFirst: false }),
-        supabase.from('results').select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
+        challengesApi.results().select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
         // Filtered to this person: an admin can read every reward, and this is one creator's own page.
         moneyApi.rewards().select('amount, status, currency').eq('creator_id', whose),
         supabase.from('profiles').select('instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links').eq('id', whose).maybeSingle(),
@@ -57,7 +59,7 @@ export default function Dashboard() {
       // How many finished each challenge, so a place reads "4th of 23" and the podium knows its width.
       const ids = [...new Set((myResults ?? []).map((r) => r.challenge_id))]
       const { data: field } = ids.length
-        ? await supabase.from('results').select('challenge_id').in('challenge_id', ids)
+        ? await challengesApi.results().select('challenge_id').in('challenge_id', ids)
         : { data: [] }
       const of = {}
       for (const r of field ?? []) of[r.challenge_id] = (of[r.challenge_id] || 0) + 1

@@ -10,6 +10,7 @@ import Icon from '../components/Icon'
 import { cx, formatViews } from '../lib/utils'
 import { EASE } from '../lib/motion'
 import { useT } from '../lib/i18n'
+import { challengesApi } from '../api/challenges'
 
 // EVERY CREATOR, RANKED BY WHAT THE PROGRAMME IS FOR.
 //
@@ -54,7 +55,7 @@ export default function Leaderboard() {
   }, [])
 
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('views_leaderboard', { p_community: market || null })
+    const { data } = await challengesApi.viewsLeaderboard({ p_community: market || null })
     setRows((data || []).map((r) => ({ ...r, views: Number(r.views || 0) })))
   }, [market])
 

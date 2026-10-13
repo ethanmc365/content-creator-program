@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { PrizeText } from '../../lib/prizeText'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../../lib/supabase'
 import CountdownTimer from '../CountdownTimer'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
@@ -17,6 +16,7 @@ import { isHiddenTestRow } from '../../lib/testData'
 import { useAuth } from '../../context/AuthContext'
 import { prizeForGroup } from '../../lib/challengeGroups'
 import MarketMap from '../MarketMap'
+import { challengesApi } from '../../api/challenges'
 
 // The live challenge, wherever it is shown inside a market.
 //
@@ -72,14 +72,14 @@ function useBoard(challengeId, userId) {
     if (!challengeId) return undefined
     let cancelled = false
     Promise.all([
-      supabase.from('results')
+      challengesApi.results()
         .select('creator_id, rank, group_id, final_views, total_views, profiles:creator_id(id, name, photo_url, is_test)')
         .eq('challenge_id', challengeId)
         .lte('rank', MAX_PLACES)
         .order('rank'),
-      supabase.from('challenge_groups').select('*').eq('challenge_id', challengeId).order('position'),
+      challengesApi.challengeGroups().select('*').eq('challenge_id', challengeId).order('position'),
       userId
-        ? supabase.from('challenge_group_members').select('group_id').eq('challenge_id', challengeId).eq('creator_id', userId).maybeSingle()
+        ? challengesApi.challengeGroupMembers().select('group_id').eq('challenge_id', challengeId).eq('creator_id', userId).maybeSingle()
         : Promise.resolve({ data: null }),
     ]).then(([{ data: rows }, { data: groups }, { data: mine }]) => {
       if (cancelled) return

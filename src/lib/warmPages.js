@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { readPageCache, writePageCache } from './pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox } from './inbox'
 import { isSlowNetwork } from './netQuality'
+import { challengesApi } from '../api/challenges'
 
 // THE TABS YOU HAVE NOT OPENED YET, FETCHED WHILE YOU READ THE ONE YOU HAVE (2 Oct 2026).
 //
@@ -27,7 +28,7 @@ export function warmPagesWhenIdle(userId, { challenges = true } = {}) {
     try {
       // A VIP cannot see challenges (they would warm an empty page), so they skip straight to the DMs.
       if (challenges && !readPageCache('challenges')) {
-        const { data } = await supabase.from('challenges').select('*, submissions(count)').order('start_date', { ascending: false })
+        const { data } = await challengesApi.challenges().select('*, submissions(count)').order('start_date', { ascending: false })
         if (data && !readPageCache('challenges') && await same()) {
           writePageCache('challenges', { challenges: data, galleries: {}, participation: {}, prizesAwarded: null, leaders: {}, liveGroups: { groups: {}, mine: {} } })
         }

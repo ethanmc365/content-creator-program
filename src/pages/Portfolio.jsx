@@ -17,6 +17,7 @@ import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 import { useMediaQuery } from '../lib/useKeyboardInset'
 import { safeUrl } from '../lib/safeUrl'
 import { vipApi } from '../api/vip'
+import { submissionsApi } from '../api/submissions'
 
 // MY PORTFOLIO.
 //
@@ -78,7 +79,7 @@ export default function Portfolio() {
         .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links')
         .eq('id', viewingId).maybeSingle(),
       supabase.from('creator_portfolios').select('*').eq('profile_id', viewingId).maybeSingle(),
-      supabase.from('submissions')
+      submissionsApi.submissions()
         .select('id, platform, video_url, thumbnail_url, caption, logged_views, submitted_at, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
         .eq('creator_id', viewingId)
         .order('logged_views', { ascending: false, nullsFirst: false }),

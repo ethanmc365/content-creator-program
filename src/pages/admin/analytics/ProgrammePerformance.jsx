@@ -21,6 +21,7 @@ import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
 import { FILL } from '../../../components/charts/chartTheme'
 import { overlaps } from '../../../lib/analyticsPeriod'
+import { challengesApi } from '../../../api/challenges'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -146,7 +147,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       const list = data ?? []
       const live = list.filter((r) => r.status === 'active')
       const spends = await Promise.all(live.map((r) =>
-        supabase.rpc('challenge_prize_standings', { p_challenge: r.id })
+        challengesApi.challengePrizeStandings({ p_challenge: r.id })
           .then(({ data: st }) => [r.id, challengeSpend({ prize_amount: r.prize_amount, participation_amount: r.participation_amount }, st || [], r.total_views)])
           .catch(() => [r.id, null])))
       const byId = new Map(spends)

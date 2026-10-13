@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import FlagTile from '../network/FlagTile'
@@ -8,6 +7,7 @@ import { notice } from '../../lib/confirm'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { cx, timeAgo } from '../../lib/utils'
+import { challengesApi } from '../../api/challenges'
 
 // WHO HAS NOT POSTED YET (built 4 Oct 2026, migration 325; rebuilt the same day, migration 332).
 //
@@ -55,7 +55,7 @@ export default function ChallengeReach({ challenge }) {
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('challenge_reach', { p_challenge: challenge.id }).then(({ data, error }) => { if (alive) setD(error ? null : data) })
+    challengesApi.challengeReach({ p_challenge: challenge.id }).then(({ data, error }) => { if (alive) setD(error ? null : data) })
     return () => { alive = false }
   }, [challenge.id])
   useEffect(() => {
@@ -248,14 +248,14 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
 
   async function send() {
     setSending(true)
-    const { data, error } = await supabase.rpc('challenge_nudge', { p_challenge: challenge.id, p_segment: segment, p_title: title, p_body: body, p_market: market })
+    const { data, error } = await challengesApi.challengeNudge({ p_challenge: challenge.id, p_segment: segment, p_title: title, p_body: body, p_market: market })
     setSending(false)
     if (error) { notice(error.message, { title: 'That did not send' }); return }
     setSent(data)
   }
   async function copyEmails() {
     setCopying(true)
-    const { data, error } = await supabase.rpc('challenge_reach_emails', { p_challenge: challenge.id, p_segment: segment, p_market: market })
+    const { data, error } = await challengesApi.challengeReachEmails({ p_challenge: challenge.id, p_segment: segment, p_market: market })
     setCopying(false)
     if (error) { notice(error.message, { title: 'Could not get the emails' }); return }
     const text = emailList(data || [])

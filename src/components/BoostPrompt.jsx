@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { BoostDisc, boostMult } from './challenge/BoostBanner'
@@ -10,6 +9,7 @@ import { lockScroll } from '../lib/scrollLock'
 import { windowPhrase } from '../lib/boostWindow'
 import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
+import { challengesApi } from '../api/challenges'
 
 // "DOUBLE POINTS ARE LIVE", THE FIRST TIME YOU OPEN THE APP EACH DAY (7 Oct 2026).
 //
@@ -39,7 +39,7 @@ export default function BoostPrompt() {
     let alive = true
     const id = setTimeout(async () => {
       const nowIso = new Date().toISOString()
-      const { data } = await supabase.from('challenge_boosts')
+      const { data } = await challengesApi.challengeBoosts()
         .select('id, label, multiplier, starts_at, ends_at, max_extra_points, challenge:challenges!inner(id, title, status, scoring)')
         .eq('is_active', true).lte('starts_at', nowIso).gt('ends_at', nowIso)
         .eq('challenge.status', 'active').eq('challenge.scoring', 'points')

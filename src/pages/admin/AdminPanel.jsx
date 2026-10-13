@@ -11,6 +11,7 @@ import { cx } from '../../lib/utils'
 import { useVipAccess } from '../../lib/vip'
 import { awaitingCode } from '../../lib/wallet'
 import { moneyApi } from '../../api/money'
+import { challengesApi } from '../../api/challenges'
 
 // The admin hub.
 //
@@ -593,7 +594,7 @@ export default function AdminPanel() {
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, is_sandbox, status, deletion_requested_at)')
           .eq('status', 'active'),
-        supabase.from('challenges').select('id, community_id').eq('status', 'active'),
+        challengesApi.challenges().select('id, community_id').eq('status', 'active'),
       ])
       if (!alive) return
       const managed = new Set((mine || []).filter((m) => m.role === 'manager').map((m) => m.community_id))

@@ -11,6 +11,8 @@ import { REFERRAL_STAGES, referralStage, referralTerms } from '../../../lib/refe
 import Segmented from '../../../components/network/Segmented'
 import { FILL } from '../../../components/charts/chartTheme'
 import { moneyApi } from '../../../api/money'
+import { challengesApi } from '../../../api/challenges'
+import { submissionsApi } from '../../../api/submissions'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -114,9 +116,9 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       const ids = people.map((p) => p.id)
       const [subs, results] = ids.length
         ? await Promise.all([
-          allRows(() => supabase.from('submissions')
+          allRows(() => submissionsApi.submissions()
             .select('id, creator_id, challenge_id, logged_views, submitted_at').in('creator_id', ids)),
-          allRows(() => supabase.from('results')
+          allRows(() => challengesApi.results()
             .select('id, creator_id, challenge_id, rank').in('creator_id', ids)),
         ])
         : [[], []]

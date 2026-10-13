@@ -16,6 +16,7 @@ import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import ReaderText from '../components/ReaderText'
 import { openJoinMarket } from '../components/network/JoinMarket'
+import { challengesApi } from '../api/challenges'
 
 // Every market, and whether it is yours.
 //
@@ -180,7 +181,7 @@ export default function ExploreMarkets() {
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
-        supabase.from('challenges').select('id, title, community_id').eq('status', 'active'),
+        challengesApi.challenges().select('id, title, community_id').eq('status', 'active'),
       ])
       if (cancelled) return
       const tally = {}

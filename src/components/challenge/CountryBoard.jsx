@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
 import { formatViews, cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { challengesApi } from '../../api/challenges'
 
 // COUNTRY AGAINST COUNTRY (4 Oct 2026, migration 324).
 //
@@ -97,7 +97,7 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('challenge_market_board', { p_challenge: challenge.id }).then(({ data: d, error }) => { if (alive) setData(error ? null : d) })
+    challengesApi.challengeMarketBoard({ p_challenge: challenge.id }).then(({ data: d, error }) => { if (alive) setData(error ? null : d) })
     return () => { alive = false }
   }, [challenge.id, refreshKey])
 

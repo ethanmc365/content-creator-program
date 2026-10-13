@@ -16,6 +16,7 @@ import { toast } from '../lib/toast'
 import { cx, dateTag } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { submissionsApi } from '../api/submissions'
 
 // The connections hub.
 //
@@ -129,7 +130,7 @@ export default function Connections() {
       supabase.from('community_members')
         .select('profile_id, community_id, communities!inner(id, name, kind, slug)')
         .eq('status', 'active').eq('communities.kind', 'chapter'),
-      supabase.from('submissions').select('challenge_id, creator_id'),
+      submissionsApi.submissions().select('challenge_id, creator_id'),
       loadRelationships(user.id),
     ])
 

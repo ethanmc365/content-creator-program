@@ -8,6 +8,8 @@ import { cx } from '../../../lib/utils'
 import { buildYearInReview } from '../../../lib/yearInReview'
 import YearInReview, { YearInReviewLocked } from '../../../components/wrapped/YearInReview'
 import { moneyApi } from '../../../api/money'
+import { challengesApi } from '../../../api/challenges'
+import { submissionsApi } from '../../../api/submissions'
 
 // THE YEAR IN REVIEW, BEFORE ANY CREATOR CAN SEE IT.
 //
@@ -97,14 +99,14 @@ export default function WrappedLab() {
         allRows(() => supabase.from('communities').select('id, slug, name, kind, retired_at')),
         allRows(() => supabase.from('community_members').select('community_id, profile_id, is_home').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
         allRows(() => supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
-        allRows(() => supabase.from('submissions').select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url')),
-        allRows(() => supabase.from('results').select('challenge_id, creator_id, final_views, rank')),
+        allRows(() => submissionsApi.submissions().select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url')),
+        allRows(() => challengesApi.results().select('challenge_id, creator_id, final_views, rank')),
         allRows(() => moneyApi.rewards().select('creator_id, amount, currency, reward_type, created_at')),
-        allRows(() => supabase.from('challenges').select('id, title')),
+        allRows(() => challengesApi.challenges().select('id, title')),
         // The off-platform record: the challenges the programme ran before this
         // app existed. `challenge_id is null` is the same filter AdminAnalytics
         // uses, and without it the community card counts 0.2% of the year.
-        allRows(() => supabase.from('challenge_history').select('starts_at, total_views, posts, creators, prize_total, prize_currency, challenge_id').is('challenge_id', null)),
+        allRows(() => challengesApi.challengeHistory().select('starts_at, total_views, posts, creators, prize_total, prize_currency, challenge_id').is('challenge_id', null)),
         allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
         // COUNTS ONLY - no `body`, no `image_url`, no recipient. The recap says
         // how many messages somebody sent, never what was in one.

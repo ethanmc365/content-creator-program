@@ -105,7 +105,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
   function head(key, label, hint) {
     const on = sort === key
     return (
-      <th className={cx('px-3 py-2 text-right font-semibold', on && 'text-brand')}>
+      <th key={key} className={cx('px-3 py-2 text-right font-semibold', on && 'text-brand')}>
         <button
           type="button"
           title={hint}

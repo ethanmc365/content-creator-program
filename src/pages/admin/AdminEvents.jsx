@@ -14,6 +14,7 @@ import { toast } from '../../lib/toast'
 import { viewerZone, shortZoneName } from '../../lib/eventTime'
 import { zoneOffsetLabel } from '../../lib/timezone'
 import { formatDateTime, isoToTimeInput, timeAgo, cx } from '../../lib/utils'
+import { challengesApi } from '../../api/challenges'
 
 // MANAGE EVENTS, REBUILT.
 //
@@ -115,7 +116,7 @@ export default function AdminEvents() {
     // them out meant the list disagreed with the calendar it feeds.
     const [{ data: rows }, { data: ch }] = await Promise.all([
       supabase.from('events').select('*').is('owner_id', null).order('date', { ascending: false }),
-      supabase.from('challenges').select('id, title, start_date, end_date, community_id').neq('status', 'draft'),
+      challengesApi.challenges().select('id, title, start_date, end_date, community_id').neq('status', 'draft'),
     ])
     const derived = (ch ?? []).flatMap((c) => [
       c.start_date && {

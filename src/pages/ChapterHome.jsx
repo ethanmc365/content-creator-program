@@ -25,6 +25,8 @@ import { cardHover, pageFade } from '../lib/motion'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -77,14 +79,14 @@ export default function ChapterHome() {
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', chapter.id).eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
-        supabase.from('challenges').select('id, title, status, end_date, scoring, description, submissions(count)')
+        challengesApi.challenges().select('id, title, status, end_date, scoring, description, submissions(count)')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(6),
         // VIEWS, NOT POINTS. Points are a per-challenge scoring mode - only a
         // brief scored that way writes any - so this board was ranking the
         // market on the score of whichever challenges happened to use it, and
         // a creator who had never entered one was absent with no explanation.
         // Views is the number everybody has, in every challenge.
-        supabase.rpc('views_leaderboard', { p_community: chapter.id }),
+        challengesApi.viewsLeaderboard({ p_community: chapter.id }),
         // THIS market's announcements, not the network's. The two are different
         // rooms and mixing them is what made the markets feel like views onto
         // one shared feed.
@@ -119,8 +121,8 @@ export default function ChapterHome() {
       )
       let participation = null
       if (live) {
-        const { data: entrants } = await supabase
-          .from('submissions').select('creator_id').eq('challenge_id', live.id)
+        const { data: entrants } = await submissionsApi
+          .submissions().select('creator_id').eq('challenge_id', live.id)
         if (cancelled) return
         participation = {
           posted: new Set((entrants || []).map((e) => e.creator_id)).size,

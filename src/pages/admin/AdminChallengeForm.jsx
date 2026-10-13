@@ -23,6 +23,8 @@ import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/uti
 import { testFlags } from '../../lib/testData'
 import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/ChallengeTemplates'
 import { templateFromForm } from '../../lib/challengeTemplates'
+import { challengesApi } from '../../api/challenges'
+import { submissionsApi } from '../../api/submissions'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
@@ -288,7 +290,7 @@ export default function AdminChallengeForm() {
 
   useEffect(() => {
     if (!editing) return
-    supabase.from('point_rules').select('*').eq('challenge_id', id).order('position')
+    challengesApi.pointRules().select('*').eq('challenge_id', id).order('position')
       .then(({ data }) => setRules(data || []))
   }, [editing, id])
 
@@ -308,8 +310,8 @@ export default function AdminChallengeForm() {
     let alive = true
     ;(async () => {
       const [{ data: gs }, { data: ms }] = await Promise.all([
-        supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
-        supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+        challengesApi.challengeGroups().select('*').eq('challenge_id', id).order('position'),
+        challengesApi.challengeGroupMembers().select('group_id, creator_id').eq('challenge_id', id),
       ])
       if (!alive) return
       const members = ms ?? []
@@ -412,7 +414,7 @@ export default function AdminChallengeForm() {
 
   useEffect(() => {
     if (!editing) return
-    supabase.from('challenges').select('*').eq('id', id).single().then(({ data }) => {
+    challengesApi.challenges().select('*').eq('id', id).single().then(({ data }) => {
       if (data) {
         setForm({
           ...data,
@@ -516,7 +518,7 @@ export default function AdminChallengeForm() {
   // is stamped on every saved result row ranked on its board.
   async function saveGroups(challengeId) {
     const kept = groups.filter((g) => g.id)
-    let del = supabase.from('challenge_groups').delete().eq('challenge_id', challengeId)
+    let del = challengesApi.challengeGroups().delete().eq('challenge_id', challengeId)
     if (kept.length) del = del.not('id', 'in', `(${kept.map((g) => g.id).join(',')})`)
     const { error: delErr } = await del
     if (delErr) return delErr.message
@@ -569,14 +571,14 @@ export default function AdminChallengeForm() {
     const fresh = groups.map((g, i) => ({ g, i })).filter(({ g }) => !g.id)
     let created = []
     if (fresh.length) {
-      const { data, error } = await supabase.from('challenge_groups')
+      const { data, error } = await challengesApi.challengeGroups()
         .insert(fresh.map(({ g, i }) => row(g, i))).select('id, position')
       if (error) return error.message
       created = data ?? []
     }
     for (const g of kept) {
       const i = groups.indexOf(g)
-      const { error } = await supabase.from('challenge_groups').update(row(g, i)).eq('id', g.id)
+      const { error } = await challengesApi.challengeGroups().update(row(g, i)).eq('id', g.id)
       if (error) return error.message
     }
 
@@ -587,11 +589,11 @@ export default function AdminChallengeForm() {
       return gid ? g.members.map((creator_id) => ({ challenge_id: challengeId, group_id: gid, creator_id })) : []
     })
 
-    const { error: wipeErr } = await supabase.from('challenge_group_members')
+    const { error: wipeErr } = await challengesApi.challengeGroupMembers()
       .delete().eq('challenge_id', challengeId)
     if (wipeErr) return wipeErr.message
     if (members.length) {
-      const { error: memErr } = await supabase.from('challenge_group_members').insert(members)
+      const { error: memErr } = await challengesApi.challengeGroupMembers().insert(members)
       if (memErr) return memErr.message
     }
     return null
@@ -696,8 +698,8 @@ export default function AdminChallengeForm() {
     // three identical drafts. Once a row exists, every later press updates it.
     const rowId = id || createdIdRef.current
     const { data: saved, error: dbError } = rowId
-      ? await supabase.from('challenges').update(payload).eq('id', rowId).select('id').single()
-      : await supabase.from('challenges').insert({ ...payload, created_by: user.id }).select('id').single()
+      ? await challengesApi.challenges().update(payload).eq('id', rowId).select('id').single()
+      : await challengesApi.challenges().insert({ ...payload, created_by: user.id }).select('id').single()
 
     if (dbError) { setBusy(false); return setError(dbError.message) }
     if (!rowId && saved?.id) createdIdRef.current = saved.id
@@ -729,7 +731,7 @@ export default function AdminChallengeForm() {
       // uuid column and the save died with "invalid input syntax for type
       // uuid: new-5" - after the challenge row had already been written.
       const kept = wanted.filter((r) => isSavedRuleId(r.id))
-      let del = supabase.from('point_rules').delete().eq('challenge_id', challengeId)
+      let del = challengesApi.pointRules().delete().eq('challenge_id', challengeId)
       if (kept.length) del = del.not('id', 'in', `(${kept.map((r) => r.id).join(',')})`)
       const { error: delErr } = await del
       if (delErr) { setBusy(false); return setError(delErr.message) }
@@ -752,11 +754,11 @@ export default function AdminChallengeForm() {
         .map((row, k) => ({ ...row, id: kept[k].id }))
       const fresh = rows.filter((_, i) => !isSavedRuleId(wanted[i].id))
       if (existing.length) {
-        const { error: upErr } = await supabase.from('point_rules').upsert(existing)
+        const { error: upErr } = await challengesApi.pointRules().upsert(existing)
         if (upErr) { setBusy(false); return setError(upErr.message) }
       }
       if (fresh.length) {
-        const { data: made, error: insErr2 } = await supabase.from('point_rules').insert(fresh).select('id, position')
+        const { data: made, error: insErr2 } = await challengesApi.pointRules().insert(fresh).select('id, position')
         if (insErr2) { setBusy(false); return setError(insErr2.message) }
         // Hand the editor the real ids, so a retry after a later failure
         // updates these rows instead of inserting them a second time.
@@ -776,12 +778,12 @@ export default function AdminChallengeForm() {
       // to the rules leaves yesterday's points standing until the next
       // submission happens to fire the trigger.
       if (form.scoring === 'points') {
-        await supabase.rpc('recalc_challenge_points', { p_challenge: challengeId })
+        await challengesApi.recalcChallengePoints({ p_challenge: challengeId })
       }
       // And the leaderboard, because the groups may have moved: a creator who
       // changed board has to be ranked on the new one.
       if (form.scoring !== 'points') {
-        await supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
+        await challengesApi.rebuildChallengeResults({ p_challenge: challengeId })
       }
     }
 
@@ -850,15 +852,15 @@ export default function AdminChallengeForm() {
     const verb = { ended: 'close entries on', archived: 'archive' }[status]
     if (!await confirm(`Really ${verb} "${form.title || 'this challenge'}"?`)) return
     setBusy(true)
-    const { error: err } = await supabase.from('challenges').update({ status }).eq('id', id)
+    const { error: err } = await challengesApi.challenges().update({ status }).eq('id', id)
     setBusy(false)
     if (err) { notice(`Could not update: ${err.message}`); return }
     setForm((f) => ({ ...f, status }))
   }
 
   async function destroy() {
-    const { count } = await supabase
-      .from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', id)
+    const { count } = await submissionsApi
+      .submissions().select('id', { count: 'exact', head: true }).eq('challenge_id', id)
     const entries = count ?? 0
     if (!await confirm(
       `Permanently delete "${form.title || 'this challenge'}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`,

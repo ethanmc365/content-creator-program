@@ -12,6 +12,7 @@ import { useT } from '../../lib/i18n'
 import PortfolioDeck, { useFluidWidth } from './PortfolioDeck'
 import { compactViews } from '../../lib/portfolio'
 import { safeUrl } from '../../lib/safeUrl'
+import { submissionsApi } from '../../api/submissions'
 
 // SOMEBODY'S PORTFOLIO, ON THEIR PROFILE.
 //
@@ -70,7 +71,7 @@ export default function ProfilePortfolio({ profileId }) {
       // Only a row that says false keeps it off.
       if (port && !port.show_on_profile) { setData(false); return }
       const [{ data: subs }, { data: certs }, { data: creator }] = await Promise.all([
-        supabase.from('submissions')
+        submissionsApi.submissions()
           .select('id, platform, video_url, thumbnail_url, logged_views, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
           .eq('creator_id', profileId).order('logged_views', { ascending: false, nullsFirst: false }),
         supabase.from('certificate_awards')

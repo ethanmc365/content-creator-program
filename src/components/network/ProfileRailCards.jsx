@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { rankInk, ordinalFor } from '../../lib/podiumTiers'
 import { useT } from '../../lib/i18n'
+import { challengesApi } from '../../api/challenges'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
 //
@@ -135,7 +136,7 @@ export function ChallengeHistoryCard({ creatorId, isMe, firstName }) {
 
   useEffect(() => {
     let alive = true
-    supabase.from('results')
+    challengesApi.results()
       .select('rank, challenges!inner(id, title, winners_published_at)')
       .eq('creator_id', creatorId)
       .not('challenges.winners_published_at', 'is', null)

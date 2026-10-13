@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
 import { moneyApi } from '../api/money'
+import { challengesApi } from '../api/challenges'
 
 // A challenge's voucher days and who has won them (migration 383), fetched once and shared: the kickers card, the bonus
 // points card and the offer slot beside the tabs all read the same rows, so one request serves the three.
@@ -8,7 +8,7 @@ const cache = new Map()
 function load(challengeId) {
   if (!cache.has(challengeId)) {
     cache.set(challengeId, Promise.all([
-      supabase.from('challenge_voucher_days').select('*').eq('challenge_id', challengeId).eq('is_active', true).order('day'),
+      challengesApi.challengeVoucherDays().select('*').eq('challenge_id', challengeId).eq('is_active', true).order('day'),
       moneyApi.voucherDayBoard({ p_challenge: challengeId }),
     ]).then(([{ data: d }, { data: b }]) => ({ days: d || [], board: b || [] })).catch(() => {
       cache.delete(challengeId)

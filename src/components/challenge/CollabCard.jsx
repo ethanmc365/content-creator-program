@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { useT } from '../../lib/i18n'
+import { challengesApi } from '../../api/challenges'
 
 // THE COLLAB BONUS: BOTH CREATORS ENTER THE POST (rebuilt 5 Oct 2026, migration 337).
 //
@@ -19,7 +20,7 @@ export default function CollabCard({ challenge, rule, meId }) {
 
   useEffect(() => {
     let alive = true
-    supabase.from('challenge_collabs').select('*').eq('challenge_id', challenge.id).eq('status', 'confirmed')
+    challengesApi.challengeCollabs().select('*').eq('challenge_id', challenge.id).eq('status', 'confirmed')
       .then(async ({ data }) => {
         const mine = (data || []).filter((c) => c.requester_id === meId || c.partner_id === meId)
         if (!alive) return

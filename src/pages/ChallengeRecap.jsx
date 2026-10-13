@@ -12,6 +12,8 @@ import Icon from '../components/Icon'
 import BackLink from '../components/BackLink'
 import { Spinner } from '../components/ui'
 import { moneyApi } from '../api/money'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // THE END-OF-CHALLENGE RECAP PAGE (24 Sep 2026). See lib/challengeRecap for
 // the numbers and components/wrapped/challengeStory for the cards; the story
@@ -34,9 +36,9 @@ export default function ChallengeRecap() {
     let alive = true
     ;(async () => {
       const [{ data: challenge }, { data: subs }, { data: results }, { data: meRow }] = await Promise.all([
-        supabase.from('challenges').select('id, title, status, scoring, start_date, end_date, prize_amount, prize_currency, participation_amount, community_id').eq('id', id).maybeSingle(),
-        supabase.from('submissions').select('id, creator_id, logged_views, platform, video_url, thumbnail_url, submitted_at, profiles:creator_id(is_test)').eq('challenge_id', id).limit(5000),
-        supabase.from('results').select('creator_id, rank, final_views, group_id').eq('challenge_id', id),
+        challengesApi.challenges().select('id, title, status, scoring, start_date, end_date, prize_amount, prize_currency, participation_amount, community_id').eq('id', id).maybeSingle(),
+        submissionsApi.submissions().select('id, creator_id, logged_views, platform, video_url, thumbnail_url, submitted_at, profiles:creator_id(is_test)').eq('challenge_id', id).limit(5000),
+        challengesApi.results().select('creator_id, rank, final_views, group_id').eq('challenge_id', id),
         supabase.from('profiles').select('id, name, photo_url, country').eq('id', who).maybeSingle(),
       ])
       if (!alive) return
@@ -54,7 +56,7 @@ export default function ChallengeRecap() {
         moneyApi.rewards()
           .select('amount, currency, reward_type, prize_slot, status')
           .eq('challenge_id', id).eq('creator_id', who),
-        supabase.rpc('challenge_prize_standings', { p_challenge: id }),
+        challengesApi.challengePrizeStandings({ p_challenge: id }),
       ])
       const spend = challengeSpend(challenge, standings || [], 0)
 

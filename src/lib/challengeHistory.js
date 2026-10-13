@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { challengesApi } from '../api/challenges'
 
 // THE PROGRAMME'S RECORD, INCLUDING THE PART THAT PREDATES THE PLATFORM.
 //
@@ -115,8 +115,8 @@ export async function saveHistory(row, userId) {
   // distinguishable from something a re-import may replace.
   if (!row.id) { patch.source = 'manual'; patch.created_by = userId }
   const q = row.id
-    ? supabase.from('challenge_history').update(patch).eq('id', row.id)
-    : supabase.from('challenge_history').insert(patch)
+    ? challengesApi.challengeHistory().update(patch).eq('id', row.id)
+    : challengesApi.challengeHistory().insert(patch)
   // THE RESULT IS READ. supabase-js resolves on a refused write, and a prize
   // figure that silently failed to save is a number somebody will later plan a
   // budget against.
@@ -125,6 +125,6 @@ export async function saveHistory(row, userId) {
 }
 
 export async function deleteHistory(id) {
-  const { error } = await supabase.from('challenge_history').delete().eq('id', id)
+  const { error } = await challengesApi.challengeHistory().delete().eq('id', id)
   return { error: error?.message ?? null }
 }

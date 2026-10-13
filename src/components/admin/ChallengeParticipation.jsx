@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { SheetLabel } from './creatorSheet'
+import { challengesApi } from '../../api/challenges'
+import { submissionsApi } from '../../api/submissions'
 
 // HAS THIS CREATOR TAKEN PART? (11 Oct 2026)
 //
@@ -37,11 +39,11 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
       const ids = [...new Set([...(mem ?? []), ...(net ?? [])].map((r) => r.community_id ?? r.id))]
       if (!ids.length) { if (alive) setRows([]); return }
       const [{ data: chs }, { data: subs }, { data: tracked }, { data: dqs }] = await Promise.all([
-        supabase.from('challenges').select('id, title, community_id, end_date, communities(name, kind)')
+        challengesApi.challenges().select('id, title, community_id, end_date, communities(name, kind)')
           .eq('status', 'active').in('community_id', ids).order('end_date', { ascending: true }),
-        supabase.from('submissions').select('challenge_id').eq('creator_id', profileId),
+        submissionsApi.submissions().select('challenge_id').eq('creator_id', profileId),
         supabase.from('tracked_videos').select('challenge_id').eq('creator_id', profileId).is('submission_id', null),
-        supabase.from('submission_disqualifications').select('challenge_id').eq('creator_id', profileId),
+        submissionsApi.submissionDisqualifications().select('challenge_id').eq('creator_id', profileId),
       ])
       if (!alive) return
       const entries = {}

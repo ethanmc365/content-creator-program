@@ -25,6 +25,7 @@ import { testFlags, isHiddenTestRow } from '../lib/testData'
 import { CreatorMarketsModal } from '../components/admin/CreatorMarkets'
 import { useT } from '../lib/i18n'
 import { vipApi } from '../api/vip'
+import { challengesApi } from '../api/challenges'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -131,7 +132,7 @@ export default function ManageChapter() {
           .eq('community_id', chapter.id).eq('status', 'active'),
         supabase.from('channels').select('id, key, label, hint, icon, visibility, post_policy, position')
           .eq('community_id', chapter.id).order('position'),
-        supabase.from('challenges').select('id, title, status, scoring, end_date')
+        challengesApi.challenges().select('id, title, status, scoring, end_date')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }),
         supabase.from('community_standings').select('creator_id, points').eq('community_id', chapter.id),
         // For adding a creator by hand, which is the only way in when the
@@ -377,7 +378,7 @@ export default function ManageChapter() {
     })
     if (reason === null) return
     const live = d.challenges.find((c) => c.status === 'active' && c.scoring === 'points')
-    const { error } = await supabase.from('point_awards').insert({
+    const { error } = await challengesApi.pointAwards().insert({
       community_id: chapter.id,
       challenge_id: live?.id ?? null,
       creator_id: member.profile_id,

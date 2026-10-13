@@ -8,6 +8,8 @@ import Icon from './Icon'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // A LINE FROM THE TEAM ON EVERY ENTRY.
 //
@@ -175,8 +177,8 @@ export function EntryReferenceCard({ entry, onDark = false }) {
 
 /** The entries a thread references, keyed by id, for the card above. */
 export async function loadEntryRefs(ids) {
-  const { data } = await fetchIn((batch) => supabase
-    .from('submissions')
+  const { data } = await fetchIn((batch) => submissionsApi
+    .submissions()
     .select('id, video_url, platform, challenge_id, challenges:challenge_id(title)')
     .in('id', batch), (ids || []).filter(Boolean))
   return Object.fromEntries((data || []).map((r) => [r.id, r]))
@@ -189,8 +191,8 @@ export async function loadEntryRefs(ids) {
  */
 export async function loadFeedback(submissionIds) {
   if (!submissionIds?.length) return {}
-  const { data } = await fetchIn((batch) => supabase
-    .from('submission_feedback')
+  const { data } = await fetchIn((batch) => challengesApi
+    .submissionFeedback()
     .select('submission_id, body, author_id, created_at')
     .in('submission_id', batch), submissionIds)
   return Object.fromEntries((data || []).map((r) => [r.submission_id, r]))

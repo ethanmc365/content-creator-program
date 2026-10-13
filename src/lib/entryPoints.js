@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
 import { allRows } from './fetchAll'
+import { challengesApi } from '../api/challenges'
 
 // POINTS PER ENTRY (26 Sep 2026), AND WHAT THEY ARE FOR (28 Sep 2026).
 //
@@ -56,7 +56,7 @@ export function useEntryPoints(challengeId, enabled = true, refreshKey = '') {
   useEffect(() => {
     if (!challengeId || !enabled) return undefined
     let alive = true
-    allRows(() => supabase.from('point_awards')
+    allRows(() => challengesApi.pointAwards()
       .select('id, submission_id, points, point_rules(kind)')
       .eq('challenge_id', challengeId)
       .not('submission_id', 'is', null))

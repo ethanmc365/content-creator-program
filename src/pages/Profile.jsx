@@ -34,6 +34,7 @@ import { useT } from '../lib/i18n'
 import TranslateText from '../components/TranslateText'
 import { readPageCache, writePageCache } from '../lib/pageCache'
 import { safeUrl } from '../lib/safeUrl'
+import { submissionsApi } from '../api/submissions'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -128,8 +129,8 @@ export default function Profile() {
       if (!isMe) upcomingFlights = upcomingFlights.eq('share_with_community', true)
 
       const profileQ = supabase.from('profiles').select('*').eq('id', id).single()
-      const subsQ = supabase
-        .from('submissions')
+      const subsQ = submissionsApi
+        .submissions()
         .select('*, challenges(title)')
         .eq('creator_id', id)
         .order('submitted_at', { ascending: false })

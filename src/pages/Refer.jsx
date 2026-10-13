@@ -8,6 +8,7 @@ import { cx, formatDate, formatMoney } from '../lib/utils'
 import { referralProgress, referralStage, referralTerms } from '../lib/referrals'
 import { useT } from '../lib/i18n'
 import { moneyApi } from '../api/money'
+import { submissionsApi } from '../api/submissions'
 
 // Creators refer other creators ONE way: they share their personal invite link
 // (/signup?ref=CODE), which credits them automatically.
@@ -66,7 +67,7 @@ export default function Refer() {
     const joinedIds = list.map((p) => p.id)
     let submitted = new Set()
     if (joinedIds.length) {
-      const { data: subs } = await supabase.from('submissions').select('creator_id').in('creator_id', joinedIds)
+      const { data: subs } = await submissionsApi.submissions().select('creator_id').in('creator_id', joinedIds)
       submitted = new Set((subs ?? []).map((s) => s.creator_id))
     }
     const withStage = list

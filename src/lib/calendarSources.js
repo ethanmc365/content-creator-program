@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { inScope } from './scope'
 import { t } from './i18n'
 import { moneyApi } from '../api/money'
+import { challengesApi } from '../api/challenges'
 
 // EVERYTHING THAT IS ALREADY A DATE, ON THE PAGE THAT IS ABOUT DATES.
 //
@@ -89,7 +90,7 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     // something nobody can enter any more is the worst thing it can say.
     // `ended` stays: a challenge that ran its course did close on that date,
     // and its dates are history rather than a promise.
-    supabase.from('challenges').select('id, title, start_date, end_date, community_id, status').not('status', 'in', '("draft","archived")'),
+    challengesApi.challenges().select('id, title, start_date, end_date, community_id, status').not('status', 'in', '("draft","archived")'),
     // Own flights only. `share_with_community` governs what OTHER people see of
     // a flight; it has nothing to do with whether it is on your own calendar.
     supabase.from('flights')

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -8,6 +7,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { windowPhrase, wholeDays } from '../../lib/boostWindow'
 import { DateField, TimeField } from '../DateTimeFields'
+import { challengesApi } from '../../api/challenges'
 
 // POINT BOOSTS (4 Oct 2026, migration 334).
 //
@@ -32,14 +32,14 @@ export default function BoostsEditor({ challengeId }) {
   // `true` for a new boost, a row to edit one (7 Oct 2026: Ethan could only delete a boost and make it again).
   const [open, setOpen] = useState(null)
   const load = useCallback(async () => {
-    const { data } = await supabase.from('challenge_boosts').select('*').eq('challenge_id', challengeId).order('starts_at', { ascending: false })
+    const { data } = await challengesApi.challengeBoosts().select('*').eq('challenge_id', challengeId).order('starts_at', { ascending: false })
     setRows(data || [])
   }, [challengeId])
   useEffect(() => { load() }, [load])
 
   async function remove(b) {
     if (!await confirm('Remove this boost? Points already earned from it are taken back as the challenge rescores.', { confirmLabel: 'Remove', danger: true })) return
-    const { error } = await supabase.from('challenge_boosts').delete().eq('id', b.id)
+    const { error } = await challengesApi.challengeBoosts().delete().eq('id', b.id)
     if (error) { notice(error.message); return }
     toastSuccess('Boost removed.')
     load()
@@ -118,8 +118,8 @@ function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
       max_extra_points: Number(cap) > 0 ? Math.floor(Number(cap)) : null,
     }
     const { error } = editing
-      ? await supabase.from('challenge_boosts').update(row).eq('id', boost.id)
-      : await supabase.from('challenge_boosts').insert({ ...row, challenge_id: challengeId, created_by: userId })
+      ? await challengesApi.challengeBoosts().update(row).eq('id', boost.id)
+      : await challengesApi.challengeBoosts().insert({ ...row, challenge_id: challengeId, created_by: userId })
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(editing ? 'Boost updated. The challenge has been rescored.' : 'Boost saved. The challenge has been rescored.')

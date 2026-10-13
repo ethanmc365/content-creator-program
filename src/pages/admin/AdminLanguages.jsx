@@ -12,6 +12,7 @@ import { listOverrides, saveOverride } from '../../lib/translations'
 import { forgetTranslation } from '../../lib/contentTranslate'
 import { toastSuccess } from '../../lib/toast'
 import { cx, timeAgo } from '../../lib/utils'
+import { challengesApi } from '../../api/challenges'
 
 // THE PLATFORM'S WORDS, EDITED BY THE PEOPLE WHO SPEAK THEM.
 //
@@ -621,14 +622,14 @@ async function loadLiveSources() {
   const nowIso = new Date().toISOString()
   const today = nowIso.slice(0, 10)
   const [{ data: ch }, { data: sv }, { data: ev }] = await Promise.all([
-    supabase.from('challenges').select('id, title, description, rules, start_date, end_date, status, created_at')
+    challengesApi.challenges().select('id, title, description, rules, start_date, end_date, status, created_at')
       .neq('status', 'archived').or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(20),
     supabase.from('surveys').select('id, title, intro, thanks, questions, created_at').eq('status', 'live').eq('is_test', false).limit(20),
     supabase.from('events').select('id, title, description, date').gte('date', nowIso).order('date').limit(30),
   ])
   const ids = (ch || []).map((c) => c.id)
   const { data: rules } = ids.length
-    ? await supabase.from('point_rules').select('challenge_id, label, prompt').in('challenge_id', ids)
+    ? await challengesApi.pointRules().select('challenge_id, label, prompt').in('challenge_id', ids)
     : { data: [] }
   const groups = []
   for (const c of ch || []) {

@@ -45,6 +45,8 @@ import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { ruleOpenAt } from '../lib/scoring'
 import { safeUrl } from '../lib/safeUrl'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -241,23 +243,23 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // before starting the second was a whole extra round trip - on a slow
     // connection, a second or more with the prizes still blank.
     const sideReads = Promise.all([
-      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
-      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
-      supabase.from('point_rules')
+      challengesApi.challengeGroups().select('*').eq('challenge_id', id).order('position'),
+      challengesApi.challengeGroupMembers().select('group_id, creator_id').eq('challenge_id', id),
+      challengesApi.pointRules()
         .select('id, label, points, prompt, min_views, starts_at, ends_at')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
         .not('prompt', 'is', null).order('position'),
-      supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
+      submissionsApi.submissionBonusClaims().select('submission_id, rule_id, creator_id').eq('challenge_id', id),
     ])
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
-      supabase.from('challenges').select('*').eq('id', id).single(),
-      supabase
-        .from('submissions')
+      challengesApi.challenges().select('*').eq('id', id).single(),
+      submissionsApi
+        .submissions()
         .select('*, profiles:creator_id(id, name, photo_url)')
         .eq('challenge_id', id)
         .order('submitted_at', { ascending: false }),
-      supabase
-        .from('results')
+      challengesApi
+        .results()
         .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)')
         .eq('challenge_id', id)
         .order('rank'),
@@ -332,14 +334,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Coming back to the tab refreshes it as well.
   const refreshBoard = useCallback(async () => {
     const [{ data: ch }, { data: res }, { data: subs }] = await Promise.all([
-      supabase.from('challenges').select('*').eq('id', id).single(),
-      supabase
-        .from('results')
+      challengesApi.challenges().select('*').eq('id', id).single(),
+      challengesApi
+        .results()
         .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)')
         .eq('challenge_id', id)
         .order('rank'),
-      supabase
-        .from('submissions')
+      submissionsApi
+        .submissions()
         .select('*, profiles:creator_id(id, name, photo_url)')
         .eq('challenge_id', id)
         .order('submitted_at', { ascending: false }),
@@ -476,7 +478,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // `select().single()` because the bonus claims below have to point at the
     // row that was just written, and a second read to find it would be a race
     // with anything else this creator is doing.
-    const { data: entry, error } = await supabase.from('submissions').insert({
+    const { data: entry, error } = await submissionsApi.submissions().insert({
       creator_id: user.id,
       challenge_id: id,
       platform,
@@ -537,7 +539,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // and told the fix - the entry card can claim it again.
     let claimFailed = false
     if (entry && claiming.length > 0) {
-      const { error: claimErr } = await supabase.from('submission_bonus_claims').insert(
+      const { error: claimErr } = await submissionsApi.submissionBonusClaims().insert(
         claiming.map((rule_id) => ({
           submission_id: entry.id, rule_id, creator_id: user.id, challenge_id: id,
         })),
@@ -573,7 +575,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // having done nothing.
   async function claimBonus(sub, rule) {
     setBonusClaims((cur) => [...cur, { submission_id: sub.id, rule_id: rule.id, creator_id: user.id }])
-    const { error } = await supabase.from('submission_bonus_claims').insert({
+    const { error } = await submissionsApi.submissionBonusClaims().insert({
       submission_id: sub.id, rule_id: rule.id, creator_id: user.id, challenge_id: id,
     })
     if (error) {
@@ -589,14 +591,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     if (!await confirm(tr('Take the "{b}" bonus off this video? The {n} points come off your score.', { b: rule.label.replace(/^\+?\d+\s*/, ''), n: rule.points }), { confirmLabel: tr('Take it off') })) return
     const before = bonusClaims
     setBonusClaims((cur) => cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id)))
-    const { error } = await supabase.from('submission_bonus_claims').delete()
+    const { error } = await submissionsApi.submissionBonusClaims().delete()
       .eq('submission_id', sub.id).eq('rule_id', rule.id).eq('creator_id', user.id)
     if (error) { setBonusClaims(before); await notice(tr('Could not remove that bonus. Please try again.')) }
   }
 
   async function removeMySubmission(subId) {
     if (!await confirm('Remove this entry?')) return
-    await saved(supabase.from('submissions').delete().eq('id', subId))
+    await saved(submissionsApi.submissions().delete().eq('id', subId))
     load()
   }
 

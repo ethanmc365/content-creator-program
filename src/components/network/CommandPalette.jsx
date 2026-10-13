@@ -12,6 +12,7 @@ import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 import { lockScroll } from '../../lib/scrollLock'
 import { testFlags } from '../../lib/testData'
+import { challengesApi } from '../../api/challenges'
 
 // One box that goes anywhere.
 //
@@ -85,7 +86,7 @@ export default function CommandPalette({ open, onClose }) {
     Promise.all([
       supabase.from('profiles').select('id, name, photo_url, city, country, country_code')
         .eq('status', 'active').in('is_test', testFlags()).order('name').limit(300),
-      supabase.from('challenges').select('id, title, status, community_id')
+      challengesApi.challenges().select('id, title, status, community_id')
         .neq('status', 'draft').order('start_date', { ascending: false }).limit(60),
       supabase.from('channels').select('id, key, label, community_id').order('position'),
     ]).then(([{ data: creators }, { data: challenges }, { data: rooms }]) => {

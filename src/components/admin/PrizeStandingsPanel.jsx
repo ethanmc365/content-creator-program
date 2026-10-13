@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatMoney } from '../../lib/utils'
+import { challengesApi } from '../../api/challenges'
 
 // WHO IS EARNING THE PARTICIPATION PRIZE AND THE EXTRA AWARDS, RIGHT NOW.
 //
@@ -16,7 +16,7 @@ export function usePrizeStandings(challengeId, refreshKey) {
   useEffect(() => {
     if (!challengeId) return undefined
     let alive = true
-    supabase.rpc('challenge_prize_standings', { p_challenge: challengeId })
+    challengesApi.challengePrizeStandings({ p_challenge: challengeId })
       .then(({ data, error }) => { if (alive) setRows(error ? [] : (data ?? [])) })
     return () => { alive = false }
   }, [challengeId, refreshKey])

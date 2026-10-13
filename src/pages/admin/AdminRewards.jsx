@@ -21,6 +21,7 @@ import VouchersPanel from './VouchersPanel'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { moneyApi } from '../../api/money'
+import { challengesApi } from '../../api/challenges'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -600,7 +601,7 @@ export default function AdminRewards() {
         .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name').order('name'),
-      supabase.from('challenges').select('id, title, status, end_date').order('created_at', { ascending: false }),
+      challengesApi.challenges().select('id, title, status, end_date').order('created_at', { ascending: false }),
       moneyApi.invoices().select('*').not('reward_id', 'is', null),
       moneyApi.invoices().select('id, stage'),
     ])

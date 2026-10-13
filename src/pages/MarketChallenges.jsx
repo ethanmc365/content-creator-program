@@ -18,6 +18,8 @@ import { cx, formatDate, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // A market's own challenge board.
 //
@@ -52,7 +54,7 @@ export default function MarketChallenges() {
     async function load() {
       setLoading(true)
       const [{ data: challenges }, { count: members }] = await Promise.all([
-        supabase.from('challenges')
+        challengesApi.challenges()
           .select('*, submissions(count)')
           .eq('community_id', market.id)
           .order('start_date', { ascending: false }),
@@ -69,8 +71,8 @@ export default function MarketChallenges() {
       let participation = null
       let winners = {}
       if (live) {
-        const { data: entrants } = await supabase
-          .from('submissions').select('creator_id').eq('challenge_id', live.id)
+        const { data: entrants } = await submissionsApi
+          .submissions().select('creator_id').eq('challenge_id', live.id)
         if (cancelled) return
         participation = {
           posted: new Set((entrants || []).map((e) => e.creator_id)).size,
@@ -88,11 +90,11 @@ export default function MarketChallenges() {
         // and this card ends up disagreeing with every leaderboard in the app.
         // The RANK still comes from `results`, because that is the decision.
         const [{ data: results }, { data: subs }] = await Promise.all([
-          supabase.from('results')
+          challengesApi.results()
             .select('challenge_id, creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
             .in('challenge_id', done)
             .order('rank', { ascending: true }),
-          supabase.from('submissions')
+          submissionsApi.submissions()
             .select('challenge_id, creator_id, logged_views')
             .in('challenge_id', done),
         ])

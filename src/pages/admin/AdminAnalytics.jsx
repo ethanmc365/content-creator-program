@@ -36,6 +36,8 @@ import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, p
 import { convert } from '../../lib/programme'
 import { FILL } from '../../components/charts/chartTheme'
 import { moneyApi } from '../../api/money'
+import { challengesApi } from '../../api/challenges'
+import { submissionsApi } from '../../api/submissions'
 
 // THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
 //
@@ -190,7 +192,7 @@ export default function AdminAnalytics() {
         // `community_id` is what makes a market's challenge list a real list.
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
-        supabase.from('challenges').select('id, title, status, start_date, end_date, scoring, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
+        challengesApi.challenges().select('id, title, status, start_date, end_date, scoring, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
         // THE PROGRAMME DID NOT START WHEN THE PLATFORM DID. Forty-nine
         // challenges ran on a spreadsheet before this existed (migrations
         // 197/198). Without them the Overview - the first screen anybody opens -
@@ -198,8 +200,8 @@ export default function AdminAnalytics() {
         // against a real record of forty-nine and nineteen and a half million.
         // The linked row is dropped here for the same reason it is dropped in
         // `admin_challenge_metrics`: it is the same contest as a live one.
-        supabase.from('challenge_history').select('*').is('challenge_id', null),
-        allRows(() => supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at')),
+        challengesApi.challengeHistory().select('*').is('challenge_id', null),
+        allRows(() => submissionsApi.submissions().select('id, challenge_id, creator_id, logged_views, submitted_at')),
         // `creator_id` and `currency` matter now: the per-creator table cannot
         // attribute a payout without the first, and cannot convert it without
         // the second. Without them every creator's spend read as zero, which
@@ -208,7 +210,7 @@ export default function AdminAnalytics() {
         allRows(() => supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
-        allRows(() => supabase.from('results').select('final_views, challenge_id')),
+        allRows(() => challengesApi.results().select('final_views, challenge_id')),
         // TIMESTAMPS AND WHO, NOT JUST A COUNT (2 Oct 2026), so the Overview can be read over a period and a market.
         supabase.from('feedback').select('status, created_at, creator_id'),
         allRows(() => supabase.from('reactions').select('id, creator_id, created_at')),
@@ -222,7 +224,7 @@ export default function AdminAnalytics() {
         // number somebody typed. The typed one was never kept up: on the
         // Creative Challenge it said 0 where six creators had actually earned
         // one. See migration 115.
-        supabase.rpc('challenge_voucher_counts'),
+        challengesApi.challengeVoucherCounts(),
         // WHO BELONGS WHERE, so every number on this page can be read one
         // market at a time. Scoping is a filter over these same datasets rather
         // than a second set of queries - there is one definition of "a view" on
@@ -237,8 +239,8 @@ export default function AdminAnalytics() {
       // vouchers and awards earned to date (challenge_prize_standings, the one
       // definition). A finished challenge's cost is in `rewards` instead.
       const live = (challenges || []).filter((c) => c.status === 'active')
-      const standings = await Promise.all(live.map((c) => supabase
-        .rpc('challenge_prize_standings', { p_challenge: c.id })
+      const standings = await Promise.all(live.map((c) => challengesApi
+        .challengePrizeStandings({ p_challenge: c.id })
         .then(({ data }) => [c.id, data || []], () => [c.id, []])))
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows

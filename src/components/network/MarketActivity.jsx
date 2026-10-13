@@ -9,6 +9,7 @@ import { cx, timeAgo } from '../../lib/utils'
 import { listContainer, listItem } from '../../lib/motion'
 import { useT } from '../../lib/i18n'
 import { testFlags } from '../../lib/testData'
+import { submissionsApi } from '../../api/submissions'
 
 // What has actually happened here lately.
 //
@@ -47,7 +48,7 @@ export default function MarketActivity({ market, limit = 8 }) {
           .order('created_at', { ascending: false }).limit(limit),
         // Entries to THIS market's challenges only. Without the inner join on
         // challenges a market page would show submissions from every market.
-        supabase.from('submissions')
+        submissionsApi.submissions()
           .select('id, submitted_at, platform, challenges!inner(id, title, community_id), profiles:creator_id(id, name, photo_url)')
           .eq('challenges.community_id', market.id)
           .order('submitted_at', { ascending: false }).limit(limit),

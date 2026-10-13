@@ -5,7 +5,6 @@ import { pickClass } from '../../lib/pick'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
 import { timeAgo } from '../../lib/utils'
-import { supabase } from '../../lib/supabase'
 import {
   CADENCES,
   describeSyncError,
@@ -15,6 +14,7 @@ import {
   viewSyncStatus,
 } from '../../lib/viewSync'
 import { safeUrl } from '../../lib/safeUrl'
+import { challengesApi } from '../../api/challenges'
 
 // The controls for automatic view counts, above the entry list on the results
 // page - which is exactly where an admin used to sit opening forty links and
@@ -84,7 +84,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   // says in words what was read and what moved.
   const finish = useCallback((st) => {
     const lr = st?.last_run || {}
-    return supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
+    return challengesApi.rebuildChallengeResults({ p_challenge: challengeId })
       .then(() => onSynced?.())
       .finally(() => setOutcome({ ran: lr.ran ?? null, failed: lr.failed ?? 0 }))
   }, [challengeId, onSynced])

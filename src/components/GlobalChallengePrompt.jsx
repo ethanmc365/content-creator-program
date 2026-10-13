@@ -9,6 +9,8 @@ import { claimNag, finishNag, onNagChange, onTourRunning, releaseNag, tourRunnin
 import { lockScroll } from '../lib/scrollLock'
 import { formatMoney, formatViews, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { challengesApi } from '../api/challenges'
+import { submissionsApi } from '../api/submissions'
 
 // "THE GLOBAL CHALLENGE IS ON", WHEN YOU OPEN THE APP (4 Oct 2026).
 //
@@ -48,21 +50,21 @@ export default function GlobalChallengePrompt() {
       // Which worldwide challenge is live?
       const { data: net } = await supabase.from('communities').select('id').eq('kind', 'network').maybeSingle()
       if (!alive || !net) return
-      const { data: ch } = await supabase.from('challenges')
+      const { data: ch } = await challengesApi.challenges()
         .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id, join_bonus_points')
         .eq('community_id', net.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle()
       if (!alive || !ch) return
       const s = seen(ch.id)
       if (!preview && (s.stop || s.n >= MAX_SHOWS || Date.now() - s.last < GAP_MS)) return
       if (new Date(ch.end_date).getTime() < Date.now()) return
-      const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', ch.id).eq('creator_id', user.id)
+      const { count } = await submissionsApi.submissions().select('id', { count: 'exact', head: true }).eq('challenge_id', ch.id).eq('creator_id', user.id)
       if (!alive) return
       if (count > 0 && !preview) { mark(ch.id, { stop: true }); return }
       if (tourRunning()) return
       if (document.querySelector('[role="dialog"]')) { setTimeout(() => alive && setTurn((n) => n + 1), 8000); return }
       if (!claimNag('global-challenge')) return
       // Where the creator's country stands, for the card. A failure only costs the line.
-      const { data: board } = await supabase.rpc('challenge_market_board', { p_challenge: ch.id })
+      const { data: board } = await challengesApi.challengeMarketBoard({ p_challenge: ch.id })
       if (!alive) { releaseNag('global-challenge'); return }
       if (preview) { try { localStorage.setItem(ADMIN_PREVIEW, '1') } catch { /* private mode */ } } else mark(ch.id, { n: s.n + 1, last: Date.now() })
       setCard({ ch, board, left: Math.max(0, Math.ceil((new Date(ch.end_date).getTime() - Date.now()) / 86400000)) })
